@@ -39,9 +39,18 @@ Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-s
 | Final native SHA / Native run | pending handoff |
 | Merged PR/run inventory | pending handoff |
 | Residual agent-owned work | pending handoff |
+| Zero in-flight web merges | pending (`true` required) |
+| Zero in-flight web deploys | pending (`true` required) |
+| Web cleanup owner | pending |
+| Releasing thread / commit | pending |
 | Ownership released at | pending |
+| Receiver acknowledgement commit | pending |
+
+Ownership changes only when `owner-release.json` and `receiver-ack.json` repeat identical final SHAs, run inventories, zero-in-flight booleans, residual work, and cleanup owner, and each names its pushed commit. `scripts/verify-release-ownership-handoff.rb --release owner-release.json --ack receiver-ack.json` must exit zero before Unit 1 closes.
 
 ## Human-Only Dispositions
+
+Allowed terminal values are `COMPLETE` and `BLOCKED_HUMAN`; `pending` is nonterminal. A `BLOCKED_HUMAN` row is valid only when owner, prerequisite, UTC attempt time, attempted path, exact remaining action, required evidence, and closure effect are all nonempty and the attempted-path artifact checksum resolves. The table mirrors structured `human-dispositions.json`; `scripts/verify-release-human-dispositions.rb --dispositions human-dispositions.json --index <this-file>` enforces equality and schema before closure.
 
 | Action | Owner | Prerequisite | Attempted path | Exact remaining action | Required evidence | Closure effect | Resulting status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -49,7 +58,7 @@ Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-s
 | Clean Apple callback registration | authorized Apple browser session / Ari only if session unavailable | dual callback support live | existing authorized browser session first | add clean callback without removing legacy; canary both | redacted portal state and both canaries | Units 2B-2D remain `BLOCKED_HUMAN`; starts legacy | pending |
 | Confirmed live-secret rotation | authorized secret-store session | private scan proves a tracked value live | private redacted scan | rotate specific secret before deleting evidence | new works, old revoked, redacted incident record | affected release path blocked only | pending |
 | Authenticated production owner smoke | existing signed-in browser session / Ari only if unavailable | exact final web SHA live | existing browser/computer-control session first | complete owner Photo Studio flow and clean data | screenshots/network summary/zero residue | owner-smoke row `BLOCKED_HUMAN` only | pending |
-| Installed TestFlight dogfood | authorized physical device / Ari only if unavailable | locked build `IN_BETA_TESTING` | available device-control path first | install exact build and run provider/HEIC/mutation/queue/Photo Studio checks | device/build identity, screenshots, result, cleanup | installed row `BLOCKED_HUMAN`; functional failures are never human blockers | pending |
+| Installed TestFlight dogfood | authorized physical device / Ari only if unavailable | locked build `IN_BETA_TESTING` | available device-control path first; UTC attempt pending | install exact build and run provider/HEIC/mutation/queue/Photo Studio checks | device UDID hash, installed `1.0`/build identity, screenshots, result, cleanup checksum | installed row `BLOCKED_HUMAN`; functional failures are never human blockers | pending |
 
 ## Task Terminal States
 
@@ -63,8 +72,8 @@ Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-s
 
 | Window | UTC start/end | Web SHA | App version/build | Queries/events | Baseline | Threshold | Result | Artifact/checksum |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Pre-publish 24h | pending | pending | pending | pending | n/a | zero new crash/actionable feedback; record API/native rates | pending | pending |
-| Post-publish 30m minimum | pending | pending | pending | pending | pending | zero correlated release-smoke failures; API 5xx <= `max(1%,2x baseline)` at n>=20 | pending | pending |
+| Pre-publish 24h | pending | pending | prior-good build plus candidate SHA/build simulator events | pending | n/a | zero new crash/actionable feedback; record API/native rates and sample counts | pending | `prepublish-24h.json` / pending |
+| Post-publish 30m minimum | pending; start must equal apply receipt `publishedAt`; elapsed proof required | pending | exact locked build | pending | pending | zero correlated release-smoke failures; API 5xx <= `max(1%,2x baseline)` at n>=20 | pending | `18-elapsed.json`, `18-postpublish.json` / pending |
 
 ## Immutable Artifacts
 
@@ -75,8 +84,10 @@ Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-s
 | `testflight-release-candidate-note-<sha>-<run>` | pending | pending | pending | 90 days | pending | pending |
 | `testflight-publish-artifacts-<sha>` | pending | pending | pending | 90 days | pending | pending |
 
+`scripts/verify-release-evidence-index.rb` rejects placeholders, missing URLs, wrong SHAs, wrong retention, checksum failures, undeleted draft staging releases, and artifacts that cannot be redownloaded after local cleanup.
+
 ## Cleanup Deletion Allowlist
 
-| Owner | Path | Branch | HEAD | Upstream | Dirty | Untracked | Stashes | Unpushed | Recovery ref | Reachable | Disposition | Review |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| pending | pending | pending | pending | pending | pending | pending | pending | pending | pending | pending | preserve/remove | pending |
+| Owner | Authorized cleanup owner | Path | Branch | HEAD | Upstream | Dirty | Untracked | Stashes | Unpushed | Recovery ref | Reachable | Fingerprint / inventoried UTC | Disposition | Apply revalidated | Review |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| pending | pending | pending | pending | pending | pending | pending | pending | pending | pending | pending | pending | pending | preserve/remove | pending | pending |

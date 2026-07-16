@@ -40,9 +40,9 @@ Land the currently reviewed Spoonjoy web and native audit remediations, verify t
 - [ ] Every shipped first-level iOS and macOS route has fresh screenshot/live evidence; all seven Photo Studio states are captured directly on iPhone, iPad, macOS, web mobile, and web desktop; the absurdity ledger has no `ready` or `needs reviewer gate` entries and automated visual metrics pass.
 - [ ] Durable release evidence is indexed at `worker/tasks/2026-07-16-0856-doing-audit-release-train/evidence-index.md`; raw logs/screenshots/binaries live under ignored `/tmp/spoonjoy-audit-release-train/<source-sha>/`; the index records exact source/deploy SHA, command, exit result, warning count, CI/run URL, artifact path, SHA-256 checksum, reviewer verdict, screenshot reference, cleanup residue, and rollback proof. The final handoff row must contain `web_sha`, `cloudflare_version`, `native_sha`, `native_run_url`, `build_version`, `build_number`, `asc_app_id`, `asc_build_id`, `asc_group_id`, `notes_checksum`, `notify_apply_result`, `installed_dogfood_status`, and `residual_blockers`.
 - [ ] Complete build-specific tester notes are bound to the exact native main SHA before dispatch and App Store Connect `betaBuildLocalizations` confirms byte-for-byte `whatsNew` equality with those notes.
-- [ ] A new `1.0` build newer than build 35 is `VALID`, attached to `Spoonjoy Internal`, has nonzero testers, and reports `IN_BETA_TESTING`; a successful publish/notify apply artifact proves Apple accepted the notification operation. Notification delivery/receipt is claimed only if installed-build confirmation proves it, otherwise the final report says exactly that delivery was not independently observed.
+- [ ] A new `1.0` build newer than build 35 is `VALID`, attached only to the internal group `Spoonjoy Internal`, absent from every external group, has nonzero testers, and reports `IN_BETA_TESTING`; the exact pre-release marketing version is `1.0`, no external-beta state is active, and a successful publish/notify apply artifact proves Apple accepted the notification operation. Notification delivery/receipt is claimed only if installed-build confirmation proves it, otherwise the final report says exactly that delivery was not independently observed.
 - [ ] The installed candidate passes provider sign-in, HEIC cover, mutation-lock, queue replay, Photo Studio, and cleanup checks on a physical device, or the exact device/build/action is durably classified `BLOCKED_HUMAN` after every independent release criterion is complete.
-- [ ] `testflight-feedback-autopilot.mjs doctor`, `status`, and `reconcile --mode dry-run` pass after publication; listener/tunnel public and local health endpoints and launchd ownership are healthy.
+- [ ] `testflight-feedback-autopilot.mjs doctor`, `status`, and `reconcile --dry-run` pass after publication; listener/tunnel public and local health endpoints and launchd ownership are healthy.
 - [ ] Final inventories cover both repositories: canonical checkouts are clean at exact current `origin/main`; every task PR is merged/closed with proof; only merged, clean task branches and terminal worktrees are pruned; dirty, unmerged, active, or ambiguously owned state is preserved and classified; task/doing/Desk state is terminal or explicitly `BLOCKED_HUMAN`; Slugger receives the final status.
 - [ ] 100% test coverage on all new code.
 - [ ] All tests pass.
@@ -119,6 +119,8 @@ Land the currently reviewed Spoonjoy web and native audit remediations, verify t
 
 All shell commands run under `set -o pipefail` from `/Users/arimendelow/Projects/spoonjoy-v2-audit-final-validation`, a clean detached checkout of the selected `origin/main`. Let `ROOT=/tmp/spoonjoy-audit-release-train/<web-sha>/web`; create it before the matrix with `mkdir -p "$ROOT/screenshots/photo-studio"`.
 
+Before reviewer rows, the primary executor records a tool preflight proving `multi_agent_v1__spawn_agent` and `multi_agent_v1__wait_agent` are exposed. If either is unavailable, execution stops for host repair; reviewer gates may not be silently replaced or self-approved.
+
 | Evidence key | Exact command | Expected result | Deterministic artifact |
 | --- | --- | --- | --- |
 | `web.cleanup.before` | `pnpm run cleanup:qa \|& tee "$ROOT/01-cleanup-qa.log"` | exit 0; dry-run manifest is ownership-safe | `$ROOT/01-cleanup-qa.log` |
@@ -143,6 +145,8 @@ All shell commands run under `set -o pipefail` from `/Users/arimendelow/Projects
 ### Unit 20 Native Evidence Matrix
 
 All shell commands run under `set -o pipefail` from `/Users/arimendelow/Projects/spoonjoy-apple-final-validation`, a clean detached checkout of the selected `origin/main`. Let `ROOT=/tmp/spoonjoy-audit-release-train/<native-sha>/native`; create it with `mkdir -p "$ROOT/apple"`. `scripts/validate-native-local.sh` owns and records the component commands below; its final invocation is the authoritative aggregate replay.
+
+The same recorded multi-agent tool preflight applies to all native reviewer rows.
 
 | Evidence key | Exact command | Expected result | Deterministic artifact |
 | --- | --- | --- | --- |

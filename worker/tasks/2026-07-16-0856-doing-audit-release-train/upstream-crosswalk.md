@@ -2,8 +2,23 @@
 
 All rows must reach `merged/adopted`, `verified`, or a named human-only `BLOCKED_HUMAN` disposition before final closure. `pending` is never terminal. Evidence resolves through `evidence-index.md`; rollback classes resolve through the doing doc's containment matrix.
 
+## Accepted-Ancestry Preconditions
+
+These merged foundations are explicit preconditions even where the canonical doing queue begins after them. Unit 10/11 validators must prove each merge commit is an ancestor of the selected final main SHA.
+
+| Accepted work | PR | Exact merge commit | Required ancestry/evidence | Release gate |
+| --- | --- | --- | --- | --- |
+| Native Photo Studio baseline | native #47 | `bad81b49a07c006814315a56e4c98311693a7256` | ancestor of final native SHA; N0 behavior represented in Unit 6A/11 matrix | 11 |
+| Web Photo Studio polish | web #255 | `b22c5fece92886a03747ccc5e05e525c4b97be55` | ancestor of final web SHA; seven-state deployed visual matrix | 10 |
+| Router action matching | web #263 | `6958370b2bd69658fed1a51ffc5694b40b35b23b` | ancestor of final web SHA; provider/live action canary | 10 |
+| Browser readiness | web #267 | `e7b0e9ec662b96467bac9581dbad459c77b4bd0b` | ancestor of final web SHA; readiness artifact | 10 |
+| Dual-channel readiness | web #269 | `b07d787ee7da7a57f137354a3323f0a7da5e8050` | ancestor of final web SHA; `.data` and document fallback evidence | 10 |
+
+## Canonical Queue
+
 | Canonical unit | Disposition / owner | PR | Exact merge or current head | Evidence key | Rollback | Release unit |
 | --- | --- | --- | --- | --- | --- | --- |
+| 0 | adopted complete / coordinated worker + release train | canonical audit doing/Desk | `c4d13881`, `77a8c2d` | `ownership.inventory` | `CLEANUP_RECOVERY` | 0 |
 | 1a | adopted merged / coordinated worker | web #256 | `f4f28db88689fc922fee8132257c564831679986` | `web.w1.tests` | `WEB_RELEASE` | 1 |
 | 1b | adopted merged / coordinated worker | web #256 | `f4f28db88689fc922fee8132257c564831679986` | `web.w1.impl` | `WEB_RELEASE` | 1 |
 | 1c | adopted deployed / coordinated worker | web #258, #274 | `7adaa2206c8ed47748e8f897714c57b972353ef3`, `dcf296bd22d2fb9b98f55fbb7c411e88606986f3` | `web.w1.verify` | `WEB_RELEASE` | 1 |
@@ -24,9 +39,9 @@ All rows must reach `merged/adopted`, `verified`, or a named human-only `BLOCKED
 | 3l | pending / release train | W5 PR pending | pending | `web.w5.impl` | `APPLE_SWITCH` | 2C |
 | 3m | pending / release train | W5 PR pending | pending | `web.w5.verify` | `APPLE_SWITCH` | 2D |
 | 4.0 | adopted deployed / coordinated worker | web #259 | `5c0fd3c2916c22698b40dd233bdee2045adf04d4` | `web.w6.contract` | `WEB_REVERT` | 1 |
-| 4a | active / coordinated worker | native #52 | `f1b3ebf643ddabf4b4abfdc3d6d3f438a02b0b1c` | `native.n2.tests` | `NATIVE_REVERT` | 1 |
-| 4b | active / coordinated worker | native #52 | `f1b3ebf643ddabf4b4abfdc3d6d3f438a02b0b1c` | `native.n2.impl` | `NATIVE_REVERT` | 1 |
-| 4c | active / coordinated worker | native #52 | `f1b3ebf643ddabf4b4abfdc3d6d3f438a02b0b1c` | `native.n2.verify` | `NATIVE_REVERT` | 1 |
+| 4a | merged, hostile follow-up active / coordinated worker | native #52 + repair PR pending | `e8eac40a90b47102d61dd61a9a5658e85e325ad2`; repair head pending | `native.n2.tests` | `NATIVE_REVERT` | 1 |
+| 4b | merged, hostile follow-up active / coordinated worker | native #52 + repair PR pending | `e8eac40a90b47102d61dd61a9a5658e85e325ad2`; repair head pending | `native.n2.impl` | `NATIVE_REVERT` | 1 |
+| 4c | exact main green but follow-up nonterminal / coordinated worker | native #52 + repair PR pending | run `29518076006`; repair main run pending | `native.n2.verify` | `NATIVE_REVERT` | 1 |
 | 5a | pending / release train | N3 PR pending | pending | `native.n3.tests` | `NATIVE_REVERT` | 5 |
 | 5b | pending / release train | N3 PR pending | pending | `native.n3.impl` | `NATIVE_REVERT` | 5 |
 | 5c | pending / release train | N3 PR pending | pending | `native.n3.verify` | `NATIVE_REVERT` | 5 |
@@ -53,13 +68,13 @@ All rows must reach `merged/adopted`, `verified`, or a named human-only `BLOCKED
 | 11.0 | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.baseline` | `WEB_REVERT` | 1 |
 | 11a | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.tests` | `WEB_REVERT` | 1 |
 | 11b | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.impl` | `WEB_REVERT` | 1 |
-| 11c | active deploy proof / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.verify` | `WEB_RELEASE` | 1 |
+| 11c | adopted deployed / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419`; deploy run `29516572367` | `web.w10.verify` | `WEB_RELEASE` | 1 |
 | 11.1a | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w11.tests` | `WEB_REVERT` | 1 |
 | 11.1b | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w11.impl` | `WEB_REVERT` | 1 |
-| 11.1c | active deploy proof / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w11.verify` | `WEB_RELEASE` | 1 |
+| 11.1c | adopted deployed / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419`; deploy run `29516572367` | `web.w11.verify` | `WEB_RELEASE` | 1 |
 | 11.2a | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w12.tests` | `WEB_REVERT` | 1 |
 | 11.2b | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w12.impl` | `WEB_REVERT` | 1 |
-| 11.2c | active deploy proof / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w12.verify` | `WEB_RELEASE` | 1 |
+| 11.2c | adopted deployed / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419`; deploy run `29516572367` | `web.w12.verify` | `WEB_RELEASE` | 1 |
 | 12.0 | pending / release train | N7/N8 PRs pending | pending | `native.cover.baseline` | `NATIVE_REVERT` | 7 |
 | 12a | pending / release train | N7 PR pending | pending | `native.n7.tests` | `NATIVE_REVERT` | 7 |
 | 12b | pending / release train | N7 PR pending | pending | `native.n7.impl` | `NATIVE_REVERT` | 7 |
@@ -92,4 +107,4 @@ All rows must reach `merged/adopted`, `verified`, or a named human-only `BLOCKED
 | 21 | delegated exclusively / release train | exact TestFlight candidate | pending | `testflight.unit21` | `TESTFLIGHT_CONTAIN` | 12A-12D |
 | 22 | shared closure; native/TestFlight exclusive / release train | cleanup/Desk | pending | `closure.unit22` | `CLEANUP_RECOVERY` | 13-14 |
 
-Final gate: `pending`, `active`, and unmatched row counts must all equal zero except rows carrying a fully populated named `BLOCKED_HUMAN` disposition.
+Final gate: every accepted-ancestry row passes `git merge-base --is-ancestor`; canonical `pending`, `active`, hostile-follow-up, and unmatched row counts must all equal zero except rows carrying a fully populated named `BLOCKED_HUMAN` disposition.
