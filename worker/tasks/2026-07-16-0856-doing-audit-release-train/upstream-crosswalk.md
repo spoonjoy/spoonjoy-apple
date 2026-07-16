@@ -13,6 +13,7 @@ These merged foundations are explicit preconditions even where the canonical doi
 | Router action matching | web #263 | `6958370b2bd69658fed1a51ffc5694b40b35b23b` | ancestor of final web SHA; provider/live action canary | 10 |
 | Browser readiness | web #267 | `e7b0e9ec662b96467bac9581dbad459c77b4bd0b` | ancestor of final web SHA; readiness artifact | 10 |
 | Dual-channel readiness | web #269 | `b07d787ee7da7a57f137354a3323f0a7da5e8050` | ancestor of final web SHA; `.data` and document fallback evidence | 10 |
+| Feedback tunnel HTTP/2 durability | native #56 | `0309768c31a37ca1c2627e0efefc86aa721f62b0` | ancestor of final native SHA; exact-main Native run `29528190225` and live listener/tunnel/Apple delivery/Slugger evidence | 11, 12A, 14 |
 
 ## Canonical Queue
 
@@ -34,14 +35,14 @@ These merged foundations are explicit preconditions even where the canonical doi
 | 3g | adopted merged / coordinated worker | web #260 | `edf22ce1dd051937982d1908feb5813034eb276c` | `web.w4.tests` | `APPLE_SWITCH` | 1 |
 | 3h | adopted merged / coordinated worker | web #260 | `edf22ce1dd051937982d1908feb5813034eb276c` | `web.w4.impl` | `APPLE_SWITCH` | 1 |
 | 3i | adopted deployed / coordinated worker | web #260 | `edf22ce1dd051937982d1908feb5813034eb276c` | `web.w4.verify` | `APPLE_SWITCH` | 1 |
-| 3j | pending / release train + authorized Apple session | n/a | portal evidence pending | `apple.callback.registration` | `APPLE_SWITCH` | 2A |
+| 3j | adopted complete / release train + authorized Apple session | Apple Services ID `app.spoonjoy.client` | clean plus six legacy return URLs; evidence checksum `e990e5d00a0dac9969e9fcc8930c04a25c82c6506c996b6add38c8b17e8b4c7b` | `apple.callback.registration` | `APPLE_SWITCH` | 2A |
 | 3k | pending / release train | W5 PR pending | pending | `web.w5.tests` | `APPLE_SWITCH` | 2B |
 | 3l | pending / release train | W5 PR pending | pending | `web.w5.impl` | `APPLE_SWITCH` | 2C |
 | 3m | pending / release train | W5 PR pending | pending | `web.w5.verify` | `APPLE_SWITCH` | 2D |
 | 4.0 | adopted deployed / coordinated worker | web #259 | `5c0fd3c2916c22698b40dd233bdee2045adf04d4` | `web.w6.contract` | `WEB_REVERT` | 1 |
-| 4a | merged, hostile follow-up active / coordinated worker | native #52 + repair PR pending | `e8eac40a90b47102d61dd61a9a5658e85e325ad2`; repair head pending | `native.n2.tests` | `NATIVE_REVERT` | 1 |
-| 4b | merged, hostile follow-up active / coordinated worker | native #52 + repair PR pending | `e8eac40a90b47102d61dd61a9a5658e85e325ad2`; repair head pending | `native.n2.impl` | `NATIVE_REVERT` | 1 |
-| 4c | exact main green but follow-up nonterminal / coordinated worker | native #52 + repair PR pending | run `29518076006`; repair main run pending | `native.n2.verify` | `NATIVE_REVERT` | 1 |
+| 4a | merged, hostile follow-up active / coordinated worker | native #52 + #54 | `e8eac40a90b47102d61dd61a9a5658e85e325ad2`; rebased repair head `f1e296a92f58ed4dc534120bca505593eb7504e5` | `native.n2.tests` | `NATIVE_REVERT` | 1 |
+| 4b | merged, hostile follow-up active / coordinated worker | native #52 + #54 | `e8eac40a90b47102d61dd61a9a5658e85e325ad2`; rebased repair head `f1e296a92f58ed4dc534120bca505593eb7504e5` | `native.n2.impl` | `NATIVE_REVERT` | 1 |
+| 4c | exact #52 main green but follow-up nonterminal / coordinated worker | native #52 + #54 | run `29518076006`; rebased #54 PR run `29529426309` in progress; repair main run pending | `native.n2.verify` | `NATIVE_REVERT` | 1 |
 | 5a | pending / release train | N3 PR pending | pending | `native.n3.tests` | `NATIVE_REVERT` | 5 |
 | 5b | pending / release train | N3 PR pending | pending | `native.n3.impl` | `NATIVE_REVERT` | 5 |
 | 5c | pending / release train | N3 PR pending | pending | `native.n3.verify` | `NATIVE_REVERT` | 5 |
