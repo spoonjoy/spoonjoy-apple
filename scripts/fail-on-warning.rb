@@ -28,6 +28,7 @@ diagnostic_patterns = [
   /An error was encountered processing the command/i,
   /Underlying error/i,
   /\bfailed to\b/i,
+  /IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver/,
   /\bfatal error:/i,
   /\buncaught exception\b/i
 ].freeze
