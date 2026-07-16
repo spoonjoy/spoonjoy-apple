@@ -130,6 +130,118 @@ struct TestFlightAutomationContractTests {
         }
     }
 
+    @Test("TestFlight feedback tunnel validates the installed and loaded HTTP/2 command")
+    func feedbackTunnelValidatesInstalledAndLoadedHTTP2Command() throws {
+        let result = try runTestFlightFeedbackAutopilot(command: "self-test-launchd-validation")
+        #expect(result.status == 0, "launchd validation self-test failed: \(result.output)")
+
+        let data = try #require(result.output.data(using: .utf8))
+        let report = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let expectedTunnelArguments = try #require(report["expectedTunnelProgramArguments"] as? [String])
+        let exact = try #require(report["exactHTTP2"] as? [String: Any])
+        let legacy = try #require(report["legacyQUIC"] as? [String: Any])
+        let misordered = try #require(report["misorderedHTTP2"] as? [String: Any])
+        let staleLoaded = try #require(report["staleLoadedJob"] as? [String: Any])
+        let staleWorkingDirectory = try #require(report["staleLoadedWorkingDirectory"] as? [String: Any])
+        let staleEnvironment = try #require(report["staleLoadedEnvironment"] as? [String: Any])
+        let unexpectedEnvironment = try #require(report["unexpectedManagedEnvironment"] as? [String: Any])
+        let deadKeepAlive = try #require(report["deadKeepAliveService"] as? [String: Any])
+        let failedScheduledJob = try #require(report["failedScheduledJob"] as? [String: Any])
+        let healthContract = try #require(report["healthContract"] as? [String: Any])
+
+        #expect(exact["ok"] as? Bool == true)
+        #expect(expectedTunnelArguments == [
+            "/opt/homebrew/bin/cloudflared", "tunnel", "--config",
+            "/Users/tester/.cloudflared/spoonjoy-testflight-feedback.yml",
+            "--protocol", "http2", "run", "spoonjoy-testflight-feedback"
+        ])
+        #expect(legacy["ok"] as? Bool == false)
+        #expect(misordered["ok"] as? Bool == false)
+        #expect(staleLoaded["ok"] as? Bool == false)
+        #expect(staleWorkingDirectory["ok"] as? Bool == false)
+        #expect(staleEnvironment["ok"] as? Bool == false)
+        #expect(unexpectedEnvironment["ok"] as? Bool == false)
+        #expect(deadKeepAlive["ok"] as? Bool == false)
+        #expect(failedScheduledJob["ok"] as? Bool == false)
+        #expect(healthContract["deploymentIdentity"] as? String == "spoonjoy-testflight-feedback-autopilot")
+        let scriptDigest = try #require(healthContract["scriptDigest"] as? String)
+        #expect(scriptDigest.wholeMatch(of: /[0-9a-f]{64}/) != nil)
+        #expect(healthContract["repo"] == nil)
+        #expect(healthContract["scriptPath"] == nil)
+        #expect(
+            (legacy["issues"] as? [String])?.contains(where: { $0.contains("plist program arguments") }) == true
+        )
+        #expect(
+            (staleLoaded["issues"] as? [String])?.contains(where: { $0.contains("loaded launchd arguments") }) == true
+        )
+        #expect(
+            (staleWorkingDirectory["issues"] as? [String])?.contains(where: { $0.contains("loaded working directory") }) == true
+        )
+        #expect(
+            (staleEnvironment["issues"] as? [String])?.contains(where: { $0.contains("loaded managed environment") }) == true
+        )
+        #expect(
+            (unexpectedEnvironment["issues"] as? [String])?.contains(where: { $0.contains("loaded managed environment") }) == true
+        )
+        #expect(
+            (deadKeepAlive["issues"] as? [String])?.contains(where: { $0.contains("loaded launchd state") }) == true
+        )
+        #expect(
+            (failedScheduledJob["issues"] as? [String])?.contains(where: { $0.contains("last exit code") }) == true
+        )
+    }
+
+    @Test("TestFlight feedback help uses the live public tunnel hostname")
+    func feedbackAutomationHelpUsesLivePublicTunnelHostname() throws {
+        let result = try runTestFlightFeedbackAutopilot(command: "help")
+        #expect(result.status == 0)
+        #expect(result.output.contains("https://spoonjoy-testflight-feedback.ouro.bot/app-store-connect/webhook"))
+        #expect(!result.output.contains("https://testflight-feedback.spoonjoy.app/app-store-connect/webhook"))
+        #expect(result.output.contains("SPOONJOY_TESTFLIGHT_WEBHOOK_SECRET_PATH  (configured path; value redacted)"))
+        #expect(!result.output.contains("webhook-secret"))
+    }
+
+    @Test("TestFlight feedback diagnostics redact configured credential paths")
+    func feedbackAutomationDiagnosticsRedactCredentialPaths() throws {
+        let fixture = FileManager.default.temporaryDirectory
+            .appendingPathComponent("testflight-feedback-redaction-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: fixture, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        let privateKeyPath = "/sensitive/private/AuthKey_test.p8"
+        let configPath = fixture.appendingPathComponent("app-store-connect.json")
+        try writeJSON(
+            ["keyId": "test-key", "issuerId": "test-issuer", "privateKeyPath": privateKeyPath],
+            to: configPath
+        )
+        let statusResult = try runTestFlightFeedbackAutopilot(
+            command: "status",
+            environmentOverrides: ["APPLE_DISTRIBUTION_KIT_CONFIG": configPath.path]
+        )
+        #expect(!statusResult.output.contains(privateKeyPath))
+        #expect(statusResult.output.contains("configured path (redacted)"))
+
+        let secretPath = "/sensitive/private/webhook-secret"
+        let listenerResult = try runTestFlightFeedbackAutopilot(
+            command: "listen",
+            environmentOverrides: ["SPOONJOY_TESTFLIGHT_WEBHOOK_SECRET_PATH": secretPath]
+        )
+        #expect(listenerResult.status != 0)
+        #expect(!listenerResult.output.contains(secretPath))
+        #expect(listenerResult.output.contains("configured path (redacted)"))
+
+        let unreadableSecretPath = fixture.appendingPathComponent("unreadable-webhook-secret")
+        try "test-secret".write(to: unreadableSecretPath, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: unreadableSecretPath.path)
+        let unreadableResult = try runTestFlightFeedbackAutopilot(
+            command: "listen",
+            environmentOverrides: ["SPOONJOY_TESTFLIGHT_WEBHOOK_SECRET_PATH": unreadableSecretPath.path]
+        )
+        #expect(unreadableResult.status != 0)
+        #expect(!unreadableResult.output.contains(unreadableSecretPath.path))
+        #expect(unreadableResult.output.contains("configured path (redacted)"))
+    }
+
     @Test("candidate verifier accepts current main only with exact successful Native evidence")
     func verifierAcceptsCurrentMainWithExactEvidence() throws {
         let fixture = try makeCandidateFixture(sourceSHA: currentSHA, mainSHA: currentSHA)
@@ -479,6 +591,30 @@ private func readTestFlightAutomationRepoFile(_ relativePath: String) throws -> 
     try String(
         contentsOf: testFlightAutomationRepoURL.appendingPathComponent(relativePath),
         encoding: .utf8
+    )
+}
+
+private func runTestFlightFeedbackAutopilot(
+    command: String,
+    environmentOverrides: [String: String] = [:]
+) throws -> TestFlightProcessResult {
+    let process = Process()
+    let output = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    process.arguments = [
+        "node",
+        testFlightAutomationRepoURL.appendingPathComponent("scripts/testflight-feedback-autopilot.mjs").path,
+        command
+    ]
+    process.environment = ProcessInfo.processInfo.environment.merging(environmentOverrides) { _, override in override }
+    process.standardOutput = output
+    process.standardError = output
+    try process.run()
+    process.waitUntilExit()
+
+    return TestFlightProcessResult(
+        status: process.terminationStatus,
+        output: String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     )
 }
 
