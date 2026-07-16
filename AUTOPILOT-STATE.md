@@ -21,8 +21,9 @@ This run is complete only when:
 - Active branch: `worker/audit-release-train`
 - Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-audit-release-train` / OS: `Darwin` / probed: 2026-07-16
 - Planning doc: `worker/tasks/2026-07-16-0856-planning-audit-release-train.md`
-- Doing doc: pending reviewer convergence
-- Current phase: planning reviewer gate
+- Doing doc: `worker/tasks/2026-07-16-0856-doing-audit-release-train.md`
+- Evidence index: `worker/tasks/2026-07-16-0856-doing-audit-release-train/evidence-index.md`
+- Current phase: doing-doc reviewer gates and coordinated merge train
 
 ## Terminal Evidence
 
@@ -38,7 +39,7 @@ This run is complete only when:
 
 ## Next Action
 
-Run a fresh planning reviewer against the audit report, live PR state, repository paths, release playbook, and terminal TestFlight contract; address findings and convert to the doing doc.
+Reviewer-converge the doing doc, adopt the coordinated worker's exact merged/deployed SHAs, then start the missing W5/W8/W9 and N3/N5/N7/N8/N10 implementation PRs without duplicating current work.
 
 ## Continuation Scan
 
