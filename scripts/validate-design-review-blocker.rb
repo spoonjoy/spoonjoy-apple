@@ -11,6 +11,7 @@ DEFAULT_ARTIFACT_ROOT = ROOT.join("artifacts/apple/native-screenshots")
 CAPABILITY_BY_BASENAME = {
   "screenshots-xcode-platform-blocker.json" => "XcodePlatform",
   "screenshots-core-simulator-blocker.json" => "CoreSimulator",
+  "screenshots-ipad-core-simulator-blocker.json" => "CoreSimulator",
   "screenshots-macos-launch-blocker.json" => "MacOSLaunch"
 }.freeze
 
@@ -37,9 +38,11 @@ end
 def required_skipped_artifacts(unit_slug)
   Set[
     "screenshots/ios-mobile.png",
+    "screenshots/ios-tablet.png",
     "screenshots/macos-desktop.png",
     "design-review.json",
     "apple/#{unit_slug}-accessibility-proof-ios.json",
+    "apple/#{unit_slug}-accessibility-proof-ipad.json",
     "apple/#{unit_slug}-accessibility-proof-macos.json"
   ]
 end
@@ -71,6 +74,7 @@ fail_check("#{path} blocked must be true") unless manifest.fetch("blocked") == t
 allowed_sources = {
   artifact_root.join("apple/#{unit_slug}-screenshots-xcode-platform-blocker.json").expand_path => "XcodePlatform",
   artifact_root.join("apple/#{unit_slug}-screenshots-core-simulator-blocker.json").expand_path => "CoreSimulator",
+  artifact_root.join("apple/#{unit_slug}-screenshots-ipad-core-simulator-blocker.json").expand_path => "CoreSimulator",
   artifact_root.join("apple/#{unit_slug}-screenshots-macos-launch-blocker.json").expand_path => "MacOSLaunch"
 }
 source_path = Pathname.new(manifest.fetch("sourceBlockerPath")).expand_path

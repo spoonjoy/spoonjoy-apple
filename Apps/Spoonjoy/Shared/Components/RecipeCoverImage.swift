@@ -1,5 +1,13 @@
 import SwiftUI
 
+#if os(macOS)
+import AppKit
+private typealias PlatformRecipeCoverImage = NSImage
+#else
+import UIKit
+private typealias PlatformRecipeCoverImage = UIImage
+#endif
+
 struct RecipeCoverImage: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
@@ -17,11 +25,32 @@ struct RecipeCoverImage: View {
 
     var body: some View {
         if let url {
-            AsyncImage(url: url, transaction: imageTransaction) { phase in
-                cover(for: phase)
-                    .transition(accessibilityReduceMotion ? .identity : .opacity)
+            if url.isFileURL {
+                LocalRecipeCoverImage(
+                    url: url,
+                    title: title,
+                    loadingSubtitle: "Loading photo",
+                    failureSubtitle: "Photo did not load",
+                    showsFallbackLabel: showsFallbackLabel,
+                    reduceMotion: accessibilityReduceMotion
+                )
+            } else {
+                AsyncImage(url: url, transaction: imageTransaction) { phase in
+                    let readinessPhase = readinessPhase(for: phase)
+                    cover(for: phase)
+                        .transition(accessibilityReduceMotion ? .identity : .opacity)
+                        .task(id: readinessPhase) {
+                            await record(readinessPhase, id: trackingID(for: url))
+                        }
+                }
+                .id(url.absoluteString)
+                .onDisappear {
+                    let id = trackingID(for: url)
+                    Task {
+                        await ScreenshotVisualReadiness.removeMedia(id)
+                    }
+                }
             }
-            .id(url.absoluteString)
         } else {
             noPhoto(subtitle: missingSubtitle, mode: .missing, showsLabel: showsFallbackLabel)
         }
@@ -58,6 +87,107 @@ struct RecipeCoverImage: View {
 
     private func noPhoto(subtitle: String, mode: KitchenTableNoPhotoView.Mode, showsLabel: Bool) -> some View {
         KitchenTableNoPhotoView(title: title, subtitle: subtitle, mode: mode, showsLabel: showsLabel)
+    }
+
+    private func trackingID(for url: URL) -> String {
+        "recipe-cover:\(url.absoluteString)"
+    }
+
+    private func readinessPhase(for phase: AsyncImagePhase) -> RecipeCoverReadinessPhase {
+        switch phase {
+        case .empty:
+            .pending
+        case .success:
+            .loaded
+        case .failure:
+            .failed
+        @unknown default:
+            .failed
+        }
+    }
+
+    private func record(_ phase: RecipeCoverReadinessPhase, id: String) async {
+        switch phase {
+        case .pending:
+            await ScreenshotVisualReadiness.beginMedia(id)
+        case .loaded:
+            await ScreenshotVisualReadiness.finishMedia(id, succeeded: true)
+        case .failed:
+            await ScreenshotVisualReadiness.finishMedia(id, succeeded: false)
+        }
+    }
+}
+
+private enum RecipeCoverReadinessPhase: Hashable {
+    case pending
+    case loaded
+    case failed
+}
+
+private struct LocalRecipeCoverImage: View {
+    let url: URL
+    let title: String?
+    let loadingSubtitle: String
+    let failureSubtitle: String
+    let showsFallbackLabel: Bool
+    let reduceMotion: Bool
+
+    @State private var image: PlatformRecipeCoverImage?
+    @State private var failed = false
+
+    private var trackingID: String {
+        "recipe-cover:\(url.absoluteString)"
+    }
+
+    var body: some View {
+        ZStack {
+            if let image {
+                swiftUIImage(from: image)
+                    .resizable()
+                    .scaledToFill()
+                    .transition(reduceMotion ? .identity : .opacity)
+            } else {
+                KitchenTableNoPhotoView(
+                    title: title,
+                    subtitle: failed ? failureSubtitle : loadingSubtitle,
+                    mode: failed ? .unavailable : .loading,
+                    showsLabel: failed && showsFallbackLabel
+                )
+                .transition(reduceMotion ? .identity : .opacity)
+            }
+        }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.20), value: image != nil)
+        .task(id: url.absoluteString) {
+            await ScreenshotVisualReadiness.beginMedia(trackingID)
+            let data = await Task.detached(priority: .userInitiated) {
+                try? Data(contentsOf: url, options: [.mappedIfSafe])
+            }.value
+            guard !Task.isCancelled else {
+                return
+            }
+            guard let data, let decodedImage = PlatformRecipeCoverImage(data: data) else {
+                failed = true
+                await ScreenshotVisualReadiness.finishMedia(trackingID, succeeded: false)
+                return
+            }
+            image = decodedImage
+            failed = false
+            await ScreenshotVisualReadiness.finishMedia(trackingID, succeeded: true)
+        }
+        .onDisappear {
+            let id = trackingID
+            Task {
+                await ScreenshotVisualReadiness.removeMedia(id)
+            }
+        }
+    }
+
+    private func swiftUIImage(from image: PlatformRecipeCoverImage) -> Image {
+#if os(macOS)
+        Image(nsImage: image)
+#else
+        Image(uiImage: image)
+#endif
     }
 }
 
@@ -117,15 +247,9 @@ struct KitchenTableNoPhotoView: View {
                         .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
                 }
                 .frame(width: 38, height: 38)
-            if mode == .loading {
-                ProgressView()
-                    .controlSize(.small)
-                    .tint(KitchenTableTheme.brass)
-            } else {
-                Image(systemName: "photo.badge.plus")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(KitchenTableTheme.brass)
-            }
+            Image(systemName: mode == .loading ? "photo" : "photo.badge.plus")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(KitchenTableTheme.brass.opacity(mode == .loading ? 0.62 : 1))
         }
         .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 5, y: 3)
         .frame(width: 44, height: 44)
@@ -141,14 +265,9 @@ struct KitchenTableNoPhotoView: View {
                         RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                             .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
                     }
-                if mode == .loading {
-                    ProgressView()
-                        .tint(KitchenTableTheme.brass)
-                } else {
-                    Image(systemName: "photo.badge.plus")
-                        .font(.title2.weight(.semibold))
-                        .foregroundStyle(KitchenTableTheme.brass)
-                }
+                Image(systemName: mode == .loading ? "photo" : "photo.badge.plus")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.brass.opacity(mode == .loading ? 0.62 : 1))
             }
 
             Text(displaySubtitle)

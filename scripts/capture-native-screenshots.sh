@@ -28,6 +28,7 @@ done
 apple_dir="$artifact_root/apple"
 mkdir -p "$artifact_root/screenshots" "$apple_dir"
 ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
+ios_tablet_screenshot="$artifact_root/screenshots/ios-tablet.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
 macos_app="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-$artifact_root/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app}"
 design_review="$artifact_root/design-review.json"
@@ -35,9 +36,11 @@ design_review_blocked="$artifact_root/design-review-blocked.json"
 matrix_log="$artifact_root/apple/${unit_slug}-screenshots.log"
 capture_log="$artifact_root/apple/${unit_slug}-screenshots-inner.log"
 ios_smoke_log="$artifact_root/apple/${unit_slug}-screenshots-smoke-ios.log"
+ipad_smoke_log="$artifact_root/apple/${unit_slug}-screenshots-smoke-ipad.log"
 macos_smoke_log="$artifact_root/apple/${unit_slug}-screenshots-smoke-macos.log"
 xcode_blocker="$artifact_root/apple/${unit_slug}-screenshots-xcode-platform-blocker.json"
 ios_blocker="$artifact_root/apple/${unit_slug}-screenshots-core-simulator-blocker.json"
+ipad_blocker="$artifact_root/apple/${unit_slug}-screenshots-ipad-core-simulator-blocker.json"
 macos_blocker="$artifact_root/apple/${unit_slug}-screenshots-macos-launch-blocker.json"
 state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
 cache_file="${HOME}/Library/Application Support/Spoonjoy/native-durable-cache.json"
@@ -51,14 +54,19 @@ proof_backup="$artifact_root/native-screenshot-proof-capture-backup.json"
 auth_backup="$artifact_root/debug-auth-session-capture-backup.json"
 macos_launch_env_backup="$artifact_root/apple/${unit_slug}-macos-launch-env-backup.env"
 ios_proof_artifact="$artifact_root/apple/${unit_slug}-screenshot-proof-ios.json"
+ipad_proof_artifact="$artifact_root/apple/${unit_slug}-screenshot-proof-ipad.json"
 macos_proof_artifact="$artifact_root/apple/${unit_slug}-screenshot-proof-macos.json"
 ios_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ios.json"
+ipad_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ipad.json"
 macos_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-macos.json"
 accessibility_proof_ios="$artifact_root/apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ipad="$artifact_root/apple/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos="$artifact_root/apple/${unit_slug}-accessibility-proof-macos.json"
 accessibility_proof_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ipad_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-macos.json"
 accessibility_proof_ios_rel="apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ipad_rel="apple/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos_rel="apple/${unit_slug}-accessibility-proof-macos.json"
 ios_accessibility_proof_runtime_path=""
 screenshot_proof_path=""
@@ -394,7 +402,7 @@ write_blocker() {
 write_design_review_blocked() {
   local source_blocker_path="$1"
   ruby -rjson -e '
-    source_path, output_path, ios_accessibility_proof, macos_accessibility_proof = ARGV
+    source_path, output_path, ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof = ARGV
     blocker = JSON.parse(File.read(source_path))
     manifest = {
       "blocked" => true,
@@ -402,19 +410,21 @@ write_design_review_blocked() {
       "sourceBlockerPath" => source_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-tablet.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         ios_accessibility_proof,
+        ipad_accessibility_proof,
         macos_accessibility_proof
       ],
       "reason" => blocker.fetch("reason"),
       "ownerAction" => blocker.fetch("ownerAction")
     }
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel"
-  rm -f "$ios_screenshot" "$macos_screenshot"
-  rm -f "$accessibility_proof_ios" "$accessibility_proof_macos"
-  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_macos_abs"
+  ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel"
+  rm -f "$ios_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+  rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
+  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
   rm -f "$design_review"
 }
 
@@ -478,7 +488,7 @@ run_cleanup_command() {
 
 write_design_review_success() {
   ruby -rjson -e '
-    output_path, route, settings_focus, ios_proof, macos_proof, ios_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
+    output_path, route, settings_focus, ios_proof, ipad_proof, macos_proof, ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
     manifest = {
       "mobileScreenshot" => true,
       "desktopScreenshot" => true,
@@ -490,7 +500,7 @@ write_design_review_success() {
       "contrast" => true,
       "kitchenTableHierarchy" => true,
       "noOverlap" => true,
-      "accessibilityProofArtifacts" => [ios_accessibility_proof, macos_accessibility_proof],
+      "accessibilityProofArtifacts" => [ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof],
       "blockers" => []
     }
     if route == "settings"
@@ -499,7 +509,7 @@ write_design_review_success() {
       manifest["settingsSignedInSurface"] = settings_capture_variant != "signed-out"
       manifest["settingsSignedOutSurface"] = settings_capture_variant == "signed-out"
       manifest["settingsVisualFocus"] = settings_focus
-      manifest["settingsSurfaceProofArtifacts"] = [ios_proof, macos_proof]
+      manifest["settingsSurfaceProofArtifacts"] = [ios_proof, ipad_proof, macos_proof]
       if settings_focus == "notifications"
         manifest["settingsNotificationAPNsSurface"] = true
         manifest["settingsAPNsPermissionState"] = settings_apns_permission_state.empty? ? "not-determined" : settings_apns_permission_state
@@ -527,7 +537,7 @@ write_design_review_success() {
         "expectedScope" => expected_search_scope,
         "expectedRouteIdentifier" => expected_search_route_identifier
       )
-      manifest["searchSurfaceProofArtifacts"] = [ios_proof, macos_proof]
+      manifest["searchSurfaceProofArtifacts"] = [ios_proof, ipad_proof, macos_proof]
     elsif route == "recipes"
       manifest["recipesNativeSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
@@ -573,7 +583,7 @@ write_design_review_success() {
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$settings_capture_variant" "$settings_apns_permission_state" "$settings_apns_registration_state" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$ipad_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$settings_capture_variant" "$settings_apns_permission_state" "$settings_apns_registration_state" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
 }
 
 is_xcode_platform_blocker() {
@@ -1298,13 +1308,14 @@ clear_macos_launch_environment() {
 }
 
 ios_udid_from_smoke_log() {
+  local smoke_log="$1"
   ruby -e '
     path = ARGV.fetch(0)
     output = File.file?(path) ? File.read(path) : ""
     match = output.match(/Booting simulator: xcrun simctl boot ([A-F0-9-]+)/)
     exit(1) unless match
     puts match[1]
-  ' "$ios_smoke_log"
+  ' "$smoke_log"
 }
 
 wait_for_ios_foreground() {
@@ -1322,7 +1333,8 @@ wait_for_ios_foreground() {
 }
 
 validate_ios_screenshot() {
-  python3 - "$ios_screenshot" <<'PY'
+  local screenshot_path="$1"
+  python3 - "$screenshot_path" <<'PY'
 import sys
 import struct
 import zlib
@@ -1461,7 +1473,13 @@ wait_for_accessibility_proof() {
                         end
       expected_source = source_override unless source_override.empty?
       evidence_key = expected_source == "SignedOutSetupView" ? "capture-signed-out" : expected_route
-      expected_bundle = expected_platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
+      expected_bundle = if expected_platform == "macos"
+                          "app.spoonjoy.mac"
+                        elsif expected_platform == "ipad"
+                          "app.spoonjoy"
+                        else
+                          "app.spoonjoy"
+                        end
       expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "reduceMotion", "contrast", "kitchenTableHierarchy", "noOverlap"]
       expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
       expected_dismissible = ["offline", "stale"]
@@ -1592,6 +1610,12 @@ wait_for_accessibility_proof() {
       abort("#{expected_platform} accessibility proof noTinyClusters mismatch") unless proof.fetch("noTinyClusters") == true
       abort("#{expected_platform} accessibility proof observedDynamicTypeSize missing") unless proof.fetch("observedDynamicTypeSize").is_a?(String) && !proof.fetch("observedDynamicTypeSize").empty?
       abort("#{expected_platform} accessibility proof observedReduceMotion missing") unless [true, false].include?(proof.fetch("observedReduceMotion"))
+      visual_readiness = proof.fetch("visualReadiness")
+      abort("#{expected_platform} accessibility proof visualReadiness mismatch") unless visual_readiness.is_a?(Hash)
+      abort("#{expected_platform} accessibility proof has pending media") unless visual_readiness.fetch("pendingMediaCount") == 0
+      abort("#{expected_platform} accessibility proof has failed media") unless visual_readiness.fetch("failedMediaCount") == 0
+      abort("#{expected_platform} accessibility proof has blocking indicators") unless visual_readiness.fetch("blockingIndicatorCount") == 0
+      abort("#{expected_platform} accessibility proof did not settle") unless visual_readiness.fetch("isSettled") == true
       route_evidence = proof.fetch("routeEvidence")
       abort("#{expected_platform} accessibility proof routeEvidence mismatch") unless route_evidence.is_a?(Hash)
       expected_route_evidence.fetch(evidence_key).each do |field, required_values|
@@ -1740,6 +1764,10 @@ resolve_ios_data_container() {
 
 capture_ios_app() {
   local udid="$1"
+  local expected_platform="$2"
+  local screenshot_output="$3"
+  local surface_proof_output="$4"
+  local accessibility_proof_output="$5"
   local data_container
   local terminate_log
   local bootstatus_log
@@ -1790,27 +1818,31 @@ capture_ios_app() {
       proof_route_identifier="$expected_search_route_identifier"
     fi
     wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" "$proof_route_identifier" || return 1
-    validate_screenshot_surface_proof "$screenshot_proof_path" "$ios_proof_artifact" "ios" >> "$capture_log" 2>&1 || return 1
+    validate_screenshot_surface_proof "$screenshot_proof_path" "$surface_proof_output" "$expected_platform" >> "$capture_log" 2>&1 || return 1
   fi
-  if ! wait_for_accessibility_proof "$ios_accessibility_proof_runtime_path" "$screenshot_route" "ios" "$accessibility_proof_ios" "$expected_accessibility_source"; then
-    log_accessibility_proof_diagnostic "$ios_accessibility_proof_runtime_path" "$screenshot_route" "ios" "iOS"
-    printf 'Spoonjoy did not write the expected iOS accessibility proof for %s\n' "$screenshot_route" >> "$capture_log"
+  if ! wait_for_accessibility_proof "$ios_accessibility_proof_runtime_path" "$screenshot_route" "$expected_platform" "$accessibility_proof_output" "$expected_accessibility_source"; then
+    log_accessibility_proof_diagnostic "$ios_accessibility_proof_runtime_path" "$screenshot_route" "$expected_platform" "$expected_platform"
+    printf 'Spoonjoy did not write the expected %s accessibility proof for %s\n' "$expected_platform" "$screenshot_route" >> "$capture_log"
     return 1
   fi
-  xcrun simctl io "$udid" screenshot "$ios_screenshot" >> "$capture_log" 2>&1
-  [[ -f "$ios_screenshot" && -s "$ios_screenshot" ]]
-  validate_ios_screenshot >> "$capture_log" 2>&1
+  xcrun simctl io "$udid" screenshot "$screenshot_output" >> "$capture_log" 2>&1
+  [[ -f "$screenshot_output" && -s "$screenshot_output" ]]
+  validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1
 }
 
 capture_ios_app_with_retries() {
   local udid="$1"
+  local expected_platform="$2"
+  local screenshot_output="$3"
+  local surface_proof_output="$4"
+  local accessibility_proof_output="$5"
   local attempt=1
   while [[ "$attempt" -le "$ios_capture_attempts" ]]; do
-    rm -f "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios" "$accessibility_proof_ios_abs"
-    if capture_ios_app "$udid"; then
+    rm -f "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output"
+    if capture_ios_app "$udid" "$expected_platform" "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output"; then
       return 0
     fi
-    printf 'iOS screenshot capture attempt %s/%s failed for route %s\n' "$attempt" "$ios_capture_attempts" "$screenshot_route" >> "$capture_log"
+    printf '%s screenshot capture attempt %s/%s failed for route %s\n' "$expected_platform" "$attempt" "$ios_capture_attempts" "$screenshot_route" >> "$capture_log"
     if [[ "$attempt" -lt "$ios_capture_attempts" ]]; then
       xcrun simctl terminate "$udid" app.spoonjoy >> "$capture_log" 2>&1 || true
       xcrun simctl shutdown "$udid" >> "$capture_log" 2>&1 || true
@@ -1885,17 +1917,29 @@ run_smoke() {
 }
 
 run_ios_smoke() {
+  local label="$1"
+  local family="$2"
+  local smoke_log="$3"
+  local blocker="$4"
   local attempt=1
+  local install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-}"
+  if [[ -n "$install_marker" ]]; then
+    install_marker="${install_marker}-${family}"
+  fi
   while [[ "$attempt" -le "$ios_smoke_attempts" ]]; do
-    rm -f "$ios_blocker"
-    run_smoke "iOS simulator" "$ios_smoke_log" "$ios_blocker" scripts/smoke-ios-simulator.sh
-    if [[ ! -f "$ios_blocker" || -f "$xcode_blocker" ]]; then
+    rm -f "$blocker"
+    run_smoke "$label" "$smoke_log" "$blocker" \
+      env -u SPOONJOY_IOS_SIMULATOR_UDID -u SPOONJOY_IOS_SIMULATOR_NAME \
+      SPOONJOY_IOS_SIMULATOR_FAMILY="$family" \
+      SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER="$install_marker" \
+      scripts/smoke-ios-simulator.sh
+    if [[ ! -f "$blocker" || -f "$xcode_blocker" ]]; then
       return 0
     fi
-    printf 'iOS simulator smoke attempt %s/%s produced blocker\n' "$attempt" "$ios_smoke_attempts" >> "$capture_log"
+    printf '%s smoke attempt %s/%s produced blocker\n' "$label" "$attempt" "$ios_smoke_attempts" >> "$capture_log"
     if [[ "$attempt" -lt "$ios_smoke_attempts" ]]; then
       local retry_udid=""
-      retry_udid="$(ios_udid_from_smoke_log || true)"
+      retry_udid="$(ios_udid_from_smoke_log "$smoke_log" || true)"
       if [[ -n "$retry_udid" ]]; then
         xcrun simctl shutdown "$retry_udid" >> "$capture_log" 2>&1 || true
       else
@@ -1908,22 +1952,25 @@ run_ios_smoke() {
 }
 
 : > "$capture_log"
-rm -f "$ios_screenshot" "$macos_screenshot"
-rm -f "$ios_proof_artifact" "$macos_proof_artifact"
-rm -f "$accessibility_proof_ios" "$accessibility_proof_macos"
-rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_macos_abs"
+rm -f "$ios_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+rm -f "$ios_proof_artifact" "$ipad_proof_artifact" "$macos_proof_artifact"
+rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
+rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
 rm -f "$design_review_blocked"
 rm -f "$design_review"
-rm -f "$xcode_blocker" "$ios_blocker" "$macos_blocker"
+rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker"
 
-run_ios_smoke
+run_ios_smoke "iPhone simulator" "iphone" "$ios_smoke_log" "$ios_blocker"
+if [[ ! -f "$xcode_blocker" ]]; then
+  run_ios_smoke "iPad simulator" "ipad" "$ipad_smoke_log" "$ipad_blocker"
+fi
 if [[ ! -f "$xcode_blocker" ]]; then
   run_smoke "macOS launch" "$macos_smoke_log" "$macos_blocker" scripts/smoke-macos.sh
 fi
 
 if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
-  ios_udid="$(ios_udid_from_smoke_log || true)"
-  if [[ -z "$ios_udid" ]] || ! capture_ios_app_with_retries "$ios_udid"; then
+  ios_udid="$(ios_udid_from_smoke_log "$ios_smoke_log" || true)"
+  if [[ -z "$ios_udid" ]] || ! capture_ios_app_with_retries "$ios_udid" "ios" "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios_abs"; then
     write_blocker \
       "$ios_blocker" \
       "CoreSimulator" \
@@ -1931,6 +1978,19 @@ if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
       "$capture_log" \
       "CoreSimulator could not capture a foreground Spoonjoy iOS screenshot for route $screenshot_route; simulator launch timeout, foreground wait timeout, proof wait timeout, or screenshot capture failure occurred." \
       "Boot an available iPhone simulator, confirm Spoonjoy stays foregrounded, and rerun screenshot capture."
+  fi
+fi
+
+if [[ ! -f "$xcode_blocker" && ! -f "$ipad_blocker" ]]; then
+  ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
+  if [[ -z "$ipad_udid" ]] || ! capture_ios_app_with_retries "$ipad_udid" "ipad" "$ios_tablet_screenshot" "$ipad_proof_artifact" "$accessibility_proof_ipad_abs"; then
+    write_blocker \
+      "$ipad_blocker" \
+      "CoreSimulator" \
+      "xcrun simctl launch/io $ipad_udid app.spoonjoy $ios_tablet_screenshot" \
+      "$capture_log" \
+      "CoreSimulator could not capture a foreground Spoonjoy iPad screenshot for route $screenshot_route; simulator launch timeout, foreground wait timeout, settled-render proof timeout, or screenshot capture failure occurred." \
+      "Boot an available iPad simulator, confirm Spoonjoy stays foregrounded, and rerun screenshot capture."
   fi
 fi
 
@@ -2192,15 +2252,17 @@ if [[ -f "$xcode_blocker" ]]; then
   write_design_review_blocked "$xcode_blocker"
 elif [[ -f "$ios_blocker" ]]; then
   write_design_review_blocked "$ios_blocker"
+elif [[ -f "$ipad_blocker" ]]; then
+  write_design_review_blocked "$ipad_blocker"
 elif [[ -f "$macos_blocker" ]]; then
   write_design_review_blocked "$macos_blocker"
 else
-  if [[ ! -s "$ios_screenshot" || ! -s "$macos_screenshot" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce both screenshots\n' >&2
+  if [[ ! -s "$ios_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$macos_screenshot" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS screenshots\n' >&2
     exit 1
   fi
-  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce both accessibility proofs\n' >&2
+  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_ipad_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS accessibility proofs\n' >&2
     exit 1
   fi
   write_design_review_success

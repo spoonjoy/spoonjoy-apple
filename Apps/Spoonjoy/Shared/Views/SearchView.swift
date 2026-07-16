@@ -287,8 +287,18 @@ private struct SearchSurfaceThumbnail: View {
         ZStack {
             if let imageURL = row.imageURL {
                 AsyncImage(url: imageURL, transaction: imageLoadingTransaction) { phase in
+                    let readinessPhase = readinessPhase(for: phase)
                     KitchenTableImagePhaseView(phase: phase, reduceMotion: accessibilityReduceMotion) {
                         thumbnailFill
+                    }
+                    .task(id: readinessPhase) {
+                        await record(readinessPhase, id: trackingID(for: imageURL))
+                    }
+                }
+                .onDisappear {
+                    let id = trackingID(for: imageURL)
+                    Task {
+                        await ScreenshotVisualReadiness.removeMedia(id)
                     }
                 }
             } else {
@@ -325,6 +335,40 @@ private struct SearchSurfaceThumbnail: View {
             KitchenTableTheme.charcoal
         }
     }
+
+    private func trackingID(for url: URL) -> String {
+        "search-thumbnail:\(url.absoluteString)"
+    }
+
+    private func readinessPhase(for phase: AsyncImagePhase) -> SearchImageReadinessPhase {
+        switch phase {
+        case .empty:
+            .pending
+        case .success:
+            .loaded
+        case .failure:
+            .failed
+        @unknown default:
+            .failed
+        }
+    }
+
+    private func record(_ phase: SearchImageReadinessPhase, id: String) async {
+        switch phase {
+        case .pending:
+            await ScreenshotVisualReadiness.beginMedia(id)
+        case .loaded:
+            await ScreenshotVisualReadiness.finishMedia(id, succeeded: true)
+        case .failed:
+            await ScreenshotVisualReadiness.finishMedia(id, succeeded: false)
+        }
+    }
+}
+
+private enum SearchImageReadinessPhase: Hashable {
+    case pending
+    case loaded
+    case failed
 }
 
 private struct KitchenTableImagePhaseView<Placeholder: View>: View {

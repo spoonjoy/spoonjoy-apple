@@ -180,6 +180,7 @@ record_route() {
       "designReview" => design_review,
       "designReviewBlocked" => design_review_blocked,
       "iosScreenshot" => artifact(route_root, "screenshots/ios-mobile.png"),
+      "iosTabletScreenshot" => artifact(route_root, "screenshots/ios-tablet.png"),
       "macosScreenshot" => artifact(route_root, "screenshots/macos-desktop.png")
     }
     File.open(results_path, "a") { |file| file.puts(JSON.generate(row)) }
@@ -216,9 +217,11 @@ write_route_timeout_blocker() {
       "sourceBlockerPath" => source_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-tablet.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         "apple/#{route_slug}-accessibility-proof-ios.json",
+        "apple/#{route_slug}-accessibility-proof-ipad.json",
         "apple/#{route_slug}-accessibility-proof-macos.json"
       ],
       "reason" => reason,
@@ -229,9 +232,9 @@ write_route_timeout_blocker() {
     File.write(source_path, JSON.pretty_generate(source_blocker) + "\n")
     File.write(review_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$name" "$route" "$route_root" "$route_slug" "$command" "$output_path" "$route_timeout_seconds"
-  rm -f "$route_root/screenshots/ios-mobile.png" "$route_root/screenshots/macos-desktop.png"
+  rm -f "$route_root/screenshots/ios-mobile.png" "$route_root/screenshots/ios-tablet.png" "$route_root/screenshots/macos-desktop.png"
   rm -f "$route_root/design-review.json"
-  rm -f "$route_root/apple/${route_slug}-accessibility-proof-ios.json" "$route_root/apple/${route_slug}-accessibility-proof-macos.json"
+  rm -f "$route_root/apple/${route_slug}-accessibility-proof-ios.json" "$route_root/apple/${route_slug}-accessibility-proof-ipad.json" "$route_root/apple/${route_slug}-accessibility-proof-macos.json"
 }
 
 run_route_capture_with_timeout() {

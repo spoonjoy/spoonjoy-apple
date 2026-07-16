@@ -48,6 +48,19 @@ struct KitchenTableLoadingStateView: View {
         .transition(accessibilityReduceMotion ? .identity : .opacity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
+        .task(id: readinessID) {
+            await ScreenshotVisualReadiness.beginBlockingIndicator(readinessID)
+            do {
+                try await Task.sleep(nanoseconds: .max)
+            } catch {
+                // View disappearance cancels the task and releases the readiness blocker.
+            }
+            await ScreenshotVisualReadiness.endBlockingIndicator(readinessID)
+        }
+    }
+
+    private var readinessID: String {
+        "route-loading:\(title)"
     }
 }
 
