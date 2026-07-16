@@ -8,7 +8,7 @@
 - Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-native-cover-normalization` / OS: `Darwin` / probed: 2026-07-15 19:56 -0700
 - Doing doc: `worker/tasks/2026-07-15-1956-doing-native-cover-normalization-n2.md`
 - Artifact root: `artifacts/apple/native-cover-normalization-n2/`
-- Current phase: Unit 4a red tests complete; starting Unit 4b implementation
+- Current phase: Unit 4b implementation complete; starting Unit 4c verification
 - Scope guard: no web worktree edits, no `clem-feedback` worktree edits, no production mutation, no TestFlight publishing, no mutation single-flight or Photo Studio UI work.
 
 ## Historical Full Moon Context

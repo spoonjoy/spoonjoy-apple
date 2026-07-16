@@ -35,10 +35,11 @@ Output: Cover transcoder tests plus cover surface, staging, API request, and syn
 Acceptance: Tests fail because raw HEIC and over-contract bytes can currently reach staging/transport.
 Evidence: `artifacts/apple/native-cover-normalization-n2/unit-4a-cover-red.log`.
 
-### [ ] Unit 4b: Native Cover Image Normalization Implementation
+### [x] Unit 4b: Native Cover Image Normalization Implementation
 What: Add a cover-specific ImageIO normalizer that applies orientation, bounds dimensions, emits JPEG, adaptively fits the 5 MiB contract, and leaves prior state untouched on failure; route both immediate and queued paths through it.
 Output: Dedicated cover image normalization module and narrow caller changes; atomic native PR N2.
 Acceptance: Unit 4a passes; no native cover request or queued replay emits HEIC/HEIF or bytes above the server ceiling.
+Evidence: `artifacts/apple/native-cover-normalization-n2/unit-4b-cover-green.log`, `artifacts/apple/native-cover-normalization-n2/unit-4b-cover-warning-scan.log`, `artifacts/apple/native-cover-normalization-n2/unit-4b-swift-build.log`, `artifacts/apple/native-cover-normalization-n2/unit-4b-build-warning-scan.log`.
 
 ### [ ] Unit 4c: Native Cover Image Verification
 What: Run focused cover/cache/sync/API tests, Swift coverage, scenario verifier, app-target builds, and fresh implementation/performance review.
@@ -52,3 +53,4 @@ Generated validation artifacts are stored under ignored local path `artifacts/ap
 
 - 2026-07-15 19:56 Created native-local N2 doing doc from upstream Units 4a-4c, with scope boundaries and native justification note.
 - 2026-07-15 20:06 Unit 4a complete: added red cover normalization contracts for HEIC/HEIF orientation, JPEG/PNG/WebP normalization, corrupt input preservation, immediate upload, durable staging, queued replay, 2048 px bounding, and the 5 MiB server ceiling.
+- 2026-07-15 20:13 Unit 4b complete: implemented ImageIO JPEG normalization, hooked staging, immediate upload, and queued replay, and confirmed focused cover contracts plus warning-clean Swift build.

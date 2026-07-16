@@ -8,7 +8,10 @@ Generated validation artifacts live under ignored local path `artifacts/apple/na
 
 ## Green Evidence
 
-- Pending.
+- `artifacts/apple/native-cover-normalization-n2/unit-4b-cover-green.log`: focused `swift test --filter CoverControlSurfaceTests --disable-xctest -Xswiftc -warnings-as-errors` passed after the ImageIO normalizer routed staging, immediate upload, durable staging, and queued replay through JPEG normalization.
+- `artifacts/apple/native-cover-normalization-n2/unit-4b-cover-warning-scan.log`: warning scan over the focused cover test log passed.
+- `artifacts/apple/native-cover-normalization-n2/unit-4b-swift-build.log`: `swift build -Xswiftc -warnings-as-errors` passed.
+- `artifacts/apple/native-cover-normalization-n2/unit-4b-build-warning-scan.log`: warning scan over the focused Swift build log passed.
 
 ## Final Validation Evidence
 
