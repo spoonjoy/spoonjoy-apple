@@ -650,12 +650,7 @@ struct CoverControlSurfaceTests {
         #expect(policy.fileExtension(for: "image/heif") == "jpg")
         #expect(policy.fileExtension(for: "image/gif") == nil)
 
-        let heicBytes = try fixtureImageData(
-            width: 320,
-            height: 180,
-            typeIdentifier: UTType.heic.identifier,
-            orientation: CGImagePropertyOrientation.right.rawValue
-        )
+        let heicBytes = orientedHEICFixtureData()
         let accepted = policy.stageSelection(
             existing: nil,
             data: heicBytes,
@@ -671,8 +666,8 @@ struct CoverControlSurfaceTests {
         #expect(staged.byteCount <= coverUploadServerByteCeiling)
         #expect(staged.data != heicBytes)
         let orientedSize = try assertNormalizedCoverJPEG(staged)
-        #expect(orientedSize.width == 180)
-        #expect(orientedSize.height == 320)
+        #expect(orientedSize.width == 20)
+        #expect(orientedSize.height == 32)
 
         let queuedCover = NativeQueuedMutation.coverUpload(
             recipeID: "recipe/lemon",
@@ -759,9 +754,9 @@ struct CoverControlSurfaceTests {
         let samples: [(label: String, data: Data, contentType: String, expectedMaxDimension: Int)] = [
             (
                 "heif",
-                try fixtureImageData(width: 300, height: 180, typeIdentifier: UTType.heic.identifier),
+                orientedHEICFixtureData(),
                 "image/heif",
-                300
+                32
             ),
             (
                 "jpeg",
@@ -972,12 +967,7 @@ struct CoverControlSurfaceTests {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
         let staged = try #require(policy.stageSelection(
             existing: nil,
-            data: try fixtureImageData(
-                width: 2050,
-                height: 32,
-                typeIdentifier: UTType.heic.identifier,
-                orientation: CGImagePropertyOrientation.left.rawValue
-            ),
+            data: orientedHEICFixtureData(),
             contentType: "image/heic",
             localStageID: "cover-stage-durable",
             existingUsage: .zero
@@ -1440,6 +1430,10 @@ private func fixtureCGImage(width: Int, height: Int, pattern: FixtureImagePatter
 
 private func webPFixtureData() -> Data {
     Data(base64Encoded: "UklGRiIAAABXRUJQVlA4IBYAAAAwAQCdASoBAAEADsD+JaQAA3AAAAAA")!
+}
+
+private func orientedHEICFixtureData() -> Data {
+    Data(base64Encoded: "AAAAJGZ0eXBoZWljAAAAAG1pZjFNaVBybWlhZk1pSEJoZWljAAABw21ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAHBpY3QAAAAAAAAAAAAAAAAAAAAAJGRpbmYAAAAcZHJlZgAAAAAAAAABAAAADHVybCAAAAABAAAADnBpdG0AAAAAAAEAAAA4aWluZgAAAAAAAgAAABVpbmZlAgAAAAABAABodmMxAAAAABVpbmZlAgAAAQACAABFeGlmAAAAABppcmVmAAAAAAAAAA5jZHNjAAIAAQABAAAA5mlwcnAAAADFaXBjbwAAABNjb2xybmNseAACAAIABoAAAAAMY2xsaQDLAEAAAAAUaXNwZQAAAAAAAAAgAAAAFAAAAAlpcm90AwAAABBwaXhpAAAAAAMICAgAAABxaHZjQwEDcAAAALAAAAAAAB7wAPz9+PgAAAsDoAABABdAAQwB//8DcAAAAwCwAAADAAADAB5wJKEAAQAjQgEBA3AAAAMAsAAAAwAAAwAeoBQgQcCDC+Ie5FlU3AgIGAKiAAEACUQBwGCsshAUyQAAABlpcG1hAAAAAAAAAAEAAQaBAgMFhoQAAAAsaWxvYwAAAABEAAACAAEAAAABAAACGwAAARAAAgAAAAEAAAH3AAAAJAAAAAFtZGF0AAAAAAAAAUQAAAAGRXhpZgAATU0AKgAAAAgAAQESAAMAAAABAAYAAAAAAAAAAAEMKAGvoR+wU6FZ6vWpo0wGyMw7MqCtu7r/Ip2W/j22jrAPHjczIDZ3qpbauwkOYbeMUjme+orlDuO+OZylTV/YYzetDyM9w6406sDhjl0bJ0SIrEjuiFgvAy5b7DvP31Ege0GtcF6Uyx+3DQ/bRz3GfFOH/7tup8pt8T47g7IQ7FPBZe9Y1TgQ/aY29a4rCOtuuSpY86XLSnliCIy5Gxhchyh3Jmo5kUUyE1r74Ve8nRd2byPeQCDp4P/C6kZaZtktAmn8EsO4Rr+Pu1itDoBni1ruvKg9GpmCZoI3PjtSMNQd5K75fGNH+E7i/PXsPoWCLf7//v/0f//iLPf/86K6E4MJ/YBZWN4T0F5VYA==")!
 }
 
 private func assertJSONRequest(
