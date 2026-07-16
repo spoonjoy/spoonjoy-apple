@@ -704,7 +704,7 @@ async function installLaunchd() {
     results.push({ label: item.label, plistPath });
   }
 
-  const install = await waitForInstallConfig();
+  const install = await waitForInstallConfig({ definitions: plists });
   if (!install.ok) throw new Error(`Launchd install validation failed: ${install.issues.join("; ")}`);
   const localHealth = await waitForLocalHealth();
   const localHealthIssues = healthIssues("local", localHealth);
@@ -1682,11 +1682,15 @@ function parseLaunchctl(label) {
   };
 }
 
-function validateInstallConfig({ deadline = Number.POSITIVE_INFINITY, clock = Date.now } = {}) {
+function validateInstallConfig({
+  deadline = Number.POSITIVE_INFINITY,
+  clock = Date.now,
+  definitions = null,
+} = {}) {
   const items = {};
   const issues = [];
   const remainingTimeout = () => Math.max(0, Math.min(SUBPROCESS_TIMEOUT_MS, deadline - clock()));
-  for (const definition of launchAgentDefinitions()) {
+  for (const definition of definitions || launchAgentDefinitions()) {
     const { label } = definition;
     const plistPath = launchAgentPath(label);
     const plist = readLaunchAgentPlist(label, { timeoutMs: remainingTimeout() });
@@ -1898,6 +1902,14 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     sleeper: async (milliseconds) => { installDeadlineClock += milliseconds; },
     clock: () => installDeadlineClock,
   });
+  const definitionReuse = await waitForInstallConfig({
+    attempts: 1,
+    definitions,
+    validator: ({ definitions: candidateDefinitions }) => ({
+      ok: candidateDefinitions === definitions,
+      issues: candidateDefinitions === definitions ? [] : ["installed definitions were not reused"],
+    }),
+  });
   const subprocessStartedAt = Date.now();
   const subprocessResult = runBoundedCommand(
     process.execPath,
@@ -1985,6 +1997,7 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     transientLaunchdConvergence,
     timedOutLaunchdConvergence,
     deadlineLaunchdConvergence,
+    definitionReuse,
     hungSubprocess,
     htmlHealthFailure,
     transientPublicHealth,
@@ -2299,6 +2312,7 @@ async function waitForInstallConfig({
   validator = validateInstallConfig,
   sleeper = sleep,
   clock = Date.now,
+  definitions = null,
 } = {}) {
   let install = null;
   let attemptsUsed = 0;
@@ -2307,7 +2321,7 @@ async function waitForInstallConfig({
   const deadline = startedAt + timeoutMs;
   for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
     if (clock() >= deadline) break;
-    install = validator({ deadline, clock });
+    install = validator({ deadline, clock, definitions });
     attemptsUsed += 1;
     if (install.ok) return { ...install, attemptsUsed, timedOut: false };
     if (attempt + 1 >= maximumAttempts) break;
