@@ -39,6 +39,10 @@ const LISTENER_LABEL = "com.spoonjoy.testflight-feedback-listener";
 const TUNNEL_LABEL = "com.spoonjoy.testflight-feedback-tunnel";
 const RECONCILE_LABEL = "com.spoonjoy.testflight-feedback-reconcile";
 const CLOUDFLARED_CONFIG = path.join(homedir(), ".cloudflared/spoonjoy-testflight-feedback.yml");
+const INSTALL_VALIDATION_ATTEMPTS = 40;
+const INSTALL_VALIDATION_DELAY_MS = 250;
+const PUBLIC_HEALTH_ATTEMPTS = 180;
+const PUBLIC_HEALTH_DELAY_MS = 1_000;
 
 const command = process.argv[2] || "help";
 const args = process.argv.slice(3);
@@ -695,7 +699,7 @@ async function installLaunchd() {
     results.push({ label: item.label, plistPath });
   }
 
-  const install = validateInstallConfig();
+  const install = await waitForInstallConfig();
   if (!install.ok) throw new Error(`Launchd install validation failed: ${install.issues.join("; ")}`);
   const localHealth = await waitForLocalHealth();
   const localHealthIssues = healthIssues("local", localHealth);
@@ -1614,10 +1618,28 @@ function latestDeliveryByEvent(deliveries) {
 async function fetchJson(url) {
   try {
     const response = await fetch(url);
-    return { ok: response.ok, status: response.status, body: await response.json() };
+    return await jsonResponse(response);
   } catch (error) {
     return { ok: false, error: error.message };
   }
+}
+
+async function jsonResponse(response) {
+  const text = await response.text();
+  const body = safeJson(text);
+  if (!body || typeof body !== "object") {
+    return {
+      ok: false,
+      status: response.status,
+      error: `HTTP ${response.status} (non-JSON response)`,
+    };
+  }
+  return {
+    ok: response.ok,
+    status: response.status,
+    body,
+    ...(response.ok ? {} : { error: `HTTP ${response.status}` }),
+  };
 }
 
 function launchdSummary() {
@@ -1779,7 +1801,7 @@ function managedEnvironment(environment) {
   ));
 }
 
-function selfTestLaunchdValidation() {
+async function selfTestLaunchdValidation() {
   const executable = "/opt/homebrew/bin/cloudflared";
   const config = "/Users/tester/.cloudflared/spoonjoy-testflight-feedback.yml";
   const workingDirectory = "/Users/tester/Projects/spoonjoy-apple";
@@ -1832,8 +1854,39 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
   };
   const tunnelValues = tunnelDefinition.values;
   const reconcileValues = reconcileDefinition.values;
+  const transientReports = [
+    { ok: false, issues: ["loaded launchd state is xpcproxy, expected running"] },
+    { ok: false, issues: ["loaded launchd last exit code is (missing), expected 0"] },
+    { ok: true, issues: [] },
+  ];
+  let transientIndex = 0;
+  const transientLaunchdConvergence = await waitForInstallConfig({
+    attempts: transientReports.length,
+    delayMs: 0,
+    validator: () => transientReports[Math.min(transientIndex++, transientReports.length - 1)],
+    sleeper: async () => {},
+  });
+  const timedOutLaunchdConvergence = await waitForInstallConfig({
+    attempts: 3,
+    delayMs: 0,
+    validator: () => ({ ok: false, issues: ["loaded launchd state is xpcproxy, expected running"] }),
+    sleeper: async () => {},
+  });
+  const htmlHealthFailure = await jsonResponse(new Response("<!doctype html>", {
+    status: 530,
+    headers: { "content-type": "text/html" },
+  }));
   console.log(JSON.stringify({
     healthContract: healthPayload(),
+    healthWaitPolicy: {
+      installAttempts: INSTALL_VALIDATION_ATTEMPTS,
+      installDelayMilliseconds: INSTALL_VALIDATION_DELAY_MS,
+      publicAttempts: PUBLIC_HEALTH_ATTEMPTS,
+      publicDelayMilliseconds: PUBLIC_HEALTH_DELAY_MS,
+    },
+    transientLaunchdConvergence,
+    timedOutLaunchdConvergence,
+    htmlHealthFailure,
     expectedTunnelProgramArguments: exact,
     exactHTTP2: validate(tunnelDefinition, tunnelValues, tunnelValues),
     legacyQUIC: validate(
@@ -2025,12 +2078,32 @@ async function waitForLocalHealth(attempts = 20, delayMs = 250) {
   return health;
 }
 
-async function waitForPublicHealth(attempts = 20, delayMs = 500) {
+async function waitForInstallConfig({
+  attempts = INSTALL_VALIDATION_ATTEMPTS,
+  delayMs = INSTALL_VALIDATION_DELAY_MS,
+  validator = validateInstallConfig,
+  sleeper = sleep,
+} = {}) {
+  let install = null;
+  const maximumAttempts = Math.max(1, attempts);
+  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    install = validator();
+    if (install.ok) return { ...install, attemptsUsed: attempt + 1 };
+    if (attempt + 1 < maximumAttempts) await sleeper(delayMs);
+  }
+  return { ...(install || { ok: false, issues: ["launchd validation did not run"] }), attemptsUsed: maximumAttempts };
+}
+
+async function waitForPublicHealth(attempts = PUBLIC_HEALTH_ATTEMPTS, delayMs = PUBLIC_HEALTH_DELAY_MS) {
   let health = null;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     health = await fetchJson(`${PUBLIC_FEEDBACK_BASE_URL}/health`);
     if (healthIssues("public", health).length === 0) return health;
-    if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, delayMs));
+    if (attempt + 1 < attempts) await sleep(delayMs);
   }
   return health;
+}
+
+function sleep(delayMs) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
