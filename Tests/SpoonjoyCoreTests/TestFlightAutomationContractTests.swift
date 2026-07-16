@@ -1,5 +1,8 @@
 import Foundation
 import Testing
+#if canImport(Darwin)
+import Darwin
+#endif
 
 @Suite("TestFlight release containment contract")
 struct TestFlightAutomationContractTests {
@@ -149,6 +152,7 @@ struct TestFlightAutomationContractTests {
         let failedScheduledJob = try #require(report["failedScheduledJob"] as? [String: Any])
         let transientConvergence = try #require(report["transientLaunchdConvergence"] as? [String: Any])
         let timedOutConvergence = try #require(report["timedOutLaunchdConvergence"] as? [String: Any])
+        let deadlineConvergence = try #require(report["deadlineLaunchdConvergence"] as? [String: Any])
         let hungSubprocess = try #require(report["hungSubprocess"] as? [String: Any])
         let healthWaitPolicy = try #require(report["healthWaitPolicy"] as? [String: Any])
         let htmlHealthFailure = try #require(report["htmlHealthFailure"] as? [String: Any])
@@ -156,6 +160,7 @@ struct TestFlightAutomationContractTests {
         let exhaustedPublicHealth = try #require(report["exhaustedPublicHealth"] as? [String: Any])
         let hungLocalHealth = try #require(report["hungLocalHealth"] as? [String: Any])
         let deadlinePublicHealth = try #require(report["deadlinePublicHealth"] as? [String: Any])
+        let rejectedHealthContracts = try #require(report["rejectedHealthContracts"] as? [String: Any])
         let healthContract = try #require(report["healthContract"] as? [String: Any])
 
         #expect(exact["ok"] as? Bool == true)
@@ -179,11 +184,15 @@ struct TestFlightAutomationContractTests {
         #expect(
             (timedOutConvergence["issues"] as? [String])?.contains(where: { $0.contains("xpcproxy") }) == true
         )
+        #expect(deadlineConvergence["ok"] as? Bool == false)
+        #expect(deadlineConvergence["attemptsUsed"] as? Int == 2)
+        #expect(deadlineConvergence["timedOut"] as? Bool == true)
         #expect(hungSubprocess["timedOut"] as? Bool == true)
         #expect(hungSubprocess["signal"] as? String == "SIGKILL")
         #expect(hungSubprocess["elapsedMilliseconds"] as? Int ?? .max < 1_000)
         #expect(healthWaitPolicy["installAttempts"] as? Int == 40)
         #expect(healthWaitPolicy["installDelayMilliseconds"] as? Int == 250)
+        #expect(healthWaitPolicy["installTimeoutMilliseconds"] as? Int == 15_000)
         #expect(healthWaitPolicy["subprocessTimeoutMilliseconds"] as? Int == 10_000)
         #expect(healthWaitPolicy["localRequestTimeoutMilliseconds"] as? Int == 2_000)
         #expect(healthWaitPolicy["publicAttempts"] as? Int == 180)
@@ -209,6 +218,10 @@ struct TestFlightAutomationContractTests {
         #expect(deadlinePublicHealth["ok"] as? Bool == false)
         #expect(deadlinePublicHealth["attemptsUsed"] as? Int == 2)
         #expect(deadlinePublicHealth["timedOut"] as? Bool == true)
+        for key in ["bodyNotOk", "wrongApp", "wrongBundle", "wrongProcess"] {
+            let issues = try #require(rejectedHealthContracts[key] as? [String])
+            #expect(!issues.isEmpty, "health contract case \(key) must be rejected")
+        }
         #expect(healthContract["deploymentIdentity"] as? String == "spoonjoy-testflight-feedback-autopilot")
         let scriptDigest = try #require(healthContract["scriptDigest"] as? String)
         #expect(scriptDigest.wholeMatch(of: /[0-9a-f]{64}/) != nil)
@@ -647,7 +660,8 @@ private func readTestFlightAutomationRepoFile(_ relativePath: String) throws -> 
 
 private func runTestFlightFeedbackAutopilot(
     command: String,
-    environmentOverrides: [String: String] = [:]
+    environmentOverrides: [String: String] = [:],
+    timeout: TimeInterval = 20
 ) throws -> TestFlightProcessResult {
     let process = Process()
     let output = Pipe()
@@ -660,13 +674,33 @@ private func runTestFlightFeedbackAutopilot(
     process.environment = ProcessInfo.processInfo.environment.merging(environmentOverrides) { _, override in override }
     process.standardOutput = output
     process.standardError = output
+    let exited = DispatchSemaphore(value: 0)
+    process.terminationHandler = { _ in exited.signal() }
     try process.run()
-    process.waitUntilExit()
+    if exited.wait(timeout: .now() + timeout) == .timedOut {
+        process.terminate()
+        if exited.wait(timeout: .now() + 1) == .timedOut {
+            #if canImport(Darwin)
+            Darwin.kill(process.processIdentifier, SIGKILL)
+            #endif
+            _ = exited.wait(timeout: .now() + 1)
+        }
+        throw TestFlightAutomationProcessTimeout(command: command, seconds: timeout)
+    }
 
     return TestFlightProcessResult(
         status: process.terminationStatus,
         output: String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     )
+}
+
+private struct TestFlightAutomationProcessTimeout: Error, CustomStringConvertible {
+    let command: String
+    let seconds: TimeInterval
+
+    var description: String {
+        "TestFlight feedback command \(command) exceeded \(seconds) seconds"
+    }
 }
 
 private func expectTestFlightAutomationContent(
