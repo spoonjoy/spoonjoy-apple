@@ -149,11 +149,12 @@ struct TestFlightAutomationContractTests {
         let failedScheduledJob = try #require(report["failedScheduledJob"] as? [String: Any])
         let transientConvergence = try #require(report["transientLaunchdConvergence"] as? [String: Any])
         let timedOutConvergence = try #require(report["timedOutLaunchdConvergence"] as? [String: Any])
+        let hungSubprocess = try #require(report["hungSubprocess"] as? [String: Any])
         let healthWaitPolicy = try #require(report["healthWaitPolicy"] as? [String: Any])
         let htmlHealthFailure = try #require(report["htmlHealthFailure"] as? [String: Any])
         let transientPublicHealth = try #require(report["transientPublicHealth"] as? [String: Any])
         let exhaustedPublicHealth = try #require(report["exhaustedPublicHealth"] as? [String: Any])
-        let hungPublicHealth = try #require(report["hungPublicHealth"] as? [String: Any])
+        let hungLocalHealth = try #require(report["hungLocalHealth"] as? [String: Any])
         let deadlinePublicHealth = try #require(report["deadlinePublicHealth"] as? [String: Any])
         let healthContract = try #require(report["healthContract"] as? [String: Any])
 
@@ -178,8 +179,13 @@ struct TestFlightAutomationContractTests {
         #expect(
             (timedOutConvergence["issues"] as? [String])?.contains(where: { $0.contains("xpcproxy") }) == true
         )
+        #expect(hungSubprocess["timedOut"] as? Bool == true)
+        #expect(hungSubprocess["signal"] as? String == "SIGKILL")
+        #expect(hungSubprocess["elapsedMilliseconds"] as? Int ?? .max < 1_000)
         #expect(healthWaitPolicy["installAttempts"] as? Int == 40)
         #expect(healthWaitPolicy["installDelayMilliseconds"] as? Int == 250)
+        #expect(healthWaitPolicy["subprocessTimeoutMilliseconds"] as? Int == 10_000)
+        #expect(healthWaitPolicy["localRequestTimeoutMilliseconds"] as? Int == 2_000)
         #expect(healthWaitPolicy["publicAttempts"] as? Int == 180)
         #expect(healthWaitPolicy["publicDelayMilliseconds"] as? Int == 1_000)
         #expect(healthWaitPolicy["publicTimeoutMilliseconds"] as? Int == 180_000)
@@ -187,13 +193,19 @@ struct TestFlightAutomationContractTests {
         #expect(htmlHealthFailure["ok"] as? Bool == false)
         #expect(htmlHealthFailure["status"] as? Int == 530)
         #expect(htmlHealthFailure["error"] as? String == "HTTP 530 (non-JSON response)")
+        #expect(htmlHealthFailure["body"] == nil)
+        #expect(!result.output.contains("TEST_SECRET_RESPONSE_BODY_MARKER"))
         #expect(transientPublicHealth["ok"] as? Bool == true)
         #expect(transientPublicHealth["attemptsUsed"] as? Int == 3)
         #expect(exhaustedPublicHealth["ok"] as? Bool == false)
         #expect(exhaustedPublicHealth["attemptsUsed"] as? Int == 2)
-        #expect(hungPublicHealth["ok"] as? Bool == false)
-        #expect(hungPublicHealth["attemptsUsed"] as? Int == 1)
-        #expect(hungPublicHealth["error"] as? String == "request timed out after 5ms")
+        #expect(hungLocalHealth["ok"] as? Bool == false)
+        #expect(hungLocalHealth["requestSeen"] as? Bool == true)
+        #expect(hungLocalHealth["connectionHeader"] as? String == "close")
+        #expect(hungLocalHealth["error"] as? String == "request timed out after 100ms")
+        #expect(hungLocalHealth["openConnections"] as? Int == 0)
+        #expect(hungLocalHealth["forcedCleanup"] as? Bool == false)
+        #expect(hungLocalHealth["serverClosed"] as? Bool == true)
         #expect(deadlinePublicHealth["ok"] as? Bool == false)
         #expect(deadlinePublicHealth["attemptsUsed"] as? Int == 2)
         #expect(deadlinePublicHealth["timedOut"] as? Bool == true)
@@ -223,6 +235,11 @@ struct TestFlightAutomationContractTests {
         #expect(
             (failedScheduledJob["issues"] as? [String])?.contains(where: { $0.contains("last exit code") }) == true
         )
+
+        let script = try readTestFlightAutomationRepoFile("scripts/testflight-feedback-autopilot.mjs")
+        #expect(!script.contains("spawnSync(\"launchctl\""))
+        #expect(!script.contains("spawnSync(\"/usr/bin/plutil\""))
+        #expect(!script.contains("requester: async () => new Promise(() => {})"))
     }
 
     @Test("TestFlight feedback help uses the live public tunnel hostname")

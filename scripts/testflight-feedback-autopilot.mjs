@@ -41,6 +41,8 @@ const RECONCILE_LABEL = "com.spoonjoy.testflight-feedback-reconcile";
 const CLOUDFLARED_CONFIG = path.join(homedir(), ".cloudflared/spoonjoy-testflight-feedback.yml");
 const INSTALL_VALIDATION_ATTEMPTS = 40;
 const INSTALL_VALIDATION_DELAY_MS = 250;
+const SUBPROCESS_TIMEOUT_MS = 10_000;
+const LOCAL_HEALTH_REQUEST_TIMEOUT_MS = 2_000;
 const PUBLIC_HEALTH_ATTEMPTS = 180;
 const PUBLIC_HEALTH_DELAY_MS = 1_000;
 const PUBLIC_HEALTH_TIMEOUT_MS = 180_000;
@@ -675,7 +677,7 @@ async function retryFeedback() {
 
 async function installLaunchd() {
   ensureRuntime();
-  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
+  const uid = currentUserId();
   const nodePath = resolveExecutable("node", process.execPath);
   const codexPath = resolveExecutable("codex", DEFAULT_CODEX);
   const ouroPath = resolveExecutable("ouro", DEFAULT_OURO);
@@ -1621,7 +1623,10 @@ async function fetchJson(url, { timeoutMs = PUBLIC_HEALTH_REQUEST_TIMEOUT_MS, fe
   const controller = new AbortController();
   try {
     return await raceWithTimeout(
-      async () => jsonResponse(await fetcher(url, { signal: controller.signal })),
+      async () => jsonResponse(await fetcher(url, {
+        signal: controller.signal,
+        headers: { connection: "close" },
+      })),
       timeoutMs,
       () => {
         controller.abort();
@@ -1660,8 +1665,8 @@ function launchdSummary() {
 }
 
 function parseLaunchctl(label) {
-  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
-  const result = spawnSync("launchctl", ["print", `gui/${uid}/${label}`], { encoding: "utf8" });
+  const uid = currentUserId();
+  const result = runBoundedCommand("launchctl", ["print", `gui/${uid}/${label}`]);
   if (result.status !== 0) return { label, loaded: false };
   const definition = parseLaunchctlDefinition(result.stdout);
   return {
@@ -1753,8 +1758,8 @@ function validateLaunchAgentDefinition({ plistPath, plist, loaded, definition, p
 }
 
 function readLoadedLaunchAgent(label) {
-  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
-  const result = spawnSync("launchctl", ["print", `gui/${uid}/${label}`], { encoding: "utf8" });
+  const uid = currentUserId();
+  const result = runBoundedCommand("launchctl", ["print", `gui/${uid}/${label}`]);
   if (result.status !== 0) return null;
   return parseLaunchctlDefinition(result.stdout);
 }
@@ -1881,7 +1886,18 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     validator: () => ({ ok: false, issues: ["loaded launchd state is xpcproxy, expected running"] }),
     sleeper: async () => {},
   });
-  const htmlHealthFailure = await jsonResponse(new Response("<!doctype html>", {
+  const subprocessStartedAt = Date.now();
+  const subprocessResult = runBoundedCommand(
+    process.execPath,
+    ["-e", "setTimeout(() => {}, 60_000)"],
+    { timeoutMs: 25 },
+  );
+  const hungSubprocess = {
+    timedOut: subprocessTimedOut(subprocessResult),
+    signal: subprocessResult.signal,
+    elapsedMilliseconds: Date.now() - subprocessStartedAt,
+  };
+  const htmlHealthFailure = await jsonResponse(new Response("<!doctype html>TEST_SECRET_RESPONSE_BODY_MARKER", {
     status: 530,
     headers: { "content-type": "text/html" },
   }));
@@ -1907,14 +1923,7 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     requester: async () => htmlHealthFailure,
     sleeper: async () => {},
   });
-  const hungPublicHealth = await waitForPublicHealth({
-    attempts: 1,
-    delayMs: 0,
-    timeoutMs: 100,
-    requestTimeoutMs: 5,
-    requester: async () => new Promise(() => {}),
-    sleeper: async () => {},
-  });
+  const hungLocalHealth = await selfTestHungLocalHealth();
   let deadlineClock = 0;
   const deadlinePublicHealth = await waitForPublicHealth({
     attempts: PUBLIC_HEALTH_ATTEMPTS,
@@ -1930,6 +1939,8 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     healthWaitPolicy: {
       installAttempts: INSTALL_VALIDATION_ATTEMPTS,
       installDelayMilliseconds: INSTALL_VALIDATION_DELAY_MS,
+      subprocessTimeoutMilliseconds: SUBPROCESS_TIMEOUT_MS,
+      localRequestTimeoutMilliseconds: LOCAL_HEALTH_REQUEST_TIMEOUT_MS,
       publicAttempts: PUBLIC_HEALTH_ATTEMPTS,
       publicDelayMilliseconds: PUBLIC_HEALTH_DELAY_MS,
       publicTimeoutMilliseconds: PUBLIC_HEALTH_TIMEOUT_MS,
@@ -1937,10 +1948,11 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     },
     transientLaunchdConvergence,
     timedOutLaunchdConvergence,
+    hungSubprocess,
     htmlHealthFailure,
     transientPublicHealth,
     exhaustedPublicHealth,
-    hungPublicHealth,
+    hungLocalHealth,
     deadlinePublicHealth,
     expectedTunnelProgramArguments: exact,
     exactHTTP2: validate(tunnelDefinition, tunnelValues, tunnelValues),
@@ -2004,7 +2016,7 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
 function readLaunchAgentPlist(label) {
   const plistPath = launchAgentPath(label);
   if (!existsSync(plistPath)) return null;
-  const result = spawnSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", plistPath], { encoding: "utf8" });
+  const result = runBoundedCommand("/usr/bin/plutil", ["-convert", "json", "-o", "-", plistPath]);
   if (result.status !== 0) return null;
   return safeJson(result.stdout);
 }
@@ -2043,17 +2055,46 @@ function healthPayload() {
 }
 
 function resolveExecutable(name, fallback) {
-  const result = spawnSync("/usr/bin/which", [name], { encoding: "utf8" });
+  const result = runBoundedCommand("/usr/bin/which", [name]);
   const resolved = result.status === 0 ? result.stdout.trim() : "";
   return resolved || fallback;
 }
 
 function runLaunchctl(args, options = {}) {
-  const result = spawnSync("launchctl", args, { encoding: "utf8" });
+  const result = runBoundedCommand("launchctl", args);
   if (result.status !== 0 && !options.allowFailure) {
-    throw new Error(`launchctl ${args.join(" ")} failed: ${result.stderr || result.stdout || `exit ${result.status}`}`);
+    const reason = subprocessTimedOut(result)
+      ? `timed out after ${SUBPROCESS_TIMEOUT_MS}ms`
+      : result.stderr || result.stdout || `exit ${result.status}`;
+    throw new Error(`launchctl ${args.join(" ")} failed: ${reason}`);
   }
   return result;
+}
+
+function currentUserId() {
+  if (process.getuid) return process.getuid();
+  const result = runBoundedCommand("id", ["-u"]);
+  const uid = Number(String(result.stdout || "").trim());
+  if (result.status !== 0 || !Number.isInteger(uid)) {
+    const reason = subprocessTimedOut(result)
+      ? `timed out after ${SUBPROCESS_TIMEOUT_MS}ms`
+      : result.stderr || result.stdout || `exit ${result.status}`;
+    throw new Error(`Unable to resolve the current user id: ${reason}`);
+  }
+  return uid;
+}
+
+function runBoundedCommand(executable, args, { timeoutMs = SUBPROCESS_TIMEOUT_MS, ...options } = {}) {
+  return spawnSync(executable, args, {
+    ...options,
+    encoding: options.encoding || "utf8",
+    timeout: Math.max(1, timeoutMs),
+    killSignal: "SIGKILL",
+  });
+}
+
+function subprocessTimedOut(result) {
+  return result.error?.code === "ETIMEDOUT";
 }
 
 function buildPlist(values) {
@@ -2114,13 +2155,12 @@ function notify(title, message) {
   ], { stdio: "ignore", detached: true }).unref();
 }
 
-async function fetchHealth() {
-  try {
-    const response = await fetch(`http://${DEFAULT_HOST}:${DEFAULT_PORT}/health`);
-    return { ok: response.ok, status: response.status, body: await response.json() };
-  } catch (error) {
-    return { ok: false, error: error.message };
-  }
+async function fetchHealth({
+  url = `http://${DEFAULT_HOST}:${DEFAULT_PORT}/health`,
+  timeoutMs = LOCAL_HEALTH_REQUEST_TIMEOUT_MS,
+  fetcher = fetch,
+} = {}) {
+  return fetchJson(url, { timeoutMs, fetcher });
 }
 
 async function waitForLocalHealth(attempts = 20, delayMs = 250) {
@@ -2131,6 +2171,72 @@ async function waitForLocalHealth(attempts = 20, delayMs = 250) {
     if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, delayMs));
   }
   return health;
+}
+
+async function selfTestHungLocalHealth() {
+  const sockets = new Set();
+  let requestSeen = false;
+  let connectionHeader = null;
+  const server = createServer((request) => {
+    requestSeen = true;
+    connectionHeader = String(request.headers.connection || "");
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+
+  await new Promise((resolve, reject) => {
+    const handleError = (error) => reject(error);
+    server.once("error", handleError);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", handleError);
+      resolve();
+    });
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    server.close();
+    throw new Error("Loopback health self-test did not receive a TCP port");
+  }
+
+  const health = await fetchHealth({
+    url: `http://127.0.0.1:${address.port}/health`,
+    timeoutMs: 100,
+  });
+  let closeError = null;
+  let serverClosed = false;
+  const closePromise = new Promise((resolve) => {
+    server.close((error) => {
+      closeError = error;
+      serverClosed = true;
+      resolve();
+    });
+  });
+  const forcedCleanup = !(await waitForCondition(() => serverClosed, 1_000));
+  if (forcedCleanup) {
+    for (const socket of sockets) socket.destroy();
+  }
+  await closePromise;
+  if (closeError) throw closeError;
+
+  return {
+    ...health,
+    requestSeen,
+    connectionHeader,
+    openConnections: sockets.size,
+    forcedCleanup,
+    serverClosed: serverClosed && !server.listening,
+  };
+}
+
+async function waitForCondition(predicate, timeoutMs, delayMs = 10) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate() && Date.now() < deadline) {
+    await sleep(Math.min(delayMs, Math.max(1, deadline - Date.now())));
+  }
+  return predicate();
 }
 
 async function waitForInstallConfig({
