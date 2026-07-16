@@ -718,6 +718,22 @@ struct CoverControlSurfaceTests {
         )
         #expect(emptyCandidate == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: .emptyData))
 
+        let metadataOnlyCandidate = NativeStagedMediaUpload(
+            localStageID: "cover-stage-metadata-only",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            byteCount: 1
+        )
+        let metadataOnly = policy.stageSelection(
+            existing: staged,
+            candidate: metadataOnlyCandidate,
+            existingUsage: .zero
+        )
+        #expect(metadataOnly == RecipeCoverPhotoStagingResult(
+            stagedPhoto: metadataOnlyCandidate,
+            rejection: nil
+        ))
+
         let oversized = policy.stageSelection(
             existing: staged,
             data: Data(),
@@ -1152,6 +1168,19 @@ struct CoverControlSurfaceTests {
                 limitFiles: policy.mediaPolicy.maxUnsyncedUserSelectedFilesPerAccount,
                 silentEvictionAllowed: false
             ))
+        ))
+
+        let validJPEG = try fixtureImageData(width: 16, height: 16, typeIdentifier: UTType.jpeg.identifier)
+        let remainingByteRejected = policy.stageSelection(
+            existing: nil,
+            data: validJPEG,
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-remaining-byte-cap",
+            existingUsage: RecipeCoverPhotoStagedMediaUsage(byteCount: maxBytes - 1, fileCount: 0)
+        )
+        #expect(remainingByteRejected == RecipeCoverPhotoStagingResult(
+            stagedPhoto: nil,
+            rejection: .media(.accountByteCapReached(limitBytes: maxBytes, silentEvictionAllowed: false))
         ))
 
         let replacement = policy.stageSelection(
