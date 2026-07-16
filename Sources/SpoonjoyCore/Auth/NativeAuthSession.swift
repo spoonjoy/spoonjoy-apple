@@ -19,6 +19,7 @@ public struct NativeAuthSignInStart: Equatable, Sendable {
     public let clientID: String
     public let redirectURI: URL
     public let authorizationURL: URL
+    public let providerHint: OAuthProviderHint?
 }
 
 public enum NativeAuthSession {
@@ -50,14 +51,16 @@ public enum NativeAuthSession {
         redirectURI: URL,
         scope: String,
         state: OAuthState,
-        codeChallenge: String
+        codeChallenge: String,
+        providerHint: OAuthProviderHint? = nil
     ) throws -> URL {
         let builder = try OAuthRequests.authorize(
             clientID: clientID,
             redirectURI: redirectURI,
             scope: scope,
             state: state,
-            codeChallenge: codeChallenge
+            codeChallenge: codeChallenge,
+            providerHint: providerHint
         )
         var components = URLComponents()
         components.scheme = "https"

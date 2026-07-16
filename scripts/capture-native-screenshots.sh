@@ -1524,11 +1524,11 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
         },
         "capture-signed-out" => {
-          "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
-          "keyboardNavigationTargets" => ["native sign-in email or username", "native sign-in password", "native Apple sign-in", "Settings"],
+          "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Google OAuth sign-in", "native GitHub OAuth sign-in", "native Apple sign-in", "native password sign-in"],
+          "keyboardNavigationTargets" => ["native sign-in email or username", "native sign-in password", "native Google OAuth sign-in", "native GitHub OAuth sign-in", "native Apple sign-in", "Settings"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
           "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
-          "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
+          "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "OAuthProviderHint", "SignInWithAppleButton"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "settings" => {
