@@ -116,6 +116,53 @@ struct OAuthRequestTests {
         #expect(request.queryItems.contains { $0.name == "resource" } == false)
     }
 
+    @Test("authorize request carries exact provider hints for first-party native buttons")
+    func authorizeRequestCarriesExactProviderHintsForFirstPartyNativeButtons() throws {
+        let state = try #require(OAuthState(rawValue: "state_123"))
+        let google = try OAuthRequests.authorize(
+            clientID: "cm_client_id_from_register",
+            redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
+            scope: "kitchen:read shopping_list:read",
+            state: state,
+            codeChallenge: "pkce_s256_challenge",
+            providerHint: .google
+        )
+        .urlRequest(configuration: .spoonjoyProduction)
+        let github = try OAuthRequests.authorize(
+            clientID: "cm_client_id_from_register",
+            redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
+            scope: "kitchen:read shopping_list:read",
+            state: state,
+            codeChallenge: "pkce_s256_challenge",
+            providerHint: .github
+        )
+        .urlRequest(configuration: .spoonjoyProduction)
+
+        #expect(google.method == .get)
+        #expect(google.url.path == "/oauth/authorize")
+        #expect(google.headers["Authorization"] == nil)
+        #expect(google.queryItems.filter { $0.name == "provider" } == [
+            URLQueryItem(name: "provider", value: "google")
+        ])
+        #expect(google.queryItems.first { $0.name == "client_id" }?.value == "cm_client_id_from_register")
+        #expect(google.queryItems.first { $0.name == "redirect_uri" }?.value == "https://spoonjoy.app/oauth/callback")
+        #expect(google.queryItems.first { $0.name == "state" }?.value == "state_123")
+        #expect(google.queryItems.first { $0.name == "code_challenge" }?.value == "pkce_s256_challenge")
+        #expect(google.queryItems.first { $0.name == "code_challenge_method" }?.value == "S256")
+
+        #expect(github.method == .get)
+        #expect(github.url.path == "/oauth/authorize")
+        #expect(github.headers["Authorization"] == nil)
+        #expect(github.queryItems.filter { $0.name == "provider" } == [
+            URLQueryItem(name: "provider", value: "github")
+        ])
+        #expect(github.queryItems.first { $0.name == "client_id" }?.value == "cm_client_id_from_register")
+        #expect(github.queryItems.first { $0.name == "redirect_uri" }?.value == "https://spoonjoy.app/oauth/callback")
+        #expect(github.queryItems.first { $0.name == "state" }?.value == "state_123")
+        #expect(github.queryItems.first { $0.name == "code_challenge" }?.value == "pkce_s256_challenge")
+        #expect(github.queryItems.first { $0.name == "code_challenge_method" }?.value == "S256")
+    }
+
     @Test("token exchange refresh and revoke requests are form encoded")
     func tokenExchangeRefreshAndRevokeRequestsAreFormEncoded() throws {
         let exchange = try OAuthRequests.exchangeCode(

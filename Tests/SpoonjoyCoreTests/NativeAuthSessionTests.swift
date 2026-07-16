@@ -405,16 +405,23 @@ struct NativeAuthSessionTests {
                 "handlePasswordSignInCredential",
                 "SpoonjoyWebAuthenticationSession(callbackURL:",
                 "handleBrowserOAuthSignIn",
+                "handleBrowserOAuthSignIn(provider:",
                 "handleBrowserOAuthCallback",
+                "handleBrowserOAuthCancellation",
                 "authRepository.startSignIn",
                 "authRepository.handleOAuthCallback",
-                "Continue with Google or GitHub",
+                "providerHint:",
+                "pendingOAuthProvider",
+                "Continue with Google",
+                "Continue with GitHub",
                 "emailOrUsername",
                 "passwordSignInFailureMessage(for error: Error)",
                 "request.nonce = Self.sha256(nonce)",
                 "native password sign-in",
                 "native Apple sign-in",
-                "native browser OAuth sign-in",
+                "native Google OAuth sign-in",
+                "native GitHub OAuth sign-in",
+                "Browser sign-in canceled.",
                 "signInFailureMessage(for error: Error)",
                 "com.apple.developer.applesignin",
                 "Sign in with Apple needs a signed Spoonjoy build",
@@ -435,6 +442,7 @@ struct NativeAuthSessionTests {
                 "SpoonjoyWebAuthenticationSession {",
                 "SecureAuthWebHandoff.login.url",
                 "OAuthRedirectValidator.validate(callbackURL)",
+                "Continue with Google or GitHub",
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
@@ -450,6 +458,19 @@ struct NativeAuthSessionTests {
                 "providerCode"
             ],
             forbids: []
+        )
+
+        let screenshotProofWriter = try readRepoFile("Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift")
+        expectContent(
+            screenshotProofWriter,
+            in: "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift",
+            contains: [
+                "native Google OAuth sign-in",
+                "native GitHub OAuth sign-in"
+            ],
+            forbids: [
+                "native browser OAuth sign-in"
+            ]
         )
     }
 
@@ -469,6 +490,8 @@ struct NativeAuthSessionTests {
                 "restoreState",
                 "revokeAndLogout",
                 "https://spoonjoy.app/oauth/callback",
+                "OAuthProviderHint",
+                "providerHint: OAuthProviderHint? = nil",
                 "OAuthRedirectValidator",
                 "OAuthRequests.authorize",
                 "OAuthRequests.exchangeCode",
@@ -499,7 +522,9 @@ struct NativeAuthSessionTests {
                 "53123",
                 "presentationContextProvider",
                 "prefersEphemeralWebBrowserSession",
+                "session.prefersEphemeralWebBrowserSession = false",
                 "callbackURL: URL",
+                "cancellationHandler:",
                 "parsedCallbackURL",
                 "ASWebAuthenticationSession.Callback.https",
                 "host: \"spoonjoy.app\"",
@@ -517,6 +542,7 @@ struct NativeAuthSessionTests {
             ],
             forbids: [
                 "preconditionFailure",
+                "session.prefersEphemeralWebBrowserSession = true",
                 "spoonjoy://oauth/callback",
                 "spoonjoy://oauth"
             ]
@@ -655,6 +681,7 @@ struct NativeAuthSessionTests {
                 "NativeAuthSessionRepository",
                 "TokenVault",
                 "RefreshCoordinator",
+                "providerHint: OAuthProviderHint? = nil",
                 "restoreState",
                 "validSession",
                 "handlePasswordSignInCredential",
@@ -1776,6 +1803,9 @@ struct WebAuthenticationSessionAdapterContract {
             sessionFactory: factory.makeSession,
             callbackHandler: { callbackURL in
                 forwardedCallbacks.append(callbackURL)
+            },
+            cancellationHandler: { _ in
+                Issue.record("Successful callback must not invoke cancellation handler")
             }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
@@ -1789,7 +1819,7 @@ struct WebAuthenticationSessionAdapterContract {
             )
         ])
         let session = try #require(factory.sessions.first)
-        #expect(session.prefersEphemeralWebBrowserSession)
+        #expect(session.prefersEphemeralWebBrowserSession == false)
         #expect(session.startCount == 1)
 
         let callbackURL = URL(string: "https://spoonjoy.app/oauth/callback?code=oac_code&state=state_123")!
@@ -1806,7 +1836,10 @@ struct WebAuthenticationSessionAdapterContract {
         let adapter = SpoonjoyWebAuthenticationSession(
             callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
             sessionFactory: factory.makeSession,
-            callbackHandler: { _ in }
+            callbackHandler: { _ in },
+            cancellationHandler: { _ in
+                Issue.record("A start failure must not be reported as user cancellation")
+            }
         )
         let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
         let state = try #require(OAuthState(rawValue: "state_123"))
@@ -1818,6 +1851,36 @@ struct WebAuthenticationSessionAdapterContract {
         adapter.cancel()
         #expect(session.cancelCount == 0)
     }
+
+    @Test("adapter reports system cancellation without forwarding a callback")
+    func adapterReportsSystemCancellationWithoutForwardingCallback() throws {
+        let factory = FakeSessionFactory()
+        var forwardedCallbacks: [URL] = []
+        var cancellations = 0
+        let adapter = SpoonjoyWebAuthenticationSession(
+            callbackURL: URL(string: "https://spoonjoy.app/oauth/callback")!,
+            sessionFactory: factory.makeSession,
+            callbackHandler: { callbackURL in
+                forwardedCallbacks.append(callbackURL)
+            },
+            cancellationHandler: { error in
+                cancellations += 1
+                #expect(error != nil)
+            }
+        )
+        let authorizationURL = URL(string: "https://spoonjoy.app/oauth/authorize?client_id=cm_native_spoonjoy&state=state_123")!
+        let state = try #require(OAuthState(rawValue: "state_123"))
+
+        #expect(try adapter.start(authorizationURL: authorizationURL, oauthState: state))
+        factory.complete(with: nil, error: TestAuthenticationError.canceled)
+
+        #expect(forwardedCallbacks.isEmpty)
+        #expect(cancellations == 1)
+    }
+}
+
+private enum TestAuthenticationError: Error {
+    case canceled
 }
 
 private struct FakeSessionRequest: Equatable {
@@ -1848,8 +1911,8 @@ private final class FakeSessionFactory {
         return session
     }
 
-    func complete(with url: URL) {
-        completionHandler?(url, nil)
+    func complete(with url: URL?, error: Error? = nil) {
+        completionHandler?(url, error)
     }
 }
 
