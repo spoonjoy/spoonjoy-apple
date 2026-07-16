@@ -27,12 +27,20 @@ public struct RecipeCatalogEmptyState: Equatable, Sendable, ExpressibleByStringL
         systemImage: "magnifyingglass"
     )
 
+    public static let noSavedRecipes = RecipeCatalogEmptyState(
+        title: "No saved recipes yet",
+        message: "Recipes you save to your cookbooks will appear here.",
+        systemImage: "bookmark"
+    )
+
     private static func state(forTitle title: String) -> RecipeCatalogEmptyState {
         switch title {
         case noRecipes.title:
             noRecipes
         case noMatches.title:
             noMatches
+        case noSavedRecipes.title:
+            noSavedRecipes
         default:
             RecipeCatalogEmptyState(title: title, message: "", systemImage: "book.closed")
         }

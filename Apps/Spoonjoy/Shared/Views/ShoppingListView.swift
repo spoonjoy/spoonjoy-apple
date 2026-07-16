@@ -97,7 +97,8 @@ struct ShoppingListView: View {
         KitchenTableHeader(
             eyebrow: "Kitchen",
             title: "Shopping List",
-            subtitle: viewModel.shoppingRunSummary
+            subtitle: viewModel.shoppingRunSummary,
+            hidesTitleInCompactNavigation: true
         ) {
             shoppingHeaderTools
         }

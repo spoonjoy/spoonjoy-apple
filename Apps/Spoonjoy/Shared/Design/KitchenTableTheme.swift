@@ -30,6 +30,7 @@ enum KitchenTableTheme {
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
     static let compactDockReserve: CGFloat = 148
+    static let compactTabBarContentInset: CGFloat = 88
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
@@ -77,20 +78,25 @@ struct KitchenTablePage<Content: View>: View {
 }
 
 struct KitchenTableHeader<Trailing: View>: View {
+    @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
+
     let eyebrow: String
     let title: String
     let subtitle: String?
+    let hidesTitleInCompactNavigation: Bool
     @ViewBuilder let trailing: () -> Trailing
 
     init(
         eyebrow: String,
         title: String,
         subtitle: String? = nil,
+        hidesTitleInCompactNavigation: Bool = false,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
+        self.hidesTitleInCompactNavigation = hidesTitleInCompactNavigation
         self.trailing = trailing
     }
 
@@ -115,11 +121,13 @@ struct KitchenTableHeader<Trailing: View>: View {
                 .font(.caption2.weight(.bold))
                 .tracking(1.4)
                 .foregroundStyle(KitchenTableTheme.brass)
-            Text(title)
-                .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
+            if !usesCompactNavigation || !hidesTitleInCompactNavigation {
+                Text(title)
+                    .font(KitchenTableTheme.displayTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(KitchenTableTheme.bodyNote)
@@ -132,10 +140,31 @@ struct KitchenTableHeader<Trailing: View>: View {
 }
 
 extension KitchenTableHeader where Trailing == EmptyView {
-    init(eyebrow: String, title: String, subtitle: String? = nil) {
-        self.init(eyebrow: eyebrow, title: title, subtitle: subtitle) {
+    init(
+        eyebrow: String,
+        title: String,
+        subtitle: String? = nil,
+        hidesTitleInCompactNavigation: Bool = false
+    ) {
+        self.init(
+            eyebrow: eyebrow,
+            title: title,
+            subtitle: subtitle,
+            hidesTitleInCompactNavigation: hidesTitleInCompactNavigation
+        ) {
             EmptyView()
         }
+    }
+}
+
+private struct SpoonjoyCompactNavigationEnvironmentKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var spoonjoyCompactNavigation: Bool {
+        get { self[SpoonjoyCompactNavigationEnvironmentKey.self] }
+        set { self[SpoonjoyCompactNavigationEnvironmentKey.self] = newValue }
     }
 }
 

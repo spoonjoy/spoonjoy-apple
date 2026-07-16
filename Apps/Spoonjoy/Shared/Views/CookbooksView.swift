@@ -67,7 +67,12 @@ struct CookbooksView: View {
     }
 
     private var header: some View {
-        KitchenTableHeader(eyebrow: "Shelf", title: "Cookbooks", subtitle: list.resultCountLabel) {
+        KitchenTableHeader(
+            eyebrow: "Shelf",
+            title: "Cookbooks",
+            subtitle: list.resultCountLabel,
+            hidesTitleInCompactNavigation: true
+        ) {
             if canCreateCookbook {
                 Button {
                     newCookbookTitle = ""

@@ -5,10 +5,6 @@ import UIKit
 struct SpoonjoyiOSApp: App {
     @UIApplicationDelegateAdaptor(SpoonjoyiOSAppDelegate.self) private var appDelegate
 
-    init() {
-        SpoonjoyiOSAppDelegate.configureChromeAppearance()
-    }
-
     var body: some Scene {
         WindowGroup {
             SpoonjoyRootView()
@@ -18,18 +14,6 @@ struct SpoonjoyiOSApp: App {
 
 @MainActor
 final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
-    static func configureChromeAppearance() {
-        let appearance = UITabBarAppearance()
-        appearance.configureWithTransparentBackground()
-        appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)
-        appearance.backgroundColor = SpoonjoyUIColor.glassBone
-        appearance.shadowColor = SpoonjoyUIColor.line
-
-        UITabBar.appearance().isTranslucent = true
-        UITabBar.appearance().standardAppearance = appearance
-        UITabBar.appearance().scrollEdgeAppearance = appearance
-    }
-
     func application(
         _ application: UIApplication,
         didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
@@ -43,10 +27,4 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
     ) {
         NotificationAPNsDeviceBridge.shared.didFailToRegisterForRemoteNotifications(error: error)
     }
-}
-
-private enum SpoonjoyUIColor {
-    static let bone = UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 1)
-    static let glassBone = UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 0.72)
-    static let line = UIColor(red: 40.0 / 255.0, green: 35.0 / 255.0, blue: 29.0 / 255.0, alpha: 0.18)
 }
