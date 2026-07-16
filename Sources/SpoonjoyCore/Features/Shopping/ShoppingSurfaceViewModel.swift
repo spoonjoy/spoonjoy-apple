@@ -67,25 +67,37 @@ public struct ShoppingSurfaceEmptyState: Equatable, Sendable {
     }
 }
 
+public enum ShoppingReceiptStateRole: Equatable, Sendable {
+    case ordinary
+    case success
+}
+
 public struct ShoppingReceiptState: Equatable, Sendable {
     public let title: String
     public let message: String
     public let systemImage: String
     public let actionTitle: String?
     public let duplicateCountLabel: String?
+    public let role: ShoppingReceiptStateRole
 
     public init(
         title: String,
         message: String,
         systemImage: String,
         actionTitle: String? = nil,
-        duplicateCountLabel: String? = nil
+        duplicateCountLabel: String? = nil,
+        role: ShoppingReceiptStateRole = .ordinary
     ) {
         self.title = title
         self.message = message
         self.systemImage = systemImage
         self.actionTitle = actionTitle
         self.duplicateCountLabel = duplicateCountLabel
+        self.role = role
+    }
+
+    public var isSuccess: Bool {
+        role == .success
     }
 
     public var emptyState: ShoppingSurfaceEmptyState {
@@ -339,6 +351,10 @@ public struct ShoppingSurfaceViewModel {
         shoppingList?.receiptSections ?? []
     }
 
+    public var duplicateItemIDs: [String] {
+        shoppingList?.duplicateItemIDs ?? []
+    }
+
     public var activeCountLabel: String {
         "\(shoppingList?.activeItems.count ?? 0) active"
     }
@@ -397,7 +413,8 @@ public struct ShoppingSurfaceViewModel {
             title: "All checked off",
             message: "Nice. Clear checked items when you're ready to reset the receipt.",
             systemImage: "checkmark.circle",
-            actionTitle: "Clear checked"
+            actionTitle: "Clear checked",
+            role: .success
         )
     }
 

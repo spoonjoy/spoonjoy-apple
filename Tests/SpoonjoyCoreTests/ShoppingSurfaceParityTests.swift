@@ -823,6 +823,7 @@ struct ShoppingSurfaceParityTests {
             message: "Nice. Clear checked items when you're ready to reset the receipt.",
             systemImage: "checkmark.circle"
         ))
+        #expect(completedViewModel.shoppingReceiptState?.isSuccess == true)
 
         let addRecipe = try ShoppingSurfaceViewModel(
             shoppingList: try Self.emptyShoppingList(),
@@ -839,6 +840,84 @@ struct ShoppingSurfaceParityTests {
         let optimisticList = try #require(addRecipe.updatedShoppingList)
         #expect(optimisticList.activeItems.map(\.name) == ["pasta", "lemons"])
         #expect(optimisticList.activeItems.map(\.displayQuantity) == ["16 oz", "4 each"])
+    }
+
+    @Test("shopping receipt sections lift active duplicates into a stable review section")
+    func shoppingReceiptSectionsLiftActiveDuplicatesIntoStableReviewSection() throws {
+        let firstLemons = Self.shoppingItem(
+            id: "item_duplicate_lemons_first",
+            name: " Lemons ",
+            unit: " EACH ",
+            categoryKey: "produce",
+            sortIndex: 0
+        )
+        let pantry = Self.shoppingItem(
+            id: "item_pantry_salt",
+            name: "salt",
+            unit: "pinch",
+            categoryKey: "pantry",
+            sortIndex: 1
+        )
+        let secondLemons = Self.shoppingItem(
+            id: "item_duplicate_lemons_second",
+            name: "lemons",
+            unit: "each",
+            categoryKey: "produce",
+            sortIndex: 2
+        )
+        let other = Self.shoppingItem(
+            id: "item_other_mint",
+            name: "mint",
+            unit: nil,
+            categoryKey: nil,
+            sortIndex: 3
+        )
+        let checkedDuplicate = Self.shoppingItem(
+            id: "item_checked_duplicate",
+            name: "lemons",
+            unit: "each",
+            checked: true,
+            checkedAt: Self.createdAt,
+            categoryKey: "produce",
+            sortIndex: 4
+        )
+        let deletedDuplicate = Self.shoppingItem(
+            id: "item_deleted_duplicate",
+            name: "lemons",
+            unit: "each",
+            deletedAt: Self.createdAt,
+            categoryKey: "produce",
+            sortIndex: 5
+        )
+        let state = Self.shoppingList(items: [
+            secondLemons,
+            deletedDuplicate,
+            pantry,
+            checkedDuplicate,
+            other,
+            firstLemons
+        ])
+        let viewModel = ShoppingSurfaceViewModel(
+            shoppingList: state,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.createdAt }
+        )
+
+        #expect(state.duplicateItemIDs == ["item_duplicate_lemons_first", "item_duplicate_lemons_second"])
+        #expect(viewModel.duplicateItemIDs == state.duplicateItemIDs)
+        #expect(viewModel.sections.map(\.title) == ["Duplicates to review", "Pantry", "Other"])
+
+        let duplicateSection = try #require(viewModel.sections.first)
+        #expect(duplicateSection.role == .duplicateReview)
+        #expect(duplicateSection.duplicateItemIDs == state.duplicateItemIDs)
+        #expect(duplicateSection.items.map(\.id) == state.duplicateItemIDs)
+
+        let regularSections = viewModel.sections.dropFirst()
+        #expect(regularSections.allSatisfy { $0.role == .category })
+        #expect(regularSections.flatMap(\.duplicateItemIDs).isEmpty)
+        #expect(regularSections.flatMap { $0.items.map(\.id) } == ["item_pantry_salt", "item_other_mint"])
     }
 
     @Test("shopping surface covers queued local validation and prompt edge states")
@@ -1175,7 +1254,9 @@ struct ShoppingSurfaceParityTests {
         unit: String?,
         deletedAt: String? = nil,
         checked: Bool = false,
-        checkedAt: String? = nil
+        checkedAt: String? = nil,
+        categoryKey: String? = nil,
+        sortIndex: Int = 0
     ) -> ShoppingListItem {
         ShoppingListItem(
             id: id,
@@ -1185,9 +1266,9 @@ struct ShoppingSurfaceParityTests {
             checked: checked,
             checkedAt: checkedAt,
             deletedAt: deletedAt,
-            categoryKey: nil,
+            categoryKey: categoryKey,
             iconKey: nil,
-            sortIndex: 0,
+            sortIndex: sortIndex,
             updatedAt: Self.createdAt
         )
     }

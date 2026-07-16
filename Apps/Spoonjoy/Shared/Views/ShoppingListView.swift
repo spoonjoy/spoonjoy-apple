@@ -412,7 +412,7 @@ private struct ShoppingReceiptStateView: View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: state.systemImage)
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.brass)
+                .foregroundStyle(state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass)
                 .frame(width: 44, height: 44)
                 .background(KitchenTableTheme.paper, in: Circle())
 
