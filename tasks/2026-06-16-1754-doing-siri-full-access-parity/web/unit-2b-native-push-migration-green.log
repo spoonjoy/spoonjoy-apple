@@ -1,9 +1,0 @@
-
- RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
-
- ✓ test/scripts/migration-0019-native-push-devices.test.ts (3 tests) 110ms
-
- Test Files  1 passed (1)
-      Tests  3 passed (3)
-   Start at  00:23:20
-   Duration  969ms (transform 111ms, setup 191ms, import 45ms, tests 110ms, environment 395ms)

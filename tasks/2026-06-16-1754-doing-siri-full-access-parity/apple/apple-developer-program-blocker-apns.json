@@ -1,8 +1,0 @@
-{
-  "blocked": true,
-  "capability": "AppleDeveloperProgram",
-  "command": "xcrun notarytool history --team-id <SPOONJOY_TEAM_ID> && xcodebuild -showBuildSettings -project Spoonjoy.xcodeproj -scheme Spoonjoy | rg 'DEVELOPMENT_TEAM|CODE_SIGN_ENTITLEMENTS|aps-environment'",
-  "outputPath": "apple/apple-developer-program-blocker-apns.json",
-  "reason": "Production APNs delivery and TestFlight validation require a paid Apple Developer Program team, push notification entitlement, signing profile, and production device-token validation. The current native app can model notification preferences, restore cached APNs registration state, and queue safe register/revoke requests, but it must not claim production APNs delivery without that account capability.",
-  "ownerAction": "Enroll or attach Spoonjoy to a paid Apple Developer Program account, configure the app identifier with Push Notifications, set DEVELOPMENT_TEAM and aps-environment entitlements, then rerun the APNs/TestFlight validation matrix."
-}

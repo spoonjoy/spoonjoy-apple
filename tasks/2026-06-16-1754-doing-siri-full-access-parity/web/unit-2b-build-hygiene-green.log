@@ -1,9 +1,0 @@
-
- RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
-
- ✓ test/build-output-hygiene.test.ts (3 tests) 120ms
-
- Test Files  1 passed (1)
-      Tests  3 passed (3)
-   Start at  00:20:58
-   Duration  817ms (transform 85ms, setup 186ms, import 22ms, tests 120ms, environment 321ms)

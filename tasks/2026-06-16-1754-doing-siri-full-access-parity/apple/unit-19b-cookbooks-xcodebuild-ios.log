@@ -1,8 +1,0 @@
-2026-06-27 17:06:00.579 xcodebuild[95045:12545388] Writing error result bundle to /var/folders/md/_fkq3wc92_z55cgtlrfrcfh40000gn/T/ResultBundle_2026-27-06_17-06-0000.xcresult
-xcodebuild: error: Unable to find a device matching the provided destination specifier:
-		{ platform:iOS Simulator, OS:latest, name:iPhone 17 }
-
-	The requested device could not be found because no available devices matched the request.
-
-	Ineligible destinations for the "Spoonjoy iOS" scheme:
-		{ platform:iOS, id:dvtdevice-DVTiPhonePlaceholder-iphoneos:placeholder, name:Any iOS Device, error:iOS 26.5 is not installed. Please download and install the platform from Xcode > Settings > Components. }

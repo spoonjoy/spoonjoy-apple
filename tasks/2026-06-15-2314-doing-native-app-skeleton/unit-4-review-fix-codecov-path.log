@@ -1,2 +1,0 @@
-$ swift test --show-codecov-path
-/Users/arimendelow/Projects/spoonjoy-apple/.build/arm64-apple-macosx/debug/codecov/SpoonjoyApple.json

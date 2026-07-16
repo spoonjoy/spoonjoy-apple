@@ -1,4 +1,0 @@
-$ ruby scripts/fail-on-warning.rb --log tasks/2026-06-15-2314-doing-native-app-skeleton/unit-2c-tests.log --log tasks/2026-06-15-2314-doing-native-app-skeleton/unit-2c-coverage.log
-warning scan ok
-$ ruby scripts/enforce-swift-coverage.rb --coverage-json tasks/2026-06-15-2314-doing-native-app-skeleton/unit-2c-codecov.json --minimum 100 --include Sources/SpoonjoyCore
-coverage ok: 100.00% (112/112)

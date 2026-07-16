@@ -8,7 +8,7 @@ require "pathname"
 require "tmpdir"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
-ARTIFACT_ROOT = ROOT.join("tasks/2026-06-16-1754-doing-siri-full-access-parity")
+ARTIFACT_ROOT = ROOT.join("artifacts/apple/native-screenshots")
 DESIGN_REVIEW = ARTIFACT_ROOT.join("design-review.json")
 DESIGN_REVIEW_BLOCKED = ARTIFACT_ROOT.join("design-review-blocked.json")
 
@@ -763,7 +763,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
         "capability" => "CoreSimulator",
         "command" => "xcrun simctl boot",
         "timeoutSeconds" => 30,
-        "outputPath" => "tasks/2026-06-16-1754-doing-siri-full-access-parity/smoke-ios-simulator.log",
+        "outputPath" => "artifacts/apple/native-screenshots/smoke-ios-simulator.log",
         "ownerAction" => "Install an available iPhone simulator runtime."
       }
     ]
@@ -775,7 +775,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
         "capability" => "CoreSimulator",
         "command" => "xcrun simctl boot",
         "timeoutSeconds" => 30,
-        "outputPath" => "tasks/2026-06-16-1754-doing-siri-full-access-parity/smoke-ios-simulator.log"
+        "outputPath" => "artifacts/apple/native-screenshots/smoke-ios-simulator.log"
       }
     ]
   )

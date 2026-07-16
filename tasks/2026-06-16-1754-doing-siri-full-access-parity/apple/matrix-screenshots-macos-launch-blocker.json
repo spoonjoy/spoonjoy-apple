@@ -1,9 +1,0 @@
-{
-  "capability": "MacOSLaunch",
-  "blocked": true,
-  "command": "scripts/find-macos-window-id.swift <pid> Kitchen && screencapture -x -l <window-id> tasks/2026-06-16-1754-doing-siri-full-access-parity/screenshots/macos-desktop.png",
-  "timeoutSeconds": 30,
-  "outputPath": "tasks/2026-06-16-1754-doing-siri-full-access-parity/apple/matrix-screenshots-inner.log",
-  "reason": "Spoonjoy window capture was unavailable in the macOS GUI session.",
-  "ownerAction": "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."
-}

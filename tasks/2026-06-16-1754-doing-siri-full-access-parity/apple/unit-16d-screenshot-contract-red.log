@@ -1,9 +1,0 @@
-FAIL: scripts/smoke-macos.sh missing required tokens: --log, --blocker, apple/${unit_slug}-smoke-macos-inner.log, apple/${unit_slug}-smoke-macos-blocker.json, ownerAction
-FAIL: scripts/smoke-ios-simulator.sh missing required tokens: --log, --blocker, apple/${unit_slug}-smoke-ios-inner.log, apple/${unit_slug}-smoke-ios-simulator-blocker.json, ownerAction
-FAIL: scripts/capture-native-screenshots.sh missing required tokens: --unit-slug, design-review-blocked.json, rm -f "$design_review_blocked", rm -f "$design_review", apple/${unit_slug}-screenshots.log, screenshots-xcode-platform-blocker.json, screenshots-core-simulator-blocker.json, screenshots-macos-launch-blocker.json, apple/${unit_slug}-screenshots-xcode-platform-blocker.json, apple/${unit_slug}-screenshots-core-simulator-blocker.json, apple/${unit_slug}-screenshots-macos-launch-blocker.json, sourceBlockerPath, skippedArtifacts, conflicting design review success and blocker artifacts, ownerAction
-FAIL: missing scripts/validate-design-review-blocker.rb
-FAIL: legacy inline screenshot blocker expected to fail
-STDOUT:
-design review ok
-
-STDERR:

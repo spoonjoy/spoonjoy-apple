@@ -1,1 +1,0 @@
-FAIL: .github/scripts/resolve-ios-simulator-destination.py missing required tokens: SPOONJOY_IOS_SIMULATOR_UDID, SPOONJOY_IOS_SIMULATOR_NAME, preferred_udid, preferred_name, os.environ, state

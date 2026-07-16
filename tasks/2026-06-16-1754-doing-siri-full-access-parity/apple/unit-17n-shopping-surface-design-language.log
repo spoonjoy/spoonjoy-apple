@@ -1,6 +1,0 @@
-COMMAND: ruby scripts/check-native-design-language.rb
-native design language contract ok
-COMMAND: ruby scripts/check-recipe-action-surfaces.rb
-recipe action surfaces contract ok
-COMMAND: ruby scripts/check-kitchen-recipe-surfaces.rb
-kitchen and recipe surfaces contract ok

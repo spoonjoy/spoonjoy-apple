@@ -11,7 +11,7 @@ require "time"
 require "uri"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
-DEFAULT_ARTIFACT_ROOT = ROOT.join("tasks/2026-06-16-1754-doing-siri-full-access-parity")
+DEFAULT_ARTIFACT_ROOT = ROOT.join("artifacts/apple/native-aasa")
 AASA_URL = URI("https://spoonjoy.app/.well-known/apple-app-site-association")
 APPLE_TEAM_ID_PATTERN = /\A[A-Z0-9]{10}\z/
 APP_BUNDLE_IDS = [

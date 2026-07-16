@@ -1,9 +1,0 @@
-
- RUN  v4.0.18 /Users/arimendelow/Projects/spoonjoy-v2
-
- ✓ test/routes/api-v1-recipe-steps.test.ts (11 tests) 1078ms
-
- Test Files  1 passed (1)
-      Tests  11 passed (11)
-   Start at  07:01:42
-   Duration  5.13s (transform 999ms, setup 408ms, import 2.99s, tests 1.08s, environment 440ms)

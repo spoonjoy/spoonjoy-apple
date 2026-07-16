@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-artifact_root="tasks/2026-06-16-1754-doing-siri-full-access-parity"
+artifact_root="${SPOONJOY_NATIVE_ARTIFACT_ROOT:-artifacts/apple/native-password-dogfood}"
 report_path=""
 server_log_path=""
 vault_path=""

@@ -177,13 +177,27 @@ ALLOWED_FINAL_CAPABILITIES = %w[
 
 options = {
   artifact_root: ROOT.join("tasks/2026-06-16-1754-doing-siri-full-access-parity"),
-  manifest: nil
+  manifest: nil,
+  repo_hygiene_only: false,
+  tracked_files: nil,
+  changed_files: nil,
+  pr_body: nil,
+  base_ref: "origin/main",
+  pr_max_files: 120,
+  pr_max_lines: 8_000
 }
 
 OptionParser.new do |parser|
   parser.banner = "Usage: audit-native-validation-artifacts.rb --artifact-root PATH --manifest PATH"
   parser.on("--artifact-root PATH", "Task artifact root") { |value| options[:artifact_root] = Pathname.new(value) }
   parser.on("--manifest PATH", "Manifest output path") { |value| options[:manifest] = Pathname.new(value) }
+  parser.on("--repo-hygiene-only", "Run only tracked-file and PR-size repository hygiene checks") { options[:repo_hygiene_only] = true }
+  parser.on("--tracked-files PATH", "Newline-separated tracked-file fixture; defaults to git ls-files") { |value| options[:tracked_files] = Pathname.new(value) }
+  parser.on("--changed-files PATH", "Git numstat-style fixture: additions<TAB>deletions<TAB>path") { |value| options[:changed_files] = Pathname.new(value) }
+  parser.on("--pr-body PATH", "Pull request body/manifest text to validate when size thresholds are exceeded") { |value| options[:pr_body] = Pathname.new(value) }
+  parser.on("--base-ref REF", "Base ref for git diff --numstat; default: origin/main") { |value| options[:base_ref] = value }
+  parser.on("--pr-max-files N", Integer, "Maximum changed files before a Repository Hygiene Manifest is required") { |value| options[:pr_max_files] = value }
+  parser.on("--pr-max-lines N", Integer, "Maximum added+deleted lines before a Repository Hygiene Manifest is required") { |value| options[:pr_max_lines] = value }
 end.parse!
 
 artifact_root = options.fetch(:artifact_root).expand_path
@@ -259,6 +273,206 @@ def parse_json_file(path, failures, label)
 rescue JSON::ParserError => e
   failures << "#{label} is not valid JSON: #{e.message}"
   nil
+end
+
+def run_git_lines(*args)
+  output = +""
+  IO.popen(["git", *args], chdir: ROOT.to_s, err: [:child, :out]) do |io|
+    output = io.read
+  end
+  return [] unless $CHILD_STATUS&.success?
+
+  output.lines.map(&:chomp).reject(&:empty?)
+end
+
+def tracked_files_from_option(path)
+  return path.read.lines.map(&:chomp).reject(&:empty?) if path
+
+  run_git_lines("ls-files")
+end
+
+def changed_files_from_option(path, base_ref)
+  lines = if path
+    path.read.lines.map(&:chomp).reject(&:empty?)
+  else
+    merge_base = run_git_lines("merge-base", base_ref, "HEAD").first
+    diff_base = merge_base || base_ref
+    run_git_lines("diff", "--numstat", "#{diff_base}...HEAD")
+  end
+
+  lines.map do |line|
+    additions, deletions, file_path = line.split("\t", 3)
+    {
+      "path" => file_path.to_s,
+      "additions" => additions == "-" ? 0 : additions.to_i,
+      "deletions" => deletions == "-" ? 0 : deletions.to_i
+    }
+  end.reject { |entry| entry["path"].empty? }
+end
+
+def repo_generated_artifact_root?(path)
+  path.start_with?("apple/") ||
+    path.start_with?("tasks/") ||
+    path.start_with?("codex-native/tasks/") ||
+    path.start_with?("slugger/tasks/")
+end
+
+def durable_markdown?(path)
+  path.end_with?(".md")
+end
+
+def allowed_app_asset?(path)
+  path.match?(%r{\AApps/Spoonjoy/Shared/Assets\.xcassets/.+\.(json|png|jpe?g|svg)\z}i)
+end
+
+def allowed_structured_fixture?(path)
+  path.match?(%r{\ASources/SpoonjoyCore/Fixtures/[^/]+\.json\z}) ||
+    path.match?(%r{\ATests/[^/]+/Fixtures/.+\.json\z})
+end
+
+def allowed_image_fixture?(path)
+  path.match?(%r{\ATests/[^/]+/Fixtures/.+\.(png|jpe?g|heic|heif|webp|gif|tiff)\z}i)
+end
+
+def allowed_repo_hygiene_path?(path)
+  durable_markdown?(path) ||
+    path.end_with?("/.gitkeep") ||
+    allowed_app_asset?(path) ||
+    allowed_structured_fixture?(path) ||
+    allowed_image_fixture?(path)
+end
+
+def generated_hygiene_category(path)
+  return nil if allowed_repo_hygiene_path?(path)
+  return nil unless repo_generated_artifact_root?(path)
+
+  basename = File.basename(path)
+  extension = File.extname(path).downcase
+  return "tracked environment backup" if basename.match?(/env-backup|\.env|backup|bak|moved-aside/i) || extension == ".env"
+  return "tracked validation log" if extension == ".log"
+  return "tracked generated JSON" if [".json", ".jsonl"].include?(extension)
+  return "tracked generated patch" if [".patch", ".diff"].include?(extension)
+  return "tracked screenshot artifact" if path.include?("/screenshots/") && extension.match?(/\A\.(png|jpe?g|heic|heif|webp|gif|tiff)\z/i)
+  return "tracked screenshot artifact" if basename.match?(/screenshot|contact-sheet|route-matrix/i) && extension.match?(/\A\.(png|jpe?g|heic|heif|webp|gif|tiff)\z/i)
+  return "tracked generated validation artifact" if [".profraw", ".profdata", ".xcresult"].include?(extension)
+
+  nil
+end
+
+def repo_relative_or_external(path)
+  expanded = Pathname.new(path).expand_path
+  return expanded.relative_path_from(ROOT).to_s if expanded.to_s.start_with?("#{ROOT}/")
+
+  expanded.to_s
+rescue ArgumentError
+  expanded.to_s
+end
+
+def external_evidence_entry(artifact_root)
+  relative_or_external = repo_relative_or_external(artifact_root)
+  under_repo = artifact_root.to_s.start_with?("#{ROOT}/")
+  ignored =
+    !under_repo ||
+    relative_or_external.start_with?("artifacts/apple/") ||
+    relative_or_external.start_with?(".build/") ||
+    relative_or_external.start_with?("TestResults/") ||
+    relative_or_external.start_with?("coverage/")
+
+  {
+    "path" => relative_or_external,
+    "underRepository" => under_repo,
+    "ignoredByGit" => ignored
+  }
+end
+
+def pr_body_text(path)
+  return "" unless path && path.file?
+
+  path.read
+end
+
+def repository_hygiene_manifest_present?(body)
+  body.include?("Repository Hygiene Manifest") &&
+    body.match?(/docs\/native-repository-hygiene-removal-manifest\.md|Removal manifest/i) &&
+    body.match?(/External evidence root|artifacts\/apple/i) &&
+    body.match?(/Recovery|git restore/i)
+end
+
+def run_repo_hygiene_audit(options, artifact_root, manifest_path)
+  tracked_files = tracked_files_from_option(options[:tracked_files])
+  changed_files = changed_files_from_option(options[:changed_files], options[:base_ref])
+  tracked_generated = tracked_files.map do |path|
+    category = generated_hygiene_category(path)
+    next unless category
+
+    {
+      "path" => path,
+      "category" => category
+    }
+  end.compact
+  preserved_markdown = tracked_files.select { |path| durable_markdown?(path) }.sort
+  allowed_images = tracked_files.select { |path| allowed_app_asset?(path) || allowed_image_fixture?(path) }.sort
+  allowed_structured = tracked_files.select { |path| allowed_structured_fixture?(path) || (allowed_app_asset?(path) && path.end_with?(".json")) }.sort
+  external_evidence = external_evidence_entry(artifact_root)
+  additions = changed_files.sum { |entry| entry["additions"] }
+  deletions = changed_files.sum { |entry| entry["deletions"] }
+  changed_count = changed_files.length
+  threshold_exceeded = changed_count > options[:pr_max_files] || (additions + deletions) > options[:pr_max_lines]
+  manifest_present = repository_hygiene_manifest_present?(pr_body_text(options[:pr_body]))
+
+  failures = []
+  tracked_generated.each do |entry|
+    failures << "tracked generated validation artifact #{entry["path"]} (#{entry["category"]})"
+  end
+  failures << "validation artifact root must be ignored or external: #{external_evidence["path"]}" unless external_evidence["ignoredByGit"]
+  if threshold_exceeded && !manifest_present
+    failures << "PR size threshold exceeded without Repository Hygiene Manifest (changed files: #{changed_count}, changed lines: #{additions + deletions})"
+  end
+
+  repo_hygiene = {
+    "ok" => failures.empty?,
+    "trackedFileCount" => tracked_files.length,
+    "trackedGeneratedArtifacts" => tracked_generated,
+    "preservedDurableMarkdown" => preserved_markdown,
+    "allowedImageFixtures" => allowed_images,
+    "allowedStructuredFixtures" => allowed_structured,
+    "externalEvidence" => external_evidence,
+    "prSize" => {
+      "changedFiles" => changed_count,
+      "additions" => additions,
+      "deletions" => deletions,
+      "changedLines" => additions + deletions,
+      "maxFiles" => options[:pr_max_files],
+      "maxLines" => options[:pr_max_lines],
+      "thresholdExceeded" => threshold_exceeded,
+      "manifestPresent" => manifest_present
+    }
+  }
+  manifest = {
+    "ok" => failures.empty?,
+    "schemaVersion" => 1,
+    "artifactRoot" => repo_relative_or_external(artifact_root),
+    "repoHygiene" => repo_hygiene,
+    "failures" => failures
+  }
+
+  FileUtils.mkdir_p(manifest_path.dirname)
+  manifest_path.write(JSON.pretty_generate(manifest) + "\n")
+
+  if failures.any?
+    warn "native repository hygiene audit failed"
+    failures.each { |failure| warn "- #{failure}" }
+    warn "manifest: #{manifest_path}"
+    return 1
+  end
+
+  puts "native repository hygiene audit ok"
+  puts "manifest: #{manifest_path}"
+  0
+end
+
+if options[:repo_hygiene_only]
+  exit run_repo_hygiene_audit(options, artifact_root, manifest_path)
 end
 
 def expected_capability_for_path(relative_path)

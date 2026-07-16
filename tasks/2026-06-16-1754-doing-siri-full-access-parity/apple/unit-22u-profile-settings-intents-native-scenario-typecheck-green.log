@@ -1,8 +1,0 @@
-◇ Test run started.
-↳ Testing Library Version: 1902
-↳ Target Platform: arm64e-apple-macos14.0
-◇ Suite "Native scenario metadata" started.
-◇ Test "app integration sources typecheck and declare expected native types" started.
-✔ Test "app integration sources typecheck and declare expected native types" passed after 3.435 seconds.
-✔ Suite "Native scenario metadata" passed after 3.435 seconds.
-✔ Test run with 1 test in 1 suite passed after 3.435 seconds.

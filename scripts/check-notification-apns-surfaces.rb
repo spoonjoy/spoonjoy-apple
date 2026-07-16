@@ -411,7 +411,7 @@ Dir.glob(ROOT.join("{Sources,Apps}/**/*.swift")).sort.each do |path_string|
   failures << "#{relative_path} contains forbidden notification/APNs delivery token(s): #{forbidden.join(", ")}" unless forbidden.empty?
 end
 
-blocker_path = Pathname.new(ENV.fetch("ARTIFACT_ROOT", ROOT.join("tasks/2026-06-16-1754-doing-siri-full-access-parity").to_s))
+blocker_path = Pathname.new(ENV.fetch("ARTIFACT_ROOT", ROOT.join("artifacts/apple/native-local").to_s))
                        .join("apple/apple-developer-program-blocker-apns.json")
 unless blocker_path.file?
   failures << "missing canonical Apple Developer Program APNs blocker artifact: #{blocker_path}"
