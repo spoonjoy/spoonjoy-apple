@@ -16,13 +16,13 @@ This run is complete only when:
 ## Current Item
 
 - Repo: `/Users/arimendelow/Projects/spoonjoy-apple`
-- Canonical checkout: `/Users/arimendelow/Projects/spoonjoy-apple` on `main` at `2f6c3df`
-- Active worktree: `/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon`
-- Active branch: `codex-native/native-full-moon`
-- Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-native-full-moon` / OS: `Darwin` / probed: 2026-07-09
-- Planning doc: `codex-native/tasks/2026-07-09-1243-planning-native-full-moon.md`
-- Doing doc: `codex-native/tasks/2026-07-09-1243-doing-native-full-moon.md`
-- Current phase: Unit 0d complete; next executable unit is Unit 0e feedback listener path repair
+- Canonical checkout: `/Users/arimendelow/Projects/spoonjoy-apple` (detached legacy checkout; must finish clean on `main`)
+- Active worktree: `/Users/arimendelow/Projects/spoonjoy-apple-audit-release-train`
+- Active branch: `worker/audit-release-train`
+- Host: `ouroboros-host` / user: `arimendelow` / cwd: `/Users/arimendelow/Projects/spoonjoy-apple-audit-release-train` / OS: `Darwin` / probed: 2026-07-16
+- Planning doc: `worker/tasks/2026-07-16-0856-planning-audit-release-train.md`
+- Doing doc: pending reviewer convergence
+- Current phase: planning reviewer gate
 
 ## Terminal Evidence
 
@@ -38,16 +38,18 @@ This run is complete only when:
 
 ## Next Action
 
-Execute Unit 0e from canonical `/Users/arimendelow/Projects/spoonjoy-apple`: run before/after `scripts/testflight-feedback-autopilot.mjs doctor`, repair installed launchd service paths with `scripts/testflight-feedback-autopilot.mjs install-launchd`, and save health/status logs under `unit-0e-*`. Unit 0f must then re-run status/doctor/reconcile dry-run before Unit 1 starts.
+Run a fresh planning reviewer against the audit report, live PR state, repository paths, release playbook, and terminal TestFlight contract; address findings and convert to the doing doc.
 
 ## Continuation Scan
 
 | candidate | classification | evidence | disposition |
 | --- | --- | --- | --- |
-| Create doing doc and begin Unit 0 | ready | Planning doc approved; user delegated control; work-planner/work-doer skills read | Start now |
-| Fix screenshot matrix hang | ready | Unit 0c hung while capturing `capture`; `kitchen` and `shopping-list` failed without `design-review-blocked.json`; matrix timeout was masked by `tee` | Units 1a-1f |
-| Route-by-route taste/product audit | ready | Current screenshots show system blue, heavy dock, loud banners, placeholder labels | Units 1-4 |
-| TestFlight feedback transparency and launchd path repair | ready | Autopilot status has many `fixed_unconfirmed` records, user reported opacity, and Unit 0b `doctor` points services at retired worktree | Units 0e-0f and later transparency units |
+| Merge open audit remediation PRs | ready | Native PRs #52/#53 and web PRs #260/#264/#266/#268/#270/#271/#272 are open | This release train |
+| Repair failed/cancelled checks | ready | Native #52 has cancelled checks; web #266 has failed E2E | This release train |
+| Deploy and smoke web/backend | ready | Native auth/media behavior depends on production contracts | This release train |
+| Full iOS/macOS visual dogfood | ready | Final merged state has not been captured across every promised route | This release train |
+| Publish next internal build | ready after gates | Build 35 predates open native fixes | This release train |
+| Retire task worktrees | ready after merges | Active task worktrees intentionally preserve unmerged PR tips | Terminal cleanup |
 
 ## Stop Condition
 
