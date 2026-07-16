@@ -22,7 +22,7 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - [x] Original nonempty picker payloads above 25 MiB are rejected before normalization; exactly 25 MiB remains eligible; prior staged media is preserved.
 - [x] Cover normalization invoked from SwiftUI executes through a Sendable worker actor rather than `MainActor`, with strict-concurrency compilation clean.
 - [x] Corrupt legacy cover media is retained with an actionable validation conflict, independent queue groups still drain, and a second drain does not resend prior successes.
-- [ ] Warning contract recognizes the exact Apple M2 scaler diagnostic and keeps benign failure-language output clean.
+- [x] Warning contract recognizes the exact Apple M2 scaler diagnostic and keeps benign failure-language output clean.
 - [ ] Byte-count and payload changes make `NativeStagedMediaUpload` unequal, and repeated normalization explicitly asserts byte/data identity.
 - [ ] Ready GitHub PR has a fresh hostile-review verdict with no BLOCKER or MAJOR findings.
 - [ ] 100% test coverage on all new code
@@ -88,12 +88,12 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 **Output**: Poison media stays queued with actionable error; successful siblings persist as drained.
 **Acceptance**: First drain completes independent work; second drain attempts only corrupt media; no successful mutation is reissued.
 
-### ⬜ Unit 4a: Warning diagnostic contract — Tests
+### ✅ Unit 4a: Warning diagnostic contract — Tests
 **What**: Add script-contract fixtures for the exact Apple M2 scaler diagnostic and benign test output containing ordinary failure language.
 **Output**: Red Ruby contract proving the scanner misses the exact diagnostic.
 **Acceptance**: Contract fails only because the exact diagnostic is not classified.
 
-### ⬜ Unit 4b: Warning diagnostic contract — Implementation
+### ✅ Unit 4b: Warning diagnostic contract — Implementation
 **What**: Add a narrowly shaped matcher for the Apple M2 scaler diagnostic without a broad plain-`failed` rule.
 **Output**: Honest warning scanner behavior.
 **Acceptance**: Exact diagnostic is caught, benign fixture passes, Ruby contracts and scenario contract pass.
@@ -128,3 +128,4 @@ Repair all five hostile-review findings from merged native PR #52 with strict TD
 - 2026-07-16 10:32 Units 1a-1b complete: red proved nonempty oversized bytes reached normalization; green guard now rejects before ImageIO and all 23 cover tests pass.
 - 2026-07-16 10:37 Units 2a-2b complete: red required an actor boundary; green routes picker normalization through a Sendable worker actor, with 24 cover tests and both app-platform builds passing.
 - 2026-07-16 10:42 Units 3a-3b complete: red aborted on corrupt legacy bytes; green retains one validation conflict while independent mutations drain, and all 64 sync tests pass.
+- 2026-07-16 10:45 Units 4a-4b complete: the contract now catches the exact Apple M2 scaler diagnostic while benign failure-language output and screenshot contracts remain clean.
