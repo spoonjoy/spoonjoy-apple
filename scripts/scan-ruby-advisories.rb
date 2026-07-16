@@ -19,6 +19,7 @@ DEFAULT_POLICY = ROOT.join("security/native-advisory-pipeline.yml")
 DEFAULT_ALLOWLIST = ROOT.join("security/native-advisory-allowlist.yml")
 DEFAULT_GEMFILE_LOCK = ROOT.join("Gemfile.lock")
 DEFAULT_OUTPUT = ROOT.join("artifacts/apple/ruby-advisory-report.json")
+ADVISORY_BUNDLE_ENV = { "BUNDLE_WITHOUT" => "" }.freeze
 
 def fail_scan(message, output_path: nil, status: "scanner_failed", details: {})
   warn "FAIL: #{message}"
@@ -80,7 +81,7 @@ def verify_installed_scanner(policy, skip_gem_sha:)
   expected_sha = scanner.fetch("gem_sha256")
   fail_scan("unsupported scanner #{expected_name.inspect}") unless expected_name == "bundler-audit"
 
-  stdout, stderr, status = Open3.capture3("bundle", "exec", "bundle-audit", "version", chdir: ROOT.to_s)
+  stdout, stderr, status = Open3.capture3(ADVISORY_BUNDLE_ENV, "bundle", "exec", "bundle-audit", "version", chdir: ROOT.to_s)
   fail_scan("bundler-audit version check failed", details: { stdout: stdout, stderr: stderr, exitStatus: status.exitstatus }) unless status.success?
   actual_version = stdout[/\d+(?:\.\d+)+/]
   fail_scan("bundler-audit version #{actual_version.inspect} did not match #{expected_version}") unless actual_version == expected_version
@@ -134,7 +135,7 @@ def run_scanner(command_words, gemfile_lock, ignored_ids, database_dir:)
     args.concat(["--database", database_dir.to_s]) if database_dir
     ignored_ids.each { |id| args.concat(["--ignore", id]) }
 
-    stdout, stderr, status = Open3.capture3(*args, chdir: ROOT.to_s)
+    stdout, stderr, status = Open3.capture3(ADVISORY_BUNDLE_ENV, *args, chdir: ROOT.to_s)
     report_text = scanner_report.size.positive? ? scanner_report.read : ""
     [status.exitstatus || 1, stdout, stderr, report_text, args.shelljoin]
   end
