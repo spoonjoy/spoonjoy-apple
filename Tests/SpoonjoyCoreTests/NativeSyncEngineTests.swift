@@ -4007,6 +4007,93 @@ struct NativeSyncEngineTests {
         #expect(remaining.last?.retryCount == 0)
     }
 
+    @Test("corrupt legacy cover replay retains only the poison mutation across drains")
+    func corruptLegacyCoverReplayRetainsOnlyThePoisonMutationAcrossDrains() async throws {
+        let successfulBefore = NativeQueuedMutation.apnsDeviceRegister(
+            deviceID: "device_before_corrupt_cover",
+            platform: .ios,
+            environment: .development,
+            token: "token-before",
+            deviceName: nil,
+            appVersion: nil,
+            clientMutationID: "cm_before_corrupt_cover",
+            createdAt: Self.createdAt(0)
+        )
+        let corruptCover = NativeQueuedMutation.coverUpload(
+            recipeID: "recipe_corrupt_cover",
+            image: NativeStagedMediaUpload(
+                localStageID: "stage_corrupt_cover",
+                fileName: "corrupt-cover.png",
+                contentType: "image/png",
+                data: Data([0, 1, 2])
+            ),
+            clientMutationID: "cm_corrupt_cover",
+            activate: true,
+            generateEditorial: true,
+            createdAt: Self.createdAt(1)
+        )
+        let successfulAfter = NativeQueuedMutation.apnsDeviceRegister(
+            deviceID: "device_after_corrupt_cover",
+            platform: .ios,
+            environment: .development,
+            token: "token-after",
+            deviceName: nil,
+            appVersion: nil,
+            clientMutationID: "cm_after_corrupt_cover",
+            createdAt: Self.createdAt(2)
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [successfulBefore, corruptCover, successfulAfter])
+        )
+        let transport = RequestBuildingNativeSyncTransport()
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let firstReport = try await engine.bootstrapAndDrain(
+            configuration: configuration,
+            trigger: .networkRecovered,
+            scope: boundScope
+        )
+        let firstRemaining = try await store.loadQueue().mutations
+
+        #expect(firstReport.drainedClientMutationIDs == ["cm_before_corrupt_cover", "cm_after_corrupt_cover"])
+        #expect(firstReport.conflicts == [
+            NativeSyncConflict(
+                clientMutationID: "cm_corrupt_cover",
+                kind: .validation,
+                serverRevision: nil,
+                message: "Queued cover photo is unreadable. Choose the photo again."
+            )
+        ])
+        #expect(firstRemaining.map(\.clientMutationID) == ["cm_corrupt_cover"])
+        #expect(firstRemaining.first?.lastError == "Queued cover photo is unreadable. Choose the photo again.")
+        #expect(await transport.clientMutationIDs == [
+            "cm_before_corrupt_cover",
+            "cm_corrupt_cover",
+            "cm_after_corrupt_cover"
+        ])
+
+        let secondReport = try await engine.bootstrapAndDrain(
+            configuration: configuration,
+            trigger: .networkRecovered,
+            scope: boundScope
+        )
+        let secondRemaining = try await store.loadQueue().mutations
+
+        #expect(secondReport.drainedClientMutationIDs.isEmpty)
+        #expect(secondReport.conflicts.map(\.clientMutationID) == ["cm_corrupt_cover"])
+        #expect(secondRemaining.map(\.clientMutationID) == ["cm_corrupt_cover"])
+        #expect(secondRemaining.first?.lastError == "Queued cover photo is unreadable. Choose the photo again.")
+        #expect(await transport.clientMutationIDs == [
+            "cm_before_corrupt_cover",
+            "cm_corrupt_cover",
+            "cm_after_corrupt_cover",
+            "cm_corrupt_cover"
+        ])
+    }
+
     @Test("provider-secret blockers retain blocked imports while independent mutations drain")
     func providerSecretBlockersRetainBlockedImportsWhileIndependentMutationsDrain() async throws {
         let importMutation = NativeQueuedMutation.recipeImportSubmit(
@@ -5516,6 +5603,26 @@ private actor RecordingNativeSyncTransport: NativeSyncTransport {
         requestPaths.append(request.url.path)
         clientMutationIDs.append(mutation.clientMutationID)
         return mutationResults.isEmpty ? .success(serverRevision: nil) : mutationResults.removeFirst()
+    }
+}
+
+private actor RequestBuildingNativeSyncTransport: NativeSyncTransport {
+    private(set) var clientMutationIDs: [String] = []
+
+    func bootstrap(
+        request _: APIRequest,
+        configuration _: APIClientConfiguration
+    ) async throws -> NativeSyncBootstrapResult {
+        .success(cursor: nil, tombstones: [])
+    }
+
+    func send(
+        _ mutation: NativeQueuedMutation,
+        configuration: APIClientConfiguration
+    ) async throws -> NativeSyncMutationResult {
+        clientMutationIDs.append(mutation.clientMutationID)
+        _ = try mutation.requestBuilder().urlRequest(configuration: configuration)
+        return .success(serverRevision: nil)
     }
 }
 
