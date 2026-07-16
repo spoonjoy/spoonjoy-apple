@@ -1,0 +1,95 @@
+# Canonical Audit Unit Crosswalk
+
+All rows must reach `merged/adopted`, `verified`, or a named human-only `BLOCKED_HUMAN` disposition before final closure. `pending` is never terminal. Evidence resolves through `evidence-index.md`; rollback classes resolve through the doing doc's containment matrix.
+
+| Canonical unit | Disposition / owner | PR | Exact merge or current head | Evidence key | Rollback | Release unit |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1a | adopted merged / coordinated worker | web #256 | `f4f28db88689fc922fee8132257c564831679986` | `web.w1.tests` | `WEB_RELEASE` | 1 |
+| 1b | adopted merged / coordinated worker | web #256 | `f4f28db88689fc922fee8132257c564831679986` | `web.w1.impl` | `WEB_RELEASE` | 1 |
+| 1c | adopted deployed / coordinated worker | web #258, #274 | `7adaa2206c8ed47748e8f897714c57b972353ef3`, `dcf296bd22d2fb9b98f55fbb7c411e88606986f3` | `web.w1.verify` | `WEB_RELEASE` | 1 |
+| 2a | adopted merged / release train | native #48 | `0bacf7e1c48a162e9fbca87ff0edba01ba6319b2` | `native.n1.tests` | `NATIVE_REVERT` | 1 |
+| 2b | adopted merged / release train | native #48 | `0bacf7e1c48a162e9fbca87ff0edba01ba6319b2` | `native.n1.impl` | `NATIVE_REVERT` | 1 |
+| 2c | adopted verified / release train | native #48, #49 | `0bacf7e1c48a162e9fbca87ff0edba01ba6319b2`, `b910c11101a81bc950d8dcf8d2046804ca60d0ae` | `native.n1.verify` | `NATIVE_REVERT` | 1 |
+| 3a | adopted merged / coordinated worker | web #261 | `1fecbb75131d7b6d083caf93a4009b21673bd85b` | `web.w2.tests` | `WEB_REVERT` | 1 |
+| 3b | adopted merged / coordinated worker | web #261 | `1fecbb75131d7b6d083caf93a4009b21673bd85b` | `web.w2.impl` | `WEB_REVERT` | 1 |
+| 3c | adopted deployed / coordinated worker | web #261 | `1fecbb75131d7b6d083caf93a4009b21673bd85b` | `web.w2.verify` | `WEB_RELEASE` | 1 |
+| 3d | adopted merged / coordinated worker | web #262 | `7b06c49696f949d7429ae6898b92f5b0e1c807d6` | `web.w3.tests` | `WEB_REVERT` | 1 |
+| 3e | adopted merged / coordinated worker | web #262 | `7b06c49696f949d7429ae6898b92f5b0e1c807d6` | `web.w3.impl` | `WEB_REVERT` | 1 |
+| 3f | adopted deployed / coordinated worker | web #262 | `7b06c49696f949d7429ae6898b92f5b0e1c807d6` | `web.w3.verify` | `WEB_RELEASE` | 1 |
+| 3g | adopted merged / coordinated worker | web #260 | `edf22ce1dd051937982d1908feb5813034eb276c` | `web.w4.tests` | `APPLE_SWITCH` | 1 |
+| 3h | adopted merged / coordinated worker | web #260 | `edf22ce1dd051937982d1908feb5813034eb276c` | `web.w4.impl` | `APPLE_SWITCH` | 1 |
+| 3i | adopted deployed / coordinated worker | web #260 | `edf22ce1dd051937982d1908feb5813034eb276c` | `web.w4.verify` | `APPLE_SWITCH` | 1 |
+| 3j | pending / release train + authorized Apple session | n/a | portal evidence pending | `apple.callback.registration` | `APPLE_SWITCH` | 2A |
+| 3k | pending / release train | W5 PR pending | pending | `web.w5.tests` | `APPLE_SWITCH` | 2B |
+| 3l | pending / release train | W5 PR pending | pending | `web.w5.impl` | `APPLE_SWITCH` | 2C |
+| 3m | pending / release train | W5 PR pending | pending | `web.w5.verify` | `APPLE_SWITCH` | 2D |
+| 4.0 | adopted deployed / coordinated worker | web #259 | `5c0fd3c2916c22698b40dd233bdee2045adf04d4` | `web.w6.contract` | `WEB_REVERT` | 1 |
+| 4a | active / coordinated worker | native #52 | `f1b3ebf643ddabf4b4abfdc3d6d3f438a02b0b1c` | `native.n2.tests` | `NATIVE_REVERT` | 1 |
+| 4b | active / coordinated worker | native #52 | `f1b3ebf643ddabf4b4abfdc3d6d3f438a02b0b1c` | `native.n2.impl` | `NATIVE_REVERT` | 1 |
+| 4c | active / coordinated worker | native #52 | `f1b3ebf643ddabf4b4abfdc3d6d3f438a02b0b1c` | `native.n2.verify` | `NATIVE_REVERT` | 1 |
+| 5a | pending / release train | N3 PR pending | pending | `native.n3.tests` | `NATIVE_REVERT` | 5 |
+| 5b | pending / release train | N3 PR pending | pending | `native.n3.impl` | `NATIVE_REVERT` | 5 |
+| 5c | pending / release train | N3 PR pending | pending | `native.n3.verify` | `NATIVE_REVERT` | 5 |
+| 6a | adopted merged / coordinated worker | native #53 | `8b5418b7608105d242e44493812ddbbb47d63374` | `native.n4.tests` | `NATIVE_REVERT` | 1 |
+| 6b | adopted merged / coordinated worker | native #53 | `8b5418b7608105d242e44493812ddbbb47d63374` | `native.n4.impl` | `NATIVE_REVERT` | 1 |
+| 6c | adopted verified / coordinated worker | native #53 | `8b5418b7608105d242e44493812ddbbb47d63374` | `native.n4.verify` | `NATIVE_REVERT` | 1 |
+| 6d | pending final visual / release train | native #53 + final SHA | pending final evidence | `native.signed_out.visual` | `NATIVE_REVERT` | 11 |
+| 7a | pending / release train | N5 PR pending | pending | `native.n5.tests` | `NATIVE_REVERT` | 6A |
+| 7b | pending / release train | N5 PR pending | pending | `native.n5.impl` | `NATIVE_REVERT` | 6A |
+| 7c | pending / release train | N5 PR pending | pending | `native.n5.verify` | `NATIVE_REVERT` | 6A |
+| 7d | pending / release train | N5 + W17 PRs pending | pending | `photo_studio.visual.35` | `NATIVE_REVERT`, `WEB_REVERT` | 6B, 10, 11 |
+| 8a | active / coordinated worker | web #266 | current head in handoff | `web.w7.tests` | `WEB_REVERT` | 1 |
+| 8b | active / coordinated worker | web #266 | current head in handoff | `web.w7.impl` | `WEB_REVERT` | 1 |
+| 8c | active / coordinated worker | web #266 | current head in handoff | `web.w7.verify` | `WEB_REVERT` | 1 |
+| 9a | pending / release train | W8 PR pending | pending | `web.w8.tests` | `LOCAL_DATA` | 3 |
+| 9b | pending / release train | W8 PR pending | pending | `web.w8.impl` | `LOCAL_DATA` | 3 |
+| 9c | pending / release train | W8 PR pending | pending | `web.w8.verify` | `LOCAL_DATA` | 3 |
+| 10a | pending / release train | W9 PR pending | pending | `web.w9.tests` | `CLEANUP_RECOVERY` | 4 |
+| 10b | pending / release train | W9 PR pending | pending | `web.w9.impl` | `CLEANUP_RECOVERY` | 4 |
+| 10c | pending / release train | W9 PR pending | pending | `web.w9.verify` | `CLEANUP_RECOVERY` | 4 |
+| 10d | adopted merged / release train | native #50 | `7c146632e9e16d53176da502e4fdca87ab17f580` | `native.n6.tests` | `CLEANUP_RECOVERY` | 1 |
+| 10e | adopted merged / release train | native #50 | `7c146632e9e16d53176da502e4fdca87ab17f580` | `native.n6.impl` | `CLEANUP_RECOVERY` | 1 |
+| 10f | adopted verified / release train | native #50 | `7c146632e9e16d53176da502e4fdca87ab17f580` | `native.n6.verify` | `CLEANUP_RECOVERY` | 1 |
+| 11.0 | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.baseline` | `WEB_REVERT` | 1 |
+| 11a | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.tests` | `WEB_REVERT` | 1 |
+| 11b | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.impl` | `WEB_REVERT` | 1 |
+| 11c | active deploy proof / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w10.verify` | `WEB_RELEASE` | 1 |
+| 11.1a | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w11.tests` | `WEB_REVERT` | 1 |
+| 11.1b | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w11.impl` | `WEB_REVERT` | 1 |
+| 11.1c | active deploy proof / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w11.verify` | `WEB_RELEASE` | 1 |
+| 11.2a | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w12.tests` | `WEB_REVERT` | 1 |
+| 11.2b | adopted merged / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w12.impl` | `WEB_REVERT` | 1 |
+| 11.2c | active deploy proof / coordinated worker | web #270 | `405d614981f684e101f5099ad5d27f89b5b54419` | `web.w12.verify` | `WEB_RELEASE` | 1 |
+| 12.0 | pending / release train | N7/N8 PRs pending | pending | `native.cover.baseline` | `NATIVE_REVERT` | 7 |
+| 12a | pending / release train | N7 PR pending | pending | `native.n7.tests` | `NATIVE_REVERT` | 7 |
+| 12b | pending / release train | N7 PR pending | pending | `native.n7.impl` | `NATIVE_REVERT` | 7 |
+| 12c | pending / release train | N7 PR pending | pending | `native.n7.verify` | `NATIVE_REVERT` | 7 |
+| 12d | pending / release train | N8 PR pending | pending | `native.n8.tests` | `NATIVE_REVERT` | 8 |
+| 12e | pending / release train | N8 PR pending | pending | `native.n8.impl` | `NATIVE_REVERT` | 8 |
+| 12f | pending / release train | N8 PR pending | pending | `native.n8.verify` | `NATIVE_REVERT` | 8 |
+| 13a | adopted merged / coordinated worker | web #264 | `4226751167480d95822f1bac8b5143327b3813d7` | `web.w13.tests` | `WEB_REVERT` | 1 |
+| 13b | adopted merged / coordinated worker | web #264 | `4226751167480d95822f1bac8b5143327b3813d7` | `web.w13.impl` | `WEB_REVERT` | 1 |
+| 13c | adopted deployed / coordinated worker | web #264 | `4226751167480d95822f1bac8b5143327b3813d7` | `web.w13.verify` | `WEB_RELEASE` | 1 |
+| 14a | active / coordinated worker | web #271 | current head in handoff | `web.w14.tests` | `WEB_RELEASE` | 1 |
+| 14b | active / coordinated worker | web #271 | current head in handoff | `web.w14.impl` | `WEB_RELEASE` | 1 |
+| 14c | active / coordinated worker | web #271 | current head in handoff | `web.w14.verify` | `WEB_RELEASE` | 1 |
+| 15a | adopted merged / coordinated worker | web #268 | `2f392840a24fb1c5886cb843071e29f719e1b946` | `web.w15.tests` | `WEB_REVERT` | 1 |
+| 15b | adopted merged / coordinated worker | web #268 | `2f392840a24fb1c5886cb843071e29f719e1b946` | `web.w15.impl` | `WEB_REVERT` | 1 |
+| 15c | adopted deployed / coordinated worker | web #268 | `2f392840a24fb1c5886cb843071e29f719e1b946` | `web.w15.verify` | `WEB_RELEASE` | 1 |
+| 15d | pending final deployed visual / release train | web #268 + final SHA | pending | `web.home.visual` | `WEB_RELEASE` | 10 |
+| 16a | active / coordinated worker | web #272 | `66aa76a42a8f39c00b9535f7c23f33b93c5afb41` | `web.w16.tests` | `WEB_REVERT` | 1 |
+| 16b | active / coordinated worker | web #272 | `66aa76a42a8f39c00b9535f7c23f33b93c5afb41` | `web.w16.impl` | `WEB_REVERT` | 1 |
+| 16c | active / coordinated worker | web #272 | `66aa76a42a8f39c00b9535f7c23f33b93c5afb41` | `web.w16.verify` | `WEB_RELEASE` | 1 |
+| 16d | adopted merged / release train | native #51 | `3013c361ef178ccb2af67a61e3f2a1d72df46f35` | `native.n9.tests` | `NATIVE_REVERT` | 1 |
+| 16e | adopted merged / release train | native #51 | `3013c361ef178ccb2af67a61e3f2a1d72df46f35` | `native.n9.impl` | `NATIVE_REVERT` | 1 |
+| 16f | adopted verified / release train | native #51 | `3013c361ef178ccb2af67a61e3f2a1d72df46f35` | `native.n9.verify` | `NATIVE_REVERT` | 1 |
+| 17a | pending / release train | N10 PR pending | pending | `native.n10.tests` | `NATIVE_REVERT` | 9 |
+| 17b | pending / release train | N10 PR pending | pending | `native.n10.impl` | `NATIVE_REVERT` | 9 |
+| 17c | pending / release train | N10 PR pending | pending | `native.n10.verify` | `NATIVE_REVERT` | 9 |
+| 18 | pending / release train | final web SHA | pending | `web.unit18` | `WEB_RELEASE` | 10 |
+| 19 | pending / release train | final deployed web SHA | pending | `web.unit19` | `WEB_RELEASE` | 10 |
+| 20 | pending / release train | final native SHA | pending | `native.unit20` | `NATIVE_REVERT` | 11 |
+| 21 | delegated exclusively / release train | exact TestFlight candidate | pending | `testflight.unit21` | `TESTFLIGHT_CONTAIN` | 12A-12D |
+| 22 | shared closure; native/TestFlight exclusive / release train | cleanup/Desk | pending | `closure.unit22` | `CLEANUP_RECOVERY` | 13-14 |
+
+Final gate: `pending`, `active`, and unmatched row counts must all equal zero except rows carrying a fully populated named `BLOCKED_HUMAN` disposition.
