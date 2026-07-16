@@ -748,6 +748,43 @@ struct CoverControlSurfaceTests {
         ))
     }
 
+    @Test("cover photo staging enforces the original nonempty picker byte limit before normalization")
+    func coverPhotoStagingEnforcesOriginalNonemptyPickerByteLimit() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        let existing = NativeStagedMediaUpload(
+            localStageID: "cover-stage-existing",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            data: try fixtureImageData(width: 24, height: 16, typeIdentifier: UTType.jpeg.identifier)
+        )
+        let limit = policy.mediaPolicy.maxIndividualUserSelectedBytes
+
+        let boundary = policy.stageSelection(
+            existing: existing,
+            data: existing.data,
+            contentType: "image/jpeg",
+            byteCount: limit,
+            localStageID: "cover-stage-boundary",
+            existingUsage: .zero
+        )
+        #expect(boundary.rejection == nil)
+        #expect(boundary.stagedPhoto?.localStageID == "cover-stage-boundary")
+
+        let oversizedData = Data(repeating: 0, count: limit + 1)
+        let oversized = policy.stageSelection(
+            existing: existing,
+            data: oversizedData,
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-runtime-oversized",
+            existingUsage: .zero
+        )
+
+        #expect(oversized.rejection == .media(.individualFileTooLarge(limitBytes: limit)))
+        #expect(oversized.stagedPhoto?.localStageID == existing.localStageID)
+        #expect(oversized.stagedPhoto?.byteCount == existing.byteCount)
+        #expect(oversized.stagedPhoto?.data == existing.data)
+    }
+
     @Test("cover photo staging normalizes HEIF PNG JPEG WebP and oversized input to bounded JPEG")
     func coverPhotoStagingNormalizesSupportedFormatsToBoundedJPEG() throws {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
