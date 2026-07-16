@@ -182,9 +182,11 @@ Set `CLEANUP_ROOT=/tmp/spoonjoy-audit-release-train/cleanup-$(date -u +%Y%m%dT%H
 **Output**: Exact web/native merge SHAs, PR/run URLs, deployment versions, smoke/cleanup artifacts.
 **Acceptance**: Every listed agent-owned PR is merged with exact merge SHA, green PR/main CI, and required deployment evidence; native #52 is green on main; no agent-owned blocker is terminal. The coordinated worker sends the owner-release handoff and starts no later web merge/deploy without coordination.
 
-### ⬜ Unit 2A: Clean Apple Callback Registration And Canary (3j)
+### ✅ Unit 2A: Clean Apple Callback Registration And Canary (3j)
 **What**: Use the existing authorized Apple Developer browser session to add `https://spoonjoy.app/auth/apple/callback` without removing the legacy callback; capture redacted portal evidence and canary GET/POST behavior for both paths.
 **Acceptance**: Registration plus both canaries pass before source/config selects the clean path. If existing sessions cannot authenticate, record the exact `BLOCKED_HUMAN` prerequisite/action and keep Units 2B-2D nonterminal/blocked without affecting independent work.
+
+**Result (2026-07-16T17:49:24Z)**: `app.spoonjoy.client` freshly read back one `spoonjoy.app` domain plus the clean return URL and all six legacy return URLs after Save/reopen. Ten GET and ten POST canaries on each clean/legacy production path completed with 40/40 controlled `302` responses, no 404/5xx response, and Worker `c7a2517a-6076-4dcd-bee9-6c9e76ecfeb8`. Redacted evidence manifest checksum: `e990e5d00a0dac9969e9fcc8930c04a25c82c6506c996b6add38c8b17e8b4c7b`.
 
 ### ⬜ Unit 2B: Clean Apple Start-Switch Red Tests (3k / W5)
 **Tests first**: Add failing configuration tests proving clean starts require Unit 2A's evidence checksum, unknown/stale evidence is rejected, and legacy rollback remains selectable.
