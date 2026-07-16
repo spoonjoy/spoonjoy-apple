@@ -1,5 +1,10 @@
 import Foundation
 
+public enum OAuthProviderHint: String, CaseIterable, Hashable, Sendable {
+    case google
+    case github
+}
+
 public enum OAuthRequests {
     public static func registerClient(
         clientName: String,
@@ -24,22 +29,27 @@ public enum OAuthRequests {
         redirectURI: URL,
         scope: String,
         state: OAuthState,
-        codeChallenge: String
+        codeChallenge: String,
+        providerHint: OAuthProviderHint? = nil
     ) throws -> APIRequestBuilder {
         _ = try OAuthRedirectValidator.validate(redirectURI)
+        var queryItems = [
+            URLQueryItem(name: "client_id", value: clientID),
+            URLQueryItem(name: "redirect_uri", value: redirectURI.absoluteString),
+            URLQueryItem(name: "response_type", value: "code"),
+            URLQueryItem(name: "scope", value: scope),
+            URLQueryItem(name: "state", value: state.rawValue),
+            URLQueryItem(name: "code_challenge", value: codeChallenge),
+            URLQueryItem(name: "code_challenge_method", value: "S256")
+        ]
+        if let providerHint {
+            queryItems.append(URLQueryItem(name: "provider", value: providerHint.rawValue))
+        }
 
         return APIRequestBuilder(
             method: .get,
             pathComponents: ["oauth", "authorize"],
-            queryItems: [
-                URLQueryItem(name: "client_id", value: clientID),
-                URLQueryItem(name: "redirect_uri", value: redirectURI.absoluteString),
-                URLQueryItem(name: "response_type", value: "code"),
-                URLQueryItem(name: "scope", value: scope),
-                URLQueryItem(name: "state", value: state.rawValue),
-                URLQueryItem(name: "code_challenge", value: codeChallenge),
-                URLQueryItem(name: "code_challenge_method", value: "S256")
-            ]
+            queryItems: queryItems
         )
     }
 

@@ -74,7 +74,11 @@ public actor NativeAuthSessionRepository {
         self.refreshCoordinator = RefreshCoordinator(vault: vault, refresh: refresh)
     }
 
-    public func startSignIn(state: OAuthState, codeChallenge: String) async throws -> NativeAuthSignInStart {
+    public func startSignIn(
+        state: OAuthState,
+        codeChallenge: String,
+        providerHint: OAuthProviderHint? = nil
+    ) async throws -> NativeAuthSignInStart {
         _ = try OAuthRequests.registerClient(clientName: clientName, redirectURIs: [redirectURI])
         let clientID: String
         if reusesSavedClientID, let savedClientID = try await vault.loadClientID() {
@@ -92,8 +96,10 @@ public actor NativeAuthSessionRepository {
                 redirectURI: redirectURI,
                 scope: scope,
                 state: state,
-                codeChallenge: codeChallenge
-            )
+                codeChallenge: codeChallenge,
+                providerHint: providerHint
+            ),
+            providerHint: providerHint
         )
     }
 

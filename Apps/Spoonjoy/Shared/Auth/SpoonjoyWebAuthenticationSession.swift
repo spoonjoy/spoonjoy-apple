@@ -35,20 +35,27 @@ extension ASWebAuthenticationSession: SpoonjoyWebAuthenticationSessionProtocol {
 final class SpoonjoyWebAuthenticationSession {
     private let sessionFactory: SpoonjoyWebAuthenticationSessionFactory
     private let callbackHandler: @MainActor (URL) -> Void
+    private let cancellationHandler: @MainActor (Error?) -> Void
     private var activeSession: (any SpoonjoyWebAuthenticationSessionProtocol)?
     private let oauthCallback: URL
 
     init(
         callbackURL: URL,
         sessionFactory: @escaping SpoonjoyWebAuthenticationSessionFactory,
-        callbackHandler: @escaping @MainActor (URL) -> Void
+        callbackHandler: @escaping @MainActor (URL) -> Void,
+        cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in }
     ) {
         self.oauthCallback = callbackURL
         self.sessionFactory = sessionFactory
         self.callbackHandler = callbackHandler
+        self.cancellationHandler = cancellationHandler
     }
 
-    convenience init(callbackURL: URL, callbackHandler: @escaping @MainActor (URL) -> Void) {
+    convenience init(
+        callbackURL: URL,
+        callbackHandler: @escaping @MainActor (URL) -> Void,
+        cancellationHandler: @escaping @MainActor (Error?) -> Void = { _ in }
+    ) {
         self.init(
             callbackURL: callbackURL,
             sessionFactory: { authorizationURL, _, completionHandler in
@@ -76,7 +83,8 @@ final class SpoonjoyWebAuthenticationSession {
                 session.presentationContextProvider = presentationContextProvider
                 return session
             },
-            callbackHandler: callbackHandler
+            callbackHandler: callbackHandler,
+            cancellationHandler: cancellationHandler
         )
     }
 
@@ -86,13 +94,14 @@ final class SpoonjoyWebAuthenticationSession {
         let session = sessionFactory(
             authorizationURL,
             callbackDescriptor(for: oauthCallback)
-        ) { [weak self] callbackURL, _ in
+        ) { [weak self] callbackURL, error in
             guard let callbackURL else {
+                self?.handleAuthenticationCancellation(error)
                 return
             }
             self?.handleOAuthCallback(callbackURL)
         }
-        session.prefersEphemeralWebBrowserSession = true
+        session.prefersEphemeralWebBrowserSession = false
         let didStart = session.start()
         activeSession = didStart ? session : nil
         return didStart
@@ -109,6 +118,11 @@ final class SpoonjoyWebAuthenticationSession {
 
     func handleOAuthCallback(_ callbackURL: URL) {
         callbackHandler(callbackURL)
+    }
+
+    func handleAuthenticationCancellation(_ error: Error?) {
+        activeSession = nil
+        cancellationHandler(error)
     }
 
     func cancel() {
