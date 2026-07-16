@@ -76,6 +76,22 @@ public struct RecipeCoverPhotoStagedMediaUsage: Equatable, Sendable {
     }
 }
 
+public actor RecipeCoverPhotoStagingWorker {
+    private let policy: RecipeCoverPhotoStagingPolicy
+
+    public init(policy: RecipeCoverPhotoStagingPolicy = .offlineProductContract) {
+        self.policy = policy
+    }
+
+    public func stageSelection(
+        existing: NativeStagedMediaUpload?,
+        candidate: NativeStagedMediaUpload,
+        existingUsage: RecipeCoverPhotoStagedMediaUsage
+    ) -> RecipeCoverPhotoStagingResult {
+        policy.stageSelection(existing: existing, candidate: candidate, existingUsage: existingUsage)
+    }
+}
+
 public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
     public static let offlineProductContract = RecipeCoverPhotoStagingPolicy()
 
@@ -151,6 +167,12 @@ public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
     ) -> RecipeCoverPhotoStagingResult {
         guard candidate.byteCount > 0 else {
             return RecipeCoverPhotoStagingResult(stagedPhoto: existing, rejection: .emptyData)
+        }
+        guard candidate.byteCount <= mediaPolicy.maxIndividualUserSelectedBytes else {
+            return RecipeCoverPhotoStagingResult(
+                stagedPhoto: existing,
+                rejection: .media(.individualFileTooLarge(limitBytes: mediaPolicy.maxIndividualUserSelectedBytes))
+            )
         }
         let usage = existingUsage.removing(
             byteCount: existing?.byteCount ?? 0,

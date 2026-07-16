@@ -743,7 +743,9 @@ public struct NativeStagedMediaUpload: Codable, Equatable, Sendable {
     public static func == (lhs: NativeStagedMediaUpload, rhs: NativeStagedMediaUpload) -> Bool {
         lhs.localStageID == rhs.localStageID &&
             lhs.fileName == rhs.fileName &&
-            lhs.contentType == rhs.contentType
+            lhs.contentType == rhs.contentType &&
+            lhs.byteCount == rhs.byteCount &&
+            lhs.data == rhs.data
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -4400,7 +4402,16 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 continue
             }
 
-            let result = try await transport.send(mutation, configuration: configuration)
+            let result: NativeSyncMutationResult
+            do {
+                result = try await transport.send(mutation, configuration: configuration)
+            } catch is RecipeCoverImageNormalizationError {
+                result = .conflict(
+                    kind: .validation,
+                    serverRevision: nil,
+                    message: "Queued cover photo is unreadable. Choose the photo again."
+                )
+            }
             switch result {
             case .success(let revision, let idRemaps):
                 drainedClientMutationIDs.append(mutation.clientMutationID)

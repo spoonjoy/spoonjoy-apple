@@ -624,8 +624,18 @@ struct SpoonCookLogSurfaceTests {
             SpoonCookLogDraftState.self,
             from: try JSONEncoder().encode(draft)
         )
-        #expect(decoded == draft)
-        #expect(decoded.stagedPhoto?.data.isEmpty == true)
+        let decodedPhoto = try #require(decoded.stagedPhoto)
+        #expect(decoded != draft)
+        #expect(decoded.recipeID == draft.recipeID)
+        #expect(decoded.note == draft.note)
+        #expect(decoded.nextTime == draft.nextTime)
+        #expect(decoded.useAsRecipeCover == draft.useAsRecipeCover)
+        #expect(decoded.updatedAt == draft.updatedAt)
+        #expect(decodedPhoto.localStageID == stagedPhoto.localStageID)
+        #expect(decodedPhoto.fileName == stagedPhoto.fileName)
+        #expect(decodedPhoto.contentType == stagedPhoto.contentType)
+        #expect(decodedPhoto.byteCount == stagedPhoto.byteCount)
+        #expect(decodedPhoto.data.isEmpty)
 
         let empty = SpoonCookLogDraftState(
             recipeID: "recipe/lemon",

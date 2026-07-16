@@ -718,6 +718,22 @@ struct CoverControlSurfaceTests {
         )
         #expect(emptyCandidate == RecipeCoverPhotoStagingResult(stagedPhoto: staged, rejection: .emptyData))
 
+        let metadataOnlyCandidate = NativeStagedMediaUpload(
+            localStageID: "cover-stage-metadata-only",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            byteCount: 1
+        )
+        let metadataOnly = policy.stageSelection(
+            existing: staged,
+            candidate: metadataOnlyCandidate,
+            existingUsage: .zero
+        )
+        #expect(metadataOnly == RecipeCoverPhotoStagingResult(
+            stagedPhoto: metadataOnlyCandidate,
+            rejection: nil
+        ))
+
         let oversized = policy.stageSelection(
             existing: staged,
             data: Data(),
@@ -746,6 +762,66 @@ struct CoverControlSurfaceTests {
             stagedPhoto: staged,
             rejection: .media(.individualFileTooLarge(limitBytes: 1))
         ))
+    }
+
+    @Test("cover photo staging enforces the original nonempty picker byte limit before normalization")
+    func coverPhotoStagingEnforcesOriginalNonemptyPickerByteLimit() throws {
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        let existing = NativeStagedMediaUpload(
+            localStageID: "cover-stage-existing",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            data: try fixtureImageData(width: 24, height: 16, typeIdentifier: UTType.jpeg.identifier)
+        )
+        let limit = policy.mediaPolicy.maxIndividualUserSelectedBytes
+
+        let boundary = policy.stageSelection(
+            existing: existing,
+            data: existing.data,
+            contentType: "image/jpeg",
+            byteCount: limit,
+            localStageID: "cover-stage-boundary",
+            existingUsage: .zero
+        )
+        #expect(boundary.rejection == nil)
+        #expect(boundary.stagedPhoto?.localStageID == "cover-stage-boundary")
+
+        let oversizedData = Data(repeating: 0, count: limit + 1)
+        let oversized = policy.stageSelection(
+            existing: existing,
+            data: oversizedData,
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-runtime-oversized",
+            existingUsage: .zero
+        )
+
+        #expect(oversized.rejection == .media(.individualFileTooLarge(limitBytes: limit)))
+        #expect(oversized.stagedPhoto?.localStageID == existing.localStageID)
+        #expect(oversized.stagedPhoto?.byteCount == existing.byteCount)
+        #expect(oversized.stagedPhoto?.data == existing.data)
+    }
+
+    @Test("cover photo staging worker owns normalization away from the main actor")
+    @MainActor
+    func coverPhotoStagingWorkerOwnsNormalizationAwayFromMainActor() async throws {
+        let worker = RecipeCoverPhotoStagingWorker()
+        let source = try fixtureImageData(width: 48, height: 32, typeIdentifier: UTType.png.identifier)
+        let result = await worker.stageSelection(
+            existing: nil,
+            candidate: NativeStagedMediaUpload(
+                localStageID: "cover-stage-worker",
+                fileName: "cover.png",
+                contentType: "image/png",
+                data: source
+            ),
+            existingUsage: .zero
+        )
+
+        let staged = try #require(result.stagedPhoto)
+        #expect(result.rejection == nil)
+        #expect(staged.localStageID == "cover-stage-worker")
+        #expect(staged.data != source)
+        try assertNormalizedCoverJPEG(staged)
     }
 
     @Test("cover photo staging normalizes HEIF PNG JPEG WebP and oversized input to bounded JPEG")
@@ -925,6 +1001,8 @@ struct CoverControlSurfaceTests {
         #expect(first.contentType == "image/jpeg")
         #expect(first.data == source)
         #expect(replay == first)
+        #expect(replay.byteCount == first.byteCount)
+        #expect(replay.data == first.data)
         #expect(jpegAlias.contentType == "image/jpeg")
         #expect(jpegAlias.data == source)
         #expect(normalizedOrientedJPEG.data != orientedJPEG)
@@ -933,6 +1011,34 @@ struct CoverControlSurfaceTests {
         #expect(orientedSize.height == 320)
         #expect(normalizedMislabeledPNG.data != mislabeledPNG)
         try assertNormalizedCoverJPEG(normalizedMislabeledPNG)
+    }
+
+    @Test("staged media equality includes byte count and payload data")
+    func stagedMediaEqualityIncludesByteCountAndPayloadData() {
+        let upload = NativeStagedMediaUpload(
+            localStageID: "cover-stage-equality",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            byteCount: 3,
+            data: Data([1, 2, 3])
+        )
+        let changedByteCount = NativeStagedMediaUpload(
+            localStageID: upload.localStageID,
+            fileName: upload.fileName,
+            contentType: upload.contentType,
+            byteCount: 4,
+            data: upload.data
+        )
+        let changedData = NativeStagedMediaUpload(
+            localStageID: upload.localStageID,
+            fileName: upload.fileName,
+            contentType: upload.contentType,
+            byteCount: upload.byteCount,
+            data: Data([3, 2, 1])
+        )
+
+        #expect(upload != changedByteCount)
+        #expect(upload != changedData)
     }
 
     @Test("cover photo staging preserves prior stage on corrupt supported input")
@@ -1064,6 +1170,19 @@ struct CoverControlSurfaceTests {
             ))
         ))
 
+        let validJPEG = try fixtureImageData(width: 16, height: 16, typeIdentifier: UTType.jpeg.identifier)
+        let remainingByteRejected = policy.stageSelection(
+            existing: nil,
+            data: validJPEG,
+            contentType: "image/jpeg",
+            localStageID: "cover-stage-remaining-byte-cap",
+            existingUsage: RecipeCoverPhotoStagedMediaUsage(byteCount: maxBytes - 1, fileCount: 0)
+        )
+        #expect(remainingByteRejected == RecipeCoverPhotoStagingResult(
+            stagedPhoto: nil,
+            rejection: .media(.accountByteCapReached(limitBytes: maxBytes, silentEvictionAllowed: false))
+        ))
+
         let replacement = policy.stageSelection(
             existing: existingDraft,
             data: try fixtureImageData(width: 32, height: 20, typeIdentifier: UTType.png.identifier),
@@ -1093,6 +1212,7 @@ struct CoverControlSurfaceTests {
         #expect(coverControlsSource.contains("PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images)"))
         #expect(coverControlsSource.contains("loadTransferable(type: Data.self)"))
         #expect(coverControlsSource.contains("RecipeCoverPhotoStagingPolicy.offlineProductContract"))
+        #expect(coverControlsSource.contains("private static let photoStagingWorker = RecipeCoverPhotoStagingWorker()"))
         #expect(coverControlsSource.contains("stageSelectedCoverPhoto"))
         #expect(coverControlsSource.contains("NativeStagedMediaUpload("))
         #expect(coverControlsSource.contains("\"image/heic\""))
@@ -1100,6 +1220,12 @@ struct CoverControlSurfaceTests {
         #expect(coverControlsSource.contains("existingUsage: stagedMediaUsage"))
         #expect(!coverControlsSource.contains("existingUsage: .zero"))
         #expect(platformNavigationSource.contains("stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage(queuedMutations: contentState.queuedMutations)"))
+
+        let stagingRange = try #require(coverControlsSource.range(of: "@MainActor private func stageSelectedCoverPhoto"))
+        let stagingEndRange = try #require(coverControlsSource.range(of: "@MainActor private func rejectSelectedCoverPhoto"))
+        let stagingSource = coverControlsSource[stagingRange.lowerBound..<stagingEndRange.lowerBound]
+        #expect(stagingSource.contains("await Self.photoStagingWorker.stageSelection("))
+        #expect(!stagingSource.contains("policy.stageSelection("))
 
         let rejectionRange = try #require(coverControlsSource.range(of: "@MainActor private func rejectSelectedCoverPhoto"))
         let clearRange = try #require(coverControlsSource.range(of: "@MainActor private func clearSelectedCoverPhoto"))
