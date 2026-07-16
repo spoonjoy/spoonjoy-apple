@@ -22,8 +22,9 @@
 
 | Unit | Source SHA | Command / operation | Result | Warning count | CI / run URL | External artifact | SHA-256 | Reviewer | Cleanup / rollback |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Planning | `dd5f86a1` | Fresh convergence review | `APPROVED` | 0 | n/a | planning doc | pending | Popper | no rollback needed |
+| Planning | `542f6a6f` | Fresh convergence review including final command corrections | `APPROVED` | 0 | n/a | planning doc | pending | Popper plus final doing reviewers | no rollback needed |
 | Ownership | `c4d13881` / `77a8c2d` | Canonical doing + Desk handoff | `RECORDED` | 0 | n/a | canonical doing / Desk task | pending | pending doing review | coordinated worker retains current train only |
+| Doing gate | `542f6a6f` | Independent hostile release/execution convergence | `APPROVED` | 0 | n/a | doing doc / evidence index / crosswalk | pending | Descartes, Poincare | findings fixed through fresh review |
 
 Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-sha>/` and must not be committed.
 

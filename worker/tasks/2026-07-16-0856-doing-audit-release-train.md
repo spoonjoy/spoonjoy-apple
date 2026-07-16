@@ -1,6 +1,6 @@
 # Doing: Audit Remediation Release Train
 
-**Status**: REVIEWING
+**Status**: READY_FOR_EXECUTION
 **Execution Mode**: spawn
 **Created**: 2026-07-16 09:34 PDT
 **Planning**: ./2026-07-16-0856-planning-audit-release-train.md
@@ -294,3 +294,4 @@ Set `CLEANUP_ROOT=/tmp/spoonjoy-audit-release-train/cleanup-$(date -u +%Y%m%dT%H
 - 2026-07-16 09:34 Converted from approved planning doc; current merge/deploy work remains owned by the coordinated audit worker and this task retains exclusive TestFlight publication ownership.
 - 2026-07-16 09:52 Addressed doing-review findings: durable ownership commits, exhaustive upstream crosswalk, exclusive merge barrier, split callback/TestFlight units, serialized native shared ownership, executable PR/rollback/telemetry/evidence contracts, candidate invalidation, installed-failure re-entry, and recovery-safe cleanup.
 - 2026-07-16 10:24 Addressed fresh hostile findings: split upload/dry-run from publish/notify, asserted internal-only `1.0` ASC state, added elapsed telemetry and installed-build identity gates, made evidence transfer executable, added signed ownership/human schemas, represented accepted ancestry and canonical Unit 0/12.0, and made cleanup ownership/fingerprint checks fail closed.
+- 2026-07-16 10:41 Two independent hostile reviewers returned `APPROVED` after final ancestry, human-proof, containment, notification-acceptance, and cleanup command corrections; doing is ready for execution pending the explicit owner-release handoff.
