@@ -81,6 +81,8 @@ SCRIPT_CONTRACTS = {
       "Reusing installed iOS simulator app",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
+      "SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS",
+      "xcrun simctl bootstatus $udid -b",
       "xcrun simctl uninstall",
       "xcrun simctl launch",
       "timeoutSeconds",

@@ -41,6 +41,7 @@ prebuilt_app_path="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
 reuse_installed_app="${SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP:-0}"
 install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-}"
 timeout_seconds="${SPOONJOY_SMOKE_TIMEOUT_SECONDS:-30}"
+boot_timeout_seconds="${SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS:-120}"
 launch_attempts="${SPOONJOY_SMOKE_LAUNCH_ATTEMPTS:-3}"
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
@@ -72,7 +73,8 @@ write_blocker() {
 
 run_with_timeout() {
   local command="$1"
-  python3 - "$timeout_seconds" "$command" <<'PY'
+  local command_timeout_seconds="${2:-$timeout_seconds}"
+  python3 - "$command_timeout_seconds" "$command" <<'PY'
 import os
 import signal
 import subprocess
@@ -208,16 +210,12 @@ if [[ "$build_status" -ne 0 ]]; then
 fi
 
 boot_log="$(mktemp)"
-printf 'Booting simulator: %s %s\n' "$boot_command" "$udid" >> "$log_path"
+printf 'Booting simulator and waiting for readiness: %s %s; xcrun simctl bootstatus %s -b\n' "$boot_command" "$udid" "$udid" >> "$log_path"
 set +e
-run_with_timeout "$boot_command $udid || xcrun simctl bootstatus $udid -b" > "$boot_log" 2>&1
+run_with_timeout "$boot_command $udid || true; xcrun simctl bootstatus $udid -b" "$boot_timeout_seconds" > "$boot_log" 2>&1
 boot_status=$?
 set -e
-if [[ "$boot_status" -ne 0 ]] || ! grep -q "Unable to boot device in current state: Booted" "$boot_log"; then
-  cat "$boot_log" >> "$log_path"
-else
-  printf 'Simulator was already booted; suppressed benign CoreSimulator boot diagnostic.\n' >> "$log_path"
-fi
+cat "$boot_log" >> "$log_path"
 printf 'simulator boot exit code: %s\n' "$boot_status" >> "$log_path"
 rm -f "$boot_log"
 

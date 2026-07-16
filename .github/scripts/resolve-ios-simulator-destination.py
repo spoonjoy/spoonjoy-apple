@@ -14,6 +14,22 @@ def state_rank(state: str) -> int:
     return 1 if state == "Shutdown" else 0
 
 
+def family_device_rank(name: str, family: str) -> int:
+    if family != "ipad":
+        return 0
+    if name.startswith("iPad Pro 13-inch"):
+        return 5
+    if name.startswith("iPad Air 13-inch"):
+        return 4
+    if name.startswith("iPad Pro 11-inch"):
+        return 3
+    if name.startswith("iPad Air 11-inch"):
+        return 2
+    if name.startswith("iPad mini"):
+        return 0
+    return 1
+
+
 try:
     raw = subprocess.check_output(
         ["xcrun", "simctl", "list", "devices", "available", "--json"],
@@ -74,5 +90,9 @@ if not default_family_matches:
     print(f"No available {preferred_family} simulator found.", file=sys.stderr)
     sys.exit(1)
 
-_, _, _, selected_udid, _ = sorted(default_family_matches, reverse=True)[0]
+_, _, _, selected_udid, _ = sorted(
+    default_family_matches,
+    key=lambda match: (match[0], match[1], family_device_rank(match[2], preferred_family), match[2]),
+    reverse=True,
+)[0]
 print(f"platform=iOS Simulator,id={selected_udid}")
