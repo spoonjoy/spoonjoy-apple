@@ -985,6 +985,8 @@ struct CoverControlSurfaceTests {
         #expect(first.contentType == "image/jpeg")
         #expect(first.data == source)
         #expect(replay == first)
+        #expect(replay.byteCount == first.byteCount)
+        #expect(replay.data == first.data)
         #expect(jpegAlias.contentType == "image/jpeg")
         #expect(jpegAlias.data == source)
         #expect(normalizedOrientedJPEG.data != orientedJPEG)
@@ -993,6 +995,34 @@ struct CoverControlSurfaceTests {
         #expect(orientedSize.height == 320)
         #expect(normalizedMislabeledPNG.data != mislabeledPNG)
         try assertNormalizedCoverJPEG(normalizedMislabeledPNG)
+    }
+
+    @Test("staged media equality includes byte count and payload data")
+    func stagedMediaEqualityIncludesByteCountAndPayloadData() {
+        let upload = NativeStagedMediaUpload(
+            localStageID: "cover-stage-equality",
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            byteCount: 3,
+            data: Data([1, 2, 3])
+        )
+        let changedByteCount = NativeStagedMediaUpload(
+            localStageID: upload.localStageID,
+            fileName: upload.fileName,
+            contentType: upload.contentType,
+            byteCount: 4,
+            data: upload.data
+        )
+        let changedData = NativeStagedMediaUpload(
+            localStageID: upload.localStageID,
+            fileName: upload.fileName,
+            contentType: upload.contentType,
+            byteCount: upload.byteCount,
+            data: Data([3, 2, 1])
+        )
+
+        #expect(upload != changedByteCount)
+        #expect(upload != changedData)
     }
 
     @Test("cover photo staging preserves prior stage on corrupt supported input")
