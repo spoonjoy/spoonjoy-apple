@@ -23,12 +23,32 @@ This ledger records fresh manual findings from real simulator/macOS pixels. A ro
 - **macOS timer explanation**: the unavailable-system-timer banner is implementation/platform narration inside the cooking flow. Prefer a quiet unavailable/omitted action or a platform-correct affordance rather than a full explanatory strip.
 - **cross-route sidebar truncation**: the same Saved Recipes, Shopping List, and Kitchen Search truncation persists in Recipe Detail and Cook Mode, confirming a shell-level defect rather than one route fixture.
 
+### Shopping List
+
+- **iOS content occlusion**: the floating dock covers the Dairy section and third shopping item. This is the same shell-level safe-area defect as Recipe Detail, now proved on a long list.
+- **duplicated hierarchy**: the compact navigation title and authored `Shopping List` heading repeat the same label while Receipt actions, item entry, Add from recipe, and cache status stack before the actual list.
+- **cache status placement**: `Saved copy` plus a dismiss glyph sits between creation controls and groceries, interrupting the primary scan path.
+
+### Cookbooks
+
+- **iOS content occlusion**: the floating dock covers the next `Shelf` heading and cookbook content.
+- **loading captured as product state**: the featured cookbook collage contains visible activity indicators in the terminal screenshot. Route capture must wait for image settlement or render a deliberate stable no-photo treatment; a loading spinner is not acceptable final imagery.
+- **action competition**: `New Cookbook`, `Open cookbook`, and `Share` occupy large adjacent blocks before the authored cookbook object, weakening food/object-first hierarchy.
+
+### Cookbook Detail
+
+- **cover truth**: the large paper cover is mostly blank with skeleton-like rules and no real recipe imagery. Verify this is an authored no-photo state rather than a placeholder that escaped image loading.
+- **iOS content occlusion**: the bottom dock overlaps the second recipe row and hides following contents.
+
 ## Evidence
 
 - iOS: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair-validation/rebase-0309768c/screenshot-routes/recipes/screenshots/ios-mobile.png`
 - macOS: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair-validation/rebase-0309768c/screenshot-routes/recipes/screenshots/macos-desktop.png`
 - Recipe Detail iOS/macOS: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair-validation/rebase-0309768c/screenshot-routes/recipe-detail/screenshots/`
 - Cook Mode iOS/macOS: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair-validation/rebase-0309768c/screenshot-routes/cook-mode/screenshots/`
+- Shopping List iOS/macOS: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair-validation/rebase-0309768c/screenshot-routes/shopping-list/screenshots/`
+- Cookbooks iOS/macOS: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair-validation/rebase-0309768c/screenshot-routes/cookbooks/screenshots/`
+- Cookbook Detail iOS/macOS: `/Users/arimendelow/Projects/spoonjoy-apple-pr52-repair-validation/rebase-0309768c/screenshot-routes/cookbook-detail/screenshots/`
 
 ## Disposition
 
