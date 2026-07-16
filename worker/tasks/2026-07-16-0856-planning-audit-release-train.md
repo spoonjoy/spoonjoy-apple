@@ -12,7 +12,7 @@ Land the currently reviewed Spoonjoy web and native audit remediations, verify t
 ## Scope
 
 ### In Scope
-- Verify every already-merged audit PR at its exact commit and reconcile the remaining native PR #52 and web PRs #266, #268, #270, #271, and #272 in dependency-safe order, repairing cancelled or failing checks without weakening coverage or release gates.
+- Verify every already-merged audit PR at its exact commit and reconcile the remaining native PR #52 and web PRs #266, #270, #271, and #272 in dependency-safe order, repairing cancelled or failing checks without weakening coverage or release gates.
 - Finish the canonical audit queue still not represented by a merged PR: native mutation single-flight/retry identity, native Photo Studio product truth, local OAuth teardown, web repository/artifact cleanup and PR-size hygiene, native cover codec/queue modularization, and build-specific TestFlight tester notes.
 - Complete clean Apple callback registration/canary, tests, default-start switch, deployment, and clean/legacy rollback verification (canonical Units 3j-3m); use an existing authorized Apple Developer browser session when available, otherwise preserve the exact prerequisite/action as `BLOCKED_HUMAN` while shipping all independent work.
 - Verify the web/backend production deployment for the exact merged web main revision and smoke the OAuth, AASA, image/media, CSP, and public product contracts touched by the train.
@@ -30,7 +30,7 @@ Land the currently reviewed Spoonjoy web and native audit remediations, verify t
 - New product domains unrelated to audit findings or dogfood regressions.
 
 ## Completion Criteria
-- [ ] Already-merged native PRs #47, #48, #49, #50, #51, and #53 and web PRs #255, #256, #258, #259, #260, #261, #262, #263, #264, #267, #269, and #274 are traced to exact commits and remain represented in current main; native PR #52 and web PRs #266, #268, #270, #271, and #272 are merged with required checks green.
+- [ ] Already-merged native PRs #47, #48, #49, #50, #51, and #53 and web PRs #255, #256, #258, #259, #260, #261, #262, #263, #264, #267, #268, #269, and #274 are traced to exact commits and remain represented in current main; native PR #52 and web PRs #266, #270, #271, and #272 are merged with required checks green.
 - [ ] Audit findings for native mutation serialization/retry identity, Photo Studio product truth, repository cleanup/local OAuth teardown, native cover modularization, and build-specific tester notes have merged implementation evidence; none is deferred behind the release.
 - [ ] Clean Apple social callback registration is evidenced in the Apple portal, both callbacks pass canaries, clean starts are selected only after that prerequisite, legacy rollback remains available, and the exact switched web SHA is deployed; if portal access cannot be satisfied by existing sessions, Units 3j-3m are durably `BLOCKED_HUMAN` with the exact action and no premature start switch.
 - [ ] The exact merged web main revision is deployed and its affected production contracts pass smoke validation.
@@ -75,11 +75,94 @@ Land the currently reviewed Spoonjoy web and native audit remediations, verify t
 - `/Users/arimendelow/Projects/spoonjoy-apple-audit-release-train/docs/apple-distribution.md`
 - `/Users/arimendelow/Projects/spoonjoy-apple-audit-release-train/docs/native-design-language.md`
 - `/Users/arimendelow/Projects/spoonjoy-v2/docs/design-language.md`
-- Native merged trace: N0/Photo Studio #47 `bad81b49`; N1/release containment #48 `0bacf7e1`; warning repair #49 `b910c111`; repository hygiene #50 `7c146632`; N9/advisory #51 `3013c361`; N4/provider sign-in #53 `8b5418b7`. N2/cover normalization #52 is open at `a738e4b515` with app bundle/scenario/advisory green and Swift/coverage running at review time. N3/mutation single-flight, N5/Photo Studio truth, cover modularization, and N10/tester notes require new PRs.
-- Web merged trace: Photo Studio polish #255 `b22c5fec`; W1/release containment #256 `f4f28db` plus #258 `7adaa220` and #274 `dcf296bd`; W6/native upload contract #259 `5c0fd3c`; W4/dual Apple callbacks #260 `edf22ce1`; W2/provider hints #261 `1fecbb75`; W3/provider bounds #262 `7b06c496`; action matching #263 `6958370b`; W13/database search #264 `42267511`; browser readiness #267 `e7b0e9ec`; dual-channel readiness #269 `b07d787e`. Open at review time: W7/demo eradication #266 `0b7dbce28f` (E2E repair active); W15/home hero #268 `9cba7bc28a` (green); shared cover extraction #270 `8e8d94e07c` (green, behind); W14/CSP #271 `14b85985ca` (green, behind); W16/advisory #272 `0d388fb95a` (green, behind). W5/clean callback switch, W8/local teardown, and W9/repository cleanup require new PRs.
 - Native validation: `scripts/validate-native-local.sh`, `scripts/validate-aasa.rb`, `scripts/check-apple-distribution-kit.sh`, and the exact-SHA `.github/workflows/testflight.yml` workflow.
 - Web validation: `pnpm run typecheck`, `pnpm run typecheck:scripts`, `pnpm run test:coverage`, `pnpm run test:e2e`, `pnpm run build`, `pnpm run cleanup:local`, and protected production smoke workflows.
 - App Store Connect app `6787505444`; internal group `31d60f58-aef9-4d44-b047-3a1f0dc61b5e`
+
+### Unit / PR Trace (refreshed 2026-07-16 09:20:24 PDT)
+
+| Canonical unit | Repository PR | Current full head SHA | Merge SHA / state |
+| --- | --- | --- | --- |
+| N0 Photo Studio baseline | native #47 | `7826ed2bb767afb5734516384ea70c78e0261e30` | `bad81b49a07c006814315a56e4c98311693a7256` merged |
+| N1 TestFlight containment | native #48 | `870a5a2d8528cc2665fc94757c212ddef2cff6a8` | `0bacf7e1c48a162e9fbca87ff0edba01ba6319b2` merged |
+| N1 warning repair | native #49 | `f0a2ac8e3a4756e4b70465ee5186c1df8972d53c` | `b910c11101a81bc950d8dcf8d2046804ca60d0ae` merged |
+| N6 repository hygiene | native #50 | `af64826f78fddaf08b190e9972a3734fce030c2c` | `7c146632e9e16d53176da502e4fdca87ab17f580` merged |
+| N9 advisory pipeline | native #51 | `0f471f2656a3608d4dc083820a1800a2649cc71e` | `3013c361ef178ccb2af67a61e3f2a1d72df46f35` merged |
+| N2 cover normalization | native #52 | `a738e4b51549e1ed8944d57b02f14b0fcb353f8f` | open; full CI running |
+| N4 provider sign-in | native #53 | `62b1e3eff83ebc77c0ef7fb535d6477426c15587` | `8b5418b7608105d242e44493812ddbbb47d63374` merged |
+| N3 mutation single-flight | PR pending | pending | not started |
+| N5 Photo Studio truth | PR pending | pending | not started |
+| N7 cover codec extraction | PR pending | pending | not started |
+| N8 cover queue extraction | PR pending | pending | not started |
+| N10 build-specific notes | PR pending | pending | not started |
+| Web Photo Studio polish | web #255 | `250cee63fc1ee6aeae0404a2af7a04accb286365` | `b22c5fece92886a03747ccc5e05e525c4b97be55` merged |
+| W1 release containment | web #256 / #258 / #274 | `224520a37853d5f46a433ac02834f63e0be99742`; `f51325d2d7133ab434ef1b8aa847c5b06a4e78db`; `8e8c300cb4fa5024d7a653b7d7bc77ba77dc32e0` | `f4f28db88689fc922fee8132257c564831679986`; `7adaa2206c8ed47748e8f897714c57b972353ef3`; `dcf296bd22d2fb9b98f55fbb7c411e88606986f3` merged |
+| W6 native upload contract | web #259 | `8de4e4ba10e837ff122da4f03facfc3e46123ede` | `5c0fd3c2916c22698b40dd233bdee2045adf04d4` merged |
+| W4 dual Apple callbacks | web #260 | `377a454d1a1f5a8a39d131be4b27dfb07d1286f0` | `edf22ce1dd051937982d1908feb5813034eb276c` merged |
+| W2 provider hints | web #261 | `dd2cb7562ed7d1daf007e1e883dd3453ce50f929` | `1fecbb75131d7b6d083caf93a4009b21673bd85b` merged |
+| W3 provider bounds | web #262 | `c4a042f441635a7be5eafa6b4e73c8e434ef4172` | `7b06c49696f949d7429ae6898b92f5b0e1c807d6` merged |
+| Router action matching | web #263 | `ba8c7eab1c60267b333c57de320b56397ba2f4a2` | `6958370b2bd69658fed1a51ffc5694b40b35b23b` merged |
+| W13 database search | web #264 | `60efca6867b3523806289c8adb5831df75b99d55` | `4226751167480d95822f1bac8b5143327b3813d7` merged |
+| W7 demo eradication | web #266 | `0b7dbce28f2f5ec32bab5b745f1481d875805df4` | open; E2E repair active |
+| Browser readiness | web #267 | `385bf7179f5ffb1c6ca1b2a2209d7c537d7598e9` | `e7b0e9ec662b96467bac9581dbad459c77b4bd0b` merged |
+| W15 home hero | web #268 | `9cba7bc28ade7de82ea8c43d62866c9be34e9828` | `2f392840a24fb1c5886cb843071e29f719e1b946` merged |
+| Dual-channel readiness | web #269 | `2c4921934948c2e06979e1886945cc874f530939` | `b07d787ee7da7a57f137354a3323f0a7da5e8050` merged |
+| W10-W12 cover extraction/delegation | web #270 | `f365f3c5a23df59780cf07129b75f1190da5b225` | open; CI running |
+| W14 CSP | web #271 | `14b85985ca8fb312b8455326961c9f3762e31b3d` | open; green, rebase pending |
+| W16 advisory | web #272 | `0d388fb95a88a8a39912687a9a673980d2805fc7` | open; green, rebase pending |
+| W5 clean callback switch | PR pending | pending | gated by Apple registration/canary |
+| W8 local OAuth teardown | PR pending | pending | not started |
+| W9 repository cleanup | PR pending | pending | not started |
+
+### Unit 18 Web Evidence Matrix
+
+All commands run from `/Users/arimendelow/Projects/spoonjoy-v2-audit-final-validation`, a clean detached checkout of the selected `origin/main`. Let `ROOT=/tmp/spoonjoy-audit-release-train/<web-sha>/web`.
+
+| Evidence key | Exact command | Expected result | Deterministic artifact |
+| --- | --- | --- | --- |
+| `web.cleanup.before` | `pnpm run cleanup:qa` | exit 0; dry-run manifest is ownership-safe | `$ROOT/01-cleanup-qa.log` |
+| `web.migration.first` | `pnpm exec wrangler d1 migrations apply DB --local` | exit 0 | `$ROOT/02-migration-first.log` |
+| `web.migration.second` | `pnpm exec wrangler d1 migrations apply DB --local` | exit 0; no pending migrations | `$ROOT/03-migration-second.log` |
+| `web.api.zero_diff` | `pnpm run api:playground:generate && git diff --exit-code -- app/lib/generated/api-v1-playground.ts` | exit 0; zero diff | `$ROOT/04-api-generation-zero-diff.log` |
+| `web.typecheck.app` | `pnpm run typecheck` | exit 0 | `$ROOT/05-typecheck.log` |
+| `web.typecheck.scripts` | `pnpm run typecheck:scripts` | exit 0 | `$ROOT/06-typecheck-scripts.log` |
+| `web.coverage` | `pnpm run test:coverage` | exit 0; 100% statements/branches/functions/lines | `$ROOT/07-coverage.log` |
+| `web.e2e` | `pnpm run test:e2e` | exit 0; all browser projects pass | `$ROOT/08-e2e.log` |
+| `web.build.production` | `pnpm run build` | exit 0 | `$ROOT/09-build.log` |
+| `web.build.storybook` | `pnpm run build-storybook` | exit 0 | `$ROOT/10-storybook.log` |
+| `web.repo_hygiene` | `pnpm exec vitest run test/repo-hygiene.test.ts test/release-workflow-security.test.ts --fileParallelism=false` | exit 0; tracked-file and PR-size policy pass | `$ROOT/11-repo-hygiene.log` |
+| `web.advisory` | `pnpm run advisory:scan` | exit 0; no unreviewed actionable finding or scanner failure | `$ROOT/12-advisory.log`; `$ROOT/12-advisory-report.json` |
+| `web.warning_scan` | `ruby /Users/arimendelow/Projects/spoonjoy-apple-audit-final-validation/scripts/fail-on-warning.rb --log $ROOT/01-cleanup-qa.log --log $ROOT/02-migration-first.log --log $ROOT/03-migration-second.log --log $ROOT/04-api-generation-zero-diff.log --log $ROOT/05-typecheck.log --log $ROOT/06-typecheck-scripts.log --log $ROOT/07-coverage.log --log $ROOT/08-e2e.log --log $ROOT/09-build.log --log $ROOT/10-storybook.log --log $ROOT/11-repo-hygiene.log --log $ROOT/12-advisory.log` | exit 0; warning count 0 | `$ROOT/13-warning-scan.log` |
+| `web.review.implementation` | fresh harsh subagent review of exact SHA and Unit 18 artifacts | `APPROVED` | `$ROOT/14-review-implementation.md` |
+| `web.review.test` | fresh harsh subagent test/coverage review | `APPROVED` | `$ROOT/15-review-test.md` |
+| `web.review.security` | fresh harsh subagent security/auth/data review | `APPROVED` | `$ROOT/16-review-security.md` |
+| `web.review.visual` | `visual-qa-dogfood` over exact-SHA web mobile/desktop captures | `APPROVED`; absurdity ledger closed | `$ROOT/17-review-visual.md`; `$ROOT/screenshots/`; `$ROOT/absurdity-ledger.md` |
+
+### Unit 20 Native Evidence Matrix
+
+All commands run from `/Users/arimendelow/Projects/spoonjoy-apple-final-validation`, a clean detached checkout of the selected `origin/main`. Let `ROOT=/tmp/spoonjoy-audit-release-train/<native-sha>/native`. `scripts/validate-native-local.sh` owns and records the component commands below; its final invocation is the authoritative aggregate replay.
+
+| Evidence key | Exact command | Expected result | Deterministic artifact |
+| --- | --- | --- | --- |
+| `native.swift.tests` | `swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors` | exit 0 | `$ROOT/apple/matrix-swift-test.log` |
+| `native.swift.coverage` | `swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors` | exit 0 | `$ROOT/apple/matrix-coverage-test.log` |
+| `native.coverage.enforce` | `ruby scripts/enforce-swift-coverage.rb --coverage-json "$(swift test --show-codecov-path)" --minimum 100 --include Sources/SpoonjoyCore` | exit 0; 100% core coverage | `$ROOT/apple/matrix-coverage-enforce.log` |
+| `native.scenario.final` | `scripts/verify-native-scenarios.sh --stage final --output $ROOT/apple/matrix-final-report.json` | exit 0 | `$ROOT/apple/matrix-final-scenario.log`; `$ROOT/apple/matrix-final-report.json` |
+| `native.project.contract` | `scripts/bundle-exec.sh ruby scripts/check-xcode-project-contract.rb` | exit 0 | `$ROOT/apple/matrix-project-contract.log` |
+| `native.generator.contract` | `scripts/bundle-exec.sh ruby scripts/check-xcode-generator-contract.rb` | exit 0 | `$ROOT/apple/matrix-generator-contract.log` |
+| `native.ios.build` | `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build` | exit 0; no blocker | `$ROOT/apple/matrix-xcodebuild-ios.log` |
+| `native.macos.build` | `xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build` | exit 0; no blocker | `$ROOT/apple/matrix-xcodebuild-macos.log` |
+| `native.screenshot.matrix` | `scripts/capture-native-screenshot-matrix.sh --artifact-root $ROOT --unit-slug matrix` | exit 0; every route/state passes | `$ROOT/apple/matrix-route-matrix.json`; `$ROOT/screenshot-routes/` |
+| `native.ios.smoke` | `scripts/smoke-ios-simulator.sh --artifact-root $ROOT --log $ROOT/apple/matrix-smoke-ios-inner.log --blocker $ROOT/apple/matrix-smoke-ios-simulator-blocker.json` | exit 0; no blocker | `$ROOT/apple/matrix-smoke-ios.log`; `$ROOT/apple/matrix-smoke-ios-inner.log` |
+| `native.macos.smoke` | `scripts/smoke-macos.sh --artifact-root $ROOT --log $ROOT/apple/matrix-smoke-macos-inner.log --blocker $ROOT/apple/matrix-smoke-macos-blocker.json` | exit 0; no blocker | `$ROOT/apple/matrix-smoke-macos.log`; `$ROOT/apple/matrix-smoke-macos-inner.log` |
+| `native.accessibility` | `ruby scripts/check-design-accessibility-contract.rb` plus screenshot-matrix accessibility proof validation | exit 0; iOS/macOS proofs valid | `$ROOT/apple/matrix-design-accessibility-contract.log`; `$ROOT/apple/matrix-accessibility-proof-ios.json`; `$ROOT/apple/matrix-accessibility-proof-macos.json` |
+| `native.repo_hygiene` | `ruby scripts/audit-native-validation-artifacts.rb --artifact-root $ROOT --manifest $ROOT/repo-hygiene-manifest.json --repo-hygiene-only --base-ref origin/main` | exit 0 | `$ROOT/repo-hygiene.log`; `$ROOT/repo-hygiene-manifest.json` |
+| `native.advisory` | `ruby scripts/scan-ruby-advisories.rb --output $ROOT/apple/matrix-ruby-advisory-report.json` | exit 0; no unreviewed actionable finding | `$ROOT/apple/matrix-ruby-advisory-scan.log`; `$ROOT/apple/matrix-ruby-advisory-report.json` |
+| `native.aggregate` | `SPOONJOY_NATIVE_ARTIFACT_ROOT=$ROOT scripts/validate-native-local.sh --artifact-root $ROOT && jq -e '.fullyValidated == true and .counts.failed == 0 and .counts.blocked == 0 and .counts.blockers == 0' $ROOT/apple/validation-matrix.json` | exit 0; `fullyValidated: true`; zero warnings/blockers | `$ROOT/apple/validation-matrix.json`; `$ROOT/apple/validation-matrix.jsonl`; `$ROOT/apple/matrix-warning-scan.log` |
+| `native.review.implementation` | fresh harsh subagent review of exact SHA and Unit 20 artifacts | `APPROVED` | `$ROOT/review-implementation.md` |
+| `native.review.test` | fresh harsh subagent test/coverage review | `APPROVED` | `$ROOT/review-test.md` |
+| `native.review.security` | fresh harsh subagent auth/data/release review | `APPROVED` | `$ROOT/review-security.md` |
+| `native.review.visual` | `visual-qa-dogfood` over every exact-SHA iPhone/iPad/macOS capture | `APPROVED`; absurdity ledger closed | `$ROOT/review-visual.md`; `$ROOT/absurdity-ledger.md` |
 
 ## Notes
 Build 35 is currently valid and in internal beta testing, but it predates the open native fixes. The feedback system is healthy with zero unhandled items and fourteen older reports awaiting tester confirmation.
@@ -92,3 +175,4 @@ At every handoff, open-PR head/check state is refreshed in the evidence index ra
 - 2026-07-16 08:56 Created.
 - 2026-07-16 09:05 Addressed harsh planning review round-one findings: restored omitted audit units, corrected live PR state, strengthened visual acceptance, made validation commands concrete, and added build-note/App Store Connect notification verification.
 - 2026-07-16 09:18 Addressed harsh planning review round-two findings: added Units 3j-3m and installed dogfood, explicit five-row human dispositions, unit-to-PR/head traceability, iPad and empty/no-cover visual states, full Units 18/20 evidence schema, honest notification semantics, and two-repo terminal cleanup rules.
+- 2026-07-16 09:20 Addressed harsh planning review round-three findings: refreshed exact full PR heads/merge SHAs with pending-unit rows and added executable Unit 18/20 command-to-artifact matrices.
