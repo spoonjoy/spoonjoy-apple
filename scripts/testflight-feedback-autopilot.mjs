@@ -39,6 +39,15 @@ const LISTENER_LABEL = "com.spoonjoy.testflight-feedback-listener";
 const TUNNEL_LABEL = "com.spoonjoy.testflight-feedback-tunnel";
 const RECONCILE_LABEL = "com.spoonjoy.testflight-feedback-reconcile";
 const CLOUDFLARED_CONFIG = path.join(homedir(), ".cloudflared/spoonjoy-testflight-feedback.yml");
+const INSTALL_VALIDATION_ATTEMPTS = 40;
+const INSTALL_VALIDATION_DELAY_MS = 250;
+const INSTALL_VALIDATION_TIMEOUT_MS = 15_000;
+const SUBPROCESS_TIMEOUT_MS = 10_000;
+const LOCAL_HEALTH_REQUEST_TIMEOUT_MS = 2_000;
+const PUBLIC_HEALTH_ATTEMPTS = 180;
+const PUBLIC_HEALTH_DELAY_MS = 1_000;
+const PUBLIC_HEALTH_TIMEOUT_MS = 180_000;
+const PUBLIC_HEALTH_REQUEST_TIMEOUT_MS = 10_000;
 
 const command = process.argv[2] || "help";
 const args = process.argv.slice(3);
@@ -669,7 +678,7 @@ async function retryFeedback() {
 
 async function installLaunchd() {
   ensureRuntime();
-  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
+  const uid = currentUserId();
   const nodePath = resolveExecutable("node", process.execPath);
   const codexPath = resolveExecutable("codex", DEFAULT_CODEX);
   const ouroPath = resolveExecutable("ouro", DEFAULT_OURO);
@@ -695,13 +704,13 @@ async function installLaunchd() {
     results.push({ label: item.label, plistPath });
   }
 
-  const install = validateInstallConfig();
+  const install = await waitForInstallConfig({ definitions: plists });
   if (!install.ok) throw new Error(`Launchd install validation failed: ${install.issues.join("; ")}`);
   const localHealth = await waitForLocalHealth();
   const localHealthIssues = healthIssues("local", localHealth);
   if (localHealthIssues.length > 0) throw new Error(`Launchd listener health validation failed: ${localHealthIssues.join("; ")}`);
-  const publicHealth = await waitForPublicHealth();
-  const publicHealthIssues = healthIssues("public", publicHealth);
+  const publicHealth = await waitForPublicHealth({ expectedProcessID: localHealth.body.pid });
+  const publicHealthIssues = healthIssues("public", publicHealth, { expectedProcessID: localHealth.body.pid });
   if (publicHealthIssues.length > 0) throw new Error(`Launchd tunnel health validation failed: ${publicHealthIssues.join("; ")}`);
   console.log(JSON.stringify({
     ok: true,
@@ -1611,13 +1620,41 @@ function latestDeliveryByEvent(deliveries) {
   return [...byEvent.values()];
 }
 
-async function fetchJson(url) {
+async function fetchJson(url, { timeoutMs = PUBLIC_HEALTH_REQUEST_TIMEOUT_MS, fetcher = fetch } = {}) {
+  const controller = new AbortController();
   try {
-    const response = await fetch(url);
-    return { ok: response.ok, status: response.status, body: await response.json() };
+    return await raceWithTimeout(
+      async () => jsonResponse(await fetcher(url, {
+        signal: controller.signal,
+        headers: { connection: "close" },
+      })),
+      timeoutMs,
+      () => {
+        controller.abort();
+        return requestTimeoutReport(timeoutMs);
+      },
+    );
   } catch (error) {
     return { ok: false, error: error.message };
   }
+}
+
+async function jsonResponse(response) {
+  const text = await response.text();
+  const body = safeJson(text);
+  if (!body || typeof body !== "object") {
+    return {
+      ok: false,
+      status: response.status,
+      error: `HTTP ${response.status} (non-JSON response)`,
+    };
+  }
+  return {
+    ok: response.ok,
+    status: response.status,
+    body,
+    ...(response.ok ? {} : { error: `HTTP ${response.status}` }),
+  };
 }
 
 function launchdSummary() {
@@ -1629,8 +1666,8 @@ function launchdSummary() {
 }
 
 function parseLaunchctl(label) {
-  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
-  const result = spawnSync("launchctl", ["print", `gui/${uid}/${label}`], { encoding: "utf8" });
+  const uid = currentUserId();
+  const result = runBoundedCommand("launchctl", ["print", `gui/${uid}/${label}`]);
   if (result.status !== 0) return { label, loaded: false };
   const definition = parseLaunchctlDefinition(result.stdout);
   return {
@@ -1645,14 +1682,19 @@ function parseLaunchctl(label) {
   };
 }
 
-function validateInstallConfig() {
+function validateInstallConfig({
+  deadline = Number.POSITIVE_INFINITY,
+  clock = Date.now,
+  definitions = null,
+} = {}) {
   const items = {};
   const issues = [];
-  for (const definition of launchAgentDefinitions()) {
+  const remainingTimeout = () => Math.max(0, Math.min(SUBPROCESS_TIMEOUT_MS, deadline - clock()));
+  for (const definition of definitions || launchAgentDefinitions()) {
     const { label } = definition;
     const plistPath = launchAgentPath(label);
-    const plist = readLaunchAgentPlist(label);
-    const loaded = readLoadedLaunchAgent(label);
+    const plist = readLaunchAgentPlist(label, { timeoutMs: remainingTimeout() });
+    const loaded = readLoadedLaunchAgent(label, { timeoutMs: remainingTimeout() });
     const itemIssues = validateLaunchAgentDefinition({ plistPath, plist, loaded, definition });
     items[label] = {
       plistPath,
@@ -1721,9 +1763,10 @@ function validateLaunchAgentDefinition({ plistPath, plist, loaded, definition, p
   return issues;
 }
 
-function readLoadedLaunchAgent(label) {
-  const uid = process.getuid?.() || Number(spawnSync("id", ["-u"], { encoding: "utf8" }).stdout.trim());
-  const result = spawnSync("launchctl", ["print", `gui/${uid}/${label}`], { encoding: "utf8" });
+function readLoadedLaunchAgent(label, { timeoutMs = SUBPROCESS_TIMEOUT_MS } = {}) {
+  if (timeoutMs <= 0) return null;
+  const uid = currentUserId();
+  const result = runBoundedCommand("launchctl", ["print", `gui/${uid}/${label}`], { timeoutMs });
   if (result.status !== 0) return null;
   return parseLaunchctlDefinition(result.stdout);
 }
@@ -1779,7 +1822,7 @@ function managedEnvironment(environment) {
   ));
 }
 
-function selfTestLaunchdValidation() {
+async function selfTestLaunchdValidation() {
   const executable = "/opt/homebrew/bin/cloudflared";
   const config = "/Users/tester/.cloudflared/spoonjoy-testflight-feedback.yml";
   const workingDirectory = "/Users/tester/Projects/spoonjoy-apple";
@@ -1832,8 +1875,136 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
   };
   const tunnelValues = tunnelDefinition.values;
   const reconcileValues = reconcileDefinition.values;
+  const transientReports = [
+    { ok: false, issues: ["loaded launchd state is xpcproxy, expected running"] },
+    { ok: false, issues: ["loaded launchd last exit code is (missing), expected 0"] },
+    { ok: true, issues: [] },
+  ];
+  let transientIndex = 0;
+  const transientLaunchdConvergence = await waitForInstallConfig({
+    attempts: transientReports.length,
+    delayMs: 0,
+    validator: () => transientReports[Math.min(transientIndex++, transientReports.length - 1)],
+    sleeper: async () => {},
+  });
+  const timedOutLaunchdConvergence = await waitForInstallConfig({
+    attempts: 3,
+    delayMs: 0,
+    validator: () => ({ ok: false, issues: ["loaded launchd state is xpcproxy, expected running"] }),
+    sleeper: async () => {},
+  });
+  let installDeadlineClock = 0;
+  const deadlineLaunchdConvergence = await waitForInstallConfig({
+    attempts: INSTALL_VALIDATION_ATTEMPTS,
+    delayMs: 1_000,
+    timeoutMs: 1_500,
+    validator: () => ({ ok: false, issues: ["loaded launchd state is xpcproxy, expected running"] }),
+    sleeper: async (milliseconds) => { installDeadlineClock += milliseconds; },
+    clock: () => installDeadlineClock,
+  });
+  const definitionReuse = await waitForInstallConfig({
+    attempts: 1,
+    definitions,
+    validator: ({ definitions: candidateDefinitions }) => ({
+      ok: candidateDefinitions === definitions,
+      issues: candidateDefinitions === definitions ? [] : ["installed definitions were not reused"],
+    }),
+  });
+  const subprocessStartedAt = Date.now();
+  const subprocessResult = runBoundedCommand(
+    process.execPath,
+    ["-e", "setTimeout(() => {}, 60_000)"],
+    { timeoutMs: 25 },
+  );
+  const hungSubprocess = {
+    timedOut: subprocessTimedOut(subprocessResult),
+    signal: subprocessResult.signal,
+    elapsedMilliseconds: Date.now() - subprocessStartedAt,
+  };
+  const htmlHealthFailure = await jsonResponse(new Response("<!doctype html>TEST_SECRET_RESPONSE_BODY_MARKER", {
+    status: 530,
+    headers: { "content-type": "text/html" },
+  }));
+  const publicHealthReports = [
+    htmlHealthFailure,
+    { ok: false, status: 503, error: "HTTP 503" },
+    { ok: true, status: 200, body: healthPayload() },
+  ];
+  let publicHealthIndex = 0;
+  const transientPublicHealth = await waitForPublicHealth({
+    attempts: publicHealthReports.length,
+    delayMs: 0,
+    timeoutMs: 1_000,
+    requestTimeoutMs: 50,
+    requester: async () => publicHealthReports[Math.min(publicHealthIndex++, publicHealthReports.length - 1)],
+    sleeper: async () => {},
+  });
+  const exhaustedPublicHealth = await waitForPublicHealth({
+    attempts: 2,
+    delayMs: 0,
+    timeoutMs: 1_000,
+    requestTimeoutMs: 50,
+    requester: async () => htmlHealthFailure,
+    sleeper: async () => {},
+  });
+  const hungLocalHealth = await selfTestHungLocalHealth();
+  let deadlineClock = 0;
+  const deadlinePublicHealth = await waitForPublicHealth({
+    attempts: PUBLIC_HEALTH_ATTEMPTS,
+    delayMs: 1_000,
+    timeoutMs: 1_500,
+    requestTimeoutMs: 50,
+    requester: async () => htmlHealthFailure,
+    sleeper: async (milliseconds) => { deadlineClock += milliseconds; },
+    clock: () => deadlineClock,
+  });
+  const currentHealth = healthPayload();
+  const rejectedHealthContracts = {
+    bodyNotOk: healthIssues("self-test", {
+      ok: true,
+      status: 200,
+      body: { ...currentHealth, ok: false },
+    }),
+    wrongApp: healthIssues("self-test", {
+      ok: true,
+      status: 200,
+      body: { ...currentHealth, appId: "wrong-app" },
+    }),
+    wrongBundle: healthIssues("self-test", {
+      ok: true,
+      status: 200,
+      body: { ...currentHealth, bundleId: "wrong.bundle" },
+    }),
+    wrongProcess: healthIssues("self-test", {
+      ok: true,
+      status: 200,
+      body: { ...currentHealth, pid: currentHealth.pid + 1 },
+    }, { expectedProcessID: currentHealth.pid }),
+  };
   console.log(JSON.stringify({
     healthContract: healthPayload(),
+    healthWaitPolicy: {
+      installAttempts: INSTALL_VALIDATION_ATTEMPTS,
+      installDelayMilliseconds: INSTALL_VALIDATION_DELAY_MS,
+      installTimeoutMilliseconds: INSTALL_VALIDATION_TIMEOUT_MS,
+      subprocessTimeoutMilliseconds: SUBPROCESS_TIMEOUT_MS,
+      localRequestTimeoutMilliseconds: LOCAL_HEALTH_REQUEST_TIMEOUT_MS,
+      publicAttempts: PUBLIC_HEALTH_ATTEMPTS,
+      publicDelayMilliseconds: PUBLIC_HEALTH_DELAY_MS,
+      publicTimeoutMilliseconds: PUBLIC_HEALTH_TIMEOUT_MS,
+      publicRequestTimeoutMilliseconds: PUBLIC_HEALTH_REQUEST_TIMEOUT_MS,
+    },
+    transientLaunchdConvergence,
+    timedOutLaunchdConvergence,
+    deadlineLaunchdConvergence,
+    definitionReuse,
+    hungSubprocess,
+    htmlHealthFailure,
+    transientPublicHealth,
+    exhaustedPublicHealth,
+    hungLocalHealth,
+    deadlinePublicHealth,
+    rejectedHealthContracts,
     expectedTunnelProgramArguments: exact,
     exactHTTP2: validate(tunnelDefinition, tunnelValues, tunnelValues),
     legacyQUIC: validate(
@@ -1893,10 +2064,11 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
   }, null, 2));
 }
 
-function readLaunchAgentPlist(label) {
+function readLaunchAgentPlist(label, { timeoutMs = SUBPROCESS_TIMEOUT_MS } = {}) {
   const plistPath = launchAgentPath(label);
   if (!existsSync(plistPath)) return null;
-  const result = spawnSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", plistPath], { encoding: "utf8" });
+  if (timeoutMs <= 0) return null;
+  const result = runBoundedCommand("/usr/bin/plutil", ["-convert", "json", "-o", "-", plistPath], { timeoutMs });
   if (result.status !== 0) return null;
   return safeJson(result.stdout);
 }
@@ -1905,7 +2077,7 @@ function launchAgentPath(label) {
   return path.join(LAUNCH_AGENT_DIR, `${label}.plist`);
 }
 
-function healthIssues(name, health) {
+function healthIssues(name, health, { expectedProcessID = null } = {}) {
   if (!health) return [];
   if (!health.ok) return [`${name} health: ${health.error || `HTTP ${health.status || "unknown"}`}`];
   const issues = [];
@@ -1919,6 +2091,20 @@ function healthIssues(name, health) {
   }
   if (body.scriptDigest !== SCRIPT_DIGEST) {
     issues.push(`${name} health: script digest does not match the installed release`);
+  }
+  if (body.ok !== true) {
+    issues.push(`${name} health: listener reported an unhealthy body`);
+  }
+  if (body.appId !== APP_ID) {
+    issues.push(`${name} health: app id is ${body.appId || "(missing)"}, expected ${APP_ID}`);
+  }
+  if (body.bundleId !== APP_BUNDLE_ID) {
+    issues.push(`${name} health: bundle id is ${body.bundleId || "(missing)"}, expected ${APP_BUNDLE_ID}`);
+  }
+  if (!Number.isInteger(body.pid) || body.pid <= 0) {
+    issues.push(`${name} health: listener process id is invalid`);
+  } else if (expectedProcessID !== null && body.pid !== expectedProcessID) {
+    issues.push(`${name} health: listener process id does not match the local listener`);
   }
   return issues;
 }
@@ -1935,17 +2121,46 @@ function healthPayload() {
 }
 
 function resolveExecutable(name, fallback) {
-  const result = spawnSync("/usr/bin/which", [name], { encoding: "utf8" });
+  const result = runBoundedCommand("/usr/bin/which", [name]);
   const resolved = result.status === 0 ? result.stdout.trim() : "";
   return resolved || fallback;
 }
 
 function runLaunchctl(args, options = {}) {
-  const result = spawnSync("launchctl", args, { encoding: "utf8" });
+  const result = runBoundedCommand("launchctl", args);
   if (result.status !== 0 && !options.allowFailure) {
-    throw new Error(`launchctl ${args.join(" ")} failed: ${result.stderr || result.stdout || `exit ${result.status}`}`);
+    const reason = subprocessTimedOut(result)
+      ? `timed out after ${SUBPROCESS_TIMEOUT_MS}ms`
+      : result.stderr || result.stdout || `exit ${result.status}`;
+    throw new Error(`launchctl ${args.join(" ")} failed: ${reason}`);
   }
   return result;
+}
+
+function currentUserId() {
+  if (process.getuid) return process.getuid();
+  const result = runBoundedCommand("id", ["-u"]);
+  const uid = Number(String(result.stdout || "").trim());
+  if (result.status !== 0 || !Number.isInteger(uid)) {
+    const reason = subprocessTimedOut(result)
+      ? `timed out after ${SUBPROCESS_TIMEOUT_MS}ms`
+      : result.stderr || result.stdout || `exit ${result.status}`;
+    throw new Error(`Unable to resolve the current user id: ${reason}`);
+  }
+  return uid;
+}
+
+function runBoundedCommand(executable, args, { timeoutMs = SUBPROCESS_TIMEOUT_MS, ...options } = {}) {
+  return spawnSync(executable, args, {
+    ...options,
+    encoding: options.encoding || "utf8",
+    timeout: Math.max(1, timeoutMs),
+    killSignal: "SIGKILL",
+  });
+}
+
+function subprocessTimedOut(result) {
+  return result.error?.code === "ETIMEDOUT";
 }
 
 function buildPlist(values) {
@@ -2006,13 +2221,12 @@ function notify(title, message) {
   ], { stdio: "ignore", detached: true }).unref();
 }
 
-async function fetchHealth() {
-  try {
-    const response = await fetch(`http://${DEFAULT_HOST}:${DEFAULT_PORT}/health`);
-    return { ok: response.ok, status: response.status, body: await response.json() };
-  } catch (error) {
-    return { ok: false, error: error.message };
-  }
+async function fetchHealth({
+  url = `http://${DEFAULT_HOST}:${DEFAULT_PORT}/health`,
+  timeoutMs = LOCAL_HEALTH_REQUEST_TIMEOUT_MS,
+  fetcher = fetch,
+} = {}) {
+  return fetchJson(url, { timeoutMs, fetcher });
 }
 
 async function waitForLocalHealth(attempts = 20, delayMs = 250) {
@@ -2025,12 +2239,158 @@ async function waitForLocalHealth(attempts = 20, delayMs = 250) {
   return health;
 }
 
-async function waitForPublicHealth(attempts = 20, delayMs = 500) {
-  let health = null;
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    health = await fetchJson(`${PUBLIC_FEEDBACK_BASE_URL}/health`);
-    if (healthIssues("public", health).length === 0) return health;
-    if (attempt + 1 < attempts) await new Promise((resolve) => setTimeout(resolve, delayMs));
+async function selfTestHungLocalHealth() {
+  const sockets = new Set();
+  let requestSeen = false;
+  let connectionHeader = null;
+  const server = createServer((request) => {
+    requestSeen = true;
+    connectionHeader = String(request.headers.connection || "");
+  });
+  server.on("connection", (socket) => {
+    sockets.add(socket);
+    socket.once("close", () => sockets.delete(socket));
+  });
+
+  await new Promise((resolve, reject) => {
+    const handleError = (error) => reject(error);
+    server.once("error", handleError);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", handleError);
+      resolve();
+    });
+  });
+
+  const address = server.address();
+  if (!address || typeof address === "string") {
+    server.close();
+    throw new Error("Loopback health self-test did not receive a TCP port");
   }
-  return health;
+
+  const health = await fetchHealth({
+    url: `http://127.0.0.1:${address.port}/health`,
+    timeoutMs: 100,
+  });
+  let closeError = null;
+  let serverClosed = false;
+  const closePromise = new Promise((resolve) => {
+    server.close((error) => {
+      closeError = error;
+      serverClosed = true;
+      resolve();
+    });
+  });
+  const forcedCleanup = !(await waitForCondition(() => serverClosed, 1_000));
+  if (forcedCleanup) {
+    for (const socket of sockets) socket.destroy();
+  }
+  await closePromise;
+  if (closeError) throw closeError;
+
+  return {
+    ...health,
+    requestSeen,
+    connectionHeader,
+    openConnections: sockets.size,
+    forcedCleanup,
+    serverClosed: serverClosed && !server.listening,
+  };
+}
+
+async function waitForCondition(predicate, timeoutMs, delayMs = 10) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate() && Date.now() < deadline) {
+    await sleep(Math.min(delayMs, Math.max(1, deadline - Date.now())));
+  }
+  return predicate();
+}
+
+async function waitForInstallConfig({
+  attempts = INSTALL_VALIDATION_ATTEMPTS,
+  delayMs = INSTALL_VALIDATION_DELAY_MS,
+  timeoutMs = INSTALL_VALIDATION_TIMEOUT_MS,
+  validator = validateInstallConfig,
+  sleeper = sleep,
+  clock = Date.now,
+  definitions = null,
+} = {}) {
+  let install = null;
+  let attemptsUsed = 0;
+  const maximumAttempts = Math.max(1, attempts);
+  const startedAt = clock();
+  const deadline = startedAt + timeoutMs;
+  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    if (clock() >= deadline) break;
+    install = validator({ deadline, clock, definitions });
+    attemptsUsed += 1;
+    if (install.ok) return { ...install, attemptsUsed, timedOut: false };
+    if (attempt + 1 >= maximumAttempts) break;
+    const remainingMs = deadline - clock();
+    if (remainingMs <= 0) break;
+    await sleeper(Math.min(delayMs, remainingMs));
+  }
+  return {
+    ...(install || { ok: false, issues: ["launchd validation did not run"] }),
+    attemptsUsed,
+    timedOut: clock() >= deadline,
+  };
+}
+
+async function waitForPublicHealth({
+  attempts = PUBLIC_HEALTH_ATTEMPTS,
+  delayMs = PUBLIC_HEALTH_DELAY_MS,
+  timeoutMs = PUBLIC_HEALTH_TIMEOUT_MS,
+  requestTimeoutMs = PUBLIC_HEALTH_REQUEST_TIMEOUT_MS,
+  requester = fetchJson,
+  sleeper = sleep,
+  clock = Date.now,
+  expectedProcessID = null,
+} = {}) {
+  let health = null;
+  let attemptsUsed = 0;
+  const maximumAttempts = Math.max(1, attempts);
+  const startedAt = clock();
+  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    const remainingMs = timeoutMs - (clock() - startedAt);
+    if (remainingMs <= 0) break;
+    const boundedRequestTimeoutMs = Math.max(1, Math.min(requestTimeoutMs, remainingMs));
+    health = await raceWithTimeout(
+      () => requester(`${PUBLIC_FEEDBACK_BASE_URL}/health`, { timeoutMs: boundedRequestTimeoutMs }),
+      boundedRequestTimeoutMs,
+      () => requestTimeoutReport(boundedRequestTimeoutMs),
+    );
+    attemptsUsed += 1;
+    if (healthIssues("public", health, { expectedProcessID }).length === 0) return { ...health, attemptsUsed };
+    if (attempt + 1 >= maximumAttempts) break;
+    const remainingAfterRequestMs = timeoutMs - (clock() - startedAt);
+    if (remainingAfterRequestMs <= 0) break;
+    await sleeper(Math.min(delayMs, remainingAfterRequestMs));
+  }
+  return {
+    ...(health || { ok: false, error: "public health validation did not run" }),
+    attemptsUsed,
+    timedOut: clock() - startedAt >= timeoutMs,
+  };
+}
+
+function requestTimeoutReport(timeoutMs) {
+  return { ok: false, error: `request timed out after ${timeoutMs}ms` };
+}
+
+async function raceWithTimeout(operation, timeoutMs, onTimeout) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(onTimeout()), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer !== null) clearTimeout(timer);
+  }
+}
+
+function sleep(delayMs) {
+  return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
