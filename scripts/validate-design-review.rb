@@ -310,7 +310,7 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route, man
   fail_check("#{manifest_path} missing accessibility proof artifact #{proof_relative_path}") unless proof_path.file?
   proof = JSON.parse(proof_path.read)
   fail_check("#{proof_path} must contain a JSON object") unless proof.is_a?(Hash)
-  fail_check("#{proof_path} platform must be ios or macos") unless ["ios", "macos"].include?(proof["platform"])
+  fail_check("#{proof_path} platform must be ios, ipad, or macos") unless ["ios", "ipad", "macos"].include?(proof["platform"])
   expected_bundle_identifier = proof["platform"] == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
   fail_check("#{proof_path} route must be #{route}") unless proof["route"] == route
   expected_source = expected_accessibility_source(route, manifest)
@@ -325,6 +325,13 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route, man
   fail_check("#{proof_path} noTinyClusters must be true") unless proof["noTinyClusters"] == true
   fail_check("#{proof_path} observedDynamicTypeSize must be a non-empty string") unless proof["observedDynamicTypeSize"].is_a?(String) && !proof["observedDynamicTypeSize"].empty?
   fail_check("#{proof_path} observedReduceMotion must be boolean") unless [true, false].include?(proof["observedReduceMotion"])
+
+  visual_readiness = proof["visualReadiness"]
+  fail_check("#{proof_path} visualReadiness must be an object") unless visual_readiness.is_a?(Hash)
+  fail_check("#{proof_path} pendingMediaCount must be zero") unless visual_readiness["pendingMediaCount"] == 0
+  fail_check("#{proof_path} failedMediaCount must be zero") unless visual_readiness["failedMediaCount"] == 0
+  fail_check("#{proof_path} blockingIndicatorCount must be zero") unless visual_readiness["blockingIndicatorCount"] == 0
+  fail_check("#{proof_path} visualReadiness must be settled") unless visual_readiness["isSettled"] == true
 
   route_evidence = proof["routeEvidence"]
   fail_check("#{proof_path} routeEvidence must be an object") unless route_evidence.is_a?(Hash)
@@ -373,7 +380,7 @@ fail_check("#{path} screenshotRoute must be one of #{VALID_ROUTES.join(", ")}") 
 
 accessibility_proofs = manifest["accessibilityProofArtifacts"]
 fail_check("#{path} accessibilityProofArtifacts must be an array") unless accessibility_proofs.is_a?(Array)
-fail_check("#{path} accessibilityProofArtifacts must include iOS and macOS proof artifacts") unless accessibility_proofs.length >= 2
+fail_check("#{path} accessibilityProofArtifacts must include iPhone, iPad, and macOS proof artifacts") unless accessibility_proofs.length == 3
 platforms = []
 accessibility_proofs.each do |proof_relative_path|
   fail_check("#{path} accessibilityProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
@@ -381,7 +388,7 @@ accessibility_proofs.each do |proof_relative_path|
   proof_path = path.dirname.join(proof_relative_path).cleanpath
   platforms << JSON.parse(proof_path.read)["platform"]
 end
-fail_check("#{path} accessibilityProofArtifacts must include ios and macos platforms") unless platforms.sort == ["ios", "macos"]
+fail_check("#{path} accessibilityProofArtifacts must include ios, ipad, and macos platforms") unless platforms.sort == ["ios", "ipad", "macos"]
 
 case route
 when "kitchen"

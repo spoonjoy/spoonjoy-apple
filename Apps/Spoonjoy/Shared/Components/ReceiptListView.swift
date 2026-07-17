@@ -18,30 +18,48 @@ struct ReceiptListView: View {
 
     var body: some View {
         List {
-            ForEach(sections, id: \.title) { section in
+            ForEach(sections, id: \.id) { section in
                 Section {
                     ForEach(section.items, id: \.id) { item in
-                        Toggle(isOn: checkedBinding(for: item)) {
-                            ShoppingReceiptRow(
-                                item: item,
-                                sourceLine: sourceLine(for: section),
-                                duplicateCountLabel: duplicateCountLabel(for: item)
-                            )
+                        let isDuplicateReview = section.duplicateItemIDs.contains(item.id)
+                        HStack(spacing: 8) {
+                            Toggle(isOn: checkedBinding(for: item)) {
+                                ShoppingReceiptRow(
+                                    item: item,
+                                    sourceLine: sourceLine(for: section, item: item),
+                                    duplicateCountLabel: duplicateCountLabel(for: item, in: section)
+                                )
+                            }
+                            .toggleStyle(.largeCheck)
+
+                            if isDuplicateReview {
+                                Button(role: .destructive) {
+                                    deleteItem(item)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .frame(width: 44, height: 44)
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Remove duplicate \(item.name)")
+                                .help("Remove duplicate")
+                            }
                         }
-                        .toggleStyle(.largeCheck)
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(KitchenTableTheme.bone)
-                        .accessibilityHint("Double tap to check off this item.")
-#if os(iOS)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                            Button(role: .destructive) {
+                        .accessibilityHint(
+                            isDuplicateReview
+                                ? "Review this duplicate, then remove it or check it off."
+                                : "Double tap to check off this item."
+                        )
+                        .modifier(ReceiptDeleteSwipeModifier {
+                            deleteItem(item)
+                        })
+                        .contextMenu {
+                            Button("Remove", systemImage: "trash", role: .destructive) {
                                 deleteItem(item)
-                            } label: {
-                                Label("Remove", systemImage: "trash")
                             }
                         }
-#endif
                     }
                 } header: {
                     Text(section.title)
@@ -50,6 +68,9 @@ struct ReceiptListView: View {
                         .tracking(1.6)
                         .foregroundStyle(KitchenTableTheme.brass)
                         .padding(.top, 8)
+                        .accessibilityLabel(
+                            section.role == .duplicateReview ? "Duplicates to review" : section.title
+                        )
                 }
             }
         }
@@ -73,22 +94,27 @@ struct ReceiptListView: View {
         return min(max(estimated, 260), 680)
     }
 
-    private func sourceLine(for section: ShoppingListReceiptSection) -> String? {
-        section.title == "Other" ? nil : section.title
+    private func sourceLine(for section: ShoppingListReceiptSection, item: ShoppingListItem) -> String? {
+        if section.role == .duplicateReview {
+            return categoryLine(for: item.categoryKey)
+        }
+
+        return section.title == "Other" ? nil : section.title
     }
 
-    private func duplicateCountLabel(for item: ShoppingListItem) -> String? {
-        let matchCount = sections
-            .flatMap(\.items)
-            .filter { candidate in
-                candidate.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ==
-                    item.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() &&
-                    (candidate.unit ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ==
-                    (item.unit ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            }
-            .count
+    private func duplicateCountLabel(for item: ShoppingListItem, in section: ShoppingListReceiptSection) -> String? {
+        section.duplicateItemIDs.contains(item.id) ? "Review duplicate" : nil
+    }
 
-        return matchCount > 1 ? "\(matchCount) on receipt" : nil
+    private func categoryLine(for categoryKey: String?) -> String? {
+        guard let categoryKey, !categoryKey.isEmpty else {
+            return nil
+        }
+
+        return categoryKey
+            .split(separator: "-")
+            .map { word in word.prefix(1).uppercased() + word.dropFirst() }
+            .joined(separator: " ")
     }
 }
 
@@ -152,6 +178,24 @@ private struct ShoppingReceiptRow: View {
         let source = sourceLine.map { ", \($0)" } ?? ""
         let duplicate = duplicateCountLabel.map { ", \($0)" } ?? ""
         return "\(item.name)\(quantity)\(source)\(duplicate)"
+    }
+}
+
+private struct ReceiptDeleteSwipeModifier: ViewModifier {
+    let delete: () -> Void
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+#if os(iOS)
+        content
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive, action: delete) {
+                    Label("Remove", systemImage: "trash")
+                }
+            }
+#else
+        content
+#endif
     }
 }
 

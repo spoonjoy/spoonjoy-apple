@@ -282,13 +282,25 @@ private struct SearchSurfaceThumbnail: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let row: SearchSurfaceRow
+    @State private var readinessInstanceID = UUID().uuidString
 
     var body: some View {
         ZStack {
             if let imageURL = row.imageURL {
                 AsyncImage(url: imageURL, transaction: imageLoadingTransaction) { phase in
+                    let readinessPhase = readinessPhase(for: phase)
                     KitchenTableImagePhaseView(phase: phase, reduceMotion: accessibilityReduceMotion) {
                         thumbnailFill
+                    }
+                    .task(id: readinessPhase) {
+                        await record(readinessPhase, token: readinessToken(for: imageURL))
+                    }
+                }
+                .id(imageURL.absoluteString)
+                .onDisappear {
+                    let token = readinessToken(for: imageURL)
+                    Task {
+                        await ScreenshotVisualReadiness.removeMedia(token)
                     }
                 }
             } else {
@@ -325,6 +337,46 @@ private struct SearchSurfaceThumbnail: View {
             KitchenTableTheme.charcoal
         }
     }
+
+    private func readinessPhase(for phase: AsyncImagePhase) -> SearchImageReadinessPhase {
+        switch phase {
+        case .empty:
+            .pending
+        case .success:
+            .loaded
+        case .failure:
+            .failed
+        @unknown default:
+            .failed
+        }
+    }
+
+    private func readinessToken(for url: URL) -> ScreenshotVisualReadinessMediaToken {
+        ScreenshotVisualReadinessMediaToken(
+            resourceID: "search-thumbnail:\(url.absoluteString)",
+            instanceID: readinessInstanceID
+        )
+    }
+
+    private func record(
+        _ phase: SearchImageReadinessPhase,
+        token: ScreenshotVisualReadinessMediaToken
+    ) async {
+        switch phase {
+        case .pending:
+            await ScreenshotVisualReadiness.beginMedia(token)
+        case .loaded:
+            await ScreenshotVisualReadiness.finishMedia(token, succeeded: true)
+        case .failed:
+            await ScreenshotVisualReadiness.finishMedia(token, succeeded: false)
+        }
+    }
+}
+
+private enum SearchImageReadinessPhase: Hashable {
+    case pending
+    case loaded
+    case failed
 }
 
 private struct KitchenTableImagePhaseView<Placeholder: View>: View {

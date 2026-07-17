@@ -41,7 +41,9 @@ prebuilt_app_path="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
 reuse_installed_app="${SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP:-0}"
 install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-}"
 timeout_seconds="${SPOONJOY_SMOKE_TIMEOUT_SECONDS:-30}"
+boot_timeout_seconds="${SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS:-120}"
 launch_attempts="${SPOONJOY_SMOKE_LAUNCH_ATTEMPTS:-3}"
+registration_timeout_seconds="${SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS:-120}"
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
 launch_command="xcrun simctl launch"
@@ -72,7 +74,8 @@ write_blocker() {
 
 run_with_timeout() {
   local command="$1"
-  python3 - "$timeout_seconds" "$command" <<'PY'
+  local command_timeout_seconds="${2:-$timeout_seconds}"
+  python3 - "$command_timeout_seconds" "$command" <<'PY'
 import os
 import signal
 import subprocess
@@ -113,18 +116,62 @@ sys.exit(process.returncode)
 PY
 }
 
-app_is_registered_as_running() {
-  local launchctl_output=""
-  local launchctl_status=0
-  set +e
-  launchctl_output="$(run_with_timeout "xcrun simctl spawn $udid launchctl list" 2>&1)"
-  launchctl_status=$?
-  set -e
-  printf 'launchctl app registration exit code: %s\n' "$launchctl_status"
-  if [[ -n "$launchctl_output" ]]; then
-    printf '%s\n' "$launchctl_output"
-  fi
-  [[ "$launchctl_status" -eq 0 && "$launchctl_output" == *"UIKitApplication:app.spoonjoy"* ]]
+app_bundle_digest() {
+  python3 - "$1" <<'PY'
+import hashlib
+import os
+import sys
+
+root = os.path.realpath(sys.argv[1])
+digest = hashlib.sha256()
+for directory, directory_names, file_names in os.walk(root):
+    directory_names.sort()
+    file_names.sort()
+    for name in file_names:
+        path = os.path.join(directory, name)
+        relative = os.path.relpath(path, root).encode("utf-8")
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        if os.path.islink(path):
+            payload = os.readlink(path).encode("utf-8")
+        else:
+            with open(path, "rb") as handle:
+                payload = handle.read()
+        digest.update(len(payload).to_bytes(8, "big"))
+        digest.update(payload)
+print(digest.hexdigest())
+PY
+}
+
+wait_for_app_registration() {
+  local deadline=$((SECONDS + registration_timeout_seconds))
+  local stable_samples=0
+  local container_output=""
+  local container_status=1
+
+  while [[ "$SECONDS" -lt "$deadline" ]]; do
+    set +e
+    container_output="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy app" 5)"
+    container_status=$?
+    set -e
+    printf 'simulator app registration probe exit code: %s\n' "$container_status"
+    if [[ -n "$container_output" ]]; then
+      printf '%s\n' "$container_output"
+    fi
+    if [[ "$container_status" -eq 0 && -n "$container_output" ]]; then
+      stable_samples=$((stable_samples + 1))
+      if [[ "$stable_samples" -ge 2 ]]; then
+        printf 'Spoonjoy app registration reached two stable samples\n'
+        return 0
+      fi
+    else
+      stable_samples=0
+    fi
+    sleep 1
+  done
+
+  printf 'Spoonjoy app registration did not converge within %s seconds\n' "$registration_timeout_seconds"
+  return 1
 }
 
 {
@@ -207,17 +254,21 @@ if [[ "$build_status" -ne 0 ]]; then
   exit "$build_status"
 fi
 
+app_digest="$(app_bundle_digest "$app_path")"
+if [[ ! "$app_digest" =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'Could not calculate an exact digest for iOS simulator app bundle: %s\n' "$app_path" >&2
+  exit 1
+fi
+printf -v expected_install_marker 'simulator=%s\nbundle_sha256=%s' "$udid" "$app_digest"
+printf 'Exact iOS simulator app bundle digest: %s\n' "$app_digest" >> "$log_path"
+
 boot_log="$(mktemp)"
-printf 'Booting simulator: %s %s\n' "$boot_command" "$udid" >> "$log_path"
+printf 'Booting simulator: %s %s; waiting for readiness with xcrun simctl bootstatus %s -b\n' "$boot_command" "$udid" "$udid" >> "$log_path"
 set +e
-run_with_timeout "$boot_command $udid || xcrun simctl bootstatus $udid -b" > "$boot_log" 2>&1
+run_with_timeout "$boot_command $udid || true; xcrun simctl bootstatus $udid -b" "$boot_timeout_seconds" > "$boot_log" 2>&1
 boot_status=$?
 set -e
-if [[ "$boot_status" -ne 0 ]] || ! grep -q "Unable to boot device in current state: Booted" "$boot_log"; then
-  cat "$boot_log" >> "$log_path"
-else
-  printf 'Simulator was already booted; suppressed benign CoreSimulator boot diagnostic.\n' >> "$log_path"
-fi
+cat "$boot_log" >> "$log_path"
 printf 'simulator boot exit code: %s\n' "$boot_status" >> "$log_path"
 rm -f "$boot_log"
 
@@ -233,21 +284,41 @@ if [[ "$boot_status" -ne 0 ]]; then
 fi
 
 {
+  printf 'Opening Simulator host for foreground launch readiness: %s\n' "$udid"
+  set +e
+  run_with_timeout "open -a Simulator --args -CurrentDeviceUDID $udid" 15
+  simulator_host_status=$?
+  set -e
+  printf 'Simulator host open exit code: %s\n' "$simulator_host_status"
+  if [[ "$simulator_host_status" -ne 0 ]]; then
+    printf 'Simulator host did not open; continuing because headless CoreSimulator launch may still be available\n'
+  fi
+} >> "$log_path" 2>&1
+
+{
   install_needed=1
   install_status=0
   if [[ "$reuse_installed_app" == "1" && -n "$install_marker" && -f "$install_marker" ]]; then
     printf 'Checking reusable iOS simulator app install marker: %s\n' "$install_marker"
+    actual_install_marker="$(cat "$install_marker")"
     set +e
-    existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy data")"
+    existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy app" 10)"
     existing_status=$?
     set -e
     printf 'simulator reusable app container lookup exit code: %s\n' "$existing_status"
     if [[ -n "$existing_container" ]]; then
       printf '%s\n' "$existing_container"
     fi
-    if [[ "$existing_status" -eq 0 && -n "$existing_container" ]]; then
+    existing_digest=""
+    if [[ "$existing_status" -eq 0 && -d "$existing_container" ]]; then
+      existing_digest="$(app_bundle_digest "$existing_container")"
+      printf 'Installed iOS simulator app bundle digest: %s\n' "$existing_digest"
+    fi
+    if [[ "$existing_status" -eq 0 && "$existing_digest" == "$app_digest" && "$actual_install_marker" == "$expected_install_marker" ]]; then
       install_needed=0
-      printf 'Reusing installed iOS simulator app for this screenshot route\n'
+      printf 'Installed app bundle digest matched the exact source bundle and simulator marker; reusing installed iOS simulator app\n'
+    else
+      printf 'Installed app digest or marker did not match the exact source bundle and simulator; reinstalling\n'
     fi
   fi
 
@@ -267,9 +338,26 @@ fi
     install_status=$?
     set -e
     printf 'simulator install exit code: %s\n' "$install_status"
-    if [[ "$install_status" -eq 0 && "$reuse_installed_app" == "1" && -n "$install_marker" ]]; then
+  fi
+  if [[ "$install_status" -eq 0 ]] && ! wait_for_app_registration; then
+    install_status=1
+  fi
+  if [[ "$install_status" -eq 0 ]]; then
+    set +e
+    installed_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy app" 10)"
+    installed_container_status=$?
+    set -e
+    installed_digest=""
+    if [[ "$installed_container_status" -eq 0 && -d "$installed_container" ]]; then
+      installed_digest="$(app_bundle_digest "$installed_container")"
+    fi
+    printf 'Verified installed iOS simulator app bundle digest: %s\n' "${installed_digest:-<unavailable>}"
+    if [[ "$installed_digest" != "$app_digest" ]]; then
+      printf 'Installed iOS simulator app does not match the exact source bundle digest\n'
+      install_status=1
+    elif [[ "$reuse_installed_app" == "1" && -n "$install_marker" ]]; then
       mkdir -p "$(dirname "$install_marker")"
-      printf '%s\n' "$app_path" > "$install_marker"
+      printf '%s\n' "$expected_install_marker" > "$install_marker"
       printf 'Wrote reusable iOS simulator app install marker: %s\n' "$install_marker"
     fi
   fi
@@ -280,7 +368,7 @@ if [[ "$install_status" -ne 0 ]]; then
     "CoreSimulator" \
     "xcrun simctl install $udid $app_path" \
     "$log_path" \
-    "CoreSimulator app install failed or hit a timeout." \
+    "CoreSimulator app install or LaunchServices registration failed or hit a timeout." \
     "Confirm the selected simulator is responsive, reset it if needed, and rerun the iOS launch smoke."
   printf 'iOS simulator smoke blocked; see %s\n' "$blocker_path"
   exit 0
@@ -301,12 +389,7 @@ fi
       break
     fi
     if [[ "$launch_status" -eq 124 ]]; then
-      printf 'simulator launch attempt %s timed out; checking whether Spoonjoy is already registered as running\n' "$attempt"
-      if app_is_registered_as_running; then
-        printf 'Spoonjoy is registered as running after a simctl launch timeout; accepting launch smoke\n'
-        launch_status=0
-        break
-      fi
+      printf 'simulator launch attempt %s timed out; a running registration is not foreground proof\n' "$attempt"
       if [[ "$attempt" -lt "$launch_attempts" ]]; then
         printf 'Retrying simulator launch after timeout\n'
         sleep 2

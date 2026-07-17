@@ -114,9 +114,37 @@ public struct ShoppingListItem: Codable, Equatable, Sendable {
     }
 }
 
+public enum ShoppingListReceiptSectionRole: Equatable, Sendable {
+    case category
+    case duplicateReview
+}
+
 public struct ShoppingListReceiptSection: Equatable, Sendable {
     public let title: String
     public let items: [ShoppingListItem]
+    public let role: ShoppingListReceiptSectionRole
+    public let duplicateItemIDs: [String]
+
+    public init(
+        title: String,
+        items: [ShoppingListItem],
+        role: ShoppingListReceiptSectionRole = .category,
+        duplicateItemIDs: [String] = []
+    ) {
+        self.title = title
+        self.items = items
+        self.role = role
+        self.duplicateItemIDs = duplicateItemIDs
+    }
+
+    public var id: String {
+        switch role {
+        case .category:
+            "category:\(title)"
+        case .duplicateReview:
+            "duplicate-review:\(duplicateItemIDs.joined(separator: ","))"
+        }
+    }
 }
 
 public struct ShoppingListMutationMetadata: Codable, Equatable, Sendable {
@@ -172,11 +200,28 @@ public struct ShoppingListState: Codable, Equatable, Sendable {
         receiptItems.filter { $0.checked || $0.checkedAt != nil }
     }
 
+    public var duplicateItemIDs: [String] {
+        duplicateItemGroups.flatMap { group in group.map(\.id) }
+    }
+
     public var receiptSections: [ShoppingListReceiptSection] {
+        let duplicateItemIDs = duplicateItemIDs
+        let duplicateItemIDSet = Set(duplicateItemIDs)
+        var sections: [ShoppingListReceiptSection] = []
+
+        if !duplicateItemIDs.isEmpty {
+            sections.append(ShoppingListReceiptSection(
+                title: "Duplicates to review",
+                items: activeItems.filter { duplicateItemIDSet.contains($0.id) },
+                role: .duplicateReview,
+                duplicateItemIDs: duplicateItemIDs
+            ))
+        }
+
         var orderedKeys: [String?] = []
         var groupedItems: [String?: [ShoppingListItem]] = [:]
 
-        for item in activeItems {
+        for item in activeItems where !duplicateItemIDSet.contains(item.id) {
             let key = item.categoryKey
             if groupedItems[key] == nil {
                 orderedKeys.append(key)
@@ -185,12 +230,13 @@ public struct ShoppingListState: Codable, Equatable, Sendable {
             groupedItems[key]?.append(item)
         }
 
-        return orderedKeys.map { key in
+        sections.append(contentsOf: orderedKeys.map { key in
             ShoppingListReceiptSection(
                 title: Self.sectionTitle(for: key),
                 items: groupedItems[key]!
             )
-        }
+        })
+        return sections
     }
 
     public func item(id: String) -> ShoppingListItem? {
@@ -342,6 +388,32 @@ public struct ShoppingListState: Codable, Equatable, Sendable {
                 word.prefix(1).uppercased() + word.dropFirst()
             }
             .joined(separator: " ")
+    }
+
+    private var duplicateItemGroups: [[ShoppingListItem]] {
+        var orderedKeys: [DuplicateItemKey] = []
+        var groupedItems: [DuplicateItemKey: [ShoppingListItem]] = [:]
+
+        for item in activeItems {
+            let key = DuplicateItemKey(name: Self.normalizedName(item.name), unit: Self.normalizedOptionalName(item.unit))
+            if groupedItems[key] == nil {
+                orderedKeys.append(key)
+                groupedItems[key] = []
+            }
+            groupedItems[key]?.append(item)
+        }
+
+        return orderedKeys.compactMap { key in
+            guard let items = groupedItems[key], items.count > 1 else {
+                return nil
+            }
+            return items
+        }
+    }
+
+    private struct DuplicateItemKey: Hashable {
+        let name: String
+        let unit: String?
     }
 
     private func nextActiveSortIndex() -> Int {

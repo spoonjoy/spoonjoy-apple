@@ -15,6 +15,7 @@ struct RecipesView: View {
     private let loadingSubtitle: String
     private let proofRoute: String
     private let proofSource: String
+    private let emptyStateOverride: RecipeCatalogEmptyState?
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
@@ -28,7 +29,8 @@ struct RecipesView: View {
         loadingTitle: String = "Loading recipes",
         loadingSubtitle: String = "Opening your recipe index.",
         proofRoute: String = "recipes",
-        proofSource: String = "RecipesView"
+        proofSource: String = "RecipesView",
+        emptyStateOverride: RecipeCatalogEmptyState? = nil
     ) {
         self.viewModel = viewModel
         self.openRoute = openRoute
@@ -39,6 +41,7 @@ struct RecipesView: View {
         self.loadingSubtitle = loadingSubtitle
         self.proofRoute = proofRoute
         self.proofSource = proofSource
+        self.emptyStateOverride = emptyStateOverride
         _state = State(initialValue: viewModel.state)
         _query = State(initialValue: viewModel.state.query)
     }
@@ -48,12 +51,13 @@ struct RecipesView: View {
             KitchenTableHeader(
                 eyebrow: headerEyebrow,
                 title: title,
-                subtitle: state.resultCountLabel
+                subtitle: state.resultCountLabel,
+                hidesTitleInCompactNavigation: true
             )
 
             if isLoading, state.rows.isEmpty {
                 KitchenTableLoadingStateView(title: loadingTitle, subtitle: loadingSubtitle, systemImage: "book.closed")
-            } else if let emptyState = state.emptyState {
+            } else if let emptyState = state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) {
                 recipesEmptyState(emptyState)
             } else if let leadRow = state.leadRow {
                 RecipeCatalogLead(row: leadRow, openRoute: openRoute)
@@ -131,7 +135,8 @@ struct SavedRecipesView: View {
             loadingTitle: "Loading saved recipes",
             loadingSubtitle: "Opening the recipes saved in your cookbooks.",
             proofRoute: "saved-recipes",
-            proofSource: "SavedRecipesView"
+            proofSource: "SavedRecipesView",
+            emptyStateOverride: RecipeCatalogEmptyState.noSavedRecipes
         )
     }
 }

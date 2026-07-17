@@ -78,9 +78,16 @@ SCRIPT_CONTRACTS = {
       "Using prebuilt iOS simulator app",
       "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP",
       "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER",
-      "Reusing installed iOS simulator app",
+      "bundle_sha256",
+      "Installed app bundle digest matched the exact source bundle and simulator marker",
+      "a running registration is not foreground proof",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
+      "open -a Simulator --args -CurrentDeviceUDID",
+      "SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS",
+      "xcrun simctl bootstatus $udid -b",
+      "SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS",
+      "Spoonjoy app registration reached two stable samples",
       "xcrun simctl uninstall",
       "xcrun simctl launch",
       "timeoutSeconds",
@@ -99,7 +106,7 @@ SCRIPT_CONTRACTS = {
       "preferred_udid",
       "preferred_name",
       "all_available_ios_devices",
-      "default_iphone_matches",
+      "default_family_matches",
       "state_rank",
       "os.environ",
       "state"
@@ -115,7 +122,7 @@ SCRIPT_CONTRACTS = {
       "screenshots/macos-desktop.png",
       "design-review.json",
       "design-review-blocked.json",
-      "rm -f \"$ios_screenshot\" \"$macos_screenshot\"",
+      "rm -f \"$ios_screenshot\" \"$ios_tablet_screenshot\" \"$macos_screenshot\"",
       "rm -f \"$design_review_blocked\"",
       "rm -f \"$design_review\"",
       "xcrun simctl io",
@@ -149,6 +156,10 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_PROOF_PATH",
       "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
       "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
+      "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
+      "SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS",
@@ -157,9 +168,18 @@ SCRIPT_CONTRACTS = {
       "PermissionError",
       "run_ios_smoke",
       "capture_ios_app_with_retries",
+      "Reusing simulator booted by smoke preparation",
       "is_transient_screenshot_launch_key",
       "SPOONJOY_SCREENSHOT_*",
       "simulator launch timeout",
+      "simulator boot readiness timeout",
+      "simulator foreground probe timeout",
+      "--last 2m",
+      "latest_front_display_event",
+      "Spoonjoy stopped being the front display before screenshot capture",
+      "Front display did change",
+      "distinct_color_buckets",
+      "edge_ratio",
       "macOS launch timeout",
       "proof wait timed out",
       "cleanup timeout",
@@ -225,6 +245,8 @@ SCRIPT_CONTRACTS = {
       "design-review-blocked.json",
       "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_MATRIX_BUILD_TIMEOUT_SECONDS",
+      '"$ios_install_marker-iphone"',
+      '"$ios_install_marker-ipad"',
       "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES",
       "SPOONJOY_SCREENSHOT_MATRIX_ROUTES",
       "SPOONJOY_SCREENSHOT_IOS_APP_PATH",
@@ -369,7 +391,7 @@ end
 
 def write_executable(path, content)
   path.dirname.mkpath
-  path.write(content)
+  path.write(content.sub(/\A[ \t]+(?=#!)/, ""))
   FileUtils.chmod("+x", path.to_s)
 end
 
@@ -378,7 +400,24 @@ def assert_file(path, label)
 end
 
 def assert_missing(path, label)
-  record_failure("#{label} expected #{path} to be absent") if path.exist?
+  return unless path.exist?
+
+  diagnostic = path.file? ? "\nCONTENTS:\n#{path.read}" : ""
+  if path.file? && path.extname == ".json"
+    begin
+      payload = JSON.parse(path.read)
+      source_path = payload["sourceBlockerPath"]
+      if source_path && File.file?(source_path)
+        source_payload = JSON.parse(File.read(source_path))
+        output_path = source_payload["outputPath"]
+        diagnostic += "\nSOURCE BLOCKER:\n#{JSON.pretty_generate(source_payload)}\n"
+        diagnostic += "\nSOURCE OUTPUT:\n#{File.read(output_path)}\n" if output_path && File.file?(output_path)
+      end
+    rescue JSON::ParserError
+      # The original artifact contents above are enough for malformed JSON.
+    end
+  end
+  record_failure("#{label} expected #{path} to be absent#{diagnostic}")
 end
 
 def assert_json(path, label)
@@ -464,10 +503,11 @@ def add_accessibility_proofs!(root, manifest, stem)
 
   relative_paths = [
     "apple/#{stem}-accessibility-proof-ios.json",
+    "apple/#{stem}-accessibility-proof-ipad.json",
     "apple/#{stem}-accessibility-proof-macos.json"
   ]
   manifest["accessibilityProofArtifacts"] = relative_paths
-  relative_paths.zip(["ios", "macos"]).each do |relative_path, platform|
+  relative_paths.zip(["ios", "ipad", "macos"]).each do |relative_path, platform|
     proof_path = root.join(relative_path)
     proof_path.dirname.mkpath
     proof_path.write(JSON.pretty_generate(
@@ -482,6 +522,14 @@ def add_accessibility_proofs!(root, manifest, stem)
         "noTinyClusters" => true,
         "observedDynamicTypeSize" => "large",
         "observedReduceMotion" => false,
+        "visualReadiness" => {
+          "expectedMediaCount" => 1,
+          "loadedMediaCount" => 1,
+          "pendingMediaCount" => 0,
+          "failedMediaCount" => 0,
+          "blockingIndicatorCount" => 0,
+          "isSettled" => true
+        },
         "routeEvidence" => route_accessibility_evidence(route),
         "offlineIndicatorProof" => {
           "source" => "OfflineStatusView",
@@ -517,6 +565,11 @@ SCRIPT_CONTRACTS.each do |relative_path, contract|
   missing_tokens = contract.fetch(:tokens).reject { |token| content.include?(token) }
   record_failure("#{relative_path} missing required tokens: #{missing_tokens.join(", ")}") unless missing_tokens.empty?
 
+  if relative_path == "scripts/capture-native-screenshots.sh"
+    foreground_probe_count = content.scan(/wait_for_ios_foreground \"\$udid\"/).length
+    record_failure("#{relative_path} must verify Spoonjoy foreground state before and after pixel capture") unless foreground_probe_count >= 3
+  end
+
   assert_status(true, [*contract.fetch(:syntax), path], "#{relative_path} syntax")
 end
 
@@ -528,7 +581,7 @@ Dir.mktmpdir("spoonjoy-simulator-resolver-contract") do |directory|
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "$*" == "simctl list devices available --json" ]]; then
-      printf '%s\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-5":[{"name":"Spoonjoy Codex Fresh iPhone 17 Pro Max","udid":"DOGFOOD-UDID","state":"Shutdown","isAvailable":true},{"name":"iPhone 17","udid":"IPHONE-UDID","state":"Booted","isAvailable":true}],"com.apple.CoreSimulator.SimRuntime.watchOS-26-5":[{"name":"Apple Watch","udid":"WATCH-UDID","state":"Shutdown","isAvailable":true}]}}'
+      printf '%s\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-5":[{"name":"Spoonjoy Codex Fresh iPhone 17 Pro Max","udid":"DOGFOOD-UDID","state":"Shutdown","isAvailable":true},{"name":"iPhone 17","udid":"IPHONE-UDID","state":"Booted","isAvailable":true},{"name":"iPad Pro 13-inch","udid":"IPAD-UDID","state":"Shutdown","isAvailable":true}],"com.apple.CoreSimulator.SimRuntime.watchOS-26-5":[{"name":"Apple Watch","udid":"WATCH-UDID","state":"Shutdown","isAvailable":true}]}}'
       exit 0
     fi
     exit 70
@@ -560,6 +613,21 @@ Dir.mktmpdir("spoonjoy-simulator-resolver-contract") do |directory|
     record_failure(
       "simulator resolver default path must keep selecting ordinary iPhone simulator names\n" \
       "STDOUT:\n#{default_stdout}\nSTDERR:\n#{default_stderr}"
+    )
+  end
+
+  ipad_stdout, ipad_stderr, ipad_status = run_status(
+    "env",
+    "-i",
+    "PATH=#{bin_dir}:#{ENV.fetch("PATH")}",
+    "SPOONJOY_IOS_SIMULATOR_FAMILY=ipad",
+    "python3",
+    ROOT.join(".github/scripts/resolve-ios-simulator-destination.py"),
+  )
+  unless ipad_status.success? && ipad_stdout.strip == "platform=iOS Simulator,id=IPAD-UDID"
+    record_failure(
+      "simulator resolver must select an iPad for the tablet capture family\n" \
+      "STDOUT:\n#{ipad_stdout}\nSTDERR:\n#{ipad_stderr}"
     )
   end
 end
@@ -871,9 +939,11 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
       "sourceBlockerPath" => canonical_blocker.to_s,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-tablet.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         "apple/unit-16f-screenshot-contract-accessibility-proof-ios.json",
+        "apple/unit-16f-screenshot-contract-accessibility-proof-ipad.json",
         "apple/unit-16f-screenshot-contract-accessibility-proof-macos.json"
       ],
       "reason" => "Screenshot capture was blocked by CoreSimulator.",
@@ -970,6 +1040,79 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   record_failure("iOS smoke blocker missing ownerAction") unless blocker["ownerAction"].is_a?(String) && !blocker["ownerAction"].empty?
   record_failure("iOS smoke blocker outputPath mismatch") unless blocker["outputPath"] == ios_log.to_s
 
+  digest_script_root = temp_root.join("ios-install-digest")
+  digest_script_root.join("scripts").mkpath
+  digest_script_root.join(".github/scripts").mkpath
+  FileUtils.cp(ROOT.join("scripts/smoke-ios-simulator.sh"), digest_script_root.join("scripts/smoke-ios-simulator.sh"))
+  write_executable(digest_script_root.join(".github/scripts/resolve-ios-simulator-destination.py"), <<~'PY')
+    #!/usr/bin/env python3
+    print("platform=iOS Simulator,name=iPhone 16,id=SIM-UDID")
+  PY
+  digest_app = digest_script_root.join("Spoonjoy.app")
+  digest_app.mkpath
+  digest_app.join("Spoonjoy").write("first exact app bundle\n")
+  digest_marker = digest_script_root.join("installed.marker")
+  digest_installed_app = digest_script_root.join("Installed-Spoonjoy.app")
+  digest_install_events = digest_script_root.join("install-events.log")
+  write_executable(bin_dir.join("open"), "#!/usr/bin/env bash\nexit 0\n")
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$*" in
+      "simctl list runtimes"|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ uninstall\ *) exit 0 ;;
+      simctl\ install\ *)
+        printf 'install\n' >> "$SIMCTL_INSTALL_EVENTS"
+        source_app="${@: -1}"
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "$source_app" "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        [[ -d "$SIMCTL_INSTALLED_APP_PATH" ]] || exit 1
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ data)
+        printf '/tmp/Spoonjoy-data\n'
+        exit 0
+        ;;
+      simctl\ launch\ *)
+        printf 'app.spoonjoy: 12345\n'
+        exit 0
+        ;;
+      *) exit 0 ;;
+    esac
+  SH
+  digest_environment = {
+    "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+    "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => digest_app.to_s,
+    "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP" => "1",
+    "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER" => digest_marker.to_s,
+    "SIMCTL_INSTALL_EVENTS" => digest_install_events.to_s,
+    "SIMCTL_INSTALLED_APP_PATH" => digest_installed_app.to_s
+  }
+  digest_command = [
+    "bash",
+    "scripts/smoke-ios-simulator.sh",
+    "--artifact-root",
+    digest_script_root.join("artifacts"),
+    "--log",
+    digest_script_root.join("artifacts/apple/smoke.log"),
+    "--blocker",
+    digest_script_root.join("artifacts/apple/blocker.json")
+  ]
+  assert_status(true, digest_command, "exact digest installs the initial app bundle", env: digest_environment, chdir: digest_script_root)
+  record_failure("exact digest install marker missing simulator identity") unless digest_marker.read.include?("simulator=SIM-UDID")
+  record_failure("exact digest install marker missing bundle sha256") unless digest_marker.read.match?(/bundle_sha256=[0-9a-f]{64}/)
+  assert_status(true, digest_command, "exact digest reuses the identical app bundle", env: digest_environment, chdir: digest_script_root)
+  record_failure("identical app bundle was unexpectedly reinstalled") unless digest_install_events.readlines.length == 1
+  digest_installed_app.join("Spoonjoy").write("tampered installed app bundle\n")
+  assert_status(true, digest_command, "tampered installed bundle is replaced despite a matching marker", env: digest_environment, chdir: digest_script_root)
+  record_failure("tampered installed app bundle did not trigger reinstall") unless digest_install_events.readlines.length == 2
+  digest_app.join("Spoonjoy").write("second exact app bundle\n")
+  assert_status(true, digest_command, "changed digest reinstalls the app bundle", env: digest_environment, chdir: digest_script_root)
+  record_failure("changed app bundle digest did not trigger reinstall") unless digest_install_events.readlines.length == 3
+
   write_executable(bin_dir.join("xcodebuild"), <<~'SH')
     #!/usr/bin/env bash
     derived=""
@@ -986,10 +1129,19 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   SH
   write_executable(bin_dir.join("xcrun"), <<~'SH')
     #!/usr/bin/env bash
+    set -euo pipefail
     case "$*" in
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
-      simctl\ install\ *) exit 0 ;;
+      simctl\ install\ *)
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "${@: -1}" "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
       simctl\ launch\ *) exit 91 ;;
       *) exit 0 ;;
     esac
@@ -1003,6 +1155,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     print("platform=iOS Simulator,name=iPhone 16,id=SIM-UDID")
   PY
   hard_fail_artifacts = temp_root.join("hard-fail-artifacts")
+  hard_fail_installed_app = temp_root.join("hard-fail-installed.app")
   hard_fail_log = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   hard_fail_blocker = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
@@ -1018,7 +1171,10 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       hard_fail_blocker
     ],
     "iOS app launch failure writes CoreSimulator blocker",
-    env: { "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    env: {
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SIMCTL_INSTALLED_APP_PATH" => hard_fail_installed_app.to_s
+    },
     chdir: script_root
   )
   hard_fail_blocker_json = assert_json(hard_fail_blocker, "iOS launch hard failure blocker")
@@ -1040,7 +1196,15 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     case "$*" in
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
-      simctl\ install\ *) exit 0 ;;
+      simctl\ install\ *)
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "${@: -1}" "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
       simctl\ launch\ --terminate-running-process\ *)
         count="0"
         if [[ -f "${SIMCTL_LAUNCH_STATE_FILE:-}" ]]; then
@@ -1061,6 +1225,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     esac
   SH
   timeout_artifacts = temp_root.join("timeout-retry-artifacts")
+  timeout_installed_app = temp_root.join("timeout-retry-installed.app")
   timeout_log = timeout_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   timeout_blocker = timeout_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
@@ -1079,6 +1244,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     env: {
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
       "SIMCTL_LAUNCH_STATE_FILE" => launch_state_file.to_s,
+      "SIMCTL_INSTALLED_APP_PATH" => timeout_installed_app.to_s,
       "SPOONJOY_SMOKE_TIMEOUT_SECONDS" => "1",
       "SPOONJOY_SMOKE_LAUNCH_ATTEMPTS" => "2"
     },
@@ -1103,7 +1269,15 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     case "$*" in
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
-      simctl\ install\ *) exit 0 ;;
+      simctl\ install\ *)
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "${@: -1}" "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
       simctl\ launch\ --terminate-running-process\ *)
         sleep 2
         ;;
@@ -1115,6 +1289,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     esac
   SH
   timeout_fail_artifacts = temp_root.join("timeout-fail-artifacts")
+  timeout_fail_installed_app = temp_root.join("timeout-fail-installed.app")
   timeout_fail_log = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   timeout_fail_blocker = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
@@ -1132,6 +1307,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     "iOS app launch timeout writes CoreSimulator blocker",
     env: {
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SIMCTL_INSTALLED_APP_PATH" => timeout_fail_installed_app.to_s,
       "SPOONJOY_SMOKE_TIMEOUT_SECONDS" => "1",
       "SPOONJOY_SMOKE_LAUNCH_ATTEMPTS" => "2"
     },
@@ -1258,7 +1434,11 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       esac
     done
     mkdir -p "$(dirname "$log")"
-    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
+    udid="ABCDEF12-3456-7890-ABCD-1234567890AB"
+    if [[ "${SPOONJOY_IOS_SIMULATOR_FAMILY:-iphone}" == "ipad" ]]; then
+      udid="FEDCBA98-7654-3210-ABCD-0987654321FE"
+    fi
+    printf 'Booting simulator: xcrun simctl boot %s\nok\n' "$udid" > "$log"
   SH
   write_executable(scripts_dir.join("smoke-ios-simulator.sh"), success_stub)
   write_executable(scripts_dir.join("smoke-macos.sh"), success_stub)
@@ -1293,7 +1473,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
@@ -1322,7 +1502,11 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
               accessibility_source="CaptureDraftView"
               ;;
           esac
-          write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "ios" "app.spoonjoy" "$accessibility_source"
+          accessibility_platform="ios"
+          if [[ "$*" == *"FEDCBA98-7654-3210-ABCD-0987654321FE"* ]]; then
+            accessibility_platform="ipad"
+          fi
+          write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$accessibility_route" "$accessibility_platform" "app.spoonjoy" "$accessibility_source"
         fi
         if [[ -n "${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH:-}" ]]; then
           account_id="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID:-}"
@@ -1363,8 +1547,21 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       simctl\ terminate\ *)
         exit 0
         ;;
+      simctl\ spawn\ *\ launchctl\ list)
+        printf '12345\t0\tUIKitApplication:app.spoonjoy[contract]\n'
+        ;;
       simctl\ spawn\ *\ log\ show*)
         printf 'Front display did change: <SBApplication; app.spoonjoy>\n'
+        probe_count=1
+        if [[ -n "${SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE:-}" ]]; then
+          if [[ -f "$SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE" ]]; then
+            probe_count=$(( $(cat "$SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE") + 1 ))
+          fi
+          printf '%s\n' "$probe_count" > "$SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE"
+        fi
+        if [[ "${SPOONJOY_CONTRACT_FOREGROUND_INTRUDER:-}" == "after-capture" && "$probe_count" -ge 3 ]]; then
+          printf 'Front display did change: <SBApplication; com.apple.Preferences>\n'
+        fi
         ;;
       simctl\ io\ *\ screenshot\ *)
         out="${@: -1}"
@@ -1377,11 +1574,23 @@ import zlib
 
 path = sys.argv[1]
 width, height = 400, 800
+palette = [
+    (38, 34, 30), (174, 112, 47), (92, 111, 74), (252, 250, 245),
+    (105, 93, 82), (221, 209, 188), (129, 65, 54), (70, 96, 114),
+    (189, 157, 91), (151, 143, 132)
+]
 rows = []
 for y in range(height):
     row = bytearray()
-    for _ in range(width):
-        row.extend((246, 239, 225))
+    for x in range(width):
+        color = (246, 239, 225)
+        if y < 72:
+            color = (38, 34, 30)
+        elif 100 <= y < 300 and 24 <= x < 376:
+            color = palette[((x - 24) // 32 + (y - 100) // 24) % len(palette)]
+        elif 690 <= y < 760 and 32 <= x < 368:
+            color = palette[((x - 32) // 48) % len(palette)]
+        row.extend(color)
     rows.append(b"\x00" + bytes(row))
 
 def chunk(kind, payload):
@@ -1453,7 +1662,7 @@ PY
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
     proof_path="${SPOONJOY_SCREENSHOT_PROOF_PATH:-}"
     accessibility_proof_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
@@ -1562,12 +1771,13 @@ PY
   assert_file(artifact_root.join("design-review.json"), "screenshot success lane")
   assert_missing(artifact_root.join("design-review-blocked.json"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile.png"), "screenshot success lane")
+  assert_file(artifact_root.join("screenshots/ios-tablet.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/macos-desktop.png"), "screenshot success lane")
   kitchen_review = assert_json(artifact_root.join("design-review.json"), "kitchen screenshot success lane")
   record_failure("kitchen screenshot route mismatch") unless kitchen_review["screenshotRoute"] == "kitchen"
   record_failure("kitchen screenshot missing signed-in surface flag") unless kitchen_review["kitchenSignedInSurface"] == true
   record_failure("kitchen screenshot account seed mismatch") unless kitchen_review["kitchenSeedAccountID"] == "chef_kitchen_capture"
-  record_failure("kitchen screenshot missing accessibility proof artifacts") unless kitchen_review.fetch("accessibilityProofArtifacts", []).length >= 2
+  record_failure("kitchen screenshot missing accessibility proof artifacts") unless kitchen_review.fetch("accessibilityProofArtifacts", []).length == 3
   kitchen_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
     proof = assert_json(artifact_root.join(relative_path), "kitchen accessibility proof artifact")
     record_failure("kitchen accessibility proof source mismatch") unless proof["source"] == "KitchenView"
@@ -1576,6 +1786,33 @@ PY
   kitchen_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "kitchen iOS cache seed")
   record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
   record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  foreground_intruder_root = temp_root.join("foreground-intruder")
+  foreground_intruder_root.mkpath
+  foreground_probe_count = foreground_intruder_root.join("probe-count")
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      foreground_intruder_root,
+      "--unit-slug",
+      "unit-contract-foreground-intruder"
+    ],
+    "foreground intruder blocks screenshot proof",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_FOREGROUND_INTRUDER" => "after-capture",
+      "SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE" => foreground_probe_count.to_s,
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "1"
+    },
+    chdir: script_root
+  )
+  intruder_review = assert_json(foreground_intruder_root.join("design-review-blocked.json"), "foreground intruder review")
+  record_failure("foreground intruder did not block screenshot proof") unless intruder_review["blocked"] == true
+  assert_missing(foreground_intruder_root.join("design-review.json"), "foreground intruder lane")
 
   cookbook_detail_root = temp_root.join("cookbook-detail-success")
   cookbook_detail_root.mkpath
@@ -1905,7 +2142,7 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
     "-rtimeout",
     "-e",
     PROCESS_TIMEOUT_WRAPPER,
-    "5",
+    "10",
     "bash",
     "scripts/capture-native-screenshots.sh",
     "--artifact-root",
@@ -1967,7 +2204,11 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
       esac
     done
     mkdir -p "$(dirname "$log")"
-    printf 'Booting simulator: xcrun simctl boot ABCDEF12-3456-7890-ABCD-1234567890AB\nok\n' > "$log"
+    udid="ABCDEF12-3456-7890-ABCD-1234567890AB"
+    if [[ "${SPOONJOY_IOS_SIMULATOR_FAMILY:-iphone}" == "ipad" ]]; then
+      udid="FEDCBA98-7654-3210-ABCD-0987654321FE"
+    fi
+    printf 'Booting simulator: xcrun simctl boot %s\nok\n' "$udid" > "$log"
   SH
   write_executable(scripts_dir.join("smoke-ios-simulator.sh"), success_stub)
   write_executable(scripts_dir.join("smoke-macos.sh"), success_stub)
@@ -1990,7 +2231,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
       local platform="$2"
       local bundle="$3"
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["On the Counter","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the Counter","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
@@ -1998,7 +2239,11 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
         printf '%s\n' "$PWD/ios-container"
         ;;
       simctl\ launch\ *)
-        write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "ios" "app.spoonjoy"
+        platform="ios"
+        if [[ "$*" == *"FEDCBA98-7654-3210-ABCD-0987654321FE"* ]]; then
+          platform="ipad"
+        fi
+        write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$platform" "app.spoonjoy"
         printf 'app.spoonjoy: 12345\n'
         ;;
       simctl\ spawn\ *\ log\ show*)
@@ -2015,8 +2260,25 @@ import zlib
 
 path = sys.argv[1]
 width, height = 400, 800
-row = b"\x00" + bytes((246, 239, 225)) * width
-raw = row * height
+palette = [
+    (38, 34, 30), (174, 112, 47), (92, 111, 74), (252, 250, 245),
+    (105, 93, 82), (221, 209, 188), (129, 65, 54), (70, 96, 114),
+    (189, 157, 91), (151, 143, 132)
+]
+rows = []
+for y in range(height):
+    row = bytearray()
+    for x in range(width):
+        color = (246, 239, 225)
+        if y < 72:
+            color = (38, 34, 30)
+        elif 100 <= y < 300 and 24 <= x < 376:
+            color = palette[((x - 24) // 32 + (y - 100) // 24) % len(palette)]
+        elif 690 <= y < 760 and 32 <= x < 368:
+            color = palette[((x - 32) // 48) % len(palette)]
+        row.extend(color)
+    rows.append(b"\x00" + bytes(row))
+raw = b"".join(rows)
 def chunk(kind, payload):
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", binascii.crc32(kind + payload) & 0xffffffff)
 png = b"\x89PNG\r\n\x1a\n"
@@ -2050,7 +2312,7 @@ PY
     output_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
     if [[ -n "$output_path" ]]; then
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"routeEvidence":{"voiceOverLabels":["On the Counter","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy.mac"}\n' > "$output_path"
+      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the Counter","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy.mac"}\n' > "$output_path"
     fi
   SH
 

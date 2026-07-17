@@ -14,6 +14,22 @@ def state_rank(state: str) -> int:
     return 1 if state == "Shutdown" else 0
 
 
+def family_device_rank(name: str, family: str) -> int:
+    if family != "ipad":
+        return 0
+    if name.startswith("iPad Pro 13-inch"):
+        return 5
+    if name.startswith("iPad Air 13-inch"):
+        return 4
+    if name.startswith("iPad Pro 11-inch"):
+        return 3
+    if name.startswith("iPad Air 11-inch"):
+        return 2
+    if name.startswith("iPad mini"):
+        return 0
+    return 1
+
+
 try:
     raw = subprocess.check_output(
         ["xcrun", "simctl", "list", "devices", "available", "--json"],
@@ -27,8 +43,12 @@ except Exception as exc:
 data = json.loads(raw)
 preferred_udid = os.environ.get("SPOONJOY_IOS_SIMULATOR_UDID", "").strip()
 preferred_name = os.environ.get("SPOONJOY_IOS_SIMULATOR_NAME", "").strip()
+preferred_family = os.environ.get("SPOONJOY_IOS_SIMULATOR_FAMILY", "iphone").strip().lower()
+if preferred_family not in {"iphone", "ipad"}:
+    print(f"Unsupported iOS simulator family: {preferred_family}", file=sys.stderr)
+    sys.exit(1)
 all_available_ios_devices: list[tuple[tuple[int, ...], int, str, str, str]] = []
-default_iphone_matches: list[tuple[tuple[int, ...], int, str, str, str]] = []
+default_family_matches: list[tuple[tuple[int, ...], int, str, str, str]] = []
 
 for runtime, devices in data.get("devices", {}).items():
     if "iOS" not in runtime:
@@ -41,8 +61,9 @@ for runtime, devices in data.get("devices", {}).items():
         if device.get("isAvailable") and udid:
             match = (runtime_version(runtime), state_rank(state), name, udid, state)
             all_available_ios_devices.append(match)
-            if name.startswith("iPhone"):
-                default_iphone_matches.append(match)
+            family_prefix = "iPad" if preferred_family == "ipad" else "iPhone"
+            if name.startswith(family_prefix):
+                default_family_matches.append(match)
 
 if not all_available_ios_devices:
     print("No available iOS simulator found.", file=sys.stderr)
@@ -65,9 +86,13 @@ if preferred_name:
     print(f"platform=iOS Simulator,id={selected_udid}")
     sys.exit(0)
 
-if not default_iphone_matches:
-    print("No available iPhone simulator found.", file=sys.stderr)
+if not default_family_matches:
+    print(f"No available {preferred_family} simulator found.", file=sys.stderr)
     sys.exit(1)
 
-_, _, _, selected_udid, _ = sorted(default_iphone_matches, reverse=True)[0]
+_, _, _, selected_udid, _ = sorted(
+    default_family_matches,
+    key=lambda match: (match[0], match[1], family_device_rank(match[2], preferred_family), match[2]),
+    reverse=True,
+)[0]
 print(f"platform=iOS Simulator,id={selected_udid}")

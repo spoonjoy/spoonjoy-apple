@@ -3,6 +3,207 @@ import Testing
 
 @Suite("Native mobile design contract")
 struct NativeMobileDesignContractTests {
+    @Test("system tab chrome owns Liquid Glass and compact content owns a real viewport inset")
+    func systemTabChromeOwnsLiquidGlassAndCompactContentOwnsViewportInset() throws {
+        let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let app = uncommentedSwift(try readRepoFile(appPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+
+        expectContent(
+            app,
+            in: appPath,
+            forbids: [
+                "configureChromeAppearance",
+                "UITabBarAppearance",
+                "UITabBar.appearance()",
+                "SpoonjoyUIColor"
+            ]
+        )
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                ".safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)"
+            ],
+            forbids: [
+                ".toolbarBackground(.regularMaterial, for: .tabBar)",
+                ".toolbarBackground(.visible, for: .tabBar)"
+            ]
+        )
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "static let compactTabBarContentInset: CGFloat"
+            ]
+        )
+    }
+
+    @Test("desktop navigation gives labels room and cook mode removes the library shell")
+    func desktopNavigationGivesLabelsRoomAndCookModeRemovesLibraryShell() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "sidebar.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)",
+                "navigation.route.isCookModeActive",
+                "focusedCookModeShell",
+                "showsToolbar: false",
+                "showsSearchChrome: false"
+            ],
+            forbids: [
+                ".navigationSplitViewColumnWidth(min: 240, ideal: 280)"
+            ]
+        )
+    }
+
+    @Test("compact root routes have one title owner and recipe actions are unambiguous")
+    func compactRootRoutesHaveOneTitleOwnerAndRecipeActionsAreUnambiguous() throws {
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let recipesPath = "Apps/Spoonjoy/Shared/Views/RecipesView.swift"
+        let cookbooksPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
+        let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let recipeDetailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+        let recipes = uncommentedSwift(try readRepoFile(recipesPath))
+        let cookbooks = uncommentedSwift(try readRepoFile(cookbooksPath))
+        let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
+        let recipeDetail = uncommentedSwift(try readRepoFile(recipeDetailPath))
+
+        expectContent(theme, in: themePath, contains: ["hidesTitleInCompactNavigation"])
+        expectContent(navigation, in: navigationPath, contains: [".environment(\\.spoonjoyCompactNavigation, true)"])
+        expectContent(
+            recipes,
+            in: recipesPath,
+            contains: [
+                "hidesTitleInCompactNavigation: true",
+                "state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride)",
+                "RecipeCatalogEmptyState.noSavedRecipes"
+            ],
+            forbids: [
+                "emptyStateOverride ?? state.emptyState"
+            ]
+        )
+        expectContent(cookbooks, in: cookbooksPath, contains: ["hidesTitleInCompactNavigation: true"])
+        expectContent(shopping, in: shoppingPath, contains: ["hidesTitleInCompactNavigation: true"])
+        expectContent(
+            recipeDetail,
+            in: recipeDetailPath,
+            contains: [
+                "Label(\"Recipe actions\", systemImage: \"ellipsis.circle\")",
+                "ownerToolsMenuItems",
+                "if !usesCompactRecipeDock"
+            ]
+        )
+    }
+
+    @Test("screenshot proof waits for terminal media and the route matrix covers iPad")
+    func screenshotProofWaitsForTerminalMediaAndRouteMatrixCoversIPad() throws {
+        let imagePath = "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift"
+        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        let matrixPath = "scripts/capture-native-screenshot-matrix.sh"
+        let image = uncommentedSwift(try readRepoFile(imagePath))
+        let proof = uncommentedSwift(try readRepoFile(proofPath))
+        let capture = try readRepoFile(capturePath)
+        let matrix = try readRepoFile(matrixPath)
+
+        expectContent(
+            image,
+            in: imagePath,
+            contains: ["ScreenshotVisualReadiness"],
+            forbids: ["ProgressView()"]
+        )
+        expectContent(
+            proof,
+            in: proofPath,
+            contains: [
+                "await ScreenshotVisualReadiness.waitForSettled()",
+                "\"visualReadiness\"",
+                "pendingMediaCount"
+            ]
+        )
+        expectContent(
+            capture,
+            in: capturePath,
+            contains: [
+                "ios-tablet.png",
+                "accessibility-proof-ipad.json",
+                "expected_platform == \"ipad\"",
+                "pendingMediaCount",
+                "SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS",
+                "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
+                "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
+                "simulator boot readiness timeout",
+                "--last 2m",
+                "latest_front_display_event",
+                "Spoonjoy stopped being the front display before screenshot capture",
+                "Spoonjoy stopped being the front display during screenshot capture",
+                "Front display did change",
+                "distinct_color_buckets",
+                "edge_ratio"
+            ],
+            forbids: [
+                "registered as running before foreground pixel validation",
+                "continuing to foreground/proof checks",
+                "date -u '+%Y-%m-%d %H:%M:%S'",
+                "--start \"$launched_at\""
+            ]
+        )
+        expectContent(
+            matrix,
+            in: matrixPath,
+            contains: [
+                "iosTabletScreenshot",
+                "accessibility-proof-ipad.json",
+                "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-0"
+            ],
+            forbids: [
+                "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-1"
+            ]
+        )
+    }
+
+    @Test("shopping duplicates become a review section and completion uses the success role")
+    func shoppingDuplicatesBecomeAReviewSectionAndCompletionUsesTheSuccessRole() throws {
+        let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
+        let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let receipt = uncommentedSwift(try readRepoFile(receiptPath))
+        let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
+
+        expectContent(
+            receipt,
+            in: receiptPath,
+            contains: [
+                "Duplicates to review",
+                "duplicateItemIDs",
+                "Review duplicate",
+                "Remove duplicate",
+                ".contextMenu",
+                "ReceiptDeleteSwipeModifier {"
+            ],
+            forbids: [
+                "return matchCount > 1 ? \"\\(matchCount) on receipt\" : nil",
+                "isEnabled: !isDuplicateReview"
+            ]
+        )
+        expectContent(
+            shopping,
+            in: shoppingPath,
+            contains: [
+                "state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass"
+            ]
+        )
+    }
+
     @Test("compact iOS shell uses native tab and navigation bars")
     func compactIOSShellUsesNativeTabAndNavigationBars() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
@@ -59,33 +260,6 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Kitchen\")",
                 "Button(\"Capture Draft\")",
                 "Button(\"Settings\")"
-            ]
-        )
-    }
-
-    @Test("iOS tab bar appearance uses translucent system material")
-    func iOSTabBarAppearanceUsesTranslucentSystemMaterial() throws {
-        let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"
-        let app = uncommentedSwift(try readRepoFile(appPath))
-
-        expectContent(
-            app,
-            in: appPath,
-            contains: [
-                "configureChromeAppearance()",
-                "UITabBarAppearance()",
-                "configureWithTransparentBackground()",
-                "appearance.backgroundEffect = UIBlurEffect(style: .systemMaterial)",
-                "appearance.backgroundColor = SpoonjoyUIColor.glassBone",
-                "UITabBar.appearance().isTranslucent = true",
-                "UITabBar.appearance().standardAppearance = appearance",
-                "UITabBar.appearance().scrollEdgeAppearance = appearance",
-                "private enum SpoonjoyUIColor",
-                "UIColor(red: 251.0 / 255.0, green: 250.0 / 255.0, blue: 244.0 / 255.0, alpha: 0.72)"
-            ],
-            forbids: [
-                "configureWithOpaqueBackground()",
-                "UITabBar.appearance().isTranslucent = false"
             ]
         )
     }
@@ -205,7 +379,9 @@ struct NativeMobileDesignContractTests {
                 "AlarmAttributes(",
                 "SpoonjoyCookTimerMetadata",
                 "CookModeSystemTimer",
-                "timer.startButtonTitle"
+                "timer.startButtonTitle",
+                "if let timer = viewModel.systemTimer",
+                "#else\n        unavailableCue\n#endif"
             ],
             forbids: [
                 "Timer.publish(every:",
@@ -213,7 +389,9 @@ struct NativeMobileDesignContractTests {
                 "isRunning",
                 "Pause timer",
                 "Reset timer",
-                "Restart timer"
+                "Restart timer",
+                "#else\n        EmptyView()\n#endif",
+                "#if os(iOS)\n            if let timer = viewModel.systemTimer"
             ]
         )
 
@@ -459,7 +637,7 @@ struct NativeMobileDesignContractTests {
             in: coverPath,
             contains: [
                 "AsyncImage(url: url, transaction: imageTransaction)",
-                ".transition(accessibilityReduceMotion ? .identity : .opacity)",
+                ".transition(reduceMotion ? .identity : .opacity)",
                 "KitchenTableNoPhotoView",
                 "missingSubtitle",
                 "trimmingCharacters(in: .whitespacesAndNewlines)",
@@ -712,6 +890,10 @@ struct NativeMobileDesignContractTests {
                 "@Environment(\\.horizontalSizeClass)",
                 "private var usesEmbeddedSpoonDock: Bool",
                 "compactTaskHeader",
+                "macOSCookModeCloseButton",
+                "Button(action: close)",
+                "Label(\"Close\", systemImage: \"xmark\")",
+                ".accessibilityLabel(\"Close cook mode\")",
                 "cookModeBottomActionRail",
                 "currentStepCard",
                 "stepProgressRail",

@@ -1,4 +1,86 @@
 import Foundation
+import SpoonjoyCore
+#if os(iOS)
+import UIKit
+#endif
+
+actor ScreenshotVisualReadiness {
+    private static let shared = ScreenshotVisualReadiness()
+
+    private var state = ScreenshotVisualReadinessState()
+
+    static func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
+        await shared.beginMedia(token)
+    }
+
+    static func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) async {
+        await shared.finishMedia(token, succeeded: succeeded)
+    }
+
+    static func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
+        await shared.removeMedia(token)
+    }
+
+    static func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
+        await shared.beginBlockingIndicator(token)
+    }
+
+    static func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
+        await shared.endBlockingIndicator(token)
+    }
+
+    static func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {
+        await shared.waitForSettled()
+    }
+
+    private func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+        state.beginMedia(token)
+    }
+
+    private func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) {
+        state.finishMedia(token, succeeded: succeeded)
+    }
+
+    private func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+        state.removeMedia(token)
+    }
+
+    private func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+        state.beginBlockingIndicator(token)
+    }
+
+    private func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+        state.endBlockingIndicator(token)
+    }
+
+    private func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {
+        try? await Task.sleep(nanoseconds: 700_000_000)
+        let deadline = Date().addingTimeInterval(8)
+        var settledSince: Date?
+        var lastSnapshot: ScreenshotVisualReadinessSnapshot?
+
+        while !Task.isCancelled {
+            let snapshot = state.snapshot
+            if snapshot.isSettled {
+                if snapshot != lastSnapshot {
+                    settledSince = Date()
+                } else if let settledSince, Date().timeIntervalSince(settledSince) >= 0.35 {
+                    return snapshot
+                }
+            } else {
+                settledSince = nil
+            }
+
+            if Date() >= deadline {
+                return snapshot
+            }
+            lastSnapshot = snapshot
+            try? await Task.sleep(nanoseconds: 50_000_000)
+        }
+
+        return state.snapshot
+    }
+}
 
 struct ScreenshotAccessibilityRuntimeContext {
     let dynamicTypeSize: String
@@ -19,7 +101,7 @@ enum ScreenshotAccessibilityProofWriter {
               !rawPath.isEmpty else {
             return
         }
-        try? await Task.sleep(nanoseconds: 700_000_000)
+        let visualReadiness = await ScreenshotVisualReadiness.waitForSettled()
         guard !Task.isCancelled else {
             return
         }
@@ -30,7 +112,12 @@ enum ScreenshotAccessibilityProofWriter {
         }
 
         let outputURL = URL(fileURLWithPath: rawPath)
-        let payload = basePayload(route: route, source: source, runtimeContext: runtimeContext)
+        let payload = basePayload(
+            route: route,
+            source: source,
+            runtimeContext: runtimeContext,
+            visualReadiness: visualReadiness
+        )
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
             return
@@ -51,7 +138,8 @@ enum ScreenshotAccessibilityProofWriter {
     @MainActor private static func basePayload(
         route: String,
         source: String,
-        runtimeContext: ScreenshotAccessibilityRuntimeContext
+        runtimeContext: ScreenshotAccessibilityRuntimeContext,
+        visualReadiness: ScreenshotVisualReadinessSnapshot
     ) -> [String: Any] {
         let evidence = routeEvidence(route: route, source: source)
         return [
@@ -71,6 +159,14 @@ enum ScreenshotAccessibilityProofWriter {
             "noTinyClusters": evidence.layoutGuards.contains("no-tiny-clusters"),
             "observedDynamicTypeSize": runtimeContext.dynamicTypeSize,
             "observedReduceMotion": runtimeContext.reduceMotionEnabled,
+            "visualReadiness": [
+                "expectedMediaCount": visualReadiness.expectedMediaCount,
+                "loadedMediaCount": visualReadiness.loadedMediaCount,
+                "pendingMediaCount": visualReadiness.pendingMediaCount,
+                "failedMediaCount": visualReadiness.failedMediaCount,
+                "blockingIndicatorCount": visualReadiness.blockingIndicatorCount,
+                "isSettled": visualReadiness.isSettled
+            ],
             "routeEvidence": evidence.dictionary,
             "offlineIndicatorProof": OfflineStatusView.screenshotAccessibilityProof,
             "emittedBy": "SpoonjoyApp",
@@ -210,9 +306,11 @@ enum ScreenshotAccessibilityProofWriter {
         }
     }
 
-    private static var platform: String {
+    @MainActor private static var platform: String {
 #if os(macOS)
         "macos"
+#elseif os(iOS)
+        UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "ios"
 #else
         "ios"
 #endif
