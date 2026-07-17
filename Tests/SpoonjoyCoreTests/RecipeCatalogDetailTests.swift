@@ -71,6 +71,7 @@ struct RecipeCatalogDetailTests {
         #expect(state.rows.first?.servingsLabel == "Serves 4")
         #expect(state.rows.first?.coverProvenanceLabel == "Chef photo")
         #expect(state.rows.first?.openRoute == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
+        #expect(state.resolvedEmptyState(overridingDefaultWith: .noSavedRecipes) == nil)
         #expect(state.offlineIndicator.display == .synced)
         #expect(viewModel.openRecipeRoute(id: "recipe_lemon_pantry_pasta") == .recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail))
         #expect(await repository.listRequests == [
@@ -79,9 +80,14 @@ struct RecipeCatalogDetailTests {
 
         let noRecipes: RecipeCatalogEmptyState = "No recipes yet"
         let noMatches: RecipeCatalogEmptyState = "No matching recipes"
+        let noSavedRecipes: RecipeCatalogEmptyState = "No saved recipes yet"
         let custom: RecipeCatalogEmptyState = "No saved dinner party recipes"
         #expect(noRecipes == .noRecipes)
         #expect(noMatches == .noMatches)
+        #expect(noSavedRecipes == .noSavedRecipes)
+        #expect(RecipeCatalogState.empty().resolvedEmptyState(overridingDefaultWith: .noSavedRecipes) == .noSavedRecipes)
+        #expect(RecipeCatalogState.empty(query: "lemon").resolvedEmptyState(overridingDefaultWith: .noSavedRecipes) == .noMatches)
+        #expect(RecipeCatalogState.empty(query: "lemon").resolvedEmptyState(overridingDefaultWith: nil) == .noMatches)
         #expect(custom == RecipeCatalogEmptyState(
             title: "No saved dinner party recipes",
             message: "",

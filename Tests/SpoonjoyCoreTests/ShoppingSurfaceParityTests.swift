@@ -97,6 +97,7 @@ struct ShoppingSurfaceParityTests {
             now: { Self.createdAt }
         )
         #expect(needsLiveLoad.loadState == .needsLiveLoad)
+        #expect(needsLiveLoad.duplicateItemIDs.isEmpty)
         #expect(needsLiveLoad.shoppingRunSummary == "Ready to sync")
         #expect(needsLiveLoad.emptyState == ShoppingSurfaceEmptyState(
             title: "Sync the receipt",
@@ -911,11 +912,13 @@ struct ShoppingSurfaceParityTests {
 
         let duplicateSection = try #require(viewModel.sections.first)
         #expect(duplicateSection.role == .duplicateReview)
+        #expect(duplicateSection.id == "duplicate-review:item_duplicate_lemons_first,item_duplicate_lemons_second")
         #expect(duplicateSection.duplicateItemIDs == state.duplicateItemIDs)
         #expect(duplicateSection.items.map(\.id) == state.duplicateItemIDs)
 
         let regularSections = viewModel.sections.dropFirst()
         #expect(regularSections.allSatisfy { $0.role == .category })
+        #expect(regularSections.map(\.id) == ["category:Pantry", "category:Other"])
         #expect(regularSections.flatMap(\.duplicateItemIDs).isEmpty)
         #expect(regularSections.flatMap { $0.items.map(\.id) } == ["item_pantry_salt", "item_other_mint"])
     }

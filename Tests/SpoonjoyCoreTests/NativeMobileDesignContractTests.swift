@@ -85,11 +85,11 @@ struct NativeMobileDesignContractTests {
             in: recipesPath,
             contains: [
                 "hidesTitleInCompactNavigation: true",
-                "state.rows.isEmpty, let emptyState = emptyStateOverride ?? state.emptyState",
+                "state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride)",
                 "RecipeCatalogEmptyState.noSavedRecipes"
             ],
             forbids: [
-                "else if let emptyState = emptyStateOverride ?? state.emptyState"
+                "emptyStateOverride ?? state.emptyState"
             ]
         )
         expectContent(cookbooks, in: cookbooksPath, contains: ["hidesTitleInCompactNavigation: true"])
@@ -177,10 +177,14 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "Duplicates to review",
                 "duplicateItemIDs",
-                "Review duplicate"
+                "Review duplicate",
+                "Remove duplicate",
+                ".contextMenu",
+                "ReceiptDeleteSwipeModifier {"
             ],
             forbids: [
-                "return matchCount > 1 ? \"\\(matchCount) on receipt\" : nil"
+                "return matchCount > 1 ? \"\\(matchCount) on receipt\" : nil",
+                "isEnabled: !isDuplicateReview"
             ]
         )
         expectContent(
@@ -878,6 +882,10 @@ struct NativeMobileDesignContractTests {
                 "@Environment(\\.horizontalSizeClass)",
                 "private var usesEmbeddedSpoonDock: Bool",
                 "compactTaskHeader",
+                "macOSCookModeCloseButton",
+                "Button(action: close)",
+                "Label(\"Close\", systemImage: \"xmark\")",
+                ".accessibilityLabel(\"Close cook mode\")",
                 "cookModeBottomActionRail",
                 "currentStepCard",
                 "stepProgressRail",

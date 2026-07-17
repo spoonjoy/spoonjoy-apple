@@ -22,25 +22,44 @@ struct ReceiptListView: View {
                 Section {
                     ForEach(section.items, id: \.id) { item in
                         let isDuplicateReview = section.duplicateItemIDs.contains(item.id)
-                        Toggle(isOn: checkedBinding(for: item)) {
-                            ShoppingReceiptRow(
-                                item: item,
-                                sourceLine: sourceLine(for: section, item: item),
-                                duplicateCountLabel: duplicateCountLabel(for: item, in: section)
-                            )
+                        HStack(spacing: 8) {
+                            Toggle(isOn: checkedBinding(for: item)) {
+                                ShoppingReceiptRow(
+                                    item: item,
+                                    sourceLine: sourceLine(for: section, item: item),
+                                    duplicateCountLabel: duplicateCountLabel(for: item, in: section)
+                                )
+                            }
+                            .toggleStyle(.largeCheck)
+
+                            if isDuplicateReview {
+                                Button(role: .destructive) {
+                                    deleteItem(item)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .frame(width: 44, height: 44)
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Remove duplicate \(item.name)")
+                                .help("Remove duplicate")
+                            }
                         }
-                        .toggleStyle(.largeCheck)
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(KitchenTableTheme.bone)
                         .accessibilityHint(
                             isDuplicateReview
-                                ? "Review duplicate before checking it off. This section will not merge or remove it automatically."
+                                ? "Review this duplicate, then remove it or check it off."
                                 : "Double tap to check off this item."
                         )
-                        .modifier(ReceiptDeleteSwipeModifier(isEnabled: !isDuplicateReview) {
+                        .modifier(ReceiptDeleteSwipeModifier {
                             deleteItem(item)
                         })
+                        .contextMenu {
+                            Button("Remove", systemImage: "trash", role: .destructive) {
+                                deleteItem(item)
+                            }
+                        }
                     }
                 } header: {
                     Text(section.title)
@@ -163,22 +182,17 @@ private struct ShoppingReceiptRow: View {
 }
 
 private struct ReceiptDeleteSwipeModifier: ViewModifier {
-    let isEnabled: Bool
     let delete: () -> Void
 
     @ViewBuilder
     func body(content: Content) -> some View {
 #if os(iOS)
-        if isEnabled {
-            content
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive, action: delete) {
-                        Label("Remove", systemImage: "trash")
-                    }
+        content
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                Button(role: .destructive, action: delete) {
+                    Label("Remove", systemImage: "trash")
                 }
-        } else {
-            content
-        }
+            }
 #else
         content
 #endif

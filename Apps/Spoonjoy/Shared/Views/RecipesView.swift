@@ -57,7 +57,7 @@ struct RecipesView: View {
 
             if isLoading, state.rows.isEmpty {
                 KitchenTableLoadingStateView(title: loadingTitle, subtitle: loadingSubtitle, systemImage: "book.closed")
-            } else if state.rows.isEmpty, let emptyState = emptyStateOverride ?? state.emptyState {
+            } else if let emptyState = state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) {
                 recipesEmptyState(emptyState)
             } else if let leadRow = state.leadRow {
                 RecipeCatalogLead(row: leadRow, openRoute: openRoute)

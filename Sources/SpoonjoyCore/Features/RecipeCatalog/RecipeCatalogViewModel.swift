@@ -100,6 +100,13 @@ public struct RecipeCatalogState: Equatable, Sendable {
         "\(rows.count) \(rows.count == 1 ? "recipe" : "recipes")"
     }
 
+    public func resolvedEmptyState(overridingDefaultWith override: RecipeCatalogEmptyState?) -> RecipeCatalogEmptyState? {
+        guard rows.isEmpty, let emptyState else {
+            return nil
+        }
+        return emptyState == .noRecipes ? override ?? emptyState : emptyState
+    }
+
     public init(
         query: String,
         limit: Int,
@@ -132,7 +139,7 @@ public struct RecipeCatalogState: Equatable, Sendable {
             rows: [],
             source: nil,
             offlineIndicator: OfflineIndicatorState(display: .synced, dismissal: nil),
-            emptyState: .noRecipes
+            emptyState: query.isEmpty ? .noRecipes : .noMatches
         )
     }
 }
