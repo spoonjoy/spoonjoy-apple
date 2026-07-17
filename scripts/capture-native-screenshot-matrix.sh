@@ -35,12 +35,23 @@ shared_macos_app_path="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-}"
 shared_build_blocker="$apple_dir/${unit_slug}-shared-build-blocker.json"
 shared_xcode_blocker="$apple_dir/${unit_slug}-shared-xcode-platform-blocker.json"
 ios_install_marker="$apple_dir/${unit_slug}-ios-installed.marker"
+configured_ios_install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-$ios_install_marker}"
 matrix_routes="${matrix_routes//[[:space:]]/}"
 
 mkdir -p "$apple_dir" "$routes_dir"
 rm -rf "$routes_dir"
 mkdir -p "$routes_dir"
-rm -f "$results_path" "$summary_path" "$shared_build_blocker" "$shared_xcode_blocker" "$ios_install_marker"
+rm -f \
+  "$results_path" \
+  "$summary_path" \
+  "$shared_build_blocker" \
+  "$shared_xcode_blocker" \
+  "$ios_install_marker" \
+  "$ios_install_marker-iphone" \
+  "$ios_install_marker-ipad" \
+  "$configured_ios_install_marker" \
+  "$configured_ios_install_marker-iphone" \
+  "$configured_ios_install_marker-ipad"
 
 write_shared_build_blocker() {
   local platform="$1"
@@ -146,7 +157,7 @@ prepare_shared_builds() {
   export SPOONJOY_SCREENSHOT_IOS_APP_PATH="$shared_ios_app_path"
   export SPOONJOY_SCREENSHOT_MACOS_APP_PATH="$shared_macos_app_path"
   export SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP="${SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP:-1}"
-  export SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-$ios_install_marker}"
+  export SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER="$configured_ios_install_marker"
   printf 'route matrix using shared iOS app: %s\n' "$SPOONJOY_SCREENSHOT_IOS_APP_PATH"
   printf 'route matrix using shared macOS app: %s\n' "$SPOONJOY_SCREENSHOT_MACOS_APP_PATH"
 }

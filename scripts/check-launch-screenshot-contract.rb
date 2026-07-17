@@ -78,7 +78,9 @@ SCRIPT_CONTRACTS = {
       "Using prebuilt iOS simulator app",
       "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP",
       "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER",
-      "Reusing installed iOS simulator app",
+      "bundle_sha256",
+      "Exact app bundle digest and simulator marker matched",
+      "a running registration is not foreground proof",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
       "open -a Simulator --args -CurrentDeviceUDID",
@@ -174,7 +176,7 @@ SCRIPT_CONTRACTS = {
       "simulator foreground probe timeout",
       "date -u '+%Y-%m-%d %H:%M:%S'",
       '--start "$launched_at"',
-      "registered as running before foreground pixel validation",
+      "Front display did change",
       "distinct_color_buckets",
       "edge_ratio",
       "macOS launch timeout",
@@ -242,6 +244,8 @@ SCRIPT_CONTRACTS = {
       "design-review-blocked.json",
       "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_MATRIX_BUILD_TIMEOUT_SECONDS",
+      '"$ios_install_marker-iphone"',
+      '"$ios_install_marker-ipad"',
       "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES",
       "SPOONJOY_SCREENSHOT_MATRIX_ROUTES",
       "SPOONJOY_SCREENSHOT_IOS_APP_PATH",
@@ -1029,6 +1033,66 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   record_failure("iOS smoke blocker capability mismatch") unless blocker["capability"] == "CoreSimulator"
   record_failure("iOS smoke blocker missing ownerAction") unless blocker["ownerAction"].is_a?(String) && !blocker["ownerAction"].empty?
   record_failure("iOS smoke blocker outputPath mismatch") unless blocker["outputPath"] == ios_log.to_s
+
+  digest_script_root = temp_root.join("ios-install-digest")
+  digest_script_root.join("scripts").mkpath
+  digest_script_root.join(".github/scripts").mkpath
+  FileUtils.cp(ROOT.join("scripts/smoke-ios-simulator.sh"), digest_script_root.join("scripts/smoke-ios-simulator.sh"))
+  write_executable(digest_script_root.join(".github/scripts/resolve-ios-simulator-destination.py"), <<~'PY')
+    #!/usr/bin/env python3
+    print("platform=iOS Simulator,name=iPhone 16,id=SIM-UDID")
+  PY
+  digest_app = digest_script_root.join("Spoonjoy.app")
+  digest_app.mkpath
+  digest_app.join("Spoonjoy").write("first exact app bundle\n")
+  digest_marker = digest_script_root.join("installed.marker")
+  digest_install_events = digest_script_root.join("install-events.log")
+  write_executable(bin_dir.join("open"), "#!/usr/bin/env bash\nexit 0\n")
+  write_executable(bin_dir.join("xcrun"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    case "$*" in
+      "simctl list runtimes"|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ uninstall\ *) exit 0 ;;
+      simctl\ install\ *)
+        printf 'install\n' >> "$SIMCTL_INSTALL_EVENTS"
+        exit 0
+        ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ app|simctl\ get_app_container\ *\ app.spoonjoy\ data)
+        printf '/tmp/Spoonjoy.app\n'
+        exit 0
+        ;;
+      simctl\ launch\ *)
+        printf 'app.spoonjoy: 12345\n'
+        exit 0
+        ;;
+      *) exit 0 ;;
+    esac
+  SH
+  digest_environment = {
+    "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+    "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => digest_app.to_s,
+    "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP" => "1",
+    "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER" => digest_marker.to_s,
+    "SIMCTL_INSTALL_EVENTS" => digest_install_events.to_s
+  }
+  digest_command = [
+    "bash",
+    "scripts/smoke-ios-simulator.sh",
+    "--artifact-root",
+    digest_script_root.join("artifacts"),
+    "--log",
+    digest_script_root.join("artifacts/apple/smoke.log"),
+    "--blocker",
+    digest_script_root.join("artifacts/apple/blocker.json")
+  ]
+  assert_status(true, digest_command, "exact digest installs the initial app bundle", env: digest_environment, chdir: digest_script_root)
+  record_failure("exact digest install marker missing simulator identity") unless digest_marker.read.include?("simulator=SIM-UDID")
+  record_failure("exact digest install marker missing bundle sha256") unless digest_marker.read.match?(/bundle_sha256=[0-9a-f]{64}/)
+  assert_status(true, digest_command, "exact digest reuses the identical app bundle", env: digest_environment, chdir: digest_script_root)
+  record_failure("identical app bundle was unexpectedly reinstalled") unless digest_install_events.readlines.length == 1
+  digest_app.join("Spoonjoy").write("second exact app bundle\n")
+  assert_status(true, digest_command, "changed digest reinstalls the app bundle", env: digest_environment, chdir: digest_script_root)
+  record_failure("changed app bundle digest did not trigger reinstall") unless digest_install_events.readlines.length == 2
 
   write_executable(bin_dir.join("xcodebuild"), <<~'SH')
     #!/usr/bin/env bash

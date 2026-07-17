@@ -1195,23 +1195,6 @@ ios_launch_app() {
       xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
 }
 
-ios_app_is_registered_as_running() {
-  local udid="$1"
-  local launchctl_log
-  local launchctl_output
-  local launchctl_status
-  launchctl_log="$(mktemp)"
-  set +e
-  run_with_timeout "simulator launch registration check" 10 "$launchctl_log" \
-    xcrun simctl spawn "$udid" launchctl list
-  launchctl_status=$?
-  set -e
-  launchctl_output="$(cat "$launchctl_log")"
-  cat "$launchctl_log" >> "$capture_log"
-  rm -f "$launchctl_log"
-  [[ "$launchctl_status" -eq 0 && "$launchctl_output" == *"UIKitApplication:app.spoonjoy"* ]]
-}
-
 open_macos_app() {
   set_macos_launch_environment
   run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" \
@@ -1333,10 +1316,6 @@ wait_for_ios_foreground() {
   local output=""
   local foreground_log
   local foreground_status
-  if ios_app_is_registered_as_running "$udid"; then
-    printf 'Spoonjoy is registered as running before foreground pixel validation\n' >> "$capture_log"
-    return 0
-  fi
   foreground_log="$(mktemp)"
   for _ in $(seq 1 30); do
     : > "$foreground_log"
@@ -1857,11 +1836,7 @@ capture_ios_app() {
   launched_at="$(date -u '+%Y-%m-%d %H:%M:%S')"
   if ! ios_launch_app "$udid"; then
     printf 'simulator launch timeout or failure for iOS route %s\n' "$screenshot_route" >> "$capture_log"
-    if ios_app_is_registered_as_running "$udid"; then
-      printf 'Spoonjoy is registered as running after screenshot launch timeout; continuing to foreground/proof checks\n' >> "$capture_log"
-    else
-      return 1
-    fi
+    return 1
   fi
   wait_for_ios_foreground "$udid" "$launched_at" || return 1
   sleep 1

@@ -145,9 +145,13 @@ struct NativeMobileDesignContractTests {
                 "simulator boot readiness timeout",
                 "date -u '+%Y-%m-%d %H:%M:%S'",
                 "--start \"$launched_at\"",
-                "registered as running before foreground pixel validation",
+                "Front display did change",
                 "distinct_color_buckets",
                 "edge_ratio"
+            ],
+            forbids: [
+                "registered as running before foreground pixel validation",
+                "continuing to foreground/proof checks"
             ]
         )
         expectContent(
@@ -629,7 +633,7 @@ struct NativeMobileDesignContractTests {
             in: coverPath,
             contains: [
                 "AsyncImage(url: url, transaction: imageTransaction)",
-                ".transition(accessibilityReduceMotion ? .identity : .opacity)",
+                ".transition(reduceMotion ? .identity : .opacity)",
                 "KitchenTableNoPhotoView",
                 "missingSubtitle",
                 "trimmingCharacters(in: .whitespacesAndNewlines)",

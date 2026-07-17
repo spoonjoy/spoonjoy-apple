@@ -9,16 +9,16 @@ actor ScreenshotVisualReadiness {
 
     private var state = ScreenshotVisualReadinessState()
 
-    static func beginMedia(_ id: String) async {
-        await shared.beginMedia(id)
+    static func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
+        await shared.beginMedia(token)
     }
 
-    static func finishMedia(_ id: String, succeeded: Bool) async {
-        await shared.finishMedia(id, succeeded: succeeded)
+    static func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) async {
+        await shared.finishMedia(token, succeeded: succeeded)
     }
 
-    static func removeMedia(_ id: String) async {
-        await shared.removeMedia(id)
+    static func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
+        await shared.removeMedia(token)
     }
 
     static func beginBlockingIndicator(_ id: String) async {
@@ -33,16 +33,16 @@ actor ScreenshotVisualReadiness {
         await shared.waitForSettled()
     }
 
-    private func beginMedia(_ id: String) {
-        state.beginMedia(id)
+    private func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+        state.beginMedia(token)
     }
 
-    private func finishMedia(_ id: String, succeeded: Bool) {
-        state.finishMedia(id, succeeded: succeeded)
+    private func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) {
+        state.finishMedia(token, succeeded: succeeded)
     }
 
-    private func removeMedia(_ id: String) {
-        state.removeMedia(id)
+    private func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+        state.removeMedia(token)
     }
 
     private func beginBlockingIndicator(_ id: String) {

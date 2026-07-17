@@ -1,3 +1,4 @@
+import SpoonjoyCore
 import SwiftUI
 
 #if os(macOS)
@@ -34,30 +35,20 @@ struct RecipeCoverImage: View {
                     showsFallbackLabel: showsFallbackLabel,
                     reduceMotion: accessibilityReduceMotion
                 )
-            } else {
-                AsyncImage(url: url, transaction: imageTransaction) { phase in
-                    let readinessPhase = readinessPhase(for: phase)
-                    cover(for: phase)
-                        .transition(accessibilityReduceMotion ? .identity : .opacity)
-                        .task(id: readinessPhase) {
-                            await record(readinessPhase, id: trackingID(for: url))
-                        }
-                }
                 .id(url.absoluteString)
-                .onDisappear {
-                    let id = trackingID(for: url)
-                    Task {
-                        await ScreenshotVisualReadiness.removeMedia(id)
-                    }
-                }
+            } else {
+                RemoteRecipeCoverImage(
+                    url: url,
+                    title: title,
+                    subtitle: subtitle,
+                    showsFallbackLabel: showsFallbackLabel,
+                    reduceMotion: accessibilityReduceMotion
+                )
+                .id(url.absoluteString)
             }
         } else {
             noPhoto(subtitle: missingSubtitle, mode: .missing, showsLabel: showsFallbackLabel)
         }
-    }
-
-    private var imageTransaction: Transaction {
-        Transaction(animation: accessibilityReduceMotion ? nil : .easeInOut(duration: 0.20))
     }
 
     private var missingSubtitle: String {
@@ -69,59 +60,97 @@ struct RecipeCoverImage: View {
         return trimmed.isEmpty ? "Photo not added" : trimmed
     }
 
-    @ViewBuilder
-    private func cover(for phase: AsyncImagePhase) -> some View {
-        switch phase {
-        case .success(let image):
-            image
-                .resizable()
-                .scaledToFill()
-        case .empty:
-            noPhoto(subtitle: "Loading photo", mode: .loading, showsLabel: false)
-        case .failure:
-            noPhoto(subtitle: "Photo did not load", mode: .unavailable, showsLabel: showsFallbackLabel)
-        @unknown default:
-            noPhoto(subtitle: missingSubtitle, mode: .missing, showsLabel: showsFallbackLabel)
-        }
-    }
-
     private func noPhoto(subtitle: String, mode: KitchenTableNoPhotoView.Mode, showsLabel: Bool) -> some View {
         KitchenTableNoPhotoView(title: title, subtitle: subtitle, mode: mode, showsLabel: showsLabel)
     }
 
-    private func trackingID(for url: URL) -> String {
-        "recipe-cover:\(url.absoluteString)"
-    }
-
-    private func readinessPhase(for phase: AsyncImagePhase) -> RecipeCoverReadinessPhase {
-        switch phase {
-        case .empty:
-            .pending
-        case .success:
-            .loaded
-        case .failure:
-            .failed
-        @unknown default:
-            .failed
-        }
-    }
-
-    private func record(_ phase: RecipeCoverReadinessPhase, id: String) async {
-        switch phase {
-        case .pending:
-            await ScreenshotVisualReadiness.beginMedia(id)
-        case .loaded:
-            await ScreenshotVisualReadiness.finishMedia(id, succeeded: true)
-        case .failed:
-            await ScreenshotVisualReadiness.finishMedia(id, succeeded: false)
-        }
-    }
 }
 
 private enum RecipeCoverReadinessPhase: Hashable {
     case pending
     case loaded
     case failed
+}
+
+private struct RemoteRecipeCoverImage: View {
+    let url: URL
+    let title: String?
+    let subtitle: String?
+    let showsFallbackLabel: Bool
+    let reduceMotion: Bool
+
+    @State private var readinessToken: ScreenshotVisualReadinessMediaToken
+
+    init(url: URL, title: String?, subtitle: String?, showsFallbackLabel: Bool, reduceMotion: Bool) {
+        self.url = url
+        self.title = title
+        self.subtitle = subtitle
+        self.showsFallbackLabel = showsFallbackLabel
+        self.reduceMotion = reduceMotion
+        _readinessToken = State(initialValue: ScreenshotVisualReadinessMediaToken(
+            resourceID: "recipe-cover:\(url.absoluteString)"
+        ))
+    }
+
+    var body: some View {
+        AsyncImage(url: url, transaction: imageTransaction) { phase in
+            let readinessPhase = readinessPhase(for: phase)
+            cover(for: phase)
+                .transition(reduceMotion ? .identity : .opacity)
+                .task(id: readinessPhase) {
+                    await record(readinessPhase)
+                }
+        }
+        .onDisappear {
+            let token = readinessToken
+            Task {
+                await ScreenshotVisualReadiness.removeMedia(token)
+            }
+        }
+    }
+
+    private var imageTransaction: Transaction {
+        Transaction(animation: reduceMotion ? nil : .easeInOut(duration: 0.20))
+    }
+
+    private var missingSubtitle: String {
+        let trimmed = subtitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? "Photo not added" : trimmed
+    }
+
+    @ViewBuilder
+    private func cover(for phase: AsyncImagePhase) -> some View {
+        switch phase {
+        case .success(let image):
+            image.resizable().scaledToFill()
+        case .empty:
+            KitchenTableNoPhotoView(title: title, subtitle: "Loading photo", mode: .loading, showsLabel: false)
+        case .failure:
+            KitchenTableNoPhotoView(title: title, subtitle: "Photo did not load", mode: .unavailable, showsLabel: showsFallbackLabel)
+        @unknown default:
+            KitchenTableNoPhotoView(title: title, subtitle: missingSubtitle, mode: .missing, showsLabel: showsFallbackLabel)
+        }
+    }
+
+    private func readinessPhase(for phase: AsyncImagePhase) -> RecipeCoverReadinessPhase {
+        switch phase {
+        case .empty: .pending
+        case .success: .loaded
+        case .failure: .failed
+        @unknown default: .failed
+        }
+    }
+
+    private func record(_ phase: RecipeCoverReadinessPhase) async {
+        switch phase {
+        case .pending:
+            await ScreenshotVisualReadiness.beginMedia(readinessToken)
+        case .loaded:
+            await ScreenshotVisualReadiness.finishMedia(readinessToken, succeeded: true)
+        case .failed:
+            await ScreenshotVisualReadiness.finishMedia(readinessToken, succeeded: false)
+        }
+    }
 }
 
 private struct LocalRecipeCoverImage: View {
@@ -134,9 +163,25 @@ private struct LocalRecipeCoverImage: View {
 
     @State private var image: PlatformRecipeCoverImage?
     @State private var failed = false
+    @State private var readinessToken: ScreenshotVisualReadinessMediaToken
 
-    private var trackingID: String {
-        "recipe-cover:\(url.absoluteString)"
+    init(
+        url: URL,
+        title: String?,
+        loadingSubtitle: String,
+        failureSubtitle: String,
+        showsFallbackLabel: Bool,
+        reduceMotion: Bool
+    ) {
+        self.url = url
+        self.title = title
+        self.loadingSubtitle = loadingSubtitle
+        self.failureSubtitle = failureSubtitle
+        self.showsFallbackLabel = showsFallbackLabel
+        self.reduceMotion = reduceMotion
+        _readinessToken = State(initialValue: ScreenshotVisualReadinessMediaToken(
+            resourceID: "recipe-cover:\(url.absoluteString)"
+        ))
     }
 
     var body: some View {
@@ -158,7 +203,7 @@ private struct LocalRecipeCoverImage: View {
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.20), value: image != nil)
         .task(id: url.absoluteString) {
-            await ScreenshotVisualReadiness.beginMedia(trackingID)
+            await ScreenshotVisualReadiness.beginMedia(readinessToken)
             let data = await Task.detached(priority: .userInitiated) {
                 try? Data(contentsOf: url, options: [.mappedIfSafe])
             }.value
@@ -167,17 +212,17 @@ private struct LocalRecipeCoverImage: View {
             }
             guard let data, let decodedImage = PlatformRecipeCoverImage(data: data) else {
                 failed = true
-                await ScreenshotVisualReadiness.finishMedia(trackingID, succeeded: false)
+                await ScreenshotVisualReadiness.finishMedia(readinessToken, succeeded: false)
                 return
             }
             image = decodedImage
             failed = false
-            await ScreenshotVisualReadiness.finishMedia(trackingID, succeeded: true)
+            await ScreenshotVisualReadiness.finishMedia(readinessToken, succeeded: true)
         }
         .onDisappear {
-            let id = trackingID
+            let token = readinessToken
             Task {
-                await ScreenshotVisualReadiness.removeMedia(id)
+                await ScreenshotVisualReadiness.removeMedia(token)
             }
         }
     }

@@ -116,18 +116,31 @@ sys.exit(process.returncode)
 PY
 }
 
-app_is_registered_as_running() {
-  local launchctl_output=""
-  local launchctl_status=0
-  set +e
-  launchctl_output="$(run_with_timeout "xcrun simctl spawn $udid launchctl list" 2>&1)"
-  launchctl_status=$?
-  set -e
-  printf 'launchctl app registration exit code: %s\n' "$launchctl_status"
-  if [[ -n "$launchctl_output" ]]; then
-    printf '%s\n' "$launchctl_output"
-  fi
-  [[ "$launchctl_status" -eq 0 && "$launchctl_output" == *"UIKitApplication:app.spoonjoy"* ]]
+app_bundle_digest() {
+  python3 - "$1" <<'PY'
+import hashlib
+import os
+import sys
+
+root = os.path.realpath(sys.argv[1])
+digest = hashlib.sha256()
+for directory, directory_names, file_names in os.walk(root):
+    directory_names.sort()
+    file_names.sort()
+    for name in file_names:
+        path = os.path.join(directory, name)
+        relative = os.path.relpath(path, root).encode("utf-8")
+        digest.update(len(relative).to_bytes(8, "big"))
+        digest.update(relative)
+        if os.path.islink(path):
+            payload = os.readlink(path).encode("utf-8")
+        else:
+            with open(path, "rb") as handle:
+                payload = handle.read()
+        digest.update(len(payload).to_bytes(8, "big"))
+        digest.update(payload)
+print(digest.hexdigest())
+PY
 }
 
 wait_for_app_registration() {
@@ -241,6 +254,14 @@ if [[ "$build_status" -ne 0 ]]; then
   exit "$build_status"
 fi
 
+app_digest="$(app_bundle_digest "$app_path")"
+if [[ ! "$app_digest" =~ ^[0-9a-f]{64}$ ]]; then
+  printf 'Could not calculate an exact digest for iOS simulator app bundle: %s\n' "$app_path" >&2
+  exit 1
+fi
+printf -v expected_install_marker 'simulator=%s\nbundle_sha256=%s' "$udid" "$app_digest"
+printf 'Exact iOS simulator app bundle digest: %s\n' "$app_digest" >> "$log_path"
+
 boot_log="$(mktemp)"
 printf 'Booting simulator: %s %s; waiting for readiness with xcrun simctl bootstatus %s -b\n' "$boot_command" "$udid" "$udid" >> "$log_path"
 set +e
@@ -279,6 +300,7 @@ fi
   install_status=0
   if [[ "$reuse_installed_app" == "1" && -n "$install_marker" && -f "$install_marker" ]]; then
     printf 'Checking reusable iOS simulator app install marker: %s\n' "$install_marker"
+    actual_install_marker="$(cat "$install_marker")"
     set +e
     existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy data" 10)"
     existing_status=$?
@@ -287,9 +309,11 @@ fi
     if [[ -n "$existing_container" ]]; then
       printf '%s\n' "$existing_container"
     fi
-    if [[ "$existing_status" -eq 0 && -n "$existing_container" ]]; then
+    if [[ "$existing_status" -eq 0 && -n "$existing_container" && "$actual_install_marker" == "$expected_install_marker" ]]; then
       install_needed=0
-      printf 'Reusing installed iOS simulator app for this screenshot route\n'
+      printf 'Exact app bundle digest and simulator marker matched; reusing installed iOS simulator app\n'
+    else
+      printf 'Installed app marker did not match the exact bundle digest and simulator; reinstalling\n'
     fi
   fi
 
@@ -311,7 +335,7 @@ fi
     printf 'simulator install exit code: %s\n' "$install_status"
     if [[ "$install_status" -eq 0 && "$reuse_installed_app" == "1" && -n "$install_marker" ]]; then
       mkdir -p "$(dirname "$install_marker")"
-      printf '%s\n' "$app_path" > "$install_marker"
+      printf '%s\n' "$expected_install_marker" > "$install_marker"
       printf 'Wrote reusable iOS simulator app install marker: %s\n' "$install_marker"
     fi
   fi
@@ -346,12 +370,7 @@ fi
       break
     fi
     if [[ "$launch_status" -eq 124 ]]; then
-      printf 'simulator launch attempt %s timed out; checking whether Spoonjoy is already registered as running\n' "$attempt"
-      if app_is_registered_as_running; then
-        printf 'Spoonjoy is registered as running after a simctl launch timeout; accepting launch smoke\n'
-        launch_status=0
-        break
-      fi
+      printf 'simulator launch attempt %s timed out; a running registration is not foreground proof\n' "$attempt"
       if [[ "$attempt" -lt "$launch_attempts" ]]; then
         printf 'Retrying simulator launch after timeout\n'
         sleep 2

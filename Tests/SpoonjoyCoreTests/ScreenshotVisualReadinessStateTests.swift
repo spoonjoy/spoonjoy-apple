@@ -6,8 +6,9 @@ struct ScreenshotVisualReadinessStateTests {
     @Test("media stays pending until it reaches a loaded terminal phase")
     func mediaStaysPendingUntilLoaded() {
         var state = ScreenshotVisualReadinessState()
+        let token = ScreenshotVisualReadinessMediaToken(resourceID: "cover-1", instanceID: "lead")
 
-        state.beginMedia("cover-1")
+        state.beginMedia(token)
         #expect(state.snapshot == ScreenshotVisualReadinessSnapshot(
             expectedMediaCount: 1,
             loadedMediaCount: 0,
@@ -17,7 +18,7 @@ struct ScreenshotVisualReadinessStateTests {
             isSettled: false
         ))
 
-        state.finishMedia("cover-1", succeeded: true)
+        state.finishMedia(token, succeeded: true)
         #expect(state.snapshot.isSettled)
         #expect(state.snapshot.loadedMediaCount == 1)
         #expect(state.snapshot.pendingMediaCount == 0)
@@ -26,16 +27,17 @@ struct ScreenshotVisualReadinessStateTests {
     @Test("failed media and blocking loaders prevent settlement")
     func failuresAndBlockingLoadersPreventSettlement() {
         var state = ScreenshotVisualReadinessState()
+        let token = ScreenshotVisualReadinessMediaToken(resourceID: "cover-1", instanceID: "lead")
 
-        state.finishMedia("cover-1", succeeded: false)
+        state.finishMedia(token, succeeded: false)
         state.beginBlockingIndicator("catalog-loader")
         #expect(state.snapshot.expectedMediaCount == 1)
         #expect(state.snapshot.failedMediaCount == 1)
         #expect(state.snapshot.blockingIndicatorCount == 1)
         #expect(!state.snapshot.isSettled)
 
-        state.beginMedia("cover-1")
-        state.finishMedia("cover-1", succeeded: true)
+        state.beginMedia(token)
+        state.finishMedia(token, succeeded: true)
         state.endBlockingIndicator("catalog-loader")
         #expect(state.snapshot.isSettled)
         #expect(state.snapshot.failedMediaCount == 0)
@@ -45,10 +47,36 @@ struct ScreenshotVisualReadinessStateTests {
     @Test("removing offscreen media removes it from the active route contract")
     func removingOffscreenMediaRemovesItFromContract() {
         var state = ScreenshotVisualReadinessState()
+        let token = ScreenshotVisualReadinessMediaToken(resourceID: "cover-1", instanceID: "lead")
 
-        state.beginMedia("cover-1")
-        state.removeMedia("cover-1")
+        state.beginMedia(token)
+        state.removeMedia(token)
 
         #expect(state.snapshot == .settledEmpty)
+    }
+
+    @Test("identical media resources settle independently by rendered instance")
+    func identicalMediaResourcesSettleIndependently() {
+        var state = ScreenshotVisualReadinessState()
+        let lead = ScreenshotVisualReadinessMediaToken(resourceID: "cover-1", instanceID: "lead")
+        let index = ScreenshotVisualReadinessMediaToken(resourceID: "cover-1", instanceID: "index")
+
+        state.beginMedia(lead)
+        state.beginMedia(index)
+        state.finishMedia(lead, succeeded: true)
+
+        #expect(state.snapshot.expectedMediaCount == 2)
+        #expect(state.snapshot.loadedMediaCount == 1)
+        #expect(state.snapshot.pendingMediaCount == 1)
+        #expect(!state.snapshot.isSettled)
+
+        state.removeMedia(lead)
+        #expect(state.snapshot.expectedMediaCount == 1)
+        #expect(state.snapshot.pendingMediaCount == 1)
+        #expect(!state.snapshot.isSettled)
+
+        state.finishMedia(index, succeeded: true)
+        #expect(state.snapshot.isSettled)
+        #expect(state.snapshot.loadedMediaCount == 1)
     }
 }

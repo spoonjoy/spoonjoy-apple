@@ -282,6 +282,7 @@ private struct SearchSurfaceThumbnail: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let row: SearchSurfaceRow
+    @State private var readinessInstanceID = UUID().uuidString
 
     var body: some View {
         ZStack {
@@ -292,13 +293,14 @@ private struct SearchSurfaceThumbnail: View {
                         thumbnailFill
                     }
                     .task(id: readinessPhase) {
-                        await record(readinessPhase, id: trackingID(for: imageURL))
+                        await record(readinessPhase, token: readinessToken(for: imageURL))
                     }
                 }
+                .id(imageURL.absoluteString)
                 .onDisappear {
-                    let id = trackingID(for: imageURL)
+                    let token = readinessToken(for: imageURL)
                     Task {
-                        await ScreenshotVisualReadiness.removeMedia(id)
+                        await ScreenshotVisualReadiness.removeMedia(token)
                     }
                 }
             } else {
@@ -336,10 +338,6 @@ private struct SearchSurfaceThumbnail: View {
         }
     }
 
-    private func trackingID(for url: URL) -> String {
-        "search-thumbnail:\(url.absoluteString)"
-    }
-
     private func readinessPhase(for phase: AsyncImagePhase) -> SearchImageReadinessPhase {
         switch phase {
         case .empty:
@@ -353,14 +351,24 @@ private struct SearchSurfaceThumbnail: View {
         }
     }
 
-    private func record(_ phase: SearchImageReadinessPhase, id: String) async {
+    private func readinessToken(for url: URL) -> ScreenshotVisualReadinessMediaToken {
+        ScreenshotVisualReadinessMediaToken(
+            resourceID: "search-thumbnail:\(url.absoluteString)",
+            instanceID: readinessInstanceID
+        )
+    }
+
+    private func record(
+        _ phase: SearchImageReadinessPhase,
+        token: ScreenshotVisualReadinessMediaToken
+    ) async {
         switch phase {
         case .pending:
-            await ScreenshotVisualReadiness.beginMedia(id)
+            await ScreenshotVisualReadiness.beginMedia(token)
         case .loaded:
-            await ScreenshotVisualReadiness.finishMedia(id, succeeded: true)
+            await ScreenshotVisualReadiness.finishMedia(token, succeeded: true)
         case .failed:
-            await ScreenshotVisualReadiness.finishMedia(id, succeeded: false)
+            await ScreenshotVisualReadiness.finishMedia(token, succeeded: false)
         }
     }
 }

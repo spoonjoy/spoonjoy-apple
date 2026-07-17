@@ -34,35 +34,45 @@ public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
     }
 }
 
+public struct ScreenshotVisualReadinessMediaToken: Hashable, Sendable {
+    public let resourceID: String
+    public let instanceID: String
+
+    public init(resourceID: String, instanceID: String = UUID().uuidString) {
+        self.resourceID = resourceID
+        self.instanceID = instanceID
+    }
+}
+
 public struct ScreenshotVisualReadinessState: Equatable, Sendable {
-    private var expectedMediaIDs: Set<String> = []
-    private var loadedMediaIDs: Set<String> = []
-    private var failedMediaIDs: Set<String> = []
+    private var expectedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
+    private var loadedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
+    private var failedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var blockingIndicatorIDs: Set<String> = []
 
     public init() {}
 
-    public mutating func beginMedia(_ id: String) {
-        expectedMediaIDs.insert(id)
-        loadedMediaIDs.remove(id)
-        failedMediaIDs.remove(id)
+    public mutating func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+        expectedMediaTokens.insert(token)
+        loadedMediaTokens.remove(token)
+        failedMediaTokens.remove(token)
     }
 
-    public mutating func finishMedia(_ id: String, succeeded: Bool) {
-        expectedMediaIDs.insert(id)
+    public mutating func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) {
+        expectedMediaTokens.insert(token)
         if succeeded {
-            loadedMediaIDs.insert(id)
-            failedMediaIDs.remove(id)
+            loadedMediaTokens.insert(token)
+            failedMediaTokens.remove(token)
         } else {
-            loadedMediaIDs.remove(id)
-            failedMediaIDs.insert(id)
+            loadedMediaTokens.remove(token)
+            failedMediaTokens.insert(token)
         }
     }
 
-    public mutating func removeMedia(_ id: String) {
-        expectedMediaIDs.remove(id)
-        loadedMediaIDs.remove(id)
-        failedMediaIDs.remove(id)
+    public mutating func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+        expectedMediaTokens.remove(token)
+        loadedMediaTokens.remove(token)
+        failedMediaTokens.remove(token)
     }
 
     public mutating func beginBlockingIndicator(_ id: String) {
@@ -74,13 +84,13 @@ public struct ScreenshotVisualReadinessState: Equatable, Sendable {
     }
 
     public var snapshot: ScreenshotVisualReadinessSnapshot {
-        let pendingMediaIDs = expectedMediaIDs.subtracting(loadedMediaIDs).subtracting(failedMediaIDs)
-        let isSettled = pendingMediaIDs.isEmpty && failedMediaIDs.isEmpty && blockingIndicatorIDs.isEmpty
+        let pendingMediaTokens = expectedMediaTokens.subtracting(loadedMediaTokens).subtracting(failedMediaTokens)
+        let isSettled = pendingMediaTokens.isEmpty && failedMediaTokens.isEmpty && blockingIndicatorIDs.isEmpty
         return ScreenshotVisualReadinessSnapshot(
-            expectedMediaCount: expectedMediaIDs.count,
-            loadedMediaCount: loadedMediaIDs.count,
-            pendingMediaCount: pendingMediaIDs.count,
-            failedMediaCount: failedMediaIDs.count,
+            expectedMediaCount: expectedMediaTokens.count,
+            loadedMediaCount: loadedMediaTokens.count,
+            pendingMediaCount: pendingMediaTokens.count,
+            failedMediaCount: failedMediaTokens.count,
             blockingIndicatorCount: blockingIndicatorIDs.count,
             isSettled: isSettled
         )
