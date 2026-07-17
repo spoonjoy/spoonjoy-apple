@@ -80,7 +80,18 @@ struct NativeMobileDesignContractTests {
 
         expectContent(theme, in: themePath, contains: ["hidesTitleInCompactNavigation"])
         expectContent(navigation, in: navigationPath, contains: [".environment(\\.spoonjoyCompactNavigation, true)"])
-        expectContent(recipes, in: recipesPath, contains: ["hidesTitleInCompactNavigation: true", "RecipeCatalogEmptyState.noSavedRecipes"])
+        expectContent(
+            recipes,
+            in: recipesPath,
+            contains: [
+                "hidesTitleInCompactNavigation: true",
+                "state.rows.isEmpty, let emptyState = emptyStateOverride ?? state.emptyState",
+                "RecipeCatalogEmptyState.noSavedRecipes"
+            ],
+            forbids: [
+                "else if let emptyState = emptyStateOverride ?? state.emptyState"
+            ]
+        )
         expectContent(cookbooks, in: cookbooksPath, contains: ["hidesTitleInCompactNavigation: true"])
         expectContent(shopping, in: shoppingPath, contains: ["hidesTitleInCompactNavigation: true"])
         expectContent(
@@ -127,7 +138,16 @@ struct NativeMobileDesignContractTests {
                 "ios-tablet.png",
                 "accessibility-proof-ipad.json",
                 "expected_platform == \"ipad\"",
-                "pendingMediaCount"
+                "pendingMediaCount",
+                "SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS",
+                "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
+                "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
+                "simulator boot readiness timeout",
+                "date -u '+%Y-%m-%d %H:%M:%S'",
+                "--start \"$launched_at\"",
+                "registered as running before foreground pixel validation",
+                "distinct_color_buckets",
+                "edge_ratio"
             ]
         )
         expectContent(
@@ -135,7 +155,11 @@ struct NativeMobileDesignContractTests {
             in: matrixPath,
             contains: [
                 "iosTabletScreenshot",
-                "accessibility-proof-ipad.json"
+                "accessibility-proof-ipad.json",
+                "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-0"
+            ],
+            forbids: [
+                "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-1"
             ]
         )
     }
@@ -343,7 +367,9 @@ struct NativeMobileDesignContractTests {
                 "AlarmAttributes(",
                 "SpoonjoyCookTimerMetadata",
                 "CookModeSystemTimer",
-                "timer.startButtonTitle"
+                "timer.startButtonTitle",
+                "if let timer = viewModel.systemTimer",
+                "#else\n        unavailableCue\n#endif"
             ],
             forbids: [
                 "Timer.publish(every:",
@@ -351,7 +377,9 @@ struct NativeMobileDesignContractTests {
                 "isRunning",
                 "Pause timer",
                 "Reset timer",
-                "Restart timer"
+                "Restart timer",
+                "#else\n        EmptyView()\n#endif",
+                "#if os(iOS)\n            if let timer = viewModel.systemTimer"
             ]
         )
 

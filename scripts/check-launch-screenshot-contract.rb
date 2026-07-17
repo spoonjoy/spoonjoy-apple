@@ -81,6 +81,7 @@ SCRIPT_CONTRACTS = {
       "Reusing installed iOS simulator app",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
+      "open -a Simulator --args -CurrentDeviceUDID",
       "SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS",
       "xcrun simctl bootstatus $udid -b",
       "SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS",
@@ -153,6 +154,10 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_PROOF_PATH",
       "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
       "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
+      "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
+      "SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS",
@@ -161,9 +166,17 @@ SCRIPT_CONTRACTS = {
       "PermissionError",
       "run_ios_smoke",
       "capture_ios_app_with_retries",
+      "Reusing simulator booted by smoke preparation",
       "is_transient_screenshot_launch_key",
       "SPOONJOY_SCREENSHOT_*",
       "simulator launch timeout",
+      "simulator boot readiness timeout",
+      "simulator foreground probe timeout",
+      "date -u '+%Y-%m-%d %H:%M:%S'",
+      '--start "$launched_at"',
+      "registered as running before foreground pixel validation",
+      "distinct_color_buckets",
+      "edge_ratio",
       "macOS launch timeout",
       "proof wait timed out",
       "cleanup timeout",
@@ -373,7 +386,7 @@ end
 
 def write_executable(path, content)
   path.dirname.mkpath
-  path.write(content)
+  path.write(content.sub(/\A[ \t]+(?=#!)/, ""))
   FileUtils.chmod("+x", path.to_s)
 end
 
@@ -382,7 +395,24 @@ def assert_file(path, label)
 end
 
 def assert_missing(path, label)
-  record_failure("#{label} expected #{path} to be absent") if path.exist?
+  return unless path.exist?
+
+  diagnostic = path.file? ? "\nCONTENTS:\n#{path.read}" : ""
+  if path.file? && path.extname == ".json"
+    begin
+      payload = JSON.parse(path.read)
+      source_path = payload["sourceBlockerPath"]
+      if source_path && File.file?(source_path)
+        source_payload = JSON.parse(File.read(source_path))
+        output_path = source_payload["outputPath"]
+        diagnostic += "\nSOURCE BLOCKER:\n#{JSON.pretty_generate(source_payload)}\n"
+        diagnostic += "\nSOURCE OUTPUT:\n#{File.read(output_path)}\n" if output_path && File.file?(output_path)
+      end
+    rescue JSON::ParserError
+      # The original artifact contents above are enough for malformed JSON.
+    end
+  end
+  record_failure("#{label} expected #{path} to be absent#{diagnostic}")
 end
 
 def assert_json(path, label)
@@ -1413,6 +1443,9 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       simctl\ terminate\ *)
         exit 0
         ;;
+      simctl\ spawn\ *\ launchctl\ list)
+        printf '12345\t0\tUIKitApplication:app.spoonjoy[contract]\n'
+        ;;
       simctl\ spawn\ *\ log\ show*)
         printf 'Front display did change: <SBApplication; app.spoonjoy>\n'
         ;;
@@ -1427,11 +1460,23 @@ import zlib
 
 path = sys.argv[1]
 width, height = 400, 800
+palette = [
+    (38, 34, 30), (174, 112, 47), (92, 111, 74), (252, 250, 245),
+    (105, 93, 82), (221, 209, 188), (129, 65, 54), (70, 96, 114),
+    (189, 157, 91), (151, 143, 132)
+]
 rows = []
 for y in range(height):
     row = bytearray()
-    for _ in range(width):
-        row.extend((246, 239, 225))
+    for x in range(width):
+        color = (246, 239, 225)
+        if y < 72:
+            color = (38, 34, 30)
+        elif 100 <= y < 300 and 24 <= x < 376:
+            color = palette[((x - 24) // 32 + (y - 100) // 24) % len(palette)]
+        elif 690 <= y < 760 and 32 <= x < 368:
+            color = palette[((x - 32) // 48) % len(palette)]
+        row.extend(color)
     rows.append(b"\x00" + bytes(row))
 
 def chunk(kind, payload):
@@ -2074,8 +2119,25 @@ import zlib
 
 path = sys.argv[1]
 width, height = 400, 800
-row = b"\x00" + bytes((246, 239, 225)) * width
-raw = row * height
+palette = [
+    (38, 34, 30), (174, 112, 47), (92, 111, 74), (252, 250, 245),
+    (105, 93, 82), (221, 209, 188), (129, 65, 54), (70, 96, 114),
+    (189, 157, 91), (151, 143, 132)
+]
+rows = []
+for y in range(height):
+    row = bytearray()
+    for x in range(width):
+        color = (246, 239, 225)
+        if y < 72:
+            color = (38, 34, 30)
+        elif 100 <= y < 300 and 24 <= x < 376:
+            color = palette[((x - 24) // 32 + (y - 100) // 24) % len(palette)]
+        elif 690 <= y < 760 and 32 <= x < 368:
+            color = palette[((x - 32) // 48) % len(palette)]
+        row.extend(color)
+    rows.append(b"\x00" + bytes(row))
+raw = b"".join(rows)
 def chunk(kind, payload):
     return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", binascii.crc32(kind + payload) & 0xffffffff)
 png = b"\x89PNG\r\n\x1a\n"

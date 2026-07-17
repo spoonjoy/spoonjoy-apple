@@ -263,6 +263,18 @@ if [[ "$boot_status" -ne 0 ]]; then
 fi
 
 {
+  printf 'Opening Simulator host for foreground launch readiness: %s\n' "$udid"
+  set +e
+  run_with_timeout "open -a Simulator --args -CurrentDeviceUDID $udid" 15
+  simulator_host_status=$?
+  set -e
+  printf 'Simulator host open exit code: %s\n' "$simulator_host_status"
+  if [[ "$simulator_host_status" -ne 0 ]]; then
+    printf 'Simulator host did not open; continuing because headless CoreSimulator launch may still be available\n'
+  fi
+} >> "$log_path" 2>&1
+
+{
   install_needed=1
   install_status=0
   if [[ "$reuse_installed_app" == "1" && -n "$install_marker" && -f "$install_marker" ]]; then

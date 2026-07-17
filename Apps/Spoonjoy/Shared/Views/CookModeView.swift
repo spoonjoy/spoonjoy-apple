@@ -732,7 +732,7 @@ private struct CookModeSystemTimer: View {
             unavailableCue
         }
 #else
-        EmptyView()
+        unavailableCue
 #endif
     }
 

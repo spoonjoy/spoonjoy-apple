@@ -232,6 +232,8 @@ recipe_detail_focus=""
 proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-60}"
 proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
 ios_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS:-30}"
+ios_boot_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS:-90}"
+ios_foreground_probe_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS:-2}"
 macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
 ios_smoke_attempts="${SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS:-2}"
@@ -432,9 +434,14 @@ run_with_timeout() {
   local label="$1"
   local timeout_seconds="$2"
   local output_path="$3"
+  local executable
   shift 3
+  executable="$(command -v "$1" || true)"
+  if [[ -n "$executable" ]]; then
+    set -- "$executable" "${@:2}"
+  fi
   mkdir -p "$(dirname "$output_path")"
-  python3 - "$timeout_seconds" "$label" "$output_path" "$@" <<'PY'
+  python3 - "$timeout_seconds" "$label" "$output_path" "$@" 2>> "$output_path" <<'PY'
 import os
 import signal
 import subprocess
@@ -455,7 +462,9 @@ with open(output_path, "ab") as output:
         start_new_session=True,
     )
     try:
-        sys.exit(process.wait(timeout=timeout_seconds))
+        exit_code = process.wait(timeout=timeout_seconds)
+        output.write(f"\n{label} exited with code {exit_code}\n".encode())
+        sys.exit(exit_code)
     except subprocess.TimeoutExpired:
         output.write(f"\n{label} timed out after {timeout_seconds} seconds\n".encode())
         try:
@@ -1320,15 +1329,31 @@ ios_udid_from_smoke_log() {
 
 wait_for_ios_foreground() {
   local udid="$1"
+  local launched_at="$2"
   local output=""
+  local foreground_log
+  local foreground_status
+  if ios_app_is_registered_as_running "$udid"; then
+    printf 'Spoonjoy is registered as running before foreground pixel validation\n' >> "$capture_log"
+    return 0
+  fi
+  foreground_log="$(mktemp)"
   for _ in $(seq 1 30); do
-    output="$(xcrun simctl spawn "$udid" log show --last 15s --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change" AND eventMessage CONTAINS[c] "app.spoonjoy"' 2>&1 || true)"
+    : > "$foreground_log"
+    set +e
+    run_with_timeout "simulator foreground probe timeout" "$ios_foreground_probe_timeout_seconds" "$foreground_log" \
+      xcrun simctl spawn "$udid" log show --start "$launched_at" --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change" AND eventMessage CONTAINS[c] "app.spoonjoy"'
+    foreground_status=$?
+    set -e
+    output="$(cat "$foreground_log")"
     printf '%s\n' "$output" >> "$capture_log"
-    if [[ "$output" == *"app.spoonjoy"* ]]; then
+    if [[ "$foreground_status" -eq 0 && "$output" == *"Front display did change"*"app.spoonjoy"* ]]; then
+      rm -f "$foreground_log"
       return 0
     fi
     sleep 0.5
   done
+  rm -f "$foreground_log"
   return 1
 }
 
@@ -1419,8 +1444,27 @@ for y in range(int(height * 0.20), int(height * 0.88)):
 
 black_ratio = black / max(black_total, 1)
 bone_ratio = bone / max(bone_total, 1)
-if black_ratio > 0.20 or bone_ratio < 0.30:
-    raise SystemExit(f"iOS screenshot does not look like full-screen foreground Spoonjoy content (black={black_ratio:.3f}, bone={bone_ratio:.3f})")
+distinct_color_buckets = set()
+edge_count = 0
+edge_total = 0
+for y in range(0, height, 4):
+    previous = None
+    for x in range(0, width, 4):
+        index = x * channels
+        color = (rows[y][index], rows[y][index + 1], rows[y][index + 2])
+        distinct_color_buckets.add(tuple(component // 16 for component in color))
+        if previous is not None:
+            edge_total += 1
+            if sum(abs(color[i] - previous[i]) for i in range(3)) >= 48:
+                edge_count += 1
+        previous = color
+
+edge_ratio = edge_count / max(edge_total, 1)
+if black_ratio > 0.20 or bone_ratio < 0.30 or len(distinct_color_buckets) < 8 or edge_ratio < 0.005:
+    raise SystemExit(
+        "iOS screenshot does not look like detailed full-screen foreground Spoonjoy content "
+        f"(black={black_ratio:.3f}, bone={bone_ratio:.3f}, colors={len(distinct_color_buckets)}, edges={edge_ratio:.3f})"
+    )
 PY
 }
 
@@ -1771,14 +1815,24 @@ capture_ios_app() {
   local data_container
   local terminate_log
   local bootstatus_log
+  local launched_at
   bootstatus_log="$(mktemp)"
   terminate_log="$(mktemp)"
-  xcrun simctl shutdown "$udid" >> "$capture_log" 2>&1 || true
-  xcrun simctl boot "$udid" >> "$capture_log" 2>&1 || true
-  if ! xcrun simctl bootstatus "$udid" -b >"$bootstatus_log" 2>&1; then
+  if run_with_timeout "simulator boot readiness timeout" "$ios_boot_timeout_seconds" "$bootstatus_log" \
+    xcrun simctl bootstatus "$udid" -b; then
+    printf 'Reusing simulator booted by smoke preparation: %s\n' "$udid" >> "$capture_log"
+  else
     cat "$bootstatus_log" >> "$capture_log"
-    rm -f "$bootstatus_log"
-    return 1
+    : > "$bootstatus_log"
+    run_with_timeout "simulator boot request timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+      xcrun simctl boot "$udid" || true
+    if ! run_with_timeout "simulator boot readiness timeout" "$ios_boot_timeout_seconds" "$bootstatus_log" \
+      xcrun simctl bootstatus "$udid" -b; then
+      cat "$bootstatus_log" >> "$capture_log"
+      rm -f "$bootstatus_log"
+      return 1
+    fi
+    printf 'Recovered simulator boot before capture: %s\n' "$udid" >> "$capture_log"
   fi
   rm -f "$bootstatus_log"
   if ! data_container="$(resolve_ios_data_container "$udid")"; then
@@ -1800,6 +1854,7 @@ capture_ios_app() {
     fi
   fi
   rm -f "$terminate_log"
+  launched_at="$(date -u '+%Y-%m-%d %H:%M:%S')"
   if ! ios_launch_app "$udid"; then
     printf 'simulator launch timeout or failure for iOS route %s\n' "$screenshot_route" >> "$capture_log"
     if ios_app_is_registered_as_running "$udid"; then
@@ -1808,7 +1863,7 @@ capture_ios_app() {
       return 1
     fi
   fi
-  wait_for_ios_foreground "$udid" || return 1
+  wait_for_ios_foreground "$udid" "$launched_at" || return 1
   sleep 1
   if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
     local proof_focus="$settings_capture_focus"
@@ -1923,13 +1978,23 @@ run_ios_smoke() {
   local blocker="$4"
   local attempt=1
   local install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-}"
+  local preferred_udid=""
+  local -a simulator_environment=(env -u SPOONJOY_IOS_SIMULATOR_UDID -u SPOONJOY_IOS_SIMULATOR_NAME)
+  if [[ "$family" == "iphone" ]]; then
+    preferred_udid="${SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID:-}"
+  else
+    preferred_udid="${SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID:-}"
+  fi
+  if [[ -n "$preferred_udid" ]]; then
+    simulator_environment+=("SPOONJOY_IOS_SIMULATOR_UDID=$preferred_udid")
+  fi
   if [[ -n "$install_marker" ]]; then
     install_marker="${install_marker}-${family}"
   fi
   while [[ "$attempt" -le "$ios_smoke_attempts" ]]; do
     rm -f "$blocker"
     run_smoke "$label" "$smoke_log" "$blocker" \
-      env -u SPOONJOY_IOS_SIMULATOR_UDID -u SPOONJOY_IOS_SIMULATOR_NAME \
+      "${simulator_environment[@]}" \
       SPOONJOY_IOS_SIMULATOR_FAMILY="$family" \
       SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER="$install_marker" \
       scripts/smoke-ios-simulator.sh
