@@ -44,11 +44,21 @@ public struct ScreenshotVisualReadinessMediaToken: Hashable, Sendable {
     }
 }
 
+public struct ScreenshotVisualReadinessBlockingToken: Hashable, Sendable {
+    public let resourceID: String
+    public let instanceID: String
+
+    public init(resourceID: String, instanceID: String = UUID().uuidString) {
+        self.resourceID = resourceID
+        self.instanceID = instanceID
+    }
+}
+
 public struct ScreenshotVisualReadinessState: Equatable, Sendable {
     private var expectedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var loadedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var failedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
-    private var blockingIndicatorIDs: Set<String> = []
+    private var blockingIndicatorTokens: Set<ScreenshotVisualReadinessBlockingToken> = []
 
     public init() {}
 
@@ -75,23 +85,23 @@ public struct ScreenshotVisualReadinessState: Equatable, Sendable {
         failedMediaTokens.remove(token)
     }
 
-    public mutating func beginBlockingIndicator(_ id: String) {
-        blockingIndicatorIDs.insert(id)
+    public mutating func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+        blockingIndicatorTokens.insert(token)
     }
 
-    public mutating func endBlockingIndicator(_ id: String) {
-        blockingIndicatorIDs.remove(id)
+    public mutating func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+        blockingIndicatorTokens.remove(token)
     }
 
     public var snapshot: ScreenshotVisualReadinessSnapshot {
         let pendingMediaTokens = expectedMediaTokens.subtracting(loadedMediaTokens).subtracting(failedMediaTokens)
-        let isSettled = pendingMediaTokens.isEmpty && failedMediaTokens.isEmpty && blockingIndicatorIDs.isEmpty
+        let isSettled = pendingMediaTokens.isEmpty && failedMediaTokens.isEmpty && blockingIndicatorTokens.isEmpty
         return ScreenshotVisualReadinessSnapshot(
             expectedMediaCount: expectedMediaTokens.count,
             loadedMediaCount: loadedMediaTokens.count,
             pendingMediaCount: pendingMediaTokens.count,
             failedMediaCount: failedMediaTokens.count,
-            blockingIndicatorCount: blockingIndicatorIDs.count,
+            blockingIndicatorCount: blockingIndicatorTokens.count,
             isSettled: isSettled
         )
     }

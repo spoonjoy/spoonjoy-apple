@@ -21,12 +21,12 @@ actor ScreenshotVisualReadiness {
         await shared.removeMedia(token)
     }
 
-    static func beginBlockingIndicator(_ id: String) async {
-        await shared.beginBlockingIndicator(id)
+    static func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
+        await shared.beginBlockingIndicator(token)
     }
 
-    static func endBlockingIndicator(_ id: String) async {
-        await shared.endBlockingIndicator(id)
+    static func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
+        await shared.endBlockingIndicator(token)
     }
 
     static func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {
@@ -45,12 +45,12 @@ actor ScreenshotVisualReadiness {
         state.removeMedia(token)
     }
 
-    private func beginBlockingIndicator(_ id: String) {
-        state.beginBlockingIndicator(id)
+    private func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+        state.beginBlockingIndicator(token)
     }
 
-    private func endBlockingIndicator(_ id: String) {
-        state.endBlockingIndicator(id)
+    private func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+        state.endBlockingIndicator(token)
     }
 
     private func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {

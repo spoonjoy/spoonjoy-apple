@@ -143,15 +143,19 @@ struct NativeMobileDesignContractTests {
                 "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
                 "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
                 "simulator boot readiness timeout",
-                "date -u '+%Y-%m-%d %H:%M:%S'",
-                "--start \"$launched_at\"",
+                "--last 2m",
+                "latest_front_display_event",
+                "Spoonjoy stopped being the front display before screenshot capture",
+                "Spoonjoy stopped being the front display during screenshot capture",
                 "Front display did change",
                 "distinct_color_buckets",
                 "edge_ratio"
             ],
             forbids: [
                 "registered as running before foreground pixel validation",
-                "continuing to foreground/proof checks"
+                "continuing to foreground/proof checks",
+                "date -u '+%Y-%m-%d %H:%M:%S'",
+                "--start \"$launched_at\""
             ]
         )
         expectContent(

@@ -302,18 +302,23 @@ fi
     printf 'Checking reusable iOS simulator app install marker: %s\n' "$install_marker"
     actual_install_marker="$(cat "$install_marker")"
     set +e
-    existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy data" 10)"
+    existing_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy app" 10)"
     existing_status=$?
     set -e
     printf 'simulator reusable app container lookup exit code: %s\n' "$existing_status"
     if [[ -n "$existing_container" ]]; then
       printf '%s\n' "$existing_container"
     fi
-    if [[ "$existing_status" -eq 0 && -n "$existing_container" && "$actual_install_marker" == "$expected_install_marker" ]]; then
+    existing_digest=""
+    if [[ "$existing_status" -eq 0 && -d "$existing_container" ]]; then
+      existing_digest="$(app_bundle_digest "$existing_container")"
+      printf 'Installed iOS simulator app bundle digest: %s\n' "$existing_digest"
+    fi
+    if [[ "$existing_status" -eq 0 && "$existing_digest" == "$app_digest" && "$actual_install_marker" == "$expected_install_marker" ]]; then
       install_needed=0
-      printf 'Exact app bundle digest and simulator marker matched; reusing installed iOS simulator app\n'
+      printf 'Installed app bundle digest matched the exact source bundle and simulator marker; reusing installed iOS simulator app\n'
     else
-      printf 'Installed app marker did not match the exact bundle digest and simulator; reinstalling\n'
+      printf 'Installed app digest or marker did not match the exact source bundle and simulator; reinstalling\n'
     fi
   fi
 
@@ -333,14 +338,28 @@ fi
     install_status=$?
     set -e
     printf 'simulator install exit code: %s\n' "$install_status"
-    if [[ "$install_status" -eq 0 && "$reuse_installed_app" == "1" && -n "$install_marker" ]]; then
+  fi
+  if [[ "$install_status" -eq 0 ]] && ! wait_for_app_registration; then
+    install_status=1
+  fi
+  if [[ "$install_status" -eq 0 ]]; then
+    set +e
+    installed_container="$(run_with_timeout "xcrun simctl get_app_container $udid app.spoonjoy app" 10)"
+    installed_container_status=$?
+    set -e
+    installed_digest=""
+    if [[ "$installed_container_status" -eq 0 && -d "$installed_container" ]]; then
+      installed_digest="$(app_bundle_digest "$installed_container")"
+    fi
+    printf 'Verified installed iOS simulator app bundle digest: %s\n' "${installed_digest:-<unavailable>}"
+    if [[ "$installed_digest" != "$app_digest" ]]; then
+      printf 'Installed iOS simulator app does not match the exact source bundle digest\n'
+      install_status=1
+    elif [[ "$reuse_installed_app" == "1" && -n "$install_marker" ]]; then
       mkdir -p "$(dirname "$install_marker")"
       printf '%s\n' "$expected_install_marker" > "$install_marker"
       printf 'Wrote reusable iOS simulator app install marker: %s\n' "$install_marker"
     fi
-  fi
-  if [[ "$install_status" -eq 0 ]] && ! wait_for_app_registration; then
-    install_status=1
   fi
 } >> "$log_path" 2>&1
 

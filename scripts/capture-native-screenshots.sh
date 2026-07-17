@@ -1310,23 +1310,34 @@ ios_udid_from_smoke_log() {
   ' "$smoke_log"
 }
 
+latest_front_display_event() {
+  ruby -e '
+    path = ARGV.fetch(0)
+    events = File.readlines(path, chomp: true).select { |line| line.include?("Front display did change:") }
+    exit(1) if events.empty?
+    puts events.last
+  ' "$1"
+}
+
 wait_for_ios_foreground() {
   local udid="$1"
-  local launched_at="$2"
   local output=""
   local foreground_log
   local foreground_status
+  local latest_event
   foreground_log="$(mktemp)"
   for _ in $(seq 1 30); do
     : > "$foreground_log"
     set +e
     run_with_timeout "simulator foreground probe timeout" "$ios_foreground_probe_timeout_seconds" "$foreground_log" \
-      xcrun simctl spawn "$udid" log show --start "$launched_at" --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change" AND eventMessage CONTAINS[c] "app.spoonjoy"'
+      xcrun simctl spawn "$udid" log show --last 2m --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change"'
     foreground_status=$?
     set -e
     output="$(cat "$foreground_log")"
     printf '%s\n' "$output" >> "$capture_log"
-    if [[ "$foreground_status" -eq 0 && "$output" == *"Front display did change"*"app.spoonjoy"* ]]; then
+    latest_event="$(latest_front_display_event "$foreground_log" || true)"
+    printf 'Latest simulator front display event: %s\n' "${latest_event:-<none>}" >> "$capture_log"
+    if [[ "$foreground_status" -eq 0 && "$latest_event" == *"app.spoonjoy"* ]]; then
       rm -f "$foreground_log"
       return 0
     fi
@@ -1794,7 +1805,6 @@ capture_ios_app() {
   local data_container
   local terminate_log
   local bootstatus_log
-  local launched_at
   bootstatus_log="$(mktemp)"
   terminate_log="$(mktemp)"
   if run_with_timeout "simulator boot readiness timeout" "$ios_boot_timeout_seconds" "$bootstatus_log" \
@@ -1833,12 +1843,11 @@ capture_ios_app() {
     fi
   fi
   rm -f "$terminate_log"
-  launched_at="$(date -u '+%Y-%m-%d %H:%M:%S')"
   if ! ios_launch_app "$udid"; then
     printf 'simulator launch timeout or failure for iOS route %s\n' "$screenshot_route" >> "$capture_log"
     return 1
   fi
-  wait_for_ios_foreground "$udid" "$launched_at" || return 1
+  wait_for_ios_foreground "$udid" || return 1
   sleep 1
   if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
     local proof_focus="$settings_capture_focus"
@@ -1855,7 +1864,16 @@ capture_ios_app() {
     printf 'Spoonjoy did not write the expected %s accessibility proof for %s\n' "$expected_platform" "$screenshot_route" >> "$capture_log"
     return 1
   fi
+  if ! wait_for_ios_foreground "$udid"; then
+    printf 'Spoonjoy stopped being the front display before screenshot capture\n' >> "$capture_log"
+    return 1
+  fi
   xcrun simctl io "$udid" screenshot "$screenshot_output" >> "$capture_log" 2>&1
+  if ! wait_for_ios_foreground "$udid"; then
+    printf 'Spoonjoy stopped being the front display during screenshot capture\n' >> "$capture_log"
+    rm -f "$screenshot_output"
+    return 1
+  fi
   [[ -f "$screenshot_output" && -s "$screenshot_output" ]]
   validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1
 }

@@ -79,7 +79,7 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP",
       "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER",
       "bundle_sha256",
-      "Exact app bundle digest and simulator marker matched",
+      "Installed app bundle digest matched the exact source bundle and simulator marker",
       "a running registration is not foreground proof",
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
@@ -174,8 +174,9 @@ SCRIPT_CONTRACTS = {
       "simulator launch timeout",
       "simulator boot readiness timeout",
       "simulator foreground probe timeout",
-      "date -u '+%Y-%m-%d %H:%M:%S'",
-      '--start "$launched_at"',
+      "--last 2m",
+      "latest_front_display_event",
+      "Spoonjoy stopped being the front display before screenshot capture",
       "Front display did change",
       "distinct_color_buckets",
       "edge_ratio",
@@ -563,6 +564,11 @@ SCRIPT_CONTRACTS.each do |relative_path, contract|
 
   missing_tokens = contract.fetch(:tokens).reject { |token| content.include?(token) }
   record_failure("#{relative_path} missing required tokens: #{missing_tokens.join(", ")}") unless missing_tokens.empty?
+
+  if relative_path == "scripts/capture-native-screenshots.sh"
+    foreground_probe_count = content.scan(/wait_for_ios_foreground \"\$udid\"/).length
+    record_failure("#{relative_path} must verify Spoonjoy foreground state before and after pixel capture") unless foreground_probe_count >= 3
+  end
 
   assert_status(true, [*contract.fetch(:syntax), path], "#{relative_path} syntax")
 end
@@ -1046,6 +1052,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   digest_app.mkpath
   digest_app.join("Spoonjoy").write("first exact app bundle\n")
   digest_marker = digest_script_root.join("installed.marker")
+  digest_installed_app = digest_script_root.join("Installed-Spoonjoy.app")
   digest_install_events = digest_script_root.join("install-events.log")
   write_executable(bin_dir.join("open"), "#!/usr/bin/env bash\nexit 0\n")
   write_executable(bin_dir.join("xcrun"), <<~'SH')
@@ -1055,10 +1062,18 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       "simctl list runtimes"|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ uninstall\ *) exit 0 ;;
       simctl\ install\ *)
         printf 'install\n' >> "$SIMCTL_INSTALL_EVENTS"
+        source_app="${@: -1}"
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "$source_app" "$SIMCTL_INSTALLED_APP_PATH"
         exit 0
         ;;
-      simctl\ get_app_container\ *\ app.spoonjoy\ app|simctl\ get_app_container\ *\ app.spoonjoy\ data)
-        printf '/tmp/Spoonjoy.app\n'
+      simctl\ get_app_container\ *\ app.spoonjoy\ app)
+        [[ -d "$SIMCTL_INSTALLED_APP_PATH" ]] || exit 1
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
+      simctl\ get_app_container\ *\ app.spoonjoy\ data)
+        printf '/tmp/Spoonjoy-data\n'
         exit 0
         ;;
       simctl\ launch\ *)
@@ -1073,7 +1088,8 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => digest_app.to_s,
     "SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP" => "1",
     "SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER" => digest_marker.to_s,
-    "SIMCTL_INSTALL_EVENTS" => digest_install_events.to_s
+    "SIMCTL_INSTALL_EVENTS" => digest_install_events.to_s,
+    "SIMCTL_INSTALLED_APP_PATH" => digest_installed_app.to_s
   }
   digest_command = [
     "bash",
@@ -1090,9 +1106,12 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   record_failure("exact digest install marker missing bundle sha256") unless digest_marker.read.match?(/bundle_sha256=[0-9a-f]{64}/)
   assert_status(true, digest_command, "exact digest reuses the identical app bundle", env: digest_environment, chdir: digest_script_root)
   record_failure("identical app bundle was unexpectedly reinstalled") unless digest_install_events.readlines.length == 1
+  digest_installed_app.join("Spoonjoy").write("tampered installed app bundle\n")
+  assert_status(true, digest_command, "tampered installed bundle is replaced despite a matching marker", env: digest_environment, chdir: digest_script_root)
+  record_failure("tampered installed app bundle did not trigger reinstall") unless digest_install_events.readlines.length == 2
   digest_app.join("Spoonjoy").write("second exact app bundle\n")
   assert_status(true, digest_command, "changed digest reinstalls the app bundle", env: digest_environment, chdir: digest_script_root)
-  record_failure("changed app bundle digest did not trigger reinstall") unless digest_install_events.readlines.length == 2
+  record_failure("changed app bundle digest did not trigger reinstall") unless digest_install_events.readlines.length == 3
 
   write_executable(bin_dir.join("xcodebuild"), <<~'SH')
     #!/usr/bin/env bash
@@ -1110,12 +1129,17 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
   SH
   write_executable(bin_dir.join("xcrun"), <<~'SH')
     #!/usr/bin/env bash
+    set -euo pipefail
     case "$*" in
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
-      simctl\ install\ *) exit 0 ;;
+      simctl\ install\ *)
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "${@: -1}" "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
       simctl\ get_app_container\ *\ app.spoonjoy\ app)
-        printf '/tmp/Spoonjoy.app\n'
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
         exit 0
         ;;
       simctl\ launch\ *) exit 91 ;;
@@ -1131,6 +1155,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     print("platform=iOS Simulator,name=iPhone 16,id=SIM-UDID")
   PY
   hard_fail_artifacts = temp_root.join("hard-fail-artifacts")
+  hard_fail_installed_app = temp_root.join("hard-fail-installed.app")
   hard_fail_log = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   hard_fail_blocker = hard_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
@@ -1146,7 +1171,10 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
       hard_fail_blocker
     ],
     "iOS app launch failure writes CoreSimulator blocker",
-    env: { "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}" },
+    env: {
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SIMCTL_INSTALLED_APP_PATH" => hard_fail_installed_app.to_s
+    },
     chdir: script_root
   )
   hard_fail_blocker_json = assert_json(hard_fail_blocker, "iOS launch hard failure blocker")
@@ -1168,9 +1196,13 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     case "$*" in
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
-      simctl\ install\ *) exit 0 ;;
+      simctl\ install\ *)
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "${@: -1}" "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
       simctl\ get_app_container\ *\ app.spoonjoy\ app)
-        printf '/tmp/Spoonjoy.app\n'
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
         exit 0
         ;;
       simctl\ launch\ --terminate-running-process\ *)
@@ -1193,6 +1225,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     esac
   SH
   timeout_artifacts = temp_root.join("timeout-retry-artifacts")
+  timeout_installed_app = temp_root.join("timeout-retry-installed.app")
   timeout_log = timeout_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   timeout_blocker = timeout_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
@@ -1211,6 +1244,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     env: {
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
       "SIMCTL_LAUNCH_STATE_FILE" => launch_state_file.to_s,
+      "SIMCTL_INSTALLED_APP_PATH" => timeout_installed_app.to_s,
       "SPOONJOY_SMOKE_TIMEOUT_SECONDS" => "1",
       "SPOONJOY_SMOKE_LAUNCH_ATTEMPTS" => "2"
     },
@@ -1235,9 +1269,13 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     case "$*" in
       "simctl list runtimes") exit 0 ;;
       simctl\ boot\ *|simctl\ bootstatus\ *) exit 0 ;;
-      simctl\ install\ *) exit 0 ;;
+      simctl\ install\ *)
+        rm -rf "$SIMCTL_INSTALLED_APP_PATH"
+        cp -R "${@: -1}" "$SIMCTL_INSTALLED_APP_PATH"
+        exit 0
+        ;;
       simctl\ get_app_container\ *\ app.spoonjoy\ app)
-        printf '/tmp/Spoonjoy.app\n'
+        printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
         exit 0
         ;;
       simctl\ launch\ --terminate-running-process\ *)
@@ -1251,6 +1289,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     esac
   SH
   timeout_fail_artifacts = temp_root.join("timeout-fail-artifacts")
+  timeout_fail_installed_app = temp_root.join("timeout-fail-installed.app")
   timeout_fail_log = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-inner.log")
   timeout_fail_blocker = timeout_fail_artifacts.join("apple/unit-contract-smoke-ios-simulator-blocker.json")
   assert_status(
@@ -1268,6 +1307,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
     "iOS app launch timeout writes CoreSimulator blocker",
     env: {
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SIMCTL_INSTALLED_APP_PATH" => timeout_fail_installed_app.to_s,
       "SPOONJOY_SMOKE_TIMEOUT_SECONDS" => "1",
       "SPOONJOY_SMOKE_LAUNCH_ATTEMPTS" => "2"
     },
@@ -1512,6 +1552,16 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         ;;
       simctl\ spawn\ *\ log\ show*)
         printf 'Front display did change: <SBApplication; app.spoonjoy>\n'
+        probe_count=1
+        if [[ -n "${SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE:-}" ]]; then
+          if [[ -f "$SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE" ]]; then
+            probe_count=$(( $(cat "$SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE") + 1 ))
+          fi
+          printf '%s\n' "$probe_count" > "$SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE"
+        fi
+        if [[ "${SPOONJOY_CONTRACT_FOREGROUND_INTRUDER:-}" == "after-capture" && "$probe_count" -ge 3 ]]; then
+          printf 'Front display did change: <SBApplication; com.apple.Preferences>\n'
+        fi
         ;;
       simctl\ io\ *\ screenshot\ *)
         out="${@: -1}"
@@ -1736,6 +1786,33 @@ PY
   kitchen_cache_json = assert_json(script_root.join("ios-container/Library/Application Support/Spoonjoy/native-durable-cache.json"), "kitchen iOS cache seed")
   record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
   record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  foreground_intruder_root = temp_root.join("foreground-intruder")
+  foreground_intruder_root.mkpath
+  foreground_probe_count = foreground_intruder_root.join("probe-count")
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      foreground_intruder_root,
+      "--unit-slug",
+      "unit-contract-foreground-intruder"
+    ],
+    "foreground intruder blocks screenshot proof",
+    env: {
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_CONTRACT_FOREGROUND_INTRUDER" => "after-capture",
+      "SPOONJOY_CONTRACT_FOREGROUND_PROBE_COUNT_FILE" => foreground_probe_count.to_s,
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "1"
+    },
+    chdir: script_root
+  )
+  intruder_review = assert_json(foreground_intruder_root.join("design-review-blocked.json"), "foreground intruder review")
+  record_failure("foreground intruder did not block screenshot proof") unless intruder_review["blocked"] == true
+  assert_missing(foreground_intruder_root.join("design-review.json"), "foreground intruder lane")
 
   cookbook_detail_root = temp_root.join("cookbook-detail-success")
   cookbook_detail_root.mkpath

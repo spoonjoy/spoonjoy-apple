@@ -1,7 +1,9 @@
+import SpoonjoyCore
 import SwiftUI
 
 struct KitchenTableLoadingStateView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @State private var readinessToken: ScreenshotVisualReadinessBlockingToken
 
     let title: String
     let subtitle: String?
@@ -11,6 +13,7 @@ struct KitchenTableLoadingStateView: View {
         self.title = title
         self.subtitle = subtitle
         self.systemImage = systemImage
+        _readinessToken = State(initialValue: ScreenshotVisualReadinessBlockingToken(resourceID: "route-loading:\(title)"))
     }
 
     var body: some View {
@@ -48,19 +51,15 @@ struct KitchenTableLoadingStateView: View {
         .transition(accessibilityReduceMotion ? .identity : .opacity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
-        .task(id: readinessID) {
-            await ScreenshotVisualReadiness.beginBlockingIndicator(readinessID)
+        .task(id: readinessToken) {
+            await ScreenshotVisualReadiness.beginBlockingIndicator(readinessToken)
             do {
                 try await Task.sleep(nanoseconds: .max)
             } catch {
                 // View disappearance cancels the task and releases the readiness blocker.
             }
-            await ScreenshotVisualReadiness.endBlockingIndicator(readinessID)
+            await ScreenshotVisualReadiness.endBlockingIndicator(readinessToken)
         }
-    }
-
-    private var readinessID: String {
-        "route-loading:\(title)"
     }
 }
 
