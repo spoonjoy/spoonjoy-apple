@@ -86,6 +86,7 @@ struct RecipeCatalogDetailTests {
         #expect(noMatches == .noMatches)
         #expect(noSavedRecipes == .noSavedRecipes)
         #expect(RecipeCatalogState.empty().resolvedEmptyState(overridingDefaultWith: .noSavedRecipes) == .noSavedRecipes)
+        #expect(RecipeCatalogState.empty().resolvedEmptyState(overridingDefaultWith: nil) == .noRecipes)
         #expect(RecipeCatalogState.empty(query: "lemon").resolvedEmptyState(overridingDefaultWith: .noSavedRecipes) == .noMatches)
         #expect(RecipeCatalogState.empty(query: "lemon").resolvedEmptyState(overridingDefaultWith: nil) == .noMatches)
         #expect(custom == RecipeCatalogEmptyState(
