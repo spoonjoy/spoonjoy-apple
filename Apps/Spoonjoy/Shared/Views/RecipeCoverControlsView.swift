@@ -273,10 +273,14 @@ struct RecipeCoverControlsView: View {
                 .foregroundStyle(KitchenTableTheme.inkMuted)
 
             VStack(alignment: .leading, spacing: 8) {
-                Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)
-                    .padding(.vertical, 8)
-                Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)
-                    .padding(.vertical, 8)
+                Toggle(isOn: $shouldGenerateEditorialCover) {
+                    Text("Editorialize cover")
+                        .padding(.vertical, 8)
+                }
+                Toggle(isOn: $shouldPostUploadedPhotoAsSpoon) {
+                    Text("Post original as a Spoon")
+                        .padding(.vertical, 8)
+                }
             }
             .font(KitchenTableTheme.uiLabel)
 
