@@ -1832,8 +1832,9 @@ public final class NativeLiveAppStore: ObservableObject {
             }
 
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
+            resolvedAuthState = restoredAuthState
+            configureForRestoredAuthState(restoredAuthState)
             if dependencies.bootstrapMode == .restoreCacheOnly {
-                configureForRestoredAuthState(restoredAuthState)
                 let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
                 if case .signedOut = restoredAuthState {
                     apply(.signedOut(restoredContent.copy(

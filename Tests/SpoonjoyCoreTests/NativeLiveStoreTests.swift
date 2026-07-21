@@ -2234,6 +2234,83 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live-first launch preserves trusted expired-session cache when refresh is offline")
+    func liveFirstLaunchPreservesTrustedExpiredSessionCacheWhenRefreshIsOffline() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_offline_refresh"
+            let expiredSession = try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_expired_offline",
+                refreshToken: "sj_refresh_expired_offline",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(-60),
+                scope: NativeAuthSession.defaultScope,
+                accountID: accountID
+            )
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(expiredSession)
+
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: accountID,
+                environment: .production,
+                createdAt: Self.now,
+                records: [
+                    try Self.cacheRecord(
+                        domain: .recipeDetail(id: "recipe_offline_refresh"),
+                        payload: .recipeDetail(id: "recipe_offline_refresh", title: "Offline Refresh Pasta"),
+                        accountID: accountID
+                    )
+                ],
+                dismissedIndicators: []
+            ))
+            let offlineError = APITransportError(
+                kind: .offline,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .retrySameRequest(afterSeconds: nil)
+            )
+            let authRepository = NativeAuthSessionRepository(
+                vault: vault,
+                clientName: "Spoonjoy Apple Tests",
+                registerClient: { _, _ in "client_live" },
+                exchangeCode: { _, _, _, _ in throw NativeLiveStoreTestError.unexpectedRequest },
+                refresh: { _, _ in throw offlineError },
+                revoke: { _, _ in },
+                now: { Self.now }
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                authSessionRepository: authRepository,
+                cacheStore: cacheStore,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .offlineStale(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected offline stale cache after refresh failure; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.authSessionState == .refreshRequired(expiredSession))
+            #expect(content.configuration.bearerToken == "sj_access_expired_offline")
+            #expect(content.recipes.map(\.title) == ["Offline Refresh Pasta"])
+            #expect(content.offlineIndicatorState.display == .offline)
+        }
+    }
+
+    @MainActor
     @Test("restore cache only launch mode preserves signed-out shell without live fetch")
     func restoreCacheOnlyLaunchModePreservesSignedOutShellWithoutLiveFetch() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6911,6 +6988,7 @@ private extension NativeLiveStoreTests {
     static func liveStore(
         directory: URL,
         vault: any TokenVault,
+        authSessionRepository: NativeAuthSessionRepository? = nil,
         cacheStore: NativeDurableCacheStore? = nil,
         syncStore: any NativeSyncStore,
         transport: any NativeSyncTransport,
@@ -6934,7 +7012,7 @@ private extension NativeLiveStoreTests {
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
-            authSessionRepository: authRepository(vault: vault),
+            authSessionRepository: authSessionRepository ?? authRepository(vault: vault),
             cacheStore: cacheStore ?? NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
             syncStore: syncStore,
             syncEngine: engine,
