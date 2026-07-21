@@ -126,6 +126,43 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     assert_includes extra.output, "unallowlisted artifact path"
   end
 
+  def test_verify_rejects_files_allowlisted_by_the_manifest_but_unreferenced_by_evidence
+    assert run_tool("seal", *seal_arguments).success?
+    unreferenced = @sealed_root.join("payload/unreferenced.json")
+    write_json(unreferenced, "looks" => "plausible")
+    add_or_refresh_sealed_file(unreferenced)
+
+    result = run_tool("verify", *verify_arguments)
+    refute result.success?
+    assert_includes result.output, "unreferenced allowlisted artifact path"
+  end
+
+  def test_verify_rejects_post_upload_blocker_and_summary_forgery_even_with_refreshed_hashes
+    assert run_tool("seal", *seal_arguments).success?
+    review = @sealed_root.join("payload/design-review.json")
+    review_json = JSON.parse(review.read)
+    review_json["blocked"] = true
+    write_json(review, review_json)
+    add_or_refresh_sealed_file(review)
+
+    blocked = run_tool("verify", *verify_arguments)
+    refute blocked.success?
+    assert_includes blocked.output, "design review contains a blocker"
+
+    FileUtils.rm_rf(@sealed_root)
+    assert run_tool("seal", *seal_arguments).success?
+    summary = @sealed_root.join("payload/apple/release-route-matrix.json")
+    summary_json = JSON.parse(summary.read)
+    summary_json["buildBlocked"] = true
+    summary_json["buildBlocker"] = { "blocked" => true }
+    write_json(summary, summary_json)
+    add_or_refresh_sealed_file(summary)
+
+    forged = run_tool("verify", *verify_arguments)
+    refute forged.success?
+    assert_includes forged.output, "sealed route matrix summary contains a blocker"
+  end
+
   def test_verify_rejects_identity_mismatch
     assert run_tool("seal", *seal_arguments).success?
 
@@ -202,6 +239,19 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     )
     refute result.success?
     assert_includes result.output, "missing required Native job Native visual evidence"
+  end
+
+  def test_candidate_rejects_an_ambiguous_visual_artifact_name
+    fixture = create_candidate_fixture
+    artifacts = JSON.parse(fixture.join("artifacts.json").read)
+    duplicate = artifacts.fetch("artifacts").last.dup
+    duplicate["id"] = 9_999
+    artifacts.fetch("artifacts") << duplicate
+    write_json(fixture.join("artifacts.json"), artifacts)
+
+    result = run_candidate(fixture)
+    refute result.success?
+    assert_includes result.output, "visual evidence artifact name is ambiguous"
   end
 
   private
@@ -428,6 +478,25 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     row = summary.fetch("routes").find { |candidate| candidate.fetch("name") == route }
     row[key] = artifact_entry(path, path.to_s)
     write_json(matrix_summary_path, summary)
+  end
+
+  def add_or_refresh_sealed_file(path)
+    manifest_path = @sealed_root.join("visual-evidence-manifest.json")
+    manifest = JSON.parse(manifest_path.read)
+    relative = path.relative_path_from(@sealed_root).to_s
+    entry = {
+      "path" => relative,
+      "bytes" => path.size,
+      "sha256" => Digest::SHA256.file(path).hexdigest
+    }
+    existing = manifest.fetch("files").index { |candidate| candidate.fetch("path") == relative }
+    if existing
+      manifest.fetch("files")[existing] = entry
+    else
+      manifest.fetch("files") << entry
+      manifest.fetch("files").sort_by! { |candidate| candidate.fetch("path") }
+    end
+    write_json(manifest_path, manifest)
   end
 
   def artifact_entry(path, displayed_path)
