@@ -287,6 +287,42 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("screenshot geometry trusts observed interaction state and verified native hit regions")
+    func screenshotGeometryTrustsObservedInteractionStateAndVerifiedNativeHitRegions() throws {
+        let observerPath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
+        let geometryPath = "Apps/SpoonjoyUITests/ScreenshotEvidenceGeometry.swift"
+        let observer = uncommentedSwift(try readRepoFile(observerPath))
+        let geometry = uncommentedSwift(try readRepoFile(geometryPath))
+
+        expectContent(
+            observer,
+            in: observerPath,
+            contains: [
+                "hittable: element.isHittable",
+                "enabled: element.isEnabled",
+                "hitRegionAuditPassed",
+                "issue.auditType == .hitRegion",
+                "testAuditRetainsContentClippedHorizontallyByTheViewport",
+                "testGeometryRejectsSameLabelVisibleTextOverlap",
+                "testGeometryRejectsVisuallySmallNativeControlsWithoutHitRegionProof"
+            ],
+            forbids: [
+                "hittable: actionable && intersectsWindow"
+            ]
+        )
+        expectContent(
+            geometry,
+            in: geometryPath,
+            contains: [
+                "hitRegionAuditVerified",
+                "candidate.hitRegionAuditVerified"
+            ],
+            forbids: [
+                "guard first.label != second.label"
+            ]
+        )
+    }
+
     @Test("shopping duplicates become a review section and completion uses the success role")
     func shoppingDuplicatesBecomeAReviewSectionAndCompletionUsesTheSuccessRole() throws {
         let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"

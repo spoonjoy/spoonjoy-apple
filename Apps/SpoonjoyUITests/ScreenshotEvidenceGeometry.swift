@@ -63,6 +63,7 @@ struct ObservedAccessibilityElement: Codable, Equatable, Sendable {
     let exists: Bool
     let hittable: Bool
     let enabled: Bool
+    let hitRegionAuditVerified: Bool
     let focused: Bool?
 }
 
@@ -190,8 +191,7 @@ enum ScreenshotEvidenceGeometry {
             for secondIndex in visibleTexts.indices where secondIndex > firstIndex {
                 let first = visibleTexts[firstIndex]
                 let second = visibleTexts[secondIndex]
-                guard first.label != second.label,
-                      let overlap = first.frame.intersection(with: second.frame),
+                guard let overlap = first.frame.intersection(with: second.frame),
                       overlap.width * overlap.height > 1 else {
                     continue
                 }
@@ -245,7 +245,9 @@ enum ScreenshotEvidenceGeometry {
         }
 
         return elements.contains { stepper in
-            guard stepper.type == "stepper", !stepper.label.isEmpty else {
+            guard stepper.type == "stepper",
+                  !stepper.label.isEmpty,
+                  stepper.hitRegionAuditVerified else {
                 return false
             }
             let controls = stepperIdentifiers.compactMap { identifier in
@@ -275,6 +277,7 @@ enum ScreenshotEvidenceGeometry {
         let isFullRowToggle: (ObservedAccessibilityElement) -> Bool = { toggle in
             toggle.type == "switch"
                 && !toggle.label.isEmpty
+                && toggle.hitRegionAuditVerified
                 && toggle.frame.width + 0.5 >= minimumTarget * 2
                 && toggle.frame.height + 0.5 >= 28
         }
@@ -294,6 +297,7 @@ enum ScreenshotEvidenceGeometry {
     ) -> Bool {
         candidate.type == "textField"
             && !candidate.label.isEmpty
+            && candidate.hitRegionAuditVerified
             && candidate.frame.width + 0.5 >= minimumTarget * 2
             && candidate.frame.height + 0.5 >= 34
     }
@@ -305,6 +309,7 @@ enum ScreenshotEvidenceGeometry {
         candidate.type == "button"
             && candidate.identifier == "recipe-covers.spoon-details"
             && candidate.label == "Spoon details"
+            && candidate.hitRegionAuditVerified
             && candidate.frame.width + 0.5 >= minimumTarget * 2
             && candidate.frame.height + 0.5 >= 20
     }

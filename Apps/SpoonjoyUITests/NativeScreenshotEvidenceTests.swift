@@ -16,6 +16,7 @@ private struct ObservedAuditIssue: Codable {
 
 private struct ObservedAuditResult {
     let blockingIssues: [ObservedAuditIssue]
+    let hitRegionAuditPassed: Bool
 }
 
 private struct ObservedDeepScrollEvidence: Codable {
@@ -85,8 +86,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             )
         }
 
-        let initialElements = observedElements(in: app, windowFrame: window.frame)
-        let viewport = contentViewport(windowFrame: window.frame, elements: initialElements)
+        let provisionalElements = observedElements(in: app, windowFrame: window.frame)
+        let viewport = contentViewport(windowFrame: window.frame, elements: provisionalElements)
         let apnsMode = environment["SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"] == "notifications"
         var requiredIdentifiers = csvSet(environment[Self.requiredIdentifiersEnvironmentKey])
         requiredIdentifiers.formUnion(routeRequiredIdentifiers(route: route))
@@ -121,17 +122,22 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             apnsThisDeviceIdentifier: apnsMode ? Self.thisDeviceIdentifier : nil,
             apnsPushDeliveryIdentifier: apnsMode ? Self.pushDeliveryIdentifier : nil
         )
-        let geometryFindings = ScreenshotEvidenceGeometry.validate(
-            elements: initialElements,
-            requirements: requirements
-        )
         let initialScreenshot = XCUIScreen.main.screenshot()
         let initialAuditResult = accessibilityAuditIssues(
             in: app,
             viewport: viewport,
             screenshot: initialScreenshot,
             windowFrame: window.frame,
-            hasSystemTabBar: initialElements.contains { $0.type == "tabBar" && $0.exists }
+            hasSystemTabBar: provisionalElements.contains { $0.type == "tabBar" && $0.exists }
+        )
+        let initialElements = observedElements(
+            in: app,
+            windowFrame: window.frame,
+            hitRegionAuditVerified: initialAuditResult.hitRegionAuditPassed
+        )
+        let geometryFindings = ScreenshotEvidenceGeometry.validate(
+            elements: initialElements,
+            requirements: requirements
         )
         let deepScroll = Self.deepScrollRoutes.contains(route)
             ? scrollPrimarySurfaceToTerminal(
@@ -192,12 +198,27 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(findings.map(\.kind), [.outsideViewport])
     }
 
-    func testAuditIgnoresContentPartiallyClippedByChrome() {
+    func testAuditIgnoresContentPartiallyClippedVerticallyByChrome() {
         let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
 
         XCTAssertTrue(shouldIgnoreAuditIssue(
             elementFrame: ObservedRect(x: 20, y: 90, width: 160, height: 20),
             elementType: "staticText",
+            viewport: viewport
+        ))
+    }
+
+    func testAuditRetainsContentClippedHorizontallyByTheViewport() {
+        let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
+
+        XCTAssertFalse(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: -10, y: 120, width: 160, height: 20),
+            elementType: "staticText",
+            viewport: viewport
+        ))
+        XCTAssertFalse(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 300, y: 120, width: 110, height: 20),
+            elementType: "button",
             viewport: viewport
         ))
     }
@@ -328,6 +349,25 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(findings.map(\.kind), [.textOverlap])
     }
 
+    func testGeometryRejectsSameLabelVisibleTextOverlap() {
+        let first = observedElement(
+            identifier: "first-title",
+            label: "Lemon Pantry Pasta",
+            frame: ObservedRect(x: 10, y: 10, width: 120, height: 30)
+        )
+        let second = observedElement(
+            identifier: "second-title",
+            label: "Lemon Pantry Pasta",
+            frame: ObservedRect(x: 20, y: 20, width: 120, height: 30)
+        )
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [first, second],
+            requirements: requirements()
+        )
+
+        XCTAssertEqual(findings.map(\.kind), [.textOverlap])
+    }
+
     func testGeometryRejectsPartiallyVisibleSmallActionTarget() {
         let action = ObservedAccessibilityElement(
             identifier: "partial-action",
@@ -337,6 +377,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: true,
             focused: nil
         )
         let findings = ScreenshotEvidenceGeometry.validate(
@@ -355,6 +396,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: true,
             focused: nil
         )
         let decrement = ObservedAccessibilityElement(
@@ -365,6 +407,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: true,
             focused: nil
         )
         let increment = ObservedAccessibilityElement(
@@ -375,6 +418,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: true,
             focused: nil
         )
 
@@ -395,6 +439,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: true,
             focused: nil
         )
 
@@ -415,6 +460,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: true,
             focused: nil
         )
         let thumb = ObservedAccessibilityElement(
@@ -425,6 +471,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: false,
             focused: nil
         )
 
@@ -445,6 +492,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: false,
             focused: nil
         )
 
@@ -465,6 +513,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: true,
             enabled: true,
+            hitRegionAuditVerified: false,
             focused: nil
         )
 
@@ -482,7 +531,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             label: "Placeholder direction",
             type: "textField",
             frame: ObservedRect(x: 32, y: 20, width: 338, height: 34),
-            hittable: true
+            hittable: true,
+            hitRegionAuditVerified: true
         )
 
         let findings = ScreenshotEvidenceGeometry.validate(
@@ -523,7 +573,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             label: "Spoon details",
             type: "button",
             frame: ObservedRect(x: 32, y: 20, width: 338, height: 22),
-            hittable: true
+            hittable: true,
+            hitRegionAuditVerified: true
         )
         let lookalike = observedElement(
             identifier: "",
@@ -539,6 +590,41 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
 
         XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
+    }
+
+    func testGeometryRejectsVisuallySmallNativeControlsWithoutHitRegionProof() {
+        let toggle = observedElement(
+            identifier: "",
+            label: "Editorialize cover",
+            type: "switch",
+            frame: ObservedRect(x: 32, y: 20, width: 338, height: 28),
+            hittable: true
+        )
+        let textField = observedElement(
+            identifier: "",
+            label: "Placeholder direction",
+            type: "textField",
+            frame: ObservedRect(x: 32, y: 60, width: 338, height: 34),
+            hittable: true
+        )
+        let disclosure = observedElement(
+            identifier: "recipe-covers.spoon-details",
+            label: "Spoon details",
+            type: "button",
+            frame: ObservedRect(x: 32, y: 70, width: 338, height: 22),
+            hittable: true
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [toggle, textField, disclosure],
+            requirements: requirements()
+        )
+
+        XCTAssertEqual(findings.map(\.kind), [
+            .actionTargetTooSmall,
+            .actionTargetTooSmall,
+            .actionTargetTooSmall
+        ])
     }
 
     func testGeometryRejectsAPNsChromeIntersection() {
@@ -585,6 +671,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         includesDynamicTypeChecks: Bool = true
     ) -> ObservedAuditResult {
         var blockingIssues: [ObservedAuditIssue] = []
+        var hitRegionAuditPassed = true
         var auditTypes = XCUIAccessibilityAuditType.contrast
             .union(.hitRegion)
             .union(.trait)
@@ -598,6 +685,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 let element = issue.element
                 let elementFrame = element.map { ObservedRect($0.frame) }
                 let elementType = element.map { self.elementTypeName($0.elementType) } ?? ""
+                if issue.auditType == .hitRegion {
+                    hitRegionAuditPassed = false
+                }
                 if self.shouldIgnoreUnattributedSystemTabBarContrast(
                     auditType: issue.auditType,
                     detailedDescription: issue.detailedDescription,
@@ -630,6 +720,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 return true
             }
         } catch {
+            hitRegionAuditPassed = false
             blockingIssues.append(ObservedAuditIssue(
                 category: "auditExecution",
                 type: "auditExecution",
@@ -644,7 +735,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ))
         }
         return ObservedAuditResult(
-            blockingIssues: blockingIssues
+            blockingIssues: blockingIssues,
+            hitRegionAuditPassed: hitRegionAuditPassed
         )
     }
 
@@ -653,7 +745,17 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         elementType: String,
         viewport: ObservedRect
     ) -> Bool {
-        !Self.chromeTypes.contains(elementType) && !viewport.contains(elementFrame)
+        let tolerance = 0.5
+        let isHorizontallyContained = elementFrame.minX >= viewport.minX - tolerance
+            && elementFrame.maxX <= viewport.maxX + tolerance
+        let intersectsVertically = elementFrame.maxY > viewport.minY
+            && elementFrame.minY < viewport.maxY
+        let isVerticallyClipped = elementFrame.minY < viewport.minY - tolerance
+            || elementFrame.maxY > viewport.maxY + tolerance
+        return !Self.chromeTypes.contains(elementType)
+            && isHorizontallyContained
+            && intersectsVertically
+            && isVerticallyClipped
     }
 
     private func shouldIgnoreUnattributedSystemTabBarContrast(
@@ -808,7 +910,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
     private func observedElements(
         in app: XCUIApplication,
-        windowFrame: CGRect
+        windowFrame: CGRect,
+        hitRegionAuditVerified: Bool = false
     ) -> [ObservedAccessibilityElement] {
         let observedTypes: [XCUIElement.ElementType] = [
             .scrollView, .collectionView, .navigationBar, .toolbar, .tabBar, .keyboard, .sheet, .alert,
@@ -818,7 +921,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return observedTypes.flatMap { type in
             app.descendants(matching: type).allElementsBoundByIndex.map { element in
                 let typeName = elementTypeName(type)
-                let actionable = Self.actionableTypes.contains(typeName)
                 let frame = element.frame
                 let hasUsableFrame = !frame.isNull
                     && !frame.isInfinite
@@ -836,8 +938,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     type: typeName,
                     frame: ObservedRect(frame),
                     exists: true,
-                    hittable: actionable && intersectsWindow,
-                    enabled: true,
+                    hittable: element.isHittable,
+                    enabled: element.isEnabled,
+                    hitRegionAuditVerified: hitRegionAuditVerified && intersectsWindow,
                     focused: nil
                 )
             }
@@ -1092,7 +1195,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         label: String? = nil,
         type: String = "staticText",
         frame: ObservedRect,
-        hittable: Bool = false
+        hittable: Bool = false,
+        hitRegionAuditVerified: Bool = false
     ) -> ObservedAccessibilityElement {
         ObservedAccessibilityElement(
             identifier: identifier,
@@ -1102,6 +1206,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             exists: true,
             hittable: hittable,
             enabled: true,
+            hitRegionAuditVerified: hitRegionAuditVerified,
             focused: nil
         )
     }
