@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spoonjoy.app/schemas/receiver-ack.schema.json",
+  "title": "Spoonjoy protected receiver acknowledgment projection",
+  "description": "Acyclic acknowledgment content. Commits containing this projection are external verifier evidence and are forbidden from this document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventType",
+    "outboundRelease",
+    "ledgerEvent",
+    "receiver",
+    "protectedOutbound"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "eventType": { "const": "ReceiverAcknowledged" },
+    "outboundRelease": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "path", "sha256"],
+      "properties": {
+        "repository": { "const": "spoonjoy/spoonjoy-apple" },
+        "commit": { "$ref": "#/$defs/gitSHA" },
+        "path": { "const": "worker/tasks/2026-07-16-0856-doing-audit-release-train/outbound-owner-release.json" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "ledgerEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "ref", "commit", "payloadPath", "payloadSHA256"],
+      "properties": {
+        "repository": { "const": "spoonjoy/spoonjoy-delivery" },
+        "ref": { "const": "refs/heads/release-ledger" },
+        "commit": { "$ref": "#/$defs/gitSHA" },
+        "payloadPath": { "$ref": "#/$defs/repoRelativePath" },
+        "payloadSHA256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "receiver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["taskID", "deskTask"],
+      "properties": {
+        "taskID": { "const": "019f5c80-bbe0-76a1-82eb-b0c715d035e7" },
+        "deskTask": { "const": "spoonjoy/cross-client-delivery" }
+      }
+    },
+    "protectedOutbound": {
+      "$ref": "outbound-owner-release.schema.json"
+    }
+  },
+  "$defs": {
+    "gitSHA": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "repoRelativePath": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\s)(?!.*(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][Dd]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Pp][Ee][Nn][Dd][Ii][Nn][Gg]|[Ii][Nn][Hh][Ee][Rr][Ii][Tt][Ee][Dd]|[Ii][Nn][Ff][Ee][Rr][Rr][Ee][Dd]|[Nn]/[Aa])).+$" }
+  }
+}

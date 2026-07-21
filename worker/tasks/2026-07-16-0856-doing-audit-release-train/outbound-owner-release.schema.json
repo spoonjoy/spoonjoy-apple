@@ -124,11 +124,11 @@
     "gitSHA": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "positiveIntegerString": { "type": "string", "pattern": "^[1-9][0-9]*$" },
-    "repoRelativePath": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\s).+$" },
+    "repoRelativePath": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\s)(?!.*(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][Dd]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Pp][Ee][Nn][Dd][Ii][Nn][Gg]|[Ii][Nn][Hh][Ee][Rr][Ii][Tt][Ee][Dd]|[Ii][Nn][Ff][Ee][Rr][Rr][Ee][Dd]|[Nn]/[Aa])).+$" },
     "nonPlaceholder": {
       "type": "string",
       "minLength": 1,
-      "pattern": "^(?!.*(?:TODO|TBD|placeholder|latest|unknown|pending|inherited|n/a)).+$"
+      "pattern": "^(?!.*(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][Dd]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Pp][Ee][Nn][Dd][Ii][Nn][Gg]|[Ii][Nn][Hh][Ee][Rr][Ii][Tt][Ee][Dd]|[Ii][Nn][Ff][Ee][Rr][Rr][Ee][Dd]|[Nn]/[Aa])).+$"
     }
   }
 }
