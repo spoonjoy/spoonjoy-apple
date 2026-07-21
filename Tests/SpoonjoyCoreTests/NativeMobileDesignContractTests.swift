@@ -3,6 +3,25 @@ import Testing
 
 @Suite("Native mobile design contract")
 struct NativeMobileDesignContractTests {
+    @Test("screenshot timeout fixtures leave enough room to emit terminal evidence")
+    func screenshotTimeoutFixturesLeaveEnoughRoomToEmitTerminalEvidence() throws {
+        let contractPath = "scripts/check-launch-screenshot-contract.rb"
+        let contract = try readRepoFile(contractPath)
+
+        expectContent(
+            contract,
+            in: contractPath,
+            contains: [
+                #"FIXTURE_PROCESS_TIMEOUT_SECONDS = 120"#,
+                #"FIXTURE_PROCESS_TIMEOUT_SECONDS.to_s"#
+            ],
+            forbids: [
+                #"PROCESS_TIMEOUT_WRAPPER,\n    "30""#,
+                #"PROCESS_TIMEOUT_WRAPPER,\n    "45""#
+            ]
+        )
+    }
+
     @Test("system tab chrome owns Liquid Glass and compact content owns a real viewport inset")
     func systemTabChromeOwnsLiquidGlassAndCompactContentOwnsViewportInset() throws {
         let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"

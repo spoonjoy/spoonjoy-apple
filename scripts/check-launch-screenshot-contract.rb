@@ -12,6 +12,7 @@ ROOT = Pathname.new(__dir__).join("..").expand_path
 ARTIFACT_ROOT = ROOT.join("artifacts/apple/native-screenshots")
 DESIGN_REVIEW = ARTIFACT_ROOT.join("design-review.json")
 DESIGN_REVIEW_BLOCKED = ARTIFACT_ROOT.join("design-review-blocked.json")
+FIXTURE_PROCESS_TIMEOUT_SECONDS = 120
 
 SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile.png",
@@ -2594,7 +2595,7 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
     "-rtimeout",
     "-e",
     PROCESS_TIMEOUT_WRAPPER,
-    "30",
+    FIXTURE_PROCESS_TIMEOUT_SECONDS.to_s,
     "bash",
     "scripts/capture-native-screenshots.sh",
     "--artifact-root",
@@ -2842,7 +2843,7 @@ PY
     "-rtimeout",
     "-e",
     PROCESS_TIMEOUT_WRAPPER,
-    "45",
+    FIXTURE_PROCESS_TIMEOUT_SECONDS.to_s,
     "bash",
     "scripts/capture-native-screenshots.sh",
     "--artifact-root",
