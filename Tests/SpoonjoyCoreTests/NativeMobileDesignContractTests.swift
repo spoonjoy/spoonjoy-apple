@@ -230,8 +230,8 @@ struct NativeMobileDesignContractTests {
                 "geometryFindings",
                 "let initialScreenshot = XCUIScreen.main.screenshot()",
                 "attachScreenshot(initialScreenshot",
-                "let scrollVelocity: XCUIGestureVelocity = terminalIdentifier == nil ? .fast : .slow",
-                "primarySurface.swipeUp(velocity: scrollVelocity)",
+                "terminalScrollCorrection(",
+                "drag(primarySurface, contentOffset: correction)",
                 "terminalScrollSignature("
             ],
             forbids: [

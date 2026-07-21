@@ -118,8 +118,6 @@ require_tokens(ios_observer, [
   "testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport"
 ])
 forbid_tokens(ios_observer, [
-  "element.isHittable",
-  "element.isEnabled",
   "toolLimitations",
   "ObservedAuditToolLimitation",
   "knownAuditToolLimitation",
@@ -220,16 +218,24 @@ require_tokens("scripts/capture-native-screenshots.sh", [
 require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "app.buttons.matching(identifier: \"recipe-editor.save\").count",
   "Recipe editor must have exactly one toolbar Save owner",
-  "let scrollVelocity: XCUIGestureVelocity = terminalIdentifier == nil ? .fast : .slow",
-  "primarySurface.swipeUp(velocity: scrollVelocity)",
+  "terminalScrollCorrection(",
+  "drag(primarySurface, contentOffset: correction)",
+  "hittable: element.isHittable",
+  "enabled: element.isEnabled",
+  "hitRegionAuditPassed",
   "let maxScrollActions = 12",
   "routeRequiredAccessibilityScrollIdentifiers(route: route)",
   "namedTerminalIsVisible(",
   "terminalScrollSignature(",
   "if terminalIdentifier == nil, let signature, signature == previousSignature",
   "reachedStableTerminal = true",
-  "!viewport.contains(elementFrame)",
+  "isHorizontallyContained",
+  "isVerticallyClipped",
   "includesDynamicTypeChecks: false"
+])
+forbid_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
+  "hittable: actionable && intersectsWindow",
+  "fatalError(\"Implemented after the focused regression test fails\")"
 ])
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift", ["recipe-covers.scroll"])
 require_tokens("Apps/Spoonjoy/Shared/Views/ProfileView.swift", ["profile.scroll"])

@@ -258,6 +258,29 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(viewport, ObservedRect(x: 0, y: 140, width: 402, height: 503))
     }
 
+    func testTerminalScrollCorrectionMovesClippedContentIntoViewport() {
+        let viewport = ObservedRect(x: 0, y: 140, width: 402, height: 503)
+
+        XCTAssertEqual(
+            terminalScrollCorrection(
+                terminalFrame: ObservedRect(x: 16, y: 107, width: 160, height: 26),
+                viewport: viewport
+            ),
+            41
+        )
+        XCTAssertEqual(
+            terminalScrollCorrection(
+                terminalFrame: ObservedRect(x: 16, y: 630, width: 160, height: 26),
+                viewport: viewport
+            ),
+            -21
+        )
+        XCTAssertNil(terminalScrollCorrection(
+            terminalFrame: ObservedRect(x: 16, y: 200, width: 160, height: 26),
+            viewport: viewport
+        ))
+    }
+
     func testAuditOnlyIgnoresUnattributedSwiftUIContrastBehindSystemTabBar() {
         XCTAssertTrue(shouldIgnoreUnattributedSystemTabBarContrast(
             auditType: .contrast,
@@ -978,12 +1001,31 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
 
         let maxScrollActions = 12
-        let scrollVelocity: XCUIGestureVelocity = terminalIdentifier == nil ? .fast : .slow
         var previousSignature: String?
         var reachedStableTerminal = false
         var scrollActionCount = 0
         while scrollActionCount < maxScrollActions {
-            primarySurface.swipeUp(velocity: scrollVelocity)
+            let beforeScrollElements = observedElements(in: app, windowFrame: windowFrame)
+            let beforeScrollViewport = contentViewport(windowFrame: windowFrame, elements: beforeScrollElements)
+            if namedTerminalIsVisible(
+                in: beforeScrollElements,
+                terminalIdentifier: terminalIdentifier,
+                viewport: beforeScrollViewport
+            ) {
+                reachedStableTerminal = true
+                break
+            }
+            let namedTerminal = terminalIdentifier.flatMap { identifier in
+                beforeScrollElements.first { $0.identifier == identifier && $0.exists }
+            }
+            if let correction = terminalScrollCorrection(
+                terminalFrame: namedTerminal?.frame,
+                viewport: beforeScrollViewport
+            ) {
+                drag(primarySurface, contentOffset: correction)
+            } else {
+                primarySurface.swipeUp(velocity: .fast)
+            }
             scrollActionCount += 1
             let probeElements = observedElements(in: app, windowFrame: windowFrame)
             let probeViewport = contentViewport(windowFrame: windowFrame, elements: probeElements)
@@ -1090,6 +1132,36 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 && element.exists
                 && viewport.contains(element.frame)
         }
+    }
+
+    private func terminalScrollCorrection(
+        terminalFrame: ObservedRect?,
+        viewport: ObservedRect
+    ) -> CGFloat? {
+        guard let terminalFrame else {
+            return nil
+        }
+        let margin: CGFloat = 8
+        if terminalFrame.minY < viewport.minY + margin {
+            return viewport.minY + margin - terminalFrame.minY
+        }
+        if terminalFrame.maxY > viewport.maxY - margin {
+            return viewport.maxY - margin - terminalFrame.maxY
+        }
+        return nil
+    }
+
+    private func drag(_ surface: XCUIElement, contentOffset: CGFloat) {
+        let surfaceHeight = max(surface.frame.height, 1)
+        let endY = min(0.85, max(0.15, 0.5 + contentOffset / surfaceHeight))
+        let start = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
+        start.press(
+            forDuration: 0.05,
+            thenDragTo: end,
+            withVelocity: .slow,
+            thenHoldForDuration: 0.05
+        )
     }
 
     private func terminalScrollSignature(
