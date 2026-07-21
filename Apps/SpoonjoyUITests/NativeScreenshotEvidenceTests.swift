@@ -334,7 +334,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             expectedLabel = "Spoonjoy"
         } else {
             expectedLabel = switch route {
-            case "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode": "Lemon Pantry Pasta"
+            case "kitchen", "recipes", "saved-recipes", "recipe-detail": "Lemon Pantry Pasta"
+            case "recipe-editor": "Recipe"
+            case "recipe-covers": "Photo Studio"
+            case "cook-mode": "Current cooking step 1, Boil pasta"
             case "cook-log": "Cooks"
             case "cookbooks", "cookbook-detail": "Weeknights"
             case "profile": "@ari"

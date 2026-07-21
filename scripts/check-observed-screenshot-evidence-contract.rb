@@ -108,7 +108,10 @@ require_tokens(ios_observer, [
   "cookbooks",
   "cookbook-detail",
   "deep-scroll-screenshot",
-  "deep-scroll-evidence"
+  "deep-scroll-evidence",
+  "case \"recipe-editor\": \"Recipe\"",
+  "case \"recipe-covers\": \"Photo Studio\"",
+  "case \"cook-mode\": \"Current cooking step 1, Boil pasta\""
 ])
 forbid_tokens(ios_observer, [
   "element.isHittable",
