@@ -282,7 +282,7 @@ enum ScreenshotEvidenceGeometry {
         }
 
         return candidate.label.isEmpty && elements.contains { toggle in
-            isFullRowToggle(toggle) && toggle.frame.contains(candidate.frame)
+            isFullRowToggle(toggle) && toggle.frame.contains(candidate.frame, tolerance: 2.5)
         }
     }
 
