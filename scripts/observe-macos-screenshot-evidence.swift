@@ -719,7 +719,10 @@ func findings(
 }
 
 func isNativeSystemControl(_ element: AXObservedElement) -> Bool {
-    Set([
+    if element.role == (kAXDisclosureTriangleRole as String) {
+        return true
+    }
+    return Set([
         "AXCloseButton",
         "AXMinimizeButton",
         "AXZoomButton",

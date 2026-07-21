@@ -1269,6 +1269,12 @@ struct CoverControlSurfaceTests {
         let missingUploadTokens = uploadTokens.filter { !coverControlsSource.contains($0) }
         #expect(missingUploadTokens.isEmpty, "Missing native upload/Spoon control tokens: \(missingUploadTokens)")
 
+        let headerStart = try #require(coverControlsSource.range(of: "private var header: some View"))
+        let headerEnd = try #require(coverControlsSource.range(of: "@ViewBuilder private var statusMessages"))
+        let headerSource = coverControlsSource[headerStart.lowerBound..<headerEnd.lowerBound]
+        #expect(headerSource.contains(".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"))
+        #expect(headerSource.contains(".contentShape(Rectangle())"))
+
         let generationTokens = [
             #"@State private var placeholderPromptAddition = """#,
             #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,

@@ -155,6 +155,7 @@ require_tokens(mac_observer, [
   "expected exactly one measurable main content window",
   "observeTree(root: rootWindowElement)",
   "isNativeSystemControl",
+  "kAXDisclosureTriangleRole as String",
   "AXFullScreenButton",
   "AXIncrementArrow",
   "AXDecrementArrow",
@@ -197,7 +198,8 @@ require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
   "session.canPerformSave(for: routeIdentifier)",
   "reset(ifMatching: editorRouteIdentifier)",
   "synchronizeToolbarCoordinator()",
-  "private func adjustDuration(",
+  "private func durationStepper(",
+  "Stepper(value: durationMinutes(value)",
   "private func toggleOutputSteps(for stepID: String)",
   ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
 ])
@@ -219,8 +221,10 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "app.buttons.matching(identifier: \"recipe-editor.save\").count",
   "Recipe editor must have exactly one toolbar Save owner",
   "primarySurface.swipeUp(velocity: .fast)",
-  "scrollGestureAnchor(in: app, windowFrame: windowFrame)",
-  "if stablePasses >= 2 && terminalReached",
+  "let maxScrollActions = 12",
+  "terminalScrollSignature(",
+  "if let signature, signature == previousSignature",
+  "reachedStableTerminal = true",
   "!viewport.contains(elementFrame)",
   "includesDynamicTypeChecks: false"
 ])

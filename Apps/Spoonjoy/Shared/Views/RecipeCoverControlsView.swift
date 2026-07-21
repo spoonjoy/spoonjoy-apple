@@ -180,6 +180,8 @@ struct RecipeCoverControlsView: View {
                     .padding(.vertical, 12)
             }
             .buttonStyle(.borderless)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .contentShape(Rectangle())
 
             Text("Photo Studio")
                 .font(KitchenTableTheme.displayTitle)
