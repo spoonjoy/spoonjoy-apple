@@ -139,8 +139,13 @@ struct SearchVisualContractTests {
         let retryFunction = try #require(capture.range(of: "capture_ios_app_with_retries() {"))
         let body = capture[captureFunction.lowerBound..<retryFunction.lowerBound]
         let terminate = try #require(body.range(of: "terminate_ios_app_and_confirm_stopped"))
-        let writeState = try #require(body.range(of: "write_app_state"))
-        #expect(terminate.lowerBound < writeState.lowerBound)
+        let refreshFixturePaths = try #require(body.range(of: "refresh_ios_fixture_paths"))
+        #expect(terminate.lowerBound < refreshFixturePaths.lowerBound)
+
+        let refreshFunction = try #require(capture.range(of: "refresh_ios_fixture_paths() {"))
+        let captureFunctionStart = try #require(capture.range(of: "capture_ios_app() {"))
+        let refreshBody = capture[refreshFunction.lowerBound..<captureFunctionStart.lowerBound]
+        #expect(refreshBody.contains("atomic_fixture_write \"$ios_state_directory/native-app-state.json\" write_app_state"))
     }
 }
 

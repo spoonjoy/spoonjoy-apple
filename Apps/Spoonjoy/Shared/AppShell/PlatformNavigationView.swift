@@ -20,6 +20,7 @@ struct PlatformNavigationView: View {
     @State private var isSearchPresented = false
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
+    @StateObject private var recipeEditorToolbarCoordinator = RecipeEditorToolbarCoordinator()
 
     private let contentState: NativeShellContentState
     private let allowsLiveEffects: Bool
@@ -219,15 +220,11 @@ struct PlatformNavigationView: View {
         }
     }
 
-    @ViewBuilder private var compactNavigationRootContent: some View {
-        if isRecipeEditorRoute {
-            compactNavigationBaseContent
-        } else {
-            compactNavigationBaseContent
-                .toolbar {
-                    compactNavigationToolbar
-                }
-        }
+    private var compactNavigationRootContent: some View {
+        compactNavigationBaseContent
+            .toolbar {
+                compactNavigationToolbar
+            }
     }
 
     private var compactNavigationBaseContent: some View {
@@ -567,8 +564,10 @@ struct PlatformNavigationView: View {
                     conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
                     close: openRoute,
                     shellOfflineIndicatorState: offlineIndicatorState,
-                    onDismissOfflineIndicator: dismissOfflineIndicator
+                    onDismissOfflineIndicator: dismissOfflineIndicator,
+                    toolbarCoordinator: recipeEditorToolbarCoordinator
                 )
+                .id(editorViewModel.route.stateIdentifier)
             } else {
                 ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "We couldn't open this recipe editor.")
             }
@@ -873,7 +872,21 @@ struct PlatformNavigationView: View {
             }
         }
 
-        if !isRecipeEditorRoute {
+        if isRecipeEditorRoute {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    recipeEditorToolbarCoordinator.performSave(for: navigation.route.stateIdentifier)
+                } label: {
+                    if recipeEditorToolbarCoordinator.isSaving(for: navigation.route.stateIdentifier) {
+                        ProgressView()
+                    } else {
+                        Text("Save")
+                    }
+                }
+                .disabled(!recipeEditorToolbarCoordinator.canPerformSave(for: navigation.route.stateIdentifier))
+                .accessibilityIdentifier("recipe-editor.save")
+            }
+        } else {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Button("Imports", systemImage: "tray.and.arrow.down") {

@@ -1295,22 +1295,25 @@ struct SettingsTokenConnectionTests {
 
         let macApp = try readRepoFile("Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift")
         for token in [
+            "Window(\"Spoonjoy\", id: \"main\")",
             ".frame(minWidth: 900, minHeight: 620)",
             ".defaultSize(width: 1040, height: 760)",
             ".windowResizability(.contentMinSize)",
-            "SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()",
-            "CommandGroup(replacing: .newItem)",
-            "appDelegate.showMainWindow()",
-            "func applicationShouldHandleReopen",
-            "showMainWindowIfNeeded()",
-            "existingVisibleMainWindow()",
-            "show-main-window-existing-app-window",
             "SPOONJOY_MAC_LAUNCH_PROOF_PATH",
             "SpoonjoyMacLaunchProof.record",
-            "NSHostingController(rootView: SpoonjoyRootView())",
-            "window.minSize = NSSize(width: 900, height: 620)"
+            "delegate-did-finish-launching"
         ] {
             #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
+        }
+        for forbidden in [
+            "WindowGroup",
+            "SpoonjoyMacMainWindowCoordinator",
+            "fallbackWindow",
+            "NSHostingController",
+            "NSWindow(",
+            "New Window"
+        ] {
+            #expect(!macApp.contains(forbidden), "SpoonjoyMacApp.swift must leave the main window under single-scene SwiftUI ownership: \(forbidden)")
         }
 
         #expect(!rootView.contains("signedOutRouteUsesNativeShell"), "Signed-out launch must not bypass native Apple sign-in into the shell.")
