@@ -28,6 +28,10 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     settings-signed-out settings-apns-denied settings-apns-not-determined settings-apns-authorized
     settings-apns-unregistered unknown-link
   ].freeze
+  SETTINGS_ROUTE_VARIANTS = %w[
+    settings-notifications settings-signed-out settings-apns-denied settings-apns-not-determined
+    settings-apns-authorized settings-apns-unregistered
+  ].freeze
 
   def setup
     @temporary_directory = Pathname.new(Dir.mktmpdir("testflight-visual-evidence"))
@@ -73,6 +77,24 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     result = run_tool("seal", *seal_arguments)
     refute result.success?
     assert_includes result.output, "full route matrix"
+  end
+
+  def test_rejects_a_noncanonical_capture_route_for_a_named_matrix_row
+    summary_path = matrix_summary_path
+    summary = JSON.parse(summary_path.read)
+    row = summary.fetch("routes").find { |candidate| candidate.fetch("name") == "settings-notifications" }
+    row["route"] = "settings-notifications"
+    review_path = Pathname.new(row.fetch("designReview").fetch("path"))
+    review = JSON.parse(review_path.read)
+    review["screenshotRoute"] = "settings-notifications"
+    write_json(review_path, review)
+    row["designReview"] = artifact_entry(review_path, review_path.to_s)
+    write_json(summary_path, summary)
+    matrix_summary_path.sub_ext(".jsonl").write(summary.fetch("routes").map { |entry| JSON.generate(entry) }.join("\n") + "\n")
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "canonical capture route"
   end
 
   def test_rejects_blocker_residue_anywhere_in_the_matrix_root
@@ -373,7 +395,7 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     write_json(
       fixture.join("artifacts.json"),
       "artifacts" => [
-        { "id" => 9_001, "name" => "testflight-release-notes-#{SOURCE_SHA}", "expired" => false },
+        { "id" => 9_001, "name" => "testflight-release-notes-#{SOURCE_SHA}-#{RUN_ID}-#{RUN_ATTEMPT}", "expired" => false },
         { "id" => 9_002, "name" => visual_name, "digest" => visual_digest, "expired" => false }
       ]
     )
@@ -445,7 +467,7 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     end
 
     review = {
-      "screenshotRoute" => route,
+      "screenshotRoute" => capture_route_for(route),
       "accessibilityProofArtifacts" => proof_paths.first(3),
       "observedAccessibilityEvidenceArtifacts" => proof_paths.drop(3),
       "accessibilityContentSizeScreenshot" => screenshot_paths.fetch("iosAccessibility"),
@@ -459,7 +481,7 @@ class TestFlightVisualEvidenceTest < Minitest::Test
 
     {
       "name" => route,
-      "route" => route,
+      "route" => capture_route_for(route),
       "artifactRoot" => route_root.to_s,
       "status" => "pass",
       "blocked" => false,
@@ -471,6 +493,10 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       "iosTabletScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosTablet")), route_root.join(screenshot_paths.fetch("iosTablet")).to_s),
       "macosScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("macosDesktop")), route_root.join(screenshot_paths.fetch("macosDesktop")).to_s)
     }
+  end
+
+  def capture_route_for(name)
+    SETTINGS_ROUTE_VARIANTS.include?(name) ? "settings" : name
   end
 
   def refresh_route_artifact_hash(route, key, path)
