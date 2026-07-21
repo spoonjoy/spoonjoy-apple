@@ -113,7 +113,9 @@ require_tokens(ios_observer, [
   "case \"recipe-covers\": \"Photo Studio\"",
   "case \"cook-mode\": \"Current cooking step 1, Boil pasta\"",
   "app.collectionViews.allElementsBoundByIndex",
-  ".collectionView"
+  ".collectionView",
+  "requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))",
+  "testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport"
 ])
 forbid_tokens(ios_observer, [
   "element.isHittable",
@@ -171,8 +173,10 @@ require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
   ".contentMargins(.top, KitchenTableTheme.pageSpacing, for: .scrollContent)",
   "ToolbarItem(placement: .confirmationAction)",
   "private func adjustDuration(",
+  "private func toggleOutputSteps(for stepID: String)",
   ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
 ])
+forbid_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", ["DisclosureGroup"])
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift", ["recipe-covers.scroll"])
 require_tokens("Apps/Spoonjoy/Shared/Views/ProfileView.swift", ["profile.scroll"])
 

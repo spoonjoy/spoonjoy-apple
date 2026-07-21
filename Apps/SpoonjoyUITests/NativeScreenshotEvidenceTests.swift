@@ -84,6 +84,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         var requiredIdentifiers = csvSet(environment[Self.requiredIdentifiersEnvironmentKey])
         requiredIdentifiers.formUnion(routeRequiredIdentifiers(route: route))
         var requiredVisibleIdentifiers = requiredIdentifiers
+        requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))
         let requiredLabels = routeRequiredLabels(route: route, signedIn: environment["SPOONJOY_SCREENSHOT_AUTH"] != "0")
         if apnsMode {
             requiredIdentifiers.formUnion([
@@ -177,6 +178,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             requirements: requirements(required: ["required"], visible: ["required"])
         )
         XCTAssertEqual(findings.map(\.kind), [.outsideViewport])
+    }
+
+    func testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport() {
+        let required = routeRequiredIdentifiers(route: "recipe-editor")
+        let visible = required.subtracting(routeRequiredChromeIdentifiers(route: "recipe-editor"))
+
+        XCTAssertTrue(required.contains("recipe-editor.save"))
+        XCTAssertFalse(visible.contains("recipe-editor.save"))
+        XCTAssertTrue(visible.contains("recipe-editor.title"))
     }
 
     func testGeometryRejectsPeerOverlap() {
@@ -402,6 +412,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ["cook.current-step", "cook.done", "cook.tools"]
         case "cook-log":
             ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
+        default:
+            []
+        }
+    }
+
+    private func routeRequiredChromeIdentifiers(route: String) -> Set<String> {
+        switch route {
+        case "recipe-editor":
+            ["recipe-editor.save"]
         default:
             []
         }

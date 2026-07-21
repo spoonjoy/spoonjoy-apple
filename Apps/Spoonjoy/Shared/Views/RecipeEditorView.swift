@@ -18,6 +18,7 @@ struct RecipeEditorView: View {
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
+    @State private var expandedOutputStepIDs: Set<String> = []
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
@@ -117,20 +118,29 @@ struct RecipeEditorView: View {
 
                         let priorSteps = priorSteps(for: step)
                         if !priorSteps.isEmpty {
-                            DisclosureGroup {
+                            Button {
+                                toggleOutputSteps(for: step.id)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Text("Uses Output From")
+                                    Spacer()
+                                    Image(systemName: expandedOutputStepIDs.contains(step.id) ? "chevron.up" : "chevron.down")
+                                        .accessibilityHidden(true)
+                                }
+                                .padding(.vertical, 11)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Uses Output From")
+                            .accessibilityValue(expandedOutputStepIDs.contains(step.id) ? "Expanded" : "Collapsed")
+
+                            if expandedOutputStepIDs.contains(step.id) {
                                 ForEach(priorSteps) { priorStep in
                                     Toggle(
                                         "Step \(priorStep.stepNum)",
                                         isOn: outputUseBinding($step.outputStepNums, outputStepNum: priorStep.stepNum)
                                     )
                                 }
-                            } label: {
-                                Text("Uses Output From")
-                                    .frame(
-                                        maxWidth: .infinity,
-                                        minHeight: KitchenTableTheme.minimumTouchTarget,
-                                        alignment: .leading
-                                    )
                             }
                         }
 
@@ -365,6 +375,16 @@ struct RecipeEditorView: View {
     private func adjustDuration(_ value: Binding<Int?>, by delta: Int) {
         let nextValue = min(720, max(0, (value.wrappedValue ?? 0) + delta))
         value.wrappedValue = nextValue == 0 ? nil : nextValue
+    }
+
+    private func toggleOutputSteps(for stepID: String) {
+        withAnimation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2)) {
+            if expandedOutputStepIDs.contains(stepID) {
+                expandedOutputStepIDs.remove(stepID)
+            } else {
+                expandedOutputStepIDs.insert(stepID)
+            }
+        }
     }
 
     private func editorSectionHeader(_ title: String) -> some View {
