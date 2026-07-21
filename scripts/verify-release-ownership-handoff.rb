@@ -773,11 +773,15 @@ class ReleaseOwnershipHandoffVerifier
     outbound = ack.fetch("outboundRelease")
     ledger = ack.fetch("ledgerEvent")
     receiver = ack.fetch("receiver")
-    @ledger_app_id = ledger.fetch("appID")
+    @handoff_authority = release.fetch("handoffAuthority")
+    @ledger_app_id = @handoff_authority.fetch("ledgerAppID")
     release_digest = sha256(release_bytes)
     fail_with("outbound release SHA-256 does not match acknowledgment") unless outbound.fetch("sha256") == release_digest
     fail_with("receiver task ID does not match outbound release") unless receiver.fetch("taskID") == release.fetch("receiverTaskID")
     fail_with("receiver Desk task does not match outbound release") unless receiver.fetch("deskTask") == release.fetch("receiverDeskTask")
+    unless ledger.fetch("appID") == @ledger_app_id
+      fail_with("acknowledgment ledger App ID does not match the source-anchored ledger App ID")
+    end
 
     protected = ack.fetch("protectedOutbound")
     release.keys.sort.each do |field|
@@ -790,6 +794,8 @@ class ReleaseOwnershipHandoffVerifier
   def build_envelopes(ack)
     outbound = ack.fetch("outboundRelease")
     ledger = ack.fetch("ledgerEvent")
+    policy = @handoff_authority.fetch("policy")
+    root_event = @handoff_authority.fetch("rootEvent")
     [
       Envelope.new(
         label: "outbound release",
@@ -799,11 +805,25 @@ class ReleaseOwnershipHandoffVerifier
         path: outbound.fetch("path")
       ),
       Envelope.new(
+        label: "delivery authority policy",
+        repository: DELIVERY_REPOSITORY,
+        ref: policy.fetch("ref"),
+        commit: policy.fetch("commit"),
+        path: policy.fetch("path")
+      ),
+      Envelope.new(
         label: "ledger event",
         repository: ledger.fetch("repository"),
         ref: ledger.fetch("ref"),
         commit: ledger.fetch("commit"),
         path: ledger.fetch("payloadPath")
+      ),
+      Envelope.new(
+        label: "root authority event",
+        repository: DELIVERY_REPOSITORY,
+        ref: root_event.fetch("ref"),
+        commit: root_event.fetch("commit"),
+        path: root_event.fetch("path")
       ),
       Envelope.new(
         label: "delivery acknowledgment",
@@ -853,6 +873,8 @@ class ReleaseOwnershipHandoffVerifier
     fail_with("delivery acknowledgment tree SHA-256 does not match") unless sha256(contents.fetch("delivery acknowledgment")) == ack_digest
     fail_with("upstream acknowledgment tree SHA-256 does not match") unless sha256(contents.fetch("upstream acknowledgment")) == ack_digest
 
+    validate_delivery_authority(contents)
+
     event = StrictJSON.parse(contents.fetch("ledger event"), label: "protected ledger event")
     fail_with("ledger event type must be ReceiverAcknowledged") unless event["eventType"] == "ReceiverAcknowledged"
     payload = event["payload"]
@@ -866,6 +888,46 @@ class ReleaseOwnershipHandoffVerifier
     fail_with("ledger payload receiver task ID does not match") unless payload["receiverTaskID"] == RECEIVER_TASK_ID
     fail_with("ledger payload receiver Desk task does not match") unless payload["receiverDeskTask"] == RECEIVER_DESK_TASK
     fail_with("ledger payload dedicated App ID does not match") unless payload["ledgerAppID"] == ledger.fetch("appID")
+  end
+
+  def validate_delivery_authority(contents)
+    policy_anchor = @handoff_authority.fetch("policy")
+    root_anchor = @handoff_authority.fetch("rootEvent")
+    policy_bytes = contents.fetch("delivery authority policy")
+    root_bytes = contents.fetch("root authority event")
+    unless sha256(policy_bytes) == policy_anchor.fetch("sha256")
+      fail_with("delivery authority policy tree SHA-256 does not match the source anchor")
+    end
+    unless sha256(root_bytes) == root_anchor.fetch("sha256")
+      fail_with("root authority event tree SHA-256 does not match the source anchor")
+    end
+
+    policy = StrictJSON.parse(policy_bytes, label: "protected delivery authority policy")
+    expected_policy_keys = %w[ledger policyType schemaVersion]
+    unless policy.is_a?(Hash) && policy.keys.sort == expected_policy_keys &&
+           policy["schemaVersion"] == 1 && policy["policyType"] == "DeliveryAuthorityPolicy"
+      fail_with("protected delivery authority policy has an unexpected contract")
+    end
+    ledger = policy["ledger"]
+    unless ledger.is_a?(Hash) && ledger.keys.sort == ["githubAppID"] && ledger["githubAppID"] == @ledger_app_id
+      fail_with("protected delivery authority policy does not pin the source-anchored ledger App ID")
+    end
+
+    root_event = StrictJSON.parse(root_bytes, label: "protected root authority event")
+    unless root_event.is_a?(Hash) && root_event.keys.sort == %w[eventType payload schemaVersion] &&
+           root_event["schemaVersion"] == 1 && root_event["eventType"] == "RootAuthorityInstalled"
+      fail_with("protected root authority event has an unexpected contract")
+    end
+    payload = root_event["payload"]
+    expected_payload = {
+      "authorityPolicyCommit" => policy_anchor.fetch("commit"),
+      "authorityPolicyPath" => policy_anchor.fetch("path"),
+      "authorityPolicySHA256" => policy_anchor.fetch("sha256"),
+      "ledgerAppID" => @ledger_app_id
+    }
+    unless payload == expected_payload
+      fail_with("protected root authority event does not bind the source-anchored delivery authority")
+    end
   end
 
   def validate_protected_refs_stable(initial_heads)

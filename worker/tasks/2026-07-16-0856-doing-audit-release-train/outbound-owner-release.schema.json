@@ -13,6 +13,7 @@
     "web",
     "native",
     "provider",
+    "handoffAuthority",
     "zeroInFlightWebMutations",
     "zeroInFlightNativeMutations",
     "zeroInFlightProviderMutations",
@@ -70,6 +71,37 @@
         "appleCallbackMode": { "enum": ["legacy-form-post", "clean-form-post"] },
         "state": { "const": "terminal" },
         "proofArtifact": { "$ref": "#/$defs/repoRelativePath" }
+      }
+    },
+    "handoffAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "ledgerAppID", "policy", "rootEvent"],
+      "properties": {
+        "repository": { "const": "spoonjoy/spoonjoy-delivery" },
+        "ledgerAppID": { "type": "integer", "minimum": 1 },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ref", "commit", "path", "sha256"],
+          "properties": {
+            "ref": { "const": "refs/heads/main" },
+            "commit": { "$ref": "#/$defs/gitSHA" },
+            "path": { "$ref": "#/$defs/repoRelativePath" },
+            "sha256": { "$ref": "#/$defs/sha256" }
+          }
+        },
+        "rootEvent": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ref", "commit", "path", "sha256"],
+          "properties": {
+            "ref": { "const": "refs/heads/release-ledger" },
+            "commit": { "$ref": "#/$defs/gitSHA" },
+            "path": { "$ref": "#/$defs/repoRelativePath" },
+            "sha256": { "$ref": "#/$defs/sha256" }
+          }
+        }
       }
     },
     "zeroInFlightWebMutations": { "const": true },

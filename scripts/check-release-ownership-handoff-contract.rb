@@ -27,6 +27,10 @@ LEDGER_COMMIT = "2" * 40
 DELIVERY_ACK_COMMIT = "3" * 40
 UPSTREAM_ACK_COMMIT = "4" * 40
 DRIFT_COMMIT = "5" * 40
+AUTHORITY_POLICY_COMMIT = "a" * 40
+ROOT_AUTHORITY_EVENT_COMMIT = "b" * 40
+AUTHORITY_POLICY_PATH = "policy/delivery-authority-v1.json"
+ROOT_AUTHORITY_EVENT_PATH = "ledger/events/root-authority-installed.json"
 RECEIVER_TASK_ID = "019f5c80-bbe0-76a1-82eb-b0c715d035e7"
 RECEIVER_DESK_TASK = "spoonjoy/cross-client-delivery"
 LEDGER_APP_ID = 424_242
@@ -58,6 +62,35 @@ end
 
 def deep_copy(value)
   Marshal.load(Marshal.dump(value))
+end
+
+def authority_policy_document
+  {
+    "schemaVersion" => 1,
+    "policyType" => "DeliveryAuthorityPolicy",
+    "ledger" => { "githubAppID" => LEDGER_APP_ID }
+  }
+end
+
+def authority_policy_bytes
+  pretty_json(authority_policy_document)
+end
+
+def root_authority_event_document
+  {
+    "schemaVersion" => 1,
+    "eventType" => "RootAuthorityInstalled",
+    "payload" => {
+      "authorityPolicyCommit" => AUTHORITY_POLICY_COMMIT,
+      "authorityPolicyPath" => AUTHORITY_POLICY_PATH,
+      "authorityPolicySHA256" => sha256(authority_policy_bytes),
+      "ledgerAppID" => LEDGER_APP_ID
+    }
+  }
+end
+
+def root_authority_event_bytes
+  pretty_json(root_authority_event_document)
 end
 
 def release_document
@@ -92,6 +125,22 @@ def release_document
       "appleCallbackMode" => "legacy-form-post",
       "state" => "terminal",
       "proofArtifact" => "evidence/provider-proof.json"
+    },
+    "handoffAuthority" => {
+      "repository" => DELIVERY_REPOSITORY,
+      "ledgerAppID" => LEDGER_APP_ID,
+      "policy" => {
+        "ref" => DELIVERY_ACK_REF,
+        "commit" => AUTHORITY_POLICY_COMMIT,
+        "path" => AUTHORITY_POLICY_PATH,
+        "sha256" => sha256(authority_policy_bytes)
+      },
+      "rootEvent" => {
+        "ref" => LEDGER_REF,
+        "commit" => ROOT_AUTHORITY_EVENT_COMMIT,
+        "path" => ROOT_AUTHORITY_EVENT_PATH,
+        "sha256" => sha256(root_authority_event_bytes)
+      }
     },
     "zeroInFlightWebMutations" => true,
     "zeroInFlightNativeMutations" => true,
@@ -303,11 +352,19 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
         "rulesets" => [protected_ledger_ruleset],
         "commits" => {
           LEDGER_COMMIT => {
-            "ancestors" => [],
+            "ancestors" => [ROOT_AUTHORITY_EVENT_COMMIT],
             "files" => { "ledger/events/receiver-acknowledged.json" => ledger_bytes }
           },
-          DELIVERY_ACK_COMMIT => {
+          ROOT_AUTHORITY_EVENT_COMMIT => {
             "ancestors" => [],
+            "files" => { ROOT_AUTHORITY_EVENT_PATH => root_authority_event_bytes }
+          },
+          AUTHORITY_POLICY_COMMIT => {
+            "ancestors" => [],
+            "files" => { AUTHORITY_POLICY_PATH => authority_policy_bytes }
+          },
+          DELIVERY_ACK_COMMIT => {
+            "ancestors" => [AUTHORITY_POLICY_COMMIT],
             "files" => { delivery_ack_path => ack_bytes }
           },
           DRIFT_COMMIT => {
@@ -618,6 +675,19 @@ begin
     rules = repo.fetch("rulesets").find { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
       .fetch("rules")
     rules.reject! { |rule| rule.fetch("type") == "update" }
+  end)
+
+  expect_failure("coherent ledger App substitution", "source-anchored ledger App ID", mutate: lambda do |documents|
+    substituted_app_id = LEDGER_APP_ID + 1
+    documents.fetch(:ack).fetch("ledgerEvent")["appID"] = substituted_app_id
+    payload = documents.fetch(:ledger_event).fetch("payload")
+    payload["ledgerAppID"] = substituted_app_id
+    documents.fetch(:ack).fetch("ledgerEvent")["payloadSHA256"] = sha256(canonical_json(payload))
+    delivery = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    delivery.fetch("commits").fetch(LEDGER_COMMIT).fetch("files")["ledger/events/receiver-acknowledged.json"] = pretty_json(documents.fetch(:ledger_event))
+    actor = delivery.fetch("rulesets").find { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
+      .fetch("bypass_actors").first
+    actor["actor_id"] = substituted_app_id
   end)
 
   expect_failure("mutable protected main", "does not block force pushes and deletion", mutate: lambda do |documents|
