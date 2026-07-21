@@ -44,6 +44,7 @@ timeout_seconds="${SPOONJOY_SMOKE_TIMEOUT_SECONDS:-30}"
 boot_timeout_seconds="${SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS:-120}"
 launch_attempts="${SPOONJOY_SMOKE_LAUNCH_ATTEMPTS:-3}"
 registration_timeout_seconds="${SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS:-120}"
+host_settle_seconds="${SPOONJOY_SMOKE_HOST_SETTLE_SECONDS:-5}"
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
 launch_command="xcrun simctl launch"
@@ -292,6 +293,9 @@ fi
   printf 'Simulator host open exit code: %s\n' "$simulator_host_status"
   if [[ "$simulator_host_status" -ne 0 ]]; then
     printf 'Simulator host did not open; continuing because headless CoreSimulator launch may still be available\n'
+  elif [[ "$host_settle_seconds" != "0" ]]; then
+    printf 'Waiting %s seconds for Simulator host foreground readiness\n' "$host_settle_seconds"
+    sleep "$host_settle_seconds"
   fi
 } >> "$log_path" 2>&1
 

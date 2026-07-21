@@ -278,6 +278,7 @@ proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-60}"
 proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
 ios_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 ios_boot_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS:-90}"
+ios_host_settle_seconds="${SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS:-5}"
 ios_foreground_probe_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS:-15}"
 macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
@@ -2305,7 +2306,10 @@ transition_ios_capture_device() {
     open -a Simulator --args -CurrentDeviceUDID "$next_udid"; then
     return 1
   fi
-  sleep 1
+  if [[ "$ios_host_settle_seconds" != "0" ]]; then
+    printf 'Waiting %s seconds for Simulator host foreground readiness\n' "$ios_host_settle_seconds" >> "$capture_log"
+    sleep "$ios_host_settle_seconds"
+  fi
 }
 
 capture_macos_window() {

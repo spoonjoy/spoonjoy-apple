@@ -257,6 +257,8 @@ struct NativeMobileDesignContractTests {
                 "stop_ios_foreground_stream",
                 "transition_ios_capture_device",
                 "open -a Simulator --args -CurrentDeviceUDID",
+                "SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS",
+                "Simulator host foreground readiness",
                 "Spoonjoy stopped being the front display before screenshot capture",
                 "Spoonjoy stopped being the front display during screenshot capture",
                 "Front display did change",

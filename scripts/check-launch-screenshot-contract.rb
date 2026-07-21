@@ -13,6 +13,8 @@ ARTIFACT_ROOT = ROOT.join("artifacts/apple/native-screenshots")
 DESIGN_REVIEW = ARTIFACT_ROOT.join("design-review.json")
 DESIGN_REVIEW_BLOCKED = ARTIFACT_ROOT.join("design-review-blocked.json")
 FIXTURE_PROCESS_TIMEOUT_SECONDS = 120
+ENV["SPOONJOY_SMOKE_HOST_SETTLE_SECONDS"] = "0"
+ENV["SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS"] = "0"
 
 SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile.png",
@@ -79,6 +81,8 @@ SCRIPT_CONTRACTS = {
       "xcrun simctl list runtimes",
       "xcrun simctl boot",
       "open -a Simulator --args -CurrentDeviceUDID",
+      "SPOONJOY_SMOKE_HOST_SETTLE_SECONDS",
+      "Simulator host foreground readiness",
       "SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS",
       "xcrun simctl bootstatus $udid -b",
       "SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS",
@@ -153,6 +157,8 @@ SCRIPT_CONTRACTS = {
       "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
       "SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS",
       "SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS",
+      "SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS",
+      "Simulator host foreground readiness",
       "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
       "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
       "SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS",
