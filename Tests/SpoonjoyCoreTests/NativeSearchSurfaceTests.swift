@@ -246,6 +246,81 @@ struct NativeSearchSurfaceTests {
         #expect(!String(decoding: body, as: UTF8.self).contains("family secret"))
     }
 
+    @Test("search telemetry covers lifecycle outcomes clamps and sanitized failures")
+    func searchTelemetryCoversLifecycleOutcomesClampsAndSanitizedFailures() {
+        let longState = SearchState(query: String(repeating: "x", count: 5_000), scope: .all)
+        let metadata = NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.2", buildNumber: "45")
+        let started = NativeSearchTelemetryDescriptor.started(state: longState, hasCachedResults: true)
+            .telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(started.name == .searchStarted)
+        #expect(started.stage == "request_started")
+        #expect(started.searchQueryLength == 4_096)
+        #expect(started.hasRenderableCacheContent == true)
+
+        let livePage = SearchSurfacePage(
+            query: "tomato",
+            scope: .recipes,
+            limit: 20,
+            isAuthenticated: false,
+            results: [Self.recipeResult()],
+            source: .live(requestID: "req_search_complete", validatedAt: Self.now)
+        )
+        let completed = NativeSearchTelemetryDescriptor.completed(
+            state: SearchState(query: "tomato", scope: .recipes),
+            page: livePage,
+            durationMilliseconds: -12
+        ).telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(completed.name == .searchCompleted)
+        #expect(completed.stage == "request_completed")
+        #expect(completed.requestID == "req_search_complete")
+        #expect(completed.searchResultCount == 1)
+        #expect(completed.durationMilliseconds == 0)
+
+        let cachedPage = SearchSurfacePage(
+            query: "tomato",
+            scope: .recipes,
+            limit: 20,
+            isAuthenticated: false,
+            results: [],
+            source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+        )
+        let cachedCompletion = NativeSearchTelemetryDescriptor.completed(
+            state: SearchState(query: "tomato", scope: .recipes),
+            page: cachedPage,
+            durationMilliseconds: 700_000
+        ).telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(cachedCompletion.requestID == nil)
+        #expect(cachedCompletion.durationMilliseconds == 600_000)
+
+        let failures: [(SearchSurfaceRepositoryError, String)] = [
+            (.authenticationRequired(scope: .shoppingList), "authentication_required"),
+            (.authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read"), "authorization_required"),
+            (.offline, "offline"),
+            (.cancelled, "cancelled"),
+            (.searchFailed(message: "private transport detail"), "search_failed")
+        ]
+        for (error, expectedType) in failures {
+            let event = NativeSearchTelemetryDescriptor.failed(
+                state: SearchState(query: "private query", scope: .shoppingList),
+                error: error,
+                durationMilliseconds: 1,
+                hasCachedResults: false
+            ).telemetryEvent(environment: "production", metadata: metadata)
+            #expect(event.name == .searchFailed)
+            #expect(event.errorType == expectedType)
+        }
+
+        let defaultClockLoading = SearchSurfaceViewModel.loading(
+            state: SearchState(query: "tomato", scope: .recipes),
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            cachedPage: cachedPage
+        )
+        #expect(defaultClockLoading.offlineIndicator.display.isVisible)
+    }
+
     @Test("live search repository uses API v1 search and gates private shopping-list results")
     @MainActor
     func liveSearchRepositoryUsesAPIV1SearchAndGatesPrivateShoppingListResults() async throws {

@@ -412,26 +412,24 @@ public struct RecipeDetailProgressiveLoader: Sendable {
     }
 
     private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {
-        var cursor: PaginationCursor?
         var seenCursors = Set<String>()
         var spoons: [RecipeDetailRecentSpoon] = []
+        try Task.checkCancellation()
+        var page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: nil, limit: 50)
+        spoons.append(contentsOf: page.spoons)
 
-        while true {
-            try Task.checkCancellation()
-            let page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: cursor, limit: 50)
-            spoons.append(contentsOf: page.spoons)
-
-            guard page.hasMore else {
-                return SpoonCookLogData(spoons: spoons, nextCursor: page.nextCursor, hasMore: false)
-            }
+        while page.hasMore {
             guard let nextCursor = page.nextCursor else {
                 throw RecipeDetailProgressiveLoadError.missingNextCursor
             }
             guard seenCursors.insert(nextCursor.rawValue).inserted else {
                 throw RecipeDetailProgressiveLoadError.repeatedCursor
             }
-            cursor = nextCursor
+            try Task.checkCancellation()
+            page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: nextCursor, limit: 50)
+            spoons.append(contentsOf: page.spoons)
         }
+        return SpoonCookLogData(spoons: spoons, nextCursor: page.nextCursor, hasMore: false)
     }
 }
 

@@ -7,6 +7,41 @@ struct NativeLiveStoreTests {
     private static let now = Date(timeIntervalSince1970: 1_780_010_000)
 
     @MainActor
+    @Test("live store reports privacy-safe search telemetry with bound app metadata")
+    func liveStoreReportsPrivacySafeSearchTelemetryWithBoundAppMetadata() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                },
+                nativeTelemetryMetadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "2.0", buildNumber: "99")
+            )
+            let descriptor = NativeSearchTelemetryDescriptor.started(
+                state: SearchState(query: "private query", scope: .recipes),
+                hasCachedResults: true
+            )
+
+            await liveStore.recordSearchTelemetry(descriptor)
+
+            let event = try #require(await telemetryRecorder.recordedEvents().first)
+            #expect(event.name == .searchStarted)
+            #expect(event.environment == "production")
+            #expect(event.metadata == NativeTelemetryAppMetadata(platform: "ios", appVersion: "2.0", buildNumber: "99"))
+            #expect(event.searchScope == "recipes")
+            #expect(event.searchQueryLength == 13)
+            #expect(event.hasRenderableCacheContent == true)
+            #expect(await telemetryRecorder.recordedConfigurations().first?.baseURL == APIClientConfiguration.spoonjoyProduction.baseURL)
+        }
+    }
+
+    @MainActor
     @Test("live store refreshes auth before sync and hydrates applied sync cache")
     func liveStoreRefreshesAuthBeforeSyncAndHydratesAppliedSyncCache() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

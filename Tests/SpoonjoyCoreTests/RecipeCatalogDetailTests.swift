@@ -656,6 +656,77 @@ struct RecipeCatalogDetailTests {
         #expect(await recorder.results.count == 2)
     }
 
+    @Test("progressive recipe detail paginates and keeps history failures best effort")
+    func progressiveRecipeDetailPaginatesAndKeepsHistoryFailuresBestEffort() async throws {
+        let recipe = try Self.recipeDetail()
+        let detail = RecipeCatalogDetailResult(
+            recipe: recipe,
+            source: .live(requestID: "req_recipe_progressive_edges", validatedAt: Self.now)
+        )
+        let cursor = try #require(PaginationCursor(rawValue: "spoons.next"))
+        let firstSpoon = Self.manualSpoon(id: "spoon_first", deletedAt: nil)
+        let secondSpoon = Self.manualSpoon(id: "spoon_second", deletedAt: nil)
+        let pagedRepository = ScriptedSpoonCookLogRepository(responses: [
+            .page(SpoonCookLogListData(spoons: [firstSpoon], nextCursor: cursor, hasMore: true)),
+            .page(SpoonCookLogListData(spoons: [secondSpoon], nextCursor: nil, hasMore: false))
+        ])
+        let pagedRecorder = ProgressiveRecipeResultRecorder()
+
+        try await RecipeDetailProgressiveLoader(
+            recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
+            spoonRepository: pagedRepository
+        ).load(recipeID: recipe.id) { result in
+            pagedRecorder.results.append(result)
+        }
+
+        #expect(await pagedRecorder.results.count == 2)
+        #expect(await pagedRecorder.results.last?.recipe.recentSpoons.map(\.id) == ["spoon_first", "spoon_second"])
+        #expect(await pagedRepository.requestedCursors() == [nil, cursor])
+
+        let bestEffortScripts: [[ScriptedSpoonCookLogResponse]] = [
+            [.page(SpoonCookLogListData(spoons: [], nextCursor: nil, hasMore: true))],
+            [
+                .page(SpoonCookLogListData(spoons: [], nextCursor: cursor, hasMore: true)),
+                .page(SpoonCookLogListData(spoons: [], nextCursor: cursor, hasMore: true))
+            ],
+            [.failure]
+        ]
+        for responses in bestEffortScripts {
+            let repository = ScriptedSpoonCookLogRepository(responses: responses)
+            let recorder = ProgressiveRecipeResultRecorder()
+            try await RecipeDetailProgressiveLoader(
+                recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
+                spoonRepository: repository
+            ).load(recipeID: recipe.id) { result in
+                recorder.results.append(result)
+            }
+            #expect(await recorder.results.count == 1)
+        }
+    }
+
+    @Test("progressive recipe detail propagates cancellation after publishing recipe content")
+    func progressiveRecipeDetailPropagatesCancellationAfterPublishingRecipeContent() async throws {
+        let recipe = try Self.recipeDetail()
+        let detail = RecipeCatalogDetailResult(
+            recipe: recipe,
+            source: .live(requestID: "req_recipe_progressive_cancel", validatedAt: Self.now)
+        )
+        let recorder = ProgressiveRecipeResultRecorder()
+        let repository = ScriptedSpoonCookLogRepository(responses: [.cancelled])
+
+        do {
+            try await RecipeDetailProgressiveLoader(
+                recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
+                spoonRepository: repository
+            ).load(recipeID: recipe.id) { result in
+                recorder.results.append(result)
+            }
+            Issue.record("Expected cook-history cancellation to propagate.")
+        } catch is CancellationError {
+            #expect(await recorder.results.count == 1)
+        }
+    }
+
     private static func recipeDetail() throws -> Recipe {
         try APIEnvelope<RecipeDetailData>.decode(recipeDetailEnvelopeData).data.recipe
     }
@@ -909,6 +980,49 @@ private actor ControlledSpoonCookLogRepository: SpoonCookLogRepository {
     func complete(_ page: SpoonCookLogListData) {
         continuation?.resume(returning: page)
         continuation = nil
+    }
+}
+
+private enum ScriptedSpoonCookLogResponse: Sendable {
+    case page(SpoonCookLogListData)
+    case failure
+    case cancelled
+}
+
+private enum ScriptedSpoonCookLogError: Error {
+    case failed
+    case exhausted
+}
+
+private actor ScriptedSpoonCookLogRepository: SpoonCookLogRepository {
+    private var responses: [ScriptedSpoonCookLogResponse]
+    private var cursors: [PaginationCursor?] = []
+
+    init(responses: [ScriptedSpoonCookLogResponse]) {
+        self.responses = responses
+    }
+
+    func fetchCookLog(
+        recipeID _: String,
+        cursor: PaginationCursor?,
+        limit _: Int
+    ) async throws -> SpoonCookLogListData {
+        cursors.append(cursor)
+        guard !responses.isEmpty else {
+            throw ScriptedSpoonCookLogError.exhausted
+        }
+        switch responses.removeFirst() {
+        case .page(let page):
+            return page
+        case .failure:
+            throw ScriptedSpoonCookLogError.failed
+        case .cancelled:
+            throw CancellationError()
+        }
+    }
+
+    func requestedCursors() -> [PaginationCursor?] {
+        cursors
     }
 }
 
