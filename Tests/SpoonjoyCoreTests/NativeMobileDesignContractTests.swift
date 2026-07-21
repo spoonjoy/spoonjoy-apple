@@ -13,12 +13,19 @@ struct NativeMobileDesignContractTests {
             in: contractPath,
             contains: [
                 #"FIXTURE_PROCESS_TIMEOUT_SECONDS = 120"#,
-                #"FIXTURE_PROCESS_TIMEOUT_SECONDS.to_s"#
+                #"FIXTURE_PROCESS_TIMEOUT_SECONDS.to_s"#,
+                ##"write_executable(bin_dir.join("open"), "#!/usr/bin/env bash\nexit 0\n")"##,
+                #"spoonjoy-running"#
             ],
             forbids: [
                 #"PROCESS_TIMEOUT_WRAPPER,\n    "30""#,
                 #"PROCESS_TIMEOUT_WRAPPER,\n    "45""#
             ]
+        )
+        let stoppedProbe = #"simctl\ spawn\ *\ /usr/bin/pgrep*)"#
+        #expect(
+            contract.components(separatedBy: stoppedProbe).count - 1 >= 2,
+            "Every timeout fixture must make the simulated app-stopped probe deterministic."
         )
     }
 

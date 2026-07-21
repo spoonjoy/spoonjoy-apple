@@ -2581,6 +2581,9 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
       simctl\ launch\ *)
         sleep 10
         ;;
+      simctl\ spawn\ *\ /usr/bin/pgrep*)
+        exit 1
+        ;;
       simctl\ shutdown\ *|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ terminate\ *)
         exit 0
         ;;
@@ -2589,6 +2592,7 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
         ;;
     esac
   SH
+  write_executable(bin_dir.join("open"), "#!/usr/bin/env bash\nexit 0\n")
 
   stdout, stderr, status = run_status(
     "ruby",
@@ -2701,8 +2705,15 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
   write_executable(scripts_dir.join("smoke-ios-simulator.sh"), success_stub)
   write_executable(scripts_dir.join("smoke-macos.sh"), success_stub)
   write_executable(bin_dir.join("launchctl"), "#!/usr/bin/env bash\nexit 0\n")
-  write_executable(bin_dir.join("pkill"), "#!/usr/bin/env bash\nexit 0\n")
-  write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")
+  write_executable(bin_dir.join("pkill"), <<~'SH')
+    #!/usr/bin/env bash
+    rm -f "$PWD/spoonjoy-running"
+  SH
+  write_executable(bin_dir.join("pgrep"), <<~'SH')
+    #!/usr/bin/env bash
+    [[ -f "$PWD/spoonjoy-running" ]] || exit 1
+    printf '12345\n'
+  SH
   write_executable(bin_dir.join("swift"), <<~'SH')
     #!/usr/bin/env bash
     set -euo pipefail
@@ -2758,8 +2769,12 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
         write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$platform" "app.spoonjoy"
         printf 'app.spoonjoy: 12345\n'
         ;;
+      simctl\ spawn\ *\ /usr/bin/pgrep*)
+        exit 1
+        ;;
       simctl\ spawn\ *\ log\ stream*)
         printf 'Front display did change: <SBApplication; app.spoonjoy>\n'
+        trap 'exit 0' TERM INT
         while true; do
           if [[ -f "$PWD/cleanup-foreground-barrier" ]]; then
             cat "$PWD/cleanup-foreground-barrier"
@@ -2831,6 +2846,7 @@ PY
   write_executable(bin_dir.join("open"), <<~'SH')
     #!/usr/bin/env bash
     set -euo pipefail
+    : > "$PWD/spoonjoy-running"
     output_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
     if [[ -n "$output_path" ]]; then
       mkdir -p "$(dirname "$output_path")"
