@@ -250,9 +250,11 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "iosTabletScreenshot",
                 "accessibility-proof-ipad.json",
+                "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS:-900",
                 "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-0"
             ],
             forbids: [
+                "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS:-420",
                 "SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-1"
             ]
         )
