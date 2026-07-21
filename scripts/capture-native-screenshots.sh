@@ -611,7 +611,11 @@ write_design_review_success() {
         "sha256" => Digest::SHA256.file(absolute_path).hexdigest
       }
     end
-    if ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"].include?(route)
+    if [
+      "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+      "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs",
+      "profile", "profile-graph", "search", "capture", "settings"
+    ].include?(route)
       manifest["deepScrollScreenshotArtifacts"] = {
         "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
         "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
@@ -2099,7 +2103,7 @@ capture_ios_observed_accessibility() {
   local observer_suffix="$expected_platform"
   [[ "$content_size_category" == "large" ]] || observer_suffix="${expected_platform}-ax"
   case "$screenshot_route" in
-    kitchen|recipe-detail|recipe-editor|recipe-covers|profile|shopping-list|cookbooks|cookbook-detail)
+    kitchen|recipes|saved-recipes|recipe-detail|recipe-editor|recipe-covers|cook-mode|cook-log|cookbooks|cookbook-detail|shopping-list|chefs|profile|profile-graph|search|capture|settings)
       if [[ "$expected_platform" == "ipad" ]]; then
         deep_scroll_screenshot_output="$ios_tablet_deep_scroll_screenshot"
       elif [[ "$content_size_category" == "large" ]]; then

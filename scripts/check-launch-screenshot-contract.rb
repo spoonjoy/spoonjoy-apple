@@ -28,7 +28,8 @@ DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
   "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
 }.freeze
 DEEP_SCROLL_ROUTES = %w[
-  kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+  kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log
+  cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings
 ].freeze
 
 SCRIPT_CONTRACTS = {
@@ -626,7 +627,7 @@ def add_accessibility_proofs!(root, manifest, stem)
       "recipe-editor" => ["recipe-editor.title", "recipe-editor.save"],
       "recipe-covers" => [
         "recipe-covers.photo-picker", "recipe-covers.staged-photo-status", "recipe-covers.clear-photo",
-        "recipe-covers.save-photo", "recipe-covers.generate-placeholder", "recipe-covers.archive.cover_primary"
+        "recipe-covers.save-photo", "recipe-covers.archive.cover_primary"
       ],
       "profile" => ["profile.header"],
       "profile-graph" => ["profile-graph.row.chef_jules"],
@@ -711,7 +712,7 @@ def add_accessibility_proofs!(root, manifest, stem)
         "observedDynamicTypeSize" => content_size_category == "accessibility-extra-extra-extra-large" ? "accessibility5" : "large",
         "toolLimitations" => []
       }
-      if %w[kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail].include?(route)
+      if DEEP_SCROLL_ROUTES.include?(route)
         observed["deepScroll"] = {
           "route" => route,
           "reachedTerminal" => true,
@@ -836,6 +837,37 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
     #!/usr/bin/env ruby
     abort("expected verify") unless ARGV.first == "verify"
     puts "native screenshot provenance verified"
+  RUBY
+
+  write_executable(script_root.join("scripts/capture-native-transition-evidence.sh"), <<~'RUBY')
+    #!/usr/bin/env ruby
+    require "digest"
+    require "fileutils"
+    require "json"
+
+    artifact_root = ARGV.fetch(ARGV.index("--artifact-root") + 1)
+    unit_slug = ARGV.fetch(ARGV.index("--unit-slug") + 1)
+    provenance = JSON.parse(File.read(ENV.fetch("SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST")))
+    log_relative = "apple/#{unit_slug}-transition-evidence.log"
+    log_path = File.join(artifact_root, log_relative)
+    evidence_path = File.join(artifact_root, "apple/#{unit_slug}-transition-evidence.json")
+    FileUtils.mkdir_p(File.dirname(log_path))
+    File.write(log_path, "transition fixture passed\n")
+    File.write(evidence_path, JSON.pretty_generate({
+      "schemaVersion" => 1,
+      "ok" => true,
+      "sourceSha" => provenance.dig("source", "sha"),
+      "sourceTree" => provenance.dig("source", "tree"),
+      "contracts" => [
+        { "id" => "search-pending-suppresses-empty-state" },
+        { "id" => "recipe-publishes-before-cook-history" }
+      ],
+      "log" => {
+        "path" => log_relative,
+        "bytes" => File.size(log_path),
+        "sha256" => Digest::SHA256.file(log_path).hexdigest
+      }
+    }) + "\n")
   RUBY
 
   write_executable(script_root.join("scripts/capture-native-screenshots.sh"), <<~'SH')
@@ -1657,7 +1689,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     elements = [terminal] + [{"identifier":identifier,"label":identifier,"type":"staticText","frame":{"x":10,"y":10 + index * 20,"width":80,"height":18},"exists":True,"hittable":False,"enabled":True,"focused":None} for index, identifier in enumerate(identifiers)]
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
     evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","toolLimitations":[]}
-    if args.route in {"kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"}:
+    if args.route in {"kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs", "profile", "profile-graph", "search", "capture", "settings"}:
         evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"toolLimitations":[]}
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)

@@ -58,8 +58,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         "button", "switch", "textField", "secureTextField", "link", "slider", "stepper"
     ]
     private static let deepScrollRoutes: Set<String> = [
-        "kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile",
-        "shopping-list", "cookbooks", "cookbook-detail"
+        "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+        "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs",
+        "profile", "profile-graph", "search", "capture", "settings"
     ]
 
     func testObservedAccessibilityAndGeometry() throws {
@@ -330,9 +331,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let required = routeRequiredIdentifiers(route: "recipe-covers")
         let visible = required.subtracting(routeRequiredScrollIdentifiers(route: "recipe-covers"))
 
-        XCTAssertTrue(required.contains("recipe-covers.generate-placeholder"))
         XCTAssertTrue(required.contains("recipe-covers.archive.cover_primary"))
-        XCTAssertFalse(visible.contains("recipe-covers.generate-placeholder"))
         XCTAssertFalse(visible.contains("recipe-covers.archive.cover_primary"))
         XCTAssertTrue(visible.contains("recipe-covers.photo-picker"))
         XCTAssertTrue(visible.contains("recipe-covers.staged-photo-status"))
@@ -346,7 +345,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
         XCTAssertFalse(visible.contains("recipe-covers.photo-picker"))
         XCTAssertFalse(visible.contains("recipe-covers.save-photo"))
-        XCTAssertFalse(visible.contains("recipe-covers.generate-placeholder"))
     }
 
     func testNamedTerminalStopsWhenItIsFullyVisible() {
@@ -871,7 +869,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case "recipes", "saved-recipes": ["Lemon Pantry Pasta"]
         case "recipe-detail": ["Lemon Pantry Pasta", "Start Cooking"]
         case "recipe-editor": ["Recipe", "Title", "Save"]
-        case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Replace Photo", "Photo ready", "Clear", "Save Photo", "Generate Placeholder"]
+        case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Replace Photo", "Photo ready", "Clear", "Save Photo"]
         case "cook-mode": ["Lemon Pantry Pasta", "Current cooking step 1, Boil pasta", "Mark the current step done", "Tools", "Ingredients"]
         case "cook-log": ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"]
         case "cookbooks", "cookbook-detail": ["Weeknights"]
@@ -897,7 +895,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 "recipe-covers.staged-photo-status",
                 "recipe-covers.clear-photo",
                 "recipe-covers.save-photo",
-                "recipe-covers.generate-placeholder",
                 "recipe-covers.archive.cover_primary"
             ]
         case "profile":
@@ -927,7 +924,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     private func routeRequiredScrollIdentifiers(route: String) -> Set<String> {
         switch route {
         case "recipe-covers":
-            ["recipe-covers.generate-placeholder", "recipe-covers.archive.cover_primary"]
+            ["recipe-covers.archive.cover_primary"]
         default:
             []
         }

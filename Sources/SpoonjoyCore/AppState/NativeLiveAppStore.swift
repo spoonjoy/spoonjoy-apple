@@ -3246,6 +3246,16 @@ public final class NativeLiveAppStore: ObservableObject {
         return result
     }
 
+    public func recordSearchTelemetry(_ descriptor: NativeSearchTelemetryDescriptor) async {
+        await dependencies.nativeTelemetryReport(
+            descriptor.telemetryEvent(
+                environment: cacheEnvironment.rawValue,
+                metadata: dependencies.nativeTelemetryMetadata
+            ),
+            configuration
+        )
+    }
+
     private func reportNativeTelemetry(
         name: NativeTelemetryEvent.Name,
         stage: String,

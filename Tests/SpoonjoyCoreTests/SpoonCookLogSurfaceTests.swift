@@ -690,15 +690,20 @@ struct SpoonCookLogSurfaceTests {
     @Test("recipe detail wires the native spoon cook-log surface")
     func recipeDetailWiresNativeSpoonCookLogSurface() throws {
         let detailSource = try readSpoonCookLogRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift")
+        let progressiveLoaderSource = try readSpoonCookLogRepoFile(
+            "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift"
+        )
         let spoonSource = try readSpoonCookLogRepoFile("Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift")
         let navigationSource = try readSpoonCookLogRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
 
         #expect(detailSource.contains("SpoonCookLogView("))
-        #expect(detailSource.contains("spoonRepository.fetchCookLog"))
+        #expect(detailSource.contains("RecipeDetailProgressiveLoader("))
         #expect(detailSource.contains(".onChange(of: snapshotViewModel)"))
-        #expect(detailSource.contains("while true"))
-        #expect(detailSource.contains("seenCursors"))
-        #expect(detailSource.contains("RecipeDetailCookLogPaginationError"))
+        #expect(progressiveLoaderSource.contains("spoonRepository.fetchCookLog"))
+        #expect(progressiveLoaderSource.contains("await onRecipe(initialResult)"))
+        #expect(progressiveLoaderSource.contains("while true"))
+        #expect(progressiveLoaderSource.contains("seenCursors"))
+        #expect(progressiveLoaderSource.contains("RecipeDetailProgressiveLoadError"))
         #expect(detailSource.contains(".id(viewModel.id)"))
         #expect(spoonSource.contains("PhotosPicker"))
         #expect(spoonSource.contains("useAsRecipeCover"))

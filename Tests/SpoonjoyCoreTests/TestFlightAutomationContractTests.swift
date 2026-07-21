@@ -113,6 +113,48 @@ struct TestFlightAutomationContractTests {
         )
     }
 
+    @Test("visual release evidence binds exact-source pending-to-content tests")
+    func visualReleaseEvidenceBindsTransitionTests() throws {
+        let capture = try readTestFlightAutomationRepoFile("scripts/capture-native-transition-evidence.sh")
+        let matrix = try readTestFlightAutomationRepoFile("scripts/capture-native-screenshot-matrix.sh")
+        let sealer = try readTestFlightAutomationRepoFile("scripts/testflight-visual-evidence.rb")
+
+        expectTestFlightAutomationContent(
+            capture,
+            in: "scripts/capture-native-transition-evidence.sh",
+            contains: [
+                "git diff --quiet",
+                "NativeSearchSurfaceTests.pendingSearchSuppressesEmptyState",
+                "RecipeCatalogDetailTests.recipeDetailPublishesBeforeCookHistoryEnrichment",
+                "-Xswiftc -warnings-as-errors",
+                "search-pending-suppresses-empty-state",
+                "recipe-publishes-before-cook-history",
+                "sourceSha",
+                "sourceTree"
+            ]
+        )
+        expectTestFlightAutomationContent(
+            matrix,
+            in: "scripts/capture-native-screenshot-matrix.sh",
+            contains: [
+                "scripts/capture-native-transition-evidence.sh",
+                "transitionEvidenceValidated",
+                "transitionEvidenceSha256",
+                "transitionEvidenceLogSha256"
+            ]
+        )
+        expectTestFlightAutomationContent(
+            sealer,
+            in: "scripts/testflight-visual-evidence.rb",
+            contains: [
+                "TRANSITION_CONTRACT_IDS",
+                "validate_transition_evidence!",
+                "transitionEvidenceLog",
+                "sealed native transition evidence mismatch"
+            ]
+        )
+    }
+
     @Test("Every external workflow action and distribution toolkit revision is immutable")
     func workflowDependenciesAreImmutable() throws {
         let workflowPaths = [
@@ -707,14 +749,33 @@ private let testFlightVisualRoutes = [
     "settings-apns-not-determined", "settings-apns-authorized", "settings-apns-unregistered",
     "unknown-link"
 ]
-private let testFlightSettingsRouteVariants: Set<String> = [
-    "settings-notifications", "settings-signed-out", "settings-apns-denied",
-    "settings-apns-not-determined", "settings-apns-authorized", "settings-apns-unregistered"
+private let testFlightRouteVariants: [String: Set<String>] = [
+    "shopping-list": [
+        "shopping-list-empty", "shopping-list-all-complete", "shopping-list-duplicate",
+        "shopping-list-conflict", "shopping-list-offline-queued"
+    ],
+    "search": [
+        "search-typed-results", "search-scoped-recipes", "search-scoped-cookbooks",
+        "search-scoped-chefs", "search-scoped-shopping", "search-no-results"
+    ],
+    "capture": [
+        "capture-empty", "capture-draft", "capture-offline-retry", "capture-provider-blocked",
+        "capture-signed-out"
+    ],
+    "settings": [
+        "settings-notifications", "settings-signed-out", "settings-apns-denied",
+        "settings-apns-not-determined", "settings-apns-authorized", "settings-apns-unregistered"
+    ]
 ]
 private let testFlightDeepScrollRoutes: Set<String> = [
-    "kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list",
-    "cookbooks", "cookbook-detail"
+    "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+    "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs",
+    "profile", "profile-graph", "search", "capture", "settings"
 ]
+
+private func testFlightCaptureRoute(for route: String) -> String {
+    testFlightRouteVariants.first { $0.value.contains(route) }?.key ?? route
+}
 private let requiredNativeJobNames = [
     "Swift tests",
     "Native scenario verifier",
@@ -929,7 +990,7 @@ private func makeVisualEvidenceFixture(
     let observedProofs = ["observed-ios.json", "observed-ios-ax.json", "observed-ipad.json", "observed-macos.json"]
 
     for route in testFlightVisualRoutes {
-        let captureRoute = testFlightSettingsRouteVariants.contains(route) ? "settings" : route
+        let captureRoute = testFlightCaptureRoute(for: route)
         let routeDirectory = payload.appendingPathComponent("routes/\(route)", isDirectory: true)
         let screenshotsDirectory = routeDirectory.appendingPathComponent("screenshots", isDirectory: true)
         let proofsDirectory = routeDirectory.appendingPathComponent("proofs", isDirectory: true)
@@ -1025,6 +1086,34 @@ private func makeVisualEvidenceFixture(
     )
     fileURLs.append(provenance)
 
+    let transitionLog = payload.appendingPathComponent("transition-evidence.log")
+    try "2 transition tests passed\n".write(to: transitionLog, atomically: true, encoding: .utf8)
+    let transitionLogDigest = try sha256OfFile(at: transitionLog)
+    fileURLs.append(transitionLog)
+    let transitionEvidence = payload.appendingPathComponent("transition-evidence.json")
+    try writeJSON(
+        [
+            "schemaVersion": 1,
+            "ok": true,
+            "sourceSha": sourceSHA,
+            "sourceTree": testFlightVisualSourceTree,
+            "command": "swift test --filter native-transitions",
+            "log": [
+                "path": "transition-evidence.log",
+                "bytes": try Data(contentsOf: transitionLog).count,
+                "sha256": transitionLogDigest
+            ],
+            "contracts": [
+                ["id": "search-pending-suppresses-empty-state", "test": "NativeSearchSurfaceTests.pendingSearchSuppressesEmptyState", "assertion": "pending"],
+                ["id": "recipe-publishes-before-cook-history", "test": "RecipeCatalogDetailTests.recipeDetailPublishesBeforeCookHistoryEnrichment", "assertion": "progressive"]
+            ],
+            "generatedAt": "2026-07-15T18:17:00Z"
+        ],
+        to: transitionEvidence
+    )
+    let transitionEvidenceDigest = try sha256OfFile(at: transitionEvidence)
+    fileURLs.append(transitionEvidence)
+
     let matrix = payload.appendingPathComponent("matrix.json")
     try writeJSON(
         [
@@ -1040,6 +1129,11 @@ private func makeVisualEvidenceFixture(
             "provenanceVerifiedBefore": true,
             "provenanceVerifiedAfter": true,
             "provenanceManifestSha256": provenanceDigest,
+            "transitionEvidenceValidated": true,
+            "transitionEvidencePath": "transition-evidence.json",
+            "transitionEvidenceSha256": transitionEvidenceDigest,
+            "transitionEvidenceLogPath": "transition-evidence.log",
+            "transitionEvidenceLogSha256": transitionLogDigest,
             "sourceSha": sourceSHA,
             "sourceTree": testFlightVisualSourceTree,
             "routes": matrixRows,
@@ -1087,6 +1181,8 @@ private func makeVisualEvidenceFixture(
                 "summary": "payload/matrix.json",
                 "results": "payload/matrix.jsonl",
                 "provenance": "payload/provenance.json",
+                "transitionEvidence": "payload/transition-evidence.json",
+                "transitionEvidenceLog": "payload/transition-evidence.log",
                 "expectedRouteCount": testFlightVisualRoutes.count,
                 "routes": manifestRoutes
             ],

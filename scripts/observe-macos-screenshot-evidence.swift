@@ -740,7 +740,7 @@ func requiredTitles(for route: String, signedIn: Bool) -> Set<String> {
     case "kitchen": ["Ari's kitchen", "Lemon Pantry Pasta"]
     case "recipes", "saved-recipes", "recipe-detail": ["Lemon Pantry Pasta"]
     case "recipe-editor": ["Recipe", "Title", "Save"]
-    case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Replace Photo", "Photo ready", "Clear", "Save Photo", "Generate Placeholder"]
+    case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Replace Photo", "Photo ready", "Clear", "Save Photo"]
     case "cook-mode": ["Lemon Pantry Pasta", "Current cooking step 1, Boil pasta", "Mark the current step done", "Tools", "Ingredients"]
     case "cook-log": ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"]
     case "cookbooks", "cookbook-detail": ["Weeknights"]
@@ -763,7 +763,7 @@ func requiredIdentifiers(for route: String) -> Set<String> {
     case "recipe-covers":
         [
             "recipe-covers.photo-picker", "recipe-covers.staged-photo-status", "recipe-covers.clear-photo",
-            "recipe-covers.save-photo", "recipe-covers.generate-placeholder", "recipe-covers.archive.cover_primary"
+            "recipe-covers.save-photo", "recipe-covers.archive.cover_primary"
         ]
     case "profile":
         ["profile.header"]

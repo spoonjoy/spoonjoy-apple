@@ -209,7 +209,6 @@ struct RecipeCoverControlsView: View {
     @State private var spoonNote = ""
     @State private var spoonNextTime = ""
     @State private var spoonCookedAt = ""
-    @State private var placeholderPromptAddition = ""
     @State private var regenerationPromptAdditions: [String: String] = [:]
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -220,7 +219,6 @@ struct RecipeCoverControlsView: View {
                 header
                 statusMessages
                 photoUploadControl
-                placeholderGenerationControl
                 noCoverControl
                 coverList
                 spoonPhotoList
@@ -419,33 +417,6 @@ struct RecipeCoverControlsView: View {
             .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
             .accessibilityIdentifier("recipe-covers.clear-photo")
         }
-    }
-
-    private var placeholderGenerationControl: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("AI placeholder")
-                    .font(.headline)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                Text("Generate a temporary cover, then regenerate with direction when it needs tuning.")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            }
-            TextField("Placeholder direction", text: $placeholderPromptAddition)
-                .textFieldStyle(.roundedBorder)
-                .controlSize(.extraLarge)
-                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                .accessibilityLabel("Placeholder direction")
-            Button { generatePlaceholderCover() } label: {
-                Label("Generate Placeholder", systemImage: "sparkles")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.large)
-            .accessibilityIdentifier("recipe-covers.generate-placeholder")
-        }
-        .padding()
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
     private var noCoverControl: some View {
@@ -730,14 +701,6 @@ struct RecipeCoverControlsView: View {
             nextTime: trimmedOptional(spoonNextTime),
             cookedAt: trimmedOptional(spoonCookedAt),
             clientMutationID: clientMutationID(prefix: "cover-upload")
-        ))
-    }
-
-    @MainActor private func generatePlaceholderCover() {
-        runAction(.generatePlaceholder(
-            promptAddition: trimmedOptional(placeholderPromptAddition),
-            activateWhenReady: true,
-            clientMutationID: clientMutationID(prefix: "cover-generate")
         ))
     }
 

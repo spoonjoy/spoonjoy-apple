@@ -28,12 +28,15 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     settings-signed-out settings-apns-denied settings-apns-not-determined settings-apns-authorized
     settings-apns-unregistered unknown-link
   ].freeze
-  SETTINGS_ROUTE_VARIANTS = %w[
-    settings-notifications settings-signed-out settings-apns-denied settings-apns-not-determined
-    settings-apns-authorized settings-apns-unregistered
-  ].freeze
+  ROUTE_VARIANTS = {
+    "shopping-list" => %w[shopping-list-empty shopping-list-all-complete shopping-list-duplicate shopping-list-conflict shopping-list-offline-queued],
+    "search" => %w[search-typed-results search-scoped-recipes search-scoped-cookbooks search-scoped-chefs search-scoped-shopping search-no-results],
+    "capture" => %w[capture-empty capture-draft capture-offline-retry capture-provider-blocked capture-signed-out],
+    "settings" => %w[settings-notifications settings-signed-out settings-apns-denied settings-apns-not-determined settings-apns-authorized settings-apns-unregistered]
+  }.freeze
   DEEP_SCROLL_ROUTES = %w[
-    kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+    kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log
+    cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings
   ].freeze
 
   def setup
@@ -62,7 +65,7 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     kitchen = manifest.dig("matrix", "routes").find { |route| route.fetch("name") == "kitchen" }
     assert_equal %w[iosAccessibility iosMobile iosTablet], kitchen.fetch("deepScrollScreenshots").keys.sort
     recipes = manifest.dig("matrix", "routes").find { |route| route.fetch("name") == "recipes" }
-    assert_equal({}, recipes.fetch("deepScrollScreenshots"))
+    assert_equal %w[iosAccessibility iosMobile iosTablet], recipes.fetch("deepScrollScreenshots").keys.sort
     assert manifest.fetch("files").all? { |entry| entry.fetch("sha256").match?(/\A[0-9a-f]{64}\z/) }
 
     verify = run_tool("verify", *verify_arguments)
@@ -360,6 +363,23 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       "source" => { "sha" => SOURCE_SHA, "tree" => SOURCE_TREE },
       "manifestSha256" => "d" * 64
     )
+    transition_log_path = @artifact_root.join("apple/release-transition-evidence.log")
+    transition_log_path.write("2 transition tests passed\n")
+    transition_path = @artifact_root.join("apple/release-transition-evidence.json")
+    write_json(
+      transition_path,
+      "schemaVersion" => 1,
+      "ok" => true,
+      "sourceSha" => SOURCE_SHA,
+      "sourceTree" => SOURCE_TREE,
+      "command" => "swift test --filter native-transitions",
+      "log" => artifact_entry(transition_log_path, "apple/release-transition-evidence.log").slice("path", "bytes", "sha256"),
+      "contracts" => [
+        { "id" => "search-pending-suppresses-empty-state", "test" => "NativeSearchSurfaceTests.pendingSearchSuppressesEmptyState", "assertion" => "pending" },
+        { "id" => "recipe-publishes-before-cook-history", "test" => "RecipeCatalogDetailTests.recipeDetailPublishesBeforeCookHistoryEnrichment", "assertion" => "progressive" }
+      ],
+      "generatedAt" => "2026-07-20T18:15:00Z"
+    )
     summary = {
       "ok" => true,
       "fullyValidated" => true,
@@ -374,6 +394,11 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       "provenanceVerifiedAfter" => true,
       "provenanceManifestPath" => provenance_path.to_s,
       "provenanceManifestSha256" => "d" * 64,
+      "transitionEvidenceValidated" => true,
+      "transitionEvidencePath" => transition_path.to_s,
+      "transitionEvidenceSha256" => Digest::SHA256.file(transition_path).hexdigest,
+      "transitionEvidenceLogPath" => "apple/release-transition-evidence.log",
+      "transitionEvidenceLogSha256" => Digest::SHA256.file(transition_log_path).hexdigest,
       "sourceSha" => SOURCE_SHA,
       "sourceTree" => SOURCE_TREE,
       "routes" => rows,
@@ -546,7 +571,7 @@ class TestFlightVisualEvidenceTest < Minitest::Test
   end
 
   def capture_route_for(name)
-    SETTINGS_ROUTE_VARIANTS.include?(name) ? "settings" : name
+    ROUTE_VARIANTS.find { |_route, variants| variants.include?(name) }&.first || name
   end
 
   def refresh_route_artifact_hash(route, key, path)

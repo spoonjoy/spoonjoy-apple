@@ -43,6 +43,8 @@ shared_macos_app_path="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-}"
 provenance_manifest="${SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST:-}"
 matrix_run_uuid="${SPOONJOY_SCREENSHOT_PROVENANCE_RUN_UUID:-$(ruby -rsecurerandom -e 'print SecureRandom.uuid')}"
 provenance_log="$apple_dir/${unit_slug}-provenance.log"
+transition_evidence="$apple_dir/${unit_slug}-transition-evidence.json"
+transition_evidence_log="$apple_dir/${unit_slug}-transition-evidence.log"
 provenance_verified_before=0
 provenance_verified_after=0
 shared_build_blocker="$apple_dir/${unit_slug}-shared-build-blocker.json"
@@ -62,6 +64,9 @@ rm -f \
   "$shared_xcode_blocker" \
   "$shared_simulator_log" \
   "$provenance_log" \
+  "$transition_evidence" \
+  "$transition_evidence_log" \
+  "$apple_dir/${unit_slug}-transition-evidence-blocker.json" \
   "$ios_install_marker" \
   "$ios_install_marker-iphone" \
   "$ios_install_marker-ipad" \
@@ -375,8 +380,8 @@ summarize_routes() {
   done
   local expected_route_names_csv
   expected_route_names_csv="$(IFS=,; printf '%s' "${expected_route_names[*]}")"
-  ruby -rjson -rtime -e '
-    results_path, summary_path, shared_build_blocker_path, provenance_manifest_path, verified_before, verified_after, expected_routes_csv, selected_routes_csv, require_full = ARGV
+  ruby -rjson -rdigest -rtime -e '
+    results_path, summary_path, shared_build_blocker_path, provenance_manifest_path, transition_evidence_path, artifact_root, verified_before, verified_after, expected_routes_csv, selected_routes_csv, require_full = ARGV
     rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) } : []
     expected_routes = expected_routes_csv.split(",")
     route_names = rows.map { |row| row["name"] }
@@ -398,8 +403,19 @@ summarize_routes() {
     before_ok = verified_before == "1"
     after_ok = verified_after == "1"
     provenance = File.file?(provenance_manifest_path) ? JSON.parse(File.read(provenance_manifest_path)) : nil
+    transition = File.file?(transition_evidence_path) ? JSON.parse(File.read(transition_evidence_path)) : nil
+    transition_log_path = transition&.dig("log", "path")
+    transition_log_absolute = transition_log_path.is_a?(String) ? File.join(artifact_root, transition_log_path) : nil
+    expected_contracts = %w[search-pending-suppresses-empty-state recipe-publishes-before-cook-history]
+    transition_ok = transition.is_a?(Hash) && transition["schemaVersion"] == 1 && transition["ok"] == true &&
+      transition["sourceSha"] == provenance&.dig("source", "sha") &&
+      transition["sourceTree"] == provenance&.dig("source", "tree") &&
+      transition["contracts"].is_a?(Array) && transition["contracts"].map { |contract| contract["id"] } == expected_contracts &&
+      transition_log_absolute && File.file?(transition_log_absolute) && File.size(transition_log_absolute).positive? &&
+      transition.dig("log", "bytes") == File.size(transition_log_absolute) &&
+      transition.dig("log", "sha256") == Digest::SHA256.file(transition_log_absolute).hexdigest
     ok = !rows.empty? && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty? && missing_screenshots.empty? &&
-      duplicate_routes.empty? && unexpected_routes.empty? && before_ok && after_ok && !provenance.nil?
+      duplicate_routes.empty? && unexpected_routes.empty? && before_ok && after_ok && !provenance.nil? && transition_ok
     complete_route_set = selected_routes_csv.empty? && route_names == expected_routes
     fully_validated = ok && complete_route_set
     File.write(summary_path, JSON.pretty_generate({
@@ -417,6 +433,11 @@ summarize_routes() {
       "provenanceVerifiedAfter" => after_ok,
       "provenanceManifestPath" => provenance_manifest_path,
       "provenanceManifestSha256" => provenance&.fetch("manifestSha256", nil),
+      "transitionEvidenceValidated" => transition_ok,
+      "transitionEvidencePath" => transition_evidence_path,
+      "transitionEvidenceSha256" => File.file?(transition_evidence_path) ? Digest::SHA256.file(transition_evidence_path).hexdigest : nil,
+      "transitionEvidenceLogPath" => transition_log_path,
+      "transitionEvidenceLogSha256" => transition_log_absolute && File.file?(transition_log_absolute) ? Digest::SHA256.file(transition_log_absolute).hexdigest : nil,
       "sourceSha" => provenance&.dig("source", "sha"),
       "sourceTree" => provenance&.dig("source", "tree"),
       "routes" => rows,
@@ -429,7 +450,7 @@ summarize_routes() {
       "unexpectedRoutes" => unexpected_routes
     }) + "\n")
     exit((require_full == "1" ? fully_validated : ok) ? 0 : 1)
-  ' "$results_path" "$summary_path" "$shared_build_blocker" "$provenance_manifest" "$provenance_verified_before" "$provenance_verified_after" "$expected_route_names_csv" "$matrix_routes" "$require_full_matrix"
+  ' "$results_path" "$summary_path" "$shared_build_blocker" "$provenance_manifest" "$transition_evidence" "$artifact_root" "$provenance_verified_before" "$provenance_verified_after" "$expected_route_names_csv" "$matrix_routes" "$require_full_matrix"
 }
 
 capture_route() {
@@ -437,6 +458,8 @@ capture_route() {
   local route="$2"
   local route_root="$3"
   local route_slug="$4"
+  local recorded_route
+  recorded_route="$(canonical_capture_route "$route")"
   local command="SPOONJOY_SCREENSHOT_IOS_APP_PATH=$SPOONJOY_SCREENSHOT_IOS_APP_PATH SPOONJOY_SCREENSHOT_MACOS_APP_PATH=$SPOONJOY_SCREENSHOT_MACOS_APP_PATH scripts/capture-native-screenshots.sh --artifact-root $route_root --unit-slug $route_slug --route $route"
   local route_output="$route_root/apple/${route_slug}-screenshot-route.log"
   local command_status=0
@@ -464,10 +487,30 @@ capture_route() {
     status="fail"
   fi
 
-  record_route "$name" "$route" "$route_root" "$status" "$command"
+  record_route "$name" "$recorded_route" "$route_root" "$status" "$command"
   find "$route_root" -maxdepth 1 -type d -name 'DerivedData-*' -prune -exec rm -rf {} +
 
   [[ "$status" == "pass" ]]
+}
+
+canonical_capture_route() {
+  case "$1" in
+    shopping-list-empty|shopping-list-all-complete|shopping-list-duplicate|shopping-list-conflict|shopping-list-offline-queued)
+      printf 'shopping-list\n'
+      ;;
+    search-typed-results|search-scoped-recipes|search-scoped-cookbooks|search-scoped-chefs|search-scoped-shopping|search-no-results)
+      printf 'search\n'
+      ;;
+    capture-empty|capture-draft|capture-offline-retry|capture-provider-blocked|capture-signed-out)
+      printf 'capture\n'
+      ;;
+    settings-notifications|settings-signed-out|settings-apns-denied|settings-apns-not-determined|settings-apns-authorized|settings-apns-unregistered)
+      printf 'settings\n'
+      ;;
+    *)
+      printf '%s\n' "$1"
+      ;;
+  esac
 }
 
 route_is_selected() {
@@ -525,7 +568,7 @@ routes=(
   "unknown-link|unknown-link|$routes_dir/unknown-link|$unit_slug-unknown-link"
 )
 
-if prepare_shared_builds; then
+if prepare_shared_builds && scripts/capture-native-transition-evidence.sh --artifact-root "$artifact_root" --unit-slug "$unit_slug"; then
   for entry in "${routes[@]}"; do
     IFS="|" read -r name route route_root route_slug <<< "$entry"
     route_is_selected "$name" "$route" || continue

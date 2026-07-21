@@ -17,7 +17,8 @@ DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
   "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
 }.freeze
 COMPACT_DEEP_SCROLL_ROUTES = %w[
-  kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+  kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log
+  cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings
 ].freeze
 
 VALID_ROUTES = [
@@ -29,7 +30,7 @@ REQUIRED_OBSERVED_IDENTIFIERS = {
   "recipe-editor" => ["recipe-editor.title", "recipe-editor.save"],
   "recipe-covers" => [
     "recipe-covers.photo-picker", "recipe-covers.staged-photo-status", "recipe-covers.clear-photo",
-    "recipe-covers.save-photo", "recipe-covers.generate-placeholder", "recipe-covers.archive.cover_primary"
+    "recipe-covers.save-photo", "recipe-covers.archive.cover_primary"
   ],
   "profile" => ["profile.header"],
   "profile-graph" => ["profile-graph.row.chef_jules"],

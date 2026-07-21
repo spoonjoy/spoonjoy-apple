@@ -25,8 +25,8 @@ BENIGN_FULL_LINE_DIAGNOSTICS = [
   "IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver"
 ].freeze
 BENIGN_LINE_PATTERNS = [
-  /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+-\d{4} SpoonjoyUITests-Runner\[\d+:\d+\] \[General\] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com\.apple\.app_launch_measurement\.FirstFramePresentationMetric\z/,
-  /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+-\d{4} SpoonjoyUITests-Runner\[\d+:\d+\] \[General\] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com\.apple\.app_launch_measurement\.ExtendedLaunchMetrics\z/
+  /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+[-+]\d{4} SpoonjoyUITests-Runner\[\d+:\d+\] \[General\] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com\.apple\.app_launch_measurement\.FirstFramePresentationMetric\z/,
+  /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+[-+]\d{4} SpoonjoyUITests-Runner\[\d+:\d+\] \[General\] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com\.apple\.app_launch_measurement\.ExtendedLaunchMetrics\z/
 ].freeze
 
 diagnostic_lines = []

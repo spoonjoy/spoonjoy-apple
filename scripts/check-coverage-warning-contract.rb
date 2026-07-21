@@ -130,6 +130,8 @@ def check_warning_script_behavior
     simulator_launch_metric_log.write(<<~LOG)
       2026-07-21 11:59:33.005687-0700 SpoonjoyUITests-Runner[2491:106082690] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
       2026-07-21 11:59:33.045664-0700 SpoonjoyUITests-Runner[2491:106082691] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+      2026-07-21 20:49:19.199788+0000 SpoonjoyUITests-Runner[11946:43903] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+      2026-07-21 20:49:19.243426+0000 SpoonjoyUITests-Runner[11946:43903] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
     LOG
     spoofed_simulator_launch_metric_log.write(
       "2026-07-21 11:59:33.005687-0700 SpoonjoyUITests-Runner[2491:106082690] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.UnexpectedMetric\n"

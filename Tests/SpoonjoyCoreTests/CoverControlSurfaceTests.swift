@@ -1235,8 +1235,8 @@ struct CoverControlSurfaceTests {
         #expect(!rejectionSource.contains("stagedCoverPhoto = nil"))
     }
 
-    @Test("native photo studio exposes upload spoon editorial placeholder and regeneration controls")
-    func nativePhotoStudioExposesUploadSpoonEditorialPlaceholderAndRegenerationControls() throws {
+    @Test("native photo studio exposes chef photo workflows without placeholder generation")
+    func nativePhotoStudioExposesChefPhotoWorkflowsWithoutPlaceholderGeneration() throws {
         let coverControlsSource = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
 
         let uploadTokens = [
@@ -1288,43 +1288,19 @@ struct CoverControlSurfaceTests {
         #expect(uploadSource.contains(#".accessibilityLabel("Next time")"#))
         #expect(uploadSource.contains(#".accessibilityLabel("Cooked at")"#))
 
-        let generationTokens = [
-            #"@State private var placeholderPromptAddition = """#,
-            #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,
-            #"runAction(.generatePlaceholder("#,
-            #"promptAddition: trimmedOptional(placeholderPromptAddition)"#,
-            #"activateWhenReady: true"#,
+        let regenerationTokens = [
             #"@State private var regenerationPromptAdditions: [String: String] = [:]"#,
             #"TextField("Regeneration direction", text: regenerationPromptBinding(for: cover.id))"#,
             #"promptAddition: trimmedOptional(regenerationPromptAdditions[cover.id] ?? "")"#,
             #"activateWhenReady: cover.isActive"#
         ]
-        let missingGenerationTokens = generationTokens.filter { !coverControlsSource.contains($0) }
-        #expect(missingGenerationTokens.isEmpty, "Missing native generation control tokens: \(missingGenerationTokens)")
-
-        let placeholderGenerationSource = try swiftMemberBody(
-            named: "placeholderGenerationControl",
-            in: coverControlsSource
-        )
-        #expect(placeholderGenerationSource.contains(".textFieldStyle(.roundedBorder)"))
-        #expect(placeholderGenerationSource.contains(".controlSize(.extraLarge)"))
-        #expect(placeholderGenerationSource.contains(".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"))
-        #expect(placeholderGenerationSource.contains(#".accessibilityLabel("Placeholder direction")"#))
+        let missingRegenerationTokens = regenerationTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingRegenerationTokens.isEmpty, "Missing native regeneration control tokens: \(missingRegenerationTokens)")
 
         #expect(coverControlsSource.contains(
             ".textFieldStyle(.roundedBorder)\n                        .controlSize(.extraLarge)\n                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
         ))
         #expect(coverControlsSource.contains(#".accessibilityLabel("Regeneration direction")"#))
-        for token in [
-            #"Button { generatePlaceholderCover() }"#,
-            #".controlSize(.large)"#
-        ] {
-            #expect(
-                placeholderGenerationSource.contains(token),
-                "placeholderGenerationControl missing scoped token \(token)"
-            )
-        }
-
         let processingTokens = [
             "ProgressView()",
             #"Label("Editorializing cover", systemImage: "sparkles")"#,
@@ -1339,9 +1315,17 @@ struct CoverControlSurfaceTests {
             #"@State private var shouldActivateUploadedCover = true"#,
             #"Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)"#,
             #"activateWhenReady: shouldActivateUploadedCover"#,
-            #".disabled(connectivity == .offline)"#
+            #".disabled(connectivity == .offline)"#,
+            #"placeholderPromptAddition"#,
+            #"placeholderGenerationControl"#,
+            #"generatePlaceholderCover"#,
+            #".generatePlaceholder("#,
+            #"Text("AI placeholder")"#,
+            #"Label("Generate Placeholder", systemImage: "sparkles")"#,
+            #"TextField("Placeholder direction""#,
+            #"recipe-covers.generate-placeholder"#
         ].filter { coverControlsSource.contains($0) }
-        #expect(forbiddenTokens.isEmpty, "Native Photo Studio still renders stale copy: \(forbiddenTokens)")
+        #expect(forbiddenTokens.isEmpty, "Native Photo Studio still exposes stale or placeholder generation UI: \(forbiddenTokens)")
     }
 
     @Test("native photo studio action groups adapt to narrow layouts with stable identifiers")
@@ -1349,7 +1333,7 @@ struct CoverControlSurfaceTests {
         let source = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
 
         let uploadStart = try #require(source.range(of: "private var photoUploadControl: some View"))
-        let uploadEnd = try #require(source.range(of: "private var placeholderGenerationControl: some View"))
+        let uploadEnd = try #require(source.range(of: "private var noCoverControl: some View"))
         let uploadSource = source[uploadStart.lowerBound..<uploadEnd.lowerBound]
         for token in [
             "ViewThatFits(in: .horizontal)",

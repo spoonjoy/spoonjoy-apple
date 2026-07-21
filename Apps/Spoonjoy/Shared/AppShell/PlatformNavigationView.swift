@@ -20,6 +20,7 @@ struct PlatformNavigationView: View {
     @State private var isSearchPresented = false
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
+    @State private var loadedRecipesByID: [String: Recipe] = [:]
     @StateObject private var recipeEditorToolbarCoordinator = RecipeEditorToolbarCoordinator()
 
     private let contentState: NativeShellContentState
@@ -47,6 +48,7 @@ struct PlatformNavigationView: View {
     private let recordSpoonCookLogDraftHandler: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     private let recordSearchSurfacePageHandler: @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void
     private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
+    private let recordSearchTelemetryHandler: @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
     private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
     private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
@@ -82,6 +84,7 @@ struct PlatformNavigationView: View {
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
+        recordSearchTelemetry: @escaping @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
         purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
         purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
@@ -116,6 +119,7 @@ struct PlatformNavigationView: View {
         self.recordSpoonCookLogDraftHandler = recordSpoonCookLogDraft
         self.recordSearchSurfacePageHandler = recordSearchSurfacePage
         self.searchSurfaceRepositoryHandler = searchSurfaceRepository
+        self.recordSearchTelemetryHandler = recordSearchTelemetry
         self.syncTriggerCoordinator = syncTriggerCoordinator
         self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
         self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
@@ -134,6 +138,11 @@ struct PlatformNavigationView: View {
             } else {
                 desktopClassShell(spotlightPayload: spotlightPayload)
             }
+        }
+        .onChange(of: contentState.searchSurfaceIdentity) { _, _ in
+            activeSearch = nil
+            liveSearchRequestMarker = nil
+            loadedRecipesByID.removeAll()
         }
     }
 
@@ -526,6 +535,7 @@ struct PlatformNavigationView: View {
                 spoonRepository: spoonCookLogRepository,
                 initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
                 loadingTitle: recipeLoadingTitle(id: id),
+                onRecipeLoaded: recordLoadedRecipe,
                 actionConnectivity: recipeActionConnectivity,
                 shoppingViewModel: shoppingViewModel,
                 context: recipeDetailContext(for:),
@@ -1030,7 +1040,11 @@ struct PlatformNavigationView: View {
     }
 
     private func recipe(id: String) -> Recipe? {
-        contentState.recipes.first { $0.id == id }
+        contentState.recipes.first { $0.id == id } ?? loadedRecipesByID[id]
+    }
+
+    private func recordLoadedRecipe(_ recipe: Recipe) {
+        loadedRecipesByID[recipe.id] = recipe
     }
 
     private func recipeLoadingTitle(id: String) -> String? {
@@ -1075,6 +1089,11 @@ struct PlatformNavigationView: View {
     private func performSearch(_ nextSearch: SearchState) async {
         let nextSearch = normalizedSearch(nextSearch)
         let identity = contentState.searchSurfaceIdentity
+        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
+        activeSearch = ActiveSearchSurfaceState(
+            identity: identity,
+            viewModel: loadingSearchViewModel(for: nextSearch, cachedPage: cachedPage)
+        )
         search.apply(route: .search(query: nextSearch.query, scope: nextSearch.scope))
         navigation.navigate(to: search.route)
         guard allowsLiveEffects else {
@@ -1102,14 +1121,20 @@ struct PlatformNavigationView: View {
         defer {
             clearLiveSearchRequestMarker(requestMarker)
         }
+        let searchStartedAt = ContinuousClock.now
+        reportSearchTelemetry(.started(state: nextSearch, hasCachedResults: !cachedPage.results.isEmpty))
 
-        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
         let context = contentState.searchSurfaceContext
         let repository = searchSurfaceRepositoryHandler(context)
         do {
             let page = try await repository.search(
                 request: SearchSurfaceRequest(query: nextSearch.query, scope: nextSearch.scope, limit: 20)
             )
+            reportSearchTelemetry(.completed(
+                state: nextSearch,
+                page: page,
+                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt)
+            ))
             guard canApplySearchResult(identity: identity, state: nextSearch) else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
@@ -1126,6 +1151,12 @@ struct PlatformNavigationView: View {
             clearLiveSearchRequestMarker(requestMarker)
             return
         } catch let error as SearchSurfaceRepositoryError {
+            reportSearchTelemetry(.failed(
+                state: nextSearch,
+                error: error,
+                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt),
+                hasCachedResults: !cachedPage.results.isEmpty
+            ))
             guard canApplySearchResult(identity: identity, state: nextSearch) else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
@@ -1139,6 +1170,13 @@ struct PlatformNavigationView: View {
                 )
             )
         } catch {
+            let searchError = SearchSurfaceRepositoryError.searchFailed(message: String(describing: error))
+            reportSearchTelemetry(.failed(
+                state: nextSearch,
+                error: searchError,
+                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt),
+                hasCachedResults: !cachedPage.results.isEmpty
+            ))
             guard canApplySearchResult(identity: identity, state: nextSearch) else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
@@ -1146,7 +1184,7 @@ struct PlatformNavigationView: View {
             activeSearch = ActiveSearchSurfaceState(
                 identity: identity,
                 viewModel: contentState.performSearch(
-                    error: .searchFailed(message: String(describing: error)),
+                    error: searchError,
                     state: nextSearch,
                     cachedPage: cachedPage
                 )
@@ -1178,6 +1216,19 @@ struct PlatformNavigationView: View {
         }
     }
 
+    private func reportSearchTelemetry(_ descriptor: NativeSearchTelemetryDescriptor) {
+        Task {
+            await recordSearchTelemetryHandler(descriptor)
+        }
+    }
+
+    private func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Int {
+        let components = start.duration(to: .now).components
+        let seconds = Double(components.seconds) * 1_000
+        let subseconds = Double(components.attoseconds) / 1_000_000_000_000_000
+        return max(0, Int(seconds + subseconds))
+    }
+
     private func hasActiveSearch(for routeSearch: SearchState) -> Bool {
         guard let activeSearch else {
             return false
@@ -1193,7 +1244,21 @@ struct PlatformNavigationView: View {
         if routeSearch.query.isEmpty && routeSearch.scope == .all {
             return contentState.searchSurfaceViewModel
         }
-        return contentState.performSearch(routeSearch)
+        return loadingSearchViewModel(
+            for: routeSearch,
+            cachedPage: contentState.searchSurfacePage(for: routeSearch)
+        )
+    }
+
+    private func loadingSearchViewModel(
+        for state: SearchState,
+        cachedPage: SearchSurfacePage?
+    ) -> SearchSurfaceViewModel {
+        SearchSurfaceViewModel.loading(
+            state: state,
+            context: contentState.searchSurfaceContext,
+            cachedPage: cachedPage
+        )
     }
 
     private func normalizedSearch(_ candidate: SearchState) -> SearchState {

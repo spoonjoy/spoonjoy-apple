@@ -45,7 +45,9 @@ struct SearchView: View {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
 
-            if let errorState = viewModel.errorState {
+            if viewModel.isLoading, viewModel.sections.isEmpty {
+                SearchSurfaceLoadingView()
+            } else if let errorState = viewModel.errorState {
                 SearchSurfaceMessageView(
                     title: errorState.title,
                     message: errorState.message,
@@ -60,12 +62,21 @@ struct SearchView: View {
                     systemImage: emptyState.systemImage
                 )
             } else {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .accessibilityLabel("Searching")
+                }
                 ForEach(viewModel.sections) { section in
                     SearchSurfaceSectionView(section: section, openRoute: openRoute)
                 }
             }
         }
         .tint(KitchenTableTheme.herb)
+        .animation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.isLoading)
+        .animation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.renderFingerprint)
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
         .accessibilityValue(searchableScopeOrder.map { SearchSurfaceScopeGrammar.title(for: $0) }.joined(separator: ", "))
@@ -79,6 +90,7 @@ struct SearchView: View {
         }
         .task(id: viewModel.renderFingerprint) {
             writeScreenshotProofIfNeeded()
+            await SearchCoverPrefetcher.prefetch(viewModel.sections.flatMap(\.rows).compactMap(\.imageURL))
         }
     }
 
@@ -161,6 +173,49 @@ struct SearchView: View {
         )
         try? data.write(to: outputURL, options: [.atomic])
 #endif
+    }
+}
+
+private struct SearchSurfaceLoadingView: View {
+    var body: some View {
+        KitchenTableSection(title: "Results") {
+            ForEach(0..<4, id: \.self) { _ in
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                        .fill(KitchenTableTheme.inkMuted.opacity(0.12))
+                        .frame(width: 48, height: 48)
+                    VStack(alignment: .leading, spacing: 8) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(KitchenTableTheme.inkMuted.opacity(0.16))
+                            .frame(maxWidth: 210, minHeight: 14, maxHeight: 14)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(KitchenTableTheme.inkMuted.opacity(0.10))
+                            .frame(maxWidth: 132, minHeight: 10, maxHeight: 10)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: 56)
+                .accessibilityHidden(true)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Searching")
+    }
+}
+
+private enum SearchCoverPrefetcher {
+    static func prefetch(_ urls: [URL]) async {
+        let uniqueURLs = Array(Set(urls)).prefix(12)
+        await withTaskGroup(of: Void.self) { group in
+            for url in uniqueURLs {
+                group.addTask {
+                    var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 3)
+                    request.allowsConstrainedNetworkAccess = true
+                    request.allowsExpensiveNetworkAccess = true
+                    _ = try? await URLSession.shared.data(for: request)
+                }
+            }
+        }
     }
 }
 

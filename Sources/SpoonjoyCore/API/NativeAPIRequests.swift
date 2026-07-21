@@ -214,6 +214,9 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         case authFlowFailed = "auth_flow_failed"
         case settingsRefreshFailed = "settings_refresh_failed"
         case syncFailed = "sync_failed"
+        case searchStarted = "search_started"
+        case searchCompleted = "search_completed"
+        case searchFailed = "search_failed"
     }
 
     public let name: Name
@@ -252,6 +255,10 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
     public let authOAuthStatePresent: Bool?
     public let authRedirectScheme: String?
     public let authRedirectHost: String?
+    public let searchScope: String?
+    public let searchQueryLength: Int?
+    public let searchResultCount: Int?
+    public let durationMilliseconds: Int?
 
     public init(
         name: Name,
@@ -289,7 +296,11 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         authFullNamePresent: Bool? = nil,
         authOAuthStatePresent: Bool? = nil,
         authRedirectScheme: String? = nil,
-        authRedirectHost: String? = nil
+        authRedirectHost: String? = nil,
+        searchScope: String? = nil,
+        searchQueryLength: Int? = nil,
+        searchResultCount: Int? = nil,
+        durationMilliseconds: Int? = nil
     ) {
         self.name = name
         self.stage = stage
@@ -327,6 +338,10 @@ public struct NativeTelemetryEvent: Equatable, Sendable {
         self.authOAuthStatePresent = authOAuthStatePresent
         self.authRedirectScheme = authRedirectScheme
         self.authRedirectHost = authRedirectHost
+        self.searchScope = searchScope
+        self.searchQueryLength = searchQueryLength
+        self.searchResultCount = searchResultCount
+        self.durationMilliseconds = durationMilliseconds
     }
 }
 
@@ -492,6 +507,10 @@ public enum NativeTelemetryRequests {
         put(event.authOAuthStatePresent, in: &body, key: "authOAuthStatePresent")
         put(event.authRedirectScheme, in: &body, key: "authRedirectScheme")
         put(event.authRedirectHost, in: &body, key: "authRedirectHost")
+        put(event.searchScope, in: &body, key: "searchScope")
+        put(event.searchQueryLength, in: &body, key: "searchQueryLength")
+        put(event.searchResultCount, in: &body, key: "searchResultCount")
+        put(event.durationMilliseconds, in: &body, key: "durationMilliseconds")
         return try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "native", "telemetry"],

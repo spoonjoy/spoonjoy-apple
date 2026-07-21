@@ -47,6 +47,8 @@ struct NativeSearchSurfaceTests {
                 ],
                 "Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift": [
                     "SearchSurfaceViewModel",
+                    "isLoading",
+                    "static func loading(",
                     "SearchSurfaceContext",
                     "SearchSurfaceSection",
                     "SearchSurfaceRow",
@@ -65,6 +67,8 @@ struct NativeSearchSurfaceTests {
                 ],
                 "Apps/Spoonjoy/Shared/Views/SearchView.swift": [
                     "SearchSurfaceViewModel",
+                    "viewModel.isLoading",
+                    "SearchSurfaceLoadingView",
                     "SearchSurfaceSection",
                     "SearchSurfaceRow",
                     "OfflineStatusView",
@@ -95,6 +99,9 @@ struct NativeSearchSurfaceTests {
                     "shouldAutoFocusSearchField",
                     "search.apply(route: routeSearch.route)",
                     "ActiveSearchSurfaceState",
+                    "@State private var loadedRecipesByID",
+                    "recordLoadedRecipe",
+                    "viewModel: loadingSearchViewModel",
                     "recordSearchSurfacePageHandler(page, identity)",
                     "contentState.searchSurfaceIdentity",
                     "normalizedSearch(",
@@ -108,6 +115,11 @@ struct NativeSearchSurfaceTests {
                     "routeOwnsOfflineStatus",
                     "routeKeepsSearchFocus",
                     "searchSurfaceRepositoryHandler(context)",
+                    "recordSearchTelemetryHandler",
+                    "NativeSearchTelemetryDescriptor",
+                    "reportSearchTelemetry(.started",
+                    "reportSearchTelemetry(.completed",
+                    "reportSearchTelemetry(.failed",
                     "SearchSurfaceScopeGrammar.title(for: scope)",
                     "guard allowsLiveEffects else",
                     "isSearchFieldFocused = false"
@@ -117,6 +129,7 @@ struct NativeSearchSurfaceTests {
                     "recordSearchSurfacePage(page, expectedIdentity: identity)",
                     "searchSurfaceRepository: { context in",
                     "liveStore.searchSurfaceRepository(context: context)",
+                    "liveStore.recordSearchTelemetry(descriptor)",
                     "allowsLiveEffects: liveStore.allowsLiveEffects",
                     "SignedOutSetupView("
                 ],
@@ -167,6 +180,70 @@ struct NativeSearchSurfaceTests {
         )
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
+    }
+
+    @Test("pending search never renders a definitive empty state")
+    func pendingSearchSuppressesEmptyState() {
+        let state = SearchState(query: "tomato", scope: .all)
+        let context = SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true)
+        let pending = SearchSurfaceViewModel.loading(
+            state: state,
+            context: context,
+            cachedPage: nil
+        )
+
+        #expect(pending.state == state)
+        #expect(pending.isLoading)
+        #expect(pending.sections.isEmpty)
+        #expect(pending.emptyState == nil)
+        #expect(pending.errorState == nil)
+
+        let staleCache = SearchSurfacePage(
+            query: "tomato",
+            scope: .all,
+            limit: 20,
+            isAuthenticated: true,
+            results: [Self.recipeResult()],
+            source: .cache(serverRevision: .cursor("search-v1"), lastValidatedAt: Self.staleValidatedAt)
+        )
+        let refreshingCache = SearchSurfaceViewModel.loading(
+            state: state,
+            context: context,
+            cachedPage: staleCache,
+            now: { Self.now }
+        )
+
+        #expect(refreshingCache.sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
+        #expect(refreshingCache.offlineIndicator.display == .stale(domain: .searchResults(query: "tomato", scope: .all)))
+    }
+
+    @Test("search telemetry is useful without exposing query text")
+    func searchTelemetryIsPrivacySafe() throws {
+        let state = SearchState(query: "family secret", scope: .recipes)
+        let descriptor = NativeSearchTelemetryDescriptor.failed(
+            state: state,
+            error: .offline,
+            durationMilliseconds: 321,
+            hasCachedResults: true
+        )
+        let event = descriptor.telemetryEvent(
+            environment: "production",
+            metadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.2", buildNumber: "45")
+        )
+        let request = try NativeTelemetryRequests.recordEvent(event)
+            .urlRequest(configuration: Self.configuration)
+        let body = try #require(request.body)
+        let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+        #expect(event.name == .searchFailed)
+        #expect(event.searchScope == "recipes")
+        #expect(event.searchQueryLength == 13)
+        #expect(event.durationMilliseconds == 321)
+        #expect(event.hasRenderableCacheContent == true)
+        #expect(event.errorType == "offline")
+        #expect(json["searchScope"] as? String == "recipes")
+        #expect(json["searchQueryLength"] as? Int == 13)
+        #expect(!String(decoding: body, as: UTF8.self).contains("family secret"))
     }
 
     @Test("live search repository uses API v1 search and gates private shopping-list results")

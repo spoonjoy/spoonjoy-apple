@@ -376,3 +376,90 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         return actions
     }
 }
+
+public struct RecipeDetailProgressiveLoader: Sendable {
+    private let recipeRepository: any RecipeCatalogRepository
+    private let spoonRepository: any SpoonCookLogRepository
+
+    public init(
+        recipeRepository: any RecipeCatalogRepository,
+        spoonRepository: any SpoonCookLogRepository
+    ) {
+        self.recipeRepository = recipeRepository
+        self.spoonRepository = spoonRepository
+    }
+
+    public func load(
+        recipeID: String,
+        onRecipe: @escaping @MainActor @Sendable (RecipeCatalogDetailResult) -> Void
+    ) async throws {
+        let initialResult = try await recipeRepository.recipeDetail(id: recipeID)
+        await onRecipe(initialResult)
+
+        do {
+            let cookLog = try await fullCookLog(recipeID: initialResult.recipe.id)
+            try Task.checkCancellation()
+            let enrichedResult = RecipeCatalogDetailResult(
+                recipe: initialResult.recipe.replacingRecentSpoons(cookLog.spoons),
+                source: initialResult.source
+            )
+            await onRecipe(enrichedResult)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            // Recipe content is already visible; history enrichment is best-effort.
+        }
+    }
+
+    private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {
+        var cursor: PaginationCursor?
+        var seenCursors = Set<String>()
+        var spoons: [RecipeDetailRecentSpoon] = []
+
+        while true {
+            try Task.checkCancellation()
+            let page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: cursor, limit: 50)
+            spoons.append(contentsOf: page.spoons)
+
+            guard page.hasMore else {
+                return SpoonCookLogData(spoons: spoons, nextCursor: page.nextCursor, hasMore: false)
+            }
+            guard let nextCursor = page.nextCursor else {
+                throw RecipeDetailProgressiveLoadError.missingNextCursor
+            }
+            guard seenCursors.insert(nextCursor.rawValue).inserted else {
+                throw RecipeDetailProgressiveLoadError.repeatedCursor
+            }
+            cursor = nextCursor
+        }
+    }
+}
+
+private enum RecipeDetailProgressiveLoadError: Error {
+    case missingNextCursor
+    case repeatedCursor
+}
+
+private extension Recipe {
+    func replacingRecentSpoons(_ recentSpoons: [RecipeDetailRecentSpoon]) -> Recipe {
+        Recipe(
+            id: id,
+            title: title,
+            description: description,
+            servings: servings,
+            chef: chef,
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: coverVariant,
+            href: href,
+            canonicalURL: canonicalURL,
+            attribution: attribution,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            steps: steps,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons
+        )
+    }
+}

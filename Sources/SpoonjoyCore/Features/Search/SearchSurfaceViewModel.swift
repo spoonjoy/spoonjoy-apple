@@ -70,6 +70,126 @@ public struct SearchSurfaceContext: Equatable, Hashable, Sendable {
     }
 }
 
+public enum NativeSearchTelemetryOutcome: String, Equatable, Sendable {
+    case started
+    case completed
+    case failed
+
+    fileprivate var eventName: NativeTelemetryEvent.Name {
+        switch self {
+        case .started: .searchStarted
+        case .completed: .searchCompleted
+        case .failed: .searchFailed
+        }
+    }
+}
+
+public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
+    public let outcome: NativeSearchTelemetryOutcome
+    public let scope: SearchScope
+    public let queryLength: Int
+    public let resultCount: Int?
+    public let durationMilliseconds: Int?
+    public let requestID: String?
+    public let errorType: String?
+    public let hasCachedResults: Bool
+
+    public static func started(state: SearchState, hasCachedResults: Bool) -> Self {
+        Self(
+            outcome: .started,
+            state: state,
+            resultCount: nil,
+            durationMilliseconds: nil,
+            requestID: nil,
+            errorType: nil,
+            hasCachedResults: hasCachedResults
+        )
+    }
+
+    public static func completed(
+        state: SearchState,
+        page: SearchSurfacePage,
+        durationMilliseconds: Int
+    ) -> Self {
+        let requestID: String? = if case .live(let value, _) = page.source { value } else { nil }
+        return Self(
+            outcome: .completed,
+            state: state,
+            resultCount: page.results.count,
+            durationMilliseconds: durationMilliseconds,
+            requestID: requestID,
+            errorType: nil,
+            hasCachedResults: false
+        )
+    }
+
+    public static func failed(
+        state: SearchState,
+        error: SearchSurfaceRepositoryError,
+        durationMilliseconds: Int,
+        hasCachedResults: Bool
+    ) -> Self {
+        Self(
+            outcome: .failed,
+            state: state,
+            resultCount: nil,
+            durationMilliseconds: durationMilliseconds,
+            requestID: nil,
+            errorType: sanitizedErrorType(error),
+            hasCachedResults: hasCachedResults
+        )
+    }
+
+    private init(
+        outcome: NativeSearchTelemetryOutcome,
+        state: SearchState,
+        resultCount: Int?,
+        durationMilliseconds: Int?,
+        requestID: String?,
+        errorType: String?,
+        hasCachedResults: Bool
+    ) {
+        self.outcome = outcome
+        scope = state.scope
+        queryLength = min(max(state.query.count, 0), 4_096)
+        self.resultCount = resultCount.map { min(max($0, 0), 100_000) }
+        self.durationMilliseconds = durationMilliseconds.map { min(max($0, 0), 600_000) }
+        self.requestID = requestID
+        self.errorType = errorType
+        self.hasCachedResults = hasCachedResults
+    }
+
+    public func telemetryEvent(
+        environment: String,
+        metadata: NativeTelemetryAppMetadata
+    ) -> NativeTelemetryEvent {
+        NativeTelemetryEvent(
+            name: outcome.eventName,
+            stage: "request_\(outcome.rawValue)",
+            environment: environment,
+            metadata: metadata,
+            route: "search",
+            errorType: errorType,
+            requestID: requestID,
+            hasRenderableCacheContent: hasCachedResults,
+            searchScope: scope.rawValue,
+            searchQueryLength: queryLength,
+            searchResultCount: resultCount,
+            durationMilliseconds: durationMilliseconds
+        )
+    }
+
+    private static func sanitizedErrorType(_ error: SearchSurfaceRepositoryError) -> String {
+        switch error {
+        case .authenticationRequired: "authentication_required"
+        case .authorizationRequired: "authorization_required"
+        case .offline: "offline"
+        case .cancelled: "cancelled"
+        case .searchFailed: "search_failed"
+        }
+    }
+}
+
 public struct SearchSurfaceSection: Identifiable, Equatable, Sendable {
     public let kind: SearchScope
     public let rows: [SearchSurfaceRow]
@@ -231,6 +351,7 @@ public struct SearchSurfaceDebouncePolicy: Equatable, Sendable {
 
 public struct SearchSurfaceViewModel: Equatable, Sendable {
     public let state: SearchState
+    public let isLoading: Bool
     public let searchableScopes: [SearchScope]
     public let unsupportedScopes: [SearchScope]
     public let sections: [SearchSurfaceSection]
@@ -247,6 +368,7 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.state = state
+        isLoading = false
         let scopes = Self.searchableScopes(context: context)
         searchableScopes = scopes
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
@@ -277,6 +399,7 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.state = state
+        isLoading = false
         let scopes = Self.searchableScopes(context: context)
         searchableScopes = scopes
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
@@ -303,6 +426,46 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
             emptyState: recoveredEmptyState,
             state: state,
             unavailableReason: String(describing: error)
+        )
+    }
+
+    public static func loading(
+        state: SearchState,
+        context: SearchSurfaceContext,
+        cachedPage: SearchSurfacePage?,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) -> SearchSurfaceViewModel {
+        SearchSurfaceViewModel(
+            loadingState: state,
+            context: context,
+            cachedPage: cachedPage,
+            now: now
+        )
+    }
+
+    private init(
+        loadingState state: SearchState,
+        context: SearchSurfaceContext,
+        cachedPage: SearchSurfacePage?,
+        now: @escaping @Sendable () -> Date
+    ) {
+        self.state = state
+        isLoading = true
+        let scopes = Self.searchableScopes(context: context)
+        searchableScopes = scopes
+        unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
+        let cachedSections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
+        sections = cachedSections
+        emptyState = nil
+        errorState = nil
+        offlineIndicator = cachedPage?.offlineIndicator(now: now())
+            ?? OfflineIndicatorState(display: .synced, dismissal: nil)
+        renderFingerprint = Self.renderFingerprint(
+            sections: cachedSections,
+            dataSource: cachedPage?.source,
+            emptyState: nil,
+            state: state,
+            unavailableReason: "loading"
         )
     }
 

@@ -25,12 +25,17 @@ module TestFlightVisualEvidence
     settings-signed-out settings-apns-denied settings-apns-not-determined settings-apns-authorized
     settings-apns-unregistered unknown-link
   ].freeze
-  SETTINGS_ROUTE_VARIANTS = %w[
+  ROUTE_VARIANTS = {
+    "shopping-list" => %w[shopping-list-empty shopping-list-all-complete shopping-list-duplicate shopping-list-conflict shopping-list-offline-queued],
+    "search" => %w[search-typed-results search-scoped-recipes search-scoped-cookbooks search-scoped-chefs search-scoped-shopping search-no-results],
+    "capture" => %w[capture-empty capture-draft capture-offline-retry capture-provider-blocked capture-signed-out],
+    "settings" => %w[
     settings-notifications settings-signed-out settings-apns-denied settings-apns-not-determined
     settings-apns-authorized settings-apns-unregistered
-  ].freeze
+    ]
+  }.freeze
   EXPECTED_ROUTE_BY_NAME = EXPECTED_ROUTES.each_with_object({}) do |name, routes|
-    routes[name] = SETTINGS_ROUTE_VARIANTS.include?(name) ? "settings" : name
+    routes[name] = ROUTE_VARIANTS.find { |_route, variants| variants.include?(name) }&.first || name
   end.freeze
   SCREENSHOTS = {
     "iosMobile" => ["iosScreenshot", "screenshots/ios-mobile.png"],
@@ -44,7 +49,8 @@ module TestFlightVisualEvidence
     "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
   }.freeze
   DEEP_SCROLL_ROUTES = %w[
-    kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+    kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log
+    cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings
   ].freeze
   REQUIRED_PROOF_ARRAYS = {
     "accessibilityProofArtifacts" => 3,
@@ -54,6 +60,9 @@ module TestFlightVisualEvidence
   MATRIX_EMPTY_ARRAYS = %w[
     failedRoutes blockedRoutes missingDesignReviewRoutes missingScreenshotRoutes missingRoutes
     duplicateRoutes unexpectedRoutes
+  ].freeze
+  TRANSITION_CONTRACT_IDS = %w[
+    search-pending-suppresses-empty-state recipe-publishes-before-cook-history
   ].freeze
 
   module_function
@@ -197,7 +206,35 @@ module TestFlightVisualEvidence
       provenance_relative = relative_source_path(provenance, "screenshot provenance manifest")
       add_selected(provenance, provenance_relative)
 
-      write_artifact(routes, matrix_relative, results_relative, provenance_relative)
+      transition = TestFlightVisualEvidence.source_path(
+        @artifact_root,
+        matrix.fetch("transitionEvidencePath"),
+        "native transition evidence"
+      )
+      transition_payload = validate_transition_evidence!(transition, matrix)
+      transition_relative = relative_source_path(transition, "native transition evidence")
+      add_selected(transition, transition_relative)
+      transition_log = TestFlightVisualEvidence.source_path(
+        @artifact_root,
+        transition_payload.fetch("log").fetch("path"),
+        "native transition evidence log"
+      )
+      TestFlightVisualEvidence.validate_recorded_artifact!(
+        transition_payload.fetch("log").merge("exists" => true),
+        transition_log,
+        "native transition evidence log"
+      )
+      transition_log_relative = relative_source_path(transition_log, "native transition evidence log")
+      add_selected(transition_log, transition_log_relative)
+
+      write_artifact(
+        routes,
+        matrix_relative,
+        results_relative,
+        provenance_relative,
+        transition_relative,
+        transition_log_relative
+      )
     end
 
     private
@@ -227,6 +264,7 @@ module TestFlightVisualEvidence
       unless matrix["provenanceVerifiedBefore"] == true && matrix["provenanceVerifiedAfter"] == true
         raise Error, "full route matrix lacks before-and-after provenance verification"
       end
+      raise Error, "full route matrix lacks validated transition evidence" unless matrix["transitionEvidenceValidated"] == true
       unless matrix["sourceSha"] == @identity.fetch("sourceSha") && matrix["sourceTree"] == @identity.fetch("sourceTree")
         raise Error, "route matrix source identity does not match the workflow identity"
       end
@@ -270,6 +308,28 @@ module TestFlightVisualEvidence
              provenance["manifestSha256"].is_a?(String) && provenance["manifestSha256"].match?(DIGEST_PATTERN)
         raise Error, "screenshot provenance manifest digest mismatch"
       end
+    end
+
+    def validate_transition_evidence!(path, matrix)
+      evidence = TestFlightVisualEvidence.parse_json(path, "native transition evidence")
+      unless evidence["schemaVersion"] == 1 && evidence["ok"] == true &&
+             evidence["sourceSha"] == @identity.fetch("sourceSha") &&
+             evidence["sourceTree"] == @identity.fetch("sourceTree")
+        raise Error, "native transition evidence identity or result mismatch"
+      end
+      contracts = evidence["contracts"]
+      unless contracts.is_a?(Array) && contracts.map { |contract| contract.is_a?(Hash) ? contract["id"] : nil } == TRANSITION_CONTRACT_IDS
+        raise Error, "native transition evidence contract set mismatch"
+      end
+      unless matrix["transitionEvidenceSha256"] == Digest::SHA256.file(path).hexdigest
+        raise Error, "native transition evidence digest mismatch"
+      end
+      log = evidence["log"]
+      unless log.is_a?(Hash) && log["path"] == matrix["transitionEvidenceLogPath"] &&
+             log["sha256"] == matrix["transitionEvidenceLogSha256"]
+        raise Error, "native transition evidence log binding mismatch"
+      end
+      evidence
     end
 
     def seal_route(row)
@@ -400,7 +460,7 @@ module TestFlightVisualEvidence
       portable
     end
 
-    def write_artifact(routes, matrix_relative, results_relative, provenance_relative)
+    def write_artifact(routes, matrix_relative, results_relative, provenance_relative, transition_relative, transition_log_relative)
       if @output_dir.to_s == File::SEPARATOR || @output_dir.to_s.empty?
         raise Error, "refusing unsafe visual artifact output directory"
       end
@@ -422,6 +482,8 @@ module TestFlightVisualEvidence
           "summary" => "payload/#{matrix_relative}",
           "results" => "payload/#{results_relative}",
           "provenance" => "payload/#{provenance_relative}",
+          "transitionEvidence" => "payload/#{transition_relative}",
+          "transitionEvidenceLog" => "payload/#{transition_log_relative}",
           "expectedRouteCount" => EXPECTED_ROUTES.length,
           "routes" => routes
         },
@@ -567,6 +629,26 @@ module TestFlightVisualEvidence
              provenance.dig("source", "tree") == @expected_identity.fetch("sourceTree") &&
              provenance["manifestSha256"] == summary["provenanceManifestSha256"]
         raise Error, "sealed screenshot provenance identity mismatch"
+      end
+
+
+      transition_path = require_file_reference!(matrix["transitionEvidence"], files, "native transition evidence", referenced)
+      transition = TestFlightVisualEvidence.parse_json(transition_path, "sealed native transition evidence")
+      unless transition["schemaVersion"] == 1 && transition["ok"] == true &&
+             transition["sourceSha"] == @expected_identity.fetch("sourceSha") &&
+             transition["sourceTree"] == @expected_identity.fetch("sourceTree") &&
+             transition["contracts"].is_a?(Array) &&
+             transition["contracts"].map { |contract| contract.is_a?(Hash) ? contract["id"] : nil } == TRANSITION_CONTRACT_IDS &&
+             summary["transitionEvidenceValidated"] == true &&
+             summary["transitionEvidenceSha256"] == Digest::SHA256.file(transition_path).hexdigest
+        raise Error, "sealed native transition evidence mismatch"
+      end
+      transition_log_path = require_file_reference!(matrix["transitionEvidenceLog"], files, "native transition evidence log", referenced)
+      transition_log = transition.fetch("log")
+      unless transition_log["bytes"] == transition_log_path.size &&
+             transition_log["sha256"] == Digest::SHA256.file(transition_log_path).hexdigest &&
+             transition_log["sha256"] == summary["transitionEvidenceLogSha256"]
+        raise Error, "sealed native transition evidence log mismatch"
       end
 
       routes.each do |route|

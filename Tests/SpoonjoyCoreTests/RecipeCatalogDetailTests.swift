@@ -604,7 +604,10 @@ struct RecipeCatalogDetailTests {
             contains: [
                 "RecipeDetailRouteView",
                 "RecipeDetailScreenViewModel",
-                "repository.recipeDetail",
+                "RecipeDetailProgressiveLoader",
+                "loader.load(recipeID: recipeID)",
+                "publishLoadedRecipe(result)",
+                "onRecipeLoaded(result.recipe)",
                 "spoonSummary",
                 "cookbookSave",
                 "ownerTools",
@@ -619,6 +622,38 @@ struct RecipeCatalogDetailTests {
                 "MealPlan"
             ]
         )
+
+    }
+
+    @Test("recipe detail publishes before cook history enrichment finishes")
+    func recipeDetailPublishesBeforeCookHistoryEnrichment() async throws {
+        let recipe = try Self.recipeDetail()
+        let detail = RecipeCatalogDetailResult(
+            recipe: recipe,
+            source: .live(requestID: "req_recipe_progressive", validatedAt: Self.now)
+        )
+        let spoonRepository = ControlledSpoonCookLogRepository()
+        let recorder = ProgressiveRecipeResultRecorder()
+        let loader = RecipeDetailProgressiveLoader(
+            recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
+            spoonRepository: spoonRepository
+        )
+
+        let task = Task {
+            try await loader.load(recipeID: recipe.id) { result in
+                recorder.results.append(result)
+            }
+        }
+        await spoonRepository.waitUntilFetchStarts()
+
+        #expect(await recorder.results.count == 1)
+        #expect(await recorder.results.first?.recipe.id == recipe.id)
+
+        await spoonRepository.complete(
+            SpoonCookLogListData(spoons: recipe.recentSpoons, nextCursor: nil, hasMore: false)
+        )
+        try await task.value
+        #expect(await recorder.results.count == 2)
     }
 
     private static func recipeDetail() throws -> Recipe {
@@ -840,6 +875,46 @@ private struct FailingRecipeCatalogRepository: RecipeCatalogRepository {
     func recipeDetail(id: String) async throws -> RecipeCatalogDetailResult {
         throw RecipeCatalogRepositoryError.recipeNotFound(id)
     }
+}
+
+private struct ImmediateRecipeDetailRepository: RecipeCatalogRepository {
+    let detail: RecipeCatalogDetailResult
+
+    func listRecipes(request _: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
+        throw RecipeCatalogRepositoryError.recipeNotFound("unused")
+    }
+
+    func recipeDetail(id _: String) async throws -> RecipeCatalogDetailResult {
+        detail
+    }
+}
+
+private actor ControlledSpoonCookLogRepository: SpoonCookLogRepository {
+    private var continuation: CheckedContinuation<SpoonCookLogListData, Never>?
+    private var fetchStarted = false
+
+    func fetchCookLog(recipeID _: String, cursor _: PaginationCursor?, limit _: Int) async throws -> SpoonCookLogListData {
+        await withCheckedContinuation { continuation in
+            self.continuation = continuation
+            fetchStarted = true
+        }
+    }
+
+    func waitUntilFetchStarts() async {
+        while !fetchStarted {
+            await Task.yield()
+        }
+    }
+
+    func complete(_ page: SpoonCookLogListData) {
+        continuation?.resume(returning: page)
+        continuation = nil
+    }
+}
+
+@MainActor
+private final class ProgressiveRecipeResultRecorder {
+    var results: [RecipeCatalogDetailResult] = []
 }
 
 private enum RecordingSpoonjoyAPITransportError: Error, Equatable {

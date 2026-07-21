@@ -15,6 +15,7 @@ struct RecipeDetailRouteView: View {
     let spoonRepository: any SpoonCookLogRepository
     let snapshotViewModel: RecipeDetailScreenViewModel?
     let loadingTitle: String?
+    let onRecipeLoaded: @MainActor @Sendable (Recipe) -> Void
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
     let context: (Recipe) -> RecipeDetailContext
@@ -31,6 +32,7 @@ struct RecipeDetailRouteView: View {
 
     @State private var routeState: RecipeDetailRouteState
     @State private var errorMessage: String?
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
         recipeID: String,
@@ -38,6 +40,7 @@ struct RecipeDetailRouteView: View {
         spoonRepository: any SpoonCookLogRepository,
         initialViewModel: RecipeDetailScreenViewModel?,
         loadingTitle: String? = nil,
+        onRecipeLoaded: @escaping @MainActor @Sendable (Recipe) -> Void = { _ in },
         actionConnectivity: RecipeActionConnectivity,
         shoppingViewModel: ShoppingSurfaceViewModel,
         context: @escaping (Recipe) -> RecipeDetailContext,
@@ -57,6 +60,7 @@ struct RecipeDetailRouteView: View {
         self.spoonRepository = spoonRepository
         snapshotViewModel = initialViewModel
         self.loadingTitle = loadingTitle
+        self.onRecipeLoaded = onRecipeLoaded
         self.actionConnectivity = actionConnectivity
         self.shoppingViewModel = shoppingViewModel
         self.context = context
@@ -121,9 +125,14 @@ struct RecipeDetailRouteView: View {
             routeState = .loading(snapshotTitle: loadingTitle)
         }
         do {
-            let result = try await repository.recipeDetail(id: recipeID)
-            let detailResult = await detailResultByLoadingFullSpoonList(result)
-            routeState = .loaded(RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe)))
+            let loader = RecipeDetailProgressiveLoader(
+                recipeRepository: repository,
+                spoonRepository: spoonRepository
+            )
+            try await loader.load(recipeID: recipeID) { result in
+                publishLoadedRecipe(result)
+                onRecipeLoaded(result.recipe)
+            }
             errorMessage = nil
         } catch RecipeCatalogRepositoryError.recipeNotFound {
             if !hasVisibleCurrentRecipe {
@@ -138,39 +147,13 @@ struct RecipeDetailRouteView: View {
         }
     }
 
-    private func detailResultByLoadingFullSpoonList(_ result: RecipeCatalogDetailResult) async -> RecipeCatalogDetailResult {
-        do {
-            let cookLog = try await fullCookLog(recipeID: result.recipe.id)
-            return RecipeCatalogDetailResult(
-                recipe: result.recipe.replacingRecentSpoons(cookLog.spoons),
-                source: result.source
-            )
-        } catch {
-            return result
+    @MainActor
+    private func publishLoadedRecipe(_ result: RecipeCatalogDetailResult) {
+        withAnimation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.20)) {
+            routeState = .loaded(RecipeDetailScreenViewModel(result: result, context: context(result.recipe)))
         }
     }
 
-    private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {
-        var cursor: PaginationCursor?
-        var seenCursors = Set<String>()
-        var spoons: [RecipeDetailRecentSpoon] = []
-
-        while true {
-            let page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: cursor, limit: 50)
-            spoons.append(contentsOf: page.spoons)
-
-            guard page.hasMore else {
-                return SpoonCookLogData(spoons: spoons, nextCursor: page.nextCursor, hasMore: false)
-            }
-            guard let nextCursor = page.nextCursor else {
-                throw RecipeDetailCookLogPaginationError.missingNextCursor
-            }
-            guard seenCursors.insert(nextCursor.rawValue).inserted else {
-                throw RecipeDetailCookLogPaginationError.repeatedCursor(nextCursor.rawValue)
-            }
-            cursor = nextCursor
-        }
-    }
 }
 
 private extension RecipeDetailRouteState {
@@ -182,11 +165,6 @@ private extension RecipeDetailRouteState {
             nil
         }
     }
-}
-
-private enum RecipeDetailCookLogPaginationError: Error {
-    case missingNextCursor
-    case repeatedCursor(String)
 }
 
 struct RecipeDetailView: View {
@@ -1070,30 +1048,6 @@ struct RecipeDetailView: View {
         case .saveToCookbook, .removeFromCookbook:
             false
         }
-    }
-}
-
-private extension Recipe {
-    func replacingRecentSpoons(_ recentSpoons: [RecipeDetailRecentSpoon]) -> Recipe {
-        Recipe(
-            id: id,
-            title: title,
-            description: description,
-            servings: servings,
-            chef: chef,
-            coverImageURL: coverImageURL,
-            coverProvenanceLabel: coverProvenanceLabel,
-            coverSourceType: coverSourceType,
-            coverVariant: coverVariant,
-            href: href,
-            canonicalURL: canonicalURL,
-            attribution: attribution,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            steps: steps,
-            cookbooks: cookbooks,
-            recentSpoons: recentSpoons
-        )
     }
 }
 

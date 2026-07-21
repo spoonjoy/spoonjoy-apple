@@ -190,6 +190,9 @@ struct SpoonjoyRootView: View {
             searchSurfaceRepository: { context in
                 liveStore.searchSurfaceRepository(context: context)
             },
+            recordSearchTelemetry: { descriptor in
+                await liveStore.recordSearchTelemetry(descriptor)
+            },
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator,
             purgeShoppingEntityIndexes: { request in
                 await liveStore.purgeShoppingEntityIdentifiers(
