@@ -208,6 +208,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ))
     }
 
+    func testAuditIgnoresContentFullyOutsideTheVerticalViewport() {
+        let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
+
+        XCTAssertTrue(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 720, width: 160, height: 20),
+            elementType: "staticText",
+            viewport: viewport
+        ))
+        XCTAssertTrue(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 40, width: 160, height: 20),
+            elementType: "button",
+            viewport: viewport
+        ))
+    }
+
     func testAuditRetainsContentClippedHorizontallyByTheViewport() {
         let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
 
@@ -776,13 +791,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let tolerance = 0.5
         let isHorizontallyContained = elementFrame.minX >= viewport.minX - tolerance
             && elementFrame.maxX <= viewport.maxX + tolerance
-        let intersectsVertically = elementFrame.maxY > viewport.minY
-            && elementFrame.minY < viewport.maxY
         let isVerticallyClipped = elementFrame.minY < viewport.minY - tolerance
             || elementFrame.maxY > viewport.maxY + tolerance
         return !Self.chromeTypes.contains(elementType)
             && isHorizontallyContained
-            && intersectsVertically
             && isVerticallyClipped
     }
 
