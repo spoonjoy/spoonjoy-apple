@@ -30,13 +30,14 @@
     "ledgerEvent": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repository", "ref", "commit", "payloadPath", "payloadSHA256"],
+      "required": ["repository", "ref", "commit", "payloadPath", "payloadSHA256", "appID"],
       "properties": {
         "repository": { "const": "spoonjoy/spoonjoy-delivery" },
         "ref": { "const": "refs/heads/release-ledger" },
         "commit": { "$ref": "#/$defs/gitSHA" },
         "payloadPath": { "$ref": "#/$defs/repoRelativePath" },
-        "payloadSHA256": { "$ref": "#/$defs/sha256" }
+        "payloadSHA256": { "$ref": "#/$defs/sha256" },
+        "appID": { "type": "integer", "minimum": 1 }
       }
     },
     "receiver": {

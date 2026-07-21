@@ -313,6 +313,17 @@ end
 
 class GitHubRemote
   Result = Struct.new(:stdout, :stderr, :status, keyword_init: true)
+  EXPECTED_MAIN_CHECKS = {
+    "spoonjoy/spoonjoy-apple" => {
+      "Swift tests" => 15_368,
+      "Native scenario verifier" => 15_368,
+      "App bundle" => 15_368,
+      "Coverage" => 15_368
+    },
+    "spoonjoy/spoonjoy-delivery" => {
+      "CI" => 15_368
+    }
+  }.freeze
 
   def initialize(command: "gh")
     @command = command
@@ -330,47 +341,29 @@ class GitHubRemote
     fail_with("remote ref response is incomplete for #{repository}:#{ref}: #{error.message}")
   end
 
-  def verify_ref_protected(repository, ref)
+  def verify_ref_protected(repository, ref, ledger_app_id: nil)
     branch = ref.delete_prefix("refs/heads/")
     fail_with("protected ref must name an exact branch: #{repository}:#{ref}") if branch == ref || branch.empty?
+    return verify_release_ledger_protected(repository, ref, branch, ledger_app_id) if branch == "release-ledger"
+    fail_with("ProtectedMainV1 applies only to refs/heads/main: #{repository}:#{ref}") unless branch == "main"
 
-    protection = query_json(
+    classic = query_json(
       "repos/#{repository}/branches/#{encode_path(branch)}/protection",
       allow_not_found: true
     )
-    if protection
-      force_pushes = protection.dig("allow_force_pushes", "enabled")
-      deletions = protection.dig("allow_deletions", "enabled")
-      admins = protection.dig("enforce_admins", "enabled")
-      if force_pushes == false && deletions == false && admins == true
-        return {
-          "source" => "branch_protection",
-          "forcePushesAllowed" => false,
-          "deletionsAllowed" => false,
-          "adminsEnforced" => true
-        }
-      end
-      fail_with("protected ref #{repository}:#{ref} permits mutable history or administrator bypass")
-    end
-
-    rules = query_json(
-      "repos/#{repository}/rules/branches/#{encode_path(branch)}",
-      allow_not_found: true
-    )
-    rule_types = Array(rules).each_with_object([]) do |rule, types|
-      types << rule["type"] if rule.is_a?(Hash) && rule["type"].is_a?(String)
-    end
-    blocking_types = rule_types.select do |type|
-      %w[deletion non_fast_forward pull_request required_status_checks].include?(type)
-    end.uniq
-    unless blocking_types.empty?
-      return {
-        "source" => "ruleset",
-        "blockingRuleTypes" => blocking_types.sort
-      }
-    end
-
-    fail_with("ref #{repository}:#{ref} is not covered by effective GitHub branch protection or a mutability-blocking ruleset")
+    default_branch = repository_default_branch(repository)
+    rulesets = applicable_rulesets(repository, ref, default_branch, predicate: "ProtectedMainV1")
+    normalized = {
+      "predicate" => "ProtectedMainV1",
+      "repository" => repository,
+      "ref" => ref,
+      "defaultBranch" => default_branch,
+      "classic" => normalize_classic_protection(classic),
+      "rulesets" => rulesets
+    }
+    validate_protected_main_v1!(normalized)
+    normalized["ruleDigest"] = Digest::SHA256.hexdigest(CanonicalJSON.generate(normalized))
+    normalized
   end
 
   def verify_commit_reachable(repository, commit, ref, ref_head)
@@ -402,6 +395,286 @@ class GitHubRemote
   end
 
   private
+
+  def verify_release_ledger_protected(repository, ref, branch, ledger_app_id)
+    fail_with("ProtectedLedgerV1 requires a positive dedicated ledger App ID") unless ledger_app_id.is_a?(Integer) && ledger_app_id.positive?
+
+    classic = query_json(
+      "repos/#{repository}/branches/#{encode_path(branch)}/protection",
+      allow_not_found: true
+    )
+    default_branch = repository_default_branch(repository)
+    rulesets = applicable_rulesets(repository, ref, default_branch, predicate: "ProtectedLedgerV1")
+    normalized = {
+      "predicate" => "ProtectedLedgerV1",
+      "repository" => repository,
+      "ref" => ref,
+      "ledgerAppID" => ledger_app_id,
+      "defaultBranch" => default_branch,
+      "classic" => normalize_classic_protection(classic),
+      "rulesets" => rulesets
+    }
+    validate_protected_ledger_v1!(normalized)
+    normalized["ruleDigest"] = Digest::SHA256.hexdigest(CanonicalJSON.generate(normalized))
+    normalized
+  end
+
+  def normalize_classic_protection(protection)
+    return nil unless protection
+
+    review = protection["required_pull_request_reviews"]
+    checks = protection["required_status_checks"]
+    {
+      "sourceDigest" => Digest::SHA256.hexdigest(CanonicalJSON.generate(protection)),
+      "forcePushesAllowed" => protection.dig("allow_force_pushes", "enabled"),
+      "deletionsAllowed" => protection.dig("allow_deletions", "enabled"),
+      "adminsEnforced" => protection.dig("enforce_admins", "enabled"),
+      "pullRequest" => review && {
+        "requiredApprovals" => review["required_approving_review_count"],
+        "bypassActors" => normalize_classic_bypass(review["bypass_pull_request_allowances"])
+      },
+      "requiredChecks" => checks && {
+        "strict" => checks["strict"],
+        "checks" => Array(checks["checks"]).map do |check|
+          {
+            "context" => check["context"],
+            "appID" => check["app_id"]
+          }
+        end.sort_by { |check| [check["context"].to_s, check["appID"].to_i] }
+      },
+      "pushRestrictions" => normalize_classic_restrictions(protection["restrictions"])
+    }
+  end
+
+  def normalize_classic_bypass(allowances)
+    return [] unless allowances.is_a?(Hash)
+
+    %w[users teams apps].flat_map do |actor_type|
+      Array(allowances[actor_type]).map do |actor|
+        {
+          "actorType" => actor_type,
+          "id" => actor["id"],
+          "slug" => actor["slug"] || actor["login"]
+        }
+      end
+    end.sort_by { |actor| [actor["actorType"], actor["id"].to_i, actor["slug"].to_s] }
+  end
+
+  def normalize_classic_restrictions(restrictions)
+    return [] unless restrictions.is_a?(Hash)
+
+    %w[users teams apps].flat_map do |actor_type|
+      Array(restrictions[actor_type]).map do |actor|
+        {
+          "actorType" => actor_type,
+          "id" => actor["id"],
+          "slug" => actor["slug"] || actor["login"]
+        }
+      end
+    end.sort_by { |actor| [actor["actorType"], actor["id"].to_i, actor["slug"].to_s] }
+  end
+
+  def repository_default_branch(repository)
+    metadata = query_json("repos/#{repository}")
+    default_branch = metadata["default_branch"]
+    unless default_branch.is_a?(String) && !default_branch.empty? && !default_branch.include?("/")
+      fail_with("GitHub repository metadata has no provable default branch for #{repository}")
+    end
+    default_branch
+  end
+
+  def applicable_rulesets(repository, ref, default_branch, predicate:)
+    summaries = query_json("repos/#{repository}/rulesets", fields: { "includes_parents" => "true" })
+    fail_with("GitHub ruleset inventory is not an array for #{repository}") unless summaries.is_a?(Array)
+
+    summaries.each_with_object([]) do |summary, applicable|
+      fail_with("GitHub ruleset summary is malformed for #{repository}") unless summary.is_a?(Hash) && summary["id"].is_a?(Integer)
+
+      detail = query_json("repos/#{repository}/rulesets/#{summary.fetch("id")}")
+      next unless ruleset_applies_to_ref?(detail, ref, default_branch)
+
+      enforcement = detail["enforcement"]
+      fail_with("#{predicate} ruleset #{detail["id"]} for #{repository}:#{ref} is not active") unless enforcement == "active"
+      applicable << normalize_ruleset(detail)
+    end.sort_by { |ruleset| ruleset["id"] }
+  end
+
+  def ruleset_applies_to_ref?(ruleset, ref, default_branch)
+    return false unless ruleset["target"] == "branch"
+
+    ref_condition = ruleset.dig("conditions", "ref_name")
+    fail_with("ruleset #{ruleset["id"]} has no provable ref_name condition") unless ref_condition.is_a?(Hash)
+    included = Array(ref_condition["include"]).any? { |pattern| ref_pattern_matches?(pattern, ref, default_branch) }
+    excluded = Array(ref_condition["exclude"]).any? { |pattern| ref_pattern_matches?(pattern, ref, default_branch) }
+    included && !excluded
+  end
+
+  def ref_pattern_matches?(pattern, ref, default_branch)
+    return true if pattern == "~ALL"
+    return ref == "refs/heads/#{default_branch}" if pattern == "~DEFAULT_BRANCH"
+    return false unless pattern.is_a?(String) && !pattern.start_with?("~")
+
+    File.fnmatch(pattern, ref, File::FNM_PATHNAME | File::FNM_EXTGLOB) || pattern == ref.delete_prefix("refs/heads/")
+  end
+
+  def normalize_ruleset(ruleset)
+    {
+      "id" => ruleset.fetch("id"),
+      "name" => ruleset.fetch("name"),
+      "source" => ruleset["source"],
+      "sourceType" => ruleset["source_type"],
+      "target" => ruleset.fetch("target"),
+      "enforcement" => ruleset.fetch("enforcement"),
+      "conditions" => normalize_ruleset_conditions(ruleset.fetch("conditions")),
+      "sourceDigest" => Digest::SHA256.hexdigest(CanonicalJSON.generate(ruleset)),
+      "bypassActors" => Array(ruleset["bypass_actors"]).map do |actor|
+        {
+          "actorID" => actor["actor_id"],
+          "actorType" => actor["actor_type"],
+          "bypassMode" => actor["bypass_mode"]
+        }
+      end.sort_by { |actor| [actor["actorType"].to_s, actor["actorID"].to_i, actor["bypassMode"].to_s] },
+      "rules" => Array(ruleset["rules"]).map { |rule| normalize_ruleset_rule(rule) }
+        .sort_by { |rule| [rule["type"].to_s, CanonicalJSON.generate(rule)] }
+    }
+  rescue KeyError => error
+    fail_with("applicable ruleset is incomplete: #{error.message}")
+  end
+
+  def normalize_ruleset_conditions(conditions)
+    ref_name = conditions.fetch("ref_name")
+    {
+      "refName" => {
+        "include" => Array(ref_name["include"]).sort,
+        "exclude" => Array(ref_name["exclude"]).sort
+      }
+    }
+  rescue KeyError => error
+    fail_with("applicable ruleset conditions are incomplete: #{error.message}")
+  end
+
+  def normalize_ruleset_rule(rule)
+    type = rule["type"]
+    normalized = { "type" => type }
+    parameters = rule["parameters"]
+    return normalized unless parameters.is_a?(Hash)
+
+    case type
+    when "pull_request"
+      normalized["requiredApprovals"] = parameters["required_approving_review_count"]
+    when "required_status_checks"
+      normalized["strict"] = parameters["strict_required_status_checks_policy"]
+      normalized["checks"] = Array(parameters["required_status_checks"]).map do |check|
+        {
+          "context" => check["context"],
+          "appID" => check["integration_id"]
+        }
+      end.sort_by { |check| [check["context"].to_s, check["appID"].to_i] }
+    end
+    normalized
+  end
+
+  def validate_protected_main_v1!(protection)
+    repository = protection.fetch("repository")
+    ref = protection.fetch("ref")
+    classic = protection["classic"]
+    rulesets = protection.fetch("rulesets")
+    fail_with("ref #{repository}:#{ref} has no ProtectedMainV1 protection layer") if classic.nil? && rulesets.empty?
+
+    broad_bypass_types = %w[users teams OrganizationAdmin RepositoryRole Team]
+    classic_bypass = classic ? Array(classic.dig("pullRequest", "bypassActors")) : []
+    ruleset_bypass = rulesets.flat_map { |ruleset| ruleset.fetch("bypassActors") }
+    broad_bypass = (classic_bypass + ruleset_bypass).find do |actor|
+      broad_bypass_types.include?(actor["actorType"])
+    end
+    fail_with("ProtectedMainV1 forbids broad role, team, user, or administrator bypass on #{repository}:#{ref}") if broad_bypass
+
+    classic_blocks_mutation = classic && classic["forcePushesAllowed"] == false && classic["deletionsAllowed"] == false
+    ruleset_types = rulesets.flat_map { |ruleset| ruleset.fetch("rules").map { |rule| rule["type"] } }
+    rulesets_block_mutation = ruleset_types.include?("non_fast_forward") && ruleset_types.include?("deletion")
+    fail_with("ProtectedMainV1 does not block force pushes and deletion on #{repository}:#{ref}") unless classic_blocks_mutation || rulesets_block_mutation
+    if classic && classic["adminsEnforced"] != true
+      fail_with("ProtectedMainV1 requires administrator enforcement on #{repository}:#{ref}")
+    end
+
+    pull_request_layers = []
+    pull_request_layers << classic["pullRequest"] if classic && classic["pullRequest"]
+    rulesets.each do |ruleset|
+      ruleset.fetch("rules").select { |rule| rule["type"] == "pull_request" }.each { |rule| pull_request_layers << rule }
+    end
+    if pull_request_layers.empty? || pull_request_layers.any? { |layer| !layer["requiredApprovals"].is_a?(Integer) || layer["requiredApprovals"] < 1 }
+      fail_with("ProtectedMainV1 requires pull requests with at least one approval on #{repository}:#{ref}")
+    end
+
+    check_layers = []
+    check_layers << classic["requiredChecks"] if classic && classic["requiredChecks"]
+    rulesets.each do |ruleset|
+      ruleset.fetch("rules").select { |rule| rule["type"] == "required_status_checks" }.each { |rule| check_layers << rule }
+    end
+    fail_with("ProtectedMainV1 requires status checks on #{repository}:#{ref}") if check_layers.empty?
+    if check_layers.any? { |layer| layer["strict"] != true }
+      fail_with("ProtectedMainV1 requires strict required status checks on #{repository}:#{ref}")
+    end
+    if check_layers.any? { |layer| Array(layer["checks"]).empty? }
+      fail_with("ProtectedMainV1 requires at least one named status check in every check layer on #{repository}:#{ref}")
+    end
+    checks = check_layers.flat_map { |layer| Array(layer["checks"]) }
+    invalid_check = checks.find do |check|
+      !check["context"].is_a?(String) || check["context"].empty? || !check["appID"].is_a?(Integer) || check["appID"] <= 0
+    end
+    fail_with("ProtectedMainV1 forbids any-source or missing-source required checks on #{repository}:#{ref}") if invalid_check
+
+    duplicate_context = checks.group_by { |check| check["context"] }.find do |_context, entries|
+      entries.map { |entry| entry["appID"] }.uniq.length != 1
+    end
+    fail_with("ProtectedMainV1 has conflicting App sources for a required check on #{repository}:#{ref}") if duplicate_context
+
+    expected_checks = EXPECTED_MAIN_CHECKS[repository]
+    fail_with("ProtectedMainV1 has no repository-specific expected check App allowlist for #{repository}") unless expected_checks
+    actual_checks = checks.each_with_object({}) do |check, contexts|
+      contexts[check.fetch("context")] = check.fetch("appID")
+    end
+    unless actual_checks == expected_checks
+      fail_with("ProtectedMainV1 required checks do not match the repository-specific expected check App allowlist for #{repository}:#{ref}")
+    end
+  end
+
+  def validate_protected_ledger_v1!(protection)
+    repository = protection.fetch("repository")
+    ref = protection.fetch("ref")
+    ledger_app_id = protection.fetch("ledgerAppID")
+    classic = protection["classic"]
+    rulesets = protection.fetch("rulesets")
+    fail_with("ref #{repository}:#{ref} has no ProtectedLedgerV1 ruleset") if rulesets.empty?
+
+    broad_types = %w[users teams OrganizationAdmin RepositoryRole Team User]
+    classic_bypass = classic ? Array(classic.dig("pullRequest", "bypassActors")) : []
+    ruleset_bypass = rulesets.flat_map { |ruleset| ruleset.fetch("bypassActors") }
+    if (classic_bypass + ruleset_bypass).any? { |actor| broad_types.include?(actor["actorType"]) }
+      fail_with("ProtectedLedgerV1 forbids broad role, team, user, or administrator bypass on #{repository}:#{ref}")
+    end
+
+    expected_bypass = {
+      "actorID" => ledger_app_id,
+      "actorType" => "Integration",
+      "bypassMode" => "always"
+    }
+    unless rulesets.all? { |ruleset| ruleset.fetch("bypassActors") == [expected_bypass] }
+      fail_with("ProtectedLedgerV1 requires exactly the dedicated ledger App bypass on #{repository}:#{ref}")
+    end
+
+    unless rulesets.all? { |ruleset| ruleset.fetch("rules").any? { |rule| rule["type"] == "update" } }
+      fail_with("ProtectedLedgerV1 forbids an ordinary writer or direct update path on #{repository}:#{ref}")
+    end
+
+    classic_blocks_mutation = classic && classic["forcePushesAllowed"] == false && classic["deletionsAllowed"] == false
+    ruleset_types = rulesets.flat_map { |ruleset| ruleset.fetch("rules").map { |rule| rule["type"] } }
+    rulesets_block_mutation = ruleset_types.include?("non_fast_forward") && ruleset_types.include?("deletion")
+    fail_with("ProtectedLedgerV1 does not block force pushes and deletion on #{repository}:#{ref}") unless classic_blocks_mutation || rulesets_block_mutation
+    if classic && classic["adminsEnforced"] != true
+      fail_with("ProtectedLedgerV1 requires administrator enforcement on #{repository}:#{ref}")
+    end
+  end
 
   def query_json(endpoint, fields: {}, unreachable_label: nil, allow_not_found: false)
     arguments = [@command, "api", "--method", "GET", endpoint]
@@ -479,6 +752,7 @@ class ReleaseOwnershipHandoffVerifier
     remote_contents = verify_remote_envelopes(envelopes, initial_heads)
     validate_remote_contents(release_bytes, ack_bytes, ack, remote_contents)
     validate_protected_refs_stable(initial_heads)
+    validate_protected_rules_stable(protections)
 
     proof = build_proof(release, release_bytes, ack_bytes, ack, envelopes, protections, initial_heads)
     FileUtils.mkdir_p(@output_path.dirname)
@@ -497,7 +771,9 @@ class ReleaseOwnershipHandoffVerifier
 
   def validate_acknowledgment(release, release_bytes, ack)
     outbound = ack.fetch("outboundRelease")
+    ledger = ack.fetch("ledgerEvent")
     receiver = ack.fetch("receiver")
+    @ledger_app_id = ledger.fetch("appID")
     release_digest = sha256(release_bytes)
     fail_with("outbound release SHA-256 does not match acknowledgment") unless outbound.fetch("sha256") == release_digest
     fail_with("receiver task ID does not match outbound release") unless receiver.fetch("taskID") == release.fetch("receiverTaskID")
@@ -556,7 +832,8 @@ class ReleaseOwnershipHandoffVerifier
   def verify_protected_refs(envelopes)
     envelopes.each_with_object({}) do |envelope, protections|
       key = [envelope.repository, envelope.ref]
-      protections[key] ||= @remote.verify_ref_protected(envelope.repository, envelope.ref)
+      ledger_app_id = envelope.ref == LEDGER_REF ? @ledger_app_id : nil
+      protections[key] ||= @remote.verify_ref_protected(envelope.repository, envelope.ref, ledger_app_id: ledger_app_id)
     end
   end
 
@@ -580,7 +857,7 @@ class ReleaseOwnershipHandoffVerifier
     fail_with("ledger event type must be ReceiverAcknowledged") unless event["eventType"] == "ReceiverAcknowledged"
     payload = event["payload"]
     fail_with("ledger event payload must be an object") unless payload.is_a?(Hash)
-    expected_payload_keys = %w[outboundReleaseSHA256 receiverDeskTask receiverTaskID]
+    expected_payload_keys = %w[ledgerAppID outboundReleaseSHA256 receiverDeskTask receiverTaskID]
     fail_with("ledger event payload fields do not match the ReceiverAcknowledged contract") unless payload.keys.sort == expected_payload_keys
     ledger = ack.fetch("ledgerEvent")
     payload_digest = sha256(CanonicalJSON.generate(payload))
@@ -588,6 +865,7 @@ class ReleaseOwnershipHandoffVerifier
     fail_with("ledger payload outbound release SHA-256 does not match") unless payload["outboundReleaseSHA256"] == release_digest
     fail_with("ledger payload receiver task ID does not match") unless payload["receiverTaskID"] == RECEIVER_TASK_ID
     fail_with("ledger payload receiver Desk task does not match") unless payload["receiverDeskTask"] == RECEIVER_DESK_TASK
+    fail_with("ledger payload dedicated App ID does not match") unless payload["ledgerAppID"] == ledger.fetch("appID")
   end
 
   def validate_protected_refs_stable(initial_heads)
@@ -596,6 +874,19 @@ class ReleaseOwnershipHandoffVerifier
       next if final_head == initial_head
 
       fail_with("protected ref #{repository}:#{ref} changed during verification")
+    end
+  end
+
+  def validate_protected_rules_stable(initial_protections)
+    initial_protections.each do |(repository, ref), initial_protection|
+      final_protection = @remote.verify_ref_protected(
+        repository,
+        ref,
+        ledger_app_id: initial_protection["ledgerAppID"]
+      )
+      next if final_protection["ruleDigest"] == initial_protection["ruleDigest"]
+
+      fail_with("#{initial_protection.fetch("predicate")} rule digest changed during verification for #{repository}:#{ref}")
     end
   end
 

@@ -29,6 +29,7 @@ UPSTREAM_ACK_COMMIT = "4" * 40
 DRIFT_COMMIT = "5" * 40
 RECEIVER_TASK_ID = "019f5c80-bbe0-76a1-82eb-b0c715d035e7"
 RECEIVER_DESK_TASK = "spoonjoy/cross-client-delivery"
+LEDGER_APP_ID = 424_242
 
 class ContractCheckFailure < StandardError; end
 
@@ -128,6 +129,7 @@ def fixture_documents
   release_bytes = pretty_json(release)
   release_digest = sha256(release_bytes)
   ledger_payload = {
+    "ledgerAppID" => LEDGER_APP_ID,
     "outboundReleaseSHA256" => release_digest,
     "receiverTaskID" => RECEIVER_TASK_ID,
     "receiverDeskTask" => RECEIVER_DESK_TASK
@@ -153,7 +155,8 @@ def fixture_documents
       "ref" => LEDGER_REF,
       "commit" => LEDGER_COMMIT,
       "payloadPath" => "ledger/events/receiver-acknowledged.json",
-      "payloadSHA256" => sha256(canonical_json(ledger_payload))
+      "payloadSHA256" => sha256(canonical_json(ledger_payload)),
+      "appID" => LEDGER_APP_ID
     },
     "receiver" => {
       "taskID" => RECEIVER_TASK_ID,
@@ -167,11 +170,97 @@ def fixture_documents
   [release, release_bytes, ledger_event, ledger_bytes, ack, ack_bytes, delivery_ack_path]
 end
 
-def classic_protection
+def expected_main_checks(repository)
+  case repository
+  when OUTBOUND_REPOSITORY
+    ["Swift tests", "Native scenario verifier", "App bundle", "Coverage"].map do |context|
+      { "context" => context, "app_id" => 15_368 }
+    end
+  when DELIVERY_REPOSITORY
+    [{ "context" => "CI", "app_id" => 15_368 }]
+  else
+    fail_check("no expected main checks for #{repository}")
+  end
+end
+
+def classic_protection(repository)
   {
     "allow_force_pushes" => { "enabled" => false },
     "allow_deletions" => { "enabled" => false },
-    "enforce_admins" => { "enabled" => true }
+    "enforce_admins" => { "enabled" => true },
+    "required_pull_request_reviews" => {
+      "required_approving_review_count" => 1,
+      "bypass_pull_request_allowances" => {
+        "users" => [],
+        "teams" => [],
+        "apps" => []
+      }
+    },
+    "required_status_checks" => {
+      "strict" => true,
+      "checks" => expected_main_checks(repository)
+    },
+    "restrictions" => {
+      "users" => [],
+      "teams" => [],
+      "apps" => []
+    }
+  }
+end
+
+def protected_main_ruleset(id: 1, enforcement: "active", bypass_actors: [])
+  {
+    "id" => id,
+    "name" => "ProtectedMainV1",
+    "target" => "branch",
+    "enforcement" => enforcement,
+    "bypass_actors" => bypass_actors,
+    "conditions" => {
+      "ref_name" => {
+        "include" => ["refs/heads/main"],
+        "exclude" => []
+      }
+    },
+    "rules" => [
+      { "type" => "deletion" },
+      { "type" => "non_fast_forward" },
+      {
+        "type" => "pull_request",
+        "parameters" => { "required_approving_review_count" => 1 }
+      },
+      {
+        "type" => "required_status_checks",
+        "parameters" => {
+          "strict_required_status_checks_policy" => true,
+          "required_status_checks" => [
+            { "context" => "CI", "integration_id" => 15_368 }
+          ]
+        }
+      }
+    ]
+  }
+end
+
+def protected_ledger_ruleset(id: 10, app_id: LEDGER_APP_ID, bypass_actors: nil)
+  {
+    "id" => id,
+    "name" => "ProtectedLedgerV1",
+    "target" => "branch",
+    "enforcement" => "active",
+    "bypass_actors" => bypass_actors || [
+      { "actor_id" => app_id, "actor_type" => "Integration", "bypass_mode" => "always" }
+    ],
+    "conditions" => {
+      "ref_name" => {
+        "include" => ["refs/heads/release-ledger"],
+        "exclude" => []
+      }
+    },
+    "rules" => [
+      { "type" => "update" },
+      { "type" => "deletion" },
+      { "type" => "non_fast_forward" }
+    ]
   }
 end
 
@@ -179,13 +268,14 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
   {
     "repositories" => {
       OUTBOUND_REPOSITORY => {
+        "defaultBranch" => "main",
         "refs" => {
           OUTBOUND_REF => UPSTREAM_ACK_COMMIT
         },
         "protections" => {
-          OUTBOUND_REF => classic_protection
+          OUTBOUND_REF => classic_protection(OUTBOUND_REPOSITORY)
         },
-        "rules" => {},
+        "rulesets" => [],
         "commits" => {
           OUTBOUND_COMMIT => {
             "ancestors" => [],
@@ -202,15 +292,15 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
         }
       },
       DELIVERY_REPOSITORY => {
+        "defaultBranch" => "main",
         "refs" => {
           LEDGER_REF => LEDGER_COMMIT,
           DELIVERY_ACK_REF => DELIVERY_ACK_COMMIT
         },
         "protections" => {
-          LEDGER_REF => classic_protection,
-          DELIVERY_ACK_REF => classic_protection
+          DELIVERY_ACK_REF => classic_protection(DELIVERY_REPOSITORY)
         },
-        "rules" => {},
+        "rulesets" => [protected_ledger_ruleset],
         "commits" => {
           LEDGER_COMMIT => {
             "ancestors" => [],
@@ -227,7 +317,9 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
         }
       }
     },
-    "driftRefs" => {}
+    "driftRefs" => {},
+    "driftProtections" => {},
+    "driftRulesets" => {}
   }
 end
 
@@ -247,12 +339,14 @@ FAKE_GH = <<~'RUBY'
   end
   endpoint = ARGV.shift
   fields = ARGV.each_slice(2).to_h
-  match = endpoint.match(%r{\Arepos/([^/]+/[^/]+)/(.*)\z}) or abort "bad endpoint #{endpoint}"
+  match = endpoint.match(%r{\Arepos/([^/]+/[^/]+)(?:/(.*))?\z}) or abort "bad endpoint #{endpoint}"
   repository = match[1]
-  path = match[2]
+  path = match[2].to_s
   repo = fixture.fetch("repositories").fetch(repository)
 
   response = case path
+             when ""
+               { "default_branch" => repo.fetch("defaultBranch") }
              when %r{\Agit/commits/([0-9a-f]{40})\z}
                sha = Regexp.last_match(1)
                abort "commit not found" unless repo.fetch("commits").key?(sha)
@@ -273,16 +367,39 @@ FAKE_GH = <<~'RUBY'
              when %r{\Abranches/(.+)/protection\z}
                branch = URI.decode_www_form_component(Regexp.last_match(1))
                ref = "refs/heads/#{branch}"
-               protection = repo.fetch("protections", {})[ref]
+               key = "#{repository}|#{ref}"
+               sequence = fixture.fetch("driftProtections", {}).fetch(key, nil)
+               if sequence
+                 state_key = "protection|#{key}"
+                 index = state.fetch(state_key, 0)
+                 protection = sequence.fetch([index, sequence.length - 1].min)
+                 state[state_key] = index + 1
+                 File.write(state_path, JSON.generate(state))
+               else
+                 protection = repo.fetch("protections", {})[ref]
+               end
                unless protection
                  puts JSON.generate({ "message" => "Branch not protected", "status" => 404 })
                  exit 1
                end
                protection
-             when %r{\Arules/branches/(.+)\z}
-               branch = URI.decode_www_form_component(Regexp.last_match(1))
-               ref = "refs/heads/#{branch}"
-               repo.fetch("rules", {}).fetch(ref, [])
+             when "rulesets"
+               sequence = fixture.fetch("driftRulesets", {}).fetch(repository, nil)
+               if sequence
+                 state_key = "rulesets|#{repository}"
+                 index = state.fetch(state_key, 0)
+                 rulesets = sequence.fetch([index, sequence.length - 1].min)
+                 state[state_key] = index + 1
+                 File.write(state_path, JSON.generate(state))
+               else
+                 rulesets = repo.fetch("rulesets", [])
+               end
+               rulesets.map do |ruleset|
+                 ruleset.slice("id", "name", "target", "enforcement")
+               end
+             when %r{\Arulesets/(\d+)\z}
+               id = Regexp.last_match(1).to_i
+               repo.fetch("rulesets", []).find { |ruleset| ruleset.fetch("id") == id } || abort("ruleset not found")
              when %r{\Acompare/([0-9a-f]{40})\.\.\.([0-9a-f]{40})\z}
                base = Regexp.last_match(1)
                head = Regexp.last_match(2)
@@ -439,6 +556,8 @@ begin
     fail_check("legacy owner-release.json path remains") if document.match?(/(?<!outbound-)owner-release\.json/)
     fail_check("protected main acknowledgment contract is undocumented") unless document.include?("protected `refs/heads/main`")
     fail_check("effective GitHub protection proof is undocumented") unless document.include?("effective GitHub")
+    fail_check("ProtectedMainV1 contract is undocumented") unless document.include?("ProtectedMainV1")
+    fail_check("ProtectedLedgerV1 contract is undocumented") unless document.include?("ProtectedLedgerV1")
   end
   [VERIFIER.read].each do |source|
     fail_check("stale unprotected acknowledgment ref remains") if source.include?("refs/heads/records-r0")
@@ -453,27 +572,137 @@ begin
   expect_success("delivery main protected by an effective ruleset", mutate: lambda do |documents|
     repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
     repo.fetch("protections").delete(DELIVERY_ACK_REF)
-    repo.fetch("rules")[DELIVERY_ACK_REF] = [{ "type" => "non_fast_forward" }]
+    repo.fetch("rulesets") << protected_main_ruleset
   end)
 
-  expect_failure("unprotected outbound main", "is not covered by effective GitHub branch protection", mutate: lambda do |documents|
+  expect_failure("unprotected outbound main", "has no ProtectedMainV1 protection layer", mutate: lambda do |documents|
     repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
     repo.fetch("protections").delete(OUTBOUND_REF)
   end)
 
-  expect_failure("unprotected delivery main", "is not covered by effective GitHub branch protection", mutate: lambda do |documents|
+  expect_failure("unprotected delivery main", "has no ProtectedMainV1 protection layer", mutate: lambda do |documents|
     repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
     repo.fetch("protections").delete(DELIVERY_ACK_REF)
   end)
 
-  expect_failure("unprotected delivery ledger", "is not covered by effective GitHub branch protection", mutate: lambda do |documents|
+  expect_failure("unprotected delivery ledger", "has no ProtectedLedgerV1 ruleset", mutate: lambda do |documents|
     repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
-    repo.fetch("protections").delete(LEDGER_REF)
+    repo.fetch("rulesets").reject! { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
   end)
 
-  expect_failure("mutable protected main", "permits mutable history or administrator bypass", mutate: lambda do |documents|
+  expect_failure("wrong dedicated ledger App", "requires exactly the dedicated ledger App bypass", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    actor = repo.fetch("rulesets").find { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
+      .fetch("bypass_actors").first
+    actor["actor_id"] = LEDGER_APP_ID + 1
+  end)
+
+  expect_failure("extra ledger App bypass", "requires exactly the dedicated ledger App bypass", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    actors = repo.fetch("rulesets").find { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
+      .fetch("bypass_actors")
+    actors << { "actor_id" => LEDGER_APP_ID + 1, "actor_type" => "Integration", "bypass_mode" => "always" }
+  end)
+
+  %w[RepositoryRole Team OrganizationAdmin].each do |actor_type|
+    expect_failure("ledger #{actor_type} bypass", "forbids broad role, team, user, or administrator bypass", mutate: lambda do |documents|
+      repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+      actors = repo.fetch("rulesets").find { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
+        .fetch("bypass_actors")
+      actors << { "actor_id" => 1, "actor_type" => actor_type, "bypass_mode" => "always" }
+    end)
+  end
+
+  expect_failure("ordinary ledger direct-write path", "forbids an ordinary writer or direct update path", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    rules = repo.fetch("rulesets").find { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
+      .fetch("rules")
+    rules.reject! { |rule| rule.fetch("type") == "update" }
+  end)
+
+  expect_failure("mutable protected main", "does not block force pushes and deletion", mutate: lambda do |documents|
     repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
     repo.fetch("protections").fetch(DELIVERY_ACK_REF).fetch("allow_force_pushes")["enabled"] = true
+  end)
+
+  %w[evaluate disabled].each do |enforcement|
+    expect_failure("#{enforcement} matching ruleset", "is not active", mutate: lambda do |documents|
+      repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+      repo.fetch("rulesets") << protected_main_ruleset(id: 2, enforcement: enforcement)
+    end)
+  end
+
+  expect_failure("permissive classic user bypass", "forbids broad role, team, user, or administrator bypass", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    allowances = repo.fetch("protections").fetch(OUTBOUND_REF)
+      .fetch("required_pull_request_reviews").fetch("bypass_pull_request_allowances")
+    allowances.fetch("users") << { "id" => 7, "login" => "bypass-user" }
+  end)
+
+  expect_failure("permissive ruleset team bypass", "forbids broad role, team, user, or administrator bypass", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("rulesets") << protected_main_ruleset(
+      id: 3,
+      bypass_actors: [{ "actor_id" => 8, "actor_type" => "Team", "bypass_mode" => "always" }]
+    )
+  end)
+
+  expect_failure("missing pull request rule", "requires pull requests with at least one approval", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    repo.fetch("protections").fetch(OUTBOUND_REF).delete("required_pull_request_reviews")
+  end)
+
+  expect_failure("non-strict required checks", "requires strict required status checks", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    repo.fetch("protections").fetch(OUTBOUND_REF).fetch("required_status_checks")["strict"] = false
+  end)
+
+  expect_failure("missing required-check rule", "requires status checks", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    repo.fetch("protections").fetch(OUTBOUND_REF).delete("required_status_checks")
+  end)
+
+  expect_failure("empty required-check set", "requires at least one named status check", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    repo.fetch("protections").fetch(OUTBOUND_REF).fetch("required_status_checks")["checks"] = []
+  end)
+
+  expect_failure("any-source required check", "forbids any-source or missing-source required checks", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    check = repo.fetch("protections").fetch(OUTBOUND_REF).fetch("required_status_checks").fetch("checks").first
+    check["app_id"] = nil
+  end)
+
+  expect_failure("missing required-check source", "forbids any-source or missing-source required checks", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    check = repo.fetch("protections").fetch(OUTBOUND_REF).fetch("required_status_checks").fetch("checks").first
+    check.delete("app_id")
+  end)
+
+  expect_failure("wrong positive required-check App", "repository-specific expected check App allowlist", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    check = repo.fetch("protections").fetch(OUTBOUND_REF).fetch("required_status_checks").fetch("checks").first
+    check["app_id"] = 99_999
+  end)
+
+  expect_failure("spoof required check context", "repository-specific expected check App allowlist", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    checks = repo.fetch("protections").fetch(OUTBOUND_REF).fetch("required_status_checks").fetch("checks")
+    checks << { "context" => "Swift tests spoof", "app_id" => 15_368 }
+  end)
+
+  expect_failure("missing expected required check", "repository-specific expected check App allowlist", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    checks = repo.fetch("protections").fetch(OUTBOUND_REF).fetch("required_status_checks").fetch("checks")
+    checks.pop
+  end)
+
+  expect_failure("mid-verification protection drift", "rule digest changed during verification", mutate: lambda do |documents|
+    key = "#{OUTBOUND_REPOSITORY}|#{OUTBOUND_REF}"
+    before = classic_protection(OUTBOUND_REPOSITORY)
+    after = deep_copy(before)
+    after.fetch("required_pull_request_reviews")["required_approving_review_count"] = 2
+    documents.fetch(:fixture).fetch("driftProtections")[key] = [before, after]
   end)
 
   expect_failure("self-referential delivery commit", "unknown property deliveryProjectionCommit", mutate: lambda do |documents|
