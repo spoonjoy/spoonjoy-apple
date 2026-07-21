@@ -174,14 +174,25 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   fail_check("generated schemes were #{scheme_files.inspect}, expected #{expected_scheme_files.inspect}") unless scheme_files == expected_scheme_files
 
   {
-    "Spoonjoy iOS.xcscheme" => { required: "Spoonjoy iOS", forbidden: "Spoonjoy macOS" },
+    "Spoonjoy iOS.xcscheme" => { required: "Spoonjoy iOS", required_test: "SpoonjoyUITests", forbidden: "Spoonjoy macOS" },
     "Spoonjoy macOS.xcscheme" => { required: "Spoonjoy macOS", forbidden: "Spoonjoy iOS" }
   }.each do |scheme_name, targets|
     scheme_text = scheme_dir.join(scheme_name).read
     fail_check("#{scheme_name} missing #{targets.fetch(:required)}") unless scheme_text.include?(targets.fetch(:required))
     fail_check("#{scheme_name} must not include #{targets.fetch(:forbidden)}") if scheme_text.include?(targets.fetch(:forbidden))
     fail_check("#{scheme_name} missing Launch/Profile runnable") unless scheme_text.include?("<BuildableProductRunnable")
+    if targets[:required_test]
+      fail_check("#{scheme_name} missing #{targets.fetch(:required_test)}") unless scheme_text.include?(targets.fetch(:required_test))
+      fail_check("#{scheme_name} missing TestableReference") unless scheme_text.include?("<TestableReference")
+      fail_check("#{scheme_name} Test action must use BootstrapDebug") unless scheme_text.match?(%r{<TestAction\s+buildConfiguration = "BootstrapDebug"})
+    end
   end
+
+  fail_check("generated project missing SpoonjoyUITests target") unless project_content.include?("SpoonjoyUITests")
+  fail_check("generated project missing UI test bundle identifier") unless project_content.include?("PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.uitests;")
+  fail_check("generated project missing observed UI test source") unless project_content.include?("NativeScreenshotEvidenceTests.swift")
+  fail_check("generated project must quiet irrelevant App Intents metadata warnings for the UI test bundle") unless project_content.include?("LM_FILTER_WARNINGS = YES;")
+  fail_check("generated project must skip App Intents metadata extraction for the UI test bundle") unless project_content.include?("LM_SKIP_METADATA_EXTRACTION = YES;")
 
   {
 	    "app.spoonjoy" => {

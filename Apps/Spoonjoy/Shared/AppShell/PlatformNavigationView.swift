@@ -22,6 +22,7 @@ struct PlatformNavigationView: View {
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
 
     private let contentState: NativeShellContentState
+    private let allowsLiveEffects: Bool
     private let offlineIndicatorState: OfflineIndicatorState
     private let dismissOfflineIndicator: @MainActor @Sendable () -> Void
     private let queueMutation: @Sendable (NativeQueuedMutation) async throws -> Void
@@ -56,6 +57,7 @@ struct PlatformNavigationView: View {
         navigation: Binding<AppNavigationState>,
         search: Binding<SearchState>,
         contentState: NativeShellContentState,
+        allowsLiveEffects: Bool,
         offlineIndicatorState: OfflineIndicatorState,
         dismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void,
         queueMutation: @escaping @Sendable (NativeQueuedMutation) async throws -> Void,
@@ -89,6 +91,7 @@ struct PlatformNavigationView: View {
         _navigation = navigation
         _search = search
         self.contentState = contentState
+        self.allowsLiveEffects = allowsLiveEffects
         self.offlineIndicatorState = offlineIndicatorState
         self.dismissOfflineIndicator = dismissOfflineIndicator
         self.queueMutation = queueMutation
@@ -149,7 +152,7 @@ struct PlatformNavigationView: View {
                 .searchFocused($isSearchFieldFocused)
                 .searchScopes(searchScope) {
                     ForEach(availableSearchScopes, id: \.rawValue) { scope in
-                        Text(label(for: scope)).tag(scope)
+                        Text(SearchSurfaceScopeGrammar.title(for: scope)).tag(scope)
                     }
                 }
                 .onSubmit(of: .search) {
@@ -193,6 +196,9 @@ struct PlatformNavigationView: View {
         .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
         .task(id: contentState.environment.rawValue) {
+            guard allowsLiveEffects else {
+                return
+            }
             if let report = try? await syncTriggerCoordinator.handle(.foreground) {
                 for request in report.shoppingEntityPurgeRequests {
                     await purgeShoppingEntityIndexesHandler(request)
@@ -231,6 +237,7 @@ struct PlatformNavigationView: View {
         } detail: {
             routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)
         }
+        .tint(KitchenTableTheme.charcoal)
     }
 
     private func focusedCookModeShell(spotlightPayload: SpotlightIndexPayload) -> some View {
@@ -261,7 +268,7 @@ struct PlatformNavigationView: View {
                 .searchFocused($isSearchFieldFocused)
                 .searchScopes(searchScope) {
                     ForEach(availableSearchScopes, id: \.rawValue) { scope in
-                        Text(label(for: scope)).tag(scope)
+                        Text(SearchSurfaceScopeGrammar.title(for: scope)).tag(scope)
                     }
                 }
                 .onSubmit(of: .search) {
@@ -277,7 +284,7 @@ struct PlatformNavigationView: View {
     private func baseRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, hidesNavigationBar: Bool) -> some View {
         NavigationStack {
             detailContentWithShellStatus
-                .navigationTitle(title(for: navigation.route))
+                .navigationTitle(usesCompactMobileShell ? title(for: navigation.route) : "")
 #if os(iOS)
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
@@ -293,6 +300,9 @@ struct PlatformNavigationView: View {
         .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
         .task(id: contentState.environment.rawValue) {
+            guard allowsLiveEffects else {
+                return
+            }
             if let report = try? await syncTriggerCoordinator.handle(.foreground) {
                 for request in report.shoppingEntityPurgeRequests {
                     await purgeShoppingEntityIndexesHandler(request)
@@ -367,6 +377,11 @@ struct PlatformNavigationView: View {
         }
         .tint(KitchenTableTheme.action)
         .background(KitchenTableTheme.bone.ignoresSafeArea())
+#if os(iOS)
+        .toolbarBackground(KitchenTableTheme.bone, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .tabBarMinimizeBehavior(.never)
+#endif
     }
 
     private var shouldShowShellOfflineStatus: Bool {
@@ -841,7 +856,7 @@ struct PlatformNavigationView: View {
 
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button("Import queue", systemImage: "tray.and.arrow.down") {
+                Button("Imports", systemImage: "tray.and.arrow.down") {
                     openRoute(.capture)
                 }
                 Button("Chefs", systemImage: "person.2") {
@@ -858,8 +873,19 @@ struct PlatformNavigationView: View {
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body.weight(.semibold))
+                    .frame(
+                        width: KitchenTableTheme.minimumTouchTarget,
+                        height: KitchenTableTheme.minimumTouchTarget
+                    )
+                    .contentShape(Rectangle())
             }
+            .frame(
+                width: KitchenTableTheme.minimumTouchTarget,
+                height: KitchenTableTheme.minimumTouchTarget
+            )
+            .contentShape(Rectangle())
             .accessibilityLabel("More")
+            .tint(KitchenTableTheme.charcoal)
         }
 #else
         ToolbarItem(placement: .automatic) {
@@ -944,7 +970,7 @@ struct PlatformNavigationView: View {
         case .search:
             "Kitchen Search"
         case .capture:
-            "Import queue"
+            "Imports"
         case .settings:
             "Settings"
         case .unknownLink:
@@ -958,21 +984,6 @@ struct PlatformNavigationView: View {
             ""
         default:
             title(for: route)
-        }
-    }
-
-    private func label(for scope: SearchScope) -> String {
-        switch scope {
-        case .all:
-            "All"
-        case .recipes:
-            "Recipes"
-        case .cookbooks:
-            "Cookbooks"
-        case .chefs:
-            "Chefs"
-        case .shoppingList:
-            "Shopping"
         }
     }
 
@@ -1024,6 +1035,14 @@ struct PlatformNavigationView: View {
         let identity = contentState.searchSurfaceIdentity
         search.apply(route: .search(query: nextSearch.query, scope: nextSearch.scope))
         navigation.navigate(to: search.route)
+        guard allowsLiveEffects else {
+            liveSearchRequestMarker = nil
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(nextSearch)
+            )
+            return
+        }
         let requestMarker = LiveSearchRequestMarker(identity: identity, routeIdentifier: nextSearch.route.stateIdentifier)
 
         guard nextSearch.hasQuery else {
@@ -1522,7 +1541,7 @@ struct PlatformNavigationView: View {
     }
 
     private var shoppingSurfaceConnectivity: ShoppingSurfaceConnectivity {
-        if offlineIndicatorState.display == .offline {
+        if !allowsLiveEffects || offlineIndicatorState.display == .offline {
             return .offline
         }
 

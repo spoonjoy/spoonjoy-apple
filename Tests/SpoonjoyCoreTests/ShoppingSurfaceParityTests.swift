@@ -60,6 +60,7 @@ struct ShoppingSurfaceParityTests {
         ])
         #expect(viewModel.sections.flatMap { $0.items } == expectedActiveItems)
         #expect(viewModel.emptyState == nil)
+        #expect(viewModel.shoppingQueuedMutationCount == 2)
         #expect(viewModel.queuedWorkSummary == "2 shopping changes waiting to sync")
         #expect(viewModel.conflictBanner == ShoppingSurfaceConflictBanner(
             localClientMutationID: "cm_check_lemons",
@@ -936,6 +937,7 @@ struct ShoppingSurfaceParityTests {
             connectivity: .online,
             now: { Self.createdAt }
         )
+        #expect(queuedViewModel.shoppingQueuedMutationCount == 1)
         #expect(queuedViewModel.queuedWorkSummary == "1 shopping change waiting to sync")
         #expect(queuedViewModel.offlineIndicator.display == .queuedWork(
             count: 1,

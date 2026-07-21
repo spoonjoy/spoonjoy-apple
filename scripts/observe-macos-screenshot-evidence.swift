@@ -1,0 +1,412 @@
+#!/usr/bin/env swift
+
+import AppKit
+import ApplicationServices
+import Darwin
+import Foundation
+
+struct AXObservedRect: Codable {
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+
+    var minX: Double { x }
+    var minY: Double { y }
+    var maxX: Double { x + width }
+    var maxY: Double { y + height }
+    var isEmpty: Bool { width <= 0 || height <= 0 }
+
+    func contains(_ other: AXObservedRect) -> Bool {
+        !other.isEmpty
+            && other.minX >= minX - 0.5
+            && other.minY >= minY - 0.5
+            && other.maxX <= maxX + 0.5
+            && other.maxY <= maxY + 0.5
+    }
+
+    func intersection(with other: AXObservedRect) -> AXObservedRect? {
+        let left = max(minX, other.minX)
+        let top = max(minY, other.minY)
+        let right = min(maxX, other.maxX)
+        let bottom = min(maxY, other.maxY)
+        guard right > left, bottom > top else { return nil }
+        return AXObservedRect(x: left, y: top, width: right - left, height: bottom - top)
+    }
+}
+
+struct AXObservedElement: Codable {
+    let identifier: String
+    let role: String
+    let subrole: String
+    let title: String
+    let frame: AXObservedRect
+    let enabled: Bool
+    let focused: Bool
+    let actions: [String]
+}
+
+enum AXObservedFindingKind: String, Codable {
+    case requiredIdentifierMissing
+    case outsideViewport
+    case peerOverlap
+    case textOverlap
+    case actionTargetTooSmall
+    case apnsChromeIntersection
+}
+
+struct AXObservedFinding: Codable {
+    let kind: AXObservedFindingKind
+    let identifiers: [String]
+    let message: String
+    let intersection: AXObservedRect?
+}
+
+struct AXObservedEvidence: Codable {
+    let platform: String
+    let route: String
+    let pid: Int32
+    let bundleIdentifier: String
+    let bundlePath: String
+    let executablePath: String
+    let windowFrames: [AXObservedRect]
+    let elements: [AXObservedElement]
+    let findings: [AXObservedFinding]
+    let recordedAt: String
+}
+
+struct Options {
+    let pid: pid_t
+    let route: String
+    let expectedBundleIdentifier: String
+    let expectedBundlePath: String
+    let expectedExecutablePath: String
+    let outputPath: String
+    let requiredIdentifiers: Set<String>
+    let peerPairs: [(String, String)]
+    let observesAPNs: Bool
+    let signedIn: Bool
+}
+
+func fail(_ message: String) -> Never {
+    FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
+    exit(1)
+}
+
+func parseOptions() -> Options {
+    var values: [String: String] = [:]
+    var requiredIdentifiers: Set<String> = []
+    var peerPairs: [(String, String)] = []
+    var observesAPNs = false
+    var signedIn = true
+    var index = 1
+    let arguments = CommandLine.arguments
+    while index < arguments.count {
+        let argument = arguments[index]
+        if argument == "--apns" {
+            observesAPNs = true
+            index += 1
+            continue
+        }
+        if argument == "--signed-out" {
+            signedIn = false
+            index += 1
+            continue
+        }
+        guard index + 1 < arguments.count else { fail("missing value for \(argument)") }
+        let value = arguments[index + 1]
+        switch argument {
+        case "--required-identifier":
+            requiredIdentifiers.insert(value)
+        case "--peer":
+            let pair = value.split(separator: ":", maxSplits: 1).map(String.init)
+            guard pair.count == 2 else { fail("--peer requires first:second") }
+            peerPairs.append((pair[0], pair[1]))
+        default:
+            values[argument] = value
+        }
+        index += 2
+    }
+
+    guard let rawPID = values["--pid"], let pid = pid_t(rawPID), pid > 0 else { fail("--pid is required") }
+    guard let bundleIdentifier = values["--bundle-id"], !bundleIdentifier.isEmpty else { fail("--bundle-id is required") }
+    guard let bundlePath = values["--bundle-path"], !bundlePath.isEmpty else { fail("--bundle-path is required") }
+    guard let executablePath = values["--executable-path"], !executablePath.isEmpty else { fail("--executable-path is required") }
+    guard let outputPath = values["--output"], !outputPath.isEmpty else { fail("--output is required") }
+    guard let route = values["--route"], !route.isEmpty else { fail("--route is required") }
+
+    if observesAPNs {
+        requiredIdentifiers.formUnion([
+            "settings.apns.this-device.heading",
+            "settings.apns.push-delivery.heading",
+            "settings.apns.notification-sync.heading"
+        ])
+    }
+    return Options(
+        pid: pid,
+        route: route,
+        expectedBundleIdentifier: bundleIdentifier,
+        expectedBundlePath: bundlePath,
+        expectedExecutablePath: executablePath,
+        outputPath: outputPath,
+        requiredIdentifiers: requiredIdentifiers,
+        peerPairs: peerPairs,
+        observesAPNs: observesAPNs,
+        signedIn: signedIn
+    )
+}
+
+func canonicalPath(_ path: String) -> String {
+    URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+}
+
+func attribute(_ element: AXUIElement, _ name: CFString) -> CFTypeRef? {
+    var value: CFTypeRef?
+    guard AXUIElementCopyAttributeValue(element, name, &value) == .success else { return nil }
+    return value
+}
+
+func stringAttribute(_ element: AXUIElement, _ name: CFString) -> String {
+    attribute(element, name) as? String ?? ""
+}
+
+func boolAttribute(_ element: AXUIElement, _ name: CFString, default defaultValue: Bool) -> Bool {
+    attribute(element, name) as? Bool ?? defaultValue
+}
+
+func pointAttribute(_ element: AXUIElement, _ name: CFString) -> CGPoint? {
+    guard let rawValue = attribute(element, name), CFGetTypeID(rawValue) == AXValueGetTypeID() else { return nil }
+    let value = unsafeBitCast(rawValue, to: AXValue.self)
+    var point = CGPoint.zero
+    return AXValueGetValue(value, .cgPoint, &point) ? point : nil
+}
+
+func sizeAttribute(_ element: AXUIElement, _ name: CFString) -> CGSize? {
+    guard let rawValue = attribute(element, name), CFGetTypeID(rawValue) == AXValueGetTypeID() else { return nil }
+    let value = unsafeBitCast(rawValue, to: AXValue.self)
+    var size = CGSize.zero
+    return AXValueGetValue(value, .cgSize, &size) ? size : nil
+}
+
+func frame(of element: AXUIElement) -> AXObservedRect {
+    let position = pointAttribute(element, kAXPositionAttribute as CFString) ?? .zero
+    let size = sizeAttribute(element, kAXSizeAttribute as CFString) ?? .zero
+    return AXObservedRect(
+        x: Double(position.x),
+        y: Double(position.y),
+        width: Double(size.width),
+        height: Double(size.height)
+    )
+}
+
+func childElements(of element: AXUIElement) -> [AXUIElement] {
+    attribute(element, kAXChildrenAttribute as CFString) as? [AXUIElement] ?? []
+}
+
+func actionNames(of element: AXUIElement) -> [String] {
+    var names: CFArray?
+    guard AXUIElementCopyActionNames(element, &names) == .success else { return [] }
+    return names as? [String] ?? []
+}
+
+func observeTree(root: AXUIElement) -> [AXObservedElement] {
+    var observations: [AXObservedElement] = []
+    var queue: [(AXUIElement, Int)] = [(root, 0)]
+    while !queue.isEmpty && observations.count < 10_000 {
+        let (element, depth) = queue.removeFirst()
+        let observation = AXObservedElement(
+            identifier: stringAttribute(element, kAXIdentifierAttribute as CFString),
+            role: stringAttribute(element, kAXRoleAttribute as CFString),
+            subrole: stringAttribute(element, kAXSubroleAttribute as CFString),
+            title: stringAttribute(element, kAXTitleAttribute as CFString),
+            frame: frame(of: element),
+            enabled: boolAttribute(element, kAXEnabledAttribute as CFString, default: true),
+            focused: boolAttribute(element, kAXFocusedAttribute as CFString, default: false),
+            actions: actionNames(of: element)
+        )
+        observations.append(observation)
+        if depth < 80 {
+            queue.append(contentsOf: childElements(of: element).map { ($0, depth + 1) })
+        }
+    }
+    return observations
+}
+
+func findings(
+    elements: [AXObservedElement],
+    viewport: AXObservedRect,
+    options: Options
+) -> [AXObservedFinding] {
+    var findings: [AXObservedFinding] = []
+    let byIdentifier = Dictionary(grouping: elements.filter { !$0.identifier.isEmpty }, by: \.identifier)
+    let byTitle = Dictionary(grouping: elements.filter { !$0.title.isEmpty }, by: \.title)
+
+    for title in requiredTitles(for: options.route, signedIn: options.signedIn) where byTitle[title]?.isEmpty != false {
+        findings.append(AXObservedFinding(
+            kind: .requiredIdentifierMissing,
+            identifiers: ["title:\(title)"],
+            message: "Required AX title \(title) was not observed.",
+            intersection: nil
+        ))
+    }
+
+    for identifier in options.requiredIdentifiers.sorted() {
+        guard let element = byIdentifier[identifier]?.first else {
+            findings.append(AXObservedFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: [identifier],
+                message: "Required AX identifier \(identifier) was not observed.",
+                intersection: nil
+            ))
+            continue
+        }
+        if !viewport.contains(element.frame) {
+            findings.append(AXObservedFinding(
+                kind: .outsideViewport,
+                identifiers: [identifier],
+                message: "Required AX element \(identifier) is clipped or offscreen.",
+                intersection: element.frame.intersection(with: viewport)
+            ))
+        }
+    }
+
+    for (firstIdentifier, secondIdentifier) in options.peerPairs {
+        guard let first = byIdentifier[firstIdentifier]?.first,
+              let second = byIdentifier[secondIdentifier]?.first,
+              let overlap = first.frame.intersection(with: second.frame) else { continue }
+        findings.append(AXObservedFinding(
+            kind: .peerOverlap,
+            identifiers: [firstIdentifier, secondIdentifier],
+            message: "AX peer elements overlap.",
+            intersection: overlap
+        ))
+    }
+
+    let visibleTexts = elements.filter {
+        $0.role == (kAXStaticTextRole as String)
+            && !$0.title.isEmpty
+            && $0.frame.intersection(with: viewport) != nil
+    }
+    for firstIndex in visibleTexts.indices {
+        for secondIndex in visibleTexts.indices where secondIndex > firstIndex {
+            let first = visibleTexts[firstIndex]
+            let second = visibleTexts[secondIndex]
+            guard first.title != second.title,
+                  let overlap = first.frame.intersection(with: second.frame),
+                  overlap.width * overlap.height > 1 else { continue }
+            findings.append(AXObservedFinding(
+                kind: .textOverlap,
+                identifiers: [first.title, second.title],
+                message: "Visible AX text overlaps.",
+                intersection: overlap
+            ))
+        }
+    }
+
+    let actionableRoles: Set<String> = [
+        kAXButtonRole as String,
+        kAXCheckBoxRole as String,
+        kAXPopUpButtonRole as String,
+        kAXRadioButtonRole as String,
+        kAXTextFieldRole as String
+    ]
+    let minimumMacControlSize = 20.0
+    for element in elements where element.enabled
+        && !element.frame.isEmpty
+        && element.frame.intersection(with: viewport) != nil
+        && (!element.actions.isEmpty || actionableRoles.contains(element.role)) {
+        if element.frame.width + 0.5 < minimumMacControlSize
+            || element.frame.height + 0.5 < minimumMacControlSize {
+            findings.append(AXObservedFinding(
+                kind: .actionTargetTooSmall,
+                identifiers: [element.identifier],
+                message: "AX action target is smaller than the 20-point macOS minimum.",
+                intersection: nil
+            ))
+        }
+    }
+
+    if options.observesAPNs,
+       let heading = byIdentifier["settings.apns.this-device.heading"]?.first {
+        let chromeRoles: Set<String> = [kAXToolbarRole as String, kAXSheetRole as String]
+        let chromeSubroles: Set<String> = [kAXDialogSubrole as String, kAXSystemDialogSubrole as String]
+        for chrome in elements where chromeRoles.contains(chrome.role) || chromeSubroles.contains(chrome.subrole) {
+            guard let overlap = heading.frame.intersection(with: chrome.frame) else { continue }
+            findings.append(AXObservedFinding(
+                kind: .apnsChromeIntersection,
+                identifiers: [heading.identifier, chrome.identifier],
+                message: "This Device heading intersects macOS chrome.",
+                intersection: overlap
+            ))
+        }
+    }
+
+    return findings
+}
+
+func requiredTitles(for route: String, signedIn: Bool) -> Set<String> {
+    guard signedIn else { return ["Spoonjoy", "Sign in"] }
+    return switch route {
+    case "kitchen": ["Ari's kitchen", "Lemon Pantry Pasta"]
+    case "recipes", "saved-recipes", "recipe-detail", "cook-mode": ["Lemon Pantry Pasta"]
+    case "cook-log": ["Cooks"]
+    case "cookbooks", "cookbook-detail": ["Weeknights"]
+    case "shopping-list": ["Lemons"]
+    case "chefs": ["Chefs"]
+    case "search": ["Search"]
+    case "capture": ["Imports"]
+    case "settings": ["Account"]
+    default: [route]
+    }
+}
+
+let options = parseOptions()
+guard let runningApplication = NSRunningApplication(processIdentifier: options.pid) else {
+    fail("no running application for PID \(options.pid)")
+}
+guard runningApplication.bundleIdentifier == options.expectedBundleIdentifier else {
+    fail("PID bundle identifier does not match expected bundle")
+}
+guard canonicalPath(runningApplication.bundleURL?.path ?? "") == canonicalPath(options.expectedBundlePath) else {
+    fail("PID bundle path does not match expected bundle")
+}
+guard canonicalPath(runningApplication.executableURL?.path ?? "") == canonicalPath(options.expectedExecutablePath) else {
+    fail("PID executable path does not match expected executable")
+}
+guard AXIsProcessTrusted() else {
+    fail("Accessibility permission is required for the observing process")
+}
+
+let applicationElement = AXUIElementCreateApplication(options.pid)
+guard let windowElements = attribute(applicationElement, kAXWindowsAttribute as CFString) as? [AXUIElement],
+      !windowElements.isEmpty else {
+    fail("the exact application PID has no AX windows")
+}
+let windowFrames = windowElements.map(frame(of:)).filter { !$0.isEmpty }
+guard let viewport = windowFrames.max(by: { $0.width * $0.height < $1.width * $1.height }) else {
+    fail("the exact application PID has no measurable AX window")
+}
+let elements = observeTree(root: applicationElement)
+let observedFindings = findings(elements: elements, viewport: viewport, options: options)
+let evidence = AXObservedEvidence(
+    platform: "macos",
+    route: options.route,
+    pid: options.pid,
+    bundleIdentifier: options.expectedBundleIdentifier,
+    bundlePath: canonicalPath(options.expectedBundlePath),
+    executablePath: canonicalPath(options.expectedExecutablePath),
+    windowFrames: windowFrames,
+    elements: elements,
+    findings: observedFindings,
+    recordedAt: ISO8601DateFormatter().string(from: Date())
+)
+let encoder = JSONEncoder()
+encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+let data = try encoder.encode(evidence)
+let outputURL = URL(fileURLWithPath: options.outputPath)
+try FileManager.default.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+try data.write(to: outputURL, options: .atomic)
+if !observedFindings.isEmpty {
+    fail("observed macOS accessibility geometry has \(observedFindings.count) finding(s)")
+}
+print("macOS observed screenshot evidence ok")

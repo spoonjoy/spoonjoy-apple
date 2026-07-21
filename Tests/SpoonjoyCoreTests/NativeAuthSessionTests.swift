@@ -424,7 +424,7 @@ struct NativeAuthSessionTests {
                 "Browser sign-in canceled.",
                 "signInFailureMessage(for error: Error)",
                 "com.apple.developer.applesignin",
-                "Sign in with Apple needs a signed Spoonjoy build",
+                "Sign in with Apple isn't available right now. Choose another sign-in option.",
                 "authorization_request_started",
                 "backend_exchange_started"
             ],
@@ -460,18 +460,6 @@ struct NativeAuthSessionTests {
             forbids: []
         )
 
-        let screenshotProofWriter = try readRepoFile("Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift")
-        expectContent(
-            screenshotProofWriter,
-            in: "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift",
-            contains: [
-                "native Google OAuth sign-in",
-                "native GitHub OAuth sign-in"
-            ],
-            forbids: [
-                "native browser OAuth sign-in"
-            ]
-        )
     }
 
     @Test("native auth session source defines launch callback and restoration contract")
@@ -1277,11 +1265,13 @@ private func runValidationMatrixHarness(
 
 private func writeValidationMatrixHarness(at directory: URL) throws {
     let scripts = directory.appendingPathComponent("scripts", isDirectory: true)
+    let scriptTests = scripts.appendingPathComponent("tests", isDirectory: true)
     let bin = directory.appendingPathComponent("bin", isDirectory: true)
     let docs = directory
         .appendingPathComponent("docs", isDirectory: true)
         .appendingPathComponent("source", isDirectory: true)
     try FileManager.default.createDirectory(at: scripts, withIntermediateDirectories: true)
+    try FileManager.default.createDirectory(at: scriptTests, withIntermediateDirectories: true)
     try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
     try FileManager.default.createDirectory(at: docs, withIntermediateDirectories: true)
     try "source design language\n".write(to: docs.appendingPathComponent("spoonjoy-v2-design-language.md"), atomically: true, encoding: .utf8)
@@ -1300,7 +1290,7 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
             "smoke-macos.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
             "smoke-ios-simulator.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
             "capture-native-screenshots.sh": "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
-            "capture-native-screenshot-matrix.sh": "#!/usr/bin/env bash\nset -euo pipefail\nartifact_root=''\nunit_slug='matrix'\nwhile [[ $# -gt 0 ]]; do case \"$1\" in --artifact-root) artifact_root=\"$2\"; shift 2 ;; --unit-slug) unit_slug=\"$2\"; shift 2 ;; *) shift ;; esac; done\nmkdir -p \"$artifact_root/apple\"\nprintf '{\"ok\":true,\"fullyValidated\":true,\"routes\":[]}\\n' > \"$artifact_root/apple/${unit_slug}-route-matrix.json\"\nprintf '{\"mobileScreenshot\":true,\"desktopScreenshot\":true,\"screenshotRoute\":\"kitchen\",\"dynamicType\":true,\"voiceOverLabels\":true,\"keyboardNavigation\":true,\"reduceMotion\":true,\"contrast\":true,\"kitchenTableHierarchy\":true,\"noOverlap\":true,\"accessibilityProofArtifacts\":[],\"blockers\":[]}\\n' > \"$artifact_root/design-review.json\"\nexit 0\n"
+            "capture-native-screenshot-matrix.sh": "#!/usr/bin/env bash\nset -euo pipefail\nartifact_root=''\nunit_slug='matrix'\nwhile [[ $# -gt 0 ]]; do case \"$1\" in --artifact-root) artifact_root=\"$2\"; shift 2 ;; --unit-slug) unit_slug=\"$2\"; shift 2 ;; *) shift ;; esac; done\nmkdir -p \"$artifact_root/apple\"\nprintf '{\"ok\":true,\"fullyValidated\":true,\"routes\":[]}\\n' > \"$artifact_root/apple/${unit_slug}-route-matrix.json\"\nprintf '{\"mobileScreenshot\":true,\"desktopScreenshot\":true,\"screenshotRoute\":\"kitchen\",\"observedAccessibilityEvidenceArtifacts\":[],\"accessibilityProofArtifacts\":[],\"blockers\":[]}\\n' > \"$artifact_root/design-review.json\"\nexit 0\n"
         ]
     for (name, source) in shellStubs {
         let url = scripts.appendingPathComponent(name)
@@ -1321,6 +1311,7 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
         "check-launch-screenshot-contract.rb",
         "check-app-intents-contract.rb",
         "check-native-advisory-pipeline.rb",
+        "native-screenshot-provenance.rb",
         "scan-ruby-advisories.rb",
         "validate-design-review.rb",
         "validate-design-review-blocker.rb",
@@ -1331,6 +1322,10 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
         try "#!/usr/bin/env ruby\nexit 0\n".write(to: url, atomically: true, encoding: .utf8)
         try makeExecutable(url)
     }
+
+    let provenanceTest = scriptTests.appendingPathComponent("native_screenshot_provenance_test.rb")
+    try "#!/usr/bin/env ruby\nexit 0\n".write(to: provenanceTest, atomically: true, encoding: .utf8)
+    try makeExecutable(provenanceTest)
 
     let wrapper = scripts.appendingPathComponent("run-xcodebuild-with-blocker.sh")
     try validationHarnessWrapperSource.write(to: wrapper, atomically: true, encoding: .utf8)

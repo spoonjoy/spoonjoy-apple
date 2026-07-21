@@ -16,7 +16,7 @@ enum KitchenTableTheme {
     static let onPhoto = bone // --sj-on-photo
     static let onPhotoMuted = bone.opacity(0.76) // --sj-on-photo-muted
     static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
-    static let photoOverlay = Color.black.opacity(0.28)
+    static let photoOverlay = Color.black.opacity(0.62)
 
     enum Radius {
         static let edge: CGFloat = 0
@@ -29,8 +29,8 @@ enum KitchenTableTheme {
     static let pageSpacing: CGFloat = 24
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
-    static let compactDockReserve: CGFloat = 148
-    static let compactTabBarContentInset: CGFloat = 88
+    static let pageBottomSpacing: CGFloat = 32
+    static let compactTabBarContentInset: CGFloat = 148
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
@@ -54,7 +54,7 @@ struct KitchenTablePage<Content: View>: View {
 
     init(
         maxContentWidth: CGFloat = 720,
-        bottomReserve: CGFloat = KitchenTableTheme.compactDockReserve,
+        bottomReserve: CGFloat = KitchenTableTheme.pageBottomSpacing,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.maxContentWidth = maxContentWidth
@@ -73,6 +73,7 @@ struct KitchenTablePage<Content: View>: View {
             .frame(maxWidth: maxContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .scrollEdgeEffectStyle(.hard, for: .bottom)
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 }
@@ -119,20 +120,16 @@ struct KitchenTableHeader<Trailing: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(eyebrow.uppercased())
                 .font(.caption2.weight(.bold))
-                .tracking(1.4)
                 .foregroundStyle(KitchenTableTheme.brass)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
                     .font(KitchenTableTheme.displayTitle)
                     .foregroundStyle(KitchenTableTheme.charcoal)
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -171,11 +168,18 @@ extension EnvironmentValues {
 struct KitchenTableSection<Content: View>: View {
     let title: String
     let subtitle: String?
+    let accessibilityHeaderIdentifier: String?
     @ViewBuilder let content: () -> Content
 
-    init(title: String, subtitle: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        accessibilityHeaderIdentifier: String? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
         self.title = title
         self.subtitle = subtitle
+        self.accessibilityHeaderIdentifier = accessibilityHeaderIdentifier
         self.content = content
     }
 
@@ -189,26 +193,41 @@ struct KitchenTableSection<Content: View>: View {
     private var sectionHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title)
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .lineLimit(1)
-                    .layoutPriority(1)
+                sectionTitle
                 Rectangle()
                     .fill(KitchenTableTheme.line.opacity(0.55))
                     .frame(height: 1)
                     .layoutPriority(-1)
+                    .accessibilityHidden(true)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
             }
         }
+    }
+
+    @ViewBuilder private var sectionTitle: some View {
+        if let accessibilityHeaderIdentifier {
+            sectionTitleText
+                .accessibilityIdentifier(accessibilityHeaderIdentifier)
+        } else {
+            sectionTitleText
+        }
+    }
+
+    private var sectionTitleText: some View {
+        Text(title)
+            .font(KitchenTableTheme.sectionTitle)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .layoutPriority(1)
     }
 }
 
 struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let title: String
     let subtitle: String?
     @ViewBuilder let leading: () -> Leading
@@ -227,7 +246,35 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    objectIdentity
+                    HStack {
+                        Spacer(minLength: 0)
+                        trailing()
+                    }
+                }
+            } else {
+                HStack(alignment: .center, spacing: 12) {
+                    objectIdentity
+                    Spacer(minLength: 8)
+                    trailing()
+                }
+            }
+        }
+        .padding(.vertical, 10)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(KitchenTableTheme.line.opacity(0.35))
+                .frame(height: 1)
+                .accessibilityHidden(true)
+        }
+        .contentShape(Rectangle())
+    }
+
+    private var objectIdentity: some View {
+        HStack(alignment: .top, spacing: 12) {
             leading()
                 .frame(width: 56, height: 56)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
@@ -237,26 +284,16 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                 Text(title)
                     .font(KitchenTableTheme.objectTitle)
                     .foregroundStyle(KitchenTableTheme.charcoal)
-                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                        .lineLimit(2)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-
-            Spacer(minLength: 8)
-            trailing()
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 10)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(KitchenTableTheme.line.opacity(0.35))
-                .frame(height: 1)
-        }
-        .contentShape(Rectangle())
     }
 }
 
@@ -324,10 +361,10 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .lineLimit(1)
-            .minimumScaleFactor(0.74)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.vertical, 11)
             .padding(.horizontal, 14)
             .foregroundStyle(foreground)
             .background(background(configuration: configuration), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))

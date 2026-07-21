@@ -1,31 +1,42 @@
 import SwiftUI
 
 struct KitchenSafeControls: View {
+    let canGoBack: Bool
     let canAdvance: Bool
+    let previous: () -> Void
     let markComplete: () -> Void
     let advance: () -> Void
-    let close: () -> Void
 
     var body: some View {
         KitchenSafeControlDeck(
+            canGoBack: canGoBack,
             canAdvance: canAdvance,
+            previous: previous,
             markComplete: markComplete,
-            advance: advance,
-            close: close
+            advance: advance
         )
     }
 }
 
 struct KitchenSafeControlDeck: View {
+    let canGoBack: Bool
     let canAdvance: Bool
+    let previous: () -> Void
     let markComplete: () -> Void
     let advance: () -> Void
-    let close: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            primaryStepAction
-            secondaryStepActions
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                backStepAction
+                primaryStepAction
+                nextStepAction
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                primaryStepAction
+                secondaryStepActions
+            }
         }
         .font(KitchenTableTheme.uiLabel)
         .controlSize(.large)
@@ -41,19 +52,33 @@ struct KitchenSafeControlDeck: View {
     }
 
     private var secondaryStepActions: some View {
-        HStack(spacing: 10) {
-            Button(action: advance) {
-                Label("Next step", systemImage: "arrow.forward.circle")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                backStepAction
+                nextStepAction
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .disabled(!canAdvance)
-            .accessibilityLabel("Move to the next step")
-
-            Button(action: close) {
-                Label("Close", systemImage: "text.book.closed")
+            VStack(alignment: .leading, spacing: 10) {
+                backStepAction
+                nextStepAction
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-            .accessibilityLabel("Return to recipe detail")
         }
+    }
+
+    private var backStepAction: some View {
+        Button(action: previous) {
+            Label("Back step", systemImage: "chevron.backward.circle")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .disabled(!canGoBack)
+        .accessibilityLabel("Move to the previous step")
+    }
+
+    private var nextStepAction: some View {
+        Button(action: advance) {
+            Label("Next step", systemImage: "arrow.forward.circle")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .disabled(!canAdvance)
+        .accessibilityLabel("Move to the next step")
     }
 }

@@ -14,6 +14,7 @@ struct SettingsView: View {
     private static let screenshotFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"
     private static let screenshotProofPathEnvironmentKey = "SPOONJOY_SCREENSHOT_PROOF_PATH"
     private static let notificationsFocusID = "settings-section-notification-apns-device"
+    private static let notificationFocusCorrectionAnchor = UnitPoint(x: 0.5, y: 0.14)
 
     let viewModel: SettingsViewModel
     var settingsSurfaceViewModel: SettingsSurfaceViewModel?
@@ -53,15 +54,29 @@ struct SettingsView: View {
     @State private var tokenCanWriteShoppingList = false
     @State private var pendingDestructiveAction: PendingSettingsDestructiveAction?
     @State private var screenshotSettingsFocus = SettingsView.screenshotSettingsFocus()
+    @State private var notificationFocusWasCorrected = false
+    @State private var notificationScreenshotProofWasWritten = false
 
     var body: some View {
         ScrollViewReader { proxy in
             settingsForm
+                .overlayPreferenceValue(NotificationAPNsDeviceSectionBoundsPreferenceKey.self) { anchor in
+                    GeometryReader { geometry in
+                        let observation = SettingsNotificationVisibilityObservation(
+                            deviceSectionFrame: anchor.map { geometry[$0] } ?? .null,
+                            viewportSize: geometry.size,
+                            safeAreaTop: geometry.safeAreaInsets.top
+                        )
+                        Color.clear
+                            .task(id: observation) {
+                                await acknowledgeNotificationFocusIfVisible(observation, proxy: proxy)
+                            }
+                    }
+                }
                 .task(id: screenshotSettingsFocus) {
                     guard let screenshotSettingsFocus else {
                         return
                     }
-                    try? await Task.sleep(nanoseconds: 700_000_000)
                     switch screenshotSettingsFocus {
                     case .profile:
                         Self.writeScreenshotProof(
@@ -74,22 +89,12 @@ struct SettingsView: View {
                             runtimeContext: screenshotAccessibilityRuntimeContext
                         )
                     case .notifications:
-                        withAnimation(nil) {
-                            proxy.scrollTo(Self.notificationsFocusID, anchor: .top)
-                        }
-                        try? await Task.sleep(nanoseconds: 200_000_000)
                         guard notificationAPNsSurfaceViewModel != nil else {
                             return
                         }
-                        Self.writeScreenshotProof(
-                            visualFocus: screenshotSettingsFocus,
-                            visibleSections: ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
-                        )
-                        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
-                            route: "settings",
-                            source: "SettingsView",
-                            runtimeContext: screenshotAccessibilityRuntimeContext
-                        )
+                        withAnimation(nil) {
+                            proxy.scrollTo(Self.notificationsFocusID, anchor: .top)
+                        }
                     case .signedOut:
                         Self.writeScreenshotProof(
                             visualFocus: screenshotSettingsFocus,
@@ -134,6 +139,41 @@ struct SettingsView: View {
                 Text(message)
             }
         }
+    }
+
+    @MainActor
+    private func acknowledgeNotificationFocusIfVisible(
+        _ observation: SettingsNotificationVisibilityObservation,
+        proxy: ScrollViewProxy
+    ) async {
+        guard screenshotSettingsFocus == .notifications,
+              notificationAPNsSurfaceViewModel != nil,
+              !notificationScreenshotProofWasWritten else {
+            return
+        }
+
+        guard observation.hasVisibleDeviceHeader else {
+            guard observation.hasMeasuredDeviceSection, !notificationFocusWasCorrected else {
+                return
+            }
+            notificationFocusWasCorrected = true
+            withAnimation(nil) {
+                proxy.scrollTo(Self.notificationsFocusID, anchor: Self.notificationFocusCorrectionAnchor)
+            }
+            return
+        }
+
+        notificationScreenshotProofWasWritten = true
+        Self.writeScreenshotProof(
+            visualFocus: .notifications,
+            visibleSections: ["This Device", "Push Delivery", "Notification Sync", "Agent Access"],
+            visibilityObservation: observation
+        )
+        await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+            route: "settings",
+            source: "SettingsView",
+            runtimeContext: screenshotAccessibilityRuntimeContext
+        )
     }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
@@ -319,7 +359,7 @@ struct SettingsView: View {
 
                         ForEach(surface.apiTokenRows) { token in
                             VStack(alignment: .leading, spacing: 8) {
-                                settingsFact(token.name, value: token.tokenPrefix)
+                                settingsFact(token.name, value: token.displayIdentifier)
                                 Button(role: .destructive) {
                                     confirmSettingsAction(
                                         .revokeAPIToken(credentialID: token.id),
@@ -786,7 +826,8 @@ struct SettingsView: View {
 
     private static func writeScreenshotProof(
         visualFocus: ScreenshotSettingsFocus,
-        visibleSections: [String]
+        visibleSections: [String],
+        visibilityObservation: SettingsNotificationVisibilityObservation? = nil
     ) {
 #if DEBUG
         guard let rawPath = ProcessInfo.processInfo.environment[screenshotProofPathEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -794,13 +835,23 @@ struct SettingsView: View {
             return
         }
         let outputURL = URL(fileURLWithPath: rawPath)
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "route": "settings",
             "visualFocus": visualFocus.rawValue,
             "visibleSections": visibleSections,
             "source": "SettingsView",
             "writtenAt": ISO8601DateFormatter().string(from: Date())
         ]
+        if let visibilityObservation {
+            payload["visibilityAcknowledged"] = visibilityObservation.hasVisibleDeviceHeader
+            payload["safeAreaTop"] = Double(visibilityObservation.safeAreaTop)
+            payload["deviceSectionFrame"] = [
+                "minY": Double(visibilityObservation.deviceSectionFrame.minY),
+                "maxY": Double(visibilityObservation.deviceSectionFrame.maxY),
+                "height": Double(visibilityObservation.deviceSectionFrame.height)
+            ]
+            payload["viewportHeight"] = Double(visibilityObservation.viewportSize.height)
+        }
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
             return
@@ -813,6 +864,7 @@ struct SettingsView: View {
 #else
         _ = visualFocus
         _ = visibleSections
+        _ = visibilityObservation
 #endif
     }
 
@@ -838,6 +890,32 @@ struct SettingsView: View {
         case .refreshRequired:
             "Refresh required"
         }
+    }
+}
+
+private struct SettingsNotificationVisibilityObservation: Equatable {
+    let deviceSectionFrame: CGRect
+    let viewportSize: CGSize
+    let safeAreaTop: CGFloat
+
+    var hasMeasuredDeviceSection: Bool {
+        !deviceSectionFrame.isNull
+            && !deviceSectionFrame.isInfinite
+            && deviceSectionFrame.height > 0
+            && viewportSize.height > 0
+    }
+
+    var hasVisibleDeviceHeader: Bool {
+        guard hasMeasuredDeviceSection else {
+            return false
+        }
+        let visibleTop = max(0, safeAreaTop) + 12
+        let visibleBottom = viewportSize.height - 12
+        let headerHeight = min(72, deviceSectionFrame.height)
+        let preferredHeaderBandBottom = min(viewportSize.height * 0.38, visibleBottom - headerHeight)
+        return deviceSectionFrame.minY >= visibleTop
+            && deviceSectionFrame.minY <= preferredHeaderBandBottom
+            && deviceSectionFrame.minY + headerHeight <= visibleBottom
     }
 }
 

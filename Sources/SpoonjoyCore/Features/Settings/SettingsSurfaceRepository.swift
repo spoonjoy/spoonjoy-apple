@@ -107,6 +107,14 @@ public struct SettingsAPITokenSummary: Codable, Equatable, Hashable, Sendable, I
 
     public var revealedSecret: String? { nil }
 
+    public var displayIdentifier: String {
+        guard let component = tokenPrefix.split(whereSeparator: { !$0.isLetter && !$0.isNumber }).last,
+              component.count >= 4 else {
+            return "Access key"
+        }
+        return "Key ID \(component.suffix(4))"
+    }
+
     public init(
         id: String,
         name: String,

@@ -24,6 +24,7 @@ struct SpoonjoyToolbar: ViewModifier {
                     } label: {
                         Label("Actions", systemImage: "ellipsis.circle")
                     }
+                    .tint(KitchenTableTheme.charcoal)
                 }
             }
     }

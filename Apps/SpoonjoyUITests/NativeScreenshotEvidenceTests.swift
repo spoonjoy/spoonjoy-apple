@@ -1,0 +1,901 @@
+import Foundation
+import XCTest
+
+private struct ObservedAuditIssue: Codable {
+    let category: String
+    let type: String
+    let compactDescription: String
+    let detailedDescription: String
+    let diagnosticDescription: String
+    let diagnosticMirror: String
+    let elementIdentifier: String
+    let elementLabel: String
+    let elementType: String
+    let elementFrame: ObservedRect?
+}
+
+private struct ObservedAuditResult {
+    let blockingIssues: [ObservedAuditIssue]
+    let toolLimitations: [ObservedAuditToolLimitation]
+}
+
+private struct ObservedAuditToolLimitation: Codable {
+    let issue: ObservedAuditIssue
+    let reference: String
+    let reason: String
+    let contrastProof: ObservedContrastProof?
+    let tabBarOcclusionProof: ObservedTabBarOcclusionProof?
+}
+
+private struct ObservedContrastProof: Codable {
+    let backgroundHex: String
+    let foregroundHex: String
+    let contrastRatio: Double
+    let requiredRatio: Double
+    let backgroundPixelCount: Int
+    let foregroundPixelCount: Int
+    let cropPixelCount: Int
+}
+
+private struct ObservedTabBarOcclusionProof: Codable {
+    let tabBarFrame: ObservedRect
+    let occludedElements: [ObservedAccessibilityElement]
+    let postScrollAnonymousContrastIssueAbsent: Bool
+}
+
+private struct ObservedDeepScrollEvidence: Codable {
+    let route: String
+    let reachedTerminal: Bool
+    let swipeCount: Int
+    let contentViewport: ObservedRect
+    let tabBarFrame: ObservedRect?
+    let terminalElement: ObservedAccessibilityElement?
+    let findings: [ObservedAccessibilityFinding]
+    let auditIssues: [ObservedAuditIssue]
+    let toolLimitations: [ObservedAuditToolLimitation]
+}
+
+private struct ObservedScreenshotEvidence: Codable {
+    let platform: String
+    let route: String
+    let viewport: ObservedRect
+    let elements: [ObservedAccessibilityElement]
+    let auditIssues: [ObservedAuditIssue]
+    let geometryFindings: [ObservedAccessibilityFinding]
+    let deepScroll: ObservedDeepScrollEvidence?
+    let operatingSystemVersion: String
+    let observedContentSizeCategory: String
+    let toolLimitations: [ObservedAuditToolLimitation]
+    let recordedAt: String
+}
+
+@MainActor
+final class NativeScreenshotEvidenceTests: XCTestCase {
+    private static let evidencePathEnvironmentKey = "SPOONJOY_OBSERVED_ACCESSIBILITY_EVIDENCE_PATH"
+    private static let requiredIdentifiersEnvironmentKey = "SPOONJOY_OBSERVED_REQUIRED_IDENTIFIERS"
+    private static let peerPairsEnvironmentKey = "SPOONJOY_OBSERVED_PEER_PAIRS"
+    private static let thisDeviceIdentifier = "settings.apns.this-device.heading"
+    private static let pushDeliveryIdentifier = "settings.apns.push-delivery.heading"
+    private static let notificationSyncIdentifier = "settings.apns.notification-sync.heading"
+    private static let chromeTypes: Set<String> = [
+        "navigationBar", "toolbar", "tabBar", "keyboard", "sheet", "alert"
+    ]
+    private static let actionableTypes: Set<String> = [
+        "button", "switch", "textField", "secureTextField", "link", "slider", "stepper"
+    ]
+    private static let deepScrollRoutes: Set<String> = [
+        "kitchen", "recipe-detail", "shopping-list", "cookbooks", "cookbook-detail"
+    ]
+
+    func testObservedAccessibilityAndGeometry() throws {
+        let environment = ProcessInfo.processInfo.environment
+        guard let route = environment["SPOONJOY_SCREENSHOT_EXPECTED_ROUTE"], !route.isEmpty else {
+            throw XCTSkip("The external screenshot observer only runs for an explicit capture route.")
+        }
+        let app = XCUIApplication()
+        app.launchEnvironment = environment.reduce(into: [:]) { result, pair in
+            if pair.key.hasPrefix("SPOONJOY_") && pair.key != Self.evidencePathEnvironmentKey {
+                result[pair.key] = pair.value
+            }
+        }
+        app.launch()
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 15), "Spoonjoy did not present a window")
+        waitForRenderedRoute(in: app, route: route, environment: environment)
+
+        let initialElements = observedElements(in: app, windowFrame: window.frame)
+        let viewport = contentViewport(windowFrame: window.frame, elements: initialElements)
+        let apnsMode = environment["SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"] == "notifications"
+        var requiredIdentifiers = csvSet(environment[Self.requiredIdentifiersEnvironmentKey])
+        var requiredVisibleIdentifiers = requiredIdentifiers
+        let requiredLabels = routeRequiredLabels(route: route, signedIn: environment["SPOONJOY_SCREENSHOT_AUTH"] != "0")
+        if apnsMode {
+            requiredIdentifiers.formUnion([
+                Self.thisDeviceIdentifier,
+                Self.pushDeliveryIdentifier,
+                Self.notificationSyncIdentifier
+            ])
+            requiredVisibleIdentifiers.formUnion([
+                Self.thisDeviceIdentifier,
+                Self.pushDeliveryIdentifier
+            ])
+        }
+
+        let requirements = ObservedGeometryRequirements(
+            viewport: viewport,
+            requiredIdentifiers: requiredIdentifiers,
+            requiredVisibleIdentifiers: requiredVisibleIdentifiers,
+            requiredLabels: requiredLabels,
+            peerPairs: peerPairs(environment[Self.peerPairsEnvironmentKey]),
+            chromeTypes: Self.chromeTypes,
+            actionableTypes: Self.actionableTypes,
+            minimumActionTarget: 44,
+            apnsThisDeviceIdentifier: apnsMode ? Self.thisDeviceIdentifier : nil,
+            apnsPushDeliveryIdentifier: apnsMode ? Self.pushDeliveryIdentifier : nil
+        )
+        let geometryFindings = ScreenshotEvidenceGeometry.validate(
+            elements: initialElements,
+            requirements: requirements
+        )
+        let initialScreenshot = XCUIScreen.main.screenshot()
+        let initialAuditResult = accessibilityAuditIssues(
+            in: app,
+            viewport: viewport,
+            screenshot: initialScreenshot,
+            windowFrame: window.frame
+        )
+        let deepScroll = Self.deepScrollRoutes.contains(route)
+            ? scrollPrimarySurfaceToTerminal(
+                in: app,
+                route: route,
+                windowFrame: window.frame,
+                requiresSystemTabBar: UIDevice.current.userInterfaceIdiom == .phone
+                    && environment["SPOONJOY_SCREENSHOT_AUTH"] != "0"
+            )
+            : nil
+        let auditResult = resolvingTabBarOcclusionLimitations(
+            initialAuditResult,
+            elements: initialElements,
+            deepScroll: deepScroll
+        )
+        let allAuditIssues = auditResult.blockingIssues + (deepScroll?.auditIssues ?? [])
+        let allToolLimitations = auditResult.toolLimitations + (deepScroll?.toolLimitations ?? [])
+        let evidence = ObservedScreenshotEvidence(
+            platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "ios",
+            route: route,
+            viewport: viewport,
+            elements: initialElements,
+            auditIssues: allAuditIssues,
+            geometryFindings: geometryFindings,
+            deepScroll: deepScroll,
+            operatingSystemVersion: UIDevice.current.systemVersion,
+            observedContentSizeCategory: environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"] ?? "unspecified",
+            toolLimitations: allToolLimitations,
+            recordedAt: ISO8601DateFormatter().string(from: Date())
+        )
+
+        let data = try JSONEncoder.observedEvidence.encode(evidence)
+        writeEvidence(data, configuredPath: environment[Self.evidencePathEnvironmentKey])
+        attachJSON(data, name: "observed-accessibility-evidence")
+        attachScreenshot(initialScreenshot, name: "observed-accessibility-screenshot")
+
+        XCTAssertTrue(
+            allAuditIssues.isEmpty,
+            "Accessibility audit found: \(allAuditIssues.map(\.compactDescription))"
+        )
+        XCTAssertTrue(geometryFindings.isEmpty, "Geometry found: \(geometryFindings.map(\.message))")
+        if let deepScroll {
+            XCTAssertTrue(deepScroll.reachedTerminal, "Primary surface did not reach a stable terminal position")
+            XCTAssertTrue(deepScroll.findings.isEmpty, "Deep scroll found: \(deepScroll.findings.map(\.message))")
+        }
+    }
+
+    func testGeometryRejectsMissingRequiredIdentifier() {
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [],
+            requirements: requirements(required: ["missing"])
+        )
+        XCTAssertEqual(findings.map(\.kind), [.requiredIdentifierMissing])
+    }
+
+    func testGeometryRejectsClippedOrOffscreenRequiredElement() {
+        let element = observedElement(identifier: "required", frame: ObservedRect(x: 0, y: 90, width: 40, height: 20))
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [element],
+            requirements: requirements(required: ["required"], visible: ["required"])
+        )
+        XCTAssertEqual(findings.map(\.kind), [.outsideViewport])
+    }
+
+    func testGeometryRejectsPeerOverlap() {
+        let first = observedElement(identifier: "first", type: "button", frame: ObservedRect(x: 10, y: 10, width: 50, height: 50))
+        let second = observedElement(identifier: "second", type: "button", frame: ObservedRect(x: 40, y: 20, width: 50, height: 50))
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [first, second],
+            requirements: requirements(peerPairs: [("first", "second")])
+        )
+        XCTAssertEqual(findings.map(\.kind), [.peerOverlap])
+    }
+
+    func testGeometryRejectsUnspecifiedVisibleTextOverlap() {
+        let first = observedElement(identifier: "first", frame: ObservedRect(x: 10, y: 10, width: 60, height: 30))
+        let second = observedElement(identifier: "second", frame: ObservedRect(x: 20, y: 20, width: 60, height: 30))
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [first, second],
+            requirements: requirements()
+        )
+        XCTAssertEqual(findings.map(\.kind), [.textOverlap])
+    }
+
+    func testGeometryRejectsPartiallyVisibleSmallActionTarget() {
+        let action = ObservedAccessibilityElement(
+            identifier: "partial-action",
+            label: "Partial action",
+            type: "button",
+            frame: ObservedRect(x: 90, y: 20, width: 30, height: 44),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [action],
+            requirements: requirements()
+        )
+        XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
+    }
+
+    func testGeometryRejectsAPNsChromeIntersection() {
+        let heading = observedElement(
+            identifier: Self.thisDeviceIdentifier,
+            type: "staticText",
+            frame: ObservedRect(x: 10, y: 10, width: 80, height: 30)
+        )
+        let toolbar = observedElement(
+            identifier: "navigation",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 0, width: 100, height: 24)
+        )
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [heading, toolbar],
+            requirements: requirements(
+                required: [Self.thisDeviceIdentifier],
+                visible: [Self.thisDeviceIdentifier],
+                apnsThisDeviceIdentifier: Self.thisDeviceIdentifier
+            )
+        )
+        XCTAssertEqual(findings.map(\.kind), [.apnsChromeIntersection])
+    }
+
+    func testGeometryRejectsTerminalElementBehindTabBar() {
+        let terminal = observedElement(
+            identifier: "terminal",
+            frame: ObservedRect(x: 10, y: 70, width: 70, height: 25)
+        )
+        let findings = ScreenshotEvidenceGeometry.validateTerminalElement(
+            terminal,
+            contentViewport: ObservedRect(x: 0, y: 0, width: 100, height: 80),
+            tabBarFrame: ObservedRect(x: 0, y: 80, width: 100, height: 20)
+        )
+        XCTAssertEqual(Set(findings.map(\.kind)), [.outsideViewport, .terminalElementOccludedByTabBar])
+    }
+
+    private func accessibilityAuditIssues(
+        in app: XCUIApplication,
+        viewport: ObservedRect,
+        screenshot: XCUIScreenshot,
+        windowFrame: CGRect
+    ) -> ObservedAuditResult {
+        var blockingIssues: [ObservedAuditIssue] = []
+        var toolLimitations: [ObservedAuditToolLimitation] = []
+        var auditTypes = XCUIAccessibilityAuditType.contrast
+            .union(.hitRegion)
+            .union(.trait)
+        if ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true {
+            auditTypes.formUnion(.dynamicType)
+            auditTypes.formUnion(.textClipped)
+        }
+        do {
+            try app.performAccessibilityAudit(for: auditTypes) { issue in
+                let element = issue.element
+                let elementFrame = element.map { ObservedRect($0.frame) }
+                if let elementFrame,
+                   elementFrame.intersection(with: viewport) == nil,
+                   !Self.chromeTypes.contains(element.map { self.elementTypeName($0.elementType) } ?? "") {
+                    return true
+                }
+                let observedIssue = ObservedAuditIssue(
+                    category: self.auditCategory(issue.auditType),
+                    type: String(describing: issue.auditType),
+                    compactDescription: issue.compactDescription,
+                    detailedDescription: issue.detailedDescription,
+                    diagnosticDescription: String(reflecting: issue),
+                    diagnosticMirror: self.auditIssueMirror(issue),
+                    elementIdentifier: element?.identifier ?? "",
+                    elementLabel: element?.label ?? "",
+                    elementType: element.map { self.elementTypeName($0.elementType) } ?? "",
+                    elementFrame: elementFrame
+                )
+                if let limitation = self.knownAuditToolLimitation(
+                    issue: issue,
+                    observedIssue: observedIssue,
+                    screenshot: screenshot,
+                    windowFrame: windowFrame
+                ) {
+                    toolLimitations.append(limitation)
+                } else {
+                    blockingIssues.append(observedIssue)
+                }
+                return true
+            }
+        } catch {
+            blockingIssues.append(ObservedAuditIssue(
+                category: "auditExecution",
+                type: "auditExecution",
+                compactDescription: "Accessibility audit did not complete.",
+                detailedDescription: String(describing: error),
+                diagnosticDescription: String(reflecting: error),
+                diagnosticMirror: "",
+                elementIdentifier: "",
+                elementLabel: "",
+                elementType: "",
+                elementFrame: nil
+            ))
+        }
+        return ObservedAuditResult(
+            blockingIssues: blockingIssues,
+            toolLimitations: toolLimitations
+        )
+    }
+
+    private func knownAuditToolLimitation(
+        issue: XCUIAccessibilityAuditIssue,
+        observedIssue: ObservedAuditIssue,
+        screenshot: XCUIScreenshot,
+        windowFrame: CGRect
+    ) -> ObservedAuditToolLimitation? {
+        guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26 else {
+            return nil
+        }
+        if issue.auditType == .dynamicType,
+           ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true,
+           observedIssue.compactDescription == "Dynamic Type font sizes are partially unsupported",
+           observedIssue.detailedDescription.contains("User will not be able to change the font size"),
+           !observedIssue.elementLabel.isEmpty,
+           observedIssue.elementFrame != nil {
+            return ObservedAuditToolLimitation(
+                issue: observedIssue,
+                reference: "https://developer.apple.com/forums/thread/823968",
+                reason: "Apple confirms that the iOS 26 Dynamic Type audit can report SwiftUI false positives.",
+                contrastProof: nil,
+                tabBarOcclusionProof: nil
+            )
+        }
+        if issue.auditType == .contrast,
+           let contrastProof = measuredContrastProof(
+               issue: observedIssue,
+               screenshot: screenshot,
+               windowFrame: windowFrame
+           ) {
+            return ObservedAuditToolLimitation(
+                issue: observedIssue,
+                reference: "https://developer.apple.com/videos/play/wwdc2023/10035/",
+                reason: "The rendered element independently exceeds the strict 4.5:1 WCAG AA text threshold; Apple documents classifying proven false-positive audit findings in the issue handler.",
+                contrastProof: contrastProof,
+                tabBarOcclusionProof: nil
+            )
+        }
+        return nil
+    }
+
+    private func resolvingTabBarOcclusionLimitations(
+        _ result: ObservedAuditResult,
+        elements: [ObservedAccessibilityElement],
+        deepScroll: ObservedDeepScrollEvidence?
+    ) -> ObservedAuditResult {
+        guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26,
+              UIDevice.current.userInterfaceIdiom == .phone,
+              let deepScroll,
+              !deepScroll.auditIssues.contains(where: isAnonymousContrastIssue),
+              let tabBar = elements.first(where: { $0.type == "tabBar" && $0.exists }) else {
+            return result
+        }
+        let occludedElements = elements.filter { element in
+            !Self.chromeTypes.contains(element.type)
+                && (!element.identifier.isEmpty || !element.label.isEmpty)
+                && !tabBar.frame.contains(element.frame)
+                && element.frame.intersection(with: tabBar.frame) != nil
+        }
+        guard !occludedElements.isEmpty else {
+            return result
+        }
+
+        var blockingIssues: [ObservedAuditIssue] = []
+        var toolLimitations = result.toolLimitations
+        for issue in result.blockingIssues {
+            guard isAnonymousContrastIssue(issue) else {
+                blockingIssues.append(issue)
+                continue
+            }
+            toolLimitations.append(ObservedAuditToolLimitation(
+                issue: issue,
+                reference: "https://developer.apple.com/videos/play/wwdc2023/10035/",
+                reason: "The anonymous iOS 26 contrast report only occurred while labeled content intersected the system tab bar and was absent after the same surface scrolled into the unobscured viewport.",
+                contrastProof: nil,
+                tabBarOcclusionProof: ObservedTabBarOcclusionProof(
+                    tabBarFrame: tabBar.frame,
+                    occludedElements: occludedElements,
+                    postScrollAnonymousContrastIssueAbsent: true
+                )
+            ))
+        }
+        return ObservedAuditResult(blockingIssues: blockingIssues, toolLimitations: toolLimitations)
+    }
+
+    private func isAnonymousContrastIssue(_ issue: ObservedAuditIssue) -> Bool {
+        issue.category == "contrast"
+            && issue.elementIdentifier.isEmpty
+            && issue.elementLabel.isEmpty
+            && issue.elementType.isEmpty
+            && issue.elementFrame == nil
+            && issue.diagnosticDescription.contains("Element:(null)")
+    }
+
+    private func measuredContrastProof(
+        issue: ObservedAuditIssue,
+        screenshot: XCUIScreenshot,
+        windowFrame: CGRect
+    ) -> ObservedContrastProof? {
+        guard let elementFrame = issue.elementFrame,
+              !issue.elementLabel.isEmpty,
+              issue.elementType == "staticText",
+              let image = screenshot.image.cgImage,
+              windowFrame.width > 0,
+              windowFrame.height > 0 else {
+            return nil
+        }
+        let scaleX = Double(image.width) / windowFrame.width
+        let scaleY = Double(image.height) / windowFrame.height
+        let frame = elementFrame.cgRect
+        let pixelRect = CGRect(
+            x: (frame.minX - windowFrame.minX) * scaleX,
+            y: (frame.minY - windowFrame.minY) * scaleY,
+            width: frame.width * scaleX,
+            height: frame.height * scaleY
+        ).integral.intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
+        guard pixelRect.width >= 2,
+              pixelRect.height >= 2,
+              let crop = image.cropping(to: pixelRect) else {
+            return nil
+        }
+
+        let width = crop.width
+        let height = crop.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
+            return nil
+        }
+        context.draw(crop, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        var histogram: [UInt32: Int] = [:]
+        for index in stride(from: 0, to: pixels.count, by: 4) {
+            let key = UInt32(pixels[index]) << 16
+                | UInt32(pixels[index + 1]) << 8
+                | UInt32(pixels[index + 2])
+            histogram[key, default: 0] += 1
+        }
+        let ranked = histogram.sorted { first, second in first.value > second.value }
+        guard let background = ranked.first else { return nil }
+        let cropPixelCount = width * height
+        guard Double(background.value) / Double(cropPixelCount) >= 0.20 else { return nil }
+        let requiredRatio = 4.5
+        guard let foreground = ranked.dropFirst().first(where: { candidate in
+            Double(candidate.value) / Double(cropPixelCount) >= 0.04
+                && contrastRatio(candidate.key, background.key) >= requiredRatio
+        }) else {
+            return nil
+        }
+        return ObservedContrastProof(
+            backgroundHex: rgbHex(background.key),
+            foregroundHex: rgbHex(foreground.key),
+            contrastRatio: contrastRatio(foreground.key, background.key),
+            requiredRatio: requiredRatio,
+            backgroundPixelCount: background.value,
+            foregroundPixelCount: foreground.value,
+            cropPixelCount: cropPixelCount
+        )
+    }
+
+    private func contrastRatio(_ first: UInt32, _ second: UInt32) -> Double {
+        let firstLuminance = relativeLuminance(first)
+        let secondLuminance = relativeLuminance(second)
+        return (max(firstLuminance, secondLuminance) + 0.05)
+            / (min(firstLuminance, secondLuminance) + 0.05)
+    }
+
+    private func relativeLuminance(_ color: UInt32) -> Double {
+        func linear(_ component: UInt32) -> Double {
+            let value = Double(component) / 255
+            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear((color >> 16) & 0xFF)
+            + 0.7152 * linear((color >> 8) & 0xFF)
+            + 0.0722 * linear(color & 0xFF)
+    }
+
+    private func rgbHex(_ color: UInt32) -> String {
+        String(format: "#%06X", color)
+    }
+
+    private func auditCategory(_ type: XCUIAccessibilityAuditType) -> String {
+        if type == .contrast { return "contrast" }
+        if type == .hitRegion { return "hitRegion" }
+        if type == .dynamicType { return "dynamicType" }
+        if type == .textClipped { return "textClipped" }
+        if type == .trait { return "trait" }
+        return "unknown"
+    }
+
+    private func auditIssueMirror(_ issue: XCUIAccessibilityAuditIssue) -> String {
+        Mirror(reflecting: issue).children.map { child in
+            "\(child.label ?? "unknown")=\(String(reflecting: child.value))"
+        }.joined(separator: "; ")
+    }
+
+    private func waitForRenderedRoute(
+        in app: XCUIApplication,
+        route: String,
+        environment: [String: String]
+    ) {
+        let expectedLabel: String
+        if environment["SPOONJOY_SCREENSHOT_AUTH"] == "0" {
+            expectedLabel = "Spoonjoy"
+        } else {
+            expectedLabel = switch route {
+            case "kitchen", "recipes", "saved-recipes", "recipe-detail", "cook-mode": "Lemon Pantry Pasta"
+            case "cook-log": "Cooks"
+            case "cookbooks", "cookbook-detail": "Weeknights"
+            case "shopping-list": "Lemons"
+            case "chefs": "Chefs"
+            case "search": "Search"
+            case "capture": "Imports"
+            case "settings": "Account"
+            default: route
+            }
+        }
+        XCTAssertTrue(
+            app.staticTexts[expectedLabel].waitForExistence(timeout: 30),
+            "Observed route \(route) never rendered its expected content \(expectedLabel)."
+        )
+        XCTAssertTrue(
+            app.staticTexts["Preparing"].waitForNonExistence(timeout: 10),
+            "Observed route \(route) remained in its preparing state."
+        )
+    }
+
+    private func routeRequiredLabels(route: String, signedIn: Bool) -> Set<String> {
+        guard signedIn else {
+            return ["Spoonjoy", "Sign in"]
+        }
+        return switch route {
+        case "kitchen": ["Ari's kitchen", "Lemon Pantry Pasta", "Recipe Index", "Cookbook Shelf"]
+        case "recipes", "saved-recipes": ["Lemon Pantry Pasta"]
+        case "recipe-detail": ["Lemon Pantry Pasta", "Start Cooking"]
+        case "cook-mode": ["Lemon Pantry Pasta"]
+        case "cook-log": ["Cooks"]
+        case "cookbooks", "cookbook-detail": ["Weeknights"]
+        case "shopping-list": ["Lemons"]
+        case "chefs": ["Chefs"]
+        case "search": ["Search"]
+        case "capture": ["Imports"]
+        case "settings": ["Account"]
+        default: [route]
+        }
+    }
+
+    private func observedElements(
+        in app: XCUIApplication,
+        windowFrame: CGRect
+    ) -> [ObservedAccessibilityElement] {
+        let observedTypes: [XCUIElement.ElementType] = [
+            .scrollView, .navigationBar, .toolbar, .tabBar, .keyboard, .sheet, .alert,
+            .button, .switch, .textField, .secureTextField, .link, .slider, .stepper,
+            .staticText
+        ]
+        return observedTypes.flatMap { type in
+            app.descendants(matching: type).allElementsBoundByIndex.map { element in
+                let typeName = elementTypeName(type)
+                let actionable = Self.actionableTypes.contains(typeName)
+                let frame = element.frame
+                let hasUsableFrame = !frame.isNull
+                    && !frame.isInfinite
+                    && frame.origin.x.isFinite
+                    && frame.origin.y.isFinite
+                    && frame.width.isFinite
+                    && frame.height.isFinite
+                    && frame.width > 0
+                    && frame.height > 0
+                let intersectsWindow = hasUsableFrame
+                    && frame.intersects(windowFrame)
+                return ObservedAccessibilityElement(
+                    identifier: element.identifier,
+                    label: element.label,
+                    type: typeName,
+                    frame: ObservedRect(frame),
+                    exists: true,
+                    hittable: actionable && intersectsWindow,
+                    enabled: true,
+                    focused: nil
+                )
+            }
+        }
+    }
+
+    private func scrollPrimarySurfaceToTerminal(
+        in app: XCUIApplication,
+        route: String,
+        windowFrame: CGRect,
+        requiresSystemTabBar: Bool
+    ) -> ObservedDeepScrollEvidence {
+        let scrollViews = app.scrollViews.allElementsBoundByIndex.filter(\.exists)
+        guard let primarySurface = scrollViews.max(by: { frameArea($0.frame) < frameArea($1.frame) }) else {
+            let finding = ObservedAccessibilityFinding(
+                kind: .terminalNotReached,
+                identifiers: [route],
+                message: "No primary scroll surface was observed.",
+                intersection: nil
+            )
+            return ObservedDeepScrollEvidence(
+                route: route,
+                reachedTerminal: false,
+                swipeCount: 0,
+                contentViewport: ObservedRect(windowFrame),
+                tabBarFrame: nil,
+                terminalElement: nil,
+                findings: [finding],
+                auditIssues: [],
+                toolLimitations: []
+            )
+        }
+
+        var previousSignature = XCUIScreen.main.screenshot().pngRepresentation
+        var stablePasses = 0
+        var swipeCount = 0
+        while swipeCount < 20 && stablePasses < 2 {
+            primarySurface.swipeUp()
+            swipeCount += 1
+            let currentSignature = XCUIScreen.main.screenshot().pngRepresentation
+            if currentSignature == previousSignature {
+                stablePasses += 1
+            } else {
+                stablePasses = 0
+            }
+            previousSignature = currentSignature
+        }
+
+        let elements = observedElements(in: app, windowFrame: windowFrame)
+        let tabBar = elements.first { $0.type == "tabBar" && $0.exists }
+        let viewport = contentViewport(windowFrame: windowFrame, elements: elements)
+        let terminalElement = terminalContentElement(elements: elements, viewport: viewport)
+        var findings: [ObservedAccessibilityFinding] = []
+        if stablePasses < 2 {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .terminalNotReached,
+                identifiers: [route],
+                message: "Primary surface was still moving after 20 deep-scroll attempts.",
+                intersection: nil
+            ))
+        }
+        if let terminalElement, tabBar != nil || !requiresSystemTabBar {
+            findings.append(contentsOf: ScreenshotEvidenceGeometry.validateTerminalElement(
+                terminalElement,
+                contentViewport: viewport,
+                tabBarFrame: tabBar?.frame
+            ))
+        } else {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: [terminalElement == nil ? "terminalElement" : "system.tabBar"],
+                message: "Deep-scroll proof requires both a terminal content element and the system tab bar.",
+                intersection: nil
+            ))
+        }
+
+        let deepScreenshot = XCUIScreen.main.screenshot()
+        let auditResult = accessibilityAuditIssues(
+            in: app,
+            viewport: viewport,
+            screenshot: deepScreenshot,
+            windowFrame: windowFrame
+        )
+        let evidence = ObservedDeepScrollEvidence(
+            route: route,
+            reachedTerminal: stablePasses >= 2,
+            swipeCount: swipeCount,
+            contentViewport: viewport,
+            tabBarFrame: tabBar?.frame,
+            terminalElement: terminalElement,
+            findings: findings,
+            auditIssues: auditResult.blockingIssues,
+            toolLimitations: auditResult.toolLimitations
+        )
+        if let data = try? JSONEncoder.observedEvidence.encode(evidence) {
+            attachJSON(data, name: "deep-scroll-evidence")
+            if let configuredPath = ProcessInfo.processInfo.environment[Self.evidencePathEnvironmentKey] {
+                let output = URL(fileURLWithPath: configuredPath)
+                    .deletingPathExtension()
+                    .appendingPathExtension("deep-scroll.json")
+                try? data.write(to: output, options: .atomic)
+            }
+        }
+        attachScreenshot(deepScreenshot, name: "deep-scroll-screenshot")
+        return evidence
+    }
+
+    private func terminalContentElement(
+        elements: [ObservedAccessibilityElement],
+        viewport: ObservedRect
+    ) -> ObservedAccessibilityElement? {
+        let excludedTypes = Self.chromeTypes.union(["application", "window", "scrollView"])
+        return elements
+            .filter { element in
+                element.exists
+                    && !excludedTypes.contains(element.type)
+                    && (!element.identifier.isEmpty || !element.label.isEmpty)
+                    && element.frame.intersection(with: viewport) != nil
+                    && element.frame.height <= viewport.height * 1.25
+            }
+            .max { first, second in
+                if first.frame.maxY == second.frame.maxY {
+                    return first.frame.minY < second.frame.minY
+                }
+                return first.frame.maxY < second.frame.maxY
+            }
+    }
+
+    private func contentViewport(
+        windowFrame: CGRect,
+        elements: [ObservedAccessibilityElement]
+    ) -> ObservedRect {
+        let window = ObservedRect(windowFrame)
+        let sidebarMaxX = elements
+            .filter {
+                $0.type == "navigationBar"
+                    && $0.exists
+                    && $0.frame.minX <= window.minX + 16
+                    && $0.frame.width < window.width * 0.6
+            }
+            .map(\.frame.maxX)
+            .max() ?? window.minX
+        let topChrome = elements
+            .filter { ["navigationBar", "toolbar"].contains($0.type) && $0.exists }
+            .map(\.frame.maxY)
+            .max() ?? window.minY
+        let bottomChrome = elements
+            .filter { ["tabBar", "keyboard"].contains($0.type) && $0.exists }
+            .map(\.frame.minY)
+            .min() ?? window.maxY
+        let contentMaxY = max(topChrome, min(window.maxY, bottomChrome))
+        return ObservedRect(
+            x: max(window.minX, sidebarMaxX),
+            y: max(window.minY, topChrome),
+            width: max(0, window.maxX - max(window.minX, sidebarMaxX)),
+            height: max(0, contentMaxY - max(window.minY, topChrome))
+        )
+    }
+
+    private func requirements(
+        required: Set<String> = [],
+        visible: Set<String> = [],
+        peerPairs: [(String, String)] = [],
+        apnsThisDeviceIdentifier: String? = nil
+    ) -> ObservedGeometryRequirements {
+        ObservedGeometryRequirements(
+            viewport: ObservedRect(x: 0, y: 0, width: 100, height: 100),
+            requiredIdentifiers: required,
+            requiredVisibleIdentifiers: visible,
+            requiredLabels: [],
+            peerPairs: peerPairs,
+            chromeTypes: Self.chromeTypes,
+            actionableTypes: Self.actionableTypes,
+            minimumActionTarget: 44,
+            apnsThisDeviceIdentifier: apnsThisDeviceIdentifier,
+            apnsPushDeliveryIdentifier: nil
+        )
+    }
+
+    private func observedElement(
+        identifier: String,
+        type: String = "staticText",
+        frame: ObservedRect
+    ) -> ObservedAccessibilityElement {
+        ObservedAccessibilityElement(
+            identifier: identifier,
+            label: identifier,
+            type: type,
+            frame: frame,
+            exists: true,
+            hittable: false,
+            enabled: true,
+            focused: nil
+        )
+    }
+
+    private func csvSet(_ raw: String?) -> Set<String> {
+        Set((raw ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty })
+    }
+
+    private func peerPairs(_ raw: String?) -> [(String, String)] {
+        (raw ?? "").split(separator: ";").compactMap { pair in
+            let identifiers = pair.split(separator: ":", maxSplits: 1).map(String.init)
+            guard identifiers.count == 2 else { return nil }
+            return (identifiers[0], identifiers[1])
+        }
+    }
+
+    private func frameArea(_ frame: CGRect) -> CGFloat {
+        max(0, frame.width) * max(0, frame.height)
+    }
+
+    private func elementTypeName(_ type: XCUIElement.ElementType) -> String {
+        switch type {
+        case .application: "application"
+        case .window: "window"
+        case .scrollView: "scrollView"
+        case .navigationBar: "navigationBar"
+        case .toolbar: "toolbar"
+        case .tabBar: "tabBar"
+        case .keyboard: "keyboard"
+        case .sheet: "sheet"
+        case .alert: "alert"
+        case .button: "button"
+        case .switch: "switch"
+        case .textField: "textField"
+        case .secureTextField: "secureTextField"
+        case .link: "link"
+        case .slider: "slider"
+        case .stepper: "stepper"
+        case .staticText: "staticText"
+        case .image: "image"
+        default: "type-\(type.rawValue)"
+        }
+    }
+
+    private func writeEvidence(_ data: Data, configuredPath: String?) {
+        guard let configuredPath, !configuredPath.isEmpty else { return }
+        let output = URL(fileURLWithPath: configuredPath)
+        try? FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: output, options: .atomic)
+    }
+
+    private func attachJSON(_ data: Data, name: String) {
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func attachScreenshot(_ screenshot: XCUIScreenshot, name: String) {
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}
+
+private extension JSONEncoder {
+    static var observedEvidence: JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return encoder
+    }
+}

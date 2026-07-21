@@ -5,6 +5,14 @@ private let notificationAPNsPermissionDeniedTitle = "Notifications are off in Sy
 private let notificationAPNsPermissionDeniedActionTitle = "Open System Settings"
 private let notificationAPNsDeviceFocusID = "settings-section-notification-apns-device"
 
+struct NotificationAPNsDeviceSectionBoundsPreferenceKey: PreferenceKey {
+    static let defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
+    }
+}
+
 struct NotificationAPNsSettingsView: View {
     let viewModel: NotificationAPNsSurfaceViewModel
     var performNotificationAPNsAction: @MainActor @Sendable (NotificationAPNsActionPlan) async throws -> Void
@@ -21,6 +29,27 @@ struct NotificationAPNsSettingsView: View {
     @State private var notificationActionMessage: String?
     @State private var notificationActionError: String?
     @State private var pendingNotificationConfirmation: PendingNotificationAPNsConfirmation?
+
+    init(
+        viewModel: NotificationAPNsSurfaceViewModel,
+        performNotificationAPNsAction: @escaping @MainActor @Sendable (NotificationAPNsActionPlan) async throws -> Void,
+        requestNotificationPermission: @escaping @MainActor @Sendable () async throws -> APNsPermissionState,
+        requestDeviceRegistrationAction: @escaping @MainActor @Sendable (String) async throws -> NotificationAPNsAction,
+        openNotificationSettings: @escaping @MainActor @Sendable () -> Void,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
+    ) {
+        self.viewModel = viewModel
+        self.performNotificationAPNsAction = performNotificationAPNsAction
+        self.requestNotificationPermission = requestNotificationPermission
+        self.requestDeviceRegistrationAction = requestDeviceRegistrationAction
+        self.openNotificationSettings = openNotificationSettings
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
+        _notifySpoonOnMyRecipe = State(initialValue: viewModel.notificationDraft.notifySpoonOnMyRecipe)
+        _notifyForkOfMyRecipe = State(initialValue: viewModel.notificationDraft.notifyForkOfMyRecipe)
+        _notifyCookbookSaveOfMine = State(initialValue: viewModel.notificationDraft.notifyCookbookSaveOfMine)
+        _notifyFellowChefOriginCook = State(initialValue: viewModel.notificationDraft.notifyFellowChefOriginCook)
+        _notificationDraftID = State(initialValue: Self.notificationIdentity(viewModel.notificationDraft))
+    }
 
     var body: some View {
         notificationSections
@@ -51,7 +80,7 @@ struct NotificationAPNsSettingsView: View {
                 Text(message)
             }
         }
-        .task(id: notificationIdentity(viewModel.notificationDraft)) {
+        .task(id: Self.notificationIdentity(viewModel.notificationDraft)) {
             hydrateNotificationDraft(viewModel.notificationDraft)
         }
     }
@@ -95,35 +124,42 @@ struct NotificationAPNsSettingsView: View {
     }
 
     private var deviceNotificationsSection: some View {
-        KitchenTableSection(title: "This Device", subtitle: "Permission and delivery on this device") {
+        KitchenTableSection(
+            title: "This Device",
+            subtitle: "Permission and delivery on this device",
+            accessibilityHeaderIdentifier: "settings.apns.this-device.heading"
+        ) {
             SettingsPanel {
-                if let banner = viewModel.permissionDeniedBanner {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Label(banner.title, systemImage: "bell.slash")
-                            .font(KitchenTableTheme.bodyNote.weight(.semibold))
-                            .foregroundStyle(KitchenTableTheme.tomato)
-                        Text(banner.message)
-                            .font(KitchenTableTheme.bodyNote)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
-                            .fixedSize(horizontal: false, vertical: true)
-                        Button {
-                            openNotificationSettings()
-                        } label: {
-                            notificationRowLabel(banner.actionTitle, systemImage: "gearshape", prominence: .secondary)
+                switch deviceSetupPresentation {
+                case .permissionDenied:
+                    if let banner = viewModel.permissionDeniedBanner {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label(banner.title, systemImage: "bell.slash")
+                                .font(KitchenTableTheme.bodyNote.weight(.semibold))
+                                .foregroundStyle(KitchenTableTheme.tomato)
+                            Text(banner.message)
+                                .font(KitchenTableTheme.bodyNote)
+                                .foregroundStyle(KitchenTableTheme.inkMuted)
+                                .fixedSize(horizontal: false, vertical: true)
+                            Button {
+                                openNotificationSettings()
+                            } label: {
+                                notificationRowLabel(banner.actionTitle, systemImage: "gearshape", prominence: .secondary)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("permissionDenied")
                     }
-                    .accessibilityIdentifier("permissionDenied")
-                } else if viewModel.apnsRegistration == nil {
+
+                case .permissionRequired:
                     Button {
                         requestNotificationPermissionAction()
                     } label: {
                         notificationRowLabel("Request Permission", systemImage: "bell.badge", prominence: .secondary)
                     }
                     .buttonStyle(.plain)
-                }
 
-                if let registration = viewModel.apnsRegistration {
+                case .registered(let registration):
                     Label(deviceSetupReadyMessage, systemImage: "bell.badge")
                         .font(KitchenTableTheme.bodyNote.weight(.semibold))
                         .foregroundStyle(KitchenTableTheme.herb)
@@ -146,8 +182,9 @@ struct NotificationAPNsSettingsView: View {
                         notificationRowLabel("Stop on This Device", systemImage: "trash", prominence: .destructive)
                     }
                     .buttonStyle(.plain)
-                } else {
-                    Text("This device is not set up for Spoonjoy notifications yet.")
+
+                case .registrationRequired:
+                    Text("This device isn't set up for Spoonjoy notifications.")
                         .font(KitchenTableTheme.bodyNote)
                         .foregroundStyle(KitchenTableTheme.inkMuted)
                     Button {
@@ -160,10 +197,29 @@ struct NotificationAPNsSettingsView: View {
             }
         }
         .id(notificationAPNsDeviceFocusID)
+        .anchorPreference(key: NotificationAPNsDeviceSectionBoundsPreferenceKey.self, value: .bounds) { $0 }
+    }
+
+    private var deviceSetupPresentation: NotificationAPNsDeviceSetupPresentation {
+        switch (viewModel.data.permissionState, viewModel.isRegistered) {
+        case (.denied, _):
+            .permissionDenied
+        case (.notDetermined, _):
+            .permissionRequired
+        case (.authorized, true):
+            viewModel.apnsRegistration.map(NotificationAPNsDeviceSetupPresentation.registered)
+                ?? .registrationRequired
+        case (.authorized, false):
+            .registrationRequired
+        }
     }
 
     private var apnsDeliverySection: some View {
-        KitchenTableSection(title: "Push Delivery", subtitle: "What will arrive on this build") {
+        KitchenTableSection(
+            title: "Push Delivery",
+            subtitle: "Delivery to this device",
+            accessibilityHeaderIdentifier: "settings.apns.push-delivery.heading"
+        ) {
             SettingsPanel {
                 switch deliveryBlockerState {
                 case .developmentOnly(let blocker):
@@ -182,7 +238,11 @@ struct NotificationAPNsSettingsView: View {
     }
 
     private var notificationSyncSection: some View {
-        KitchenTableSection(title: "Notification Sync", subtitle: "Queued changes and offline state") {
+        KitchenTableSection(
+            title: "Notification Sync",
+            subtitle: "Queued changes and offline state",
+            accessibilityHeaderIdentifier: "settings.apns.notification-sync.heading"
+        ) {
             SettingsPanel {
                 if let summary = viewModel.queuedWorkSummary {
                     Label(summary, systemImage: "arrow.triangle.2.circlepath")
@@ -311,7 +371,7 @@ struct NotificationAPNsSettingsView: View {
     private var deviceSetupReadyMessage: String {
         switch deliveryBlockerState {
         case .developmentOnly, .blocked:
-            "Device setup is saved. Push delivery is limited on this build."
+            "Your notification setup is saved."
         }
     }
 
@@ -356,7 +416,7 @@ struct NotificationAPNsSettingsView: View {
     }
 
     private func hydrateNotificationDraft(_ preferences: SettingsNotificationPreferences) {
-        let identity = notificationIdentity(preferences)
+        let identity = Self.notificationIdentity(preferences)
         guard notificationDraftID != identity else {
             return
         }
@@ -374,7 +434,7 @@ struct NotificationAPNsSettingsView: View {
             && notifyFellowChefOriginCook == preferences.notifyFellowChefOriginCook
     }
 
-    private func notificationIdentity(_ preferences: SettingsNotificationPreferences) -> String {
+    private static func notificationIdentity(_ preferences: SettingsNotificationPreferences) -> String {
         [
             preferences.notifySpoonOnMyRecipe,
             preferences.notifyForkOfMyRecipe,
@@ -386,22 +446,25 @@ struct NotificationAPNsSettingsView: View {
     }
 }
 
+private enum NotificationAPNsDeviceSetupPresentation {
+    case permissionDenied
+    case permissionRequired
+    case registered(APNsRegistrationSummary)
+    case registrationRequired
+}
+
 private struct AppleDeveloperProgramBlockerView: View {
     let blocker: AppleDeveloperProgramBlocker
     let artifactFileName: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Push delivery is limited on this build.", systemImage: "lock.shield.fill")
+            Label("Push delivery isn't available yet.", systemImage: "lock.shield.fill")
                 .font(KitchenTableTheme.objectTitle)
                 .foregroundStyle(KitchenTableTheme.charcoal)
-            Text("You can still save notification preferences and device setup here.")
+            Text("Your preferences are saved.")
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
-            Text("When full push delivery is available, Spoonjoy will use it automatically.")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.herb)
                 .fixedSize(horizontal: false, vertical: true)
             NotificationDiagnosticsDisclosure(
                 registration: nil,

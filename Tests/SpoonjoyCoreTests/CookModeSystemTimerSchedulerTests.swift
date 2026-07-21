@@ -131,7 +131,7 @@ struct CookModeSystemTimerSchedulerTests {
         #expect(CookModeSystemTimerScheduler.message(
             for: CookModeSystemTimerSchedulingError.denied,
             fallback: fallback
-        ) == "Allow system timers in Settings to set this timer.")
+        ) == "Allow Spoonjoy to set timers in Settings.")
         #expect(CookModeSystemTimerScheduler.message(
             for: CookModeSystemTimerSchedulingError.authorizationFailed,
             fallback: fallback

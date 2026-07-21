@@ -59,20 +59,23 @@ struct SettingsAuthSurfaceContractTests {
     func settingsScreenshotProofDistinguishesProfileFromAPNsState() throws {
         let failures = sourceContractFailures(
             requiredTokens: [
-                "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
-                    "\"Session\"",
-                    "\"Sign In\"",
-                    "\"This Device\"",
-                    "\"Push Delivery\"",
-                    "\"Notification Sync\"",
-                    "\"Turn On for This Device\"",
-                    "\"Open System Settings\"",
-                    "\"session handoff controls\"",
-                    "\"APNs device controls\"",
-                    "\"notification sync status\"",
-                    "\"NotificationAPNsSettingsView\"",
-                    "\"AppleDeveloperProgramBlockerView\"",
-                    "\"NotificationDiagnosticsDisclosure\""
+                "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift": [
+                    "performAccessibilityAudit",
+                    "settings.apns.this-device.heading",
+                    "settings.apns.push-delivery.heading",
+                    "settings.apns.notification-sync.heading",
+                    "apnsChromeIntersection",
+                    "geometryFindings",
+                    "return [\"Spoonjoy\", \"Sign in\"]"
+                ],
+                "Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift": [
+                    "This Device",
+                    "Push Delivery",
+                    "Notification Sync",
+                    "Turn On for This Device",
+                    "Open System Settings",
+                    "AppleDeveloperProgramBlockerView",
+                    "NotificationDiagnosticsDisclosure"
                 ],
                 "scripts/validate-design-review.rb": [
                     "\"Session\"",
@@ -98,7 +101,6 @@ struct SettingsAuthSurfaceContractTests {
                     "SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE",
                     "SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE",
                     "\"Session\"",
-                    "\"Sign In\"",
                     "\"Agent Access\"",
                     "\"This Device\"",
                     "\"Push Delivery\"",

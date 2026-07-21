@@ -38,12 +38,17 @@ end
 def required_skipped_artifacts(unit_slug)
   Set[
     "screenshots/ios-mobile.png",
+    "screenshots/ios-mobile-accessibility.png",
     "screenshots/ios-tablet.png",
     "screenshots/macos-desktop.png",
     "design-review.json",
     "apple/#{unit_slug}-accessibility-proof-ios.json",
     "apple/#{unit_slug}-accessibility-proof-ipad.json",
-    "apple/#{unit_slug}-accessibility-proof-macos.json"
+    "apple/#{unit_slug}-accessibility-proof-macos.json",
+    "apple/#{unit_slug}-observed-accessibility-ios.json",
+    "apple/#{unit_slug}-observed-accessibility-ios-ax.json",
+    "apple/#{unit_slug}-observed-accessibility-ipad.json",
+    "apple/#{unit_slug}-observed-accessibility-macos.json"
   ]
 end
 

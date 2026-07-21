@@ -31,29 +31,31 @@ struct OfflineStatusView: View {
 
     var body: some View {
         if display.isVisible {
-            HStack(spacing: 8) {
-                Label(visibleLabel, systemImage: symbol)
-                    .font(statusFont)
-                    .foregroundStyle(foregroundStyle)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-                    .accessibilityLabel(label)
-
-                if display.informationalOnly, display != .synced {
-                    if let onDismiss {
-                        Button {
-                            onDismiss()
-                        } label: {
-                            Image(systemName: "xmark.circle")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Hide offline status")
-                    }
+            if let onDismiss = informationalDismissAction {
+                Button(action: onDismiss) {
+                    statusLabel
                 }
+                .buttonStyle(.plain)
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .contentShape(Rectangle())
+                .accessibilityLabel(label)
+                .accessibilityHint("Hides this status")
+            } else {
+                statusLabel
             }
-            .padding(.vertical, effectiveProminence == .quiet ? 2 : 4)
         }
+    }
+
+    private var statusLabel: some View {
+        Label(visibleLabel, systemImage: symbol)
+            .font(statusFont)
+            .foregroundStyle(foregroundStyle)
+            .accessibilityLabel(label)
+            .padding(.vertical, effectiveProminence == .quiet ? 2 : 4)
+    }
+
+    private var informationalDismissAction: (@MainActor @Sendable () -> Void)? {
+        display.informationalOnly && display != .synced ? onDismiss : nil
     }
 
     private var visibleLabel: String {
@@ -63,9 +65,9 @@ struct OfflineStatusView: View {
 
         switch display {
         case .offline:
-            return "Saved copy"
+            return "Offline"
         case .stale:
-            return "Saved copy may be stale"
+            return "May be out of date"
         default:
             return label
         }
@@ -151,7 +153,7 @@ struct OfflineStatusView: View {
     }
 
     private var quietInformationalForegroundStyle: Color {
-        KitchenTableTheme.inkMuted
+        KitchenTableTheme.charcoal
     }
 }
 
@@ -185,10 +187,12 @@ extension OfflineStatusView {
             "severeStates": severeStates,
             "hiddenStates": hiddenProbeDisplays.filter { !$0.display.isVisible }.map(\.name),
             "voiceOverLabel": true,
-            "dismissButtonLabel": "Hide offline status",
+            "dismissButtonLabel": labelForAccessibilityProof,
             "severityCorrect": dismissibleStates == ["offline", "stale"] &&
                 severeStates == ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
         ]
     }
+
+    private static let labelForAccessibilityProof = "Offline status"
 }
 #endif

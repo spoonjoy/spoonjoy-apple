@@ -26,18 +26,51 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                ".safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)"
+                ".safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)",
+                ".toolbarBackground(KitchenTableTheme.bone, for: .tabBar)",
+                ".toolbarBackground(.visible, for: .tabBar)",
+                ".tabBarMinimizeBehavior(.never)"
             ],
             forbids: [
-                ".toolbarBackground(.regularMaterial, for: .tabBar)",
-                ".toolbarBackground(.visible, for: .tabBar)"
+                ".safeAreaInset(edge: .bottom, spacing: 0)",
+                ".overlay(alignment: .bottom) {\n                    Rectangle()",
+                ".toolbarBackground(.regularMaterial, for: .tabBar)"
             ]
         )
         expectContent(
             theme,
             in: themePath,
             contains: [
-                "static let compactTabBarContentInset: CGFloat"
+                "static let compactTabBarContentInset: CGFloat = 148",
+                ".scrollEdgeEffectStyle(.hard, for: .bottom)"
+            ],
+            forbids: [
+                "static let compactTabBarBackdropHeight"
+            ],
+        )
+        expectContent(
+            theme,
+            in: themePath,
+            forbids: ["static let compactTabBarContentInset: CGFloat = 88"]
+        )
+    }
+
+    @Test("regular-width kitchen preserves a readable recipe index track")
+    func regularWidthKitchenPreservesReadableRecipeIndexTrack() throws {
+        let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+
+        expectContent(
+            kitchen,
+            in: kitchenPath,
+            contains: [
+                "ViewThatFits(in: .horizontal)",
+                ".frame(width: 360, alignment: .topLeading)",
+                ".frame(minWidth: 928, alignment: .leading)",
+                "VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing)"
+            ],
+            forbids: [
+                "if usesWideKitchenSpread, let leadRecipe"
             ]
         )
     }
@@ -71,12 +104,20 @@ struct NativeMobileDesignContractTests {
         let cookbooksPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let recipeDetailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let searchPath = "Apps/Spoonjoy/Shared/Views/SearchView.swift"
+        let offlinePath = "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift"
+        let signedOutPath = "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift"
+        let cookModePath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
         let theme = uncommentedSwift(try readRepoFile(themePath))
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
         let recipes = uncommentedSwift(try readRepoFile(recipesPath))
         let cookbooks = uncommentedSwift(try readRepoFile(cookbooksPath))
         let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
         let recipeDetail = uncommentedSwift(try readRepoFile(recipeDetailPath))
+        let search = uncommentedSwift(try readRepoFile(searchPath))
+        let offline = uncommentedSwift(try readRepoFile(offlinePath))
+        let signedOut = uncommentedSwift(try readRepoFile(signedOutPath))
+        let cookMode = uncommentedSwift(try readRepoFile(cookModePath))
 
         expectContent(theme, in: themePath, contains: ["hidesTitleInCompactNavigation"])
         expectContent(navigation, in: navigationPath, contains: [".environment(\\.spoonjoyCompactNavigation, true)"])
@@ -94,13 +135,43 @@ struct NativeMobileDesignContractTests {
         )
         expectContent(cookbooks, in: cookbooksPath, contains: ["hidesTitleInCompactNavigation: true"])
         expectContent(shopping, in: shoppingPath, contains: ["hidesTitleInCompactNavigation: true"])
+        expectContent(search, in: searchPath, contains: ["hidesTitleInCompactNavigation: true"])
+        expectContent(
+            offline,
+            in: offlinePath,
+            contains: [
+                "Button(action: onDismiss)",
+                ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)",
+                ".accessibilityHint(\"Hides this status\")"
+            ],
+            forbids: [
+                "effectiveProminence == .standard, let onDismiss",
+                ".contextMenu"
+            ]
+        )
+        expectContent(
+            signedOut,
+            in: signedOutPath,
+            contains: ["Sign in with Apple isn't available right now."],
+            forbids: ["local dogfood copy", "not Apple-authorized yet"]
+        )
+        expectContent(
+            cookMode,
+            in: cookModePath,
+            forbids: ["unavailableCue", "systemUnavailableMessage, systemImage: \"iphone\""]
+        )
         expectContent(
             recipeDetail,
             in: recipeDetailPath,
             contains: [
+                "recipeActionBar",
+                "recipeActionsMenu",
                 "Label(\"Recipe actions\", systemImage: \"ellipsis.circle\")",
-                "ownerToolsMenuItems",
-                "if !usesCompactRecipeDock"
+                "ownerToolsMenuItems"
+            ],
+            forbids: [
+                "if !usesCompactRecipeDock",
+                "recipeSecondaryActions"
             ]
         )
     }
@@ -108,7 +179,7 @@ struct NativeMobileDesignContractTests {
     @Test("screenshot proof waits for terminal media and the route matrix covers iPad")
     func screenshotProofWaitsForTerminalMediaAndRouteMatrixCoversIPad() throws {
         let imagePath = "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let proofPath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
         let capturePath = "scripts/capture-native-screenshots.sh"
         let matrixPath = "scripts/capture-native-screenshot-matrix.sh"
         let image = uncommentedSwift(try readRepoFile(imagePath))
@@ -126,9 +197,13 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "await ScreenshotVisualReadiness.waitForSettled()",
-                "\"visualReadiness\"",
-                "pendingMediaCount"
+                "XCUIApplication()",
+                "throw XCTSkip(\"The external screenshot observer only runs for an explicit capture route.\")",
+                "performAccessibilityAudit",
+                "observedElements(in: app, windowFrame: window.frame)",
+                "geometryFindings",
+                "let initialScreenshot = XCUIScreen.main.screenshot()",
+                "attachScreenshot(initialScreenshot"
             ]
         )
         expectContent(
@@ -137,14 +212,16 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "ios-tablet.png",
                 "accessibility-proof-ipad.json",
-                "expected_platform == \"ipad\"",
+                "abort(\"platform mismatch\") unless proof.fetch(\"platform\") == expected_platform",
                 "pendingMediaCount",
                 "SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS",
                 "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
                 "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
                 "simulator boot readiness timeout",
-                "--last 2m",
+                "log stream",
                 "latest_front_display_event",
+                "start_ios_foreground_stream",
+                "stop_ios_foreground_stream",
                 "Spoonjoy stopped being the front display before screenshot capture",
                 "Spoonjoy stopped being the front display during screenshot capture",
                 "Front display did change",
@@ -155,7 +232,8 @@ struct NativeMobileDesignContractTests {
                 "registered as running before foreground pixel validation",
                 "continuing to foreground/proof checks",
                 "date -u '+%Y-%m-%d %H:%M:%S'",
-                "--start \"$launched_at\""
+                "--start \"$launched_at\"",
+                "log show"
             ]
         )
         expectContent(
@@ -185,12 +263,14 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "Duplicates to review",
                 "duplicateItemIDs",
-                "Review duplicate",
                 "Remove duplicate",
+                "Remove one copy to resolve this duplicate.",
                 ".contextMenu",
                 "ReceiptDeleteSwipeModifier {"
             ],
             forbids: [
+                "Review duplicate",
+                "duplicateCountLabel(for:",
                 "return matchCount > 1 ? \"\\(matchCount) on receipt\" : nil",
                 "isEnabled: !isDuplicateReview"
             ]
@@ -264,19 +344,44 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("compact route pages reserve enough space for the floating native tab bar")
-    func compactRoutePagesReserveEnoughSpaceForFloatingNativeTabBar() throws {
+    @Test("compact tab shell is the sole owner of the native tab bar viewport inset")
+    func compactTabShellIsTheSoleOwnerOfTheNativeTabBarViewportInset() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let cookbooksPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
         let theme = uncommentedSwift(try readRepoFile(themePath))
+        let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+        let cookbooks = uncommentedSwift(try readRepoFile(cookbooksPath))
 
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                ".safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)"
+            ]
+        )
         expectContent(
             theme,
             in: themePath,
             contains: [
-                "static let compactDockReserve: CGFloat = 148",
+                "static let pageBottomSpacing: CGFloat = 32",
+                "bottomReserve: CGFloat = KitchenTableTheme.pageBottomSpacing",
                 ".padding(.bottom, bottomReserve)"
+            ],
+            forbids: [
+                "compactDockReserve"
             ]
         )
+        for (path, content) in [(kitchenPath, kitchen), (cookbooksPath, cookbooks)] {
+            expectContent(
+                content,
+                in: path,
+                contains: ["KitchenTableTheme.pageBottomSpacing"],
+                forbids: ["KitchenTableTheme.compactDockReserve"]
+            )
+        }
     }
 
     @Test("Spoonjoy section headers keep titles legible before drawing dividers")
@@ -290,7 +395,6 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "Text(title)",
                 ".font(KitchenTableTheme.sectionTitle)",
-                ".lineLimit(1)",
                 ".layoutPriority(1)",
                 "Rectangle()",
                 ".layoutPriority(-1)"
@@ -380,8 +484,8 @@ struct NativeMobileDesignContractTests {
                 "SpoonjoyCookTimerMetadata",
                 "CookModeSystemTimer",
                 "timer.startButtonTitle",
-                "if let timer = viewModel.systemTimer",
-                "#else\n        unavailableCue\n#endif"
+                "#if os(iOS)\n            if #available(iOS 26.1, *), let timer = viewModel.systemTimer",
+                "return \"\\(timer.durationLabel) timer set.\""
             ],
             forbids: [
                 "Timer.publish(every:",
@@ -390,8 +494,9 @@ struct NativeMobileDesignContractTests {
                 "Pause timer",
                 "Reset timer",
                 "Restart timer",
-                "#else\n        EmptyView()\n#endif",
-                "#if os(iOS)\n            if let timer = viewModel.systemTimer"
+                "#else\n        unavailableCue\n#endif",
+                "system timer set.",
+                "iPhone OS"
             ]
         )
 
@@ -531,11 +636,12 @@ struct NativeMobileDesignContractTests {
                 "hasRealCover",
                 "photoLead",
                 "coverlessLead",
-                "coverlessNoPhotoBadge",
                 "showsFallbackLabel: false",
                 "Text(recipe.title)"
             ],
             forbids: [
+                "coverlessNoPhotoBadge",
+                "Text(\"Photo not added\")",
                 "let hasCoverImage = recipe.displayCoverImageURL != nil",
                 ".frame(maxWidth: .infinity, minHeight: 210"
             ]
@@ -597,21 +703,27 @@ struct NativeMobileDesignContractTests {
             capture,
             in: capturePath,
             contains: [
-                "eyebrow: \"Import queue\"",
-                "title: \"Capture\"",
+                "eyebrow: \"Kitchen\"",
+                "title: \"Imports\"",
+                "Review recipes before they join your kitchen.",
                 "agentImportStatus",
-                "header\n            offlineStatus\n            agentImportStatus\n            if let currentDraft {\n                draftPreview(currentDraft)\n            }\n            entryPointLedger",
-                "CaptureImportEntryPoint",
-                "agentMCP",
-                "appIntent",
+                "shouldShowStatusPanel",
+                "captureActionsMenu",
+                "Import actions",
+                "Delete import",
                 "ImportStatusPanel",
                 "draftPreview(currentDraft)",
-                "Submit import",
-                "Retry when online",
-                "Resolve import setup",
+                "Import paused",
+                "Saved locally",
+                "No imports waiting",
                 "OfflineStatusView"
             ],
             forbids: [
+                "CaptureImportEntryPoint",
+                "entryPointLedger",
+                "Import queue",
+                "Submit import",
+                "Retry sync",
                 "eyebrow: \"Agent import\"",
                 "MCP agent",
                 "MCP agent imports",
@@ -677,7 +789,7 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                "Button(\"Import queue\", systemImage: \"tray.and.arrow.down\")",
+                "Button(\"Imports\", systemImage: \"tray.and.arrow.down\")",
                 "loadingTitle: recipeLoadingTitle(id: id)",
                 "private func recipeLoadingTitle(id: String) -> String?"
             ],
@@ -696,26 +808,35 @@ struct NativeMobileDesignContractTests {
             detail,
             in: detailPath,
             contains: [
-                "recipePrimaryActions",
-                "recipeSecondaryActions",
+                "recipeActionBar",
+                "recipeActionsMenu",
                 "@Environment(\\.horizontalSizeClass)",
                 "usesCompactRecipeDock",
-                "if !usesCompactRecipeDock",
+                "ViewThatFits(in: .horizontal)",
                 "Menu",
                 "KitchenTableActionButtonStyle(prominence: .primary)",
-                "KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary)",
                 "Label(\"Cook mode\", systemImage: \"fork.knife\")",
+                "Label(\"Log\", systemImage: \"fork.knife.circle\")",
+                "Label(\"Recipe actions\", systemImage: \"ellipsis.circle\")",
                 "Label(\"Save\", systemImage: \"book.closed\")",
-                "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
-                "recipeHeaderControls"
+                "Label(\"Add to list\", systemImage: \"cart.badge.plus\")",
+                "recipeHeaderControls",
+                "recipeMastheadActions\n            recipeHeaderControls"
             ],
             forbids: [
+                "recipePrimaryActions",
+                "recipeSecondaryActions",
+                "if !usesCompactRecipeDock",
+                "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
+                "KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary)",
                 "HStack {\n                if hasAction(.startCooking)",
                 "Stepper(value: $shoppingScaleFactor",
                 ".frame(maxWidth: 220)",
-                "ViewThatFits(in: .horizontal)",
                 "GridRow",
-                "recipeDockClearance"
+                "recipeDockClearance",
+                "compactRecipeSectionBreak",
+                "Spacer(minLength: 64)",
+                "recipeMasthead\n            compactRecipeSectionBreak\n            stepsSection"
             ]
         )
     }
@@ -725,11 +846,9 @@ struct NativeMobileDesignContractTests {
         let detailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
         let detailModelPath = "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift"
         let spoonLogPath = "Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift"
-        let screenshotProofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
         let detail = uncommentedSwift(try readRepoFile(detailPath))
         let detailModel = uncommentedSwift(try readRepoFile(detailModelPath))
         let spoonLog = uncommentedSwift(try readRepoFile(spoonLogPath))
-        let screenshotProof = uncommentedSwift(try readRepoFile(screenshotProofPath))
 
         expectContent(
             detail,
@@ -748,7 +867,7 @@ struct NativeMobileDesignContractTests {
                 "RecipeDetailCookProgressSnapshot",
                 "spoonjoy-cook-progress:\\(viewModel.id)",
                 "Label(\"Cook mode\", systemImage: \"fork.knife\")",
-                "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
+                "Label(\"Add to list\", systemImage: \"cart.badge.plus\")",
                 "KitchenTableSection(title: \"Save to Cookbook\")"
             ],
             forbids: [
@@ -791,35 +910,12 @@ struct NativeMobileDesignContractTests {
             ]
         )
 
-        expectContent(
-            screenshotProof,
-            in: screenshotProofPath,
-            contains: [
-                "\"Cook mode\"",
-                "\"Save\"",
-                "\"Yield\"",
-                "\"Clear progress\"",
-                "\"Add to list\"",
-                "\"Steps\"",
-                "\"timer\"",
-                "\"Cooks\"",
-                "\"Ingredients\"",
-                "\"RecipeScaleSelector\"",
-                "\"RecipeStepDurationCue\"",
-                "\"RecipeStepChecklistRow\""
-            ],
-            forbids: [
-                "Ingredient Receipt"
-            ]
-        )
     }
 
     @Test("recipe detail preserves web masthead structure and stable route states")
     func recipeDetailPreservesWebMastheadStructureAndStableRouteStates() throws {
         let detailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
         let detail = uncommentedSwift(try readRepoFile(detailPath))
-        let proof = uncommentedSwift(try readRepoFile(proofPath))
 
         expectContent(
             detail,
@@ -854,18 +950,6 @@ struct NativeMobileDesignContractTests {
                 "private var recipeNoPhotoHeight"
             ]
         )
-
-        expectContent(
-            proof,
-            in: proofPath,
-            contains: [
-                "\"RecipeDetailHeroMedia\"",
-                "\"RecipeDetailMasthead\"",
-                "\"recipeIdentityAndProvenance\"",
-                "\"recipeMastheadActions\"",
-                "\"recipeMastheadLogCookAction\""
-            ]
-        )
     }
 
     @Test("cook mode owns a compact SpoonDock handrail wired to step state")
@@ -873,13 +957,11 @@ struct NativeMobileDesignContractTests {
         let cookPath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
         let capturePath = "scripts/capture-native-screenshots.sh"
         let validatorPath = "scripts/validate-design-review.rb"
         let cook = uncommentedSwift(try readRepoFile(cookPath))
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
         let receipt = uncommentedSwift(try readRepoFile(receiptPath))
-        let proof = try readRepoFile(proofPath)
         let capture = try readRepoFile(capturePath)
         let validator = try readRepoFile(validatorPath)
 
@@ -909,6 +991,9 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableSection(title: \"Use from earlier\"",
                 "KitchenTableSection(title: \"Ingredients\"",
                 ".toggleStyle(.largeCheck)",
+                "regularCookModeWorkspace",
+                "regularReferenceColumn",
+                ".frame(maxWidth: 1040, alignment: .leading)",
                 ".padding(.horizontal, KitchenTableTheme.pagePadding + 4)",
                 ".padding(.bottom, compactScrollBottomPadding)",
                 ".background(KitchenTableTheme.bone)",
@@ -935,21 +1020,12 @@ struct NativeMobileDesignContractTests {
             ]
         )
 
-        for (path, content) in [
-            (proofPath, proof),
-            (capturePath, capture),
-            (validatorPath, validator)
-        ] {
-            expectContent(
-                content,
-                in: path,
-                contains: [
-                    "cookModeBottomActionRail",
-                    "cookModeUtilitySheet",
-                    "Ingredients"
-                ]
-            )
-        }
+        expectContent(capture, in: capturePath, contains: ["\"cook-mode\"", "CookModeView"])
+        expectContent(
+            validator,
+            in: validatorPath,
+            contains: ["cookModeBottomActionRail", "cookModeUtilitySheet", "Ingredients"]
+        )
 
         expectContent(
             navigation,
@@ -972,7 +1048,6 @@ struct NativeMobileDesignContractTests {
         let dockPath = "Apps/Spoonjoy/Shared/AppShell/SpoonDock.swift"
         let recipeDetailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
         let spoonLogPath = "Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
         let capturePath = "scripts/capture-native-screenshots.sh"
         let validatorPath = "scripts/validate-design-review.rb"
         let cook = uncommentedSwift(try readRepoFile(cookPath))
@@ -980,7 +1055,6 @@ struct NativeMobileDesignContractTests {
         let dock = uncommentedSwift(try readRepoFile(dockPath))
         let recipeDetail = uncommentedSwift(try readRepoFile(recipeDetailPath))
         let spoonLog = uncommentedSwift(try readRepoFile(spoonLogPath))
-        let proof = try readRepoFile(proofPath)
         let capture = try readRepoFile(capturePath)
         let validator = try readRepoFile(validatorPath)
 
@@ -1023,13 +1097,16 @@ struct NativeMobileDesignContractTests {
                 "KitchenSafeControlDeck",
                 "primaryStepAction",
                 "secondaryStepActions",
-                "Label(\"Mark done\", systemImage: \"checkmark.circle.fill\")"
+                "ViewThatFits(in: .horizontal)",
+                "Label(\"Mark done\", systemImage: \"checkmark.circle.fill\")",
+                "Label(\"Back step\", systemImage: \"chevron.backward.circle\")",
+                "Label(\"Next step\", systemImage: \"arrow.forward.circle\")"
             ],
             forbids: [
                 "Label(\"Done\", systemImage: \"checkmark.circle.fill\")",
                 "Label(\"Recipe\", systemImage: \"text.book.closed\")",
                 ".buttonStyle(.bordered)",
-                "ViewThatFits(in: .horizontal)"
+                "Label(\"Close\", systemImage: \"text.book.closed\")"
             ]
         )
 
@@ -1054,13 +1131,14 @@ struct NativeMobileDesignContractTests {
             recipeDetail,
             in: recipeDetailPath,
             contains: [
-                "Image(systemName: \"ellipsis\")",
-                ".accessibilityLabel(\"Manage recipe\")",
-                ".accessibilityHint(\"Opens owner tools for this recipe.\")"
+                "Label(\"Recipe actions\", systemImage: \"ellipsis.circle\")",
+                ".accessibilityLabel(\"Recipe actions\")",
+                "ownerToolsMenuItems"
             ],
             forbids: [
                 "Text(provenance)",
                 "Label(\"Manage recipe\", systemImage: \"ellipsis.circle\")",
+                ".accessibilityLabel(\"Manage recipe\")",
                 ".background(KitchenTableTheme.photoOverlay"
             ]
         )
@@ -1114,11 +1192,7 @@ struct NativeMobileDesignContractTests {
             ]
         )
 
-        for (path, content) in [
-            (proofPath, proof),
-            (capturePath, capture),
-            (validatorPath, validator)
-        ] {
+        for (path, content) in [(capturePath, capture), (validatorPath, validator)] {
             expectContent(
                 content,
                 in: path,
@@ -1137,7 +1211,7 @@ struct NativeMobileDesignContractTests {
     func shoppingListReliesOnNativeTabNavigation() throws {
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let proofPath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
         let screenshotHarnessPath = "scripts/capture-native-screenshots.sh"
         let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
@@ -1187,14 +1261,17 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "app.descendants(matching: type).allElementsBoundByIndex",
+                "performAccessibilityAudit",
+                "actionableTypes",
+                "shopping-list"
             ]
         )
         expectContent(
             screenshotHarness,
             in: screenshotHarnessPath,
             contains: [
-                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "shopping-list"
             ]
         )
     }
@@ -1205,7 +1282,7 @@ struct NativeMobileDesignContractTests {
         let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
         let viewModelPath = "Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift"
         let verifierPath = "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let proofPath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
         let screenshotHarnessPath = "scripts/capture-native-screenshots.sh"
         let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
         let receipt = uncommentedSwift(try readRepoFile(receiptPath))
@@ -1243,12 +1320,13 @@ struct NativeMobileDesignContractTests {
                 "Section {",
                 "private struct ShoppingReceiptRow",
                 "sourceLine",
-                "duplicateCountLabel",
                 ".accessibilityHint",
                 ".toggleStyle(.largeCheck)",
                 ".swipeActions"
             ],
             forbids: [
+                "Review duplicate",
+                "duplicateCountLabel(for:",
                 "ScrollView",
                 "LazyVStack",
                 "Label(\"Done\", systemImage: \"checkmark\")",
@@ -1291,10 +1369,13 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "app.descendants(matching: type).allElementsBoundByIndex",
+                "performAccessibilityAudit",
+                "geometryFindings",
+                "shopping-list"
             ],
             forbids: [
-                "voiceOverLabels: [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+                "RouteAccessibilityEvidence"
             ]
         )
         expectContent(
@@ -1305,8 +1386,7 @@ struct NativeMobileDesignContractTests {
                 "\"shopping-list-all-complete\"",
                 "\"shopping-list-duplicate\"",
                 "\"shopping-list-conflict\"",
-                "\"shopping-list-offline-queued\"",
-                "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"Receipt actions\", \"Add item\", \"Add from recipe\", \"Clear checked\"]"
+                "\"shopping-list-offline-queued\""
             ],
             forbids: [
                 "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
@@ -1419,8 +1499,6 @@ struct NativeMobileDesignContractTests {
         let coverComponent = uncommentedSwift(try readRepoFile(coverComponentPath))
         let cookbookViewPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
         let cookbookView = uncommentedSwift(try readRepoFile(cookbookViewPath))
-        let screenshotProofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
-        let screenshotProof = uncommentedSwift(try readRepoFile(screenshotProofPath))
         let liveRoutePaths = [
             "Apps/Spoonjoy/Shared/Views/KitchenView.swift",
             "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
@@ -1495,27 +1573,21 @@ struct NativeMobileDesignContractTests {
                 "CookbookCoverArt(cookbook:",
                 "CookbookFallbackCover",
                 "CookbookImageCover",
+                "private struct CookbookThumb",
+                "KitchenTableNoPhotoView(",
+                "CookbookThumb(row: row)",
                 "CookbookDetailHero"
             ],
             forbids: [
+                "Image(systemName: \"books.vertical.fill\")",
+                "VStack(alignment: .leading, spacing: 8) {\n                Rectangle().frame(height: 1)",
                 "RecipeCoverImage(\n                    url: row.cover.primaryImageURL",
                 "if let imageURL = row.cover.primaryImageURL {\n            VStack(alignment: .leading, spacing: 8) {"
             ]
         )
         expectContent(
-            screenshotProof,
-            in: screenshotProofPath,
-            contains: [
-                "\"media-aware contrast on real covers\"",
-                "\"secondary text on bone\""
-            ],
-            forbids: [
-                "\"white on photo overlay\""
-            ]
-        )
-        expectContent(
-            try readRepoFile("scripts/capture-native-screenshots.sh"),
-            in: "scripts/capture-native-screenshots.sh",
+            try readRepoFile("scripts/validate-design-review.rb"),
+            in: "scripts/validate-design-review.rb",
             contains: [
                 "\"media-aware contrast on real covers\"",
                 "\"secondary text on bone\""
@@ -1541,11 +1613,9 @@ struct NativeMobileDesignContractTests {
     @Test("cookbook surfaces use authored shelf spread and native contents grammar")
     func cookbookSurfacesUseAuthoredShelfSpreadAndNativeContentsGrammar() throws {
         let cookbookPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
         let capturePath = "scripts/capture-native-screenshots.sh"
         let validatorPath = "scripts/validate-design-review.rb"
         let cookbook = uncommentedSwift(try readRepoFile(cookbookPath))
-        let proof = uncommentedSwift(try readRepoFile(proofPath))
         let capture = try readRepoFile(capturePath)
         let validator = try readRepoFile(validatorPath)
 
@@ -1558,7 +1628,10 @@ struct NativeMobileDesignContractTests {
                 "current.recipeCount != candidate.recipeCount",
                 "private var usesCompactCookbookLayout",
                 "private var cookbookPageBottomReserve",
-                "private func leadCookbookActions",
+                "ToolbarItem(placement: .primaryAction)",
+                "private var newCookbookButton",
+                "private func leadCookbookCoverButton",
+                "Image(systemName: \"square.and.arrow.up\")",
                 "private var cookbookLibrarySpread",
                 "private var cookbookShelfStrip",
                 "private var cookbookIndexRows",
@@ -1567,6 +1640,8 @@ struct NativeMobileDesignContractTests {
                 "CookbookCoverArt(cookbook:",
                 "CookbookFallbackCover",
                 "CookbookImageCover",
+                "private struct CookbookThumb",
+                "KitchenTableNoPhotoView(",
                 ".system(.title2, design: .serif).weight(.bold)",
                 ".minimumScaleFactor(0.66)",
                 "private var detailHeaderWidth",
@@ -1584,6 +1659,11 @@ struct NativeMobileDesignContractTests {
                 "Button(role: .destructive)"
             ],
             forbids: [
+                "private func leadCookbookActions",
+                "private func openCookbookButton",
+                "Label(\"Open cookbook\"",
+                "Image(systemName: \"books.vertical.fill\")",
+                "VStack(alignment: .leading, spacing: 8) {\n                Rectangle().frame(height: 1)",
                 "title: \"\\(emptyState.title). \\(emptyState.message)\"",
                 "RecipeCoverImage(\n                    url: row.cover.primaryImageURL",
                 "Image(systemName: \"books.vertical\")\n                    .foregroundStyle(KitchenTableTheme.brass)",
@@ -1594,17 +1674,6 @@ struct NativeMobileDesignContractTests {
             ]
         )
 
-        expectContent(
-            proof,
-            in: proofPath,
-            contains: [
-                "\"Shelf\"",
-                "\"Contents\"",
-                "\"CookbookCoverArt\"",
-                "\"CookbookRecipeIndexRow\"",
-                "\"CookbookOwnerToolsDisclosure\""
-            ]
-        )
         expectContent(
             capture,
             in: capturePath,
@@ -1680,28 +1749,30 @@ struct NativeMobileDesignContractTests {
     @Test("search uses native searchable chrome and captures typed scoped evidence")
     func searchUsesNativeSearchableChromeAndCapturesTypedScopedEvidence() throws {
         let searchPath = "Apps/Spoonjoy/Shared/Views/SearchView.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let capturePath = "scripts/capture-native-screenshots.sh"
         let matrixPath = "scripts/capture-native-screenshot-matrix.sh"
         let validatorPath = "scripts/validate-design-review.rb"
         let search = uncommentedSwift(try readRepoFile(searchPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
         let capture = try readRepoFile(capturePath)
         let matrix = try readRepoFile(matrixPath)
         let validator = try readRepoFile(validatorPath)
 
         expectContent(
-            search,
-            in: searchPath,
+            navigation,
+            in: navigationPath,
             contains: [
-                ".searchable(text: searchTextBinding, prompt: \"Search Spoonjoy\")",
-                ".searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: \"Search Spoonjoy\")",
+                ".searchable(text: searchText, prompt: \"Search Spoonjoy\")",
+                ".searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: \"Search Spoonjoy\")",
                 "@FocusState private var isSearchFieldFocused",
                 ".searchFocused($isSearchFieldFocused)",
                 "isSearchFieldFocused = true",
                 "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
-                ".searchScopes(searchScopeBinding)",
-                "SearchSurfaceNativeChrome",
-                "onSubmit(of: .search)",
-                "searchScopeBinding"
+                ".searchScopes(searchScope)",
+                "SearchSurfaceScopeGrammar.title(for: scope)",
+                ".onSubmit(of: .search)",
+                "private var searchScope: Binding<SearchScope>"
             ],
             forbids: [
                 "TextField(\"tomato beans\"",
@@ -1711,6 +1782,15 @@ struct NativeMobileDesignContractTests {
                 "ScrollView(.horizontal, showsIndicators: false)",
                 "scopeLabel(scope)",
                 "searchControls"
+            ]
+        )
+        expectContent(
+            search,
+            in: searchPath,
+            forbids: [
+                ".searchable(",
+                ".searchScopes(",
+                "@FocusState"
             ]
         )
 
@@ -1794,10 +1874,103 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                ".navigationBarTitleDisplayMode(.inline)"
+                ".navigationBarTitleDisplayMode(.inline)",
+                ".navigationTitle(usesCompactMobileShell ? title(for: navigation.route) : \"\")"
             ],
             forbids: [
-                ".navigationBarTitleDisplayMode(usesCompactMobileShell ? .inline : .large)"
+                ".navigationBarTitleDisplayMode(usesCompactMobileShell ? .inline : .large)",
+                ".navigationTitle(title(for: navigation.route))"
+            ]
+        )
+    }
+
+    @Test("screenshot variants prove rendered state from isolated fixture storage")
+    func screenshotVariantsProveRenderedStateFromIsolatedFixtureStorage() throws {
+        let rootPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
+        let writerPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let captureViewPath = "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift"
+        let shoppingViewPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let captureScriptPath = "scripts/capture-native-screenshots.sh"
+        let validatorPath = "scripts/validate-design-review.rb"
+
+        expectContent(
+            uncommentedSwift(try readRepoFile(rootPath)),
+            in: rootPath,
+            contains: ["SPOONJOY_SCREENSHOT_STATE_DIRECTORY", "screenshotStateDirectory"]
+        )
+        expectContent(
+            uncommentedSwift(try readRepoFile(writerPath)),
+            in: writerPath,
+            contains: [
+                "observedSurfaceVariant",
+                "\"observedSurfaceVariant\"",
+                "observedSurfaceState",
+                "\"observedSurfaceState\"",
+                "screenshotStateSnapshotProof",
+                "NativeAppStateLocation.defaultFileURL()",
+                "native-sync-store.json",
+                "\"stateDirectoryConfigured\"",
+                "\"stateDirectoryResolved\"",
+                "\"appSnapshotPresent\"",
+                "\"appSnapshotJSONReadable\"",
+                "\"appSnapshotCaptureDraftPresent\"",
+                "\"appSnapshotShoppingListPresent\"",
+                "\"appSnapshotPendingCaptureImportPresent\"",
+                "\"appSnapshotProviderBlockerPresent\"",
+                "\"syncSnapshotPresent\"",
+                "\"syncSnapshotJSONReadable\"",
+                "\"syncSnapshotQueueCount\"",
+                "\"syncSnapshotQueuedShoppingWorkPresent\""
+            ]
+        )
+        expectContent(
+            uncommentedSwift(try readRepoFile(captureViewPath)),
+            in: captureViewPath,
+            contains: [
+                "screenshotSurfaceVariant",
+                ".task(id: screenshotSurfaceVariant)",
+                "observedSurfaceVariant: screenshotSurfaceVariant"
+            ]
+        )
+        expectContent(
+            uncommentedSwift(try readRepoFile(shoppingViewPath)),
+            in: shoppingViewPath,
+            contains: [
+                "screenshotSurfaceVariant",
+                "screenshotObservedSurfaceState",
+                "statusOwner: \"ShoppingListView\"",
+                "queuedMutationCount: viewModel.shoppingQueuedMutationCount",
+                "case .queuedWork:",
+                "\"queuedWork\"",
+                "if viewModel.queuedWorkSummary != nil",
+                "return \"offline-queued\"",
+                ".task(id: screenshotSurfaceVariant)",
+                "observedSurfaceVariant: screenshotSurfaceVariant",
+                "observedSurfaceState: screenshotObservedSurfaceState"
+            ],
+            forbids: [
+                "if viewModel.connectivity == .offline, viewModel.queuedWorkSummary != nil"
+            ]
+        )
+        expectContent(
+            try readRepoFile(captureScriptPath),
+            in: captureScriptPath,
+            contains: [
+                "macos_state_directory",
+                "SPOONJOY_SCREENSHOT_STATE_DIRECTORY",
+                "expected_surface_variant",
+                "observedSurfaceVariant",
+                "expectedSurfaceVariant",
+                "actualObservedSurfaceVariant"
+            ]
+        )
+        expectContent(
+            try readRepoFile(validatorPath),
+            in: validatorPath,
+            contains: [
+                "observedSurfaceVariant",
+                "captureSurfaceVariant",
+                "shoppingListVariant"
             ]
         )
     }

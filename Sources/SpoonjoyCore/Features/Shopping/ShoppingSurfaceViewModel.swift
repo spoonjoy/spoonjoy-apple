@@ -432,12 +432,16 @@ public struct ShoppingSurfaceViewModel {
     }
 
     public var queuedWorkSummary: String? {
-        let count = shoppingQueuedMutations.count
+        let count = shoppingQueuedMutationCount
         guard count > 0 else {
             return nil
         }
 
         return count == 1 ? "1 shopping change waiting to sync" : "\(count) shopping changes waiting to sync"
+    }
+
+    public var shoppingQueuedMutationCount: Int {
+        shoppingQueuedMutations.count
     }
 
     public var conflictBanner: ShoppingSurfaceConflictBanner? {

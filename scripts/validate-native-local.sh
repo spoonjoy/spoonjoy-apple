@@ -88,6 +88,8 @@ required_hooks=(
   "scripts/smoke-ios-simulator.sh"
   "scripts/capture-native-screenshots.sh"
   "scripts/capture-native-screenshot-matrix.sh"
+  "scripts/native-screenshot-provenance.rb"
+  "scripts/tests/native_screenshot_provenance_test.rb"
   "scripts/validate-design-review.rb"
   "scripts/validate-design-review-blocker.rb"
   "scripts/validate-aasa.rb"
@@ -211,9 +213,11 @@ write_xcode_screenshot_blocker() {
       "sourceBlockerPath" => screenshot_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-tablet.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         "apple/matrix-accessibility-proof-ios.json",
+        "apple/matrix-accessibility-proof-ipad.json",
         "apple/matrix-accessibility-proof-macos.json"
       ],
       "reason" => screenshot_blocker.fetch("reason"),
@@ -222,8 +226,8 @@ write_xcode_screenshot_blocker() {
     File.write(design_review_blocked_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$source_blocker" "$screenshot_blocker" "$design_review_blocked"
   rm -f "$artifact_root/design-review.json"
-  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/macos-desktop.png"
-  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
+  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/ios-tablet.png" "$artifact_root/screenshots/macos-desktop.png"
+  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-ipad.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
 }
 
 run_required() {
@@ -300,6 +304,7 @@ run_required "kitchen surfaces contract" "$apple_dir/matrix-kitchen-surfaces-con
 run_required "cook shopping contract" "$apple_dir/matrix-cook-shopping-contract.log" ruby scripts/check-cook-shopping-surfaces.rb || overall_status=1
 run_required "search capture settings contract" "$apple_dir/matrix-search-capture-contract.log" ruby scripts/check-search-capture-settings-surfaces.rb || overall_status=1
 run_required "launch screenshot contract" "$apple_dir/matrix-launch-screenshot-contract.log" ruby scripts/check-launch-screenshot-contract.rb || overall_status=1
+run_required "native screenshot provenance tests" "$apple_dir/matrix-native-screenshot-provenance-tests.log" ruby scripts/tests/native_screenshot_provenance_test.rb || overall_status=1
 run_required "AASA validation or blocker" "$apple_dir/matrix-aasa.log" ruby scripts/validate-aasa.rb --artifact-root "$artifact_root" || overall_status=1
 run_required "native password dogfood" "$apple_dir/matrix-native-password-dogfood.log" scripts/verify-native-password-dogfood.sh --artifact-root "$artifact_root" --report "$apple_dir/matrix-native-password-dogfood-report.json" --server-log "$apple_dir/matrix-native-password-dogfood-server.log" --vault-file "$apple_dir/matrix-native-password-dogfood-vault.json" || overall_status=1
 
@@ -389,6 +394,7 @@ matrix_warning_logs=(
   "$apple_dir/matrix-cook-shopping-contract.log"
   "$apple_dir/matrix-search-capture-contract.log"
   "$apple_dir/matrix-launch-screenshot-contract.log"
+  "$apple_dir/matrix-native-screenshot-provenance-tests.log"
   "$apple_dir/matrix-aasa.log"
   "$apple_dir/matrix-native-password-dogfood.log"
   "$apple_dir/matrix-native-password-dogfood-server.log"

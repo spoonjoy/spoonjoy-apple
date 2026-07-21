@@ -64,6 +64,13 @@ struct CookbooksView: View {
                 cancel: cancelCreateCookbook
             )
         }
+        .toolbar {
+            if canCreateCookbook {
+                ToolbarItem(placement: .primaryAction) {
+                    newCookbookButton
+                }
+            }
+        }
     }
 
     private var header: some View {
@@ -72,18 +79,7 @@ struct CookbooksView: View {
             title: "Cookbooks",
             subtitle: list.resultCountLabel,
             hidesTitleInCompactNavigation: true
-        ) {
-            if canCreateCookbook {
-                Button {
-                    newCookbookTitle = ""
-                    createErrorMessage = nil
-                    isPresentingCreate = true
-                } label: {
-                    Label("New Cookbook", systemImage: "plus")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-            }
-        }
+        )
     }
 
     private var leadCookbook: CookbookSurfaceRowViewModel? {
@@ -98,6 +94,18 @@ struct CookbooksView: View {
         }
     }
 
+    private var newCookbookButton: some View {
+        Button {
+            newCookbookTitle = ""
+            createErrorMessage = nil
+            isPresentingCreate = true
+        } label: {
+            Image(systemName: "plus")
+        }
+        .accessibilityLabel("New cookbook")
+        .help("New cookbook")
+    }
+
     private var usesCompactCookbookLayout: Bool {
 #if os(iOS)
         horizontalSizeClass == .compact
@@ -107,7 +115,9 @@ struct CookbooksView: View {
     }
 
     private var cookbookPageBottomReserve: CGFloat {
-        usesCompactCookbookLayout ? 196 : KitchenTableTheme.compactDockReserve
+        usesCompactCookbookLayout
+            ? KitchenTableTheme.pageBottomSpacing
+            : KitchenTableTheme.pageBottomSpacing + 24
     }
 
     private var leadCoverWidth: CGFloat {
@@ -123,24 +133,18 @@ struct CookbooksView: View {
             if let leadCookbook {
                 if usesCompactCookbookLayout {
                     VStack(alignment: .leading, spacing: 16) {
+                        leadCookbookCoverButton(leadCookbook, width: compactLeadCoverWidth)
                         leadCookbookStory(leadCookbook)
-                        CookbookCoverArt(row: leadCookbook)
-                            .frame(width: compactLeadCoverWidth)
-                            .accessibilityIdentifier("cookbookLibrarySpread")
                     }
                 } else {
                     ViewThatFits(in: .horizontal) {
                         HStack(alignment: .bottom, spacing: 28) {
-                            CookbookCoverArt(row: leadCookbook)
-                                .frame(width: leadCoverWidth)
-                                .accessibilityIdentifier("cookbookLibrarySpread")
+                            leadCookbookCoverButton(leadCookbook, width: leadCoverWidth)
                             leadCookbookStory(leadCookbook)
                         }
 
                         VStack(alignment: .leading, spacing: 18) {
-                            CookbookCoverArt(row: leadCookbook)
-                                .frame(width: compactLeadCoverWidth)
-                                .accessibilityIdentifier("cookbookLibrarySpread")
+                            leadCookbookCoverButton(leadCookbook, width: compactLeadCoverWidth)
                             leadCookbookStory(leadCookbook)
                         }
                     }
@@ -148,6 +152,18 @@ struct CookbooksView: View {
                 }
             }
         }
+    }
+
+    private func leadCookbookCoverButton(_ cookbook: CookbookSurfaceRowViewModel, width: CGFloat) -> some View {
+        Button {
+            openRoute(cookbook.openRoute)
+        } label: {
+            CookbookCoverArt(row: cookbook)
+                .frame(width: width)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Open \(cookbook.title)")
+        .accessibilityIdentifier("cookbookLibrarySpread")
     }
 
     private func leadCookbookStory(_ cookbook: CookbookSurfaceRowViewModel) -> some View {
@@ -165,43 +181,23 @@ struct CookbooksView: View {
             Text("\(cookbook.chefLine) - \(cookbook.recipeCountLabel)")
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
-            leadCookbookActions(cookbook)
+            shareCookbookLink(cookbook)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder private func leadCookbookActions(_ cookbook: CookbookSurfaceRowViewModel) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 10) {
-                openCookbookButton(cookbook)
-                    .frame(maxWidth: 220)
-
-                shareCookbookLink(cookbook)
-                    .frame(maxWidth: 160)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                openCookbookButton(cookbook)
-                shareCookbookLink(cookbook)
-            }
-        }
-    }
-
-    private func openCookbookButton(_ cookbook: CookbookSurfaceRowViewModel) -> some View {
-        Button {
-            openRoute(cookbook.openRoute)
-        } label: {
-            Label("Open cookbook", systemImage: "text.book.closed")
-        }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
     }
 
     @ViewBuilder private func shareCookbookLink(_ cookbook: CookbookSurfaceRowViewModel) -> some View {
         if let payload = cookbook.sharePayload, let publicURL = payload.publicURL {
             ShareLink(item: publicURL) {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(KitchenTableTheme.brass)
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .accessibilityLabel("Share \(cookbook.title)")
+            .help("Share \(cookbook.title)")
         }
     }
 
@@ -235,7 +231,7 @@ struct CookbooksView: View {
                             openRoute(row.openRoute)
                         } label: {
                             KitchenTableObjectRow(title: row.title, subtitle: "\(row.chefLine) - \(row.recipeCountLabel)") {
-                                CookbookCoverArt(row: row)
+                                CookbookThumb(row: row)
                             } trailing: {
                                 Image(systemName: "chevron.forward")
                                     .font(.caption.weight(.semibold))
@@ -431,7 +427,8 @@ struct CookbookShelf: View {
                                 } trailing: {
                                     Image(systemName: "chevron.forward")
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(KitchenTableTheme.brass)
+                                        .foregroundStyle(KitchenTableTheme.charcoal)
+                                        .accessibilityHidden(true)
                                 }
                             }
                             .buttonStyle(.plain)
@@ -439,10 +436,14 @@ struct CookbookShelf: View {
                             if let payload = row.sharePayload, let publicURL = payload.publicURL {
                                 ShareLink(item: publicURL) {
                                     Image(systemName: "square.and.arrow.up")
-                                        .font(.body.weight(.semibold))
-                                        .frame(width: 36, height: 44)
-                                        .foregroundStyle(KitchenTableTheme.brass)
+                                        .font(.system(size: 17, weight: .semibold))
+                                        .foregroundStyle(KitchenTableTheme.charcoal)
+                                        .accessibilityHidden(true)
                                 }
+                                .frame(
+                                    width: KitchenTableTheme.minimumTouchTarget,
+                                    height: KitchenTableTheme.minimumTouchTarget
+                                )
                                 .buttonStyle(.plain)
                                 .contentShape(Rectangle())
                                 .accessibilityLabel("Share \(row.title)")
@@ -459,7 +460,25 @@ private struct CookbookThumb: View {
     let row: CookbookSurfaceRowViewModel
 
     var body: some View {
-        CookbookCoverArt(row: row)
+        Group {
+            let imageURLs = row.cover.imageURLs.compactMap { $0 }
+            if imageURLs.isEmpty {
+                KitchenTableNoPhotoView(
+                    title: row.title,
+                    subtitle: "Photo not added",
+                    mode: .missing,
+                    showsLabel: false
+                )
+            } else {
+                CookbookImageCover(imageURLs: imageURLs, title: row.title)
+            }
+        }
+        .aspectRatio(1, contentMode: .fill)
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+        }
     }
 }
 
@@ -593,7 +612,13 @@ private struct CookbookFallbackCover: View {
                     .frame(height: 1)
             }
 
-            Spacer(minLength: 8)
+            KitchenTableNoPhotoView(
+                title: title,
+                subtitle: "Photo not added",
+                mode: .missing,
+                showsLabel: true
+            )
+            .padding(14)
 
             Text(title)
                 .font(.system(.title2, design: .serif).weight(.bold))
@@ -603,13 +628,7 @@ private struct CookbookFallbackCover: View {
                 .allowsTightening(true)
                 .padding(.horizontal, 14)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Rectangle().frame(height: 1)
-                Rectangle().frame(width: 120, height: 1)
-                Rectangle().frame(width: 88, height: 1)
-            }
-            .foregroundStyle(KitchenTableTheme.line.opacity(0.72))
-            .padding(14)
+                .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(KitchenTableTheme.paper)

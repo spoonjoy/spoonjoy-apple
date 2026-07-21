@@ -1,3 +1,4 @@
+import Foundation
 import SpoonjoyCore
 import SwiftUI
 
@@ -135,6 +136,7 @@ struct SpoonjoyRootView: View {
             navigation: $navigation,
             search: $search,
             contentState: visibleContentState,
+            allowsLiveEffects: liveStore.allowsLiveEffects,
             offlineIndicatorState: Self.screenshotAugmentedOfflineIndicatorState(
                 visibleContentState,
                 fallback: liveStore.offlineIndicatorState
@@ -487,7 +489,12 @@ struct SpoonjoyRootView: View {
     private static func defaultDependencies() -> NativeLiveAppStoreDependencies {
         let environment = ProcessInfo.processInfo.environment
         let configuration = Self.defaultAPIConfiguration(environment: environment)
-        let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+        let defaultAppDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+#if DEBUG
+        let appDirectory = screenshotStateDirectory(environment: environment) ?? defaultAppDirectory
+#else
+        let appDirectory = defaultAppDirectory
+#endif
 #if DEBUG
         let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? debugTokenVault(
             environment: environment,
@@ -600,7 +607,7 @@ struct SpoonjoyRootView: View {
             syncEngine: syncEngine,
             syncTriggerCoordinator: syncTriggerCoordinator,
             appStateStoreProvider: {
-                NativeAppStateStore(fileURL: NativeAppStateLocation.defaultFileURL())
+                NativeAppStateStore(fileURL: appDirectory.appendingPathComponent(NativeAppStateLocation.fileName))
             },
             configuration: configuration,
             cacheEnvironment: Self.defaultCacheEnvironment(configuration: configuration),
@@ -791,6 +798,42 @@ struct SpoonjoyRootView: View {
     }
 
 #if DEBUG
+    private static func screenshotStateDirectory(environment: [String: String]) -> URL? {
+        let directory: URL
+        if truthy("SPOONJOY_SCREENSHOT_INLINE_FIXTURES", in: environment) {
+            directory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+        } else {
+            guard let rawPath = environment["SPOONJOY_SCREENSHOT_STATE_DIRECTORY"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                  !rawPath.isEmpty else {
+                return nil
+            }
+            directory = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
+        }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        materializeScreenshotFixturePayloads(environment: environment, directory: directory)
+        return directory
+    }
+
+    private static func materializeScreenshotFixturePayloads(
+        environment: [String: String],
+        directory: URL
+    ) {
+        let payloads = [
+            ("SPOONJOY_SCREENSHOT_APP_STATE_JSON", "native-app-state.json"),
+            ("SPOONJOY_SCREENSHOT_DURABLE_CACHE_JSON", "native-durable-cache.json"),
+            ("SPOONJOY_SCREENSHOT_SYNC_STORE_JSON", "native-sync-store.json")
+        ]
+        for (environmentKey, fileName) in payloads {
+            guard let rawPayload = environment[environmentKey],
+                  let data = rawPayload.data(using: .utf8),
+                  (try? JSONSerialization.jsonObject(with: data)) != nil else {
+                continue
+            }
+            try? data.write(to: directory.appendingPathComponent(fileName), options: .atomic)
+        }
+    }
+
     private static func screenshotValidationTokenVault(environment: [String: String]) -> (any TokenVault)? {
         guard truthy("SPOONJOY_SCREENSHOT_AUTH", in: environment) else {
             return nil

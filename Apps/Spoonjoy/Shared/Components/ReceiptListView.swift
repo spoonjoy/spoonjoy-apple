@@ -26,8 +26,7 @@ struct ReceiptListView: View {
                             Toggle(isOn: checkedBinding(for: item)) {
                                 ShoppingReceiptRow(
                                     item: item,
-                                    sourceLine: sourceLine(for: section, item: item),
-                                    duplicateCountLabel: duplicateCountLabel(for: item, in: section)
+                                    sourceLine: sourceLine(for: section, item: item)
                                 )
                             }
                             .toggleStyle(.largeCheck)
@@ -49,7 +48,7 @@ struct ReceiptListView: View {
                         .listRowBackground(KitchenTableTheme.bone)
                         .accessibilityHint(
                             isDuplicateReview
-                                ? "Review this duplicate, then remove it or check it off."
+                                ? "Remove one copy to resolve this duplicate."
                                 : "Double tap to check off this item."
                         )
                         .modifier(ReceiptDeleteSwipeModifier {
@@ -102,10 +101,6 @@ struct ReceiptListView: View {
         return section.title == "Other" ? nil : section.title
     }
 
-    private func duplicateCountLabel(for item: ShoppingListItem, in section: ShoppingListReceiptSection) -> String? {
-        section.duplicateItemIDs.contains(item.id) ? "Review duplicate" : nil
-    }
-
     private func categoryLine(for categoryKey: String?) -> String? {
         guard let categoryKey, !categoryKey.isEmpty else {
             return nil
@@ -121,7 +116,6 @@ struct ReceiptListView: View {
 private struct ShoppingReceiptRow: View {
     let item: ShoppingListItem
     let sourceLine: String?
-    let duplicateCountLabel: String?
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -143,9 +137,6 @@ private struct ShoppingReceiptRow: View {
                     }
                     if let sourceLine {
                         Text(sourceLine)
-                    }
-                    if let duplicateCountLabel {
-                        Text(duplicateCountLabel)
                     }
                 }
                 .font(KitchenTableTheme.uiLabel)
@@ -176,8 +167,7 @@ private struct ShoppingReceiptRow: View {
     private func accessibilityText(for item: ShoppingListItem) -> String {
         let quantity = item.displayQuantity.isEmpty ? "" : ", \(item.displayQuantity)"
         let source = sourceLine.map { ", \($0)" } ?? ""
-        let duplicate = duplicateCountLabel.map { ", \($0)" } ?? ""
-        return "\(item.name)\(quantity)\(source)\(duplicate)"
+        return "\(item.name)\(quantity)\(source)"
     }
 }
 

@@ -68,12 +68,6 @@ struct NativeSearchSurfaceTests {
                     "SearchSurfaceSection",
                     "SearchSurfaceRow",
                     "OfflineStatusView",
-                    ".navigationTitle(\"Search\")",
-                    ".searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: \"Search Spoonjoy\")",
-                    "@FocusState private var isSearchFieldFocused",
-                    ".searchFocused($isSearchFieldFocused)",
-                    "isSearchFieldFocused = true",
-                    "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
                     "searchTask",
                     "debounce",
                     "SPOONJOY_SCREENSHOT_PROOF_PATH",
@@ -82,6 +76,8 @@ struct NativeSearchSurfaceTests {
                     "\"source\": \"SearchView\"",
                     "\"routeIdentifier\"",
                     "\"searchScopes\"",
+                    "\"renderFingerprint\"",
+                    ".task(id: viewModel.renderFingerprint)",
                     "ISO8601DateFormatter"
                 ],
                 "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift": [
@@ -112,6 +108,8 @@ struct NativeSearchSurfaceTests {
                     "routeOwnsOfflineStatus",
                     "routeKeepsSearchFocus",
                     "searchSurfaceRepositoryHandler(context)",
+                    "SearchSurfaceScopeGrammar.title(for: scope)",
+                    "guard allowsLiveEffects else",
                     "isSearchFieldFocused = false"
                 ],
                 "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift": [
@@ -119,6 +117,7 @@ struct NativeSearchSurfaceTests {
                     "recordSearchSurfacePage(page, expectedIdentity: identity)",
                     "searchSurfaceRepository: { context in",
                     "liveStore.searchSurfaceRepository(context: context)",
+                    "allowsLiveEffects: liveStore.allowsLiveEffects",
                     "SignedOutSetupView("
                 ],
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift": [
@@ -129,6 +128,8 @@ struct NativeSearchSurfaceTests {
                     "performSearch(",
                     "searchSurfaceRepository(context: SearchSurfaceContext)",
                     "dependencies.recipeEditorAPITransport(refresher)",
+                    "allowsLiveEffects",
+                    "RestoreOnlySearchSurfaceRepository",
                     "currentSearchSurfaceIdentity",
                     "searchSurfaceAccountID",
                     "searchSurfaceSevereOfflineIndicator",
@@ -537,9 +538,25 @@ struct NativeSearchSurfaceTests {
         )
         #expect(noMatches.emptyState == SearchSurfaceEmptyState(
             title: "No matches for \"kumquat\"",
-            message: "No saved recipes match \"kumquat\".",
+            message: "No recipes match \"kumquat\".",
             systemImage: "magnifyingglass"
         ))
+
+        let rawResultsOutsideScope = SearchSurfaceViewModel(
+            page: SearchSurfacePage(
+                query: "kumquat",
+                scope: .recipes,
+                limit: 20,
+                isAuthenticated: true,
+                results: [Self.cookbookResult()],
+                source: .live(requestID: "req_search_wrong_scope", validatedAt: Self.now)
+            ),
+            state: SearchState(query: "kumquat", scope: .recipes),
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        #expect(rawResultsOutsideScope.sections.isEmpty)
+        #expect(rawResultsOutsideScope.emptyState?.message == "No recipes match \"kumquat\".")
 
         let scopedRecipesWithDefaultClock = SearchSurfaceViewModel(
             page: page,
@@ -590,7 +607,7 @@ struct NativeSearchSurfaceTests {
     func searchEmptyStatesSpeakInTheSelectedScope() {
         let expectations: [(SearchScope, String)] = [
             (.all, "No Spoonjoy results match \"kumquat\"."),
-            (.recipes, "No saved recipes match \"kumquat\"."),
+            (.recipes, "No recipes match \"kumquat\"."),
             (.cookbooks, "No cookbooks match \"kumquat\"."),
             (.chefs, "No chefs match \"kumquat\"."),
             (.shoppingList, "No shopping items match \"kumquat\".")
@@ -618,6 +635,66 @@ struct NativeSearchSurfaceTests {
                 systemImage: "magnifyingglass"
             ))
         }
+    }
+
+    @Test("search sections keep the first row for each typed result identity")
+    func searchSectionsKeepTheFirstRowForEachTypedResultIdentity() {
+        let firstRecipe = Self.recipeResult()
+        let repeatedRecipe = SearchSurfaceResult(
+            type: firstRecipe.type,
+            id: firstRecipe.id,
+            ownerID: firstRecipe.ownerID,
+            ownerUsername: firstRecipe.ownerUsername,
+            title: "Repeated Tomato Tart",
+            subtitle: firstRecipe.subtitle,
+            snippet: firstRecipe.snippet,
+            href: firstRecipe.href,
+            canonicalURL: firstRecipe.canonicalURL,
+            imageURL: firstRecipe.imageURL,
+            score: firstRecipe.score,
+            metadata: firstRecipe.metadata
+        )
+        let sameRawIDInAnotherType = SearchSurfaceResult(
+            type: .cookbook,
+            id: firstRecipe.id,
+            ownerID: "chef_ari",
+            ownerUsername: "ari",
+            title: "Tomato Tart Collection",
+            subtitle: "Cookbook by ari",
+            snippet: nil,
+            href: "/cookbooks/\(firstRecipe.id)",
+            canonicalURL: URL(string: "https://spoonjoy.app/cookbooks/\(firstRecipe.id)")!,
+            imageURL: nil,
+            score: -0.5,
+            metadata: [:]
+        )
+        let page = SearchSurfacePage(
+            query: "tomato",
+            scope: .all,
+            limit: 20,
+            isAuthenticated: true,
+            results: [firstRecipe, repeatedRecipe, sameRawIDInAnotherType, Self.cookbookResult()],
+            source: .live(requestID: "req_search_duplicates", validatedAt: Self.now)
+        )
+        let state = SearchState(query: "tomato", scope: .all)
+        let context = SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true)
+
+        let live = SearchSurfaceViewModel(page: page, state: state, context: context, now: { Self.now })
+        #expect(live.sections.flatMap(\.rows).map(\.id) == [
+            "recipe-recipe_tomato_tart",
+            "cookbook-recipe_tomato_tart",
+            "cookbook-cookbook_tomato"
+        ])
+        #expect(live.sections.flatMap(\.rows).first?.title == "Tomato Tart")
+
+        let recovered = SearchSurfaceViewModel(
+            error: .offline,
+            state: state,
+            cachedPage: page,
+            context: context,
+            now: { Self.now }
+        )
+        #expect(recovered.sections == live.sections)
     }
 
     @Test("search rows expose stable native labels icons and fallback subtitles")

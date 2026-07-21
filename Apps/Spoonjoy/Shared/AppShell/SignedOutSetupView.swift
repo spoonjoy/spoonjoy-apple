@@ -19,6 +19,7 @@ struct SignedOutSetupView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @ScaledMetric(relativeTo: .body) private var credentialFieldMinimumHeight = 50
     @State private var emailOrUsername = ""
     @State private var password = ""
     @State private var authStatus = "Use your Spoonjoy email or username to sign in."
@@ -167,8 +168,15 @@ struct SignedOutSetupView: View {
             }
 
             VStack(alignment: .leading, spacing: 12) {
-                TextField("Email or username", text: $emailOrUsername)
-                    .textFieldStyle(.roundedBorder)
+                TextField("Email", text: $emailOrUsername)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: credentialFieldMinimumHeight)
+                    .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                            .stroke(KitchenTableTheme.charcoal.opacity(0.18), lineWidth: 1)
+                    }
                     .textContentType(.username)
                     .autocorrectionDisabled()
                     .spoonjoyCredentialIdentifierEntry()
@@ -178,10 +186,18 @@ struct SignedOutSetupView: View {
                         focusedField = .password
                     }
                     .disabled(isSigningIn)
+                    .accessibilityLabel("Email or username")
                     .accessibilityIdentifier("native sign-in email or username")
 
                 SecureField("Password", text: $password)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: credentialFieldMinimumHeight)
+                    .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                            .stroke(KitchenTableTheme.charcoal.opacity(0.18), lineWidth: 1)
+                    }
                     .textContentType(.password)
                     .focused($focusedField, equals: .password)
                     .submitLabel(.go)
@@ -212,14 +228,10 @@ struct SignedOutSetupView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(canSubmitPassword && !isSigningIn ? KitchenTableTheme.paper : KitchenTableTheme.charcoal.opacity(0.46))
-            .background(passwordButtonBackground, in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke(KitchenTableTheme.charcoal.opacity(canSubmitPassword ? 0 : 0.10), lineWidth: 1)
-            }
-            .disabled(isSigningIn || !canSubmitPassword)
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(KitchenTableTheme.charcoal)
+            .disabled(isSigningIn)
             .accessibilityIdentifier(Self.livePasswordSignInIdentifier)
 
             HStack(alignment: .center, spacing: 12) {
@@ -303,6 +315,9 @@ struct SignedOutSetupView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.large)
+                .tint(KitchenTableTheme.charcoal)
+                .accessibilityIdentifier("native sign-in settings")
 
                 if canDisconnect {
                     Button(role: .destructive) {
@@ -316,6 +331,7 @@ struct SignedOutSetupView: View {
                 }
             }
             .controlSize(.regular)
+            .padding(.top, 12)
         }
         .frame(maxWidth: 430, alignment: .leading)
     }
@@ -323,27 +339,18 @@ struct SignedOutSetupView: View {
     private var appleUnavailableRow: some View {
         Label {
             Text(appleSignInCapability.message)
+                .foregroundStyle(KitchenTableTheme.charcoal)
                 .fixedSize(horizontal: false, vertical: true)
         } icon: {
             Image(systemName: "signature")
+                .foregroundStyle(KitchenTableTheme.brass)
         }
         .font(.caption.weight(.medium))
-        .foregroundStyle(KitchenTableTheme.brass)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(KitchenTableTheme.brass.opacity(0.10), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
         .accessibilityIdentifier("native Apple sign-in availability")
-    }
-
-    private var passwordButtonBackground: Color {
-        if isSigningIn {
-            return KitchenTableTheme.herb.opacity(0.54)
-        }
-        if canSubmitPassword {
-            return KitchenTableTheme.herb
-        }
-        return KitchenTableTheme.charcoal.opacity(0.08)
     }
 
     private var statusRow: some View {
@@ -357,11 +364,6 @@ struct SignedOutSetupView: View {
                 .foregroundStyle(statusColor)
         }
         .accessibilityIdentifier("native sign-in status")
-    }
-
-    private var canSubmitPassword: Bool {
-        !emailOrUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-        !password.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var statusColor: Color {
@@ -660,7 +662,7 @@ struct SignedOutSetupView: View {
     private static func passwordSignInFailureMessage(for error: Error) -> String {
         switch error {
         case NativeAuthSessionError.passwordSignInUnavailable:
-            return "Password sign-in is not available in this build."
+            return "Password sign-in isn't available right now. Choose another sign-in option."
         default:
             return "Could not sign in. Check your username, password, and connection."
         }
@@ -674,18 +676,12 @@ struct SignedOutSetupView: View {
         switch authorizationError.code {
         case .canceled:
             return "Apple sign-in canceled."
-        case .failed:
-            return "Sign in with Apple needs a properly signed Spoonjoy build. This local copy is not authorized by Apple yet."
-        case .invalidResponse:
-            return "Apple returned an invalid sign-in response. Try again in a moment."
-        case .notHandled:
-            return "Apple could not complete sign-in on this device."
+        case .failed, .invalidResponse, .notHandled, .unknown:
+            return "Apple couldn't verify this sign-in. Try again or choose another sign-in option."
         case .notInteractive:
             return "Apple sign-in needs an interactive window. Bring Spoonjoy forward and try again."
-        case .unknown:
-            return "Apple could not start sign-in for this build."
         default:
-            return "Apple could not finish sign-in for this build."
+            return "Apple couldn't verify this sign-in. Try again or choose another sign-in option."
         }
     }
 
@@ -804,7 +800,8 @@ struct SignedOutSetupView: View {
             runtimeContext: ScreenshotAccessibilityRuntimeContext(
                 dynamicTypeSize: String(describing: dynamicTypeSize),
                 reduceMotionEnabled: accessibilityReduceMotion
-            )
+            ),
+            observedSurfaceVariant: "signed-out"
         )
     }
 }
@@ -874,7 +871,7 @@ private enum AppleSignInCapability: Equatable {
         case .available:
             "Sign in to restore Spoonjoy on this device."
         case .missingEntitlement:
-            "Sign in with Apple needs a signed Spoonjoy build. This local dogfood copy is not Apple-authorized yet."
+            "Sign in with Apple isn't available right now. Choose another sign-in option."
         }
     }
 }

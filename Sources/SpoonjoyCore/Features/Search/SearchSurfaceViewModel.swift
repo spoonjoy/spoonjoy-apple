@@ -1,5 +1,65 @@
 import Foundation
 
+public enum SearchSurfaceScopeGrammar {
+    public static func title(for scope: SearchScope) -> String {
+        switch scope {
+        case .all:
+            "Everything"
+        case .recipes:
+            "Recipes"
+        case .cookbooks:
+            "Cookbooks"
+        case .chefs:
+            "Chefs"
+        case .shoppingList:
+            "Shopping"
+        }
+    }
+}
+
+public struct SearchSurfaceRenderFingerprint: Codable, Equatable, Hashable, Sendable {
+    public struct Row: Codable, Equatable, Hashable, Sendable {
+        public let type: String
+        public let id: String
+        public let title: String
+
+        public init(type: String, id: String, title: String) {
+            self.type = type
+            self.id = id
+            self.title = title
+        }
+    }
+
+    public struct EmptyState: Codable, Equatable, Hashable, Sendable {
+        public let scope: String
+        public let title: String
+        public let message: String
+
+        public init(scope: String, title: String, message: String) {
+            self.scope = scope
+            self.title = title
+            self.message = message
+        }
+    }
+
+    public enum DataSource: Codable, Equatable, Hashable, Sendable {
+        case live(requestID: String)
+        case cache(serverRevision: String?)
+        case offlineCache(serverRevision: String?)
+        case unavailable(reason: String)
+    }
+
+    public let rows: [Row]
+    public let dataSource: DataSource
+    public let emptyState: EmptyState?
+
+    public init(rows: [Row], dataSource: DataSource, emptyState: EmptyState?) {
+        self.rows = rows
+        self.dataSource = dataSource
+        self.emptyState = emptyState
+    }
+}
+
 public struct SearchSurfaceContext: Equatable, Hashable, Sendable {
     public let isAuthenticated: Bool
     public let canReadShoppingList: Bool
@@ -177,6 +237,7 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
     public let emptyState: SearchSurfaceEmptyState?
     public let errorState: SearchSurfaceErrorState?
     public let offlineIndicator: OfflineIndicatorState
+    public let renderFingerprint: SearchSurfaceRenderFingerprint
 
     public init(
         page: SearchSurfacePage,
@@ -189,10 +250,22 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         let scopes = Self.searchableScopes(context: context)
         searchableScopes = scopes
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
-        sections = Self.sections(for: page.results, state: state)
-        emptyState = Self.emptyState(page: page, state: state, context: context)
+        let renderedSections = Self.sections(for: page.results, state: state)
+        sections = renderedSections
+        let renderedEmptyState = Self.emptyState(
+            hasRenderedResults: !renderedSections.isEmpty,
+            state: state,
+            context: context
+        )
+        emptyState = renderedEmptyState
         errorState = nil
         self.offlineIndicator = offlineIndicator ?? page.offlineIndicator(now: now())
+        renderFingerprint = Self.renderFingerprint(
+            sections: renderedSections,
+            dataSource: page.source,
+            emptyState: renderedEmptyState,
+            state: state
+        )
     }
 
     public init(
@@ -209,13 +282,27 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
         let recoveredSections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
         sections = recoveredSections
-        emptyState = cachedPage.map { Self.emptyState(page: $0, state: state, context: context) } ?? nil
+        let recoveredEmptyState = cachedPage.map { _ in
+            Self.emptyState(
+                hasRenderedResults: !recoveredSections.isEmpty,
+                state: state,
+                context: context
+            )
+        } ?? nil
+        emptyState = recoveredEmptyState
         errorState = recoveredSections.isEmpty ? Self.errorState(error) : nil
         self.offlineIndicator = offlineIndicator ?? Self.offlineIndicator(
             error: error,
             state: state,
             cachedPage: cachedPage,
             now: now
+        )
+        renderFingerprint = Self.renderFingerprint(
+            sections: recoveredSections,
+            dataSource: cachedPage?.source,
+            emptyState: recoveredEmptyState,
+            state: state,
+            unavailableReason: String(describing: error)
         )
     }
 
@@ -234,7 +321,14 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
                 false
             }
         }
-        let rows = scopedResults.map(SearchSurfaceRow.init(result:))
+        var seenRowIDs = Set<String>()
+        let rows = scopedResults.compactMap { result -> SearchSurfaceRow? in
+            let row = SearchSurfaceRow(result: result)
+            guard seenRowIDs.insert(row.id).inserted else {
+                return nil
+            }
+            return row
+        }
 
         return [
             SearchSurfaceSection(kind: .recipes, rows: rows.filter { $0.result.type == .recipe }),
@@ -245,11 +339,11 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
     }
 
     private static func emptyState(
-        page: SearchSurfacePage,
+        hasRenderedResults: Bool,
         state: SearchState,
         context: SearchSurfaceContext
     ) -> SearchSurfaceEmptyState? {
-        guard page.results.isEmpty else {
+        guard !hasRenderedResults else {
             return nil
         }
         if state.scope == .shoppingList && (!context.isAuthenticated || !context.canReadShoppingList) {
@@ -279,13 +373,70 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         case .all:
             "No Spoonjoy results match \"\(query)\"."
         case .recipes:
-            "No saved recipes match \"\(query)\"."
+            "No recipes match \"\(query)\"."
         case .cookbooks:
             "No cookbooks match \"\(query)\"."
         case .chefs:
             "No chefs match \"\(query)\"."
         case .shoppingList:
             "No shopping items match \"\(query)\"."
+        }
+    }
+
+    private static func renderFingerprint(
+        sections: [SearchSurfaceSection],
+        dataSource: SearchSurfaceDataSource?,
+        emptyState: SearchSurfaceEmptyState?,
+        state: SearchState,
+        unavailableReason: String = "missing-page"
+    ) -> SearchSurfaceRenderFingerprint {
+        SearchSurfaceRenderFingerprint(
+            rows: sections.flatMap(\.rows).map { row in
+                SearchSurfaceRenderFingerprint.Row(
+                    type: row.result.type.rawValue,
+                    id: row.id,
+                    title: row.title
+                )
+            },
+            dataSource: renderDataSource(dataSource, unavailableReason: unavailableReason),
+            emptyState: emptyState.map {
+                SearchSurfaceRenderFingerprint.EmptyState(
+                    scope: state.scope.rawValue,
+                    title: $0.title,
+                    message: $0.message
+                )
+            }
+        )
+    }
+
+    private static func renderDataSource(
+        _ dataSource: SearchSurfaceDataSource?,
+        unavailableReason: String
+    ) -> SearchSurfaceRenderFingerprint.DataSource {
+        switch dataSource {
+        case .live(let requestID, _):
+            .live(requestID: requestID)
+        case .cache(let serverRevision, _):
+            .cache(serverRevision: renderServerRevision(serverRevision))
+        case .offlineCache(let serverRevision, _):
+            .offlineCache(serverRevision: renderServerRevision(serverRevision))
+        case nil:
+            .unavailable(reason: unavailableReason)
+        }
+    }
+
+    private static func renderServerRevision(_ revision: NativeCacheServerRevision?) -> String? {
+        switch revision {
+        case .etag(let value):
+            "etag:\(value)"
+        case .cursor(let value):
+            "cursor:\(value)"
+        case .updatedAt(let value):
+            "updated-at:\(value)"
+        case .localRevision(let value):
+            "local:\(value)"
+        case nil:
+            nil
         }
     }
 

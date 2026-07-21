@@ -442,24 +442,8 @@ struct RecipeDetailView: View {
 
     private var recipeMastheadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
-            recipePrimaryActions
-            if usesCompactRecipeDock {
-                if hasAction(.logCook) {
-                    recipeMastheadLogCookAction
-                }
-            }
-            if !usesCompactRecipeDock {
-                if hasAction(.logCook) || hasSecondaryRecipeActions {
-                    HStack(spacing: 10) {
-                        if hasAction(.logCook) {
-                            recipeMastheadLogCookAction
-                        }
-                        recipeSecondaryActions
-                    }
-                }
-            }
-            if !usesCompactRecipeDock {
-                ownerTools
+            if hasRecipeActionBar {
+                recipeActionBar
             }
             actionStatus
         }
@@ -498,46 +482,43 @@ struct RecipeDetailView: View {
 #endif
     }
 
-    @ViewBuilder private var recipePrimaryActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if hasAction(.startCooking) {
-                if usesCompactRecipeDock && hasCompactRecipeMenuActions {
-                    HStack(spacing: 10) {
-                        startCookingButton
-                        compactRecipeActionsMenu
-                    }
-                } else {
-                    startCookingButton
-                }
+    private var recipeActionBar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                recipeActionBarPrimaryButton
+                recipeActionBarSecondaryButtons
             }
 
-            if hasRecipeUtilityActions && !usesCompactRecipeDock {
-                HStack(spacing: 10) {
-                    if hasAction(.saveToCookbook) {
-                        Button {
-                            isCookbookSaveSheetPresented = true
-                        } label: {
-                            Label("Save", systemImage: "book.closed")
-                        }
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                    }
-
-                    if hasAction(.addToShoppingList) {
-                        Button {
-                            addRecipeIngredients()
-                        } label: {
-                            Label(
-                                hasIngredientsInShoppingList ? "In list" : "Add to list",
-                                systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
-                            )
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.76)
-                        }
-                        .disabled(hasIngredientsInShoppingList)
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
-                    }
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                recipeActionBarPrimaryButton
+                recipeActionBarSecondaryButtons
             }
+        }
+    }
+
+    @ViewBuilder private var recipeActionBarPrimaryButton: some View {
+        if hasAction(.startCooking) {
+            startCookingButton
+        }
+    }
+
+    private var recipeActionBarSecondaryButtons: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                recipeActionBarSecondaryButtonContent
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                recipeActionBarSecondaryButtonContent
+            }
+        }
+    }
+
+    @ViewBuilder private var recipeActionBarSecondaryButtonContent: some View {
+        if hasAction(.logCook) {
+            recipeMastheadLogCookAction
+        }
+        if hasRecipeMenuActions {
+            recipeActionsMenu
         }
     }
 
@@ -550,7 +531,7 @@ struct RecipeDetailView: View {
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
     }
 
-    private var compactRecipeActionsMenu: some View {
+    private var recipeActionsMenu: some View {
         Menu {
             recipeMenuItems(includeSave: true, includeAddToList: true)
             ownerToolsMenuItems
@@ -559,17 +540,6 @@ struct RecipeDetailView: View {
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
         .accessibilityLabel("Recipe actions")
-    }
-
-    @ViewBuilder private var recipeSecondaryActions: some View {
-        if hasSecondaryRecipeActions {
-            Menu {
-                recipeMenuItems(includeSave: false, includeAddToList: true)
-            } label: {
-                Label("More", systemImage: "ellipsis.circle")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-        }
     }
 
     @ViewBuilder private func recipeMenuItems(includeSave: Bool, includeAddToList: Bool) -> some View {
@@ -605,12 +575,12 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var hasSecondaryRecipeActions: Bool {
-        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList)
+    private var hasRecipeMenuActions: Bool {
+        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible
     }
 
-    private var hasCompactRecipeMenuActions: Bool {
-        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible
+    private var hasRecipeActionBar: Bool {
+        hasAction(.startCooking) || hasAction(.logCook) || hasRecipeMenuActions
     }
 
     private var hasRecipeUtilityActions: Bool {
@@ -772,31 +742,6 @@ struct RecipeDetailView: View {
             onDismissOfflineIndicator: onDismissOfflineIndicator
         )
         .id(viewModel.id)
-    }
-
-    @ViewBuilder private var ownerTools: some View {
-        if viewModel.ownerTools.isVisible {
-            ownerToolsMenu
-        }
-    }
-
-    private var ownerToolsMenu: some View {
-        Menu {
-            ownerToolsMenuItems
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.headline.weight(.semibold))
-                .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Manage recipe")
-        .accessibilityHint("Opens owner tools for this recipe.")
     }
 
     @ViewBuilder private var ownerToolsMenuItems: some View {

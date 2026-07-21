@@ -1559,7 +1559,7 @@ public struct NativeShellContentState {
         cookbooks: [Cookbook],
         shoppingList: ShoppingListState?
     ) -> KitchenFixtureState {
-        let leadRecipe = recipes.first
+        let leadRecipe = recipes.first(where: { $0.displayCoverImageURL != nil }) ?? recipes.first
         let leadID = leadRecipe?.id ?? "live-empty"
         let leadTitle = leadRecipe?.title ?? "Spoonjoy"
         return KitchenFixtureState(
@@ -1769,6 +1769,13 @@ public final class NativeLiveAppStore: ObservableObject {
     private var configuration: APIClientConfiguration
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
+    private var bootstrapTask: Task<Void, Never>?
+    private var hasResolvedAuthScope = false
+    private var pendingOpenedRoute: AppRoute?
+
+    private var isBootstrapping: Bool {
+        bootstrapTask != nil
+    }
 
     public var authSessionRepository: NativeAuthSessionRepository {
         dependencies.authSessionRepository
@@ -1803,6 +1810,22 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func bootstrap() async {
+        if let bootstrapTask {
+            await bootstrapTask.value
+            return
+        }
+
+        let task = Task { @MainActor in
+            await performBootstrap()
+        }
+        bootstrapTask = task
+        await task.value
+        bootstrapTask = nil
+    }
+
+    private func performBootstrap() async {
+        hasResolvedAuthScope = false
+        var resolvedAuthState: NativeAuthSessionState?
         do {
             guard !dependencies.fixtureFallbackPolicy.allowsProductionFallback() else {
                 throw NativeLiveAppStoreError.fixtureFallbackEnabledInProduction
@@ -1819,18 +1842,22 @@ public final class NativeLiveAppStore: ObservableObject {
                 } else {
                     apply(Self.restoreCacheOnlyBootstrapState(for: restoredContent))
                 }
+                completeBootstrapAuthScopeResolution()
                 return
             }
 
             let authState = try await authorizedAuthState(from: restoredAuthState)
+            resolvedAuthState = authState
             guard case .authenticated(let session) = authState else {
                 let restoringContent = try await restoreFromCache(authSessionState: authState)
                 apply(.signedOut(restoringContent))
+                completeBootstrapAuthScopeResolution()
                 return
             }
 
             apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
             try await bootstrapFromLiveAPI(session: session, trigger: .launch)
+            completeBootstrapAuthScopeResolution()
         } catch let error as APITransportError where error.isOffline {
             NativeLiveAppStoreTelemetry.bootstrapOffline(
                 stage: "launch",
@@ -1848,8 +1875,16 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState
-            apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
+            if let resolvedAuthState,
+               let offlineContent = try? await restoreFromCache(authSessionState: resolvedAuthState) {
+                apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
+                completeBootstrapAuthScopeResolution()
+            } else {
+                apply(.offlineStale(currentContentState.copy(
+                    offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+                )))
+                failBootstrapAuthScopeResolution()
+            }
         } catch {
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "launch",
@@ -1871,7 +1906,21 @@ public final class NativeLiveAppStore: ObservableObject {
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "bootstrap", retryAfter: nil), dismissal: nil)),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
             ))
+            failBootstrapAuthScopeResolution()
         }
+    }
+
+    private func completeBootstrapAuthScopeResolution() {
+        hasResolvedAuthScope = true
+        if let pendingOpenedRoute {
+            self.pendingOpenedRoute = nil
+            persistOpenedRoute(pendingOpenedRoute)
+        }
+    }
+
+    private func failBootstrapAuthScopeResolution() {
+        hasResolvedAuthScope = false
+        pendingOpenedRoute = nil
     }
 
     public func switchEnvironment(_ environment: NativeCacheEnvironment) async {
@@ -1946,7 +1995,17 @@ public final class NativeLiveAppStore: ObservableObject {
         currentContentState.searchSurfaceIdentity
     }
 
+    public var allowsLiveEffects: Bool {
+        dependencies.bootstrapMode == .liveFirst
+    }
+
     public func searchSurfaceRepository(context: SearchSurfaceContext) -> any SearchSurfaceRepository {
+        guard allowsLiveEffects else {
+            return RestoreOnlySearchSurfaceRepository(
+                contentState: currentContentState,
+                context: context
+            )
+        }
         let refresher = NativeLiveAppStoreAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
@@ -2460,6 +2519,14 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {
+        guard hasResolvedAuthScope, !isBootstrapping else {
+            pendingOpenedRoute = route
+            return
+        }
+        persistOpenedRoute(route)
+    }
+
+    private func persistOpenedRoute(_ route: AppRoute) {
         guard let appStateStore = dependencies.appStateStoreProvider() else {
             return
         }
@@ -3445,6 +3512,28 @@ func nativeGrantedScopes(for authSessionState: NativeAuthSessionState) -> Set<St
         []
     case .authenticated(let session), .refreshRequired(let session):
         Set(session.scope.split(separator: " ").map(String.init))
+    }
+}
+
+private struct RestoreOnlySearchSurfaceRepository: SearchSurfaceRepository, @unchecked Sendable {
+    let contentState: NativeShellContentState
+    let context: SearchSurfaceContext
+
+    func search(request: SearchSurfaceRequest) async throws -> SearchSurfacePage {
+        let state = SearchState(query: request.query, scope: request.scope)
+        let page = contentState.searchSurfacePage(for: state)
+        return SearchSurfacePage(
+            query: page.query,
+            scope: page.scope,
+            limit: request.limit,
+            isAuthenticated: context.isAuthenticated,
+            results: page.results,
+            source: page.source
+        )
+    }
+
+    func recentSearches(limit _: Int) async throws -> [SearchSurfaceRecentQuery] {
+        []
     }
 }
 

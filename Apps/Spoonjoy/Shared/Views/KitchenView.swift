@@ -44,22 +44,24 @@ struct KitchenView: View {
     }
 
     @ViewBuilder private var kitchenContent: some View {
-        if usesWideKitchenSpread, let leadRecipe {
-            HStack(alignment: .top, spacing: 28) {
-                RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
-                    .frame(maxWidth: 640, alignment: .topLeading)
+        if let leadRecipe {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 28) {
+                    RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
+                        .frame(width: 540, alignment: .topLeading)
 
-                kitchenIndexStack
-                    .frame(maxWidth: 408, alignment: .topLeading)
+                    kitchenIndexStack
+                        .frame(width: 360, alignment: .topLeading)
+                }
+                .frame(minWidth: 928, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+                    RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
+                    kitchenIndexStack
+                }
             }
         } else {
-            VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
-                if let leadRecipe {
-                    RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
-                }
-
-                kitchenIndexStack
-            }
+            kitchenIndexStack
         }
     }
 
@@ -98,7 +100,7 @@ struct KitchenView: View {
     }
 
     private var pageBottomReserve: CGFloat {
-        usesWideKitchenSpread ? 56 : KitchenTableTheme.compactDockReserve
+        usesWideKitchenSpread ? 56 : KitchenTableTheme.pageBottomSpacing
     }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
@@ -188,10 +190,16 @@ struct RecipeLead: View {
     let openRecipe: (String) -> Void
     let startCooking: (String) -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if hasRealCover {
-                photoLead
+                if dynamicTypeSize.isAccessibilitySize {
+                    accessiblePhotoLead
+                } else {
+                    photoLead
+                }
             } else {
                 coverlessLead
             }
@@ -220,21 +228,46 @@ struct RecipeLead: View {
                 subtitle: "Cover",
                 showsFallbackLabel: false
             )
-                .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
+                .frame(maxWidth: .infinity, minHeight: coverHeight)
                 .clipped()
-                .overlay {
-                    KitchenTableTheme.photoOverlay
-                }
                 .accessibilityLabel("\(recipe.title) cover image")
 
-            leadText(foreground: .white, secondary: .white.opacity(0.82), label: .white.opacity(0.72))
-                .padding()
+            leadText(foreground: .white, secondary: .white, label: .white)
+                .padding(18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(KitchenTableTheme.photoCharcoal)
         }
+    }
+
+    private var accessiblePhotoLead: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            RecipeCoverImage(
+                url: recipe.displayCoverImageURL,
+                title: recipe.title,
+                subtitle: "Cover",
+                showsFallbackLabel: false
+            )
+            .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 120)
+            .clipped()
+            .accessibilityLabel("\(recipe.title) cover image")
+
+            leadText(
+                foreground: KitchenTableTheme.charcoal,
+                secondary: KitchenTableTheme.charcoal,
+                label: KitchenTableTheme.charcoal
+            )
+            .padding(18)
+        }
+        .background(KitchenTableTheme.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .stroke(KitchenTableTheme.lineStrong, lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
     private var coverlessLead: some View {
         VStack(alignment: .leading, spacing: 14) {
-            coverlessNoPhotoBadge
             leadText(foreground: KitchenTableTheme.charcoal, secondary: KitchenTableTheme.inkMuted, label: KitchenTableTheme.brass)
         }
         .padding(18)
@@ -252,38 +285,17 @@ struct RecipeLead: View {
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
-    private var coverlessNoPhotoBadge: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "photo.badge.plus")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.brass)
-                .frame(width: 22, height: 22)
-                .background(KitchenTableTheme.vellum.opacity(0.42))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-
-            Text("Photo not added")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-        }
-        .accessibilityLabel("Photo not added")
-    }
-
     private func leadText(foreground: Color, secondary: Color, label: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("On the Counter".uppercased())
                 .font(.caption2.weight(.bold))
-                .tracking(1.2)
                 .foregroundStyle(label)
             Text(recipe.title)
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(foreground)
-                .lineLimit(4)
-                .minimumScaleFactor(0.82)
-                .fixedSize(horizontal: false, vertical: true)
             Text(recipe.attribution.creditText)
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(secondary)
-                .lineLimit(2)
         }
     }
 
@@ -365,16 +377,17 @@ struct KitchenRecipeIndexRow: View {
                             .aspectRatio(1, contentMode: .fill)
 
                         Text(ordinalLabel)
-                            .font(.caption2.weight(.bold))
+                            .font(.system(size: 11, weight: .bold))
                             .foregroundStyle(KitchenTableTheme.bone)
                             .padding(.horizontal, 5)
                             .padding(.vertical, 3)
-                            .background(KitchenTableTheme.charcoal.opacity(0.72))
+                            .background(KitchenTableTheme.charcoal)
                     }
                 } trailing: {
                     Image(systemName: "chevron.forward")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(KitchenTableTheme.brass)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .accessibilityHidden(true)
                 }
             }
             .buttonStyle(.plain)
@@ -383,10 +396,12 @@ struct KitchenRecipeIndexRow: View {
 
             ShareLink(item: shareRecipe) {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .accessibilityHidden(true)
             }
+            .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+            .contentShape(Rectangle())
             .buttonStyle(.plain)
             .accessibilityLabel("Share \(recipe.title)")
         }
@@ -410,6 +425,7 @@ struct KitchenRecipeIndexRow: View {
     private var shareRecipe: URL {
         recipe.attribution.canonicalURL
     }
+
 }
 
 struct KitchenEmptySection: View {

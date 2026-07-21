@@ -22,11 +22,11 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeIndex(recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
                 "countLabel(kitchen.counts.recipes",
-                "countLabel(kitchen.counts.cookbooks",
-                "coverlessNoPhotoBadge",
-                "Photo not added"
+                "countLabel(kitchen.counts.cookbooks"
             ],
             forbids: [
+                "coverlessNoPhotoBadge",
+                "Text(\"Photo not added\")",
                 "From your kitchen",
                 "kitchen.counts.shoppingItems",
                 "RecipeIndex(recipes: recipes",
@@ -118,51 +118,50 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
-    @Test("Screenshot proof and validators name the richer kitchen and recipes hierarchy")
-    func screenshotProofNamesRicherKitchenAndRecipesHierarchy() throws {
+    @Test("Screenshot readiness and observers separate app state from accessibility evidence")
+    func screenshotReadinessAndObserversSeparateAppStateFromAccessibilityEvidence() throws {
         let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
-        let capturePath = "scripts/capture-native-screenshots.sh"
+        let observerPath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
         let validatorPath = "scripts/validate-design-review.rb"
         let proof = uncommentedSwift(try readRepoFile(proofPath))
-        let capture = try readRepoFile(capturePath)
+        let observer = uncommentedSwift(try readRepoFile(observerPath))
         let validator = try readRepoFile(validatorPath)
 
         expectContent(
             proof,
             in: proofPath,
             contains: [
-                "voiceOverLabels: [\"Recipes\", \"On the Counter\", \"Recipe index\", \"Loading recipes\"]",
-                "keyboardNavigationTargets: [\"recipe lead button\", \"RecipeIndexRow buttons\", \"search field\"]",
-                "layoutGuards: [\"scroll-view\", \"text-fit\", \"no-tiny-clusters\", \"dock-safe-area\"]"
+                "observedDynamicTypeSize",
+                "observedReduceMotion",
+                "visualReadiness"
             ],
             forbids: [
-                "\"recipe lead button\", \"RecipeIndexRow buttons\", \"search field\", \"offline status dismiss\"",
-                "\"dock-safe-area\", \"ordinal\""
+                "voiceOverLabels",
+                "keyboardNavigationTargets",
+                "routeEvidence"
             ]
         )
-
-        for (path, content) in [
-            (proofPath, proof),
-            (capturePath, capture),
-            (validatorPath, validator)
-        ] {
-            expectContent(
-                content,
-                in: path,
-                contains: [
-                    "On the Counter",
-                    "Recipe index",
-                    "Cookbook shelf",
-                    "RecipeIndexRow",
-                    "ordinal",
-                    "Loading recipes",
-                    "OfflineStatusView"
-                ],
-                forbids: [
-                    "Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\""
-                ]
-            )
-        }
+        expectContent(
+            observer,
+            in: observerPath,
+            contains: [
+                "app.descendants(matching: type).allElementsBoundByIndex",
+                "performAccessibilityAudit",
+                "scrollPrimarySurfaceToTerminal",
+                "recipe-detail",
+                "cookbook-detail"
+            ]
+        )
+        expectContent(
+            validator,
+            in: validatorPath,
+            contains: [
+                "observedAccessibilityEvidenceArtifacts",
+                "geometryFindings",
+                "auditIssues",
+                "deepScroll"
+            ]
+        )
     }
 }
 
