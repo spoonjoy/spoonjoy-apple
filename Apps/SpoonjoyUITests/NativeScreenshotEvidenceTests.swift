@@ -875,11 +875,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
 
         let maxScrollActions = 12
+        let scrollVelocity: XCUIGestureVelocity = terminalIdentifier == nil ? .fast : .slow
         var previousSignature: String?
         var reachedStableTerminal = false
         var scrollActionCount = 0
         while scrollActionCount < maxScrollActions {
-            primarySurface.swipeUp(velocity: .fast)
+            primarySurface.swipeUp(velocity: scrollVelocity)
             scrollActionCount += 1
             let probeElements = observedElements(in: app, windowFrame: windowFrame)
             let probeViewport = contentViewport(windowFrame: windowFrame, elements: probeElements)

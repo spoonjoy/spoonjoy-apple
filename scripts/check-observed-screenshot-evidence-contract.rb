@@ -220,7 +220,8 @@ require_tokens("scripts/capture-native-screenshots.sh", [
 require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "app.buttons.matching(identifier: \"recipe-editor.save\").count",
   "Recipe editor must have exactly one toolbar Save owner",
-  "primarySurface.swipeUp(velocity: .fast)",
+  "let scrollVelocity: XCUIGestureVelocity = terminalIdentifier == nil ? .fast : .slow",
+  "primarySurface.swipeUp(velocity: scrollVelocity)",
   "let maxScrollActions = 12",
   "routeRequiredAccessibilityScrollIdentifiers(route: route)",
   "namedTerminalIsVisible(",
