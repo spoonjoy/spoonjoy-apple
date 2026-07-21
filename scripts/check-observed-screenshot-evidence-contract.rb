@@ -222,8 +222,10 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "Recipe editor must have exactly one toolbar Save owner",
   "primarySurface.swipeUp(velocity: .fast)",
   "let maxScrollActions = 12",
+  "routeRequiredAccessibilityScrollIdentifiers(route: route)",
+  "namedTerminalIsVisible(",
   "terminalScrollSignature(",
-  "if let signature, signature == previousSignature",
+  "if terminalIdentifier == nil, let signature, signature == previousSignature",
   "reachedStableTerminal = true",
   "!viewport.contains(elementFrame)",
   "includesDynamicTypeChecks: false"

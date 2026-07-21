@@ -93,6 +93,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         var requiredVisibleIdentifiers = requiredIdentifiers
         requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))
         requiredVisibleIdentifiers.subtract(routeRequiredScrollIdentifiers(route: route))
+        if environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true {
+            requiredVisibleIdentifiers.subtract(routeRequiredAccessibilityScrollIdentifiers(route: route))
+        }
         let requiredLabels = routeRequiredLabels(route: route, signedIn: environment["SPOONJOY_SCREENSHOT_AUTH"] != "0")
         if apnsMode {
             requiredIdentifiers.formUnion([
@@ -271,6 +274,38 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(required.contains("recipe-covers.generate-placeholder"))
         XCTAssertFalse(visible.contains("recipe-covers.generate-placeholder"))
         XCTAssertTrue(visible.contains("recipe-covers.photo-picker"))
+    }
+
+    func testAccessibilityTextAllowsForegroundActionsToStartBelowTheInitialViewport() {
+        let required = routeRequiredIdentifiers(route: "recipe-covers")
+        var visible = required.subtracting(routeRequiredScrollIdentifiers(route: "recipe-covers"))
+        visible.subtract(routeRequiredAccessibilityScrollIdentifiers(route: "recipe-covers"))
+
+        XCTAssertFalse(visible.contains("recipe-covers.photo-picker"))
+        XCTAssertFalse(visible.contains("recipe-covers.generate-placeholder"))
+    }
+
+    func testNamedTerminalStopsWhenItIsFullyVisible() {
+        let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 500)
+        let visible = observedElement(
+            identifier: "recipe-covers.saved-covers",
+            frame: ObservedRect(x: 20, y: 520, width: 180, height: 44)
+        )
+        let clipped = observedElement(
+            identifier: "recipe-covers.saved-covers",
+            frame: ObservedRect(x: 20, y: 580, width: 180, height: 44)
+        )
+
+        XCTAssertTrue(namedTerminalIsVisible(
+            in: [visible],
+            terminalIdentifier: "recipe-covers.saved-covers",
+            viewport: viewport
+        ))
+        XCTAssertFalse(namedTerminalIsVisible(
+            in: [clipped],
+            terminalIdentifier: "recipe-covers.saved-covers",
+            viewport: viewport
+        ))
     }
 
     func testGeometryRejectsPeerOverlap() {
@@ -684,6 +719,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
     }
 
+    private func routeRequiredAccessibilityScrollIdentifiers(route: String) -> Set<String> {
+        switch route {
+        case "recipe-covers":
+            ["recipe-covers.photo-picker"]
+        default:
+            []
+        }
+    }
+
     private func routeTerminalIdentifier(route: String) -> String? {
         switch route {
         case "recipe-editor": "recipe-editor.delete"
@@ -774,12 +818,20 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             scrollActionCount += 1
             let probeElements = observedElements(in: app, windowFrame: windowFrame)
             let probeViewport = contentViewport(windowFrame: windowFrame, elements: probeElements)
+            if namedTerminalIsVisible(
+                in: probeElements,
+                terminalIdentifier: terminalIdentifier,
+                viewport: probeViewport
+            ) {
+                reachedStableTerminal = true
+                break
+            }
             let signature = terminalScrollSignature(
                 elements: probeElements,
                 terminalIdentifier: terminalIdentifier,
                 viewport: probeViewport
             )
-            if let signature, signature == previousSignature {
+            if terminalIdentifier == nil, let signature, signature == previousSignature {
                 reachedStableTerminal = true
                 break
             }
@@ -854,6 +906,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
         attachScreenshot(deepScreenshot, name: "deep-scroll-screenshot")
         return evidence
+    }
+
+    private func namedTerminalIsVisible(
+        in elements: [ObservedAccessibilityElement],
+        terminalIdentifier: String?,
+        viewport: ObservedRect
+    ) -> Bool {
+        guard let terminalIdentifier else {
+            return false
+        }
+        return elements.contains { element in
+            element.identifier == terminalIdentifier
+                && element.exists
+                && viewport.contains(element.frame)
+        }
     }
 
     private func terminalScrollSignature(
