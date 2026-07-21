@@ -46,6 +46,11 @@ struct AXObservedElement: Codable {
     let actions: [String]
 }
 
+struct AXObservedNode {
+    let element: AXUIElement
+    let observation: AXObservedElement
+}
+
 enum AXObservedFindingKind: String, Codable {
     case requiredIdentifierMissing
     case outsideViewport
@@ -53,6 +58,8 @@ enum AXObservedFindingKind: String, Codable {
     case textOverlap
     case actionTargetTooSmall
     case apnsChromeIntersection
+    case deepScrollUnavailable
+    case terminalSemanticMismatch
 }
 
 struct AXObservedFinding: Codable {
@@ -60,6 +67,17 @@ struct AXObservedFinding: Codable {
     let identifiers: [String]
     let message: String
     let intersection: AXObservedRect?
+}
+
+struct AXObservedDeepScrollEvidence: Codable {
+    let route: String
+    let reachedTerminal: Bool
+    let scrollAreaIdentifier: String
+    let initialScrollValue: Double?
+    let finalScrollValue: Double?
+    let contentViewport: AXObservedRect
+    let terminalElement: AXObservedElement?
+    let findings: [AXObservedFinding]
 }
 
 struct AXObservedEvidence: Codable {
@@ -72,7 +90,15 @@ struct AXObservedEvidence: Codable {
     let windowFrames: [AXObservedRect]
     let elements: [AXObservedElement]
     let findings: [AXObservedFinding]
+    let deepScroll: AXObservedDeepScrollEvidence?
     let recordedAt: String
+}
+
+struct AXRouteTerminalExpectation {
+    let scrollIdentifier: String
+    let terminalIdentifier: String
+    let role: String
+    let requiredAction: String?
 }
 
 struct Options {
@@ -95,7 +121,7 @@ func fail(_ message: String) -> Never {
 
 func parseOptions() -> Options {
     var values: [String: String] = [:]
-    var requiredIdentifiers: Set<String> = []
+    var requiredIdentifierSet: Set<String> = []
     var peerPairs: [(String, String)] = []
     var observesAPNs = false
     var signedIn = true
@@ -117,7 +143,7 @@ func parseOptions() -> Options {
         let value = arguments[index + 1]
         switch argument {
         case "--required-identifier":
-            requiredIdentifiers.insert(value)
+            requiredIdentifierSet.insert(value)
         case "--peer":
             let pair = value.split(separator: ":", maxSplits: 1).map(String.init)
             guard pair.count == 2 else { fail("--peer requires first:second") }
@@ -136,13 +162,13 @@ func parseOptions() -> Options {
     guard let route = values["--route"], !route.isEmpty else { fail("--route is required") }
 
     if observesAPNs {
-        requiredIdentifiers.formUnion([
+        requiredIdentifierSet.formUnion([
             "settings.apns.this-device.heading",
             "settings.apns.push-delivery.heading",
             "settings.apns.notification-sync.heading"
         ])
     }
-    requiredIdentifiers.formUnion(requiredIdentifiers(for: route))
+    requiredIdentifierSet.formUnion(requiredIdentifiers(for: route))
     return Options(
         pid: pid,
         route: route,
@@ -150,7 +176,7 @@ func parseOptions() -> Options {
         expectedBundlePath: bundlePath,
         expectedExecutablePath: executablePath,
         outputPath: outputPath,
-        requiredIdentifiers: requiredIdentifiers,
+        requiredIdentifiers: requiredIdentifierSet,
         peerPairs: peerPairs,
         observesAPNs: observesAPNs,
         signedIn: signedIn
@@ -167,12 +193,23 @@ func attribute(_ element: AXUIElement, _ name: CFString) -> CFTypeRef? {
     return value
 }
 
+func elementAttribute(_ element: AXUIElement, _ name: CFString) -> AXUIElement? {
+    guard let rawValue = attribute(element, name), CFGetTypeID(rawValue) == AXUIElementGetTypeID() else {
+        return nil
+    }
+    return unsafeBitCast(rawValue, to: AXUIElement.self)
+}
+
 func stringAttribute(_ element: AXUIElement, _ name: CFString) -> String {
     attribute(element, name) as? String ?? ""
 }
 
 func boolAttribute(_ element: AXUIElement, _ name: CFString, default defaultValue: Bool) -> Bool {
     attribute(element, name) as? Bool ?? defaultValue
+}
+
+func numberAttribute(_ element: AXUIElement, _ name: CFString) -> Double? {
+    (attribute(element, name) as? NSNumber)?.doubleValue
 }
 
 func pointAttribute(_ element: AXUIElement, _ name: CFString) -> CGPoint? {
@@ -210,8 +247,8 @@ func actionNames(of element: AXUIElement) -> [String] {
     return names as? [String] ?? []
 }
 
-func observeTree(root: AXUIElement) -> [AXObservedElement] {
-    var observations: [AXObservedElement] = []
+func observeTree(root: AXUIElement) -> [AXObservedNode] {
+    var observations: [AXObservedNode] = []
     var queue: [(AXUIElement, Int)] = [(root, 0)]
     while !queue.isEmpty && observations.count < 10_000 {
         let (element, depth) = queue.removeFirst()
@@ -225,12 +262,206 @@ func observeTree(root: AXUIElement) -> [AXObservedElement] {
             focused: boolAttribute(element, kAXFocusedAttribute as CFString, default: false),
             actions: actionNames(of: element)
         )
-        observations.append(observation)
+        observations.append(AXObservedNode(element: element, observation: observation))
         if depth < 80 {
             queue.append(contentsOf: childElements(of: element).map { ($0, depth + 1) })
         }
     }
     return observations
+}
+
+func terminalExpectation(for route: String) -> AXRouteTerminalExpectation? {
+    switch route {
+    case "recipe-editor":
+        AXRouteTerminalExpectation(
+            scrollIdentifier: "recipe-editor.scroll",
+            terminalIdentifier: "recipe-editor.delete",
+            role: kAXButtonRole as String,
+            requiredAction: kAXPressAction as String
+        )
+    case "recipe-covers":
+        AXRouteTerminalExpectation(
+            scrollIdentifier: "recipe-covers.scroll",
+            terminalIdentifier: "recipe-covers.saved-covers",
+            role: kAXStaticTextRole as String,
+            requiredAction: nil
+        )
+    case "profile":
+        AXRouteTerminalExpectation(
+            scrollIdentifier: "profile.scroll",
+            terminalIdentifier: "profile.graph.kitchen-visitors",
+            role: kAXButtonRole as String,
+            requiredAction: kAXPressAction as String
+        )
+    default:
+        nil
+    }
+}
+
+func enclosingScrollArea(for node: AXObservedNode) -> AXUIElement? {
+    if node.observation.role == (kAXScrollAreaRole as String) {
+        return node.element
+    }
+    if let descendant = observeTree(root: node.element).first(where: {
+        $0.observation.role == (kAXScrollAreaRole as String)
+    }) {
+        return descendant.element
+    }
+
+    var current = node.element
+    for _ in 0..<40 {
+        guard let parent = elementAttribute(current, kAXParentAttribute as CFString) else { break }
+        if stringAttribute(parent, kAXRoleAttribute as CFString) == (kAXScrollAreaRole as String) {
+            return parent
+        }
+        current = parent
+    }
+    return nil
+}
+
+func observeDeepScroll(
+    applicationElement: AXUIElement,
+    route: String,
+    expectation: AXRouteTerminalExpectation
+) -> AXObservedDeepScrollEvidence {
+    let initialNodes = observeTree(root: applicationElement)
+    guard let identifiedNode = initialNodes.first(where: {
+        $0.observation.identifier == expectation.scrollIdentifier
+    }), let scrollArea = enclosingScrollArea(for: identifiedNode) else {
+        return AXObservedDeepScrollEvidence(
+            route: route,
+            reachedTerminal: false,
+            scrollAreaIdentifier: expectation.scrollIdentifier,
+            initialScrollValue: nil,
+            finalScrollValue: nil,
+            contentViewport: AXObservedRect(x: 0, y: 0, width: 0, height: 0),
+            terminalElement: nil,
+            findings: [AXObservedFinding(
+                kind: .deepScrollUnavailable,
+                identifiers: [expectation.scrollIdentifier],
+                message: "The route-specific macOS scroll area was not observed.",
+                intersection: nil
+            )]
+        )
+    }
+
+    let viewport = frame(of: scrollArea)
+    guard let scrollBar = elementAttribute(scrollArea, kAXVerticalScrollBarAttribute as CFString),
+          let maximum = numberAttribute(scrollBar, kAXMaxValueAttribute as CFString) else {
+        return AXObservedDeepScrollEvidence(
+            route: route,
+            reachedTerminal: false,
+            scrollAreaIdentifier: expectation.scrollIdentifier,
+            initialScrollValue: nil,
+            finalScrollValue: nil,
+            contentViewport: viewport,
+            terminalElement: nil,
+            findings: [AXObservedFinding(
+                kind: .deepScrollUnavailable,
+                identifiers: [expectation.scrollIdentifier],
+                message: "The route-specific macOS vertical scroll bar was not measurable.",
+                intersection: nil
+            )]
+        )
+    }
+
+    let initialValue = numberAttribute(scrollBar, kAXValueAttribute as CFString)
+    var settable = DarwinBoolean(false)
+    let settableResult = AXUIElementIsAttributeSettable(
+        scrollBar,
+        kAXValueAttribute as CFString,
+        &settable
+    )
+    var setResult: AXError = .failure
+    if settableResult == .success, settable.boolValue {
+        setResult = AXUIElementSetAttributeValue(
+            scrollBar,
+            kAXValueAttribute as CFString,
+            NSNumber(value: maximum)
+        )
+    }
+    if setResult != .success, actionNames(of: scrollBar).contains(kAXIncrementAction as String) {
+        for _ in 0..<80 {
+            if let current = numberAttribute(scrollBar, kAXValueAttribute as CFString), abs(current - maximum) <= 0.001 {
+                break
+            }
+            guard AXUIElementPerformAction(scrollBar, kAXIncrementAction as CFString) == .success else { break }
+        }
+    }
+
+    var consecutiveMatches = 0
+    var terminalElement: AXObservedElement?
+    var finalValue = numberAttribute(scrollBar, kAXValueAttribute as CFString)
+    for _ in 0..<24 {
+        Thread.sleep(forTimeInterval: 0.1)
+        finalValue = numberAttribute(scrollBar, kAXValueAttribute as CFString)
+        let nodes = observeTree(root: applicationElement)
+        let candidate = nodes.first(where: {
+            $0.observation.identifier == expectation.terminalIdentifier
+        })?.observation
+        let terminalMatches = candidate.map { element in
+            element.role == expectation.role
+                && element.enabled
+                && viewport.contains(element.frame)
+                && expectation.requiredAction.map(element.actions.contains) != false
+        } ?? false
+        let scrollMatches = finalValue.map { abs($0 - maximum) <= 0.001 } ?? false
+        if terminalMatches, scrollMatches {
+            consecutiveMatches += 1
+            terminalElement = candidate
+            if consecutiveMatches >= 2 { break }
+        } else {
+            consecutiveMatches = 0
+        }
+    }
+
+    var deepFindings: [AXObservedFinding] = []
+    if finalValue.map({ abs($0 - maximum) <= 0.001 }) != true {
+        deepFindings.append(AXObservedFinding(
+            kind: .deepScrollUnavailable,
+            identifiers: [expectation.scrollIdentifier],
+            message: "The route-specific macOS scroll area did not settle at its maximum value.",
+            intersection: nil
+        ))
+    }
+    if terminalElement == nil {
+        let candidate = observeTree(root: applicationElement).first(where: {
+            $0.observation.identifier == expectation.terminalIdentifier
+        })?.observation
+        if let candidate, !viewport.contains(candidate.frame) {
+            deepFindings.append(AXObservedFinding(
+                kind: .outsideViewport,
+                identifiers: [expectation.terminalIdentifier],
+                message: "The route-specific terminal element remained clipped or offscreen after scrolling.",
+                intersection: candidate.frame.intersection(with: viewport)
+            ))
+        } else if candidate != nil {
+            deepFindings.append(AXObservedFinding(
+                kind: .terminalSemanticMismatch,
+                identifiers: [expectation.terminalIdentifier],
+                message: "The route-specific terminal element did not expose the required role, enabled state, and action.",
+                intersection: nil
+            ))
+        } else {
+            deepFindings.append(AXObservedFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: [expectation.terminalIdentifier],
+                message: "The route-specific terminal identifier was not observed after scrolling.",
+                intersection: nil
+            ))
+        }
+    }
+
+    return AXObservedDeepScrollEvidence(
+        route: route,
+        reachedTerminal: consecutiveMatches >= 2 && deepFindings.isEmpty,
+        scrollAreaIdentifier: expectation.scrollIdentifier,
+        initialScrollValue: initialValue,
+        finalScrollValue: finalValue,
+        contentViewport: viewport,
+        terminalElement: terminalElement,
+        findings: deepFindings
+    )
 }
 
 func findings(
@@ -414,8 +645,12 @@ let windowFrames = windowElements.map(frame(of:)).filter { !$0.isEmpty }
 guard let viewport = windowFrames.max(by: { $0.width * $0.height < $1.width * $1.height }) else {
     fail("the exact application PID has no measurable AX window")
 }
-let elements = observeTree(root: applicationElement)
+let observedNodes = observeTree(root: applicationElement)
+let elements = observedNodes.map(\.observation)
 let observedFindings = findings(elements: elements, viewport: viewport, options: options)
+let deepScroll = terminalExpectation(for: options.route).map {
+    observeDeepScroll(applicationElement: applicationElement, route: options.route, expectation: $0)
+}
 let evidence = AXObservedEvidence(
     platform: "macos",
     route: options.route,
@@ -426,6 +661,7 @@ let evidence = AXObservedEvidence(
     windowFrames: windowFrames,
     elements: elements,
     findings: observedFindings,
+    deepScroll: deepScroll,
     recordedAt: ISO8601DateFormatter().string(from: Date())
 )
 let encoder = JSONEncoder()
@@ -434,7 +670,8 @@ let data = try encoder.encode(evidence)
 let outputURL = URL(fileURLWithPath: options.outputPath)
 try FileManager.default.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
 try data.write(to: outputURL, options: .atomic)
-if !observedFindings.isEmpty {
-    fail("observed macOS accessibility geometry has \(observedFindings.count) finding(s)")
+let deepScrollFindings = deepScroll?.findings ?? []
+if !observedFindings.isEmpty || !deepScrollFindings.isEmpty {
+    fail("observed macOS accessibility geometry has \(observedFindings.count + deepScrollFindings.count) finding(s)")
 }
 print("macOS observed screenshot evidence ok")

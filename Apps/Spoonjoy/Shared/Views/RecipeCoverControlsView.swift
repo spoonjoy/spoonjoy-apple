@@ -158,6 +158,7 @@ struct RecipeCoverControlsView: View {
             }
             .padding()
         }
+        .accessibilityIdentifier("recipe-covers.scroll")
         .background(KitchenTableTheme.bone)
         .task(id: recipe.id) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(

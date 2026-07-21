@@ -466,17 +466,28 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     fail_check("#{proof_path} accessibility audit tool limitations are not release evidence") unless proof.fetch("toolLimitations", []) == []
   end
 
-  if ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"].include?(route) && platform != "macos"
+  compact_deep_scroll_route = ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"].include?(route)
+  deep_scroll_required = platform == "macos" ? REQUIRED_DEEP_SCROLL_TERMINALS.key?(route) : compact_deep_scroll_route
+  if deep_scroll_required
     deep_scroll = proof["deepScroll"]
-    fail_check("#{proof_path} missing compact deep-scroll evidence") unless deep_scroll.is_a?(Hash)
-    fail_check("#{proof_path} compact deep scroll did not reach terminal content") unless deep_scroll["reachedTerminal"] == true
-    fail_check("#{proof_path} compact deep-scroll findings must be empty") unless deep_scroll["findings"] == []
-    fail_check("#{proof_path} compact deep-scroll accessibility audit issues must be empty") unless deep_scroll["auditIssues"] == []
-    fail_check("#{proof_path} compact deep-scroll tool limitations are not release evidence") unless deep_scroll.fetch("toolLimitations", []) == []
-    fail_check("#{proof_path} compact deep scroll missing terminal element") unless deep_scroll["terminalElement"].is_a?(Hash)
+    fail_check("#{proof_path} missing deep-scroll evidence") unless deep_scroll.is_a?(Hash)
+    fail_check("#{proof_path} deep-scroll route mismatch") unless deep_scroll["route"] == route
+    fail_check("#{proof_path} deep scroll did not reach terminal content") unless deep_scroll["reachedTerminal"] == true
+    fail_check("#{proof_path} deep-scroll findings must be empty") unless deep_scroll["findings"] == []
+    fail_check("#{proof_path} deep scroll missing content viewport") unless deep_scroll["contentViewport"].is_a?(Hash)
+    fail_check("#{proof_path} deep scroll missing terminal element") unless deep_scroll["terminalElement"].is_a?(Hash)
     expected_terminal = REQUIRED_DEEP_SCROLL_TERMINALS[route]
     if expected_terminal
-      fail_check("#{proof_path} compact deep scroll did not prove #{expected_terminal}") unless deep_scroll.dig("terminalElement", "identifier") == expected_terminal
+      fail_check("#{proof_path} deep scroll did not prove #{expected_terminal}") unless deep_scroll.dig("terminalElement", "identifier") == expected_terminal
+    end
+    if platform == "macos"
+      fail_check("#{proof_path} macOS deep scroll missing route-specific scroll identifier") unless deep_scroll["scrollAreaIdentifier"].is_a?(String) && !deep_scroll["scrollAreaIdentifier"].empty?
+      fail_check("#{proof_path} macOS deep scroll missing initial value") unless deep_scroll["initialScrollValue"].is_a?(Numeric)
+      fail_check("#{proof_path} macOS deep scroll missing final value") unless deep_scroll["finalScrollValue"].is_a?(Numeric)
+      fail_check("#{proof_path} macOS deep scroll moved backwards") if deep_scroll["finalScrollValue"] < deep_scroll["initialScrollValue"]
+    else
+      fail_check("#{proof_path} compact deep-scroll accessibility audit issues must be empty") unless deep_scroll["auditIssues"] == []
+      fail_check("#{proof_path} compact deep-scroll tool limitations are not release evidence") unless deep_scroll.fetch("toolLimitations", []) == []
     end
     if platform == "ios"
       fail_check("#{proof_path} compact deep scroll missing tab bar frame") unless deep_scroll["tabBarFrame"].is_a?(Hash)

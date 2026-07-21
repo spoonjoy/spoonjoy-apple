@@ -591,8 +591,22 @@ def add_accessibility_proofs!(root, manifest, stem)
                        else
                          []
                        end
+    required_route_identifiers = {
+      "recipe-editor" => ["recipe-editor.title", "recipe-editor.save"],
+      "recipe-covers" => ["recipe-covers.photo-picker", "recipe-covers.generate-placeholder"],
+      "profile" => ["profile.header"],
+      "profile-graph" => ["profile-graph.row.chef_jules"],
+      "unknown-link" => ["unknown-link.message"],
+      "cook-mode" => ["cook.current-step", "cook.done", "cook.tools"],
+      "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
+    }.fetch(route, [])
+    terminal_identifier = {
+      "recipe-editor" => "recipe-editor.delete",
+      "recipe-covers" => "recipe-covers.saved-covers",
+      "profile" => "profile.graph.kitchen-visitors"
+    }.fetch(route, "fixture.terminal")
     if platform == "macos"
-      elements = ["fixture.terminal", *apns_identifiers].map.with_index do |identifier, index|
+      elements = ["fixture.terminal", *required_route_identifiers, *apns_identifiers].uniq.map.with_index do |identifier, index|
         {
           "identifier" => identifier,
           "role" => "AXStaticText",
@@ -609,9 +623,30 @@ def add_accessibility_proofs!(root, manifest, stem)
         "elements" => elements,
         "findings" => []
       }
+      if terminal_identifier != "fixture.terminal"
+        terminal = {
+          "identifier" => terminal_identifier,
+          "role" => route == "recipe-covers" ? "AXStaticText" : "AXButton",
+          "title" => terminal_identifier,
+          "frame" => { "x" => 10, "y" => 40, "width" => 120, "height" => 44 },
+          "enabled" => true,
+          "focused" => false,
+          "actions" => route == "recipe-covers" ? [] : ["AXPress"]
+        }
+        observed["deepScroll"] = {
+          "route" => route,
+          "reachedTerminal" => true,
+          "scrollAreaIdentifier" => "#{route}.scroll",
+          "initialScrollValue" => 0.0,
+          "finalScrollValue" => 1.0,
+          "contentViewport" => { "x" => 0, "y" => 0, "width" => 200, "height" => 120 },
+          "terminalElement" => terminal,
+          "findings" => []
+        }
+      end
     else
       terminal = {
-        "identifier" => "fixture.terminal",
+        "identifier" => terminal_identifier,
         "label" => "Terminal",
         "type" => "staticText",
         "frame" => { "x" => 10, "y" => 40, "width" => 44, "height" => 40 },
@@ -624,7 +659,7 @@ def add_accessibility_proofs!(root, manifest, stem)
         "platform" => platform,
         "route" => route,
         "viewport" => { "x" => 0, "y" => 0, "width" => 100, "height" => 80 },
-        "elements" => [terminal] + apns_identifiers.map.with_index { |identifier, index|
+        "elements" => [terminal] + [*required_route_identifiers, *apns_identifiers].uniq.map.with_index { |identifier, index|
           {
             "identifier" => identifier,
             "label" => identifier,
@@ -932,6 +967,13 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "cookbookContentsIndex" => true,
     "cookbookOwnerToolsDisclosure" => true
   }
+  valid_recipe_editor_manifest = {
+    "blockers" => [],
+    "screenshotRoute" => "recipe-editor",
+    "recipeSeedAccountID" => "chef_ari",
+    "recipeID" => "recipe_lemon_pantry_pasta"
+  }
+  missing_macos_deep_scroll_manifest = valid_recipe_editor_manifest.dup
   missing_manifest = valid_manifest.dup
   false_without_blocker = valid_manifest.merge("mobileScreenshot" => false)
   missing_route_manifest = valid_manifest.reject { |field, _| field == "screenshotRoute" }
@@ -977,6 +1019,8 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "valid.json" => [valid_manifest, true, "valid design review"],
     "valid-search.json" => [valid_search_manifest, true, "valid search design review"],
     "valid-cookbook-detail.json" => [valid_cookbook_detail_manifest, true, "valid cookbook detail design review"],
+    "valid-recipe-editor.json" => [valid_recipe_editor_manifest, true, "valid recipe editor design review"],
+    "missing-macos-deep-scroll.json" => [missing_macos_deep_scroll_manifest, false, "missing macOS deep-scroll evidence"],
     "valid-settings.json" => [valid_settings_manifest, true, "valid settings design review"],
     "valid-profile-settings.json" => [valid_profile_settings_manifest, true, "valid profile settings design review"],
     "missing.json" => [missing_manifest, false, "missing design review field"],
@@ -996,6 +1040,12 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     add_screenshot_artifacts!(temp_root, manifest)
     manifest["screenshotArtifacts"].delete("iosMobile") if filename == "missing.json"
     add_accessibility_proofs!(temp_root, manifest, filename.delete_suffix(".json"))
+    if filename == "missing-macos-deep-scroll.json"
+      macos_observed_path = temp_root.join("apple/missing-macos-deep-scroll-observed-accessibility-macos.json")
+      macos_observed = JSON.parse(macos_observed_path.read)
+      macos_observed.delete("deepScroll")
+      macos_observed_path.write(JSON.pretty_generate(macos_observed) + "\n")
+    end
     path.write(JSON.pretty_generate(manifest))
     if (proof_artifacts = manifest["settingsSurfaceProofArtifacts"])
       proof_artifacts.each do |proof_relative_path|

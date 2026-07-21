@@ -55,6 +55,7 @@ struct ProfileView: View {
             FellowChefsSection(link: graphLink(.fellowChefs), openRoute: openRoute)
             KitchenVisitorsSection(link: graphLink(.kitchenVisitors), openRoute: openRoute)
         }
+        .accessibilityIdentifier("profile.scroll")
         .task(id: viewModel.header.username) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "profile",

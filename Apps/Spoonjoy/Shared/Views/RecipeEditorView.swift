@@ -172,6 +172,7 @@ struct RecipeEditorView: View {
                 }
             }
         }
+        .accessibilityIdentifier("recipe-editor.scroll")
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {

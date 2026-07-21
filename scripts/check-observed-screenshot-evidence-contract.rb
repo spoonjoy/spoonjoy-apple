@@ -149,8 +149,20 @@ require_tokens(mac_observer, [
   "actionTargetTooSmall",
   "minimumMacControlSize = 20.0",
   "20-point macOS minimum",
-  "apnsChromeIntersection"
+  "apnsChromeIntersection",
+  "AXObservedDeepScrollEvidence",
+  "kAXVerticalScrollBarAttribute",
+  "kAXMaxValueAttribute",
+  "AXUIElementIsAttributeSettable",
+  "AXUIElementSetAttributeValue",
+  "recipe-editor.delete",
+  "recipe-covers.saved-covers",
+  "profile.graph.kitchen-visitors"
 ])
+
+require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", ["recipe-editor.scroll"])
+require_tokens("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift", ["recipe-covers.scroll"])
+require_tokens("Apps/Spoonjoy/Shared/Views/ProfileView.swift", ["profile.scroll"])
 
 require_tokens("scripts/generate-xcode-project.rb", [
   "Apps/SpoonjoyUITests",
