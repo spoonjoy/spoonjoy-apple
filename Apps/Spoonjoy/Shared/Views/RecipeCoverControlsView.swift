@@ -238,32 +238,16 @@ struct RecipeCoverControlsView: View {
     private var photoUploadControl: some View {
         let hasStagedPhoto = stagedCoverPhoto != nil
         return VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
-                PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images) {
-                    Label(hasStagedPhoto ? "Replace Photo" : "Add Photo", systemImage: hasStagedPhoto ? "photo.fill" : "photo.badge.plus")
-                        .font(KitchenTableTheme.uiLabel)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .center, spacing: 12) {
+                    stagedPhotoActions(hasStagedPhoto: hasStagedPhoto, fillsAvailableWidth: false)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityIdentifier("recipe-covers.photo-picker")
-                .onChange(of: selectedCoverPhotoItem) { _, item in
-                    Task { @MainActor in
-                        await stageSelectedCoverPhoto(item)
-                    }
-                }
+                .fixedSize(horizontal: true, vertical: false)
 
-                if hasStagedPhoto {
-                    Label("Photo ready", systemImage: "checkmark.circle.fill")
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.herb)
-                    Button {
-                        clearSelectedCoverPhoto()
-                    } label: {
-                        Label("Clear", systemImage: "xmark.circle")
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
+                VStack(alignment: .leading, spacing: 10) {
+                    stagedPhotoActions(hasStagedPhoto: hasStagedPhoto, fillsAvailableWidth: true)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Text(hasStagedPhoto ? "Photo ready for this recipe." : "JPEG, PNG, WebP, HEIC, HEIF")
@@ -315,14 +299,51 @@ struct RecipeCoverControlsView: View {
             if hasStagedPhoto {
                 Button { submitStagedCoverPhoto() } label: {
                     Label("Save Photo", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity, alignment: .center)
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
+                .accessibilityIdentifier("recipe-covers.save-photo")
             }
         }
         .padding()
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    @ViewBuilder private func stagedPhotoActions(hasStagedPhoto: Bool, fillsAvailableWidth: Bool) -> some View {
+        PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images) {
+            Label(hasStagedPhoto ? "Replace Photo" : "Add Photo", systemImage: hasStagedPhoto ? "photo.fill" : "photo.badge.plus")
+                .font(KitchenTableTheme.uiLabel)
+                .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+        }
+        .buttonStyle(.borderedProminent)
+        .controlSize(.large)
+        .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+        .accessibilityIdentifier("recipe-covers.photo-picker")
+        .onChange(of: selectedCoverPhotoItem) { _, item in
+            Task { @MainActor in
+                await stageSelectedCoverPhoto(item)
+            }
+        }
+
+        if hasStagedPhoto {
+            Label("Photo ready", systemImage: "checkmark.circle.fill")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.herb)
+                .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+                .accessibilityIdentifier("recipe-covers.staged-photo-status")
+            Button {
+                clearSelectedCoverPhoto()
+            } label: {
+                Label("Clear", systemImage: "xmark.circle")
+                    .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+            .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+            .accessibilityIdentifier("recipe-covers.clear-photo")
+        }
     }
 
     private var placeholderGenerationControl: some View {
@@ -486,67 +507,89 @@ struct RecipeCoverControlsView: View {
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                         .accessibilityLabel("Regeneration direction")
 
-                    HStack {
-                        Button {
-                            runAction(.regenerate(
-                                coverID: cover.id,
-                                promptAddition: trimmedOptional(regenerationPromptAdditions[cover.id] ?? ""),
-                                activateWhenReady: cover.isActive,
-                                clientMutationID: clientMutationID(prefix: "cover-regenerate")
-                            ))
-                        } label: {
-                            Label("Regenerate", systemImage: "wand.and.stars")
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            coverMutationActions(for: cover, fillsAvailableWidth: false)
                         }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                        if cover.isActive {
-                            let replacementOptions = replacementOptions(for: cover)
-                            if !replacementOptions.isEmpty {
-                                Menu {
-                                    ForEach(replacementOptions) { option in
-                                        Button {
-                                            runAction(.archive(
-                                                coverID: cover.id,
-                                                replacementCoverID: option.coverID,
-                                                replacementVariant: option.variant,
-                                                confirmNoCover: false,
-                                                deleteSafeObjects: false,
-                                                clientMutationID: clientMutationID(prefix: "cover-archive-replace")
-                                            ))
-                                        } label: {
-                                            Label(option.label, systemImage: "arrow.triangle.2.circlepath")
-                                        }
-                                    }
-                                } label: {
-                                    Label("Archive And Replace", systemImage: "arrow.triangle.2.circlepath")
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.large)
-                            }
+                        VStack(alignment: .leading, spacing: 10) {
+                            coverMutationActions(for: cover, fillsAvailableWidth: true)
                         }
-
-                        Button(role: .destructive) {
-                            runAction(.archive(
-                                coverID: cover.id,
-                                replacementCoverID: nil,
-                                replacementVariant: nil,
-                                confirmNoCover: cover.isActive,
-                                deleteSafeObjects: false,
-                                clientMutationID: clientMutationID(prefix: "cover-archive")
-                            ))
-                        } label: {
-                            Label(cover.isActive ? "Archive And Clear" : "Archive", systemImage: "archivebox")
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                    .accessibilityIdentifier("recipe-covers.cover-actions.\(cover.id)")
                 }
             }
         }
         .padding()
         .background(.background)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    @ViewBuilder private func coverMutationActions(for cover: RecipeCoverCandidate, fillsAvailableWidth: Bool) -> some View {
+        Button {
+            runAction(.regenerate(
+                coverID: cover.id,
+                promptAddition: trimmedOptional(regenerationPromptAdditions[cover.id] ?? ""),
+                activateWhenReady: cover.isActive,
+                clientMutationID: clientMutationID(prefix: "cover-regenerate")
+            ))
+        } label: {
+            Label("Regenerate", systemImage: "wand.and.stars")
+                .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+        .accessibilityIdentifier("recipe-covers.regenerate.\(cover.id)")
+
+        if cover.isActive {
+            let replacementOptions = replacementOptions(for: cover)
+            if !replacementOptions.isEmpty {
+                Menu {
+                    ForEach(replacementOptions) { option in
+                        Button {
+                            runAction(.archive(
+                                coverID: cover.id,
+                                replacementCoverID: option.coverID,
+                                replacementVariant: option.variant,
+                                confirmNoCover: false,
+                                deleteSafeObjects: false,
+                                clientMutationID: clientMutationID(prefix: "cover-archive-replace")
+                            ))
+                        } label: {
+                            Label(option.label, systemImage: "arrow.triangle.2.circlepath")
+                        }
+                    }
+                } label: {
+                    Label("Archive And Replace", systemImage: "arrow.triangle.2.circlepath")
+                        .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+                .accessibilityIdentifier("recipe-covers.archive-replace.\(cover.id)")
+            }
+        }
+
+        Button(role: .destructive) {
+            runAction(.archive(
+                coverID: cover.id,
+                replacementCoverID: nil,
+                replacementVariant: nil,
+                confirmNoCover: cover.isActive,
+                deleteSafeObjects: false,
+                clientMutationID: clientMutationID(prefix: "cover-archive")
+            ))
+        } label: {
+            Label(cover.isActive ? "Archive And Clear" : "Archive", systemImage: "archivebox")
+                .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.large)
+        .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
+        .accessibilityIdentifier("recipe-covers.archive.\(cover.id)")
     }
 
     private func replacementOptions(for cover: RecipeCoverCandidate) -> [RecipeCoverReplacementOption] {

@@ -1344,6 +1344,47 @@ struct CoverControlSurfaceTests {
         #expect(forbiddenTokens.isEmpty, "Native Photo Studio still renders stale copy: \(forbiddenTokens)")
     }
 
+    @Test("native photo studio action groups adapt to narrow layouts with stable identifiers")
+    func nativePhotoStudioActionGroupsAdaptToNarrowLayoutsWithStableIdentifiers() throws {
+        let source = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+
+        let uploadStart = try #require(source.range(of: "private var photoUploadControl: some View"))
+        let uploadEnd = try #require(source.range(of: "private var placeholderGenerationControl: some View"))
+        let uploadSource = source[uploadStart.lowerBound..<uploadEnd.lowerBound]
+        for token in [
+            "ViewThatFits(in: .horizontal)",
+            "HStack(alignment: .center, spacing: 12)",
+            "VStack(alignment: .leading, spacing: 10)",
+            "stagedPhotoActions(hasStagedPhoto: hasStagedPhoto, fillsAvailableWidth: false)",
+            "stagedPhotoActions(hasStagedPhoto: hasStagedPhoto, fillsAvailableWidth: true)",
+            ".frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)",
+            #".accessibilityIdentifier("recipe-covers.staged-photo-status")"#,
+            #".accessibilityIdentifier("recipe-covers.clear-photo")"#,
+            #".accessibilityIdentifier("recipe-covers.save-photo")"#
+        ] {
+            #expect(uploadSource.contains(token), "Adaptive staged-photo controls missing token \(token)")
+        }
+
+        let coverRowStart = try #require(source.range(of: "private func coverRow(_ cover: RecipeCoverCandidate) -> some View"))
+        let coverRowEnd = try #require(source.range(of: "private func replacementOptions(for cover: RecipeCoverCandidate)"))
+        let coverRowSource = source[coverRowStart.lowerBound..<coverRowEnd.lowerBound]
+        for token in [
+            "ViewThatFits(in: .horizontal)",
+            "coverMutationActions(for: cover, fillsAvailableWidth: false)",
+            "coverMutationActions(for: cover, fillsAvailableWidth: true)",
+            #".accessibilityIdentifier("recipe-covers.cover-actions.\(cover.id)")"#,
+            #".accessibilityIdentifier("recipe-covers.regenerate.\(cover.id)")"#,
+            #".accessibilityIdentifier("recipe-covers.archive-replace.\(cover.id)")"#,
+            #".accessibilityIdentifier("recipe-covers.archive.\(cover.id)")"#
+        ] {
+            #expect(coverRowSource.contains(token), "Adaptive cover mutation controls missing token \(token)")
+        }
+        #expect(
+            coverRowSource.components(separatedBy: ".frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)").count >= 4,
+            "Narrow cover mutation controls must expand and align consistently"
+        )
+    }
+
     private static func cover(
         id: String = "cover/raw",
         status: String = "ready",
