@@ -392,6 +392,8 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Chefs\", systemImage: \"person.2\")",
                 "Button(\"Search\", systemImage: \"magnifyingglass\")",
                 "compactNavigationToolbar",
+                "if !isRecipeEditorRoute",
+                "private var isRecipeEditorRoute: Bool",
                 "ToolbarItem(placement: .topBarTrailing)",
                 ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
                 ".toolbarBackground(.visible, for: .navigationBar)",
@@ -608,8 +610,10 @@ struct NativeMobileDesignContractTests {
             editor,
             in: editorPath,
             contains: [
-                "Duration \\(step.duration ?? 0) minutes",
-                "in: 0...720, step: 1"
+                "Duration \\(value.wrappedValue ?? 0) minutes",
+                "adjustDuration(value, by: -1)",
+                "adjustDuration(value, by: 1)",
+                "let nextValue = min(720, max(0, (value.wrappedValue ?? 0) + delta))"
             ],
             forbids: [
                 "Duration \\(step.duration ?? 0) seconds",

@@ -167,7 +167,7 @@ require_tokens(mac_observer, [
 
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
   "recipe-editor.scroll",
-  ".scrollEdgeEffectStyle(.hard, for: .bottom)",
+  ".scrollEdgeEffectStyle(nil, for: .bottom)",
   "ToolbarItem(placement: .confirmationAction)",
   "private func adjustDuration(",
   ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"

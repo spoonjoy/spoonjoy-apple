@@ -861,44 +861,54 @@ struct PlatformNavigationView: View {
             }
         }
 
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button("Imports", systemImage: "tray.and.arrow.down") {
-                    openRoute(.capture)
-                }
-                Button("Chefs", systemImage: "person.2") {
-                    openRoute(.chefs)
-                }
-                Button("Search", systemImage: "magnifyingglass") {
-                    Task {
-                        await performSearch(search)
+        if !isRecipeEditorRoute {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Imports", systemImage: "tray.and.arrow.down") {
+                        openRoute(.capture)
                     }
+                    Button("Chefs", systemImage: "person.2") {
+                        openRoute(.chefs)
+                    }
+                    Button("Search", systemImage: "magnifyingglass") {
+                        Task {
+                            await performSearch(search)
+                        }
+                    }
+                    Button("Settings", systemImage: "gearshape") {
+                        openRoute(.settings)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.body.weight(.semibold))
+                        .frame(
+                            width: KitchenTableTheme.minimumTouchTarget,
+                            height: KitchenTableTheme.minimumTouchTarget
+                        )
+                        .contentShape(Rectangle())
                 }
-                Button("Settings", systemImage: "gearshape") {
-                    openRoute(.settings)
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
-                    .frame(
-                        width: KitchenTableTheme.minimumTouchTarget,
-                        height: KitchenTableTheme.minimumTouchTarget
-                    )
-                    .contentShape(Rectangle())
+                .frame(
+                    width: KitchenTableTheme.minimumTouchTarget,
+                    height: KitchenTableTheme.minimumTouchTarget
+                )
+                .contentShape(Rectangle())
+                .accessibilityLabel("More")
+                .tint(KitchenTableTheme.charcoal)
             }
-            .frame(
-                width: KitchenTableTheme.minimumTouchTarget,
-                height: KitchenTableTheme.minimumTouchTarget
-            )
-            .contentShape(Rectangle())
-            .accessibilityLabel("More")
-            .tint(KitchenTableTheme.charcoal)
         }
 #else
         ToolbarItem(placement: .automatic) {
             EmptyView()
         }
 #endif
+    }
+
+    private var isRecipeEditorRoute: Bool {
+        if case .recipeEditor = navigation.route {
+            true
+        } else {
+            false
+        }
     }
 
     private func compactBackAction(for route: AppRoute) -> (title: String, accessibilityLabel: String, route: AppRoute)? {

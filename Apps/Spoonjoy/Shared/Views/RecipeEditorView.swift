@@ -91,7 +91,8 @@ struct RecipeEditorView: View {
                             Button(role: .destructive) {
                                 removeStep(id: step.id)
                             } label: {
-                                Label("Delete Step", systemImage: "trash")
+                                Image(systemName: "trash")
+                                    .accessibilityLabel("Delete Step")
                             }
                             .labelStyle(.iconOnly)
                             .frame(
@@ -144,7 +145,8 @@ struct RecipeEditorView: View {
                                     Button(role: .destructive) {
                                         removeIngredient(id: ingredient.id, from: step.id)
                                     } label: {
-                                        Label("Delete Ingredient", systemImage: "minus.circle")
+                                        Image(systemName: "minus.circle")
+                                            .accessibilityLabel("Delete Ingredient")
                                     }
                                     .labelStyle(.iconOnly)
                                     .frame(
@@ -200,7 +202,7 @@ struct RecipeEditorView: View {
             }
         }
         .accessibilityIdentifier("recipe-editor.scroll")
-        .scrollEdgeEffectStyle(.hard, for: .bottom)
+        .scrollEdgeEffectStyle(nil, for: .bottom)
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
         .toolbar {
@@ -292,6 +294,7 @@ struct RecipeEditorView: View {
                     adjustDuration(value, by: -1)
                 } label: {
                     Image(systemName: "minus")
+                        .accessibilityLabel("Decrease duration")
                         .frame(
                             width: KitchenTableTheme.minimumTouchTarget,
                             height: KitchenTableTheme.minimumTouchTarget
@@ -308,6 +311,7 @@ struct RecipeEditorView: View {
                     adjustDuration(value, by: 1)
                 } label: {
                     Image(systemName: "plus")
+                        .accessibilityLabel("Increase duration")
                         .frame(
                             width: KitchenTableTheme.minimumTouchTarget,
                             height: KitchenTableTheme.minimumTouchTarget
