@@ -9,6 +9,11 @@ require "tmpdir"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 VALIDATOR = ROOT.join("scripts/validate-design-review.rb")
+DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
+  "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+  "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+  "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+}.freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -133,6 +138,9 @@ def manifest(root)
       "iosTablet" => screenshot_artifact(root, "screenshots/ios-tablet.png"),
       "macosDesktop" => screenshot_artifact(root, "screenshots/macos-desktop.png")
     },
+    "deepScrollScreenshotArtifacts" => DEEP_SCROLL_SCREENSHOT_ARTIFACTS.to_h do |name, relative_path|
+      [name, screenshot_artifact(root, relative_path)]
+    end,
     "kitchenSignedInSurface" => true,
     "kitchenSeedAccountID" => "chef_kitchen_capture",
     "accessibilityProofArtifacts" => [
@@ -176,6 +184,9 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   root.join("screenshots").mkpath
   %w[ios-mobile.png ios-mobile-accessibility.png ios-tablet.png macos-desktop.png].each do |name|
     root.join("screenshots", name).write("png:#{name}")
+  end
+  DEEP_SCROLL_SCREENSHOT_ARTIFACTS.each_value do |relative_path|
+    root.join(relative_path).write("png:#{Pathname.new(relative_path).basename}")
   end
   %w[ios ipad macos].each do |platform|
     root.join("apple/readiness-#{platform}.json").write(JSON.pretty_generate(readiness_proof(platform)) + "\n")
