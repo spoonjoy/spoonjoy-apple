@@ -1281,7 +1281,9 @@ struct CoverControlSurfaceTests {
         )
         #expect(uploadSource.contains(#"Text("Spoon details")"#))
         #expect(uploadSource.contains(".foregroundStyle(KitchenTableTheme.charcoal)"))
-        #expect(uploadSource.components(separatedBy: ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)").count == 5)
+        #expect(uploadSource.components(separatedBy: ".controlSize(.extraLarge)").count == 4)
+        #expect(uploadSource.components(separatedBy: ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)").count == 6)
+        #expect(uploadSource.contains(".accessibilityElement(children: .combine)"))
 
         let generationTokens = [
             #"@State private var placeholderPromptAddition = """#,
@@ -1302,10 +1304,11 @@ struct CoverControlSurfaceTests {
             in: coverControlsSource
         )
         #expect(placeholderGenerationSource.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(placeholderGenerationSource.contains(".controlSize(.extraLarge)"))
         #expect(placeholderGenerationSource.contains(".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"))
 
         #expect(coverControlsSource.contains(
-            ".textFieldStyle(.roundedBorder)\n                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
+            ".textFieldStyle(.roundedBorder)\n                        .controlSize(.extraLarge)\n                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
         ))
         for token in [
             #"Button { generatePlaceholderCover() }"#,

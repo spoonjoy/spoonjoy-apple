@@ -289,10 +289,13 @@ struct RecipeCoverControlsView: View {
             DisclosureGroup {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField("Note", text: $spoonNote)
+                        .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                     TextField("Next time", text: $spoonNextTime)
+                        .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                     TextField("Cooked at", text: $spoonCookedAt)
+                        .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                 }
                 .textFieldStyle(.roundedBorder)
@@ -300,9 +303,11 @@ struct RecipeCoverControlsView: View {
             } label: {
                 Text("Spoon details")
                     .foregroundStyle(KitchenTableTheme.charcoal)
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             }
             .font(KitchenTableTheme.uiLabel)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .accessibilityElement(children: .combine)
 
             if hasStagedPhoto {
                 Button { submitStagedCoverPhoto() } label: {
@@ -329,6 +334,7 @@ struct RecipeCoverControlsView: View {
             }
             TextField("Placeholder direction", text: $placeholderPromptAddition)
                 .textFieldStyle(.roundedBorder)
+                .controlSize(.extraLarge)
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             Button { generatePlaceholderCover() } label: {
                 Label("Generate Placeholder", systemImage: "sparkles")
@@ -472,6 +478,7 @@ struct RecipeCoverControlsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField("Regeneration direction", text: regenerationPromptBinding(for: cover.id))
                         .textFieldStyle(.roundedBorder)
+                        .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
 
                     HStack {
