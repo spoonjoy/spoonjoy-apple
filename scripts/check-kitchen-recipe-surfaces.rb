@@ -106,7 +106,7 @@ REQUIRED_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift" => [
     "RecipeDetailRouteView",
-    "repository.recipeDetail",
+    "RecipeDetailProgressiveLoader",
     "RecipeDetailView",
     "RecipeDetailScreenViewModel",
     "ShareLink",
@@ -240,6 +240,10 @@ REQUIRED_TOKENS = {
   ],
   "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift" => [
     "RecipeDetailScreenViewModel",
+    "RecipeDetailProgressiveLoader",
+    "recipeRepository.recipeDetail",
+    "await onRecipe(initialResult)",
+    "spoonRepository.fetchCookLog",
     "RecipeDetailContext",
     "RecipeCookbookSaveOption",
     "stepSections",
