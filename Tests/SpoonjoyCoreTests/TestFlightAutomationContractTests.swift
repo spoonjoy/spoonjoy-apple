@@ -548,6 +548,22 @@ struct TestFlightAutomationContractTests {
         )
     }
 
+    @Test("candidate verifier rejects incomplete deep-scroll visual evidence")
+    func verifierRejectsMissingDeepScrollEvidence() throws {
+        let fixture = try makeCandidateFixture(
+            sourceSHA: currentSHA,
+            mainSHA: currentSHA,
+            omitDeepScrollForRoute: "kitchen"
+        )
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        try expectVerifierFailure(
+            fixture: fixture,
+            sourceSHA: currentSHA,
+            contains: "route kitchen deep-scroll screenshot set is incomplete"
+        )
+    }
+
     @Test("older main commits require an explicit reasoned rollback")
     func verifierRequiresExplicitRollback() throws {
         let ordinary = try makeCandidateFixture(sourceSHA: rollbackSHA, mainSHA: currentSHA)
@@ -693,6 +709,10 @@ private let testFlightSettingsRouteVariants: Set<String> = [
     "settings-notifications", "settings-signed-out", "settings-apns-denied",
     "settings-apns-not-determined", "settings-apns-authorized", "settings-apns-unregistered"
 ]
+private let testFlightDeepScrollRoutes: Set<String> = [
+    "kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list",
+    "cookbooks", "cookbook-detail"
+]
 private let requiredNativeJobNames = [
     "Swift tests",
     "Native scenario verifier",
@@ -770,7 +790,8 @@ private func expectTestFlightAutomationContent(
 private func makeCandidateFixture(
     sourceSHA: String,
     mainSHA: String,
-    isMainAncestor: Bool = true
+    isMainAncestor: Bool = true,
+    omitDeepScrollForRoute: String? = nil
 ) throws -> URL {
     let fixture = FileManager.default.temporaryDirectory
         .appendingPathComponent("testflight-release-candidate-\(UUID().uuidString)", isDirectory: true)
@@ -825,7 +846,8 @@ private func makeCandidateFixture(
         fixture: fixture,
         sourceSHA: sourceSHA,
         runID: 4242,
-        runAttempt: 1
+        runAttempt: 1,
+        omitDeepScrollForRoute: omitDeepScrollForRoute
     )
     try writeJSON(
         [
@@ -881,7 +903,8 @@ private func makeVisualEvidenceFixture(
     fixture: URL,
     sourceSHA: String,
     runID: Int,
-    runAttempt: Int
+    runAttempt: Int,
+    omitDeepScrollForRoute: String?
 ) throws -> TestFlightVisualArtifactFixture {
     let artifact = fixture.appendingPathComponent("native-visual-evidence", isDirectory: true)
     let payload = artifact.appendingPathComponent("payload", isDirectory: true)
@@ -894,6 +917,11 @@ private func makeVisualEvidenceFixture(
         "iosAccessibility": "ios-mobile-accessibility.png",
         "iosTablet": "ios-tablet.png",
         "macosDesktop": "macos-desktop.png"
+    ]
+    let deepScrollScreenshotNames = [
+        "iosMobile": "ios-mobile-deep-scroll.png",
+        "iosAccessibility": "ios-mobile-accessibility-deep-scroll.png",
+        "iosTablet": "ios-tablet-deep-scroll.png"
     ]
     let accessibilityProofs = ["accessibility-ios.json", "accessibility-ipad.json", "accessibility-macos.json"]
     let observedProofs = ["observed-ios.json", "observed-ios-ax.json", "observed-ipad.json", "observed-macos.json"]
@@ -923,23 +951,48 @@ private func makeVisualEvidenceFixture(
             fileURLs.append(url)
         }
 
+        var deepScrollScreenshotReferences: [String: String] = [:]
+        var deepScrollScreenshotRecords: [String: [String: Any]] = [:]
+        let requiresDeepScroll = testFlightDeepScrollRoutes.contains(captureRoute)
+        if requiresDeepScroll && omitDeepScrollForRoute != route {
+            for (key, name) in deepScrollScreenshotNames {
+                let url = screenshotsDirectory.appendingPathComponent(name)
+                var bytes = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+                bytes.append(Data("\(route):\(key):deep-scroll".utf8))
+                try bytes.write(to: url)
+                let relative = "screenshots/\(name)"
+                deepScrollScreenshotReferences[key] = "payload/routes/\(route)/\(relative)"
+                deepScrollScreenshotRecords[key] = [
+                    "path": relative,
+                    "bytes": bytes.count,
+                    "sha256": try sha256OfFile(at: url)
+                ]
+                fileURLs.append(url)
+            }
+        }
+
         let proofNames = accessibilityProofs + observedProofs
         for name in proofNames {
             let url = proofsDirectory.appendingPathComponent(name)
             try writeJSON(["route": route, "blocked": false, "proof": name], to: url)
             fileURLs.append(url)
         }
+        var designReviewPayload: [String: Any] = [
+            "screenshotRoute": captureRoute,
+            "blockers": [],
+            "screenshotArtifacts": screenshotRecords,
+            "accessibilityProofArtifacts": accessibilityProofs.map { "proofs/\($0)" },
+            "observedAccessibilityEvidenceArtifacts": observedProofs.map { "proofs/\($0)" }
+        ]
+        if requiresDeepScroll && omitDeepScrollForRoute != route {
+            designReviewPayload["deepScrollScreenshotArtifacts"] = deepScrollScreenshotRecords
+        }
+        if captureRoute == "recipe-covers" {
+            designReviewPayload["recipeCoverControlsFixture"] = "action-states"
+            designReviewPayload["renderedSurfaceAnchors"] = ["stagedPhotoActions", "coverMutationActions"]
+        }
         let designReview = routeDirectory.appendingPathComponent("design-review.json")
-        try writeJSON(
-            [
-                "screenshotRoute": captureRoute,
-                "blockers": [],
-                "screenshotArtifacts": screenshotRecords,
-                "accessibilityProofArtifacts": accessibilityProofs.map { "proofs/\($0)" },
-                "observedAccessibilityEvidenceArtifacts": observedProofs.map { "proofs/\($0)" }
-            ],
-            to: designReview
-        )
+        try writeJSON(designReviewPayload, to: designReview)
         fileURLs.append(designReview)
 
         matrixRows.append([
@@ -954,6 +1007,7 @@ private func makeVisualEvidenceFixture(
             "route": captureRoute,
             "designReview": "payload/routes/\(route)/design-review.json",
             "screenshots": screenshotReferences,
+            "deepScrollScreenshots": deepScrollScreenshotReferences,
             "proofs": proofNames.map { "payload/routes/\(route)/proofs/\($0)" }
         ])
     }
