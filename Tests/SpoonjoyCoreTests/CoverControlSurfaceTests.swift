@@ -1275,6 +1275,14 @@ struct CoverControlSurfaceTests {
         #expect(headerSource.contains(".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"))
         #expect(headerSource.contains(".contentShape(Rectangle())"))
 
+        let uploadSource = try swiftMemberBody(
+            named: "photoUploadControl",
+            in: coverControlsSource
+        )
+        #expect(uploadSource.contains(#"Text("Spoon details")"#))
+        #expect(uploadSource.contains(".foregroundStyle(KitchenTableTheme.charcoal)"))
+        #expect(uploadSource.components(separatedBy: ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)").count == 5)
+
         let generationTokens = [
             #"@State private var placeholderPromptAddition = """#,
             #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,
@@ -1293,6 +1301,12 @@ struct CoverControlSurfaceTests {
             named: "placeholderGenerationControl",
             in: coverControlsSource
         )
+        #expect(placeholderGenerationSource.contains(".textFieldStyle(.roundedBorder)"))
+        #expect(placeholderGenerationSource.contains(".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"))
+
+        #expect(coverControlsSource.contains(
+            ".textFieldStyle(.roundedBorder)\n                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
+        ))
         for token in [
             #"Button { generatePlaceholderCover() }"#,
             #".controlSize(.large)"#
