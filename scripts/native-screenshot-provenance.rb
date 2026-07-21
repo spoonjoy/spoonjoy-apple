@@ -80,6 +80,7 @@ module NativeScreenshotProvenance
     snapshot = snapshot.realpath
     build_root = build_root.realpath
     snapshot_hash = deterministic_tree_hash(snapshot)
+    seal_tree!(snapshot)
 
     apple_dir = artifact_root.join("apple")
     apple_dir.mkpath
@@ -195,6 +196,10 @@ module NativeScreenshotProvenance
     unless secure_equal?(deterministic_tree_hash(snapshot), run.fetch("sourceSnapshotTreeSha256"))
       raise Error, "source snapshot hash mismatch"
     end
+    writable_snapshot_entry = tree_entries(snapshot).find do |path|
+      !path.symlink? && (path.lstat.mode & 0o222).positive?
+    end
+    raise Error, "source snapshot is not sealed read-only: #{writable_snapshot_entry}" if writable_snapshot_entry
 
     verify_platform!(
       "ios",

@@ -77,6 +77,9 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     refute File.writable?(ios_build.fetch("xctestrunPath"))
     assert build_root.join("source/Spoonjoy.xcodeproj/project.pbxproj").file?
     refute build_root.join("source/.git").exist?
+    refute build_root.join("source/.swiftpm").exist?
+    refute build_root.join("source/Spoonjoy.xcodeproj/project.xcworkspace").exist?
+    refute File.writable?(build_root.join("source"))
     assert_equal 2, @build_log.readlines.length
 
     stdout, stderr, status = verify_manifest(manifest_path)
@@ -350,6 +353,8 @@ class NativeScreenshotProvenanceTest < Minitest::Test
         exit 0
       fi
       printf '%s|%s\n' "$PWD" "$*" >> "${FAKE_XCODEBUILD_LOG:?}"
+      mkdir -p "$PWD/.swiftpm" 2>/dev/null || true
+      mkdir -p "$PWD/Spoonjoy.xcodeproj/project.xcworkspace" 2>/dev/null || true
       derived=""
       scheme=""
       while [[ $# -gt 0 ]]; do
