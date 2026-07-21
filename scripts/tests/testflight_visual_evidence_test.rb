@@ -12,6 +12,7 @@ require "tmpdir"
 class TestFlightVisualEvidenceTest < Minitest::Test
   ROOT = Pathname.new(__dir__).join("../..").expand_path
   SCRIPT = ROOT.join("scripts/testflight-visual-evidence.rb")
+  CANDIDATE_SCRIPT = ROOT.join("scripts/verify-testflight-release-candidate.rb")
   SOURCE_SHA = "a" * 40
   SOURCE_TREE = "b" * 40
   RUN_ID = 4_242
@@ -166,6 +167,43 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     refute_match(/allow_rollback.*visual/i, candidate)
   end
 
+  def test_candidate_reverifies_the_exact_attempt_artifact
+    fixture = create_candidate_fixture
+
+    result = run_candidate(fixture)
+    assert result.success?, result.output
+    attestation = JSON.parse(fixture.join("output/testflight-release-candidate.json").read)
+    assert_equal 9_002, attestation.fetch("visualEvidenceArtifactId")
+    assert_equal RUN_ATTEMPT, attestation.fetch("nativeRunAttempt")
+    assert_equal Digest::SHA256.file(@sealed_root.join("visual-evidence-manifest.json")).hexdigest,
+                 attestation.fetch("visualEvidenceManifestSha256")
+  end
+
+  def test_candidate_rejects_tampered_visual_payload
+    fixture = create_candidate_fixture
+    fixture.join("native-visual-evidence/payload/screenshots/ios-mobile.png").binwrite(png_bytes("tampered"))
+
+    result = run_candidate(fixture)
+    refute result.success?
+    assert_includes result.output, "SHA-256 mismatch"
+  end
+
+  def test_candidate_requires_visual_evidence_even_for_a_rollback
+    fixture = create_candidate_fixture(main_sha: "c" * 40)
+    jobs = JSON.parse(fixture.join("jobs.json").read)
+    jobs["jobs"].reject! { |job| job["name"] == "Native visual evidence" }
+    write_json(fixture.join("jobs.json"), jobs)
+
+    result = run_candidate(
+      fixture,
+      allow_rollback: true,
+      rollback_reason: "Restore the last exact known-good native revision",
+      rollback_notes: "Rollback candidate with fresh human-readable notes."
+    )
+    refute result.success?
+    assert_includes result.output, "missing required Native job Native visual evidence"
+  end
+
   private
 
   Result = Struct.new(:stdout, :stderr, :status, keyword_init: true) do
@@ -248,6 +286,90 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     write_json(matrix_summary_path, summary)
     jsonl = rows.map { |row| JSON.generate(row) }.join("\n") + "\n"
     @artifact_root.join("apple/release-route-matrix.jsonl").write(jsonl)
+  end
+
+  def create_candidate_fixture(main_sha: SOURCE_SHA)
+    seal = run_tool("seal", *seal_arguments)
+    raise seal.output unless seal.success?
+    fixture = @temporary_directory.join("candidate")
+    fixture.mkpath
+    fixture.join("checked-out-sha.txt").write("#{SOURCE_SHA}\n")
+    fixture.join("checked-out-tree.txt").write("#{SOURCE_TREE}\n")
+    fixture.join("is-main-ancestor.txt").write("true\n")
+    write_json(fixture.join("main-ref.json"), "object" => { "sha" => main_sha })
+    write_json(
+      fixture.join("runs.json"),
+      "workflow_runs" => [{
+        "id" => RUN_ID,
+        "run_number" => 77,
+        "run_attempt" => RUN_ATTEMPT,
+        "event" => "push",
+        "head_branch" => "main",
+        "head_sha" => SOURCE_SHA,
+        "path" => ".github/workflows/native.yml",
+        "status" => "completed",
+        "conclusion" => "success",
+        "created_at" => "2026-07-20T18:00:00Z",
+        "updated_at" => "2026-07-20T18:20:00Z"
+      }]
+    )
+    jobs = [
+      "Swift tests", "Native scenario verifier", "App bundle", "Coverage",
+      "Native visual evidence", "TestFlight release note"
+    ].map { |name| { "name" => name, "status" => "completed", "conclusion" => "success" } }
+    write_json(fixture.join("jobs.json"), "jobs" => jobs)
+    visual_name = "native-visual-evidence-#{SOURCE_SHA}-#{RUN_ID}-#{RUN_ATTEMPT}"
+    visual_digest = "sha256:#{"e" * 64}"
+    write_json(
+      fixture.join("artifacts.json"),
+      "artifacts" => [
+        { "id" => 9_001, "name" => "testflight-release-notes-#{SOURCE_SHA}", "expired" => false },
+        { "id" => 9_002, "name" => visual_name, "digest" => visual_digest, "expired" => false }
+      ]
+    )
+    manifest_digest = Digest::SHA256.file(@sealed_root.join("visual-evidence-manifest.json")).hexdigest
+    write_json(
+      fixture.join("testflight-release-notes.json"),
+      "schemaVersion" => 2,
+      "sourceSha" => SOURCE_SHA,
+      "sourceTree" => SOURCE_TREE,
+      "nativeRunId" => RUN_ID,
+      "nativeRunAttempt" => RUN_ATTEMPT,
+      "generatedAt" => "2026-07-20T18:18:00Z",
+      "notes" => "A precise candidate note with exact visual evidence.",
+      "visualEvidence" => {
+        "artifactId" => 9_002,
+        "artifactName" => visual_name,
+        "artifactDigest" => visual_digest,
+        "manifestSha256" => manifest_digest,
+        "workflowRunId" => RUN_ID,
+        "workflowRunAttempt" => RUN_ATTEMPT,
+        "workflowJob" => JOB,
+        "jobName" => "Native visual evidence"
+      }
+    )
+    FileUtils.cp_r(@sealed_root, fixture.join("native-visual-evidence"))
+    fixture
+  end
+
+  def run_candidate(
+    fixture,
+    allow_rollback: false,
+    rollback_reason: "",
+    rollback_notes: ""
+  )
+    stdout, stderr, status = Open3.capture3(
+      RbConfig.ruby,
+      CANDIDATE_SCRIPT.to_s,
+      "--source-sha", SOURCE_SHA,
+      "--repository", "ourostack/spoonjoy-apple",
+      "--allow-rollback", allow_rollback.to_s,
+      "--rollback-reason", rollback_reason,
+      "--rollback-notes", rollback_notes,
+      "--output-dir", fixture.join("output").to_s,
+      "--fixture-dir", fixture.to_s
+    )
+    Result.new(stdout: stdout, stderr: stderr, status: status)
   end
 
   def create_route(route)
