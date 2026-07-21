@@ -20,6 +20,8 @@ jobs:
           bundler-cache: true
       - name: Check native advisory pipeline contract
         run: ruby scripts/check-native-advisory-pipeline.rb
+      - name: Check release ownership handoff contract
+        run: ruby -w scripts/check-release-ownership-handoff-contract.rb
       - name: Scan Ruby dependencies for advisories
         run: |
           set -euo pipefail

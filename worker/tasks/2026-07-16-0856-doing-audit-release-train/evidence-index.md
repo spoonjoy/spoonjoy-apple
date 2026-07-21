@@ -48,9 +48,14 @@ Raw validation output belongs under `/tmp/spoonjoy-audit-release-train/<source-s
 | Web cleanup owner | pending |
 | Releasing thread / commit | pending |
 | Ownership released at | pending |
-| Receiver acknowledgement commit | pending |
+| Canonical outbound release | `worker/tasks/2026-07-16-0856-doing-audit-release-train/outbound-owner-release.json` |
+| Outbound release schema | `worker/tasks/2026-07-16-0856-doing-audit-release-train/outbound-owner-release.schema.json` |
+| Receiver acknowledgment schema | `worker/tasks/2026-07-16-0856-doing-audit-release-train/receiver-ack.schema.json` |
+| Protected `ReceiverAcknowledged` ledger commit / payload SHA-256 | pending |
+| Delivery projection commit / path | pending external verifier evidence |
+| Upstream acknowledgment copy commit / path | pending external verifier evidence |
 
-Ownership changes only when `owner-release.json` and `receiver-ack.json` repeat identical final SHAs, run inventories, zero-in-flight booleans, residual work, and cleanup owner, and each names its pushed commit. `scripts/verify-release-ownership-handoff.rb --release owner-release.json --ack receiver-ack.json` must exit zero before Unit 1 closes.
+Ownership changes only when canonical `outbound-owner-release.json`, the protected `ReceiverAcknowledged` ledger event, and acyclic `receiver-ack.json` agree on the outbound commit/path/SHA-256, receiver identities, and every protected outbound field. The acknowledgment never names a commit that contains itself. Run `scripts/verify-release-ownership-handoff.rb --release worker/tasks/2026-07-16-0856-doing-audit-release-train/outbound-owner-release.json --ack worker/tasks/2026-07-16-0856-doing-audit-release-train/receiver-ack.json --delivery-ack-commit "$DELIVERY_ACK_COMMIT" --delivery-ack-path "$DELIVERY_ACK_PATH" --upstream-ack-commit "$UPSTREAM_ACK_COMMIT" --upstream-ack-path worker/tasks/2026-07-16-0856-doing-audit-release-train/receiver-ack.json --output "$CLEANUP_ROOT/ownership.json"`; it must independently prove protected-ref ancestry/stability and exact acknowledgment bytes in both remote commit trees before Unit 0 or cleanup closes.
 
 ## Human-Only Dispositions
 
