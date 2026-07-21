@@ -425,8 +425,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         windowFrame: CGRect
     ) -> [ObservedAccessibilityElement] {
         let observedTypes: [XCUIElement.ElementType] = [
-            .scrollView, .navigationBar, .toolbar, .tabBar, .keyboard, .sheet, .alert,
-            .button, .switch, .textField, .secureTextField, .link, .slider, .stepper,
+            .scrollView, .collectionView, .navigationBar, .toolbar, .tabBar, .keyboard, .sheet, .alert,
+            .button, .switch, .textField, .secureTextField, .textView, .link, .slider, .stepper,
             .staticText
         ]
         return observedTypes.flatMap { type in
@@ -465,7 +465,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         windowFrame: CGRect,
         requiresSystemTabBar: Bool
     ) -> ObservedDeepScrollEvidence {
-        let scrollViews = app.scrollViews.allElementsBoundByIndex.filter(\.exists)
+        let scrollViews = (
+            app.scrollViews.allElementsBoundByIndex
+                + app.collectionViews.allElementsBoundByIndex
+        ).filter(\.exists)
         guard let primarySurface = scrollViews.max(by: { frameArea($0.frame) < frameArea($1.frame) }) else {
             let finding = ObservedAccessibilityFinding(
                 kind: .terminalNotReached,
@@ -572,7 +575,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         elements: [ObservedAccessibilityElement],
         viewport: ObservedRect
     ) -> ObservedAccessibilityElement? {
-        let excludedTypes = Self.chromeTypes.union(["application", "window", "scrollView"])
+        let excludedTypes = Self.chromeTypes.union(["application", "window", "scrollView", "collectionView"])
         return elements
             .filter { element in
                 element.exists
@@ -678,6 +681,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case .application: "application"
         case .window: "window"
         case .scrollView: "scrollView"
+        case .collectionView: "collectionView"
         case .navigationBar: "navigationBar"
         case .toolbar: "toolbar"
         case .tabBar: "tabBar"
@@ -688,6 +692,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case .switch: "switch"
         case .textField: "textField"
         case .secureTextField: "secureTextField"
+        case .textView: "textView"
         case .link: "link"
         case .slider: "slider"
         case .stepper: "stepper"

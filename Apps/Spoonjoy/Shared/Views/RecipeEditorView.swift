@@ -66,15 +66,22 @@ struct RecipeEditorView: View {
                 }
             }
 
-            Section("Recipe") {
+            Section {
                 TextField("Title", text: $draft.title)
                     .accessibilityIdentifier("recipe-editor.title")
+                    .accessibilityLabel("Title")
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                 TextEditor(text: descriptionText)
                     .frame(minHeight: 88)
+                    .accessibilityLabel("Description")
                 TextField("Servings", text: servingsText)
+                    .accessibilityLabel("Servings")
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            } header: {
+                editorSectionHeader("Recipe")
             }
 
-            Section("Steps") {
+            Section {
                 ForEach($draft.steps) { $step in
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -87,41 +94,66 @@ struct RecipeEditorView: View {
                                 Label("Delete Step", systemImage: "trash")
                             }
                             .labelStyle(.iconOnly)
+                            .frame(
+                                width: KitchenTableTheme.minimumTouchTarget,
+                                height: KitchenTableTheme.minimumTouchTarget
+                            )
+                            .contentShape(Rectangle())
                             .disabled(isSubmitting)
                         }
 
                         TextField("Step title", text: optionalText($step.title))
+                            .accessibilityLabel("Step title")
+                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                         TextEditor(text: $step.description)
                             .frame(minHeight: 72)
-                        Stepper(value: durationBinding($step.duration), in: 0...720, step: 1) {
-                            Text("Duration \(step.duration ?? 0) minutes")
-                        }
+                            .accessibilityLabel("Step description")
+                        durationControl($step.duration)
 
                         let priorSteps = priorSteps(for: step)
                         if !priorSteps.isEmpty {
-                            DisclosureGroup("Uses Output From") {
+                            DisclosureGroup {
                                 ForEach(priorSteps) { priorStep in
                                     Toggle(
                                         "Step \(priorStep.stepNum)",
                                         isOn: outputUseBinding($step.outputStepNums, outputStepNum: priorStep.stepNum)
                                     )
                                 }
+                            } label: {
+                                Text("Uses Output From")
+                                    .frame(
+                                        maxWidth: .infinity,
+                                        minHeight: KitchenTableTheme.minimumTouchTarget,
+                                        alignment: .leading
+                                    )
                             }
                         }
 
                         ForEach($step.ingredients) { $ingredient in
-                            HStack {
+                            VStack(alignment: .leading, spacing: 8) {
                                 TextField("Ingredient", text: $ingredient.name)
-                                TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
-                                    .frame(minWidth: 72)
-                                TextField("Unit", text: optionalText($ingredient.unit))
-                                Button(role: .destructive) {
-                                    removeIngredient(id: ingredient.id, from: step.id)
-                                } label: {
-                                    Label("Delete Ingredient", systemImage: "minus.circle")
+                                    .accessibilityLabel("Ingredient")
+                                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                                HStack(spacing: 12) {
+                                    TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
+                                        .accessibilityLabel("Quantity")
+                                        .frame(minWidth: 88, minHeight: KitchenTableTheme.minimumTouchTarget)
+                                    TextField("Unit", text: optionalText($ingredient.unit))
+                                        .accessibilityLabel("Unit")
+                                        .frame(minWidth: 72, minHeight: KitchenTableTheme.minimumTouchTarget)
+                                    Button(role: .destructive) {
+                                        removeIngredient(id: ingredient.id, from: step.id)
+                                    } label: {
+                                        Label("Delete Ingredient", systemImage: "minus.circle")
+                                    }
+                                    .labelStyle(.iconOnly)
+                                    .frame(
+                                        width: KitchenTableTheme.minimumTouchTarget,
+                                        height: KitchenTableTheme.minimumTouchTarget
+                                    )
+                                    .contentShape(Rectangle())
+                                    .disabled(isSubmitting)
                                 }
-                                .labelStyle(.iconOnly)
-                                .disabled(isSubmitting)
                             }
                         }
 
@@ -130,6 +162,12 @@ struct RecipeEditorView: View {
                         } label: {
                             Label("Add Ingredient", systemImage: "plus.circle")
                         }
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: KitchenTableTheme.minimumTouchTarget,
+                            alignment: .leading
+                        )
+                        .contentShape(Rectangle())
                         .disabled(isSubmitting)
                     }
                     .padding(.vertical, 6)
@@ -145,9 +183,28 @@ struct RecipeEditorView: View {
                     Label("Add Step", systemImage: "plus.circle")
                 }
                 .disabled(isSubmitting)
+            } header: {
+                editorSectionHeader("Steps")
             }
 
             Section {
+                if draft.recipeID != nil {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("Delete Recipe", systemImage: "trash")
+                    }
+                    .accessibilityIdentifier("recipe-editor.delete")
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                }
+            }
+        }
+        .accessibilityIdentifier("recipe-editor.scroll")
+        .scrollEdgeEffectStyle(.hard, for: .bottom)
+        .scrollContentBackground(.hidden)
+        .background(KitchenTableTheme.bone)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
                 Button {
                     Task {
                         await save()
@@ -156,25 +213,13 @@ struct RecipeEditorView: View {
                     if isSubmitting {
                         ProgressView()
                     } else {
-                        Label("Save", systemImage: "checkmark.circle")
+                        Text("Save")
                     }
                 }
                 .disabled(!activeViewModel.updatingDraft(draft).canSubmit || isSubmitting)
                 .accessibilityIdentifier("recipe-editor.save")
-
-                if draft.recipeID != nil {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label("Delete Recipe", systemImage: "trash")
-                    }
-                    .accessibilityIdentifier("recipe-editor.delete")
-                }
             }
         }
-        .accessibilityIdentifier("recipe-editor.scroll")
-        .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Recipe", role: .destructive) {
                 Task {
@@ -238,13 +283,56 @@ struct RecipeEditorView: View {
         )
     }
 
-    private func durationBinding(_ value: Binding<Int?>) -> Binding<Int> {
-        Binding(
-            get: { value.wrappedValue ?? 0 },
-            set: { nextValue in
-                value.wrappedValue = nextValue == 0 ? nil : nextValue
+    private func durationControl(_ value: Binding<Int?>) -> some View {
+        HStack(spacing: 12) {
+            Text("Duration \(value.wrappedValue ?? 0) minutes")
+            Spacer(minLength: 12)
+            HStack(spacing: 0) {
+                Button {
+                    adjustDuration(value, by: -1)
+                } label: {
+                    Image(systemName: "minus")
+                        .frame(
+                            width: KitchenTableTheme.minimumTouchTarget,
+                            height: KitchenTableTheme.minimumTouchTarget
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Decrease duration")
+                .disabled((value.wrappedValue ?? 0) == 0 || isSubmitting)
+
+                Divider()
+                    .frame(height: 24)
+
+                Button {
+                    adjustDuration(value, by: 1)
+                } label: {
+                    Image(systemName: "plus")
+                        .frame(
+                            width: KitchenTableTheme.minimumTouchTarget,
+                            height: KitchenTableTheme.minimumTouchTarget
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Increase duration")
+                .disabled((value.wrappedValue ?? 0) >= 720 || isSubmitting)
             }
-        )
+            .background(.thinMaterial)
+            .clipShape(.capsule)
+        }
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+    }
+
+    private func adjustDuration(_ value: Binding<Int?>, by delta: Int) {
+        let nextValue = min(720, max(0, (value.wrappedValue ?? 0) + delta))
+        value.wrappedValue = nextValue == 0 ? nil : nextValue
+    }
+
+    private func editorSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .textCase(nil)
     }
 
     @MainActor private func save() async {

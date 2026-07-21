@@ -111,7 +111,9 @@ require_tokens(ios_observer, [
   "deep-scroll-evidence",
   "case \"recipe-editor\": \"Recipe\"",
   "case \"recipe-covers\": \"Photo Studio\"",
-  "case \"cook-mode\": \"Current cooking step 1, Boil pasta\""
+  "case \"cook-mode\": \"Current cooking step 1, Boil pasta\"",
+  "app.collectionViews.allElementsBoundByIndex",
+  ".collectionView"
 ])
 forbid_tokens(ios_observer, [
   "element.isHittable",
@@ -163,7 +165,13 @@ require_tokens(mac_observer, [
   "profile.graph.kitchen-visitors"
 ])
 
-require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", ["recipe-editor.scroll"])
+require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
+  "recipe-editor.scroll",
+  ".scrollEdgeEffectStyle(.hard, for: .bottom)",
+  "ToolbarItem(placement: .confirmationAction)",
+  "private func adjustDuration(",
+  ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
+])
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift", ["recipe-covers.scroll"])
 require_tokens("Apps/Spoonjoy/Shared/Views/ProfileView.swift", ["profile.scroll"])
 
