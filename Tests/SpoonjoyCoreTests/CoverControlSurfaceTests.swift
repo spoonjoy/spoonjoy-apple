@@ -1241,6 +1241,7 @@ struct CoverControlSurfaceTests {
 
         let uploadTokens = [
             #"Text("Photo Studio")"#,
+            #".padding(.vertical, 12)"#,
             #"@State private var shouldGenerateEditorialCover = true"#,
             #"@State private var shouldPostUploadedPhotoAsSpoon = true"#,
             #"@State private var spoonNote = """#,
@@ -1248,6 +1249,7 @@ struct CoverControlSurfaceTests {
             #"@State private var spoonCookedAt = """#,
             #"Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)"#,
             #"Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)"#,
+            #".padding(.vertical, 8)"#,
             #"DisclosureGroup {"#,
             #"Text("Spoon details")"#,
             #"TextField("Note", text: $spoonNote)"#,

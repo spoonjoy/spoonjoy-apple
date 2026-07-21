@@ -177,9 +177,9 @@ struct RecipeCoverControlsView: View {
                 close()
             } label: {
                 Label("Recipe", systemImage: "chevron.left")
+                    .padding(.vertical, 12)
             }
             .buttonStyle(.borderless)
-            .controlSize(.large)
 
             Text("Photo Studio")
                 .font(KitchenTableTheme.displayTitle)
@@ -274,9 +274,9 @@ struct RecipeCoverControlsView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)
-                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                    .padding(.vertical, 8)
                 Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)
-                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                    .padding(.vertical, 8)
             }
             .font(KitchenTableTheme.uiLabel)
 
