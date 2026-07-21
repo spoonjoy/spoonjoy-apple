@@ -11,6 +11,69 @@ private let supportedCoverPhotoContentTypes = [
     "image/heif": "jpg"
 ]
 
+#if DEBUG
+private enum RecipeCoverScreenshotFixture {
+    static let environmentKey = "SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE"
+    static let actionStates = "action-states"
+
+    static var isActionStatesEnabled: Bool {
+        ProcessInfo.processInfo.environment[environmentKey] == actionStates
+    }
+
+    static func controlsData(recipe: Recipe) -> RecipeCoverControlsData {
+        let imageURL = recipe.coverImageURL
+        return RecipeCoverControlsData(
+            covers: [
+                RecipeCoverCandidate(
+                    id: "cover_primary",
+                    recipeID: recipe.id,
+                    status: "ready",
+                    sourceType: "chef-upload",
+                    imageURL: imageURL,
+                    stylizedImageURL: imageURL,
+                    displayURL: imageURL,
+                    activeVariant: .image,
+                    provenanceLabel: nil,
+                    archivedAt: nil,
+                    generationStatus: "none",
+                    failureReason: nil,
+                    isServerBacked: true,
+                    sourceImageURL: imageURL,
+                    createdAt: recipe.updatedAt
+                ),
+                RecipeCoverCandidate(
+                    id: "cover_alternate",
+                    recipeID: recipe.id,
+                    status: "ready",
+                    sourceType: "spoon",
+                    imageURL: imageURL,
+                    stylizedImageURL: nil,
+                    displayURL: imageURL,
+                    activeVariant: nil,
+                    provenanceLabel: nil,
+                    archivedAt: nil,
+                    generationStatus: "none",
+                    failureReason: nil,
+                    isServerBacked: true,
+                    sourceImageURL: imageURL,
+                    createdAt: recipe.updatedAt
+                )
+            ],
+            spoonImages: []
+        )
+    }
+
+    static var stagedPhoto: NativeStagedMediaUpload {
+        NativeStagedMediaUpload(
+            localStageID: "screenshot-cover-photo",
+            fileName: "lemon-pantry-pasta.jpg",
+            contentType: "image/jpeg",
+            byteCount: 128_000
+        )
+    }
+}
+#endif
+
 struct RecipeCoverControlsRouteView: View {
     let recipeID: String
     let initialRecipe: Recipe?
@@ -66,6 +129,13 @@ struct RecipeCoverControlsRouteView: View {
                 loadedRecipe = detail.recipe
             }
             recipe = loadedRecipe
+#if DEBUG
+            if RecipeCoverScreenshotFixture.isActionStatesEnabled {
+                data = RecipeCoverScreenshotFixture.controlsData(recipe: loadedRecipe)
+                loadMessage = nil
+                return
+            }
+#endif
             do {
                 data = try await RecipeCoverControlsData.live(
                     recipeID: loadedRecipe.id,
@@ -160,6 +230,11 @@ struct RecipeCoverControlsView: View {
         .accessibilityIdentifier("recipe-covers.scroll")
         .background(KitchenTableTheme.bone)
         .task(id: recipe.id) {
+#if DEBUG
+            if RecipeCoverScreenshotFixture.isActionStatesEnabled, stagedCoverPhoto == nil {
+                stagedCoverPhoto = RecipeCoverScreenshotFixture.stagedPhoto
+            }
+#endif
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "recipe-covers",
                 source: "RecipeCoverControlsView",

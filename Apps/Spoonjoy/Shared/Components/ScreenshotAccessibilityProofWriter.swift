@@ -280,6 +280,7 @@ enum ScreenshotAccessibilityProofWriter {
             "screenshotAuth": environment["SPOONJOY_SCREENSHOT_AUTH"] ?? "",
             "screenshotRestoreCacheOnly": environment["SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY"] ?? "",
             "screenshotAccountID": environment["SPOONJOY_SCREENSHOT_ACCOUNT_ID"] ?? "",
+            "screenshotRecipeCoversFixture": environment["SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE"] ?? "",
             "screenshotAPNsPermissionState": environment["SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE"] ?? "",
             "screenshotAPNsRegistrationState": environment["SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE"] ?? "",
             "apiBaseURL": environment["SPOONJOY_API_BASE_URL"] ?? ""

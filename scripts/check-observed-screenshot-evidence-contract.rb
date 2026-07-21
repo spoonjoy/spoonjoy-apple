@@ -177,7 +177,7 @@ require_tokens(mac_observer, [
   "performNativePageScroll",
   "kAXPressAction",
   "recipe-editor.delete",
-  "recipe-covers.saved-covers",
+  "recipe-covers.archive.cover_primary",
   "profile.graph.kitchen-visitors"
 ])
 

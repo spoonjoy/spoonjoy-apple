@@ -27,7 +27,10 @@ VALID_ROUTES = [
 ].freeze
 REQUIRED_OBSERVED_IDENTIFIERS = {
   "recipe-editor" => ["recipe-editor.title", "recipe-editor.save"],
-  "recipe-covers" => ["recipe-covers.photo-picker", "recipe-covers.generate-placeholder"],
+  "recipe-covers" => [
+    "recipe-covers.photo-picker", "recipe-covers.staged-photo-status", "recipe-covers.clear-photo",
+    "recipe-covers.save-photo", "recipe-covers.generate-placeholder", "recipe-covers.archive.cover_primary"
+  ],
   "profile" => ["profile.header"],
   "profile-graph" => ["profile-graph.row.chef_jules"],
   "unknown-link" => ["unknown-link.message"],
@@ -36,7 +39,7 @@ REQUIRED_OBSERVED_IDENTIFIERS = {
 }.freeze
 REQUIRED_DEEP_SCROLL_TERMINALS = {
   "recipe-editor" => "recipe-editor.delete",
-  "recipe-covers" => "recipe-covers.saved-covers",
+  "recipe-covers" => "recipe-covers.archive.cover_primary",
   "profile" => "profile.graph.kitchen-visitors"
 }.freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
@@ -44,6 +47,7 @@ EXPECTED_CAPTURE_VARIANTS = ["empty", "draft", "offline-retry", "provider-blocke
 EXPECTED_SHOPPING_VARIANTS = ["normal", "empty", "all-complete", "duplicate", "conflict", "offline-queued"].freeze
 EXPECTED_ROUTE_SURFACE_ANCHORS = {
   "cook-log" => ["cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
+  "recipe-covers" => ["stagedPhotoActions", "coverMutationActions"],
   "cookbooks" => ["cookbookShelfStrip", "cookbookLibrarySpread"],
   "cookbook-detail" => ["cookbookContentsIndex", "cookbookOwnerToolsDisclosure"]
 }.freeze
@@ -424,6 +428,11 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route, man
   if expected_surface_variant
     fail_check("#{proof_path} observedSurfaceVariant must be #{expected_surface_variant}") unless proof["observedSurfaceVariant"] == expected_surface_variant
   end
+  if route == "recipe-covers"
+    launch_proof = proof["launchEnvironmentProof"]
+    fail_check("#{proof_path} must bind the Photo Studio action-state fixture") unless launch_proof.is_a?(Hash) &&
+      launch_proof["screenshotRecipeCoversFixture"] == "action-states"
+  end
   if route == "shopping-list" && expected_surface_variant == "offline-queued"
     surface_state = proof["observedSurfaceState"]
     fail_check("#{proof_path} observedSurfaceState must describe queued shopping state") unless surface_state.is_a?(Hash)
@@ -628,9 +637,13 @@ when "recipe-detail"
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
-when "recipe-editor", "recipe-covers"
+when "recipe-editor"
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   fail_check("#{path} recipeSeedAccountID must be chef_ari") unless manifest["recipeSeedAccountID"] == "chef_ari"
+when "recipe-covers"
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  fail_check("#{path} recipeSeedAccountID must be chef_ari") unless manifest["recipeSeedAccountID"] == "chef_ari"
+  fail_check("#{path} recipeCoverControlsFixture must be action-states") unless manifest["recipeCoverControlsFixture"] == "action-states"
 when "cook-log"
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]

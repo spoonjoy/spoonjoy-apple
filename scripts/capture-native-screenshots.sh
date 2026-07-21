@@ -105,6 +105,7 @@ settings_capture_variant="profile"
 settings_apns_permission_state=""
 settings_apns_registration_state=""
 screenshot_auth_enabled="1"
+recipe_covers_capture_fixture=""
 expected_accessibility_source=""
 if [[ -n "$requested_route" ]]; then
   screenshot_route="$requested_route"
@@ -320,6 +321,7 @@ case "$screenshot_route" in
     ;;
   recipe-covers)
     capture_account_id="$owner_capture_account_id"
+    recipe_covers_capture_fixture="action-states"
     expected_recorded_route="recipe-covers:recipe_lemon_pantry_pasta"
     deep_link_path="recipes/recipe_lemon_pantry_pasta/covers"
     macos_window_title="Recipes"
@@ -657,9 +659,14 @@ write_design_review_success() {
     elsif route == "recipe-detail"
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
-    elsif route == "recipe-editor" || route == "recipe-covers"
+    elsif route == "recipe-editor"
       manifest["recipeSeedAccountID"] = "chef_ari"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+    elsif route == "recipe-covers"
+      manifest["recipeSeedAccountID"] = "chef_ari"
+      manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+      manifest["recipeCoverControlsFixture"] = "action-states"
+      manifest["renderedSurfaceAnchors"] = ["stagedPhotoActions", "coverMutationActions"]
     elsif route == "cook-log"
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
@@ -1327,6 +1334,7 @@ ios_launch_app() {
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT="$expected_surface_variant" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE="$recipe_covers_capture_fixture" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
       xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
@@ -1347,11 +1355,12 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT="$expected_surface_variant" \
+      SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE="$recipe_covers_capture_fixture" \
       SPOONJOY_SCREENSHOT_STATE_DIRECTORY="$macos_state_directory" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
       SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
-      open -n "$macos_app"
+      open -n -F "$macos_app"
 }
 
 set_macos_launch_environment() {
@@ -1372,6 +1381,7 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT \
+      SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE \
       SPOONJOY_SCREENSHOT_STATE_DIRECTORY \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
@@ -1397,6 +1407,7 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID "$shopping_conflict_launch_client_mutation_id"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT "$expected_surface_variant"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE "$recipe_covers_capture_fixture"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_STATE_DIRECTORY "$macos_state_directory"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
@@ -1438,6 +1449,7 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_STATE_DIRECTORY >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH >/dev/null 2>&1 || true
@@ -1857,6 +1869,9 @@ wait_for_accessibility_proof() {
       unless expected_surface_variant.empty?
         abort("surface variant mismatch") unless proof["observedSurfaceVariant"] == expected_surface_variant
       end
+      if expected_route == "recipe-covers"
+        abort("Photo Studio action fixture mismatch") unless proof.dig("launchEnvironmentProof", "screenshotRecipeCoversFixture") == "action-states"
+      end
       if expected_route == "shopping-list" && expected_surface_variant == "offline-queued"
         surface_state = proof["observedSurfaceState"]
         abort("queued shopping state mismatch") unless surface_state.is_a?(Hash) &&
@@ -2109,6 +2124,7 @@ capture_ios_observed_accessibility() {
     --arg shoppingConflictID "$shopping_conflict_launch_client_mutation_id" \
     --arg route "$screenshot_route" \
     --arg surfaceVariant "$expected_surface_variant" \
+    --arg recipeCoversFixture "$recipe_covers_capture_fixture" \
     --arg contentSizeCategory "$content_size_category" \
     --arg proofPath "$screenshot_proof_path" \
     --arg accessibilityProofPath "$ios_accessibility_proof_runtime_path" \
@@ -2128,6 +2144,7 @@ capture_ios_observed_accessibility() {
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID: $shoppingConflictID,
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE: $route,
       SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT: $surfaceVariant,
+      SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE: $recipeCoversFixture,
       SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY: $contentSizeCategory,
       SPOONJOY_SCREENSHOT_PROOF_PATH: $proofPath,
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH: $accessibilityProofPath,
@@ -2590,7 +2607,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "open -n $macos_app" \
+      "open -n -F $macos_app" \
       "$capture_log" \
       "Spoonjoy macOS launch timeout or failure occurred before screenshot capture." \
       "Launch the app from an unlocked desktop session and rerun screenshot capture."
@@ -2680,7 +2697,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "open -n $macos_app" \
+        "open -n -F $macos_app" \
         "$capture_log" \
         "Spoonjoy macOS relaunch timeout or failure occurred before screenshot capture." \
         "Launch the app from an unlocked desktop session and rerun screenshot capture."

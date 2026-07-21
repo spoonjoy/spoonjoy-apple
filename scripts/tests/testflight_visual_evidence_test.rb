@@ -79,6 +79,20 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     assert_includes result.output, "deep-scroll screenshot"
   end
 
+  def test_rejects_recipe_covers_without_the_action_state_fixture
+    summary = JSON.parse(matrix_summary_path.read)
+    row = summary.fetch("routes").find { |candidate| candidate.fetch("name") == "recipe-covers" }
+    review_path = Pathname.new(row.fetch("designReview").fetch("path"))
+    review = JSON.parse(review_path.read)
+    review.delete("recipeCoverControlsFixture")
+    write_json(review_path, review)
+    refresh_route_artifact_hash("recipe-covers", "designReview", review_path)
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "Photo Studio action-state fixture"
+  end
+
   def test_rejects_a_partial_route_matrix
     summary_path = matrix_summary_path
     summary = JSON.parse(summary_path.read)
@@ -485,7 +499,6 @@ class TestFlightVisualEvidenceTest < Minitest::Test
         path.binwrite(png_bytes("#{route}:#{relative_path}"))
       end
     end
-
     proof_paths = %w[
       apple/accessibility-ios.json apple/accessibility-ipad.json apple/accessibility-macos.json
       apple/observed-ios.json apple/observed-ios-ax.json apple/observed-ipad.json apple/observed-macos.json
@@ -508,6 +521,10 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       review["deepScrollScreenshotArtifacts"] = deep_scroll_paths.transform_values do |relative_path|
         artifact_entry(route_root.join(relative_path), relative_path)
       end
+    end
+    if capture_route_for(route) == "recipe-covers"
+      review["recipeCoverControlsFixture"] = "action-states"
+      review["renderedSurfaceAnchors"] = ["stagedPhotoActions", "coverMutationActions"]
     end
     review_path = route_root.join("design-review.json")
     write_json(review_path, review)

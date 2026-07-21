@@ -186,6 +186,7 @@ SCRIPT_CONTRACTS = {
       "Front display did change",
       "distinct_color_buckets",
       "edge_ratio",
+      "open -n -F \"$macos_app\"",
       "macOS launch timeout",
       "proof wait timed out",
       "cleanup timeout",
@@ -566,7 +567,7 @@ def add_accessibility_proofs!(root, manifest, stem)
       "platform" => platform,
       "route" => route,
       "source" => accessibility_source(route),
-      "launchEnvironmentProof" => {},
+      "launchEnvironmentProof" => route == "recipe-covers" ? {"screenshotRecipeCoversFixture" => "action-states"} : {},
       "screenshotStateSnapshotProof" => {
         "stateDirectoryResolved" => true,
         "appSnapshotPresent" => true,
@@ -617,7 +618,10 @@ def add_accessibility_proofs!(root, manifest, stem)
                        end
     required_route_identifiers = {
       "recipe-editor" => ["recipe-editor.title", "recipe-editor.save"],
-      "recipe-covers" => ["recipe-covers.photo-picker", "recipe-covers.generate-placeholder"],
+      "recipe-covers" => [
+        "recipe-covers.photo-picker", "recipe-covers.staged-photo-status", "recipe-covers.clear-photo",
+        "recipe-covers.save-photo", "recipe-covers.generate-placeholder", "recipe-covers.archive.cover_primary"
+      ],
       "profile" => ["profile.header"],
       "profile-graph" => ["profile-graph.row.chef_jules"],
       "unknown-link" => ["unknown-link.message"],
@@ -626,7 +630,7 @@ def add_accessibility_proofs!(root, manifest, stem)
     }.fetch(route, [])
     terminal_identifier = {
       "recipe-editor" => "recipe-editor.delete",
-      "recipe-covers" => "recipe-covers.saved-covers",
+      "recipe-covers" => "recipe-covers.archive.cover_primary",
       "profile" => "profile.graph.kitchen-visitors"
     }.fetch(route, "fixture.terminal")
     if platform == "macos"
@@ -650,12 +654,12 @@ def add_accessibility_proofs!(root, manifest, stem)
       if terminal_identifier != "fixture.terminal"
         terminal = {
           "identifier" => terminal_identifier,
-          "role" => route == "recipe-covers" ? "AXStaticText" : "AXButton",
+          "role" => "AXButton",
           "title" => terminal_identifier,
           "frame" => { "x" => 10, "y" => 40, "width" => 120, "height" => 44 },
           "enabled" => true,
           "focused" => false,
-          "actions" => route == "recipe-covers" ? [] : ["AXPress"]
+          "actions" => ["AXPress"]
         }
         observed["deepScroll"] = {
           "route" => route,
@@ -672,10 +676,10 @@ def add_accessibility_proofs!(root, manifest, stem)
       terminal = {
         "identifier" => terminal_identifier,
         "label" => "Terminal",
-        "type" => "staticText",
+        "type" => terminal_identifier == "recipe-covers.archive.cover_primary" ? "button" : "staticText",
         "frame" => { "x" => 10, "y" => 40, "width" => 44, "height" => 40 },
         "exists" => true,
-        "hittable" => false,
+        "hittable" => terminal_identifier == "recipe-covers.archive.cover_primary",
         "enabled" => true,
         "focused" => nil
       }
@@ -1769,7 +1773,8 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       if [[ -f "$PWD/contract-content-size" ]] && [[ "$(cat "$PWD/contract-content-size")" == "accessibility-extra-extra-extra-large" ]]; then
         observed_dynamic_type="accessibility5"
       fi
-      printf '{"platform":"%s","route":"%s","source":"%s","launchEnvironmentProof":{},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"%s","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$observed_dynamic_type" "$bundle" > "$output_path"
+      recipe_covers_fixture="${SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE:-${SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE:-}}"
+      printf '{"platform":"%s","route":"%s","source":"%s","launchEnvironmentProof":{"screenshotRecipeCoversFixture":"%s"},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"%s","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$recipe_covers_fixture" "$observed_dynamic_type" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
@@ -1991,7 +1996,8 @@ PY
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      printf '{"platform":"%s","route":"%s","source":"%s","launchEnvironmentProof":{},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$bundle" > "$output_path"
+      recipe_covers_fixture="${SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE:-}"
+      printf '{"platform":"%s","route":"%s","source":"%s","launchEnvironmentProof":{"screenshotRecipeCoversFixture":"%s"},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$recipe_covers_fixture" "$bundle" > "$output_path"
     }
     proof_path="${SPOONJOY_SCREENSHOT_PROOF_PATH:-}"
     accessibility_proof_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"

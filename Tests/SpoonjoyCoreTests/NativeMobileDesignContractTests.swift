@@ -261,7 +261,8 @@ struct NativeMobileDesignContractTests {
                 "Spoonjoy stopped being the front display during screenshot capture",
                 "Front display did change",
                 "distinct_color_buckets",
-                "edge_ratio"
+                "edge_ratio",
+                "open -n -F \"$macos_app\""
             ],
             forbids: [
                 "registered as running before foreground pixel validation",
@@ -389,6 +390,10 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "recipe-editor:recipe_lemon_pantry_pasta",
                 "recipe-covers:recipe_lemon_pantry_pasta",
+                "SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE",
+                "recipeCoverControlsFixture",
+                "stagedPhotoActions",
+                "coverMutationActions",
                 "profile:ari",
                 "profile-graph:ari:kitchen-visitors:1",
                 "spoonjoy://unknown"
@@ -402,7 +407,7 @@ struct NativeMobileDesignContractTests {
                 "recipe-editor.save",
                 "recipe-editor.delete",
                 "recipe-covers.photo-picker",
-                "recipe-covers.saved-covers",
+                "recipe-covers.archive.cover_primary",
                 "profile.header",
                 "profile.graph.kitchen-visitors",
                 "profile-graph.row.chef_jules",

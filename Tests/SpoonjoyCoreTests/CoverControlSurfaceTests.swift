@@ -1385,6 +1385,45 @@ struct CoverControlSurfaceTests {
         )
     }
 
+    @Test("native screenshot fixtures exercise staged and server-backed photo studio actions")
+    func nativeScreenshotFixturesExercisePhotoStudioActionStates() throws {
+        let source = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+        let proofWriter = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift")
+        let capture = try readCoverControlsRepoFile("scripts/capture-native-screenshots.sh")
+        let validator = try readCoverControlsRepoFile("scripts/validate-design-review.rb")
+        for token in [
+            "#if DEBUG",
+            #"static let environmentKey = "SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE""#,
+            #"static let actionStates = "action-states""#,
+            #"id: "cover_primary""#,
+            #"id: "cover_alternate""#,
+            "isServerBacked: true",
+            "activeVariant: .image",
+            #"localStageID: "screenshot-cover-photo""#,
+            "RecipeCoverScreenshotFixture.controlsData(recipe: loadedRecipe)",
+            "stagedCoverPhoto = RecipeCoverScreenshotFixture.stagedPhoto"
+        ] {
+            #expect(source.contains(token), "Photo Studio screenshot action fixture missing token \(token)")
+        }
+        #expect(proofWriter.contains(#""screenshotRecipeCoversFixture": environment["SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE"]"#))
+        for token in [
+            #"recipe_covers_capture_fixture="action-states""#,
+            "SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE",
+            "SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE",
+            #"manifest["recipeCoverControlsFixture"] = "action-states""#,
+            #"manifest["renderedSurfaceAnchors"] = ["stagedPhotoActions", "coverMutationActions"]"#
+        ] {
+            #expect(capture.contains(token), "Photo Studio screenshot capture missing token \(token)")
+        }
+        for token in [
+            #""recipe-covers" => "recipe-covers.archive.cover_primary""#,
+            #"launch_proof["screenshotRecipeCoversFixture"] == "action-states""#,
+            #"manifest["recipeCoverControlsFixture"] == "action-states""#
+        ] {
+            #expect(validator.contains(token), "Photo Studio screenshot validation missing token \(token)")
+        }
+    }
+
     private static func cover(
         id: String = "cover/raw",
         status: String = "ready",

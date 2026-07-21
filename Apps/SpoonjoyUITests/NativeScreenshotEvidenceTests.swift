@@ -316,8 +316,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let visible = required.subtracting(routeRequiredScrollIdentifiers(route: "recipe-covers"))
 
         XCTAssertTrue(required.contains("recipe-covers.generate-placeholder"))
+        XCTAssertTrue(required.contains("recipe-covers.archive.cover_primary"))
         XCTAssertFalse(visible.contains("recipe-covers.generate-placeholder"))
+        XCTAssertFalse(visible.contains("recipe-covers.archive.cover_primary"))
         XCTAssertTrue(visible.contains("recipe-covers.photo-picker"))
+        XCTAssertTrue(visible.contains("recipe-covers.staged-photo-status"))
+        XCTAssertTrue(visible.contains("recipe-covers.clear-photo"))
     }
 
     func testAccessibilityTextAllowsForegroundActionsToStartBelowTheInitialViewport() {
@@ -326,28 +330,29 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         visible.subtract(routeRequiredAccessibilityScrollIdentifiers(route: "recipe-covers"))
 
         XCTAssertFalse(visible.contains("recipe-covers.photo-picker"))
+        XCTAssertFalse(visible.contains("recipe-covers.save-photo"))
         XCTAssertFalse(visible.contains("recipe-covers.generate-placeholder"))
     }
 
     func testNamedTerminalStopsWhenItIsFullyVisible() {
         let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 500)
         let visible = observedElement(
-            identifier: "recipe-covers.saved-covers",
+            identifier: "recipe-covers.archive.cover_primary",
             frame: ObservedRect(x: 20, y: 520, width: 180, height: 44)
         )
         let clipped = observedElement(
-            identifier: "recipe-covers.saved-covers",
+            identifier: "recipe-covers.archive.cover_primary",
             frame: ObservedRect(x: 20, y: 580, width: 180, height: 44)
         )
 
         XCTAssertTrue(namedTerminalIsVisible(
             in: [visible],
-            terminalIdentifier: "recipe-covers.saved-covers",
+            terminalIdentifier: "recipe-covers.archive.cover_primary",
             viewport: viewport
         ))
         XCTAssertFalse(namedTerminalIsVisible(
             in: [clipped],
-            terminalIdentifier: "recipe-covers.saved-covers",
+            terminalIdentifier: "recipe-covers.archive.cover_primary",
             viewport: viewport
         ))
     }
@@ -854,7 +859,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case "recipes", "saved-recipes": ["Lemon Pantry Pasta"]
         case "recipe-detail": ["Lemon Pantry Pasta", "Start Cooking"]
         case "recipe-editor": ["Recipe", "Title", "Save"]
-        case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Add Photo", "Generate Placeholder"]
+        case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Replace Photo", "Photo ready", "Clear", "Save Photo", "Generate Placeholder"]
         case "cook-mode": ["Lemon Pantry Pasta", "Current cooking step 1, Boil pasta", "Mark the current step done", "Tools", "Ingredients"]
         case "cook-log": ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"]
         case "cookbooks", "cookbook-detail": ["Weeknights"]
@@ -875,7 +880,14 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case "recipe-editor":
             ["recipe-editor.title", "recipe-editor.save"]
         case "recipe-covers":
-            ["recipe-covers.photo-picker", "recipe-covers.generate-placeholder"]
+            [
+                "recipe-covers.photo-picker",
+                "recipe-covers.staged-photo-status",
+                "recipe-covers.clear-photo",
+                "recipe-covers.save-photo",
+                "recipe-covers.generate-placeholder",
+                "recipe-covers.archive.cover_primary"
+            ]
         case "profile":
             ["profile.header"]
         case "profile-graph":
@@ -903,7 +915,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     private func routeRequiredScrollIdentifiers(route: String) -> Set<String> {
         switch route {
         case "recipe-covers":
-            ["recipe-covers.generate-placeholder"]
+            ["recipe-covers.generate-placeholder", "recipe-covers.archive.cover_primary"]
         default:
             []
         }
@@ -912,7 +924,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     private func routeRequiredAccessibilityScrollIdentifiers(route: String) -> Set<String> {
         switch route {
         case "recipe-covers":
-            ["recipe-covers.photo-picker"]
+            ["recipe-covers.photo-picker", "recipe-covers.save-photo"]
         default:
             []
         }
@@ -921,7 +933,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     private func routeTerminalIdentifier(route: String) -> String? {
         switch route {
         case "recipe-editor": "recipe-editor.delete"
-        case "recipe-covers": "recipe-covers.saved-covers"
+        case "recipe-covers": "recipe-covers.archive.cover_primary"
         case "profile": "profile.graph.kitchen-visitors"
         default: nil
         }

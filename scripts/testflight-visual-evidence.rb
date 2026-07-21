@@ -289,6 +289,12 @@ module TestFlightVisualEvidence
       raise Error, "route #{name} design review contains a blocker" if TestFlightVisualEvidence.contains_blocked_true?(design)
       raise Error, "route #{name} design review blockers must be empty" unless design["blockers"] == []
       raise Error, "route #{name} design review route mismatch" unless design["screenshotRoute"] == row["route"]
+      if row["route"] == "recipe-covers"
+        raise Error, "route #{name} must bind the Photo Studio action-state fixture" unless design["recipeCoverControlsFixture"] == "action-states"
+        unless design["renderedSurfaceAnchors"] == ["stagedPhotoActions", "coverMutationActions"]
+          raise Error, "route #{name} must prove staged-photo and cover-mutation action surfaces"
+        end
+      end
 
       design_portable = add_selected(design_path, relative_source_path(design_path, "route #{name} design review"))
       screenshots = {}
