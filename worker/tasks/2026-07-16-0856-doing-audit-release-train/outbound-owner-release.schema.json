@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spoonjoy.app/schemas/outbound-owner-release.schema.json",
+  "title": "Spoonjoy terminal outbound owner release",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "releaseTaskID",
+    "receiverTaskID",
+    "receiverDeskTask",
+    "createdAt",
+    "web",
+    "native",
+    "provider",
+    "zeroInFlightWebMutations",
+    "zeroInFlightNativeMutations",
+    "zeroInFlightProviderMutations",
+    "residualBlockers",
+    "ownership",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "releaseTaskID": { "const": "019f2e25-2fc3-75b2-8ba3-335f3777115a" },
+    "receiverTaskID": { "const": "019f5c80-bbe0-76a1-82eb-b0c715d035e7" },
+    "receiverDeskTask": { "const": "spoonjoy/cross-client-delivery" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "web": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha", "tree", "workerDeploymentID", "productionDeployRunID"],
+      "properties": {
+        "sha": { "$ref": "#/$defs/gitSHA" },
+        "tree": { "$ref": "#/$defs/gitSHA" },
+        "workerDeploymentID": { "$ref": "#/$defs/nonPlaceholder" },
+        "productionDeployRunID": { "$ref": "#/$defs/positiveIntegerString" }
+      }
+    },
+    "native": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha", "mainRunID", "testFlight"],
+      "properties": {
+        "sha": { "$ref": "#/$defs/gitSHA" },
+        "mainRunID": { "$ref": "#/$defs/positiveIntegerString" },
+        "testFlight": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["appID", "buildID", "betaDetailID", "groupID", "version", "buildNumber", "internalAttached", "externalGroupIDs", "testersNotified"],
+          "properties": {
+            "appID": { "const": "6787505444" },
+            "buildID": { "$ref": "#/$defs/nonPlaceholder" },
+            "betaDetailID": { "$ref": "#/$defs/nonPlaceholder" },
+            "groupID": { "const": "31d60f58-aef9-4d44-b047-3a1f0dc61b5e" },
+            "version": { "$ref": "#/$defs/nonPlaceholder" },
+            "buildNumber": { "$ref": "#/$defs/positiveIntegerString" },
+            "internalAttached": { "const": true },
+            "externalGroupIDs": { "type": "array", "maxItems": 0 },
+            "testersNotified": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["appleCallbackMode", "state", "proofArtifact"],
+      "properties": {
+        "appleCallbackMode": { "enum": ["legacy-form-post", "clean-form-post"] },
+        "state": { "const": "terminal" },
+        "proofArtifact": { "$ref": "#/$defs/repoRelativePath" }
+      }
+    },
+    "zeroInFlightWebMutations": { "const": true },
+    "zeroInFlightNativeMutations": { "const": true },
+    "zeroInFlightProviderMutations": { "const": true },
+    "residualBlockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/nonPlaceholder" }
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["webSourceOwner", "nativeSourceOwner", "providerOwner", "testFlightOwner", "artifactOwner", "webCleanupOwner", "nativeCleanupOwner", "worktrees"],
+      "properties": {
+        "webSourceOwner": { "const": "019f5c80-bbe0-76a1-82eb-b0c715d035e7" },
+        "nativeSourceOwner": { "const": "019f5c80-bbe0-76a1-82eb-b0c715d035e7" },
+        "providerOwner": { "const": "019f5c80-bbe0-76a1-82eb-b0c715d035e7" },
+        "testFlightOwner": { "const": "019f5c80-bbe0-76a1-82eb-b0c715d035e7" },
+        "artifactOwner": { "const": "spoonjoy/cross-client-delivery" },
+        "webCleanupOwner": { "$ref": "#/$defs/nonPlaceholder" },
+        "nativeCleanupOwner": { "$ref": "#/$defs/nonPlaceholder" },
+        "worktrees": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "repo", "head", "owner", "disposition"],
+            "properties": {
+              "path": { "type": "string", "pattern": "^/" },
+              "repo": { "enum": ["spoonjoy-v2", "spoonjoy-apple"] },
+              "head": { "$ref": "#/$defs/gitSHA" },
+              "owner": { "$ref": "#/$defs/nonPlaceholder" },
+              "disposition": { "enum": ["retained", "removed"] }
+            }
+          }
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["indexPath", "indexSHA256", "closureArtifactPath", "closureArtifactSHA256"],
+      "properties": {
+        "indexPath": { "$ref": "#/$defs/repoRelativePath" },
+        "indexSHA256": { "$ref": "#/$defs/sha256" },
+        "closureArtifactPath": { "$ref": "#/$defs/repoRelativePath" },
+        "closureArtifactSHA256": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "$defs": {
+    "gitSHA": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "positiveIntegerString": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+    "repoRelativePath": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\s).+$" },
+    "nonPlaceholder": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!.*(?:TODO|TBD|placeholder|latest|unknown|pending|inherited|n/a)).+$"
+    }
+  }
+}
