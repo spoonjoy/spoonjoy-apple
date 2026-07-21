@@ -69,6 +69,7 @@ jobs:
             swift_log="$RUNNER_TEMP/swift-tests.log"
             swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$swift_log"
             ruby scripts/fail-on-warning.rb --log "$swift_log"
+
           elif [ -d Spoonjoy.xcodeproj ]; then
             ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
             ios_test_log="$RUNNER_TEMP/xcode-ios-tests.log"
@@ -83,6 +84,22 @@ jobs:
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
+      - name: Run non-launch native UI geometry regressions
+        run: |
+          set -euo pipefail
+          ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          ui_geometry_log="$RUNNER_TEMP/native-ui-geometry-tests.log"
+          xcodebuild test \
+            -project Spoonjoy.xcodeproj \
+            -scheme "Spoonjoy iOS" \
+            -configuration BootstrapDebug \
+            -destination "$ios_destination" \
+            -only-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests \
+            -skip-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests/testObservedAccessibilityAndGeometry \
+            CODE_SIGNING_ALLOWED=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            2>&1 | tee "$ui_geometry_log"
+          ruby scripts/fail-on-warning.rb --log "$ui_geometry_log"
 
   native-scenario-verifier:
     name: Native scenario verifier

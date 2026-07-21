@@ -93,6 +93,24 @@ struct TestFlightAutomationContractTests {
         )
     }
 
+    @Test("Protected pull-request CI runs non-launch native UI geometry regressions")
+    func protectedNativeCIRunsNonLaunchGeometryTests() throws {
+        let workflow = try readTestFlightAutomationRepoFile(".github/workflows/native.yml")
+
+        expectTestFlightAutomationContent(
+            workflow,
+            in: ".github/workflows/native.yml",
+            contains: [
+                "Run non-launch native UI geometry regressions",
+                "xcodebuild test",
+                "-only-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests",
+                "-skip-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests/testObservedAccessibilityAndGeometry",
+                "GCC_TREAT_WARNINGS_AS_ERRORS=YES",
+                "ruby scripts/fail-on-warning.rb --log \"$ui_geometry_log\""
+            ]
+        )
+    }
+
     @Test("Every external workflow action and distribution toolkit revision is immutable")
     func workflowDependenciesAreImmutable() throws {
         let workflowPaths = [

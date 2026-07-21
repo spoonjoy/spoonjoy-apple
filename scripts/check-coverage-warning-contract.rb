@@ -119,12 +119,21 @@ def check_warning_script_behavior
     scaler_diagnostic_log = dir_path.join("scaler-diagnostic.log")
     generic_io_service_diagnostic_log = dir_path.join("generic-io-service-diagnostic.log")
     other_driver_diagnostic_log = dir_path.join("other-driver-diagnostic.log")
+    simulator_launch_metric_log = dir_path.join("simulator-launch-metric.log")
+    spoofed_simulator_launch_metric_log = dir_path.join("spoofed-simulator-launch-metric.log")
     benign_failure_language_log = dir_path.join("benign-failure-language.log")
     clean_log.write("Build complete! (0.20s)\nTest run passed.\n")
     warning_log.write("Sources/SpoonjoyCore/Foo.swift:12:8: warning: variable was never mutated\n")
     scaler_diagnostic_log.write("IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver\n")
     generic_io_service_diagnostic_log.write("IOServiceMatchingfailed\n")
     other_driver_diagnostic_log.write("IOServiceMatchingfailed for: UnexpectedScalerDriver\n")
+    simulator_launch_metric_log.write(<<~LOG)
+      2026-07-21 11:59:33.005687-0700 SpoonjoyUITests-Runner[2491:106082690] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+      2026-07-21 11:59:33.045664-0700 SpoonjoyUITests-Runner[2491:106082691] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+    LOG
+    spoofed_simulator_launch_metric_log.write(
+      "2026-07-21 11:59:33.005687-0700 SpoonjoyUITests-Runner[2491:106082690] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.UnexpectedMetric\n"
+    )
     benign_failure_language_log.write("Test \"failed upload remains queued\" passed\n")
 
     clean, = run_command("ruby", WARNING_SCRIPT.to_s, "--log", clean_log.to_s)
@@ -169,6 +178,28 @@ def check_warning_script_behavior
       record_failure("warning script must fail when IOServiceMatchingfailed names another driver")
     elsif !("#{other_driver_stdout}\n#{other_driver_stderr}".include?("UnexpectedScalerDriver"))
       record_failure("warning script failure should report the unexpected IOService driver")
+    end
+
+    simulator_launch_metric, = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      simulator_launch_metric_log.to_s
+    )
+    unless simulator_launch_metric
+      record_failure("warning script must allowlist only the exact UI-test runner launch metric diagnostics")
+    end
+
+    spoofed_launch_metric, spoofed_stdout, spoofed_stderr = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      spoofed_simulator_launch_metric_log.to_s
+    )
+    if spoofed_launch_metric
+      record_failure("warning script must fail on an unrecognized simulator launch metric diagnostic")
+    elsif !("#{spoofed_stdout}\n#{spoofed_stderr}".include?("UnexpectedMetric"))
+      record_failure("warning script failure should report the unrecognized simulator launch metric")
     end
 
     benign_failure_language, = run_command(
