@@ -1294,6 +1294,8 @@ private func writeValidationMatrixHarness(at directory: URL) throws {
         "check-launch-screenshot-contract.rb",
         "check-app-intents-contract.rb",
         "check-native-advisory-pipeline.rb",
+        "check-release-ownership-handoff-contract.rb",
+        "verify-release-ownership-handoff.rb",
         "scan-ruby-advisories.rb",
         "validate-design-review.rb",
         "validate-design-review-blocker.rb",

@@ -378,6 +378,15 @@ class GitHubRemote
     fail_with("commit #{repository}@#{commit} is not reachable from protected ref #{ref}")
   end
 
+  def verify_commit_ancestor(repository, ancestor, descendant, label:)
+    comparison = query_json("repos/#{repository}/compare/#{ancestor}...#{descendant}")
+    status = comparison["status"]
+    merge_base = comparison.dig("merge_base_commit", "sha")
+    return if ancestor != descendant && status == "ahead" && merge_base == ancestor
+
+    fail_with("#{label}: #{repository}@#{ancestor} must be an ancestor of #{descendant}")
+  end
+
   def file_at_commit(repository, commit, path)
     response = query_json(
       "repos/#{repository}/contents/#{encode_path(path)}",
@@ -581,13 +590,15 @@ class GitHubRemote
     rulesets = protection.fetch("rulesets")
     fail_with("ref #{repository}:#{ref} has no ProtectedMainV1 protection layer") if classic.nil? && rulesets.empty?
 
-    broad_bypass_types = %w[users teams OrganizationAdmin RepositoryRole Team]
     classic_bypass = classic ? Array(classic.dig("pullRequest", "bypassActors")) : []
     ruleset_bypass = rulesets.flat_map { |ruleset| ruleset.fetch("bypassActors") }
-    broad_bypass = (classic_bypass + ruleset_bypass).find do |actor|
-      broad_bypass_types.include?(actor["actorType"])
+    bypass_message = "ProtectedMainV1 forbids broad role, team, user, or administrator bypass and requires all bypass principals or allowances, including App/Integration actors, to be empty on #{repository}:#{ref}"
+    fail_with(bypass_message) unless classic_bypass.empty? && ruleset_bypass.empty?
+
+    direct_push_allowances = classic ? Array(classic["pushRestrictions"]) : []
+    unless direct_push_allowances.empty?
+      fail_with(bypass_message)
     end
-    fail_with("ProtectedMainV1 forbids broad role, team, user, or administrator bypass on #{repository}:#{ref}") if broad_bypass
 
     classic_blocks_mutation = classic && classic["forcePushesAllowed"] == false && classic["deletionsAllowed"] == false
     ruleset_types = rulesets.flat_map { |ruleset| ruleset.fetch("rules").map { |rule| rule["type"] } }
@@ -660,7 +671,12 @@ class GitHubRemote
       "bypassMode" => "always"
     }
     unless rulesets.all? { |ruleset| ruleset.fetch("bypassActors") == [expected_bypass] }
-      fail_with("ProtectedLedgerV1 requires exactly the dedicated ledger App bypass on #{repository}:#{ref}")
+      fail_with("ProtectedLedgerV1 requires exactly the dedicated ledger App bypass from the source-anchored authority on #{repository}:#{ref}")
+    end
+
+    classic_direct_push = classic ? Array(classic["pushRestrictions"]) : []
+    unless classic_bypass.empty? && classic_direct_push.empty?
+      fail_with("ProtectedLedgerV1 requires exactly the dedicated ledger App bypass from the source-anchored authority and forbids classic bypass or direct-push allowances on #{repository}:#{ref}")
     end
 
     unless rulesets.all? { |ruleset| ruleset.fetch("rules").any? { |rule| rule["type"] == "update" } }
@@ -740,6 +756,8 @@ class ReleaseOwnershipHandoffVerifier
     FileUtils.rm_f(@output_path)
     release, release_bytes = StrictJSON.read(@release_path, label: "outbound release")
     ack, ack_bytes = StrictJSON.read(@ack_path, label: "receiver acknowledgment")
+    validate_public_document!(release, "public outbound release")
+    validate_public_document!(ack, "public receiver acknowledgment")
     schema = StrictJSONSchema.new
     schema.validate!(release, RELEASE_SCHEMA, label: "outbound release")
     schema.validate!(ack, ACK_SCHEMA, label: "receiver acknowledgment")
@@ -750,6 +768,7 @@ class ReleaseOwnershipHandoffVerifier
     protections = verify_protected_refs(envelopes)
     initial_heads = protected_ref_heads(envelopes)
     remote_contents = verify_remote_envelopes(envelopes, initial_heads)
+    validate_authority_history(ack)
     validate_remote_contents(release_bytes, ack_bytes, ack, remote_contents)
     validate_protected_refs_stable(initial_heads)
     validate_protected_rules_stable(protections)
@@ -771,7 +790,6 @@ class ReleaseOwnershipHandoffVerifier
 
   def validate_acknowledgment(release, release_bytes, ack)
     outbound = ack.fetch("outboundRelease")
-    ledger = ack.fetch("ledgerEvent")
     receiver = ack.fetch("receiver")
     @handoff_authority = release.fetch("handoffAuthority")
     @ledger_app_id = @handoff_authority.fetch("ledgerAppID")
@@ -779,16 +797,26 @@ class ReleaseOwnershipHandoffVerifier
     fail_with("outbound release SHA-256 does not match acknowledgment") unless outbound.fetch("sha256") == release_digest
     fail_with("receiver task ID does not match outbound release") unless receiver.fetch("taskID") == release.fetch("receiverTaskID")
     fail_with("receiver Desk task does not match outbound release") unless receiver.fetch("deskTask") == release.fetch("receiverDeskTask")
-    unless ledger.fetch("appID") == @ledger_app_id
-      fail_with("acknowledgment ledger App ID does not match the source-anchored ledger App ID")
-    end
-
+    validate_public_worktrees!(release)
     protected = ack.fetch("protectedOutbound")
     release.keys.sort.each do |field|
       next if CanonicalJSON.generate(release.fetch(field)) == CanonicalJSON.generate(protected.fetch(field))
 
       fail_with("protected outbound field #{field} differs")
     end
+  end
+
+  def validate_public_worktrees!(release)
+    worktrees = release.fetch("ownership").fetch("worktrees")
+    fail_with("public outbound release must list at least one worktree") if worktrees.empty?
+
+    seen_ids = {}
+    duplicate_id = worktrees.map { |worktree| worktree.fetch("worktreeID") }.find do |worktree_id|
+      duplicate = seen_ids.key?(worktree_id)
+      seen_ids[worktree_id] = true
+      duplicate
+    end
+    fail_with("public outbound release contains duplicate worktree ID #{duplicate_id}") if duplicate_id
   end
 
   def build_envelopes(ack)
@@ -875,19 +903,34 @@ class ReleaseOwnershipHandoffVerifier
 
     validate_delivery_authority(contents)
 
+    ledger = ack.fetch("ledgerEvent")
+    unless ledger.fetch("appID") == @ledger_app_id
+      fail_with("acknowledgment ledger App ID does not match the source-anchored ledger App ID")
+    end
+
     event = StrictJSON.parse(contents.fetch("ledger event"), label: "protected ledger event")
     fail_with("ledger event type must be ReceiverAcknowledged") unless event["eventType"] == "ReceiverAcknowledged"
     payload = event["payload"]
     fail_with("ledger event payload must be an object") unless payload.is_a?(Hash)
     expected_payload_keys = %w[ledgerAppID outboundReleaseSHA256 receiverDeskTask receiverTaskID]
     fail_with("ledger event payload fields do not match the ReceiverAcknowledged contract") unless payload.keys.sort == expected_payload_keys
-    ledger = ack.fetch("ledgerEvent")
     payload_digest = sha256(CanonicalJSON.generate(payload))
     fail_with("ledger payload SHA-256 does not match") unless payload_digest == ledger.fetch("payloadSHA256")
     fail_with("ledger payload outbound release SHA-256 does not match") unless payload["outboundReleaseSHA256"] == release_digest
     fail_with("ledger payload receiver task ID does not match") unless payload["receiverTaskID"] == RECEIVER_TASK_ID
     fail_with("ledger payload receiver Desk task does not match") unless payload["receiverDeskTask"] == RECEIVER_DESK_TASK
     fail_with("ledger payload dedicated App ID does not match") unless payload["ledgerAppID"] == ledger.fetch("appID")
+  end
+
+  def validate_authority_history(ack)
+    root_commit = @handoff_authority.fetch("rootEvent").fetch("commit")
+    acknowledgment_commit = ack.fetch("ledgerEvent").fetch("commit")
+    @remote.verify_commit_ancestor(
+      DELIVERY_REPOSITORY,
+      root_commit,
+      acknowledgment_commit,
+      label: "RootAuthorityInstalled commit must be an ancestor of ReceiverAcknowledged commit"
+    )
   end
 
   def validate_delivery_authority(contents)
@@ -985,6 +1028,26 @@ class ReleaseOwnershipHandoffVerifier
   def validate_repo_path!(value, label)
     valid = !value.empty? && !value.start_with?("/") && !value.split("/").include?("..") && !value.match?(/\s/)
     fail_with("#{label} must be a repository-relative immutable path") unless valid
+  end
+
+  def validate_public_document!(value, label, path = "$")
+    case value
+    when Hash
+      value.each do |key, child|
+        if key.match?(/(?:path.*(?:sha|hash|digest)|(?:sha|hash|digest).*path)/i)
+          fail_with("#{label} contains forbidden path-derived field #{key} at #{path}")
+        end
+        validate_public_document!(child, label, "#{path}.#{key}")
+      end
+    when Array
+      value.each_with_index { |child, index| validate_public_document!(child, label, "#{path}[#{index}]") }
+    when String
+      absolute = value.match?(/\A(?:\/|~[\\\/]|[A-Za-z]:[\\\/]|\\\\)/)
+      private_root = value.match?(%r{(?:\A|[\s"'(])/(?:Users|home|private|var/folders|tmp)(?:/|\z)})
+      return unless absolute || private_root
+
+      fail_with("#{label} contains an absolute or private local path at #{path}")
+    end
   end
 
   def sha256(content)

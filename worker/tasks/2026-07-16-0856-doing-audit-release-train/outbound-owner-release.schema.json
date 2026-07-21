@@ -128,10 +128,12 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "repo", "head", "owner", "disposition"],
+            "required": ["worktreeID", "repositoryRole", "branch", "base", "head", "owner", "disposition"],
             "properties": {
-              "path": { "type": "string", "pattern": "^/" },
-              "repo": { "enum": ["spoonjoy-v2", "spoonjoy-apple"] },
+              "worktreeID": { "$ref": "#/$defs/opaqueWorktreeID" },
+              "repositoryRole": { "enum": ["web", "native"] },
+              "branch": { "$ref": "#/$defs/gitRefName" },
+              "base": { "$ref": "#/$defs/gitRefName" },
               "head": { "$ref": "#/$defs/gitSHA" },
               "owner": { "$ref": "#/$defs/nonPlaceholder" },
               "disposition": { "enum": ["retained", "removed"] }
@@ -156,6 +158,8 @@
     "gitSHA": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
     "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "positiveIntegerString": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+    "opaqueWorktreeID": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "gitRefName": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\s)(?!.*(?:~|\\^|:|\\?|\\*|\\[|\\\\))[A-Za-z0-9._/-]+$" },
     "repoRelativePath": { "type": "string", "pattern": "^(?!/)(?!.*\\.\\.)(?!.*\\s)(?!.*(?:[Tt][Oo][Dd][Oo]|[Tt][Bb][Dd]|[Pp][Ll][Aa][Cc][Ee][Hh][Oo][Ll][Dd][Ee][Rr]|[Ll][Aa][Tt][Ee][Ss][Tt]|[Uu][Nn][Kk][Nn][Oo][Ww][Nn]|[Pp][Ee][Nn][Dd][Ii][Nn][Gg]|[Ii][Nn][Hh][Ee][Rr][Ii][Tt][Ee][Dd]|[Ii][Nn][Ff][Ee][Rr][Rr][Ee][Dd]|[Nn]/[Aa])).+$" },
     "nonPlaceholder": {
       "type": "string",

@@ -9,12 +9,14 @@ require "open3"
 require "pathname"
 require "rbconfig"
 require "tmpdir"
+require_relative "verify-release-ownership-handoff"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 VERIFIER = ROOT.join("scripts/verify-release-ownership-handoff.rb")
 TASK_ROOT = ROOT.join("worker/tasks/2026-07-16-0856-doing-audit-release-train")
 RELEASE_SCHEMA = TASK_ROOT.join("outbound-owner-release.schema.json")
 ACK_SCHEMA = TASK_ROOT.join("receiver-ack.schema.json")
+PRIVATE_CLEANUP_SCHEMA = TASK_ROOT.join("private-cleanup-worktree-map.schema.json")
 RELEASE_RELATIVE_PATH = "worker/tasks/2026-07-16-0856-doing-audit-release-train/outbound-owner-release.json"
 UPSTREAM_ACK_RELATIVE_PATH = "worker/tasks/2026-07-16-0856-doing-audit-release-train/receiver-ack.json"
 OUTBOUND_REPOSITORY = "spoonjoy/spoonjoy-apple"
@@ -29,6 +31,9 @@ UPSTREAM_ACK_COMMIT = "4" * 40
 DRIFT_COMMIT = "5" * 40
 AUTHORITY_POLICY_COMMIT = "a" * 40
 ROOT_AUTHORITY_EVENT_COMMIT = "b" * 40
+LEDGER_HEAD_COMMIT = "c" * 40
+SUBSTITUTED_POLICY_COMMIT = "d" * 40
+SUBSTITUTED_ROOT_COMMIT = "e" * 40
 AUTHORITY_POLICY_PATH = "policy/delivery-authority-v1.json"
 ROOT_AUTHORITY_EVENT_PATH = "ledger/events/root-authority-installed.json"
 RECEIVER_TASK_ID = "019f5c80-bbe0-76a1-82eb-b0c715d035e7"
@@ -62,6 +67,47 @@ end
 
 def deep_copy(value)
   Marshal.load(Marshal.dump(value))
+end
+
+def cohere_public_handoff!(documents)
+  release_bytes = pretty_json(documents.fetch(:release))
+  release_digest = sha256(release_bytes)
+  documents.fetch(:ack)["protectedOutbound"] = deep_copy(documents.fetch(:release))
+  documents.fetch(:ack).fetch("outboundRelease")["sha256"] = release_digest
+  payload = documents.fetch(:ledger_event).fetch("payload")
+  payload["outboundReleaseSHA256"] = release_digest
+  documents.fetch(:ack).fetch("ledgerEvent")["payloadSHA256"] = sha256(canonical_json(payload))
+end
+
+def delivery_repository(documents)
+  documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+end
+
+def replace_policy_authority!(documents, policy_bytes)
+  release = documents.fetch(:release)
+  policy_anchor = release.fetch("handoffAuthority").fetch("policy")
+  policy_anchor["sha256"] = sha256(policy_bytes)
+  delivery = delivery_repository(documents)
+  delivery.fetch("commits").fetch(policy_anchor.fetch("commit")).fetch("files")[policy_anchor.fetch("path")] = policy_bytes
+
+  root_anchor = release.fetch("handoffAuthority").fetch("rootEvent")
+  root_event = root_authority_event_document
+  root_event.fetch("payload")["authorityPolicyCommit"] = policy_anchor.fetch("commit")
+  root_event.fetch("payload")["authorityPolicyPath"] = policy_anchor.fetch("path")
+  root_event.fetch("payload")["authorityPolicySHA256"] = policy_anchor.fetch("sha256")
+  root_bytes = pretty_json(root_event)
+  root_anchor["sha256"] = sha256(root_bytes)
+  delivery.fetch("commits").fetch(root_anchor.fetch("commit")).fetch("files")[root_anchor.fetch("path")] = root_bytes
+  cohere_public_handoff!(documents)
+end
+
+def replace_root_authority!(documents, root_bytes)
+  release = documents.fetch(:release)
+  root_anchor = release.fetch("handoffAuthority").fetch("rootEvent")
+  root_anchor["sha256"] = sha256(root_bytes)
+  delivery_repository(documents).fetch("commits").fetch(root_anchor.fetch("commit"))
+    .fetch("files")[root_anchor.fetch("path")] = root_bytes
+  cohere_public_handoff!(documents)
 end
 
 def authority_policy_document
@@ -156,8 +202,10 @@ def release_document
       "nativeCleanupOwner" => RECEIVER_TASK_ID,
       "worktrees" => [
         {
-          "path" => "/Users/example/spoonjoy-apple",
-          "repo" => "spoonjoy-apple",
+          "worktreeID" => "7bcaa52f-8a1d-4f69-9aa3-73ad690f04af",
+          "repositoryRole" => "native",
+          "branch" => "worker/audit-release-train",
+          "base" => "main",
           "head" => "8" * 40,
           "owner" => RECEIVER_TASK_ID,
           "disposition" => "retained"
@@ -343,7 +391,7 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
       DELIVERY_REPOSITORY => {
         "defaultBranch" => "main",
         "refs" => {
-          LEDGER_REF => LEDGER_COMMIT,
+          LEDGER_REF => LEDGER_HEAD_COMMIT,
           DELIVERY_ACK_REF => DELIVERY_ACK_COMMIT
         },
         "protections" => {
@@ -358,6 +406,10 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
           ROOT_AUTHORITY_EVENT_COMMIT => {
             "ancestors" => [],
             "files" => { ROOT_AUTHORITY_EVENT_PATH => root_authority_event_bytes }
+          },
+          LEDGER_HEAD_COMMIT => {
+            "ancestors" => [ROOT_AUTHORITY_EVENT_COMMIT, LEDGER_COMMIT],
+            "files" => {}
           },
           AUTHORITY_POLICY_COMMIT => {
             "ancestors" => [],
@@ -376,7 +428,8 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
     },
     "driftRefs" => {},
     "driftProtections" => {},
-    "driftRulesets" => {}
+    "driftRulesets" => {},
+    "driftRulesetDetails" => {}
   }
 end
 
@@ -456,7 +509,18 @@ FAKE_GH = <<~'RUBY'
                end
              when %r{\Arulesets/(\d+)\z}
                id = Regexp.last_match(1).to_i
-               repo.fetch("rulesets", []).find { |ruleset| ruleset.fetch("id") == id } || abort("ruleset not found")
+               key = "#{repository}|#{id}"
+               sequence = fixture.fetch("driftRulesetDetails", {}).fetch(key, nil)
+               if sequence
+                 state_key = "ruleset-detail|#{key}"
+                 index = state.fetch(state_key, 0)
+                 ruleset = sequence.fetch([index, sequence.length - 1].min)
+                 state[state_key] = index + 1
+                 File.write(state_path, JSON.generate(state))
+                 ruleset
+               else
+                 repo.fetch("rulesets", []).find { |ruleset| ruleset.fetch("id") == id } || abort("ruleset not found")
+               end
              when %r{\Acompare/([0-9a-f]{40})\.\.\.([0-9a-f]{40})\z}
                base = Regexp.last_match(1)
                head = Regexp.last_match(2)
@@ -601,7 +665,7 @@ def expect_failure(label, expected_message, mutate:)
 end
 
 begin
-  [VERIFIER, RELEASE_SCHEMA, ACK_SCHEMA].each do |path|
+  [VERIFIER, RELEASE_SCHEMA, ACK_SCHEMA, PRIVATE_CLEANUP_SCHEMA].each do |path|
     fail_check("missing #{path.relative_path_from(ROOT)}") unless path.file?
   end
 
@@ -615,6 +679,47 @@ begin
     fail_check("effective GitHub protection proof is undocumented") unless document.include?("effective GitHub")
     fail_check("ProtectedMainV1 contract is undocumented") unless document.include?("ProtectedMainV1")
     fail_check("ProtectedLedgerV1 contract is undocumented") unless document.include?("ProtectedLedgerV1")
+    fail_check("private cleanup worktree map is undocumented") unless document.include?("private-cleanup-worktree-map.json")
+    fail_check("public/private worktree evidence split is undocumented") unless document.include?("random stable worktree ID")
+    fail_check("private keyed worktree integrity is undocumented") unless document.include?("keyed HMAC")
+  end
+  private_cleanup_schema = JSON.parse(PRIVATE_CLEANUP_SCHEMA.read)
+  fail_check("private cleanup schema does not require keyed HMAC metadata") unless
+    private_cleanup_schema.fetch("required").include?("hmacAlgorithm") &&
+      private_cleanup_schema.fetch("required").include?("hmacKeyID") &&
+      private_cleanup_schema.fetch("properties").fetch("hmacAlgorithm").fetch("const") == "HMAC-SHA-256"
+  private_worktree = private_cleanup_schema.fetch("properties").fetch("worktrees").fetch("items")
+  expected_private_fields = %w[absolutePath pathHMACSHA256 repositoryRole worktreeID]
+  fail_check("private cleanup worktree schema is not closed") unless private_worktree["additionalProperties"] == false
+  fail_check("private cleanup worktree schema fields drifted") unless private_worktree.fetch("required").sort == expected_private_fields
+  private_map = {
+    "schemaVersion" => 1,
+    "visibility" => "private-local-cleanup-evidence",
+    "generatedAt" => "2026-07-21T08:00:00Z",
+    "hmacAlgorithm" => "HMAC-SHA-256",
+    "hmacKeyID" => "ad56055f-0ead-451d-b7bb-06f2ed483a5a",
+    "worktrees" => [
+      {
+        "worktreeID" => "7bcaa52f-8a1d-4f69-9aa3-73ad690f04af",
+        "repositoryRole" => "native",
+        "absolutePath" => "/Users/example/spoonjoy-apple",
+        "pathHMACSHA256" => "f" * 64
+      }
+    ]
+  }
+  StrictJSONSchema.new.validate!(private_map, PRIVATE_CLEANUP_SCHEMA, label: "private cleanup worktree map")
+  private_map.fetch("worktrees").first["pathSHA256"] = sha256("/Users/example/spoonjoy-apple")
+  begin
+    StrictJSONSchema.new.validate!(private_map, PRIVATE_CLEANUP_SCHEMA, label: "private cleanup worktree map")
+    fail_check("private cleanup schema accepted an unkeyed path digest")
+  rescue HandoffVerificationError => error
+    fail_check("private cleanup unkeyed digest failed for the wrong reason: #{error.message}") unless error.message.include?("unknown property pathSHA256")
+  end
+  [RELEASE_SCHEMA, ACK_SCHEMA].each do |public_schema|
+    source = public_schema.read
+    fail_check("public schema exposes an absolute worktree path") if source.include?("absolutePath")
+    fail_check("public schema exposes a path-derived digest") if source.match?(/path(?:SHA|Hash|Digest)/i)
+    fail_check("public schema exposes a private keyed path commitment") if source.include?("pathHMACSHA256")
   end
   [VERIFIER.read].each do |source|
     fail_check("stale unprotected acknowledgment ref remains") if source.include?("refs/heads/records-r0")
@@ -625,6 +730,161 @@ begin
   fail_check("local validation matrix does not run the warning-clean handoff contract") unless local_matrix.include?(gate_command)
 
   expect_success("valid two-sided acyclic handoff")
+
+  expect_failure("public outbound absolute path leak", "public outbound release contains an absolute or private local path", mutate: lambda do |documents|
+    documents.fetch(:release).fetch("residualBlockers") << "/Users/example/private-spoonjoy-worktree"
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("public acknowledgment private root leak", "public receiver acknowledgment contains an absolute or private local path", mutate: lambda do |documents|
+    documents.fetch(:ack)["localWorktreePath"] = "/private/var/folders/example/spoonjoy"
+  end)
+
+  expect_failure("legacy public worktree path field", "public outbound release contains an absolute or private local path", mutate: lambda do |documents|
+    documents.fetch(:release).fetch("ownership").fetch("worktrees").first["path"] = "/Users/example/spoonjoy-apple"
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("public unkeyed worktree path digest", "contains forbidden path-derived field pathSHA256", mutate: lambda do |documents|
+    documents.fetch(:release).fetch("ownership").fetch("worktrees").first["pathSHA256"] = sha256("/Users/example/spoonjoy-apple")
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("public keyed worktree path commitment", "contains forbidden path-derived field pathHMACSHA256", mutate: lambda do |documents|
+    documents.fetch(:release).fetch("ownership").fetch("worktrees").first["pathHMACSHA256"] = "f" * 64
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("public private-map commitment", "unknown property privateCleanupEvidenceSHA256", mutate: lambda do |documents|
+    documents.fetch(:release).fetch("ownership")["privateCleanupEvidenceSHA256"] = "f" * 64
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("duplicate public worktree ID", "public outbound release contains duplicate worktree ID", mutate: lambda do |documents|
+    worktrees = documents.fetch(:release).fetch("ownership").fetch("worktrees")
+    worktrees << deep_copy(worktrees.first).merge("branch" => "worker/duplicate-id")
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("empty public worktree inventory", "public outbound release must list at least one worktree", mutate: lambda do |documents|
+    documents.fetch(:release).fetch("ownership")["worktrees"] = []
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("root authority reverse order", "RootAuthorityInstalled commit must be an ancestor of ReceiverAcknowledged commit", mutate: lambda do |documents|
+    commits = delivery_repository(documents).fetch("commits")
+    commits.fetch(LEDGER_COMMIT)["ancestors"] = []
+    commits.fetch(ROOT_AUTHORITY_EVENT_COMMIT)["ancestors"] = [LEDGER_COMMIT]
+  end)
+
+  expect_failure("root authority sibling history", "RootAuthorityInstalled commit must be an ancestor of ReceiverAcknowledged commit", mutate: lambda do |documents|
+    commits = delivery_repository(documents).fetch("commits")
+    commits.fetch(LEDGER_COMMIT)["ancestors"] = []
+    commits.fetch(ROOT_AUTHORITY_EVENT_COMMIT)["ancestors"] = []
+  end)
+
+  expect_failure("authority policy hash substitution", "delivery authority policy tree SHA-256 does not match the source anchor", mutate: lambda do |documents|
+    delivery_repository(documents).fetch("commits").fetch(AUTHORITY_POLICY_COMMIT)
+      .fetch("files")[AUTHORITY_POLICY_PATH] = pretty_json(authority_policy_document.merge("policyType" => "SubstitutedAuthorityPolicy"))
+  end)
+
+  expect_failure("root authority hash substitution", "root authority event tree SHA-256 does not match the source anchor", mutate: lambda do |documents|
+    delivery_repository(documents).fetch("commits").fetch(ROOT_AUTHORITY_EVENT_COMMIT)
+      .fetch("files")[ROOT_AUTHORITY_EVENT_PATH] = pretty_json(root_authority_event_document.merge("eventType" => "SubstitutedRoot"))
+  end)
+
+  expect_failure("authority policy commit substitution", "delivery authority policy tree SHA-256 does not match the source anchor", mutate: lambda do |documents|
+    release = documents.fetch(:release)
+    policy = release.fetch("handoffAuthority").fetch("policy")
+    delivery = delivery_repository(documents)
+    policy["commit"] = SUBSTITUTED_POLICY_COMMIT
+    delivery.fetch("commits")[SUBSTITUTED_POLICY_COMMIT] = {
+      "ancestors" => [],
+      "files" => { AUTHORITY_POLICY_PATH => pretty_json(authority_policy_document.merge("policyType" => "SubstitutedAuthorityPolicy")) }
+    }
+    delivery.fetch("commits").fetch(DELIVERY_ACK_COMMIT).fetch("ancestors") << SUBSTITUTED_POLICY_COMMIT
+    root_event = root_authority_event_document
+    root_event.fetch("payload")["authorityPolicyCommit"] = SUBSTITUTED_POLICY_COMMIT
+    root_bytes = pretty_json(root_event)
+    release.fetch("handoffAuthority").fetch("rootEvent")["sha256"] = sha256(root_bytes)
+    delivery.fetch("commits").fetch(ROOT_AUTHORITY_EVENT_COMMIT).fetch("files")[ROOT_AUTHORITY_EVENT_PATH] = root_bytes
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("root authority commit substitution", "root authority event tree SHA-256 does not match the source anchor", mutate: lambda do |documents|
+    release = documents.fetch(:release)
+    root = release.fetch("handoffAuthority").fetch("rootEvent")
+    delivery = delivery_repository(documents)
+    root["commit"] = SUBSTITUTED_ROOT_COMMIT
+    delivery.fetch("commits")[SUBSTITUTED_ROOT_COMMIT] = {
+      "ancestors" => [],
+      "files" => { ROOT_AUTHORITY_EVENT_PATH => pretty_json(root_authority_event_document.merge("eventType" => "SubstitutedRoot")) }
+    }
+    delivery.fetch("commits").fetch(LEDGER_COMMIT).fetch("ancestors") << SUBSTITUTED_ROOT_COMMIT
+    delivery.fetch("commits").fetch(LEDGER_HEAD_COMMIT).fetch("ancestors") << SUBSTITUTED_ROOT_COMMIT
+    cohere_public_handoff!(documents)
+  end)
+
+  expect_failure("malformed authority policy", "protected delivery authority policy has an unexpected contract", mutate: lambda do |documents|
+    replace_policy_authority!(documents, pretty_json(authority_policy_document.merge("schemaVersion" => 2)))
+  end)
+
+  expect_failure("duplicate authority policy field", "duplicate JSON key schemaVersion", mutate: lambda do |documents|
+    bytes = authority_policy_bytes.sub("{\n", "{\n  \"schemaVersion\": 1,\n")
+    replace_policy_authority!(documents, bytes)
+  end)
+
+  expect_failure("extra authority policy field", "protected delivery authority policy has an unexpected contract", mutate: lambda do |documents|
+    replace_policy_authority!(documents, pretty_json(authority_policy_document.merge("unexpected" => true)))
+  end)
+
+  expect_failure("malformed root authority event", "protected root authority event has an unexpected contract", mutate: lambda do |documents|
+    replace_root_authority!(documents, pretty_json(root_authority_event_document.merge("schemaVersion" => 2)))
+  end)
+
+  expect_failure("duplicate root authority field", "duplicate JSON key schemaVersion", mutate: lambda do |documents|
+    bytes = root_authority_event_bytes.sub("{\n", "{\n  \"schemaVersion\": 1,\n")
+    replace_root_authority!(documents, bytes)
+  end)
+
+  expect_failure("extra root authority field", "protected root authority event has an unexpected contract", mutate: lambda do |documents|
+    replace_root_authority!(documents, pretty_json(root_authority_event_document.merge("unexpected" => true)))
+  end)
+
+  %w[authorityPolicyCommit authorityPolicyPath authorityPolicySHA256 ledgerAppID].each do |binding|
+    expect_failure("wrong root authority #{binding} binding", "protected root authority event does not bind the source-anchored delivery authority", mutate: lambda do |documents|
+      root = root_authority_event_document
+      root.fetch("payload")[binding] = binding == "ledgerAppID" ? LEDGER_APP_ID + 1 : "0" * (binding.end_with?("Commit") ? 40 : binding.end_with?("SHA256") ? 64 : 1)
+      replace_root_authority!(documents, pretty_json(root))
+    end)
+  end
+
+  expect_failure("unreachable authority policy anchor", "remote commit is unreachable", mutate: lambda do |documents|
+    delivery_repository(documents).fetch("commits").delete(AUTHORITY_POLICY_COMMIT)
+  end)
+
+  expect_failure("unreachable root authority anchor", "remote commit is unreachable", mutate: lambda do |documents|
+    delivery_repository(documents).fetch("commits").delete(ROOT_AUTHORITY_EVENT_COMMIT)
+  end)
+
+  expect_failure("authority main ref drift", "changed during verification", mutate: lambda do |documents|
+    key = "#{DELIVERY_REPOSITORY}|#{DELIVERY_ACK_REF}"
+    documents.fetch(:fixture).fetch("driftRefs")[key] = [DELIVERY_ACK_COMMIT, DRIFT_COMMIT]
+  end)
+
+  expect_failure("authority ledger ref drift", "changed during verification", mutate: lambda do |documents|
+    key = "#{DELIVERY_REPOSITORY}|#{LEDGER_REF}"
+    documents.fetch(:fixture).fetch("driftRefs")[key] = [LEDGER_HEAD_COMMIT, DRIFT_COMMIT]
+    delivery_repository(documents).fetch("commits").fetch(DRIFT_COMMIT)["ancestors"] = [ROOT_AUTHORITY_EVENT_COMMIT, LEDGER_COMMIT, LEDGER_HEAD_COMMIT]
+  end)
+
+  expect_failure("authority ledger ruleset drift", "ProtectedLedgerV1 rule digest changed during verification", mutate: lambda do |documents|
+    before = protected_ledger_ruleset
+    after = deep_copy(before)
+    after.fetch("rules") << { "type" => "update" }
+    key = "#{DELIVERY_REPOSITORY}|#{before.fetch("id")}"
+    documents.fetch(:fixture).fetch("driftRulesetDetails")[key] = [before, before, before, after]
+  end)
 
   expect_success("delivery main protected by an effective ruleset", mutate: lambda do |documents|
     repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
@@ -677,7 +937,22 @@ begin
     rules.reject! { |rule| rule.fetch("type") == "update" }
   end)
 
-  expect_failure("coherent ledger App substitution", "source-anchored ledger App ID", mutate: lambda do |documents|
+  expect_failure("classic App pull-request bypass on ledger", "requires exactly the dedicated ledger App bypass", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("protections")[LEDGER_REF] = classic_protection(DELIVERY_REPOSITORY)
+    allowances = repo.fetch("protections").fetch(LEDGER_REF)
+      .fetch("required_pull_request_reviews").fetch("bypass_pull_request_allowances")
+    allowances.fetch("apps") << { "id" => LEDGER_APP_ID, "slug" => "duplicate-ledger-app-path" }
+  end)
+
+  expect_failure("classic App direct-push allowance on ledger", "requires exactly the dedicated ledger App bypass", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("protections")[LEDGER_REF] = classic_protection(DELIVERY_REPOSITORY)
+    restrictions = repo.fetch("protections").fetch(LEDGER_REF).fetch("restrictions")
+    restrictions.fetch("apps") << { "id" => LEDGER_APP_ID, "slug" => "duplicate-ledger-app-writer" }
+  end)
+
+  expect_failure("coherent ledger App substitution", "dedicated ledger App bypass from the source-anchored authority", mutate: lambda do |documents|
     substituted_app_id = LEDGER_APP_ID + 1
     documents.fetch(:ack).fetch("ledgerEvent")["appID"] = substituted_app_id
     payload = documents.fetch(:ledger_event).fetch("payload")
@@ -688,6 +963,10 @@ begin
     actor = delivery.fetch("rulesets").find { |ruleset| ruleset.fetch("name") == "ProtectedLedgerV1" }
       .fetch("bypass_actors").first
     actor["actor_id"] = substituted_app_id
+  end)
+
+  expect_failure("acknowledgment ledger App echo substitution", "acknowledgment ledger App ID does not match the source-anchored ledger App ID", mutate: lambda do |documents|
+    documents.fetch(:ack).fetch("ledgerEvent")["appID"] = LEDGER_APP_ID + 1
   end)
 
   expect_failure("mutable protected main", "does not block force pushes and deletion", mutate: lambda do |documents|
@@ -709,11 +988,53 @@ begin
     allowances.fetch("users") << { "id" => 7, "login" => "bypass-user" }
   end)
 
+  expect_failure("classic App pull-request bypass on source main", "all bypass principals or allowances", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    allowances = repo.fetch("protections").fetch(OUTBOUND_REF)
+      .fetch("required_pull_request_reviews").fetch("bypass_pull_request_allowances")
+    allowances.fetch("apps") << { "id" => 99_991, "slug" => "wrong-main-bypass-app" }
+  end)
+
+  expect_failure("classic App direct-push allowance on delivery main", "all bypass principals or allowances", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    restrictions = repo.fetch("protections").fetch(DELIVERY_ACK_REF).fetch("restrictions")
+    restrictions.fetch("apps") << { "id" => LEDGER_APP_ID, "slug" => "ledger-app-must-not-write-main" }
+  end)
+
   expect_failure("permissive ruleset team bypass", "forbids broad role, team, user, or administrator bypass", mutate: lambda do |documents|
     repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
     repo.fetch("rulesets") << protected_main_ruleset(
       id: 3,
       bypass_actors: [{ "actor_id" => 8, "actor_type" => "Team", "bypass_mode" => "always" }]
+    )
+  end)
+
+  %w[always pull_request].each_with_index do |bypass_mode, index|
+    expect_failure("ruleset Integration #{bypass_mode} bypass on main", "all bypass principals or allowances", mutate: lambda do |documents|
+      repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+      repo.fetch("rulesets") << protected_main_ruleset(
+        id: 20 + index,
+        bypass_actors: [{ "actor_id" => LEDGER_APP_ID, "actor_type" => "Integration", "bypass_mode" => bypass_mode }]
+      )
+    end)
+  end
+
+  expect_failure("wrong Integration App actor on main", "all bypass principals or allowances", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("rulesets") << protected_main_ruleset(
+      id: 22,
+      bypass_actors: [{ "actor_id" => LEDGER_APP_ID + 1, "actor_type" => "Integration", "bypass_mode" => "always" }]
+    )
+  end)
+
+  expect_failure("extra Integration App actors on main", "all bypass principals or allowances", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("rulesets") << protected_main_ruleset(
+      id: 23,
+      bypass_actors: [
+        { "actor_id" => LEDGER_APP_ID, "actor_type" => "Integration", "bypass_mode" => "always" },
+        { "actor_id" => LEDGER_APP_ID + 1, "actor_type" => "Integration", "bypass_mode" => "always" }
+      ]
     )
   end)
 

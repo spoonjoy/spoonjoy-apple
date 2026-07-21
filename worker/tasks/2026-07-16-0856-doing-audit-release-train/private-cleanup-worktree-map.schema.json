@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spoonjoy.app/schemas/private-cleanup-worktree-map.schema.json",
+  "title": "Spoonjoy private local cleanup worktree map",
+  "description": "Private local evidence only. This artifact must never be embedded in outbound-owner-release.json, receiver-ack.json, or a public repository tree.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "visibility", "generatedAt", "hmacAlgorithm", "hmacKeyID", "worktrees"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "visibility": { "const": "private-local-cleanup-evidence" },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "hmacAlgorithm": { "const": "HMAC-SHA-256" },
+    "hmacKeyID": { "$ref": "#/$defs/opaqueKeyID" },
+    "worktrees": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["worktreeID", "repositoryRole", "absolutePath", "pathHMACSHA256"],
+        "properties": {
+          "worktreeID": { "$ref": "#/$defs/opaqueWorktreeID" },
+          "repositoryRole": { "enum": ["web", "native"] },
+          "absolutePath": { "type": "string", "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)" },
+          "pathHMACSHA256": { "$ref": "#/$defs/sha256" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "opaqueWorktreeID": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "opaqueKeyID": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  }
+}
