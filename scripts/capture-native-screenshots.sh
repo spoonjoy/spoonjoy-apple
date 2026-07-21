@@ -32,6 +32,7 @@ ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
 ios_accessibility_screenshot="$artifact_root/screenshots/ios-mobile-accessibility.png"
 ios_tablet_screenshot="$artifact_root/screenshots/ios-tablet.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
+macos_screenshot_diagnostic="$artifact_root/screenshots/macos-desktop-diagnostic.png"
 ios_app="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
 ios_ui_test_runner="${SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH:-}"
 ios_xctestrun="${SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH:-}"
@@ -47,6 +48,7 @@ xcode_blocker="$artifact_root/apple/${unit_slug}-screenshots-xcode-platform-bloc
 ios_blocker="$artifact_root/apple/${unit_slug}-screenshots-core-simulator-blocker.json"
 ipad_blocker="$artifact_root/apple/${unit_slug}-screenshots-ipad-core-simulator-blocker.json"
 macos_blocker="$artifact_root/apple/${unit_slug}-screenshots-macos-launch-blocker.json"
+macos_accessibility_blocker="$artifact_root/apple/${unit_slug}-screenshots-macos-accessibility-blocker.json"
 macos_state_directory="$artifact_root_abs/macos-state/Spoonjoy"
 state_file="$macos_state_directory/native-app-state.json"
 cache_file="$macos_state_directory/native-durable-cache.json"
@@ -78,6 +80,7 @@ observed_accessibility_ios="$artifact_root/apple/${unit_slug}-observed-accessibi
 observed_accessibility_ios_ax="$artifact_root/apple/${unit_slug}-observed-accessibility-ios-ax.json"
 observed_accessibility_ipad="$artifact_root/apple/${unit_slug}-observed-accessibility-ipad.json"
 observed_accessibility_macos="$artifact_root/apple/${unit_slug}-observed-accessibility-macos.json"
+observed_accessibility_macos_diagnostic="$artifact_root/apple/${unit_slug}-observed-accessibility-macos-diagnostic.json"
 observed_accessibility_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios.json"
 observed_accessibility_ios_ax_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios-ax.json"
 observed_accessibility_ipad_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ipad.json"
@@ -602,6 +605,8 @@ write_design_review_success() {
       manifest["settingsCaptureVariant"] = settings_capture_variant
       manifest["settingsScreenshotAuth"] = screenshot_auth_enabled
       manifest["settingsVisualFocus"] = settings_focus
+      manifest["settingsSignedOutSurface"] = settings_focus == "signed-out"
+      manifest["settingsSignedOutHandoffSurface"] = settings_focus == "signed-out"
       manifest["settingsSurfaceProofArtifacts"] = [ios_proof, ipad_proof, macos_proof]
       if settings_focus == "notifications"
         manifest["settingsAPNsPermissionState"] = settings_apns_permission_state.empty? ? "not-determined" : settings_apns_permission_state
@@ -636,14 +641,17 @@ write_design_review_success() {
     elsif route == "cook-log"
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+      manifest["renderedSurfaceAnchors"] = ["cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"]
     elsif route == "cook-mode"
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
     elsif route == "cookbooks"
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
+      manifest["renderedSurfaceAnchors"] = ["cookbookShelfStrip", "cookbookLibrarySpread"]
     elsif route == "cookbook-detail"
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
       manifest["cookbookID"] = "cookbook_weeknights"
+      manifest["renderedSurfaceAnchors"] = ["cookbookContentsIndex", "cookbookOwnerToolsDisclosure"]
     elsif route == "profile"
       manifest["profileSeedAccountID"] = "chef_ari"
       manifest["profileIdentifier"] = "ari"
@@ -659,6 +667,7 @@ write_design_review_success() {
       manifest["captureSurfaceVariant"] = capture_surface_variant
       manifest["captureSeedAccountID"] = capture_surface_variant == "signed-out" ? "signed-out" : "chef_kitchen_capture"
       manifest["captureScreenshotAuth"] = screenshot_auth_enabled
+      manifest["captureSignedOutSurface"] = capture_surface_variant == "signed-out"
     elsif route == "kitchen"
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
@@ -2114,6 +2123,23 @@ capture_ios_observed_accessibility() {
   return "$observer_status"
 }
 
+refresh_ios_fixture_paths() {
+  local udid="$1"
+  local expected_platform="$2"
+  local data_container
+  if ! data_container="$(resolve_ios_data_container "$udid")"; then
+    printf 'unable to refresh simulator app data container for app.spoonjoy on %s\n' "$udid" >> "$capture_log"
+    return 1
+  fi
+  local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
+  ios_state_directory="$ios_app_dir/screenshot-routes/${unit_slug}-${expected_platform}"
+  screenshot_proof_path="$ios_state_directory/native-screenshot-proof.json"
+  ios_accessibility_proof_runtime_path="$ios_state_directory/native-accessibility-proof.json"
+  atomic_fixture_write "$ios_state_directory/native-app-state.json" write_app_state "$expected_recorded_route"
+  atomic_fixture_write "$ios_state_directory/native-durable-cache.json" write_cache_state "$screenshot_route"
+  atomic_fixture_write "$ios_state_directory/native-sync-store.json" write_sync_store "$screenshot_route"
+}
+
 capture_ios_app() {
   local udid="$1"
   local expected_platform="$2"
@@ -2148,13 +2174,7 @@ capture_ios_app() {
   if ! terminate_ios_app_and_confirm_stopped "$udid"; then
     return 1
   fi
-  local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
-  ios_state_directory="$ios_app_dir/screenshot-routes/${unit_slug}-${expected_platform}"
-  screenshot_proof_path="$ios_state_directory/native-screenshot-proof.json"
-  ios_accessibility_proof_runtime_path="$ios_state_directory/native-accessibility-proof.json"
-  atomic_fixture_write "$ios_state_directory/native-app-state.json" write_app_state "$expected_recorded_route"
-  atomic_fixture_write "$ios_state_directory/native-durable-cache.json" write_cache_state "$screenshot_route"
-  atomic_fixture_write "$ios_state_directory/native-sync-store.json" write_sync_store "$screenshot_route"
+  refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
   rm -f "$screenshot_proof_path"
   rm -f "$ios_accessibility_proof_runtime_path"
   rm -f "$ios_state_directory/debug-auth-session.json"
@@ -2162,6 +2182,8 @@ capture_ios_app() {
   capture_ios_foreground_route "$udid" "$expected_platform" "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output" || return 1
   capture_ios_observed_accessibility "$udid" "$expected_platform" "$observed_accessibility_output" "large" || return 1
   if [[ "$expected_platform" == "ios" ]]; then
+    terminate_ios_app_and_confirm_stopped "$udid" || return 1
+    refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
     xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large >> "$capture_log" 2>&1 || return 1
     capture_ios_observed_accessibility \
       "$udid" \
@@ -2191,13 +2213,44 @@ capture_ios_app_with_retries() {
     fi
     printf '%s screenshot capture attempt %s/%s failed for route %s\n' "$expected_platform" "$attempt" "$ios_capture_attempts" "$screenshot_route" >> "$capture_log"
     if [[ "$attempt" -lt "$ios_capture_attempts" ]]; then
-      xcrun simctl terminate "$udid" app.spoonjoy >> "$capture_log" 2>&1 || true
-      xcrun simctl shutdown "$udid" >> "$capture_log" 2>&1 || true
+      run_with_timeout "simulator retry termination timeout" "$ios_launch_timeout_seconds" "$capture_log" \
+        xcrun simctl terminate "$udid" app.spoonjoy || true
+      run_with_timeout "simulator retry shutdown timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+        xcrun simctl shutdown "$udid" || true
       sleep 2
     fi
     attempt=$((attempt + 1))
   done
   return 1
+}
+
+transition_ios_capture_device() {
+  local previous_udid="$1"
+  local next_udid="$2"
+  if [[ -z "$next_udid" ]]; then
+    printf 'simulator device transition is missing the destination UDID\n' >> "$capture_log"
+    return 1
+  fi
+
+  printf 'Transitioning simulator capture device: %s -> %s\n' "${previous_udid:-none}" "$next_udid" >> "$capture_log"
+  if [[ -n "$previous_udid" && "$previous_udid" != "$next_udid" ]]; then
+    run_with_timeout "simulator device transition termination timeout" "$ios_launch_timeout_seconds" "$capture_log" \
+      xcrun simctl terminate "$previous_udid" app.spoonjoy || true
+    run_with_timeout "simulator device transition shutdown timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+      xcrun simctl shutdown "$previous_udid" || true
+  fi
+
+  run_with_timeout "simulator device transition boot request timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+    xcrun simctl boot "$next_udid" || true
+  if ! run_with_timeout "simulator device transition boot readiness timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+    xcrun simctl bootstatus "$next_udid" -b; then
+    return 1
+  fi
+  if ! run_with_timeout "Simulator host transition timeout" "$ios_launch_timeout_seconds" "$capture_log" \
+    open -a Simulator --args -CurrentDeviceUDID "$next_udid"; then
+    return 1
+  fi
+  sleep 1
 }
 
 capture_macos_window() {
@@ -2341,6 +2394,7 @@ run_ios_smoke() {
 
 : > "$capture_log"
 rm -f "$ios_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+rm -f "$macos_screenshot_diagnostic"
 rm -f "$ios_proof_artifact" "$ipad_proof_artifact" "$macos_proof_artifact"
 rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
 rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
@@ -2348,7 +2402,11 @@ rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_ax" "$observed_
 rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_macos_abs"
 rm -f "$design_review_blocked"
 rm -f "$design_review"
-rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker"
+rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker" "$macos_accessibility_blocker"
+rm -f "$observed_accessibility_macos_diagnostic"
+
+ios_udid=""
+ipad_udid=""
 
 if ! prepare_ios_observer_products; then
   write_blocker \
@@ -2372,7 +2430,8 @@ fi
 
 if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
   ios_udid="$(ios_udid_from_smoke_log "$ios_smoke_log" || true)"
-  if [[ -z "$ios_udid" ]] || ! capture_ios_app_with_retries "$ios_udid" "ios" "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios_abs" "$observed_accessibility_ios_abs"; then
+  ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
+  if [[ -z "$ios_udid" ]] || ! transition_ios_capture_device "$ipad_udid" "$ios_udid" || ! capture_ios_app_with_retries "$ios_udid" "ios" "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios_abs" "$observed_accessibility_ios_abs"; then
     write_blocker \
       "$ios_blocker" \
       "CoreSimulator" \
@@ -2384,8 +2443,10 @@ if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
 fi
 
 if [[ ! -f "$xcode_blocker" && ! -f "$ipad_blocker" ]]; then
-  ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
-  if [[ -z "$ipad_udid" ]] || ! capture_ios_app_with_retries "$ipad_udid" "ipad" "$ios_tablet_screenshot" "$ipad_proof_artifact" "$accessibility_proof_ipad_abs" "$observed_accessibility_ipad_abs"; then
+  if [[ -z "$ipad_udid" ]]; then
+    ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
+  fi
+  if [[ -z "$ipad_udid" ]] || ! transition_ios_capture_device "$ios_udid" "$ipad_udid" || ! capture_ios_app_with_retries "$ipad_udid" "ipad" "$ios_tablet_screenshot" "$ipad_proof_artifact" "$accessibility_proof_ipad_abs" "$observed_accessibility_ipad_abs"; then
     write_blocker \
       "$ipad_blocker" \
       "CoreSimulator" \
@@ -2659,8 +2720,14 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."
   fi
   if [[ ! -f "$macos_blocker" ]] && ! capture_macos_observed_accessibility "$observed_accessibility_macos_abs"; then
+    if [[ -s "$observed_accessibility_macos_abs" ]]; then
+      cp "$observed_accessibility_macos_abs" "$observed_accessibility_macos_diagnostic"
+    fi
+    if [[ -s "$macos_screenshot" ]]; then
+      cp "$macos_screenshot" "$macos_screenshot_diagnostic"
+    fi
     write_blocker \
-      "$macos_blocker" \
+      "$macos_accessibility_blocker" \
       "MacOSAccessibility" \
       "swift scripts/observe-macos-screenshot-evidence.swift --pid <exact Spoonjoy pid> --route $screenshot_route" \
       "$capture_log" \
@@ -2679,6 +2746,8 @@ elif [[ -f "$ipad_blocker" ]]; then
   write_design_review_blocked "$ipad_blocker"
 elif [[ -f "$macos_blocker" ]]; then
   write_design_review_blocked "$macos_blocker"
+elif [[ -f "$macos_accessibility_blocker" ]]; then
+  write_design_review_blocked "$macos_accessibility_blocker"
 else
   if [[ ! -s "$ios_screenshot" || ! -s "$ios_accessibility_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$macos_screenshot" ]]; then
     printf 'Screenshot capture produced no blocker but did not produce standard iPhone, accessibility iPhone, iPad, and macOS screenshots\n' >&2

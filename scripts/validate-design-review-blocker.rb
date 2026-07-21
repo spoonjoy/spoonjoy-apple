@@ -12,7 +12,8 @@ CAPABILITY_BY_BASENAME = {
   "screenshots-xcode-platform-blocker.json" => "XcodePlatform",
   "screenshots-core-simulator-blocker.json" => "CoreSimulator",
   "screenshots-ipad-core-simulator-blocker.json" => "CoreSimulator",
-  "screenshots-macos-launch-blocker.json" => "MacOSLaunch"
+  "screenshots-macos-launch-blocker.json" => "MacOSLaunch",
+  "screenshots-macos-accessibility-blocker.json" => "MacOSAccessibility"
 }.freeze
 
 options = {
@@ -80,7 +81,8 @@ allowed_sources = {
   artifact_root.join("apple/#{unit_slug}-screenshots-xcode-platform-blocker.json").expand_path => "XcodePlatform",
   artifact_root.join("apple/#{unit_slug}-screenshots-core-simulator-blocker.json").expand_path => "CoreSimulator",
   artifact_root.join("apple/#{unit_slug}-screenshots-ipad-core-simulator-blocker.json").expand_path => "CoreSimulator",
-  artifact_root.join("apple/#{unit_slug}-screenshots-macos-launch-blocker.json").expand_path => "MacOSLaunch"
+  artifact_root.join("apple/#{unit_slug}-screenshots-macos-launch-blocker.json").expand_path => "MacOSLaunch",
+  artifact_root.join("apple/#{unit_slug}-screenshots-macos-accessibility-blocker.json").expand_path => "MacOSAccessibility"
 }
 source_path = Pathname.new(manifest.fetch("sourceBlockerPath")).expand_path
 expected_capability = allowed_sources[source_path]

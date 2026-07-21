@@ -204,6 +204,18 @@ func stringAttribute(_ element: AXUIElement, _ name: CFString) -> String {
     attribute(element, name) as? String ?? ""
 }
 
+func semanticText(of element: AXUIElement) -> String {
+    for attributeName in [
+        kAXTitleAttribute as CFString,
+        kAXDescriptionAttribute as CFString,
+        kAXValueAttribute as CFString
+    ] {
+        let value = stringAttribute(element, attributeName).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !value.isEmpty { return value }
+    }
+    return ""
+}
+
 func boolAttribute(_ element: AXUIElement, _ name: CFString, default defaultValue: Bool) -> Bool {
     attribute(element, name) as? Bool ?? defaultValue
 }
@@ -256,7 +268,7 @@ func observeTree(root: AXUIElement) -> [AXObservedNode] {
             identifier: stringAttribute(element, kAXIdentifierAttribute as CFString),
             role: stringAttribute(element, kAXRoleAttribute as CFString),
             subrole: stringAttribute(element, kAXSubroleAttribute as CFString),
-            title: stringAttribute(element, kAXTitleAttribute as CFString),
+            title: semanticText(of: element),
             frame: frame(of: element),
             enabled: boolAttribute(element, kAXEnabledAttribute as CFString, default: true),
             focused: boolAttribute(element, kAXFocusedAttribute as CFString, default: false),
@@ -298,20 +310,20 @@ func terminalExpectation(for route: String) -> AXRouteTerminalExpectation? {
     }
 }
 
+func isScrollContainer(_ element: AXUIElement) -> Bool {
+    stringAttribute(element, kAXRoleAttribute as CFString) == (kAXScrollAreaRole as String)
+        || elementAttribute(element, kAXVerticalScrollBarAttribute as CFString) != nil
+}
+
 func enclosingScrollArea(for node: AXObservedNode) -> AXUIElement? {
-    if node.observation.role == (kAXScrollAreaRole as String) {
+    if isScrollContainer(node.element) {
         return node.element
-    }
-    if let descendant = observeTree(root: node.element).first(where: {
-        $0.observation.role == (kAXScrollAreaRole as String)
-    }) {
-        return descendant.element
     }
 
     var current = node.element
     for _ in 0..<40 {
         guard let parent = elementAttribute(current, kAXParentAttribute as CFString) else { break }
-        if stringAttribute(parent, kAXRoleAttribute as CFString) == (kAXScrollAreaRole as String) {
+        if isScrollContainer(parent) {
             return parent
         }
         current = parent
@@ -319,15 +331,141 @@ func enclosingScrollArea(for node: AXObservedNode) -> AXUIElement? {
     return nil
 }
 
-func observeDeepScroll(
-    applicationElement: AXUIElement,
+func terminalObservation(
+    rootWindowElement: AXUIElement,
+    expectation: AXRouteTerminalExpectation
+) -> AXObservedElement? {
+    observeTree(root: rootWindowElement).first(where: {
+        $0.observation.identifier == expectation.terminalIdentifier
+    })?.observation
+}
+
+func terminalMatches(
+    _ element: AXObservedElement?,
+    viewport: AXObservedRect,
+    expectation: AXRouteTerminalExpectation
+) -> Bool {
+    element.map { candidate in
+        candidate.role == expectation.role
+            && candidate.enabled
+            && viewport.contains(candidate.frame)
+            && expectation.requiredAction.map(candidate.actions.contains) != false
+    } ?? false
+}
+
+func nativeIncrementPageControl(in scrollArea: AXUIElement) -> AXUIElement? {
+    guard let scrollBar = elementAttribute(scrollArea, kAXVerticalScrollBarAttribute as CFString) else {
+        return nil
+    }
+    return observeTree(root: scrollBar).first(where: {
+        $0.observation.subrole == "AXIncrementPage"
+            && $0.observation.actions.contains(kAXPressAction as String)
+    })?.element
+}
+
+func performNativePageScroll(in scrollArea: AXUIElement) -> Bool {
+    let scrollDownByPageAction = "AXScrollDownByPage"
+    if actionNames(of: scrollArea).contains(scrollDownByPageAction),
+       AXUIElementPerformAction(scrollArea, scrollDownByPageAction as CFString) == .success {
+        return true
+    }
+    guard let pageControl = nativeIncrementPageControl(in: scrollArea) else { return false }
+    return AXUIElementPerformAction(pageControl, kAXPressAction as CFString) == .success
+}
+
+func scrollByPageToTerminal(
+    rootWindowElement: AXUIElement,
+    scrollArea: AXUIElement,
+    viewport: AXObservedRect,
     route: String,
     expectation: AXRouteTerminalExpectation
 ) -> AXObservedDeepScrollEvidence {
-    let initialNodes = observeTree(root: applicationElement)
-    guard let identifiedNode = initialNodes.first(where: {
+    let scrollDownByPageAction = "AXScrollDownByPage"
+    let supportsPageScroll = actionNames(of: scrollArea).contains(scrollDownByPageAction)
+    var pageCount = 0
+    var consecutiveMatches = 0
+    var terminalElement: AXObservedElement?
+
+    for _ in 0..<80 {
+        let candidate = terminalObservation(
+            rootWindowElement: rootWindowElement,
+            expectation: expectation
+        )
+        if terminalMatches(candidate, viewport: viewport, expectation: expectation) {
+            consecutiveMatches += 1
+            terminalElement = candidate
+            if consecutiveMatches >= 2 { break }
+            Thread.sleep(forTimeInterval: 0.1)
+            continue
+        }
+
+        consecutiveMatches = 0
+        guard supportsPageScroll, performNativePageScroll(in: scrollArea) else { break }
+        pageCount += 1
+        Thread.sleep(forTimeInterval: 0.1)
+    }
+
+    var findings: [AXObservedFinding] = []
+    if consecutiveMatches < 2 {
+        let candidate = terminalObservation(
+            rootWindowElement: rootWindowElement,
+            expectation: expectation
+        )
+        if !supportsPageScroll {
+            findings.append(AXObservedFinding(
+                kind: .deepScrollUnavailable,
+                identifiers: [expectation.scrollIdentifier],
+                message: "The route-specific macOS scroll area exposes neither a numeric scrollbar nor page-scroll actions.",
+                intersection: nil
+            ))
+        } else if let candidate, !viewport.contains(candidate.frame) {
+            findings.append(AXObservedFinding(
+                kind: .outsideViewport,
+                identifiers: [expectation.terminalIdentifier],
+                message: "The route-specific terminal element remained clipped or offscreen after page scrolling.",
+                intersection: candidate.frame.intersection(with: viewport)
+            ))
+        } else if candidate != nil {
+            findings.append(AXObservedFinding(
+                kind: .terminalSemanticMismatch,
+                identifiers: [expectation.terminalIdentifier],
+                message: "The route-specific terminal element did not expose the required role, enabled state, and action.",
+                intersection: nil
+            ))
+        } else {
+            findings.append(AXObservedFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: [expectation.terminalIdentifier],
+                message: "The route-specific terminal identifier was not observed after page scrolling.",
+                intersection: nil
+            ))
+        }
+    }
+
+    return AXObservedDeepScrollEvidence(
+        route: route,
+        reachedTerminal: consecutiveMatches >= 2 && findings.isEmpty,
+        scrollAreaIdentifier: expectation.scrollIdentifier,
+        initialScrollValue: 0,
+        finalScrollValue: Double(pageCount),
+        contentViewport: viewport,
+        terminalElement: terminalElement,
+        findings: findings
+    )
+}
+
+func observeDeepScroll(
+    rootWindowElement: AXUIElement,
+    route: String,
+    expectation: AXRouteTerminalExpectation
+) -> AXObservedDeepScrollEvidence {
+    let initialNodes = observeTree(root: rootWindowElement)
+    let scrollAnchor = initialNodes.first(where: {
+        $0.observation.identifier == expectation.terminalIdentifier
+    }) ?? initialNodes.first(where: {
         $0.observation.identifier == expectation.scrollIdentifier
-    }), let scrollArea = enclosingScrollArea(for: identifiedNode) else {
+    })
+    guard let scrollAnchor, let scrollArea = enclosingScrollArea(for: scrollAnchor) else {
         return AXObservedDeepScrollEvidence(
             route: route,
             reachedTerminal: false,
@@ -346,26 +484,29 @@ func observeDeepScroll(
     }
 
     let viewport = frame(of: scrollArea)
-    guard let scrollBar = elementAttribute(scrollArea, kAXVerticalScrollBarAttribute as CFString),
-          let maximum = numberAttribute(scrollBar, kAXMaxValueAttribute as CFString) else {
-        return AXObservedDeepScrollEvidence(
+    guard let scrollBar = elementAttribute(scrollArea, kAXVerticalScrollBarAttribute as CFString) else {
+        return scrollByPageToTerminal(
+            rootWindowElement: rootWindowElement,
+            scrollArea: scrollArea,
+            viewport: viewport,
             route: route,
-            reachedTerminal: false,
-            scrollAreaIdentifier: expectation.scrollIdentifier,
-            initialScrollValue: nil,
-            finalScrollValue: nil,
-            contentViewport: viewport,
-            terminalElement: nil,
-            findings: [AXObservedFinding(
-                kind: .deepScrollUnavailable,
-                identifiers: [expectation.scrollIdentifier],
-                message: "The route-specific macOS vertical scroll bar was not measurable.",
-                intersection: nil
-            )]
+            expectation: expectation
         )
     }
 
+    let normalizedScrollMaximum = 1.0
     let initialValue = numberAttribute(scrollBar, kAXValueAttribute as CFString)
+    let reportedMaximum = numberAttribute(scrollBar, kAXMaxValueAttribute as CFString)
+    guard reportedMaximum != nil || initialValue != nil else {
+        return scrollByPageToTerminal(
+            rootWindowElement: rootWindowElement,
+            scrollArea: scrollArea,
+            viewport: viewport,
+            route: route,
+            expectation: expectation
+        )
+    }
+    let maximum = reportedMaximum ?? normalizedScrollMaximum
     var settable = DarwinBoolean(false)
     let settableResult = AXUIElementIsAttributeSettable(
         scrollBar,
@@ -395,7 +536,7 @@ func observeDeepScroll(
     for _ in 0..<24 {
         Thread.sleep(forTimeInterval: 0.1)
         finalValue = numberAttribute(scrollBar, kAXValueAttribute as CFString)
-        let nodes = observeTree(root: applicationElement)
+        let nodes = observeTree(root: rootWindowElement)
         let candidate = nodes.first(where: {
             $0.observation.identifier == expectation.terminalIdentifier
         })?.observation
@@ -425,7 +566,7 @@ func observeDeepScroll(
         ))
     }
     if terminalElement == nil {
-        let candidate = observeTree(root: applicationElement).first(where: {
+        let candidate = observeTree(root: rootWindowElement).first(where: {
             $0.observation.identifier == expectation.terminalIdentifier
         })?.observation
         if let candidate, !viewport.contains(candidate.frame) {
@@ -546,6 +687,7 @@ func findings(
     for element in elements where element.enabled
         && !element.frame.isEmpty
         && element.frame.intersection(with: viewport) != nil
+        && !isNativeSystemControl(element)
         && (!element.actions.isEmpty || actionableRoles.contains(element.role)) {
         if element.frame.width + 0.5 < minimumMacControlSize
             || element.frame.height + 0.5 < minimumMacControlSize {
@@ -574,6 +716,19 @@ func findings(
     }
 
     return findings
+}
+
+func isNativeSystemControl(_ element: AXObservedElement) -> Bool {
+    Set([
+        "AXCloseButton",
+        "AXMinimizeButton",
+        "AXZoomButton",
+        "AXFullScreenButton",
+        "AXIncrementArrow",
+        "AXDecrementArrow",
+        "AXIncrementPage",
+        "AXDecrementPage"
+    ]).contains(element.subrole)
 }
 
 func requiredTitles(for route: String, signedIn: Bool) -> Set<String> {
@@ -641,15 +796,20 @@ guard let windowElements = attribute(applicationElement, kAXWindowsAttribute as 
       !windowElements.isEmpty else {
     fail("the exact application PID has no AX windows")
 }
-let windowFrames = windowElements.map(frame(of:)).filter { !$0.isEmpty }
-guard let viewport = windowFrames.max(by: { $0.width * $0.height < $1.width * $1.height }) else {
-    fail("the exact application PID has no measurable AX window")
+let measurableWindows = windowElements.filter {
+    !frame(of: $0).isEmpty
+        && !boolAttribute($0, kAXMinimizedAttribute as CFString, default: false)
 }
-let observedNodes = observeTree(root: applicationElement)
+guard measurableWindows.count == 1, let rootWindowElement = measurableWindows.first else {
+    fail("expected exactly one measurable main content window, observed \(measurableWindows.count)")
+}
+let windowFrames = measurableWindows.map(frame(of:))
+let viewport = frame(of: rootWindowElement)
+let observedNodes = observeTree(root: rootWindowElement)
 let elements = observedNodes.map(\.observation)
 let observedFindings = findings(elements: elements, viewport: viewport, options: options)
 let deepScroll = terminalExpectation(for: options.route).map {
-    observeDeepScroll(applicationElement: applicationElement, route: options.route, expectation: $0)
+    observeDeepScroll(rootWindowElement: rootWindowElement, route: options.route, expectation: $0)
 }
 let evidence = AXObservedEvidence(
     platform: "macos",

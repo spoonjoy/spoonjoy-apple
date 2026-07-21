@@ -34,6 +34,11 @@ REQUIRED_DEEP_SCROLL_TERMINALS = {
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 EXPECTED_CAPTURE_VARIANTS = ["empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
 EXPECTED_SHOPPING_VARIANTS = ["normal", "empty", "all-complete", "duplicate", "conflict", "offline-queued"].freeze
+EXPECTED_ROUTE_SURFACE_ANCHORS = {
+  "cook-log" => ["cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
+  "cookbooks" => ["cookbookShelfStrip", "cookbookLibrarySpread"],
+  "cookbook-detail" => ["cookbookContentsIndex", "cookbookOwnerToolsDisclosure"]
+}.freeze
 EXPECTED_OFFLINE_VISIBLE_STATES = [
   "offline",
   "stale",
@@ -557,6 +562,10 @@ accessibility_screenshot = manifest["accessibilityContentSizeScreenshot"]
 fail_check("#{path} accessibilityContentSizeScreenshot must be a relative path") unless accessibility_screenshot.is_a?(String) && !accessibility_screenshot.empty? && !accessibility_screenshot.start_with?("/")
 fail_check("#{path} missing accessibility content-size screenshot") unless path.dirname.join(accessibility_screenshot).cleanpath.file?
 
+if (expected_surface_anchors = EXPECTED_ROUTE_SURFACE_ANCHORS[route])
+  fail_check("#{path} renderedSurfaceAnchors must exactly match #{expected_surface_anchors.join(", ")}") unless manifest["renderedSurfaceAnchors"] == expected_surface_anchors
+end
+
 case route
 when "kitchen"
   seed_account_id = manifest["kitchenSeedAccountID"]
@@ -625,6 +634,8 @@ when "capture"
   fail_check("#{path} captureScreenshotAuth must be #{expected_auth}") unless manifest["captureScreenshotAuth"] == expected_auth
   seed_account_id = manifest["captureSeedAccountID"]
   fail_check("#{path} captureSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+  captureSignedOutSurface = manifest["captureSignedOutSurface"]
+  fail_check("#{path} captureSignedOutSurface must match the signed-out variant") unless captureSignedOutSurface == (variant == "signed-out")
 when "settings"
   seed_account_id = manifest["settingsSeedAccountID"]
   fail_check("#{path} settingsSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
@@ -632,6 +643,10 @@ when "settings"
   fail_check("#{path} settingsSections must be an array") unless sections.is_a?(Array)
   visual_focus = manifest["settingsVisualFocus"]
   fail_check("#{path} settingsVisualFocus must be profile, notifications, or signed-out") unless ["profile", "notifications", "signed-out"].include?(visual_focus)
+  settingsSignedOutSurface = manifest["settingsSignedOutSurface"]
+  settingsSignedOutHandoffSurface = manifest["settingsSignedOutHandoffSurface"]
+  fail_check("#{path} settingsSignedOutSurface must match signed-out focus") unless settingsSignedOutSurface == (visual_focus == "signed-out")
+  fail_check("#{path} settingsSignedOutHandoffSurface must match signed-out focus") unless settingsSignedOutHandoffSurface == (visual_focus == "signed-out")
   proof_artifacts = manifest["settingsSurfaceProofArtifacts"]
   fail_check("#{path} settingsSurfaceProofArtifacts must be an array") unless proof_artifacts.is_a?(Array)
   fail_check("#{path} settingsSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2

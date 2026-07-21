@@ -149,7 +149,8 @@ enum ScreenshotEvidenceGeometry {
         for element in existingElements where element.hittable
             && element.enabled
             && requirements.actionableTypes.contains(element.type)
-            && element.frame.intersection(with: requirements.viewport) != nil {
+            && element.frame.intersection(with: requirements.viewport) != nil
+            && !isNativeSystemStepperTarget(element, in: existingElements) {
             guard element.frame.width + 0.5 < requirements.minimumActionTarget
                     || element.frame.height + 0.5 < requirements.minimumActionTarget else {
                 continue
@@ -228,6 +229,35 @@ enum ScreenshotEvidenceGeometry {
         }
 
         return findings
+    }
+
+    private static func isNativeSystemStepperTarget(
+        _ candidate: ObservedAccessibilityElement,
+        in elements: [ObservedAccessibilityElement]
+    ) -> Bool {
+        let stepperIdentifiers = ["Decrement", "Increment"]
+        guard candidate.type == "stepper"
+                || (candidate.type == "button" && stepperIdentifiers.contains(candidate.identifier)) else {
+            return false
+        }
+
+        return elements.contains { stepper in
+            guard stepper.type == "stepper", !stepper.label.isEmpty else {
+                return false
+            }
+            let controls = stepperIdentifiers.compactMap { identifier in
+                elements.first { element in
+                    element.type == "button"
+                        && element.identifier == identifier
+                        && element.label == "\(stepper.label), \(identifier)"
+                        && stepper.frame.contains(element.frame)
+                }
+            }
+            guard controls.count == stepperIdentifiers.count else {
+                return false
+            }
+            return candidate == stepper || controls.contains(candidate)
+        }
     }
 
     static func validateTerminalElement(

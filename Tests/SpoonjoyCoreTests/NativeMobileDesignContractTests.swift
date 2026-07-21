@@ -203,7 +203,13 @@ struct NativeMobileDesignContractTests {
                 "observedElements(in: app, windowFrame: window.frame)",
                 "geometryFindings",
                 "let initialScreenshot = XCUIScreen.main.screenshot()",
-                "attachScreenshot(initialScreenshot"
+                "attachScreenshot(initialScreenshot",
+                "primarySurface.swipeUp(velocity: .fast)",
+                "terminalScrollSignature("
+            ],
+            forbids: [
+                "XCUIScreen.main.screenshot().pngRepresentation",
+                "primarySurface.scroll(byDeltaX:"
             ]
         )
         expectContent(
@@ -222,6 +228,8 @@ struct NativeMobileDesignContractTests {
                 "latest_front_display_event",
                 "start_ios_foreground_stream",
                 "stop_ios_foreground_stream",
+                "transition_ios_capture_device",
+                "open -a Simulator --args -CurrentDeviceUDID",
                 "Spoonjoy stopped being the front display before screenshot capture",
                 "Spoonjoy stopped being the front display during screenshot capture",
                 "Front display did change",
@@ -394,7 +402,9 @@ struct NativeMobileDesignContractTests {
                 "compactNavigationToolbar",
                 "compactNavigationRootContent",
                 "compactNavigationBaseContent",
-                "if !isRecipeEditorRoute",
+                "RecipeEditorToolbarCoordinator",
+                ".id(editorViewModel.route.stateIdentifier)",
+                "performSave(for: navigation.route.stateIdentifier)",
                 "private var isRecipeEditorRoute: Bool",
                 "ToolbarItem(placement: .topBarTrailing)",
                 ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
@@ -428,6 +438,92 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Kitchen\")",
                 "Button(\"Capture Draft\")",
                 "Button(\"Settings\")"
+            ]
+        )
+    }
+
+    @Test("recipe editor collection bindings survive list updates")
+    func recipeEditorCollectionBindingsSurviveListUpdates() throws {
+        let editorPath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let editor = uncommentedSwift(try readRepoFile(editorPath))
+
+        expectContent(
+            editor,
+            in: editorPath,
+            contains: [
+                "ForEach(draft.steps)",
+                "stepBinding(id: stepValue.id, fallback: stepValue)",
+                "ForEach(step.wrappedValue.ingredients)",
+                "ingredientBinding(",
+                "stepID: stepValue.id",
+                "ingredientID: ingredientValue.id",
+                "fallback: ingredientValue"
+            ],
+            forbids: [
+                "ForEach($draft.steps)",
+                "ForEach($step.ingredients)"
+            ]
+        )
+    }
+
+    @Test("recipe editor owns a real macOS scroll viewport")
+    func recipeEditorOwnsARealMacOSScrollViewport() throws {
+        let editorPath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let editor = uncommentedSwift(try readRepoFile(editorPath))
+
+        expectContent(
+            editor,
+            in: editorPath,
+            contains: [
+                "RecipeEditorPlatformScroller",
+                "#if os(macOS)",
+                "ScrollView {",
+                "content.fixedSize(horizontal: false, vertical: true)",
+                ".padding(.horizontal, KitchenTableTheme.pageSpacing)",
+                ".modifier(RecipeEditorPlatformScroller())"
+            ]
+        )
+    }
+
+    @Test("recipe editor fields have one visible label and compact values")
+    func recipeEditorFieldsHaveOneVisibleLabelAndCompactValues() throws {
+        let editorPath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let editor = uncommentedSwift(try readRepoFile(editorPath))
+
+        expectContent(
+            editor,
+            in: editorPath,
+            contains: [
+                "LabeledContent(\"Servings\")",
+                "TextField(\"\", text: servingsText)",
+                ".labelsHidden()",
+                "LabeledContent(\"Duration\")",
+                "durationSummary(value.wrappedValue)",
+                "private func durationSummary(_ minutes: Int?) -> String"
+            ],
+            forbids: [
+                "Text(\"Duration \\(value.wrappedValue ?? 0) minutes\")"
+            ]
+        )
+    }
+
+    @Test("recipe editor reflows controls at accessibility sizes")
+    func recipeEditorReflowsControlsAtAccessibilitySizes() throws {
+        let editorPath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let editor = uncommentedSwift(try readRepoFile(editorPath))
+
+        expectContent(
+            editor,
+            in: editorPath,
+            contains: [
+                "accessibilityIngredientControls(",
+                "compactIngredientControls(",
+                "Label(\"Delete Ingredient\", systemImage: \"minus.circle\")",
+                "durationStepper(",
+                "Stepper(value: durationMinutes(value), in: 0...720)",
+                ".labelsHidden()",
+                ".controlSize(.extraLarge)",
+                ".fixedSize(horizontal: false, vertical: true)"
             ]
         )
     }
@@ -612,10 +708,11 @@ struct NativeMobileDesignContractTests {
             editor,
             in: editorPath,
             contains: [
-                "Duration \\(value.wrappedValue ?? 0) minutes",
-                "adjustDuration(value, by: -1)",
-                "adjustDuration(value, by: 1)",
-                "let nextValue = min(720, max(0, (value.wrappedValue ?? 0) + delta))"
+                "LabeledContent(\"Duration\")",
+                "durationSummary(value.wrappedValue)",
+                "Stepper(value: durationMinutes(value), in: 0...720)",
+                "private func durationMinutes(_ value: Binding<Int?>) -> Binding<Int>",
+                "value.wrappedValue = minutes == 0 ? nil : minutes"
             ],
             forbids: [
                 "Duration \\(step.duration ?? 0) seconds",

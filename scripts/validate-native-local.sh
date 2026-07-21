@@ -49,6 +49,7 @@ rm -f \
   "$apple_dir/matrix-screenshots-xcode-platform-blocker.json" \
   "$apple_dir/matrix-screenshots-core-simulator-blocker.json" \
   "$apple_dir/matrix-screenshots-macos-launch-blocker.json" \
+  "$apple_dir/matrix-screenshots-macos-accessibility-blocker.json" \
   "$apple_dir/matrix-route-matrix.json" \
   "$artifact_root/design-review-blocked.json" \
   "$artifact_root/design-review.json" \
@@ -149,6 +150,7 @@ validate_blocker_contract() {
       XcodePlatform
       CoreSimulator
       MacOSLaunch
+      MacOSAccessibility
       AASAProductionValidation
       AppIntentsSDK
       AppleDeveloperProgram
@@ -183,7 +185,7 @@ stale_noncanonical_blockers() {
       rescue JSON::ParserError
         next basename
       end
-      %w[XcodePlatform CoreSimulator MacOSLaunch AppIntentsSDK].include?(blocker["capability"]) ? basename : nil
+      %w[XcodePlatform CoreSimulator MacOSLaunch MacOSAccessibility AppIntentsSDK].include?(blocker["capability"]) ? basename : nil
     end.compact
     if stale.any?
       warn "stale noncanonical native blocker(s): #{stale.join(", ")}"
@@ -429,6 +431,7 @@ ruby -rjson -rtime -e '
     File.join(artifact_root, "apple/matrix-screenshots-xcode-platform-blocker.json"),
     File.join(artifact_root, "apple/matrix-screenshots-core-simulator-blocker.json"),
     File.join(artifact_root, "apple/matrix-screenshots-macos-launch-blocker.json"),
+    File.join(artifact_root, "apple/matrix-screenshots-macos-accessibility-blocker.json"),
     File.join(artifact_root, "apple/apple-developer-program-blocker-apns.json")
   ]
   blocker_paths.concat(Dir[File.join(artifact_root, "apple/appintents-sdk-blocker-*.json")])
@@ -438,6 +441,7 @@ ruby -rjson -rtime -e '
     CoreSimulator
     XcodePlatform
     MacOSLaunch
+    MacOSAccessibility
     AASAProductionValidation
     AppIntentsSDK
     AppleDeveloperProgram
@@ -453,6 +457,7 @@ ruby -rjson -rtime -e '
     when "apple/matrix-xcode-platform-blocker.json", "apple/matrix-screenshots-xcode-platform-blocker.json" then "XcodePlatform"
     when "apple/matrix-smoke-ios-simulator-blocker.json", "apple/matrix-screenshots-core-simulator-blocker.json" then "CoreSimulator"
     when "apple/matrix-smoke-macos-blocker.json", "apple/matrix-screenshots-macos-launch-blocker.json" then "MacOSLaunch"
+    when "apple/matrix-screenshots-macos-accessibility-blocker.json" then "MacOSAccessibility"
     when "apple/apple-developer-program-blocker-apns.json" then "AppleDeveloperProgram"
     when %r{\Aapple/appintents-sdk-blocker-[a-z0-9-]+\.json\z} then "AppIntentsSDK"
     when %r{\Aweb/provider-secret-blocker-[a-z0-9-]+\.json\z} then "ProviderSecret"

@@ -145,11 +145,21 @@ require_tokens(mac_observer, [
   "kAXIdentifierAttribute",
   "kAXRoleAttribute",
   "kAXTitleAttribute",
+  "kAXDescriptionAttribute",
+  "kAXValueAttribute",
   "kAXPositionAttribute",
   "kAXSizeAttribute",
   "kAXEnabledAttribute",
   "kAXFocusedAttribute",
   "kAXWindowsAttribute",
+  "expected exactly one measurable main content window",
+  "observeTree(root: rootWindowElement)",
+  "isNativeSystemControl",
+  "AXFullScreenButton",
+  "AXIncrementArrow",
+  "AXDecrementArrow",
+  "AXIncrementPage",
+  "AXDecrementPage",
   "requiredIdentifierMissing",
   "outsideViewport",
   "peerOverlap",
@@ -160,23 +170,60 @@ require_tokens(mac_observer, [
   "AXObservedDeepScrollEvidence",
   "kAXVerticalScrollBarAttribute",
   "kAXMaxValueAttribute",
+  "normalizedScrollMaximum = 1.0",
   "AXUIElementIsAttributeSettable",
   "AXUIElementSetAttributeValue",
+  "AXScrollDownByPage",
+  "scrollByPageToTerminal",
+  "performNativePageScroll",
+  "kAXPressAction",
   "recipe-editor.delete",
   "recipe-covers.saved-covers",
   "profile.graph.kitchen-visitors"
 ])
 
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
-  "recipe-editor.scroll",
-  ".scrollEdgeEffectStyle(.soft, for: [.top, .bottom])",
+  "RecipeEditorPlatformScroller",
+  "content.fixedSize(horizontal: false, vertical: true)",
+  ".modifier(RecipeEditorPlatformScroller())",
+  ".scrollEdgeEffectStyle(.soft, for: .top)",
+  ".scrollEdgeEffectHidden(for: .bottom)",
   ".contentMargins(.top, KitchenTableTheme.pageSpacing, for: .scrollContent)",
   "ToolbarItem(placement: .confirmationAction)",
+  "RecipeEditorToolbarCoordinator",
+  "RecipeEditorToolbarFingerprint",
+  ".padding(.vertical, 11)",
+  ".onChange(of: toolbarFingerprint)",
+  "session.canPerformSave(for: routeIdentifier)",
+  "reset(ifMatching: editorRouteIdentifier)",
+  "synchronizeToolbarCoordinator()",
   "private func adjustDuration(",
   "private func toggleOutputSteps(for stepID: String)",
   ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
 ])
-forbid_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", ["DisclosureGroup"])
+forbid_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
+  "DisclosureGroup",
+  "Back to My Recipes"
+])
+require_tokens("scripts/capture-native-screenshots.sh", [
+  "refresh_ios_fixture_paths()",
+  "refresh_ios_fixture_paths \"$udid\" \"$expected_platform\" || return 1",
+  "capture_ios_observed_accessibility \"$udid\" \"$expected_platform\" \"$observed_accessibility_output\" \"large\" || return 1\n  if [[ \"$expected_platform\" == \"ios\" ]]; then\n    terminate_ios_app_and_confirm_stopped \"$udid\" || return 1\n    refresh_ios_fixture_paths",
+  "observed-accessibility-macos-diagnostic.json",
+  "macos-desktop-diagnostic.png",
+  "screenshots-macos-accessibility-blocker.json",
+  "cp \"$observed_accessibility_macos_abs\" \"$observed_accessibility_macos_diagnostic\"",
+  "cp \"$macos_screenshot\" \"$macos_screenshot_diagnostic\""
+])
+require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
+  "app.buttons.matching(identifier: \"recipe-editor.save\").count",
+  "Recipe editor must have exactly one toolbar Save owner",
+  "primarySurface.swipeUp(velocity: .fast)",
+  "scrollGestureAnchor(in: app, windowFrame: windowFrame)",
+  "if stablePasses >= 2 && terminalReached",
+  "!viewport.contains(elementFrame)",
+  "includesDynamicTypeChecks: false"
+])
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift", ["recipe-covers.scroll"])
 require_tokens("Apps/Spoonjoy/Shared/Views/ProfileView.swift", ["profile.scroll"])
 

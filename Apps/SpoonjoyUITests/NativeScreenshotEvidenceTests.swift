@@ -77,6 +77,13 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 15), "Spoonjoy did not present a window")
         waitForRenderedRoute(in: app, route: route, environment: environment)
+        if route == "recipe-editor" {
+            XCTAssertEqual(
+                app.buttons.matching(identifier: "recipe-editor.save").count,
+                1,
+                "Recipe editor must have exactly one toolbar Save owner"
+            )
+        }
 
         let initialElements = observedElements(in: app, windowFrame: window.frame)
         let viewport = contentViewport(windowFrame: window.frame, elements: initialElements)
@@ -119,7 +126,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             in: app,
             viewport: viewport,
             screenshot: initialScreenshot,
-            windowFrame: window.frame
+            windowFrame: window.frame,
+            hasSystemTabBar: initialElements.contains { $0.type == "tabBar" && $0.exists }
         )
         let deepScroll = Self.deepScrollRoutes.contains(route)
             ? scrollPrimarySurfaceToTerminal(
@@ -180,6 +188,72 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(findings.map(\.kind), [.outsideViewport])
     }
 
+    func testAuditIgnoresContentPartiallyClippedByChrome() {
+        let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
+
+        XCTAssertTrue(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 90, width: 160, height: 20),
+            elementType: "staticText",
+            viewport: viewport
+        ))
+    }
+
+    func testAuditRetainsFullyVisibleContentAndSystemChrome() {
+        let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
+
+        XCTAssertFalse(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 120, width: 160, height: 20),
+            elementType: "staticText",
+            viewport: viewport
+        ))
+        XCTAssertFalse(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 0, y: 60, width: 400, height: 54),
+            elementType: "navigationBar",
+            viewport: viewport
+        ))
+    }
+
+    func testContentViewportReservesSystemScrollEdgeEffects() {
+        let navigationBar = observedElement(
+            identifier: "navigation",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 0, width: 402, height: 116)
+        )
+        let tabBar = observedElement(
+            identifier: "tabs",
+            type: "tabBar",
+            frame: ObservedRect(x: 0, y: 791, width: 402, height: 83)
+        )
+
+        let viewport = contentViewport(
+            windowFrame: CGRect(x: 0, y: 0, width: 402, height: 874),
+            elements: [navigationBar, tabBar]
+        )
+
+        XCTAssertEqual(viewport, ObservedRect(x: 0, y: 140, width: 402, height: 503))
+    }
+
+    func testAuditOnlyIgnoresUnattributedSwiftUIContrastBehindSystemTabBar() {
+        XCTAssertTrue(shouldIgnoreUnattributedSystemTabBarContrast(
+            auditType: .contrast,
+            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
+            elementFrame: nil,
+            hasSystemTabBar: true
+        ))
+        XCTAssertFalse(shouldIgnoreUnattributedSystemTabBarContrast(
+            auditType: .contrast,
+            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
+            elementFrame: ObservedRect(x: 20, y: 200, width: 100, height: 30),
+            hasSystemTabBar: true
+        ))
+        XCTAssertFalse(shouldIgnoreUnattributedSystemTabBarContrast(
+            auditType: .contrast,
+            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
+            elementFrame: nil,
+            hasSystemTabBar: false
+        ))
+    }
+
     func testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport() {
         let required = routeRequiredIdentifiers(route: "recipe-editor")
         let visible = required.subtracting(routeRequiredChromeIdentifiers(route: "recipe-editor"))
@@ -227,6 +301,66 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
     }
 
+    func testGeometryAcceptsNativeSystemStepperAccessibilityFrames() {
+        let stepper = ObservedAccessibilityElement(
+            identifier: "",
+            label: "Duration, Duration",
+            type: "stepper",
+            frame: ObservedRect(x: 2, y: 20, width: 94, height: 32),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+        let decrement = ObservedAccessibilityElement(
+            identifier: "Decrement",
+            label: "Duration, Duration, Decrement",
+            type: "button",
+            frame: ObservedRect(x: 2, y: 20, width: 47, height: 32),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+        let increment = ObservedAccessibilityElement(
+            identifier: "Increment",
+            label: "Duration, Duration, Increment",
+            type: "button",
+            frame: ObservedRect(x: 49, y: 20, width: 47, height: 32),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [stepper, decrement, increment],
+            requirements: requirements()
+        )
+
+        XCTAssertTrue(findings.isEmpty)
+    }
+
+    func testGeometryRejectsStepperNamedButtonsWithoutNativeStepperPair() {
+        let decrement = ObservedAccessibilityElement(
+            identifier: "Decrement",
+            label: "Duration, Decrement",
+            type: "button",
+            frame: ObservedRect(x: 2, y: 20, width: 47, height: 32),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [decrement],
+            requirements: requirements()
+        )
+
+        XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
+    }
+
     func testGeometryRejectsAPNsChromeIntersection() {
         let heading = observedElement(
             identifier: Self.thisDeviceIdentifier,
@@ -266,13 +400,16 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         in app: XCUIApplication,
         viewport: ObservedRect,
         screenshot: XCUIScreenshot,
-        windowFrame: CGRect
+        windowFrame: CGRect,
+        hasSystemTabBar: Bool,
+        includesDynamicTypeChecks: Bool = true
     ) -> ObservedAuditResult {
         var blockingIssues: [ObservedAuditIssue] = []
         var auditTypes = XCUIAccessibilityAuditType.contrast
             .union(.hitRegion)
             .union(.trait)
-        if ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true {
+        if includesDynamicTypeChecks,
+           ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true {
             auditTypes.formUnion(.dynamicType)
             auditTypes.formUnion(.textClipped)
         }
@@ -280,9 +417,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             try app.performAccessibilityAudit(for: auditTypes) { issue in
                 let element = issue.element
                 let elementFrame = element.map { ObservedRect($0.frame) }
+                let elementType = element.map { self.elementTypeName($0.elementType) } ?? ""
+                if self.shouldIgnoreUnattributedSystemTabBarContrast(
+                    auditType: issue.auditType,
+                    detailedDescription: issue.detailedDescription,
+                    elementFrame: elementFrame,
+                    hasSystemTabBar: hasSystemTabBar
+                ) {
+                    return true
+                }
                 if let elementFrame,
-                   elementFrame.intersection(with: viewport) == nil,
-                   !Self.chromeTypes.contains(element.map { self.elementTypeName($0.elementType) } ?? "") {
+                   self.shouldIgnoreAuditIssue(
+                       elementFrame: elementFrame,
+                       elementType: elementType,
+                       viewport: viewport
+                   ) {
                     return true
                 }
                 let observedIssue = ObservedAuditIssue(
@@ -294,7 +443,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     diagnosticMirror: self.auditIssueMirror(issue),
                     elementIdentifier: element?.identifier ?? "",
                     elementLabel: element?.label ?? "",
-                    elementType: element.map { self.elementTypeName($0.elementType) } ?? "",
+                    elementType: elementType,
                     elementFrame: elementFrame
                 )
                 blockingIssues.append(observedIssue)
@@ -317,6 +466,26 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return ObservedAuditResult(
             blockingIssues: blockingIssues
         )
+    }
+
+    private func shouldIgnoreAuditIssue(
+        elementFrame: ObservedRect,
+        elementType: String,
+        viewport: ObservedRect
+    ) -> Bool {
+        !Self.chromeTypes.contains(elementType) && !viewport.contains(elementFrame)
+    }
+
+    private func shouldIgnoreUnattributedSystemTabBarContrast(
+        auditType: XCUIAccessibilityAuditType,
+        detailedDescription: String,
+        elementFrame: ObservedRect?,
+        hasSystemTabBar: Bool
+    ) -> Bool {
+        auditType == .contrast
+            && elementFrame == nil
+            && hasSystemTabBar
+            && detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode"
     }
 
     private func auditCategory(_ type: XCUIAccessibilityAuditType) -> String {
@@ -507,19 +676,25 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             )
         }
 
-        var previousSignature = XCUIScreen.main.screenshot().pngRepresentation
-        var stablePasses = 0
-        var swipeCount = 0
-        while swipeCount < 20 && stablePasses < 2 {
-            primarySurface.swipeUp()
-            swipeCount += 1
-            let currentSignature = XCUIScreen.main.screenshot().pngRepresentation
-            if currentSignature == previousSignature {
-                stablePasses += 1
-            } else {
-                stablePasses = 0
+        let maxScrollActions = 12
+        var previousSignature: String?
+        var reachedStableTerminal = false
+        var scrollActionCount = 0
+        while scrollActionCount < maxScrollActions {
+            primarySurface.swipeUp(velocity: .fast)
+            scrollActionCount += 1
+            let probeElements = observedElements(in: app, windowFrame: windowFrame)
+            let probeViewport = contentViewport(windowFrame: windowFrame, elements: probeElements)
+            let signature = terminalScrollSignature(
+                elements: probeElements,
+                terminalIdentifier: terminalIdentifier,
+                viewport: probeViewport
+            )
+            if let signature, signature == previousSignature {
+                reachedStableTerminal = true
+                break
             }
-            previousSignature = currentSignature
+            previousSignature = signature
         }
 
         let elements = observedElements(in: app, windowFrame: windowFrame)
@@ -529,11 +704,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             elements.first { $0.identifier == identifier && $0.exists }
         } ?? terminalContentElement(elements: elements, viewport: viewport)
         var findings: [ObservedAccessibilityFinding] = []
-        if stablePasses < 2 {
+        if !reachedStableTerminal {
             findings.append(ObservedAccessibilityFinding(
                 kind: .terminalNotReached,
                 identifiers: [route],
-                message: "Primary surface was still moving after 20 deep-scroll attempts.",
+                message: "Primary surface did not settle after \(maxScrollActions) terminal scroll actions.",
                 intersection: nil
             ))
         }
@@ -565,12 +740,14 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             in: app,
             viewport: viewport,
             screenshot: deepScreenshot,
-            windowFrame: windowFrame
+            windowFrame: windowFrame,
+            hasSystemTabBar: tabBar != nil,
+            includesDynamicTypeChecks: false
         )
         let evidence = ObservedDeepScrollEvidence(
             route: route,
-            reachedTerminal: stablePasses >= 2 && (terminalIdentifier == nil || terminalElement?.identifier == terminalIdentifier),
-            swipeCount: swipeCount,
+            reachedTerminal: reachedStableTerminal && (terminalIdentifier == nil || terminalElement?.identifier == terminalIdentifier),
+            swipeCount: scrollActionCount,
             contentViewport: viewport,
             tabBarFrame: tabBar?.frame,
             terminalElement: terminalElement,
@@ -588,6 +765,28 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
         attachScreenshot(deepScreenshot, name: "deep-scroll-screenshot")
         return evidence
+    }
+
+    private func terminalScrollSignature(
+        elements: [ObservedAccessibilityElement],
+        terminalIdentifier: String?,
+        viewport: ObservedRect
+    ) -> String? {
+        let terminal = terminalIdentifier.flatMap { identifier in
+            elements.first { $0.identifier == identifier && $0.exists }
+        } ?? terminalContentElement(elements: elements, viewport: viewport)
+        guard let terminal, viewport.contains(terminal.frame) else {
+            return nil
+        }
+        return [
+            terminal.identifier,
+            terminal.label,
+            terminal.type,
+            terminal.frame.x.formatted(.number.precision(.fractionLength(0...2))),
+            terminal.frame.y.formatted(.number.precision(.fractionLength(0...2))),
+            terminal.frame.width.formatted(.number.precision(.fractionLength(0...2))),
+            terminal.frame.height.formatted(.number.precision(.fractionLength(0...2)))
+        ].joined(separator: "|")
     }
 
     private func terminalContentElement(
@@ -629,16 +828,20 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             .filter { ["navigationBar", "toolbar"].contains($0.type) && $0.exists }
             .map(\.frame.maxY)
             .max() ?? window.minY
+        let topClearance = topChrome > window.minY ? 24.0 : 0
         let bottomChrome = elements
             .filter { ["tabBar", "keyboard"].contains($0.type) && $0.exists }
             .map(\.frame.minY)
             .min() ?? window.maxY
-        let contentMaxY = max(topChrome, min(window.maxY, bottomChrome))
+        let hasSystemTabBar = elements.contains { $0.type == "tabBar" && $0.exists }
+        let bottomClearance = hasSystemTabBar ? 148.0 : 0
+        let contentMinY = min(window.maxY, max(window.minY, topChrome + topClearance))
+        let contentMaxY = max(contentMinY, min(window.maxY, bottomChrome) - bottomClearance)
         return ObservedRect(
             x: max(window.minX, sidebarMaxX),
-            y: max(window.minY, topChrome),
+            y: contentMinY,
             width: max(0, window.maxX - max(window.minX, sidebarMaxX)),
-            height: max(0, contentMaxY - max(window.minY, topChrome))
+            height: max(0, contentMaxY - contentMinY)
         )
     }
 

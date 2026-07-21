@@ -214,9 +214,11 @@ SCRIPT_CONTRACTS = {
       "screenshots-xcode-platform-blocker.json",
       "screenshots-core-simulator-blocker.json",
       "screenshots-macos-launch-blocker.json",
+      "screenshots-macos-accessibility-blocker.json",
       "apple/${unit_slug}-screenshots-xcode-platform-blocker.json",
       "apple/${unit_slug}-screenshots-core-simulator-blocker.json",
       "apple/${unit_slug}-screenshots-macos-launch-blocker.json",
+      "apple/${unit_slug}-screenshots-macos-accessibility-blocker.json",
       "sourceBlockerPath",
       "skippedArtifacts",
       "conflicting design review success and blocker artifacts",
@@ -345,9 +347,11 @@ SCRIPT_CONTRACTS = {
       'apple/#{unit_slug}-screenshots-xcode-platform-blocker.json',
       'apple/#{unit_slug}-screenshots-core-simulator-blocker.json',
       'apple/#{unit_slug}-screenshots-macos-launch-blocker.json',
+      'apple/#{unit_slug}-screenshots-macos-accessibility-blocker.json',
       "screenshots-xcode-platform-blocker.json",
       "screenshots-core-simulator-blocker.json",
-      "screenshots-macos-launch-blocker.json"
+      "screenshots-macos-launch-blocker.json",
+      "screenshots-macos-accessibility-blocker.json"
     ]
   },
   "scripts/fail-on-warning.rb" => {
@@ -936,6 +940,8 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "settingsVisualFocus" => "notifications",
     "settingsAPNsPermissionState" => "authorized",
     "settingsAPNsRegistrationState" => "registered",
+    "settingsSignedOutSurface" => false,
+    "settingsSignedOutHandoffSurface" => false,
     "settingsSeedAccountID" => "chef_settings_capture",
     "settingsSections" => ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access"],
     "settingsSurfaceProofArtifacts" => ["apple/proof-ios.json", "apple/proof-macos.json"]
@@ -944,6 +950,8 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "blockers" => [],
     "screenshotRoute" => "settings",
     "settingsVisualFocus" => "profile",
+    "settingsSignedOutSurface" => false,
+    "settingsSignedOutHandoffSurface" => false,
     "settingsSeedAccountID" => "chef_settings_capture",
     "settingsSections" => ["Profile", "Security", "Notifications"],
     "settingsSurfaceProofArtifacts" => ["apple/profile-proof-ios.json", "apple/profile-proof-macos.json"]
@@ -964,6 +972,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "screenshotRoute" => "cookbook-detail",
     "cookbookSeedAccountID" => "chef_kitchen_capture",
     "cookbookID" => "cookbook_weeknights",
+    "renderedSurfaceAnchors" => ["cookbookContentsIndex", "cookbookOwnerToolsDisclosure"],
     "cookbookContentsIndex" => true,
     "cookbookOwnerToolsDisclosure" => true
   }
@@ -983,6 +992,8 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
   stale_search_proof_manifest = valid_search_manifest.merge("searchSurfaceProofArtifacts" => ["apple/stale-search-proof-ios.json", "apple/search-proof-macos.json"])
   wrong_search_proof_manifest = valid_search_manifest.merge("searchSurfaceProofArtifacts" => ["apple/wrong-search-proof-ios.json", "apple/search-proof-macos.json"])
   missing_apns_settings_manifest = valid_settings_manifest.merge("settingsSections" => ["Profile", "Security", "Notifications"])
+  wrong_settings_signed_out_surface_manifest = valid_settings_manifest.merge("settingsSignedOutSurface" => true)
+  wrong_cookbook_surface_anchors_manifest = valid_cookbook_detail_manifest.merge("renderedSurfaceAnchors" => ["cookbookContentsIndex"])
   false_with_blocker = false_without_blocker.merge(
     "blockers" => [
       {
@@ -1031,6 +1042,8 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "stale-search-proof.json" => [stale_search_proof_manifest, false, "stale search route proof artifact"],
     "wrong-search-proof.json" => [wrong_search_proof_manifest, false, "wrong search route proof artifact"],
     "missing-apns-settings.json" => [missing_apns_settings_manifest, false, "settings APNs route artifact"],
+    "wrong-settings-signed-out-surface.json" => [wrong_settings_signed_out_surface_manifest, false, "settings signed-out surface mismatch"],
+    "wrong-cookbook-surface-anchors.json" => [wrong_cookbook_surface_anchors_manifest, false, "cookbook surface anchor mismatch"],
     "false-without-blocker.json" => [false_without_blocker, false, "false field without blocker"],
     "false-with-blocker.json" => [false_with_blocker, false, "legacy inline screenshot blocker"],
     "desktop-false-with-ios-blocker.json" => [desktop_false_with_only_ios_blocker, false, "desktop false field with unrelated iOS blocker"],
@@ -1105,6 +1118,16 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
       "reason" => "No booted simulator was available.",
       "ownerAction" => "Install and boot an iPhone simulator runtime."
     ) + "\n")
+    macos_accessibility_blocker = apple_dir.join("unit-16f-screenshot-contract-screenshots-macos-accessibility-blocker.json")
+    macos_accessibility_blocker.write(JSON.pretty_generate(
+      "blocked" => true,
+      "capability" => "MacOSAccessibility",
+      "command" => "swift scripts/observe-macos-screenshot-evidence.swift",
+      "timeoutSeconds" => 60,
+      "outputPath" => "apple/unit-16f-screenshot-contract-screenshots.log",
+      "reason" => "The observer reported macOS accessibility geometry findings.",
+      "ownerAction" => "Repair the reported geometry findings and rerun capture."
+    ) + "\n")
 
     valid_blocked_review = {
       "blocked" => true,
@@ -1131,6 +1154,12 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
       artifact = temp_root.join(relative_path)
       artifact.delete if artifact.file?
     end
+    valid_macos_accessibility_review = valid_blocked_review.merge(
+      "capability" => "MacOSAccessibility",
+      "sourceBlockerPath" => macos_accessibility_blocker.to_s,
+      "reason" => "The observer reported macOS accessibility geometry findings.",
+      "ownerAction" => "Repair the reported geometry findings and rerun capture."
+    )
     invalid_source_review = valid_blocked_review.merge(
       "sourceBlockerPath" => apple_dir.join("old-smoke-ios-simulator-blocker.json").to_s
     )
@@ -1149,6 +1178,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
 
     {
       "valid-blocked-review.json" => [valid_blocked_review, true, "valid design-review blocker"],
+      "valid-macos-accessibility-blocked-review.json" => [valid_macos_accessibility_review, true, "valid macOS accessibility blocker"],
       "invalid-source-blocked-review.json" => [invalid_source_review, false, "noncanonical design-review blocker source"],
       "top-level-source-blocked-review.json" => [top_level_source_review, false, "top-level design-review blocker source"],
       "false-blocked-review.json" => [false_blocked_review, false, "design-review blocker blocked=false"],
