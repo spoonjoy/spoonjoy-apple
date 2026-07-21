@@ -371,12 +371,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
     }
 
-    func testGeometryAcceptsNativeSwitchThumbInsideFullSizeLabeledToggle() {
+    func testGeometryAcceptsNativeSwitchChromeForAFullWidthLabeledToggle() {
         let row = ObservedAccessibilityElement(
             identifier: "",
             label: "Editorialize cover",
             type: "switch",
-            frame: ObservedRect(x: 2, y: 14, width: 94, height: 44),
+            frame: ObservedRect(x: 2, y: 22, width: 338, height: 28),
             exists: true,
             hittable: true,
             enabled: true,
@@ -386,7 +386,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             identifier: "",
             label: "",
             type: "switch",
-            frame: ObservedRect(x: 33, y: 22, width: 63, height: 28),
+            frame: ObservedRect(x: 277, y: 22, width: 63, height: 28),
             exists: true,
             hittable: true,
             enabled: true,
@@ -399,6 +399,26 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
 
         XCTAssertTrue(findings.isEmpty)
+    }
+
+    func testGeometryRejectsNarrowLabeledSwitchChrome() {
+        let toggle = ObservedAccessibilityElement(
+            identifier: "",
+            label: "Editorialize cover",
+            type: "switch",
+            frame: ObservedRect(x: 33, y: 22, width: 63, height: 28),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [toggle],
+            requirements: requirements()
+        )
+
+        XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
     }
 
     func testGeometryRejectsUnlabeledSmallSwitchWithoutFullSizeToggleRow() {

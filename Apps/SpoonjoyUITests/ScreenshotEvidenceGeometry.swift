@@ -151,7 +151,7 @@ enum ScreenshotEvidenceGeometry {
             && requirements.actionableTypes.contains(element.type)
             && element.frame.intersection(with: requirements.viewport) != nil
             && !isNativeSystemStepperTarget(element, in: existingElements)
-            && !isNativeSystemSwitchThumb(element, in: existingElements, minimumTarget: requirements.minimumActionTarget) {
+            && !isNativeSystemSwitchTarget(element, in: existingElements, minimumTarget: requirements.minimumActionTarget) {
             guard element.frame.width + 0.5 < requirements.minimumActionTarget
                     || element.frame.height + 0.5 < requirements.minimumActionTarget else {
                 continue
@@ -261,21 +261,28 @@ enum ScreenshotEvidenceGeometry {
         }
     }
 
-    private static func isNativeSystemSwitchThumb(
+    private static func isNativeSystemSwitchTarget(
         _ candidate: ObservedAccessibilityElement,
         in elements: [ObservedAccessibilityElement],
         minimumTarget: Double
     ) -> Bool {
-        guard candidate.type == "switch", candidate.label.isEmpty else {
+        guard candidate.type == "switch" else {
             return false
         }
 
-        return elements.contains { toggle in
+        let isFullRowToggle: (ObservedAccessibilityElement) -> Bool = { toggle in
             toggle.type == "switch"
                 && !toggle.label.isEmpty
-                && toggle.frame.width + 0.5 >= minimumTarget
-                && toggle.frame.height + 0.5 >= minimumTarget
-                && toggle.frame.contains(candidate.frame)
+                && toggle.frame.width + 0.5 >= minimumTarget * 2
+                && toggle.frame.height + 0.5 >= 28
+        }
+
+        if isFullRowToggle(candidate) {
+            return true
+        }
+
+        return candidate.label.isEmpty && elements.contains { toggle in
+            isFullRowToggle(toggle) && toggle.frame.contains(candidate.frame)
         }
     }
 
