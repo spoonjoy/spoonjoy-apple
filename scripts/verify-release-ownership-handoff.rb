@@ -330,6 +330,49 @@ class GitHubRemote
     fail_with("remote ref response is incomplete for #{repository}:#{ref}: #{error.message}")
   end
 
+  def verify_ref_protected(repository, ref)
+    branch = ref.delete_prefix("refs/heads/")
+    fail_with("protected ref must name an exact branch: #{repository}:#{ref}") if branch == ref || branch.empty?
+
+    protection = query_json(
+      "repos/#{repository}/branches/#{encode_path(branch)}/protection",
+      allow_not_found: true
+    )
+    if protection
+      force_pushes = protection.dig("allow_force_pushes", "enabled")
+      deletions = protection.dig("allow_deletions", "enabled")
+      admins = protection.dig("enforce_admins", "enabled")
+      if force_pushes == false && deletions == false && admins == true
+        return {
+          "source" => "branch_protection",
+          "forcePushesAllowed" => false,
+          "deletionsAllowed" => false,
+          "adminsEnforced" => true
+        }
+      end
+      fail_with("protected ref #{repository}:#{ref} permits mutable history or administrator bypass")
+    end
+
+    rules = query_json(
+      "repos/#{repository}/rules/branches/#{encode_path(branch)}",
+      allow_not_found: true
+    )
+    rule_types = Array(rules).each_with_object([]) do |rule, types|
+      types << rule["type"] if rule.is_a?(Hash) && rule["type"].is_a?(String)
+    end
+    blocking_types = rule_types.select do |type|
+      %w[deletion non_fast_forward pull_request required_status_checks].include?(type)
+    end.uniq
+    unless blocking_types.empty?
+      return {
+        "source" => "ruleset",
+        "blockingRuleTypes" => blocking_types.sort
+      }
+    end
+
+    fail_with("ref #{repository}:#{ref} is not covered by effective GitHub branch protection or a mutability-blocking ruleset")
+  end
+
   def verify_commit_reachable(repository, commit, ref, ref_head)
     response = query_json("repos/#{repository}/git/commits/#{commit}", unreachable_label: "remote commit is unreachable: #{repository}@#{commit}")
     fail_with("remote commit identity mismatch for #{repository}@#{commit}") unless response["sha"] == commit
@@ -360,11 +403,18 @@ class GitHubRemote
 
   private
 
-  def query_json(endpoint, fields: {}, unreachable_label: nil)
+  def query_json(endpoint, fields: {}, unreachable_label: nil, allow_not_found: false)
     arguments = [@command, "api", "--method", "GET", endpoint]
     fields.each { |key, value| arguments.concat(["-f", "#{key}=#{value}"]) }
     stdout, stderr, status = Open3.capture3(*arguments)
     unless status.success?
+      response = begin
+        StrictJSON.parse(stdout, label: "GitHub error response for #{endpoint}")
+      rescue HandoffVerificationError
+        nil
+      end
+      return nil if allow_not_found && response.is_a?(Hash) && response["status"].to_i == 404
+
       detail = [stdout, stderr].reject(&:empty?).join("\n").strip
       fail_with(unreachable_label || "GitHub query failed for #{endpoint}: #{detail}")
     end
@@ -389,10 +439,10 @@ end
 class ReleaseOwnershipHandoffVerifier
   OUTBOUND_REPOSITORY = "spoonjoy/spoonjoy-apple"
   DELIVERY_REPOSITORY = "spoonjoy/spoonjoy-delivery"
-  OUTBOUND_REF = "refs/heads/worker/audit-release-train"
+  OUTBOUND_REF = "refs/heads/main"
   LEDGER_REF = "refs/heads/release-ledger"
-  DELIVERY_ACK_REF = "refs/heads/records-r0"
-  UPSTREAM_ACK_REF = OUTBOUND_REF
+  DELIVERY_ACK_REF = "refs/heads/main"
+  UPSTREAM_ACK_REF = "refs/heads/main"
   RECEIVER_TASK_ID = "019f5c80-bbe0-76a1-82eb-b0c715d035e7"
   RECEIVER_DESK_TASK = "spoonjoy/cross-client-delivery"
   RELEASE_RELATIVE_PATH = "worker/tasks/2026-07-16-0856-doing-audit-release-train/outbound-owner-release.json"
@@ -424,12 +474,13 @@ class ReleaseOwnershipHandoffVerifier
     validate_acknowledgment(release, release_bytes, ack)
 
     envelopes = build_envelopes(ack)
+    protections = verify_protected_refs(envelopes)
     initial_heads = protected_ref_heads(envelopes)
     remote_contents = verify_remote_envelopes(envelopes, initial_heads)
     validate_remote_contents(release_bytes, ack_bytes, ack, remote_contents)
     validate_protected_refs_stable(initial_heads)
 
-    proof = build_proof(release, release_bytes, ack_bytes, ack, envelopes, initial_heads)
+    proof = build_proof(release, release_bytes, ack_bytes, ack, envelopes, protections, initial_heads)
     FileUtils.mkdir_p(@output_path.dirname)
     @output_path.write(JSON.pretty_generate(proof) + "\n")
     proof
@@ -502,6 +553,13 @@ class ReleaseOwnershipHandoffVerifier
     end
   end
 
+  def verify_protected_refs(envelopes)
+    envelopes.each_with_object({}) do |envelope, protections|
+      key = [envelope.repository, envelope.ref]
+      protections[key] ||= @remote.verify_ref_protected(envelope.repository, envelope.ref)
+    end
+  end
+
   def verify_remote_envelopes(envelopes, initial_heads)
     envelopes.each_with_object({}) do |envelope, contents|
       ref_head = initial_heads.fetch([envelope.repository, envelope.ref])
@@ -541,13 +599,14 @@ class ReleaseOwnershipHandoffVerifier
     end
   end
 
-  def build_proof(release, release_bytes, ack_bytes, ack, envelopes, initial_heads)
+  def build_proof(release, release_bytes, ack_bytes, ack, envelopes, protections, initial_heads)
     envelope_map = envelopes.to_h do |envelope|
       [
         envelope.label.gsub(" ", "_"),
         {
           "repository" => envelope.repository,
           "ref" => envelope.ref,
+          "protection" => protections.fetch([envelope.repository, envelope.ref]),
           "refHead" => initial_heads.fetch([envelope.repository, envelope.ref]),
           "commit" => envelope.commit,
           "path" => envelope.path

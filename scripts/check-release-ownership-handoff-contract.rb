@@ -19,9 +19,9 @@ RELEASE_RELATIVE_PATH = "worker/tasks/2026-07-16-0856-doing-audit-release-train/
 UPSTREAM_ACK_RELATIVE_PATH = "worker/tasks/2026-07-16-0856-doing-audit-release-train/receiver-ack.json"
 OUTBOUND_REPOSITORY = "spoonjoy/spoonjoy-apple"
 DELIVERY_REPOSITORY = "spoonjoy/spoonjoy-delivery"
-OUTBOUND_REF = "refs/heads/worker/audit-release-train"
+OUTBOUND_REF = "refs/heads/main"
 LEDGER_REF = "refs/heads/release-ledger"
-DELIVERY_ACK_REF = "refs/heads/records-r0"
+DELIVERY_ACK_REF = "refs/heads/main"
 OUTBOUND_COMMIT = "1" * 40
 LEDGER_COMMIT = "2" * 40
 DELIVERY_ACK_COMMIT = "3" * 40
@@ -167,6 +167,14 @@ def fixture_documents
   [release, release_bytes, ledger_event, ledger_bytes, ack, ack_bytes, delivery_ack_path]
 end
 
+def classic_protection
+  {
+    "allow_force_pushes" => { "enabled" => false },
+    "allow_deletions" => { "enabled" => false },
+    "enforce_admins" => { "enabled" => true }
+  }
+end
+
 def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_path:)
   {
     "repositories" => {
@@ -174,6 +182,10 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
         "refs" => {
           OUTBOUND_REF => UPSTREAM_ACK_COMMIT
         },
+        "protections" => {
+          OUTBOUND_REF => classic_protection
+        },
+        "rules" => {},
         "commits" => {
           OUTBOUND_COMMIT => {
             "ancestors" => [],
@@ -194,6 +206,11 @@ def repository_fixture(release_bytes:, ledger_bytes:, ack_bytes:, delivery_ack_p
           LEDGER_REF => LEDGER_COMMIT,
           DELIVERY_ACK_REF => DELIVERY_ACK_COMMIT
         },
+        "protections" => {
+          LEDGER_REF => classic_protection,
+          DELIVERY_ACK_REF => classic_protection
+        },
+        "rules" => {},
         "commits" => {
           LEDGER_COMMIT => {
             "ancestors" => [],
@@ -253,6 +270,19 @@ FAKE_GH = <<~'RUBY'
                  sha = repo.fetch("refs").fetch(ref)
                end
                { "ref" => ref, "object" => { "type" => "commit", "sha" => sha } }
+             when %r{\Abranches/(.+)/protection\z}
+               branch = URI.decode_www_form_component(Regexp.last_match(1))
+               ref = "refs/heads/#{branch}"
+               protection = repo.fetch("protections", {})[ref]
+               unless protection
+                 puts JSON.generate({ "message" => "Branch not protected", "status" => 404 })
+                 exit 1
+               end
+               protection
+             when %r{\Arules/branches/(.+)\z}
+               branch = URI.decode_www_form_component(Regexp.last_match(1))
+               ref = "refs/heads/#{branch}"
+               repo.fetch("rules", {}).fetch(ref, [])
              when %r{\Acompare/([0-9a-f]{40})\.\.\.([0-9a-f]{40})\z}
                base = Regexp.last_match(1)
                head = Regexp.last_match(2)
@@ -407,12 +437,44 @@ begin
   local_matrix = ROOT.join("scripts/validate-native-local.sh").read
   [doing, evidence_index].each do |document|
     fail_check("legacy owner-release.json path remains") if document.match?(/(?<!outbound-)owner-release\.json/)
+    fail_check("protected main acknowledgment contract is undocumented") unless document.include?("protected `refs/heads/main`")
+    fail_check("effective GitHub protection proof is undocumented") unless document.include?("effective GitHub")
+  end
+  [VERIFIER.read].each do |source|
+    fail_check("stale unprotected acknowledgment ref remains") if source.include?("refs/heads/records-r0")
+    fail_check("stale unprotected outbound ref remains") if source.include?("refs/heads/worker/audit-release-train")
   end
   gate_command = "ruby -w scripts/check-release-ownership-handoff-contract.rb"
   fail_check("protected Native workflow does not run the warning-clean handoff contract") unless workflow.include?(gate_command)
   fail_check("local validation matrix does not run the warning-clean handoff contract") unless local_matrix.include?(gate_command)
 
   expect_success("valid two-sided acyclic handoff")
+
+  expect_success("delivery main protected by an effective ruleset", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("protections").delete(DELIVERY_ACK_REF)
+    repo.fetch("rules")[DELIVERY_ACK_REF] = [{ "type" => "non_fast_forward" }]
+  end)
+
+  expect_failure("unprotected outbound main", "is not covered by effective GitHub branch protection", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(OUTBOUND_REPOSITORY)
+    repo.fetch("protections").delete(OUTBOUND_REF)
+  end)
+
+  expect_failure("unprotected delivery main", "is not covered by effective GitHub branch protection", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("protections").delete(DELIVERY_ACK_REF)
+  end)
+
+  expect_failure("unprotected delivery ledger", "is not covered by effective GitHub branch protection", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("protections").delete(LEDGER_REF)
+  end)
+
+  expect_failure("mutable protected main", "permits mutable history or administrator bypass", mutate: lambda do |documents|
+    repo = documents.fetch(:fixture).fetch("repositories").fetch(DELIVERY_REPOSITORY)
+    repo.fetch("protections").fetch(DELIVERY_ACK_REF).fetch("allow_force_pushes")["enabled"] = true
+  end)
 
   expect_failure("self-referential delivery commit", "unknown property deliveryProjectionCommit", mutate: lambda do |documents|
     documents.fetch(:ack)["deliveryProjectionCommit"] = DELIVERY_ACK_COMMIT
