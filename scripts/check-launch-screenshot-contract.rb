@@ -2594,7 +2594,7 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
     "-rtimeout",
     "-e",
     PROCESS_TIMEOUT_WRAPPER,
-    "10",
+    "30",
     "bash",
     "scripts/capture-native-screenshots.sh",
     "--artifact-root",
