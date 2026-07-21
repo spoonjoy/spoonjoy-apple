@@ -20,6 +20,7 @@ struct RecipeEditorView: View {
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -70,13 +71,15 @@ struct RecipeEditorView: View {
                 TextField("Title", text: $draft.title)
                     .accessibilityIdentifier("recipe-editor.title")
                     .accessibilityLabel("Title")
-                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                    .padding(.vertical, 11)
+                    .contentShape(Rectangle())
                 TextEditor(text: descriptionText)
-                    .frame(minHeight: 88)
+                    .frame(minHeight: 64)
                     .accessibilityLabel("Description")
                 TextField("Servings", text: servingsText)
                     .accessibilityLabel("Servings")
-                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                    .padding(.vertical, 11)
+                    .contentShape(Rectangle())
             } header: {
                 editorSectionHeader("Recipe")
             }
@@ -105,9 +108,10 @@ struct RecipeEditorView: View {
 
                         TextField("Step title", text: optionalText($step.title))
                             .accessibilityLabel("Step title")
-                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                            .padding(.vertical, 11)
+                            .contentShape(Rectangle())
                         TextEditor(text: $step.description)
-                            .frame(minHeight: 72)
+                            .frame(minHeight: 56)
                             .accessibilityLabel("Step description")
                         durationControl($step.duration)
 
@@ -134,14 +138,19 @@ struct RecipeEditorView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 TextField("Ingredient", text: $ingredient.name)
                                     .accessibilityLabel("Ingredient")
-                                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                                    .padding(.vertical, 11)
+                                    .contentShape(Rectangle())
                                 HStack(spacing: 12) {
                                     TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
                                         .accessibilityLabel("Quantity")
-                                        .frame(minWidth: 88, minHeight: KitchenTableTheme.minimumTouchTarget)
+                                        .frame(minWidth: 88)
+                                        .padding(.vertical, 11)
+                                        .contentShape(Rectangle())
                                     TextField("Unit", text: optionalText($ingredient.unit))
                                         .accessibilityLabel("Unit")
-                                        .frame(minWidth: 72, minHeight: KitchenTableTheme.minimumTouchTarget)
+                                        .frame(minWidth: 72)
+                                        .padding(.vertical, 11)
+                                        .contentShape(Rectangle())
                                     Button(role: .destructive) {
                                         removeIngredient(id: ingredient.id, from: step.id)
                                     } label: {
@@ -195,6 +204,7 @@ struct RecipeEditorView: View {
                         showDeleteConfirmation = true
                     } label: {
                         Label("Delete Recipe", systemImage: "trash")
+                            .foregroundStyle(KitchenTableTheme.tomato)
                     }
                     .accessibilityIdentifier("recipe-editor.delete")
                     .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
@@ -202,10 +212,23 @@ struct RecipeEditorView: View {
             }
         }
         .accessibilityIdentifier("recipe-editor.scroll")
-        .scrollEdgeEffectStyle(nil, for: .bottom)
+        .scrollEdgeEffectStyle(.soft, for: [.top, .bottom])
+        .contentMargins(.top, KitchenTableTheme.pageSpacing, for: .scrollContent)
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
         .toolbar {
+#if os(iOS)
+            if usesCompactNavigation {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        close(.recipes)
+                    } label: {
+                        Label("My Recipes", systemImage: "chevron.backward")
+                    }
+                    .accessibilityLabel("Back to My Recipes")
+                }
+            }
+#endif
             ToolbarItem(placement: .confirmationAction) {
                 Button {
                     Task {
@@ -294,13 +317,19 @@ struct RecipeEditorView: View {
                     adjustDuration(value, by: -1)
                 } label: {
                     Image(systemName: "minus")
-                        .accessibilityLabel("Decrease duration")
                         .frame(
                             width: KitchenTableTheme.minimumTouchTarget,
                             height: KitchenTableTheme.minimumTouchTarget
                         )
+                        .accessibilityHidden(true)
                 }
                 .buttonStyle(.plain)
+                .frame(
+                    width: KitchenTableTheme.minimumTouchTarget,
+                    height: KitchenTableTheme.minimumTouchTarget
+                )
+                .contentShape(Rectangle())
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Decrease duration")
                 .disabled((value.wrappedValue ?? 0) == 0 || isSubmitting)
 
@@ -311,13 +340,19 @@ struct RecipeEditorView: View {
                     adjustDuration(value, by: 1)
                 } label: {
                     Image(systemName: "plus")
-                        .accessibilityLabel("Increase duration")
                         .frame(
                             width: KitchenTableTheme.minimumTouchTarget,
                             height: KitchenTableTheme.minimumTouchTarget
                         )
+                        .accessibilityHidden(true)
                 }
                 .buttonStyle(.plain)
+                .frame(
+                    width: KitchenTableTheme.minimumTouchTarget,
+                    height: KitchenTableTheme.minimumTouchTarget
+                )
+                .contentShape(Rectangle())
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Increase duration")
                 .disabled((value.wrappedValue ?? 0) >= 720 || isSubmitting)
             }

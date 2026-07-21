@@ -392,6 +392,8 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Chefs\", systemImage: \"person.2\")",
                 "Button(\"Search\", systemImage: \"magnifyingglass\")",
                 "compactNavigationToolbar",
+                "compactNavigationRootContent",
+                "compactNavigationBaseContent",
                 "if !isRecipeEditorRoute",
                 "private var isRecipeEditorRoute: Bool",
                 "ToolbarItem(placement: .topBarTrailing)",

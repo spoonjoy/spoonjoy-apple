@@ -173,18 +173,7 @@ struct PlatformNavigationView: View {
 
     private func compactMobileNavigationStack(spotlightPayload: SpotlightIndexPayload) -> some View {
         NavigationStack {
-            compactNavigationContent
-            .navigationTitle(compactNavigationTitle(for: navigation.route))
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-#endif
-            .toolbar {
-                compactNavigationToolbar
-            }
-#if os(iOS)
-            .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-#endif
+            compactNavigationRootContent
         }
         .navigationDestination(for: AppRoute.self) { route in
             destinationContent(for: route)
@@ -228,6 +217,29 @@ struct PlatformNavigationView: View {
                 liveSearchRequestMarker = nil
             }
         }
+    }
+
+    @ViewBuilder private var compactNavigationRootContent: some View {
+        if isRecipeEditorRoute {
+            compactNavigationBaseContent
+        } else {
+            compactNavigationBaseContent
+                .toolbar {
+                    compactNavigationToolbar
+                }
+        }
+    }
+
+    private var compactNavigationBaseContent: some View {
+        compactNavigationContent
+            .navigationTitle(compactNavigationTitle(for: navigation.route))
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
+#if os(iOS)
+            .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+#endif
     }
 
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
