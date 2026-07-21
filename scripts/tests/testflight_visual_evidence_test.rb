@@ -32,6 +32,9 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     settings-notifications settings-signed-out settings-apns-denied settings-apns-not-determined
     settings-apns-authorized settings-apns-unregistered
   ].freeze
+  DEEP_SCROLL_ROUTES = %w[
+    kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+  ].freeze
 
   def setup
     @temporary_directory = Pathname.new(Dir.mktmpdir("testflight-visual-evidence"))
@@ -56,11 +59,24 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     assert_equal RUN_ATTEMPT, manifest.dig("identity", "workflowRunAttempt")
     assert_equal JOB, manifest.dig("identity", "workflowJob")
     assert_equal ROUTES, manifest.dig("matrix", "routes").map { |route| route.fetch("name") }
+    kitchen = manifest.dig("matrix", "routes").find { |route| route.fetch("name") == "kitchen" }
+    assert_equal %w[iosAccessibility iosMobile iosTablet], kitchen.fetch("deepScrollScreenshots").keys.sort
+    recipes = manifest.dig("matrix", "routes").find { |route| route.fetch("name") == "recipes" }
+    assert_equal({}, recipes.fetch("deepScrollScreenshots"))
     assert manifest.fetch("files").all? { |entry| entry.fetch("sha256").match?(/\A[0-9a-f]{64}\z/) }
 
     verify = run_tool("verify", *verify_arguments)
     assert verify.success?, verify.output
     assert_includes verify.output, Digest::SHA256.file(manifest_path).hexdigest
+  end
+
+
+  def test_rejects_missing_deep_scroll_screenshot_for_a_long_route
+    @artifact_root.join("screenshots/ios-mobile-deep-scroll.png").delete
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "deep-scroll screenshot"
   end
 
   def test_rejects_a_partial_route_matrix
@@ -457,6 +473,18 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       path.dirname.mkpath
       path.binwrite(png_bytes("#{route}:#{relative_path}"))
     end
+    deep_scroll_paths = {
+      "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+      "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+      "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+    }
+    if DEEP_SCROLL_ROUTES.include?(capture_route_for(route))
+      deep_scroll_paths.each_value do |relative_path|
+        path = route_root.join(relative_path)
+        path.dirname.mkpath
+        path.binwrite(png_bytes("#{route}:#{relative_path}"))
+      end
+    end
 
     proof_paths = %w[
       apple/accessibility-ios.json apple/accessibility-ipad.json apple/accessibility-macos.json
@@ -476,6 +504,11 @@ class TestFlightVisualEvidenceTest < Minitest::Test
         artifact_entry(route_root.join(relative_path), relative_path)
       end
     }
+    if DEEP_SCROLL_ROUTES.include?(capture_route_for(route))
+      review["deepScrollScreenshotArtifacts"] = deep_scroll_paths.transform_values do |relative_path|
+        artifact_entry(route_root.join(relative_path), relative_path)
+      end
+    end
     review_path = route_root.join("design-review.json")
     write_json(review_path, review)
 

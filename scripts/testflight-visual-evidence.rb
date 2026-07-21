@@ -38,6 +38,14 @@ module TestFlightVisualEvidence
     "iosTablet" => ["iosTabletScreenshot", "screenshots/ios-tablet.png"],
     "macosDesktop" => ["macosScreenshot", "screenshots/macos-desktop.png"]
   }.freeze
+  DEEP_SCROLL_SCREENSHOTS = {
+    "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+    "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+    "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+  }.freeze
+  DEEP_SCROLL_ROUTES = %w[
+    kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+  ].freeze
   REQUIRED_PROOF_ARRAYS = {
     "accessibilityProofArtifacts" => 3,
     "observedAccessibilityEvidenceArtifacts" => 4
@@ -300,6 +308,31 @@ module TestFlightVisualEvidence
           relative_source_path(screenshot_path, "route #{name} screenshot #{key}")
         )
       end
+      deep_scroll_screenshots = {}
+      if DEEP_SCROLL_ROUTES.include?(row.fetch("route"))
+        review_records = design.fetch("deepScrollScreenshotArtifacts")
+        unless review_records.is_a?(Hash) && review_records.keys.sort == DEEP_SCROLL_SCREENSHOTS.keys.sort
+          raise Error, "route #{name} deep-scroll screenshot set is incomplete"
+        end
+        DEEP_SCROLL_SCREENSHOTS.each do |key, expected_relative|
+          review_record = review_records.fetch(key)
+          unless review_record.is_a?(Hash) && review_record["path"] == expected_relative
+            raise Error, "route #{name} deep-scroll screenshot #{key} path mismatch"
+          end
+          screenshot_path = relative_route_file(route_root, expected_relative, "route #{name} deep-scroll screenshot #{key}")
+          unless review_record["bytes"] == screenshot_path.size &&
+                 review_record["sha256"] == Digest::SHA256.file(screenshot_path).hexdigest
+            raise Error, "route #{name} deep-scroll screenshot #{key} design-review hash mismatch"
+          end
+          raise Error, "route #{name} deep-scroll screenshot #{key} is not a PNG" unless TestFlightVisualEvidence.png?(screenshot_path)
+          deep_scroll_screenshots[key] = add_selected(
+            screenshot_path,
+            relative_source_path(screenshot_path, "route #{name} deep-scroll screenshot #{key}")
+          )
+        end
+      elsif design.key?("deepScrollScreenshotArtifacts")
+        raise Error, "route #{name} must not claim deep-scroll screenshots"
+      end
 
       proofs = []
       REQUIRED_PROOF_ARRAYS.each do |key, expected_count|
@@ -321,6 +354,7 @@ module TestFlightVisualEvidence
         "route" => row.fetch("route"),
         "designReview" => design_portable,
         "screenshots" => screenshots,
+        "deepScrollScreenshots" => deep_scroll_screenshots,
         "proofs" => proofs.sort
       }
     rescue KeyError => error
@@ -566,6 +600,32 @@ module TestFlightVisualEvidence
                  review_record["sha256"] == Digest::SHA256.file(path).hexdigest
             raise Error, "route #{route_name} design-review screenshot #{key} evidence mismatch"
           end
+        end
+        deep_scroll_screenshots = route["deepScrollScreenshots"]
+        review_deep_scroll = design["deepScrollScreenshotArtifacts"]
+        if DEEP_SCROLL_ROUTES.include?(route.fetch("route"))
+          unless deep_scroll_screenshots.is_a?(Hash) && deep_scroll_screenshots.keys.sort == DEEP_SCROLL_SCREENSHOTS.keys.sort
+            raise Error, "route #{route_name} deep-scroll screenshot set is incomplete"
+          end
+          unless review_deep_scroll.is_a?(Hash) && review_deep_scroll.keys.sort == DEEP_SCROLL_SCREENSHOTS.keys.sort
+            raise Error, "route #{route_name} design-review deep-scroll screenshot set is incomplete"
+          end
+          deep_scroll_screenshots.each do |key, reference|
+            path = require_file_reference!(reference, files, "route #{route_name} deep-scroll screenshot #{key}", referenced)
+            raise Error, "route #{route_name} deep-scroll screenshot #{key} is not a PNG" unless TestFlightVisualEvidence.png?(path)
+            review_record = review_deep_scroll[key]
+            expected_reference = portable_from_design_relative(
+              design_reference,
+              review_record["path"],
+              "route #{route_name} design-review deep-scroll screenshot #{key}"
+            )
+            unless expected_reference == reference && review_record["bytes"] == path.size &&
+                   review_record["sha256"] == Digest::SHA256.file(path).hexdigest
+              raise Error, "route #{route_name} design-review deep-scroll screenshot #{key} evidence mismatch"
+            end
+          end
+        elsif deep_scroll_screenshots != {} || !review_deep_scroll.nil?
+          raise Error, "route #{route_name} must not claim deep-scroll screenshots"
         end
         proofs = route["proofs"]
         raise Error, "route #{route_name} proof set is incomplete" unless proofs.is_a?(Array) && proofs.length >= 7

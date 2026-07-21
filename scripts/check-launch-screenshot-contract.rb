@@ -20,6 +20,14 @@ SCREENSHOT_ARTIFACTS = {
   "iosTablet" => "screenshots/ios-tablet.png",
   "macosDesktop" => "screenshots/macos-desktop.png"
 }.freeze
+DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
+  "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+  "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+  "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+}.freeze
+DEEP_SCROLL_ROUTES = %w[
+  kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+].freeze
 
 SCRIPT_CONTRACTS = {
   "scripts/smoke-macos.sh" => {
@@ -527,6 +535,17 @@ def add_screenshot_artifacts!(root, manifest)
       "bytes" => path.size,
       "sha256" => Digest::SHA256.file(path).hexdigest
     }]
+  end
+  if DEEP_SCROLL_ROUTES.include?(manifest["screenshotRoute"])
+    manifest["deepScrollScreenshotArtifacts"] = DEEP_SCROLL_SCREENSHOT_ARTIFACTS.to_h do |name, relative_path|
+      path = root.join(relative_path)
+      path.write("#{name}-deep-scroll-fixture\n")
+      [name, {
+        "path" => relative_path,
+        "bytes" => path.size,
+        "sha256" => Digest::SHA256.file(path).hexdigest
+      }]
+    end
   end
 end
 
@@ -1138,6 +1157,9 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
         "screenshots/ios-mobile.png",
         "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
+        "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "screenshots/ios-tablet-deep-scroll.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         "apple/unit-16f-screenshot-contract-accessibility-proof-ios.json",
@@ -1610,7 +1632,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     from pathlib import Path
 
     parser = argparse.ArgumentParser()
-    for name in ("xctestrun", "app", "runner", "destination-udid", "platform", "route", "output", "work-root", "log", "timeout-seconds", "screenshot-output"):
+    for name in ("xctestrun", "app", "runner", "destination-udid", "platform", "route", "output", "work-root", "log", "timeout-seconds", "screenshot-output", "deep-scroll-screenshot-output"):
         parser.add_argument(f"--{name}")
     parser.add_argument("--environment", action="append", default=[])
     parser.add_argument("--environment-json")
@@ -1632,6 +1654,10 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     output.write_text(json.dumps(evidence) + "\n")
     if args.screenshot_output:
         screenshot = Path(args.screenshot_output)
+        screenshot.parent.mkdir(parents=True, exist_ok=True)
+        screenshot.write_bytes(b"png")
+    if args.deep_scroll_screenshot_output:
+        screenshot = Path(args.deep_scroll_screenshot_output)
         screenshot.parent.mkdir(parents=True, exist_ok=True)
         screenshot.write_bytes(b"png")
   PY
@@ -1666,6 +1692,9 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   artifact_root.join("screenshots/ios-mobile.png").write("stale")
   artifact_root.join("screenshots/ios-mobile-accessibility.png").write("stale")
   artifact_root.join("screenshots/ios-tablet.png").write("stale")
+  artifact_root.join("screenshots/ios-mobile-deep-scroll.png").write("stale")
+  artifact_root.join("screenshots/ios-mobile-accessibility-deep-scroll.png").write("stale")
+  artifact_root.join("screenshots/ios-tablet-deep-scroll.png").write("stale")
   artifact_root.join("screenshots/macos-desktop.png").write("stale")
   artifact_root.join("apple/unit-contract-accessibility-proof-ios.json").write("{}\n")
   artifact_root.join("apple/unit-contract-accessibility-proof-ipad.json").write("{}\n")
@@ -1691,6 +1720,9 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   assert_missing(artifact_root.join("screenshots/ios-mobile.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-mobile-accessibility.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-tablet.png"), "screenshot blocker lane")
+  assert_missing(artifact_root.join("screenshots/ios-mobile-deep-scroll.png"), "screenshot blocker lane")
+  assert_missing(artifact_root.join("screenshots/ios-mobile-accessibility-deep-scroll.png"), "screenshot blocker lane")
+  assert_missing(artifact_root.join("screenshots/ios-tablet-deep-scroll.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/macos-desktop.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("apple/unit-contract-accessibility-proof-ios.json"), "screenshot blocker lane")
   assert_missing(artifact_root.join("apple/unit-contract-accessibility-proof-ipad.json"), "screenshot blocker lane")
@@ -2129,11 +2161,15 @@ PY
   assert_file(artifact_root.join("screenshots/ios-mobile.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile-accessibility.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-tablet.png"), "screenshot success lane")
+  assert_file(artifact_root.join("screenshots/ios-mobile-deep-scroll.png"), "screenshot success lane")
+  assert_file(artifact_root.join("screenshots/ios-mobile-accessibility-deep-scroll.png"), "screenshot success lane")
+  assert_file(artifact_root.join("screenshots/ios-tablet-deep-scroll.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/macos-desktop.png"), "screenshot success lane")
   kitchen_review = assert_json(artifact_root.join("design-review.json"), "kitchen screenshot success lane")
   record_failure("kitchen screenshot route mismatch") unless kitchen_review["screenshotRoute"] == "kitchen"
   record_failure("kitchen screenshot account seed mismatch") unless kitchen_review["kitchenSeedAccountID"] == "chef_kitchen_capture"
   record_failure("kitchen screenshot set is not hash-bound") unless kitchen_review.fetch("screenshotArtifacts", {}).keys.sort == SCREENSHOT_ARTIFACTS.keys.sort
+  record_failure("kitchen deep-scroll screenshot set is not hash-bound") unless kitchen_review.fetch("deepScrollScreenshotArtifacts", {}).keys.sort == DEEP_SCROLL_SCREENSHOT_ARTIFACTS.keys.sort
   record_failure("kitchen screenshot missing accessibility proof artifacts") unless kitchen_review.fetch("accessibilityProofArtifacts", []).length == 3
   kitchen_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
     proof = assert_json(artifact_root.join(relative_path), "kitchen accessibility proof artifact")
@@ -2665,7 +2701,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     import argparse, json
     from pathlib import Path
     parser = argparse.ArgumentParser()
-    for name in ("xctestrun", "app", "runner", "destination-udid", "platform", "route", "output", "work-root", "log", "timeout-seconds", "screenshot-output"):
+    for name in ("xctestrun", "app", "runner", "destination-udid", "platform", "route", "output", "work-root", "log", "timeout-seconds", "screenshot-output", "deep-scroll-screenshot-output"):
         parser.add_argument(f"--{name}")
     parser.add_argument("--environment", action="append", default=[])
     parser.add_argument("--environment-json")
@@ -2679,6 +2715,10 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     output.write_text(json.dumps(evidence) + "\n")
     if args.screenshot_output:
         screenshot = Path(args.screenshot_output)
+        screenshot.parent.mkdir(parents=True, exist_ok=True)
+        screenshot.write_bytes(b"png")
+    if args.deep_scroll_screenshot_output:
+        screenshot = Path(args.deep_scroll_screenshot_output)
         screenshot.parent.mkdir(parents=True, exist_ok=True)
         screenshot.write_bytes(b"png")
   PY

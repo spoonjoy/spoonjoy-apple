@@ -70,5 +70,52 @@ class DynamicTypeObservationTests(unittest.TestCase):
                 MODULE.attest_observed_dynamic_type({}, invalid, "large")
 
 
+class ScreenshotAttachmentTests(unittest.TestCase):
+    def write_attachments(self, root: Path, names: list[str]) -> None:
+        attachments = []
+        for index, name in enumerate(names):
+            filename = f"attachment-{index}.png"
+            (root / filename).write_bytes(b"png")
+            attachments.append(
+                {
+                    "suggestedHumanReadableName": name,
+                    "exportedFileName": filename,
+                }
+            )
+        (root / "manifest.json").write_text(
+            json.dumps([{"attachments": attachments}])
+        )
+
+    def test_distinguishes_opening_and_deep_scroll_screenshots(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write_attachments(
+                root,
+                [
+                    "observed-accessibility-screenshot_0_A.png",
+                    "deep-scroll-screenshot_0_B.png",
+                ],
+            )
+
+            self.assertEqual(
+                [path.name for path in MODULE.observed_screenshot_files(root)],
+                ["attachment-0.png"],
+            )
+            self.assertEqual(
+                [path.name for path in MODULE.deep_scroll_screenshot_files(root)],
+                ["attachment-1.png"],
+            )
+
+    def test_deep_scroll_lookup_does_not_accept_opening_screenshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.write_attachments(
+                root,
+                ["observed-accessibility-screenshot_0_A.png"],
+            )
+
+            self.assertEqual(MODULE.deep_scroll_screenshot_files(root), [])
+
+
 if __name__ == "__main__":
     unittest.main()

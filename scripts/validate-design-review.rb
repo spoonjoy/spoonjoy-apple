@@ -11,6 +11,14 @@ SCREENSHOT_ARTIFACTS = {
   "iosTablet" => "screenshots/ios-tablet.png",
   "macosDesktop" => "screenshots/macos-desktop.png"
 }.freeze
+DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
+  "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+  "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+  "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+}.freeze
+COMPACT_DEEP_SCROLL_ROUTES = %w[
+  kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail
+].freeze
 
 VALID_ROUTES = [
   "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
@@ -197,6 +205,30 @@ def validate_screenshot_artifacts!(manifest_path, manifest)
     fail_check("#{manifest_path} screenshot artifact #{name} byte count mismatch") unless artifact["bytes"] == bytes
     digest = Digest::SHA256.file(absolute_path).hexdigest
     fail_check("#{manifest_path} screenshot artifact #{name} SHA-256 mismatch") unless artifact["sha256"] == digest
+  end
+
+  deep_scroll_artifacts = manifest["deepScrollScreenshotArtifacts"]
+  if COMPACT_DEEP_SCROLL_ROUTES.include?(manifest["screenshotRoute"])
+    unless deep_scroll_artifacts.is_a?(Hash) && deep_scroll_artifacts.keys.sort == DEEP_SCROLL_SCREENSHOT_ARTIFACTS.keys.sort
+      fail_check("#{manifest_path} deepScrollScreenshotArtifacts keys must exactly match the compact deep-scroll release set")
+    end
+    DEEP_SCROLL_SCREENSHOT_ARTIFACTS.each do |name, expected_relative_path|
+      artifact = deep_scroll_artifacts[name]
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} must be an object") unless artifact.is_a?(Hash)
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} path mismatch") unless artifact["path"] == expected_relative_path
+      absolute_path = artifact_root.join(expected_relative_path).cleanpath.expand_path
+      unless absolute_path.to_s.start_with?(artifact_root.to_s + File::SEPARATOR)
+        fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} escapes the artifact root")
+      end
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} is missing") unless absolute_path.file?
+      bytes = absolute_path.size
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} must be non-empty") unless bytes.positive?
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} byte count mismatch") unless artifact["bytes"] == bytes
+      digest = Digest::SHA256.file(absolute_path).hexdigest
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} SHA-256 mismatch") unless artifact["sha256"] == digest
+    end
+  elsif !deep_scroll_artifacts.nil?
+    fail_check("#{manifest_path} non-scrolling route must not claim deepScrollScreenshotArtifacts")
   end
 end
 
@@ -471,7 +503,7 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     fail_check("#{proof_path} accessibility audit tool limitations are not release evidence") unless proof.fetch("toolLimitations", []) == []
   end
 
-  compact_deep_scroll_route = ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"].include?(route)
+  compact_deep_scroll_route = COMPACT_DEEP_SCROLL_ROUTES.include?(route)
   deep_scroll_required = platform == "macos" ? REQUIRED_DEEP_SCROLL_TERMINALS.key?(route) : compact_deep_scroll_route
   if deep_scroll_required
     deep_scroll = proof["deepScroll"]

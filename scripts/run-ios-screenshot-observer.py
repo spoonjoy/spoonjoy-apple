@@ -108,7 +108,7 @@ def observed_evidence_files(root: Path, platform: str, route: str) -> list[Path]
     return matches
 
 
-def observed_screenshot_files(root: Path) -> list[Path]:
+def screenshot_attachment_files(root: Path, suggested_name_prefix: str) -> list[Path]:
     manifest_path = root / "manifest.json"
     try:
         manifest = json.loads(manifest_path.read_text())
@@ -118,10 +118,18 @@ def observed_screenshot_files(root: Path) -> list[Path]:
     for test in manifest if isinstance(manifest, list) else []:
         for attachment in test.get("attachments", []) if isinstance(test, dict) else []:
             if str(attachment.get("suggestedHumanReadableName", "")).startswith(
-                "observed-accessibility-screenshot_"
+                suggested_name_prefix
             ):
                 matches.append(root / str(attachment.get("exportedFileName", "")))
     return [match for match in matches if match.is_file()]
+
+
+def observed_screenshot_files(root: Path) -> list[Path]:
+    return screenshot_attachment_files(root, "observed-accessibility-screenshot_")
+
+
+def deep_scroll_screenshot_files(root: Path) -> list[Path]:
+    return screenshot_attachment_files(root, "deep-scroll-screenshot_")
 
 
 def attest_observed_dynamic_type(
@@ -161,6 +169,7 @@ def main() -> None:
     parser.add_argument("--route", required=True)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--screenshot-output", type=Path)
+    parser.add_argument("--deep-scroll-screenshot-output", type=Path)
     parser.add_argument("--work-root", required=True, type=Path)
     parser.add_argument("--log", required=True, type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=180)
@@ -246,8 +255,18 @@ def main() -> None:
             fail(f"expected one initial observed screenshot, found {len(screenshots)}; see {attachments}")
         arguments.screenshot_output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(screenshots[0], arguments.screenshot_output)
-    product_findings = list(evidence.get("auditIssues", [])) + list(evidence.get("geometryFindings", []))
     deep_scroll = evidence.get("deepScroll")
+    if isinstance(deep_scroll, dict):
+        if not arguments.deep_scroll_screenshot_output:
+            fail("deep-scroll evidence requires a sealed deep-scroll screenshot output")
+        deep_screenshots = deep_scroll_screenshot_files(attachments)
+        if len(deep_screenshots) != 1:
+            fail(f"expected one deep-scroll screenshot, found {len(deep_screenshots)}; see {attachments}")
+        arguments.deep_scroll_screenshot_output.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(deep_screenshots[0], arguments.deep_scroll_screenshot_output)
+    elif arguments.deep_scroll_screenshot_output:
+        fail("deep-scroll screenshot output was requested without deep-scroll evidence")
+    product_findings = list(evidence.get("auditIssues", [])) + list(evidence.get("geometryFindings", []))
     if isinstance(deep_scroll, dict):
         product_findings.extend(deep_scroll.get("findings", []))
     if test_status != 0 and not product_findings:

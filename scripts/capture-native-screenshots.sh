@@ -31,6 +31,9 @@ artifact_root_abs="$(cd "$artifact_root" && pwd -P)"
 ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
 ios_accessibility_screenshot="$artifact_root/screenshots/ios-mobile-accessibility.png"
 ios_tablet_screenshot="$artifact_root/screenshots/ios-tablet.png"
+ios_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-deep-scroll.png"
+ios_accessibility_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-accessibility-deep-scroll.png"
+ios_tablet_deep_scroll_screenshot="$artifact_root/screenshots/ios-tablet-deep-scroll.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
 macos_screenshot_diagnostic="$artifact_root/screenshots/macos-desktop-diagnostic.png"
 ios_app="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
@@ -488,6 +491,9 @@ write_design_review_blocked() {
         "screenshots/ios-mobile.png",
         "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
+        "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "screenshots/ios-tablet-deep-scroll.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         ios_accessibility_proof,
@@ -504,6 +510,7 @@ write_design_review_blocked() {
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
   ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$observed_accessibility_ios_rel" "$observed_accessibility_ios_ax_rel" "$observed_accessibility_ipad_rel" "$observed_accessibility_macos_rel"
   rm -f "$ios_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+  rm -f "$ios_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
   rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
   rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
   rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_macos"
@@ -600,6 +607,21 @@ write_design_review_success() {
         "bytes" => File.size(absolute_path),
         "sha256" => Digest::SHA256.file(absolute_path).hexdigest
       }
+    end
+    if ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"].include?(route)
+      manifest["deepScrollScreenshotArtifacts"] = {
+        "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+        "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+      }.transform_values do |relative_path|
+        absolute_path = File.join(artifact_root, relative_path)
+        abort("missing deep-scroll screenshot artifact #{relative_path}") unless File.file?(absolute_path) && File.size(absolute_path).positive?
+        {
+          "path" => relative_path,
+          "bytes" => File.size(absolute_path),
+          "sha256" => Digest::SHA256.file(absolute_path).hexdigest
+        }
+      end
     end
     if route == "settings"
       manifest["settingsCaptureVariant"] = settings_capture_variant
@@ -2057,8 +2079,21 @@ capture_ios_observed_accessibility() {
   local output_path="$3"
   local content_size_category="${4:-large}"
   local screenshot_output="${5:-}"
+  local deep_scroll_screenshot_output=""
   local observer_suffix="$expected_platform"
   [[ "$content_size_category" == "large" ]] || observer_suffix="${expected_platform}-ax"
+  case "$screenshot_route" in
+    kitchen|recipe-detail|recipe-editor|recipe-covers|profile|shopping-list|cookbooks|cookbook-detail)
+      if [[ "$expected_platform" == "ipad" ]]; then
+        deep_scroll_screenshot_output="$ios_tablet_deep_scroll_screenshot"
+      elif [[ "$content_size_category" == "large" ]]; then
+        deep_scroll_screenshot_output="$ios_deep_scroll_screenshot"
+      else
+        deep_scroll_screenshot_output="$ios_accessibility_deep_scroll_screenshot"
+      fi
+      rm -f "$deep_scroll_screenshot_output"
+      ;;
+  esac
   local observer_work_root="$artifact_root/apple/${unit_slug}-${observer_suffix}-observer"
   local observer_environment_json="${observer_work_root}-environment.json"
   rm -f "$output_path"
@@ -2117,6 +2152,9 @@ capture_ios_observed_accessibility() {
     --environment-json "$observer_environment_json")
   if [[ -n "$screenshot_output" ]]; then
     observer_command+=(--screenshot-output "$screenshot_output")
+  fi
+  if [[ -n "$deep_scroll_screenshot_output" ]]; then
+    observer_command+=(--deep-scroll-screenshot-output "$deep_scroll_screenshot_output")
   fi
   "${observer_command[@]}" >> "$capture_log" 2>&1 || observer_status=$?
   rm -f "$observer_environment_json"
@@ -2394,6 +2432,7 @@ run_ios_smoke() {
 
 : > "$capture_log"
 rm -f "$ios_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+rm -f "$ios_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
 rm -f "$macos_screenshot_diagnostic"
 rm -f "$ios_proof_artifact" "$ipad_proof_artifact" "$macos_proof_artifact"
 rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
