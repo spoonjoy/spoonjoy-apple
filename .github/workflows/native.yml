@@ -88,12 +88,13 @@ jobs:
         run: |
           set -euo pipefail
           ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          simulator_arch="$(uname -m)"
           ui_geometry_log="$RUNNER_TEMP/native-ui-geometry-tests.log"
           xcodebuild test \
             -project Spoonjoy.xcodeproj \
             -scheme "Spoonjoy iOS" \
             -configuration BootstrapDebug \
-            -destination "$ios_destination" \
+            -destination "$ios_destination,arch=$simulator_arch" \
             -only-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests \
             -skip-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests/testObservedAccessibilityAndGeometry \
             CODE_SIGNING_ALLOWED=NO \

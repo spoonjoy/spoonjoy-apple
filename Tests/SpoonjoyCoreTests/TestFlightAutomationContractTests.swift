@@ -103,6 +103,8 @@ struct TestFlightAutomationContractTests {
             contains: [
                 "Run non-launch native UI geometry regressions",
                 "xcodebuild test",
+                "simulator_arch=\"$(uname -m)\"",
+                "-destination \"$ios_destination,arch=$simulator_arch\"",
                 "-only-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests",
                 "-skip-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests/testObservedAccessibilityAndGeometry",
                 "GCC_TREAT_WARNINGS_AS_ERRORS=YES",
