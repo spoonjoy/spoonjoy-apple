@@ -2,33 +2,38 @@
 # frozen_string_literal: true
 
 require "json"
+require "digest"
 require "pathname"
 
-REQUIRED_FIELDS = [
-  "mobileScreenshot",
-  "desktopScreenshot",
-  "dynamicType",
-  "voiceOverLabels",
-  "keyboardNavigation",
-  "reduceMotion",
-  "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
-].freeze
+SCREENSHOT_ARTIFACTS = {
+  "iosMobile" => "screenshots/ios-mobile.png",
+  "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
+  "iosTablet" => "screenshots/ios-tablet.png",
+  "macosDesktop" => "screenshots/macos-desktop.png"
+}.freeze
 
-VALID_ROUTES = ["kitchen", "recipes", "saved-recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "chefs", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
+VALID_ROUTES = [
+  "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+  "cook-log", "cook-mode", "shopping-list", "chefs", "profile", "profile-graph", "search",
+  "cookbooks", "cookbook-detail", "capture", "settings", "unknown-link"
+].freeze
+REQUIRED_OBSERVED_IDENTIFIERS = {
+  "recipe-editor" => ["recipe-editor.title", "recipe-editor.save"],
+  "recipe-covers" => ["recipe-covers.photo-picker", "recipe-covers.generate-placeholder"],
+  "profile" => ["profile.header"],
+  "profile-graph" => ["profile-graph.row.chef_jules"],
+  "unknown-link" => ["unknown-link.message"],
+  "cook-mode" => ["cook.current-step", "cook.done", "cook.tools"],
+  "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
+}.freeze
+REQUIRED_DEEP_SCROLL_TERMINALS = {
+  "recipe-editor" => "recipe-editor.delete",
+  "recipe-covers" => "recipe-covers.saved-covers",
+  "profile" => "profile.graph.kitchen-visitors"
+}.freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 EXPECTED_CAPTURE_VARIANTS = ["empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
 EXPECTED_SHOPPING_VARIANTS = ["normal", "empty", "all-complete", "duplicate", "conflict", "offline-queued"].freeze
-ACCESSIBILITY_FIELDS = [
-  "dynamicType",
-  "voiceOverLabels",
-  "keyboardNavigation",
-  "reduceMotion",
-  "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
-].freeze
 EXPECTED_OFFLINE_VISIBLE_STATES = [
   "offline",
   "stale",
@@ -164,6 +169,30 @@ EXPECTED_ROUTE_EVIDENCE = {
 def fail_check(message)
   warn "FAIL: #{message}"
   exit 1
+end
+
+def validate_screenshot_artifacts!(manifest_path, manifest)
+  artifacts = manifest["screenshotArtifacts"]
+  fail_check("#{manifest_path} screenshotArtifacts must be an object") unless artifacts.is_a?(Hash)
+  fail_check("#{manifest_path} screenshotArtifacts keys must exactly match the release set") unless artifacts.keys.sort == SCREENSHOT_ARTIFACTS.keys.sort
+
+  artifact_root = manifest_path.dirname.expand_path
+  SCREENSHOT_ARTIFACTS.each do |name, expected_relative_path|
+    artifact = artifacts[name]
+    fail_check("#{manifest_path} screenshot artifact #{name} must be an object") unless artifact.is_a?(Hash)
+    fail_check("#{manifest_path} screenshot artifact #{name} path mismatch") unless artifact["path"] == expected_relative_path
+    fail_check("#{manifest_path} screenshot artifact #{name} path must be relative") if expected_relative_path.start_with?("/")
+    absolute_path = artifact_root.join(expected_relative_path).cleanpath.expand_path
+    unless absolute_path.to_s.start_with?(artifact_root.to_s + File::SEPARATOR)
+      fail_check("#{manifest_path} screenshot artifact #{name} escapes the artifact root")
+    end
+    fail_check("#{manifest_path} screenshot artifact #{name} is missing") unless absolute_path.file?
+    bytes = absolute_path.size
+    fail_check("#{manifest_path} screenshot artifact #{name} must be non-empty") unless bytes.positive?
+    fail_check("#{manifest_path} screenshot artifact #{name} byte count mismatch") unless artifact["bytes"] == bytes
+    digest = Digest::SHA256.file(absolute_path).hexdigest
+    fail_check("#{manifest_path} screenshot artifact #{name} SHA-256 mismatch") unless artifact["sha256"] == digest
+  end
 end
 
 def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
@@ -313,6 +342,10 @@ def expected_accessibility_source(route, manifest)
     "SettingsView"
   when "recipe-detail"
     "RecipeDetailView"
+  when "recipe-editor"
+    "RecipeEditorView"
+  when "recipe-covers"
+    "RecipeCoverControlsView"
   when "cook-log"
     "SpoonCookLogView"
   when "cook-mode"
@@ -321,6 +354,12 @@ def expected_accessibility_source(route, manifest)
     "ShoppingListView"
   when "chefs"
     "ChefsView"
+  when "profile"
+    "ProfileView"
+  when "profile-graph"
+    "ProfileGraphList"
+  when "unknown-link"
+    "ShellPlaceholderView"
   else
     fail_check("unsupported accessibility route #{route}")
   end
@@ -407,6 +446,9 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     missing = required_element_fields.reject { |field| element.key?(field) }
     fail_check("#{proof_path} observed element missing #{missing.join(", ")}") unless missing.empty?
   end
+  identifiers = elements.map { |element| element["identifier"] }
+  missing_identifiers = REQUIRED_OBSERVED_IDENTIFIERS.fetch(route, []) - identifiers
+  fail_check("#{proof_path} missing route controls: #{missing_identifiers.join(", ")}") unless missing_identifiers.empty?
 
   findings = platform == "macos" ? proof["findings"] : proof["geometryFindings"]
   fail_check("#{proof_path} observed geometry findings must be an empty array") unless findings == []
@@ -414,82 +456,28 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     fail_check("#{proof_path} accessibility audit issues must be empty") unless proof["auditIssues"] == []
     content_size_category = proof["observedContentSizeCategory"]
     fail_check("#{proof_path} observedContentSizeCategory must be present") unless content_size_category.is_a?(String) && !content_size_category.empty?
-    tool_limitations = proof.fetch("toolLimitations", [])
-    fail_check("#{proof_path} toolLimitations must be an array") unless tool_limitations.is_a?(Array)
-    unless tool_limitations.empty?
-      operating_system_version = proof["operatingSystemVersion"]
-      fail_check("#{proof_path} tool limitations require iOS 26 evidence") unless operating_system_version.is_a?(String) && operating_system_version.start_with?("26.")
-      invalid_limitations = tool_limitations.reject do |limitation|
-        next false unless limitation.is_a?(Hash) && limitation["issue"].is_a?(Hash) && limitation["reason"].is_a?(String) && !limitation["reason"].empty?
-
-        issue = limitation["issue"]
-        dynamic_type_limitation = issue["category"] == "dynamicType" &&
-          limitation["reference"] == "https://developer.apple.com/forums/thread/823968" &&
-          limitation["contrastProof"].nil? &&
-          limitation["tabBarOcclusionProof"].nil? &&
-          content_size_category.start_with?("accessibility") &&
-          issue["compactDescription"] == "Dynamic Type font sizes are partially unsupported" &&
-          issue["detailedDescription"].is_a?(String) && issue["detailedDescription"].include?("User will not be able to change the font size") &&
-          issue["elementLabel"].is_a?(String) && !issue["elementLabel"].empty? &&
-          issue["elementFrame"].is_a?(Hash)
-        contrast_proof = limitation["contrastProof"]
-        measured_contrast_limitation = issue["category"] == "contrast" &&
-          limitation["reference"] == "https://developer.apple.com/videos/play/wwdc2023/10035/" &&
-          limitation["tabBarOcclusionProof"].nil? &&
-          issue["elementType"] == "staticText" &&
-          issue["elementLabel"].is_a?(String) && !issue["elementLabel"].empty? &&
-          issue["elementFrame"].is_a?(Hash) && contrast_proof.is_a?(Hash) &&
-          contrast_proof["foregroundHex"].is_a?(String) && contrast_proof["backgroundHex"].is_a?(String) &&
-          contrast_proof["requiredRatio"] == 4.5 &&
-          contrast_proof["contrastRatio"].is_a?(Numeric) &&
-          contrast_proof["contrastRatio"] >= contrast_proof["requiredRatio"] &&
-          contrast_proof["cropPixelCount"].is_a?(Integer) && contrast_proof["cropPixelCount"] > 0 &&
-          contrast_proof["foregroundPixelCount"].is_a?(Integer) &&
-          contrast_proof["foregroundPixelCount"] >= contrast_proof["cropPixelCount"] * 0.04 &&
-          contrast_proof["backgroundPixelCount"].is_a?(Integer) &&
-          contrast_proof["backgroundPixelCount"] >= contrast_proof["cropPixelCount"] * 0.20
-        occlusion_proof = limitation["tabBarOcclusionProof"]
-        tab_bar_occlusion_limitation = platform == "ios" &&
-          issue["category"] == "contrast" &&
-          limitation["reference"] == "https://developer.apple.com/videos/play/wwdc2023/10035/" &&
-          limitation["contrastProof"].nil? &&
-          issue["elementIdentifier"] == "" && issue["elementLabel"] == "" && issue["elementType"] == "" &&
-          issue["elementFrame"].nil? &&
-          issue["diagnosticDescription"].is_a?(String) && issue["diagnosticDescription"].include?("Element:(null)") &&
-          occlusion_proof.is_a?(Hash) &&
-          occlusion_proof["postScrollAnonymousContrastIssueAbsent"] == true &&
-          occlusion_proof["tabBarFrame"].is_a?(Hash) &&
-          occlusion_proof["occludedElements"].is_a?(Array) && !occlusion_proof["occludedElements"].empty? &&
-          occlusion_proof["occludedElements"].all? do |element|
-            next false unless element.is_a?(Hash) && element["frame"].is_a?(Hash) &&
-              [element["identifier"], element["label"]].any? { |value| value.is_a?(String) && !value.empty? }
-            frame = element["frame"]
-            tab = occlusion_proof["tabBarFrame"]
-            [frame, tab].all? { |rect| %w[x y width height].all? { |key| rect[key].is_a?(Numeric) } } &&
-              frame["width"].positive? && frame["height"].positive? && tab["width"].positive? && tab["height"].positive? &&
-              [frame["x"] + frame["width"], tab["x"] + tab["width"]].min > [frame["x"], tab["x"]].max &&
-              [frame["y"] + frame["height"], tab["y"] + tab["height"]].min > [frame["y"], tab["y"]].max
-          end &&
-          proof.dig("deepScroll", "auditIssues").is_a?(Array) &&
-          proof.dig("deepScroll", "auditIssues").none? do |deep_issue|
-            deep_issue.is_a?(Hash) && deep_issue["category"] == "contrast" &&
-              deep_issue["elementIdentifier"] == "" && deep_issue["elementLabel"] == "" &&
-              deep_issue["elementType"] == "" && deep_issue["elementFrame"].nil?
-          end
-        dynamic_type_limitation || measured_contrast_limitation || tab_bar_occlusion_limitation
-      end
-      fail_check("#{proof_path} contains an unsupported audit tool limitation") unless invalid_limitations.empty?
-    end
+    observed_dynamic_type = proof["observedDynamicTypeSize"]
+    expected_dynamic_type = {
+      "large" => "large",
+      "accessibility-extra-extra-extra-large" => "accessibility5"
+    }[content_size_category]
+    fail_check("#{proof_path} observedContentSizeCategory is unsupported") if expected_dynamic_type.nil?
+    fail_check("#{proof_path} requested and observed Dynamic Type do not match") unless observed_dynamic_type == expected_dynamic_type
+    fail_check("#{proof_path} accessibility audit tool limitations are not release evidence") unless proof.fetch("toolLimitations", []) == []
   end
 
-  if ["kitchen", "recipe-detail", "shopping-list", "cookbooks", "cookbook-detail"].include?(route) && platform != "macos"
+  if ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"].include?(route) && platform != "macos"
     deep_scroll = proof["deepScroll"]
     fail_check("#{proof_path} missing compact deep-scroll evidence") unless deep_scroll.is_a?(Hash)
     fail_check("#{proof_path} compact deep scroll did not reach terminal content") unless deep_scroll["reachedTerminal"] == true
     fail_check("#{proof_path} compact deep-scroll findings must be empty") unless deep_scroll["findings"] == []
     fail_check("#{proof_path} compact deep-scroll accessibility audit issues must be empty") unless deep_scroll["auditIssues"] == []
-    fail_check("#{proof_path} compact deep-scroll tool limitations must be an array") unless deep_scroll["toolLimitations"].is_a?(Array)
+    fail_check("#{proof_path} compact deep-scroll tool limitations are not release evidence") unless deep_scroll.fetch("toolLimitations", []) == []
     fail_check("#{proof_path} compact deep scroll missing terminal element") unless deep_scroll["terminalElement"].is_a?(Hash)
+    expected_terminal = REQUIRED_DEEP_SCROLL_TERMINALS[route]
+    if expected_terminal
+      fail_check("#{proof_path} compact deep scroll did not prove #{expected_terminal}") unless deep_scroll.dig("terminalElement", "identifier") == expected_terminal
+    end
     if platform == "ios"
       fail_check("#{proof_path} compact deep scroll missing tab bar frame") unless deep_scroll["tabBarFrame"].is_a?(Hash)
     end
@@ -511,18 +499,17 @@ fail_check("missing #{path}") unless path.file?
 manifest = JSON.parse(path.read)
 fail_check("#{path} must contain a JSON object") unless manifest.is_a?(Hash)
 
-missing_fields = REQUIRED_FIELDS.reject { |field| manifest.key?(field) }
-fail_check("#{path} missing required fields: #{missing_fields.join(", ")}") unless missing_fields.empty?
-
-non_boolean_fields = REQUIRED_FIELDS.reject { |field| [true, false].include?(manifest[field]) }
-fail_check("#{path} fields must be booleans: #{non_boolean_fields.join(", ")}") unless non_boolean_fields.empty?
+legacy_self_attestations = %w[
+  mobileScreenshot desktopScreenshot dynamicType voiceOverLabels keyboardNavigation
+  reduceMotion contrast kitchenTableHierarchy noOverlap
+].select { |field| manifest.key?(field) }
+fail_check("#{path} contains legacy self-attested fields: #{legacy_self_attestations.join(", ")}") unless legacy_self_attestations.empty?
 
 blockers = manifest.fetch("blockers", [])
 fail_check("#{path} blockers must be an array") unless blockers.is_a?(Array)
 fail_check("#{path} blockers must be empty; runtime blockers belong in design-review-blocked.json") unless blockers.empty?
 
-false_fields = REQUIRED_FIELDS.select { |field| manifest[field] == false }
-fail_check("#{path} false fields are not valid in design-review.json: #{false_fields.join(", ")}") unless false_fields.empty?
+validate_screenshot_artifacts!(path, manifest)
 
 route = manifest["screenshotRoute"]
 fail_check("#{path} missing screenshotRoute") if route.nil?
@@ -561,15 +548,12 @@ fail_check("#{path} missing accessibility content-size screenshot") unless path.
 
 case route
 when "kitchen"
-  fail_check("#{path} kitchenSignedInSurface must be true for kitchen captures") unless manifest["kitchenSignedInSurface"] == true
   seed_account_id = manifest["kitchenSeedAccountID"]
   fail_check("#{path} kitchenSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "recipes"
-  fail_check("#{path} recipesNativeSurface must be true for recipes captures") unless manifest["recipesNativeSurface"] == true
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "search"
-  fail_check("#{path} searchNativeSurface must be true for search captures") unless manifest["searchNativeSurface"] == true
   seed_account_id = manifest["searchSeedAccountID"]
   fail_check("#{path} searchSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
   variant = manifest["searchSurfaceVariant"]
@@ -589,54 +573,45 @@ when "search"
   end
   fail_check("#{path} search proof render fingerprints must match across platforms") unless render_fingerprints.uniq.length == 1
 when "recipe-detail"
-  fail_check("#{path} recipeDetailSurface must be true for recipe detail captures") unless manifest["recipeDetailSurface"] == true
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
-when "cook-log"
-  fail_check("#{path} cookLogSurface must be true for cook log captures") unless manifest["cookLogSurface"] == true
+when "recipe-editor", "recipe-covers"
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
-  fail_check("#{path} cookLogForm must be true") unless manifest["cookLogForm"] == true
-  fail_check("#{path} cookLogPhotoSlot must be true") unless manifest["cookLogPhotoSlot"] == true
-  fail_check("#{path} cookLogActionBar must be true") unless manifest["cookLogActionBar"] == true
+  fail_check("#{path} recipeSeedAccountID must be chef_ari") unless manifest["recipeSeedAccountID"] == "chef_ari"
+when "cook-log"
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cook-mode"
-  fail_check("#{path} cookModeSurface must be true for cook mode captures") unless manifest["cookModeSurface"] == true
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "shopping-list"
-  fail_check("#{path} shoppingListSurface must be true for shopping list captures") unless manifest["shoppingListSurface"] == true
   variant = manifest["shoppingListVariant"]
   fail_check("#{path} shoppingListVariant must be one of #{EXPECTED_SHOPPING_VARIANTS.join(", ")}") unless EXPECTED_SHOPPING_VARIANTS.include?(variant)
   seed_account_id = manifest["shoppingSeedAccountID"]
   fail_check("#{path} shoppingSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbooks"
-  fail_check("#{path} cookbooksNativeSurface must be true for cookbooks captures") unless manifest["cookbooksNativeSurface"] == true
-  fail_check("#{path} cookbookLibrarySpread must be true for cookbooks captures") unless manifest["cookbookLibrarySpread"] == true
-  fail_check("#{path} cookbookShelfStrip must be true for cookbooks captures") unless manifest["cookbookShelfStrip"] == true
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbook-detail"
-  fail_check("#{path} cookbookDetailSurface must be true for cookbook detail captures") unless manifest["cookbookDetailSurface"] == true
   fail_check("#{path} cookbookID must be cookbook_weeknights") unless manifest["cookbookID"] == "cookbook_weeknights"
-  fail_check("#{path} cookbookContentsIndex must be true for cookbook detail captures") unless manifest["cookbookContentsIndex"] == true
-  fail_check("#{path} cookbookOwnerToolsDisclosure must be true for cookbook detail captures") unless manifest["cookbookOwnerToolsDisclosure"] == true
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "profile"
+  fail_check("#{path} profileSeedAccountID must be chef_ari") unless manifest["profileSeedAccountID"] == "chef_ari"
+  fail_check("#{path} profileIdentifier must be ari") unless manifest["profileIdentifier"] == "ari"
+when "profile-graph"
+  fail_check("#{path} profileSeedAccountID must be chef_ari") unless manifest["profileSeedAccountID"] == "chef_ari"
+  fail_check("#{path} profileIdentifier must be ari") unless manifest["profileIdentifier"] == "ari"
+  fail_check("#{path} profileGraphDirection must be kitchen-visitors") unless manifest["profileGraphDirection"] == "kitchen-visitors"
+  fail_check("#{path} profileGraphPage must be 1") unless manifest["profileGraphPage"] == 1
 when "capture"
   variant = manifest["captureSurfaceVariant"]
   fail_check("#{path} captureSurfaceVariant must be one of #{EXPECTED_CAPTURE_VARIANTS.join(", ")}") unless EXPECTED_CAPTURE_VARIANTS.include?(variant)
   expected_auth = variant == "signed-out" ? "0" : "1"
   fail_check("#{path} captureScreenshotAuth must be #{expected_auth}") unless manifest["captureScreenshotAuth"] == expected_auth
-  if variant == "signed-out"
-    fail_check("#{path} captureSignedOutSurface must be true for signed-out capture") unless manifest["captureSignedOutSurface"] == true
-    fail_check("#{path} captureNativeSurface must be false for signed-out capture") unless manifest["captureNativeSurface"] == false
-  else
-    fail_check("#{path} captureNativeSurface must be true for signed-in capture captures") unless manifest["captureNativeSurface"] == true
-    fail_check("#{path} captureSignedOutSurface must be false for signed-in capture captures") unless manifest["captureSignedOutSurface"] == false
-  end
   seed_account_id = manifest["captureSeedAccountID"]
   fail_check("#{path} captureSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "settings"
@@ -650,20 +625,13 @@ when "settings"
   fail_check("#{path} settingsSurfaceProofArtifacts must be an array") unless proof_artifacts.is_a?(Array)
   fail_check("#{path} settingsSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   required_sections = if visual_focus == "notifications"
-                        fail_check("#{path} settingsSignedInSurface must be true for settings/APNs captures") unless manifest["settingsSignedInSurface"] == true
-                        fail_check("#{path} settingsNotificationAPNsSurface must be true for settings/APNs captures") unless manifest["settingsNotificationAPNsSurface"] == true
                         fail_check("#{path} settingsAPNsPermissionState must be present for APNs captures") unless manifest["settingsAPNsPermissionState"].is_a?(String) && !manifest["settingsAPNsPermissionState"].empty?
                         fail_check("#{path} settingsAPNsRegistrationState must be present for APNs captures") unless manifest["settingsAPNsRegistrationState"].is_a?(String) && !manifest["settingsAPNsRegistrationState"].empty?
                         ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
                       elsif visual_focus == "signed-out"
-                        fail_check("#{path} settingsSignedInSurface must be false for signed-out settings captures") unless manifest["settingsSignedInSurface"] == false
-                        fail_check("#{path} settingsSignedOutSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutSurface"] == true
-                        fail_check("#{path} settingsSignedOutHandoffSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutHandoffSurface"] == true
                         fail_check("#{path} settingsScreenshotAuth must be 0 for signed-out settings captures") unless manifest["settingsScreenshotAuth"] == "0"
                         ["Session", "Environment", "Offline"]
                       else
-                        fail_check("#{path} settingsSignedInSurface must be true for profile settings captures") unless manifest["settingsSignedInSurface"] == true
-                        fail_check("#{path} settingsProfileSurface must be true for profile settings captures") unless manifest["settingsProfileSurface"] == true
                         ["Profile", "Security"]
                       end
   missing_sections = required_sections.reject { |section| sections.include?(section) }

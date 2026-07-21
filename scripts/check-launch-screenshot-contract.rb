@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "digest"
 require "fileutils"
 require "open3"
 require "pathname"
@@ -12,17 +13,12 @@ ARTIFACT_ROOT = ROOT.join("artifacts/apple/native-screenshots")
 DESIGN_REVIEW = ARTIFACT_ROOT.join("design-review.json")
 DESIGN_REVIEW_BLOCKED = ARTIFACT_ROOT.join("design-review-blocked.json")
 
-REQUIRED_REVIEW_FIELDS = [
-  "mobileScreenshot",
-  "desktopScreenshot",
-  "dynamicType",
-  "voiceOverLabels",
-  "keyboardNavigation",
-  "reduceMotion",
-  "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
-].freeze
+SCREENSHOT_ARTIFACTS = {
+  "iosMobile" => "screenshots/ios-mobile.png",
+  "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
+  "iosTablet" => "screenshots/ios-tablet.png",
+  "macosDesktop" => "screenshots/macos-desktop.png"
+}.freeze
 
 SCRIPT_CONTRACTS = {
   "scripts/smoke-macos.sh" => {
@@ -186,25 +182,19 @@ SCRIPT_CONTRACTS = {
       "cleanup timeout",
       "wait_for_accessibility_proof",
       "validate_screenshot_surface_proof",
-      "settingsSignedInSurface",
       "settingsVisualFocus",
-      "settingsProfileSurface",
-      "settingsNotificationAPNsSurface",
       "settingsSurfaceProofArtifacts",
       "visibleSections",
       "settingsSeedAccountID",
       "chef_settings_capture",
-      "kitchenSignedInSurface",
       "kitchenSeedAccountID",
       "chef_kitchen_capture",
-      "searchNativeSurface",
       "searchScopes",
       "searchSeedAccountID",
       "searchSurfaceProofArtifacts",
       "SearchView",
       "cookbook-detail",
       "CookbookDetailView",
-      "cookbookDetailSurface",
       "cookbookID",
       "cookbook:cookbook_weeknights",
       "cookbooks/cookbook_weeknights",
@@ -219,8 +209,7 @@ SCRIPT_CONTRACTS = {
       "lastOpenedRoute",
       "hasCompletedFirstRun",
       "native-app-state.json",
-      "mobileScreenshot",
-      "desktopScreenshot",
+      "screenshotArtifacts",
       "apple/${unit_slug}-screenshots.log",
       "screenshots-xcode-platform-blocker.json",
       "screenshots-core-simulator-blocker.json",
@@ -322,21 +311,18 @@ SCRIPT_CONTRACTS = {
     syntax: ["ruby", "-c"],
     tokens: [
       "JSON.parse",
-      *REQUIRED_REVIEW_FIELDS,
+      "screenshotArtifacts",
+      "accessibilityProofArtifacts",
+      "observedAccessibilityEvidenceArtifacts",
       "screenshotRoute",
-      "kitchenSignedInSurface",
-      "searchNativeSurface",
       "searchScopes",
       "searchSurfaceProofArtifacts",
       "SearchView",
       "routeIdentifier",
       "cookbook-detail",
-      "cookbookDetailSurface",
       "cookbookID",
       "CookbookDetailView",
       "settingsVisualFocus",
-      "settingsProfileSurface",
-      "settingsNotificationAPNsSurface",
       "settingsSurfaceProofArtifacts",
       "visibleSections",
       "SettingsView",
@@ -511,8 +497,31 @@ def accessibility_source(route)
     "CookbookDetailView"
   when "capture"
     "CaptureDraftView"
+  when "recipe-editor"
+    "RecipeEditorView"
+  when "recipe-covers"
+    "RecipeCoverControlsView"
+  when "profile"
+    "ProfileView"
+  when "profile-graph"
+    "ProfileGraphList"
+  when "unknown-link"
+    "ShellPlaceholderView"
   else
     "KitchenView"
+  end
+end
+
+def add_screenshot_artifacts!(root, manifest)
+  root.join("screenshots").mkpath
+  manifest["screenshotArtifacts"] = SCREENSHOT_ARTIFACTS.to_h do |name, relative_path|
+    path = root.join(relative_path)
+    path.write("#{name}-fixture\n")
+    [name, {
+      "path" => relative_path,
+      "bytes" => path.size,
+      "sha256" => Digest::SHA256.file(path).hexdigest
+    }]
   end
 end
 
@@ -564,8 +573,6 @@ def add_accessibility_proofs!(root, manifest, stem)
   ]
   manifest["observedAccessibilityEvidenceArtifacts"] = observed_paths
   manifest["accessibilityContentSizeScreenshot"] = "screenshots/ios-mobile-accessibility.png"
-  root.join("screenshots").mkpath
-  root.join("screenshots/ios-mobile-accessibility.png").write("png")
   observed_variants = [
     ["ios", "large"],
     ["ios", "accessibility-extra-extra-extra-large"],
@@ -632,9 +639,10 @@ def add_accessibility_proofs!(root, manifest, stem)
         "auditIssues" => [],
         "geometryFindings" => [],
         "observedContentSizeCategory" => content_size_category,
+        "observedDynamicTypeSize" => content_size_category == "accessibility-extra-extra-extra-large" ? "accessibility5" : "large",
         "toolLimitations" => []
       }
-      if %w[kitchen recipe-detail shopping-list cookbooks cookbook-detail].include?(route)
+      if %w[kitchen recipe-detail recipe-editor recipe-covers profile shopping-list cookbooks cookbook-detail].include?(route)
         observed["deepScroll"] = {
           "route" => route,
           "reachedTerminal" => true,
@@ -795,11 +803,7 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
 
     ruby -rjson -e '
       path, route = ARGV
-      fields = %w[
-        mobileScreenshot desktopScreenshot dynamicType voiceOverLabels
-        keyboardNavigation reduceMotion contrast kitchenTableHierarchy noOverlap
-      ].to_h { |field| [field, true] }
-      File.write(path, JSON.pretty_generate(fields.merge("blockers" => [], "screenshotRoute" => route)) + "\n")
+      File.write(path, JSON.pretty_generate({"blockers" => [], "screenshotRoute" => route}) + "\n")
     ' "$artifact_root/design-review.json" "$route"
   SH
 
@@ -886,38 +890,32 @@ blocker_validator = ROOT.join("scripts/validate-design-review-blocker.rb")
 
 Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
   temp_root = Pathname.new(directory)
-  valid_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+  valid_manifest = {
     "blockers" => [],
     "screenshotRoute" => "kitchen",
-    "kitchenSignedInSurface" => true,
     "kitchenSeedAccountID" => "chef_kitchen_capture"
-  )
-  valid_settings_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+  }
+  valid_settings_manifest = {
     "blockers" => [],
     "screenshotRoute" => "settings",
-    "settingsSignedInSurface" => true,
     "settingsVisualFocus" => "notifications",
-    "settingsNotificationAPNsSurface" => true,
     "settingsAPNsPermissionState" => "authorized",
     "settingsAPNsRegistrationState" => "registered",
     "settingsSeedAccountID" => "chef_settings_capture",
     "settingsSections" => ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access"],
     "settingsSurfaceProofArtifacts" => ["apple/proof-ios.json", "apple/proof-macos.json"]
-  )
-  valid_profile_settings_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+  }
+  valid_profile_settings_manifest = {
     "blockers" => [],
     "screenshotRoute" => "settings",
-    "settingsSignedInSurface" => true,
     "settingsVisualFocus" => "profile",
-    "settingsProfileSurface" => true,
     "settingsSeedAccountID" => "chef_settings_capture",
     "settingsSections" => ["Profile", "Security", "Notifications"],
     "settingsSurfaceProofArtifacts" => ["apple/profile-proof-ios.json", "apple/profile-proof-macos.json"]
-  )
-  valid_search_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+  }
+  valid_search_manifest = {
     "blockers" => [],
     "screenshotRoute" => "search",
-    "searchNativeSurface" => true,
     "searchScopes" => ["all", "recipes", "cookbooks", "chefs", "shopping-list"],
     "searchSeedAccountID" => "chef_search_capture",
     "searchSurfaceVariant" => "blank",
@@ -925,28 +923,24 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "expectedScope" => "all",
     "expectedRouteIdentifier" => "search:all:",
     "searchSurfaceProofArtifacts" => ["apple/search-proof-ios.json", "apple/search-proof-macos.json"]
-  )
-  valid_cookbook_detail_manifest = REQUIRED_REVIEW_FIELDS.to_h { |field| [field, true] }.merge(
+  }
+  valid_cookbook_detail_manifest = {
     "blockers" => [],
     "screenshotRoute" => "cookbook-detail",
-    "cookbookDetailSurface" => true,
     "cookbookSeedAccountID" => "chef_kitchen_capture",
     "cookbookID" => "cookbook_weeknights",
     "cookbookContentsIndex" => true,
     "cookbookOwnerToolsDisclosure" => true
-  )
-  missing_manifest = valid_manifest.reject { |field, _| field == "mobileScreenshot" }
+  }
+  missing_manifest = valid_manifest.dup
   false_without_blocker = valid_manifest.merge("mobileScreenshot" => false)
   missing_route_manifest = valid_manifest.reject { |field, _| field == "screenshotRoute" }
-  signed_out_kitchen_manifest = valid_manifest.merge("kitchenSignedInSurface" => false)
+  signed_out_kitchen_manifest = valid_manifest.merge("kitchenSeedAccountID" => "")
   missing_search_scope_manifest = valid_search_manifest.merge("searchScopes" => ["all", "recipes"])
   missing_search_proof_manifest = valid_search_manifest.reject { |field, _| field == "searchSurfaceProofArtifacts" }
   stale_search_proof_manifest = valid_search_manifest.merge("searchSurfaceProofArtifacts" => ["apple/stale-search-proof-ios.json", "apple/search-proof-macos.json"])
   wrong_search_proof_manifest = valid_search_manifest.merge("searchSurfaceProofArtifacts" => ["apple/wrong-search-proof-ios.json", "apple/search-proof-macos.json"])
-  missing_apns_settings_manifest = valid_settings_manifest.merge(
-    "settingsNotificationAPNsSurface" => false,
-    "settingsSections" => ["Profile", "Security", "Notifications"]
-  )
+  missing_apns_settings_manifest = valid_settings_manifest.merge("settingsSections" => ["Profile", "Security", "Notifications"])
   false_with_blocker = false_without_blocker.merge(
     "blockers" => [
       {
@@ -999,6 +993,8 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "bad-blocker.json" => [bad_blocker, false, "invalid blocker"]
   }.each do |filename, (manifest, expected_success, label)|
     path = temp_root.join(filename)
+    add_screenshot_artifacts!(temp_root, manifest)
+    manifest["screenshotArtifacts"].delete("iosMobile") if filename == "missing.json"
     add_accessibility_proofs!(temp_root, manifest, filename.delete_suffix(".json"))
     path.write(JSON.pretty_generate(manifest))
     if (proof_artifacts = manifest["settingsSurfaceProofArtifacts"])
@@ -1547,8 +1543,8 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         identifiers = ["settings.apns.this-device.heading", "settings.apns.push-delivery.heading", "settings.apns.notification-sync.heading"]
     elements = [terminal] + [{"identifier":identifier,"label":identifier,"type":"staticText","frame":{"x":10,"y":10 + index * 20,"width":80,"height":18},"exists":True,"hittable":False,"enabled":True,"focused":None} for index, identifier in enumerate(identifiers)]
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"geometryFindings":[],"observedContentSizeCategory":content_size,"toolLimitations":[]}
-    if args.route in {"kitchen", "recipe-detail", "shopping-list", "cookbooks", "cookbook-detail"}:
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","toolLimitations":[]}
+    if args.route in {"kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "shopping-list", "cookbooks", "cookbook-detail"}:
         evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"toolLimitations":[]}
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -1656,12 +1652,28 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      printf '{"platform":"%s","route":"%s","source":"%s","launchEnvironmentProof":{},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$bundle" > "$output_path"
+      observed_dynamic_type="large"
+      if [[ -f "$PWD/contract-content-size" ]] && [[ "$(cat "$PWD/contract-content-size")" == "accessibility-extra-extra-extra-large" ]]; then
+        observed_dynamic_type="accessibility5"
+      fi
+      printf '{"platform":"%s","route":"%s","source":"%s","launchEnvironmentProof":{},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"%s","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$observed_dynamic_type" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
         mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
         printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ ui\ *\ content_size\ *)
+        content_size="${@: -1}"
+        printf '%s\n' "$content_size" > "$PWD/contract-content-size"
+        while IFS= read -r proof_path; do
+          ruby -rjson -e '
+            path, content_size = ARGV
+            payload = JSON.parse(File.read(path))
+            payload["observedDynamicTypeSize"] = content_size == "accessibility-extra-extra-extra-large" ? "accessibility5" : "large"
+            File.write(path, JSON.generate(payload) + "\n")
+          ' "$proof_path" "$content_size"
+        done < <(find "$PWD/ios-container" -name native-accessibility-proof.json -type f 2>/dev/null)
         ;;
       simctl\ launch\ *)
         touch "$ios_running_file"
@@ -2039,8 +2051,8 @@ PY
   assert_file(artifact_root.join("screenshots/macos-desktop.png"), "screenshot success lane")
   kitchen_review = assert_json(artifact_root.join("design-review.json"), "kitchen screenshot success lane")
   record_failure("kitchen screenshot route mismatch") unless kitchen_review["screenshotRoute"] == "kitchen"
-  record_failure("kitchen screenshot missing signed-in surface flag") unless kitchen_review["kitchenSignedInSurface"] == true
   record_failure("kitchen screenshot account seed mismatch") unless kitchen_review["kitchenSeedAccountID"] == "chef_kitchen_capture"
+  record_failure("kitchen screenshot set is not hash-bound") unless kitchen_review.fetch("screenshotArtifacts", {}).keys.sort == SCREENSHOT_ARTIFACTS.keys.sort
   record_failure("kitchen screenshot missing accessibility proof artifacts") unless kitchen_review.fetch("accessibilityProofArtifacts", []).length == 3
   kitchen_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
     proof = assert_json(artifact_root.join(relative_path), "kitchen accessibility proof artifact")
@@ -2181,7 +2193,6 @@ PY
   )
   cookbook_detail_review = assert_json(cookbook_detail_root.join("design-review.json"), "cookbook detail screenshot success lane")
   record_failure("cookbook detail screenshot route mismatch") unless cookbook_detail_review["screenshotRoute"] == "cookbook-detail"
-  record_failure("cookbook detail missing native surface flag") unless cookbook_detail_review["cookbookDetailSurface"] == true
   record_failure("cookbook detail account seed mismatch") unless cookbook_detail_review["cookbookSeedAccountID"] == "chef_kitchen_capture"
   record_failure("cookbook detail ID mismatch") unless cookbook_detail_review["cookbookID"] == "cookbook_weeknights"
   cookbook_detail_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
@@ -2268,7 +2279,6 @@ PY
   )
   search_review = assert_json(artifact_root.join("design-review.json"), "search screenshot success lane")
   record_failure("search screenshot route mismatch") unless search_review["screenshotRoute"] == "search"
-  record_failure("search screenshot missing native surface flag") unless search_review["searchNativeSurface"] == true
   record_failure("search screenshot account seed mismatch") unless search_review["searchSeedAccountID"] == "chef_search_capture"
   record_failure("search screenshot scopes mismatch") unless search_review["searchScopes"] == ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
   record_failure("search screenshot missing proof artifacts") unless search_review.fetch("searchSurfaceProofArtifacts", []).length >= 2
@@ -2358,9 +2368,7 @@ PY
   )
   settings_review = assert_json(artifact_root.join("design-review.json"), "settings screenshot success lane")
   record_failure("settings screenshot route mismatch") unless settings_review["screenshotRoute"] == "settings"
-  record_failure("settings screenshot missing signed-in surface flag") unless settings_review["settingsSignedInSurface"] == true
   record_failure("settings screenshot focus mismatch") unless settings_review["settingsVisualFocus"] == "profile"
-  record_failure("settings screenshot missing profile surface flag") unless settings_review["settingsProfileSurface"] == true
   record_failure("settings screenshot account seed mismatch") unless settings_review["settingsSeedAccountID"] == "chef_settings_capture"
   record_failure("settings screenshot missing proof artifacts") unless settings_review.fetch("settingsSurfaceProofArtifacts", []).length >= 2
   settings_review.fetch("settingsSurfaceProofArtifacts", []).each do |relative_path|
@@ -2394,7 +2402,6 @@ PY
   notification_review = assert_json(artifact_root.join("design-review.json"), "notification screenshot success lane")
   record_failure("notification screenshot route mismatch") unless notification_review["screenshotRoute"] == "settings"
   record_failure("notification screenshot focus mismatch") unless notification_review["settingsVisualFocus"] == "notifications"
-  record_failure("notification screenshot missing APNs surface flag") unless notification_review["settingsNotificationAPNsSurface"] == true
   record_failure("notification screenshot missing push delivery section") unless notification_review.fetch("settingsSections", []).include?("Push Delivery")
   record_failure("notification screenshot missing proof artifacts") unless notification_review.fetch("settingsSurfaceProofArtifacts", []).length >= 2
   notification_review.fetch("settingsSurfaceProofArtifacts", []).each do |relative_path|
@@ -2580,7 +2587,8 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     args = parser.parse_args()
     terminal = {"identifier":"fixture.terminal","label":"Terminal","type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
     environment = json.loads(Path(args.environment_json).read_text()) if args.environment_json else {}
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"geometryFindings":[],"observedContentSizeCategory":environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large"),"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"toolLimitations":[]}}
+    content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"toolLimitations":[]}}
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(evidence) + "\n")
@@ -2638,12 +2646,28 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
       local platform="$2"
       local bundle="$3"
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","launchEnvironmentProof":{},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
+      observed_dynamic_type="large"
+      if [[ -f "$PWD/contract-content-size" ]] && [[ "$(cat "$PWD/contract-content-size")" == "accessibility-extra-extra-extra-large" ]]; then
+        observed_dynamic_type="accessibility5"
+      fi
+      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","launchEnvironmentProof":{},"screenshotStateSnapshotProof":{"stateDirectoryResolved":true,"appSnapshotPresent":true,"appSnapshotJSONReadable":true,"syncSnapshotPresent":true,"syncSnapshotJSONReadable":true},"observedDynamicTypeSize":"%s","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$observed_dynamic_type" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
         mkdir -p "$PWD/ios-container/Library/Application Support/Spoonjoy"
         printf '%s\n' "$PWD/ios-container"
+        ;;
+      simctl\ ui\ *\ content_size\ *)
+        content_size="${@: -1}"
+        printf '%s\n' "$content_size" > "$PWD/contract-content-size"
+        while IFS= read -r proof_path; do
+          ruby -rjson -e '
+            path, content_size = ARGV
+            payload = JSON.parse(File.read(path))
+            payload["observedDynamicTypeSize"] = content_size == "accessibility-extra-extra-extra-large" ? "accessibility5" : "large"
+            File.write(path, JSON.generate(payload) + "\n")
+          ' "$proof_path" "$content_size"
+        done < <(find "$PWD/ios-container" -name native-accessibility-proof.json -type f 2>/dev/null)
         ;;
       simctl\ launch\ *)
         platform="ios"

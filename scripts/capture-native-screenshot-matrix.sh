@@ -3,6 +3,7 @@ set -euo pipefail
 
 artifact_root="${SPOONJOY_NATIVE_ARTIFACT_ROOT:-artifacts/apple/native-screenshot-matrix}"
 unit_slug="matrix"
+require_full_matrix=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -13,6 +14,10 @@ while [[ $# -gt 0 ]]; do
     --unit-slug)
       unit_slug="$2"
       shift 2
+      ;;
+    --require-full-matrix)
+      require_full_matrix=1
+      shift
       ;;
     *)
       printf 'Unknown argument: %s\n' "$1" >&2
@@ -70,7 +75,7 @@ write_shared_build_blocker() {
   local output_path="$3"
   local reason="$4"
   local source_blocker_path="${5:-}"
-  ruby -rjson -e '
+  ruby -rjson -rdigest -e '
     path, platform, command, timeout_seconds, output_path, reason, source_blocker_path = ARGV
     blocker = {
       "blocked" => true,
@@ -233,14 +238,15 @@ record_route() {
   local route_root="$3"
   local status="$4"
   local command="$5"
-  ruby -rjson -e '
+  ruby -rjson -rdigest -e '
     results_path, name, route, route_root, status, command = ARGV
     def artifact(path, relative_path)
       absolute = File.join(path, relative_path)
       {
         "path" => absolute,
         "exists" => File.file?(absolute),
-        "bytes" => File.file?(absolute) ? File.size(absolute) : nil
+        "bytes" => File.file?(absolute) ? File.size(absolute) : nil,
+        "sha256" => File.file?(absolute) ? Digest::SHA256.file(absolute).hexdigest : nil
       }
     end
     design_review = artifact(route_root, "design-review.json")
@@ -361,22 +367,50 @@ PY
 }
 
 summarize_routes() {
+  local expected_route_names=()
+  local entry name route route_root route_slug
+  for entry in "${routes[@]}"; do
+    IFS="|" read -r name route route_root route_slug <<< "$entry"
+    expected_route_names+=("$name")
+  done
+  local expected_route_names_csv
+  expected_route_names_csv="$(IFS=,; printf '%s' "${expected_route_names[*]}")"
   ruby -rjson -rtime -e '
-    results_path, summary_path, shared_build_blocker_path, provenance_manifest_path, verified_before, verified_after = ARGV
+    results_path, summary_path, shared_build_blocker_path, provenance_manifest_path, verified_before, verified_after, expected_routes_csv, selected_routes_csv, require_full = ARGV
     rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) } : []
+    expected_routes = expected_routes_csv.split(",")
+    route_names = rows.map { |row| row["name"] }
+    duplicate_routes = route_names.group_by(&:itself).select { |_name, values| values.length > 1 }.keys
+    unexpected_routes = route_names - expected_routes
+    missing_routes = expected_routes - route_names
     missing = rows.select { |row| row["missingDesignReview"] }
     blocked = rows.select { |row| row["blocked"] }
     failed = rows.select { |row| row["status"] != "pass" }
+    screenshot_keys = %w[iosScreenshot iosAccessibilityScreenshot iosTabletScreenshot macosScreenshot]
+    missing_screenshots = rows.select do |row|
+      screenshot_keys.any? do |key|
+        artifact = row[key]
+        !artifact.is_a?(Hash) || artifact["exists"] != true || !artifact["bytes"].is_a?(Integer) || !artifact["bytes"].positive? ||
+          !artifact["sha256"].is_a?(String) || artifact["sha256"] !~ /\A[0-9a-f]{64}\z/
+      end
+    end
     build_blocker = File.file?(shared_build_blocker_path) ? JSON.parse(File.read(shared_build_blocker_path)) : nil
     before_ok = verified_before == "1"
     after_ok = verified_after == "1"
     provenance = File.file?(provenance_manifest_path) ? JSON.parse(File.read(provenance_manifest_path)) : nil
-    ok = !rows.empty? && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty? && before_ok && after_ok && !provenance.nil?
+    ok = !rows.empty? && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty? && missing_screenshots.empty? &&
+      duplicate_routes.empty? && unexpected_routes.empty? && before_ok && after_ok && !provenance.nil?
+    complete_route_set = selected_routes_csv.empty? && route_names == expected_routes
+    fully_validated = ok && complete_route_set
     File.write(summary_path, JSON.pretty_generate({
       "ok" => ok,
-      "fullyValidated" => ok,
+      "fullyValidated" => fully_validated,
       "generatedAt" => Time.now.utc.iso8601,
       "routeCount" => rows.length,
+      "expectedRouteCount" => expected_routes.length,
+      "expectedRoutes" => expected_routes,
+      "selectedRoutes" => route_names,
+      "completeRouteSet" => complete_route_set,
       "buildBlocked" => !build_blocker.nil?,
       "buildBlocker" => build_blocker,
       "provenanceVerifiedBefore" => before_ok,
@@ -388,10 +422,14 @@ summarize_routes() {
       "routes" => rows,
       "failedRoutes" => failed.map { |row| row["name"] },
       "blockedRoutes" => blocked.map { |row| row["name"] },
-      "missingDesignReviewRoutes" => missing.map { |row| row["name"] }
+      "missingDesignReviewRoutes" => missing.map { |row| row["name"] },
+      "missingScreenshotRoutes" => missing_screenshots.map { |row| row["name"] },
+      "missingRoutes" => missing_routes,
+      "duplicateRoutes" => duplicate_routes,
+      "unexpectedRoutes" => unexpected_routes
     }) + "\n")
-    exit(ok ? 0 : 1)
-  ' "$results_path" "$summary_path" "$shared_build_blocker" "$provenance_manifest" "$provenance_verified_before" "$provenance_verified_after"
+    exit((require_full == "1" ? fully_validated : ok) ? 0 : 1)
+  ' "$results_path" "$summary_path" "$shared_build_blocker" "$provenance_manifest" "$provenance_verified_before" "$provenance_verified_after" "$expected_route_names_csv" "$matrix_routes" "$require_full_matrix"
 }
 
 capture_route() {
@@ -420,6 +458,8 @@ capture_route() {
     status="blocked"
   elif [[ ! -f "$route_root/design-review.json" ]]; then
     status="fail"
+  elif [[ ! -s "$route_root/screenshots/ios-mobile.png" || ! -s "$route_root/screenshots/ios-mobile-accessibility.png" || ! -s "$route_root/screenshots/ios-tablet.png" || ! -s "$route_root/screenshots/macos-desktop.png" ]]; then
+    status="fail"
   elif [[ "$command_status" -ne 0 ]]; then
     status="fail"
   fi
@@ -447,6 +487,8 @@ routes=(
   "recipes|recipes|$routes_dir/recipes|$unit_slug-recipes"
   "saved-recipes|saved-recipes|$routes_dir/saved-recipes|$unit_slug-saved-recipes"
   "recipe-detail|recipe-detail|$routes_dir/recipe-detail|$unit_slug-recipe-detail"
+  "recipe-editor|recipe-editor|$routes_dir/recipe-editor|$unit_slug-recipe-editor"
+  "recipe-covers|recipe-covers|$routes_dir/recipe-covers|$unit_slug-recipe-covers"
   "cook-mode|cook-mode|$routes_dir/cook-mode|$unit_slug-cook-mode"
   "cook-log|cook-log|$routes_dir/cook-log|$unit_slug-cook-log"
   "cookbooks|cookbooks|$routes_dir/cookbooks|$unit_slug-cookbooks"
@@ -458,6 +500,8 @@ routes=(
   "shopping-list-conflict|shopping-list-conflict|$routes_dir/shopping-list-conflict|$unit_slug-shopping-list-conflict"
   "shopping-list-offline-queued|shopping-list-offline-queued|$routes_dir/shopping-list-offline-queued|$unit_slug-shopping-list-offline-queued"
   "chefs|chefs|$routes_dir/chefs|$unit_slug-chefs"
+  "profile|profile|$routes_dir/profile|$unit_slug-profile"
+  "profile-graph|profile-graph|$routes_dir/profile-graph|$unit_slug-profile-graph"
   "search|search|$routes_dir/search|$unit_slug-search"
   "search-typed-results|search-typed-results|$routes_dir/search-typed-results|$unit_slug-search-typed-results"
   "search-scoped-recipes|search-scoped-recipes|$routes_dir/search-scoped-recipes|$unit_slug-search-scoped-recipes"
@@ -478,6 +522,7 @@ routes=(
   "settings-apns-not-determined|settings|$routes_dir/settings-apns-not-determined|$unit_slug-settings-apns-not-determined"
   "settings-apns-authorized|settings|$routes_dir/settings-apns-authorized|$unit_slug-settings-apns-authorized"
   "settings-apns-unregistered|settings|$routes_dir/settings-apns-unregistered|$unit_slug-settings-apns-unregistered"
+  "unknown-link|unknown-link|$routes_dir/unknown-link|$unit_slug-unknown-link"
 )
 
 if prepare_shared_builds; then

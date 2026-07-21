@@ -142,6 +142,7 @@ func parseOptions() -> Options {
             "settings.apns.notification-sync.heading"
         ])
     }
+    requiredIdentifiers.formUnion(requiredIdentifiers(for: route))
     return Options(
         pid: pid,
         route: route,
@@ -348,15 +349,42 @@ func requiredTitles(for route: String, signedIn: Bool) -> Set<String> {
     guard signedIn else { return ["Spoonjoy", "Sign in"] }
     return switch route {
     case "kitchen": ["Ari's kitchen", "Lemon Pantry Pasta"]
-    case "recipes", "saved-recipes", "recipe-detail", "cook-mode": ["Lemon Pantry Pasta"]
-    case "cook-log": ["Cooks"]
+    case "recipes", "saved-recipes", "recipe-detail": ["Lemon Pantry Pasta"]
+    case "recipe-editor": ["Recipe", "Title", "Save"]
+    case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Add Photo", "Generate Placeholder"]
+    case "cook-mode": ["Lemon Pantry Pasta", "Current cooking step 1, Boil pasta", "Mark the current step done", "Tools", "Ingredients"]
+    case "cook-log": ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"]
     case "cookbooks", "cookbook-detail": ["Weeknights"]
+    case "profile": ["@ari", "Joined Spoonjoy", "Edit Profile"]
+    case "profile-graph": ["jules", "1 spoon"]
     case "shopping-list": ["Lemons"]
     case "chefs": ["Chefs"]
     case "search": ["Search"]
     case "capture": ["Imports"]
     case "settings": ["Account"]
+    case "unknown-link": ["Link Not Found", "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link."]
     default: [route]
+    }
+}
+
+func requiredIdentifiers(for route: String) -> Set<String> {
+    switch route {
+    case "recipe-editor":
+        ["recipe-editor.title", "recipe-editor.save"]
+    case "recipe-covers":
+        ["recipe-covers.photo-picker", "recipe-covers.generate-placeholder"]
+    case "profile":
+        ["profile.header"]
+    case "profile-graph":
+        ["profile-graph.row.chef_jules"]
+    case "unknown-link":
+        ["unknown-link.message"]
+    case "cook-mode":
+        ["cook.current-step", "cook.done", "cook.tools"]
+    case "cook-log":
+        ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
+    default:
+        []
     }
 }
 

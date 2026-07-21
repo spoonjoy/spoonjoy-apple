@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "digest"
 require "open3"
 require "pathname"
 require "tmpdir"
@@ -97,6 +98,8 @@ def observed_proof(platform)
       "auditIssues" => [],
       "geometryFindings" => [],
       "observedContentSizeCategory" => "large",
+      "observedDynamicTypeSize" => "large",
+      "toolLimitations" => [],
       "deepScroll" => {
         "route" => "kitchen",
         "reachedTerminal" => true,
@@ -112,18 +115,24 @@ def observed_proof(platform)
   end
 end
 
-def manifest
+def screenshot_artifact(root, relative_path)
+  path = root.join(relative_path)
   {
-    "mobileScreenshot" => true,
-    "desktopScreenshot" => true,
-    "dynamicType" => true,
-    "voiceOverLabels" => true,
-    "keyboardNavigation" => true,
-    "reduceMotion" => true,
-    "contrast" => true,
-    "kitchenTableHierarchy" => true,
-    "noOverlap" => true,
+    "path" => relative_path,
+    "bytes" => path.size,
+    "sha256" => Digest::SHA256.file(path).hexdigest
+  }
+end
+
+def manifest(root)
+  {
     "screenshotRoute" => "kitchen",
+    "screenshotArtifacts" => {
+      "iosMobile" => screenshot_artifact(root, "screenshots/ios-mobile.png"),
+      "iosAccessibility" => screenshot_artifact(root, "screenshots/ios-mobile-accessibility.png"),
+      "iosTablet" => screenshot_artifact(root, "screenshots/ios-tablet.png"),
+      "macosDesktop" => screenshot_artifact(root, "screenshots/macos-desktop.png")
+    },
     "kitchenSignedInSurface" => true,
     "kitchenSeedAccountID" => "chef_kitchen_capture",
     "accessibilityProofArtifacts" => [
@@ -165,17 +174,27 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   root = Pathname.new(directory)
   root.join("apple").mkpath
   root.join("screenshots").mkpath
-  root.join("screenshots/ios-mobile-accessibility.png").write("png")
+  %w[ios-mobile.png ios-mobile-accessibility.png ios-tablet.png macos-desktop.png].each do |name|
+    root.join("screenshots", name).write("png:#{name}")
+  end
   %w[ios ipad macos].each do |platform|
     root.join("apple/readiness-#{platform}.json").write(JSON.pretty_generate(readiness_proof(platform)) + "\n")
     root.join("apple/observed-#{platform}.json").write(JSON.pretty_generate(observed_proof(platform)) + "\n")
   end
   root.join("apple/observed-ios-ax.json").write(JSON.pretty_generate(
-    observed_proof("ios").merge("observedContentSizeCategory" => "accessibility-extra-extra-extra-large")
+    observed_proof("ios").merge(
+      "observedContentSizeCategory" => "accessibility-extra-extra-extra-large",
+      "observedDynamicTypeSize" => "accessibility5"
+    )
   ) + "\n")
   manifest_path = root.join("design-review.json")
-  manifest_path.write(JSON.pretty_generate(manifest) + "\n")
+  valid_manifest = manifest(root)
+  manifest_path.write(JSON.pretty_generate(valid_manifest) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "valid observed accessibility evidence")
+
+  root.join("screenshots/ios-mobile.png").write("tampered")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "tampered screenshot rejection")
+  root.join("screenshots/ios-mobile.png").write("png:ios-mobile.png")
 
   stale = readiness_proof("ios").merge("routeEvidence" => { "voiceOverLabels" => ["invented"] })
   root.join("apple/readiness-ios.json").write(JSON.pretty_generate(stale) + "\n")
@@ -212,7 +231,7 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
     }]
   )
   root.join("apple/observed-ios-ax.json").write(JSON.pretty_generate(known_ios_26_limitation) + "\n")
-  assert_status(true, ["ruby", VALIDATOR, manifest_path], "known iOS 26 Dynamic Type tool limitation")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "iOS 26 Dynamic Type finding remains blocking")
 
   unsupported_limitation = known_ios_26_limitation.merge(
     "toolLimitations" => [{
@@ -225,7 +244,23 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "unsupported audit limitation rejection")
 
   root.join("apple/observed-ios-ax.json").write(JSON.pretty_generate(
-    observed_proof("ios").merge("observedContentSizeCategory" => "accessibility-extra-extra-extra-large")
+    observed_proof("ios").merge(
+      "observedContentSizeCategory" => "accessibility-extra-extra-extra-large",
+      "observedDynamicTypeSize" => "accessibility5"
+    )
+  ) + "\n")
+
+  mismatched_dynamic_type = observed_proof("ios").merge(
+    "observedContentSizeCategory" => "accessibility-extra-extra-extra-large",
+    "observedDynamicTypeSize" => "large"
+  )
+  root.join("apple/observed-ios-ax.json").write(JSON.pretty_generate(mismatched_dynamic_type) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "requested Dynamic Type mismatch rejection")
+  root.join("apple/observed-ios-ax.json").write(JSON.pretty_generate(
+    observed_proof("ios").merge(
+      "observedContentSizeCategory" => "accessibility-extra-extra-extra-large",
+      "observedDynamicTypeSize" => "accessibility5"
+    )
   ) + "\n")
 
   measured_contrast_limitation = observed_proof("ios").merge(
@@ -253,7 +288,7 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
     }]
   )
   root.join("apple/observed-ios.json").write(JSON.pretty_generate(measured_contrast_limitation) + "\n")
-  assert_status(true, ["ruby", VALIDATOR, manifest_path], "measured iOS 26 contrast tool limitation")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "measured iOS 26 contrast finding remains blocking")
 
   unproved_contrast_limitation = measured_contrast_limitation.merge(
     "toolLimitations" => [measured_contrast_limitation["toolLimitations"].first.merge("contrastProof" => nil)]
@@ -291,7 +326,7 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
     }]
   )
   root.join("apple/observed-ios.json").write(JSON.pretty_generate(tab_bar_occlusion_limitation) + "\n")
-  assert_status(true, ["ruby", VALIDATOR, manifest_path], "proven iOS 26 tab-bar occlusion limitation")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "anonymous tab-bar contrast finding remains blocking")
 
   unproved_tab_bar_limitation = tab_bar_occlusion_limitation.merge(
     "toolLimitations" => [tab_bar_occlusion_limitation["toolLimitations"].first.merge(

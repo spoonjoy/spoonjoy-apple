@@ -124,6 +124,33 @@ def observed_screenshot_files(root: Path) -> list[Path]:
     return [match for match in matches if match.is_file()]
 
 
+def attest_observed_dynamic_type(
+    evidence: dict,
+    app_proof_path: Path,
+    requested_content_size: str,
+) -> None:
+    expected_dynamic_type = {
+        "large": "large",
+        "accessibility-extra-extra-extra-large": "accessibility5",
+    }.get(requested_content_size)
+    if expected_dynamic_type is None:
+        fail(f"unsupported requested Dynamic Type category: {requested_content_size!r}")
+    try:
+        app_proof = json.loads(app_proof_path.read_text())
+        observed_dynamic_type = app_proof["observedDynamicTypeSize"]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
+        fail(f"actual Dynamic Type proof is missing or invalid: {app_proof_path}")
+    if not isinstance(observed_dynamic_type, str) or not observed_dynamic_type:
+        fail(f"actual Dynamic Type proof is missing or invalid: {app_proof_path}")
+    if observed_dynamic_type != expected_dynamic_type:
+        fail(
+            "Dynamic Type mismatch: "
+            f"requested {requested_content_size}, app observed {observed_dynamic_type}"
+        )
+    evidence["observedContentSizeCategory"] = requested_content_size
+    evidence["observedDynamicTypeSize"] = observed_dynamic_type
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--xctestrun", required=True, type=Path)
@@ -205,15 +232,20 @@ def main() -> None:
             f"expected one {arguments.platform}/{arguments.route} observed evidence attachment, "
             f"found {len(matches)}; see {attachments}"
         )
+    evidence = json.loads(matches[0].read_text())
+    app_proof_value = environment.get("SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH")
+    requested_content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY")
+    if not app_proof_value or not requested_content_size:
+        fail("actual Dynamic Type attestation requires app proof and requested category paths")
+    attest_observed_dynamic_type(evidence, Path(app_proof_value), requested_content_size)
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(matches[0], arguments.output)
+    arguments.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
     if arguments.screenshot_output:
         screenshots = observed_screenshot_files(attachments)
         if len(screenshots) != 1:
             fail(f"expected one initial observed screenshot, found {len(screenshots)}; see {attachments}")
         arguments.screenshot_output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(screenshots[0], arguments.screenshot_output)
-    evidence = json.loads(matches[0].read_text())
     product_findings = list(evidence.get("auditIssues", [])) + list(evidence.get("geometryFindings", []))
     deep_scroll = evidence.get("deepScroll")
     if isinstance(deep_scroll, dict):

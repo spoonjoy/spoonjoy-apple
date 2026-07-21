@@ -258,12 +258,37 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     assert capture_marker.file?
     summary = JSON.parse(@artifact_root.join("apple/unit-route-matrix.json").read)
     assert_equal true, summary.fetch("ok")
+    assert_equal false, summary.fetch("fullyValidated")
+    assert_operator summary.fetch("expectedRouteCount"), :>, summary.fetch("routeCount")
     assert_equal true, summary.fetch("provenanceVerifiedBefore")
     assert_equal true, summary.fetch("provenanceVerifiedAfter")
     assert_equal manifest_path.realpath.to_s, summary.fetch("provenanceManifestPath")
     assert_equal manifest.fetch("manifestSha256"), summary.fetch("provenanceManifestSha256")
     assert_equal manifest.dig("source", "sha"), summary.fetch("sourceSha")
     assert_equal manifest.dig("source", "tree"), summary.fetch("sourceTree")
+  end
+
+  def test_matrix_marks_only_the_complete_canonical_route_set_fully_validated
+    stdout, stderr, status = run_matrix(matrix_run_uuid: "matrix-run-full", selected_routes: nil)
+
+    assert status.success?, "full matrix failed\nSTDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    summary = JSON.parse(@artifact_root.join("apple/unit-route-matrix.json").read)
+    assert_equal true, summary.fetch("ok")
+    assert_equal true, summary.fetch("fullyValidated")
+    assert_equal summary.fetch("expectedRouteCount"), summary.fetch("routeCount")
+    assert_operator summary.fetch("routeCount"), :>, 1
+  end
+
+  def test_matrix_fails_when_a_standard_screenshot_is_missing
+    _stdout, _stderr, status = run_matrix(
+      matrix_run_uuid: "matrix-run-missing-screenshot",
+      skipped_screenshot: "ios-tablet.png"
+    )
+
+    refute status.success?
+    summary = JSON.parse(@artifact_root.join("apple/unit-route-matrix.json").read)
+    assert_equal false, summary.fetch("ok")
+    assert_includes summary.fetch("missingScreenshotRoutes"), "kitchen"
   end
 
   private
@@ -289,6 +314,11 @@ class NativeScreenshotProvenanceTest < Minitest::Test
       touch "${CAPTURE_MARKER:?}"
       mkdir -p "$artifact_root/screenshots" "$artifact_root/apple"
       printf '{"mobileScreenshot":true,"desktopScreenshot":true,"blockers":[]}\n' > "$artifact_root/design-review.json"
+      for screenshot in ios-mobile.png ios-mobile-accessibility.png ios-tablet.png macos-desktop.png; do
+        if [[ "${CAPTURE_SKIP_SCREENSHOT:-}" != "$screenshot" ]]; then
+          printf 'png:%s\n' "$screenshot" > "$artifact_root/screenshots/$screenshot"
+        fi
+      done
     SH
     write_executable(@repository.join("scripts/run-xcodebuild-with-blocker.sh"), <<~'SH')
       #!/usr/bin/env bash
@@ -440,16 +470,17 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     )
   end
 
-  def run_matrix(matrix_run_uuid: "matrix-run-a", manifest: nil, ios_app: nil, macos_app: nil)
+  def run_matrix(matrix_run_uuid: "matrix-run-a", manifest: nil, ios_app: nil, macos_app: nil, selected_routes: "kitchen", skipped_screenshot: nil)
     environment = {
       "PATH" => "#{@bin}:#{ENV.fetch("PATH")}",
       "FAKE_XCODEBUILD_LOG" => @build_log.to_s,
-      "SPOONJOY_SCREENSHOT_MATRIX_ROUTES" => "kitchen",
       "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID" => "IPHONE-UDID",
       "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID" => "IPAD-UDID",
       "SPOONJOY_SCREENSHOT_PROVENANCE_RUN_UUID" => matrix_run_uuid,
       "CAPTURE_MARKER" => capture_marker.to_s
     }
+    environment["SPOONJOY_SCREENSHOT_MATRIX_ROUTES"] = selected_routes unless selected_routes.nil?
+    environment["CAPTURE_SKIP_SCREENSHOT"] = skipped_screenshot if skipped_screenshot
     environment["SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST"] = manifest.to_s if manifest
     environment["SPOONJOY_SCREENSHOT_IOS_APP_PATH"] = ios_app.to_s if ios_app
     environment["SPOONJOY_SCREENSHOT_MACOS_APP_PATH"] = macos_app.to_s if macos_app

@@ -81,24 +81,7 @@ require_tokens(ios_observer, [
   "elementLabel",
   "elementType",
   "elementFrame",
-  "toolLimitations",
-  "ObservedAuditToolLimitation",
-  "ObservedContrastProof",
-  "ObservedTabBarOcclusionProof",
-  "measuredContrastProof",
-  "resolvingTabBarOcclusionLimitations",
-  "postScrollAnonymousContrastIssueAbsent",
-  "contrastRatio",
-  "relativeLuminance",
-  "https://developer.apple.com/forums/thread/823968",
-  "https://developer.apple.com/videos/play/wwdc2023/10035/",
   "operatingSystemVersion",
-  "ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26",
-  "issue.auditType == .dynamicType",
-  "issue.auditType == .contrast",
-  "requiredRatio = 4.5",
-  "foregroundPixelCount",
-  "backgroundPixelCount",
   "let initialScreenshot = XCUIScreen.main.screenshot()",
   "viewport: ObservedRect",
   "frame.intersects(windowFrame)",
@@ -127,7 +110,23 @@ require_tokens(ios_observer, [
   "deep-scroll-screenshot",
   "deep-scroll-evidence"
 ])
-forbid_tokens(ios_observer, ["element.isHittable", "element.isEnabled"])
+forbid_tokens(ios_observer, [
+  "element.isHittable",
+  "element.isEnabled",
+  "toolLimitations",
+  "ObservedAuditToolLimitation",
+  "knownAuditToolLimitation",
+  "measuredContrastProof",
+  "resolvingTabBarOcclusionLimitations",
+  "postScrollAnonymousContrastIssueAbsent"
+])
+
+require_tokens("scripts/run-ios-screenshot-observer.py", [
+  "attest_observed_dynamic_type",
+  "observedDynamicTypeSize",
+  "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
+  "Dynamic Type mismatch"
+])
 
 mac_observer = "scripts/observe-macos-screenshot-evidence.swift"
 require_tokens(mac_observer, [

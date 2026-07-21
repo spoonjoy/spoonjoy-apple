@@ -103,7 +103,11 @@ expected_accessibility_source=""
 if [[ -n "$requested_route" ]]; then
   screenshot_route="$requested_route"
 else
-  if [[ "$unit_slug" == *recipe-detail* || "$unit_slug" == *recipe_detail* ]]; then
+  if [[ "$unit_slug" == *recipe-editor* || "$unit_slug" == *recipe_editor* ]]; then
+    screenshot_route="recipe-editor"
+  elif [[ "$unit_slug" == *recipe-covers* || "$unit_slug" == *recipe_covers* ]]; then
+    screenshot_route="recipe-covers"
+  elif [[ "$unit_slug" == *recipe-detail* || "$unit_slug" == *recipe_detail* ]]; then
     screenshot_route="recipe-detail"
   elif [[ "$unit_slug" == *cook-log* || "$unit_slug" == *cook_log* ]]; then
     screenshot_route="cook-log"
@@ -131,6 +135,10 @@ else
     screenshot_route="shopping-list"
   elif [[ "$unit_slug" == *chefs* ]]; then
     screenshot_route="chefs"
+  elif [[ "$unit_slug" == *profile-graph* || "$unit_slug" == *profile_graph* ]]; then
+    screenshot_route="profile-graph"
+  elif [[ "$unit_slug" == *profile* ]]; then
+    screenshot_route="profile"
   elif [[ "$unit_slug" == *search-typed-results* || "$unit_slug" == *search_typed_results* ]]; then
     screenshot_route="search-typed-results"
   elif [[ "$unit_slug" == *search-scoped-recipes* || "$unit_slug" == *search_scoped_recipes* ]]; then
@@ -159,6 +167,8 @@ else
     screenshot_route="capture"
   elif [[ "$unit_slug" == *settings* || "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
     screenshot_route="settings"
+  elif [[ "$unit_slug" == *unknown-link* || "$unit_slug" == *unknown_link* ]]; then
+    screenshot_route="unknown-link"
   fi
 fi
 if [[ "$screenshot_route" == "shopping-list-empty" ]]; then
@@ -243,6 +253,7 @@ settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
 search_capture_account_id="chef_search_capture"
 shopping_capture_account_id="chef_shopping_capture"
+owner_capture_account_id="chef_ari"
 cookbook_detail_id="cookbook_weeknights"
 shopping_conflict_client_mutation_id="cm_shopping_conflict_capture"
 shopping_conflict_launch_client_mutation_id=""
@@ -267,6 +278,7 @@ ios_smoke_attempts="${SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS:-2}"
 ios_capture_attempts="${SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS:-2}"
 expected_recorded_route="$screenshot_route"
 deep_link_path="$screenshot_route"
+deep_link_url=""
 macos_window_title="Kitchen"
 # Legacy contract marker: older capture code opened spoonjoy://$screenshot_route directly.
 case "$screenshot_route" in
@@ -293,6 +305,18 @@ case "$screenshot_route" in
     expected_recorded_route="recipe:recipe_lemon_pantry_pasta"
     deep_link_path="recipes/recipe_lemon_pantry_pasta"
     macos_window_title="Lemon Pantry Pasta"
+    ;;
+  recipe-editor)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="recipe-editor:recipe_lemon_pantry_pasta"
+    deep_link_path="recipes/recipe_lemon_pantry_pasta/edit"
+    macos_window_title="Recipes"
+    ;;
+  recipe-covers)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="recipe-covers:recipe_lemon_pantry_pasta"
+    deep_link_path="recipes/recipe_lemon_pantry_pasta/covers"
+    macos_window_title="Recipes"
     ;;
   cook-log)
     capture_account_id="$kitchen_capture_account_id"
@@ -330,6 +354,18 @@ case "$screenshot_route" in
     expected_recorded_route="chefs"
     deep_link_path="chefs"
     macos_window_title="Chefs"
+    ;;
+  profile)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="profile:ari"
+    deep_link_path="users/ari"
+    macos_window_title="Profile"
+    ;;
+  profile-graph)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="profile-graph:ari:kitchen-visitors:1"
+    deep_link_path="users/ari/kitchen-visitors?page=1"
+    macos_window_title="Kitchen Visitors"
     ;;
   search)
     capture_account_id="$search_capture_account_id"
@@ -400,11 +436,19 @@ case "$screenshot_route" in
     deep_link_path="settings"
     macos_window_title="Settings"
     ;;
+  unknown-link)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="unknown-link"
+    deep_link_path="unknown"
+    deep_link_url="spoonjoy://unknown"
+    macos_window_title="Unknown Link"
+    ;;
   *)
     printf 'Unsupported screenshot route: %s\n' "$screenshot_route" >&2
     exit 2
     ;;
 esac
+deep_link_url="${deep_link_url:-spoonjoy://$deep_link_path}"
 
 write_blocker() {
   local path="$1"
@@ -530,39 +574,38 @@ run_cleanup_command() {
 }
 
 write_design_review_success() {
-  ruby -rjson -e '
+  ruby -rjson -rdigest -e '
     output_path, route, settings_focus, ios_proof, ipad_proof, macos_proof, ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, ios_observed, ios_ax_observed, ipad_observed, macos_observed, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
     manifest = {
-      "mobileScreenshot" => true,
-      "desktopScreenshot" => true,
       "screenshotRoute" => route,
-      "dynamicType" => true,
-      "voiceOverLabels" => true,
-      "keyboardNavigation" => true,
-      "reduceMotion" => true,
-      "contrast" => true,
-      "kitchenTableHierarchy" => true,
-      "noOverlap" => true,
       "accessibilityProofArtifacts" => [ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof],
       "observedAccessibilityEvidenceArtifacts" => [ios_observed, ios_ax_observed, ipad_observed, macos_observed],
       "accessibilityContentSizeScreenshot" => "screenshots/ios-mobile-accessibility.png",
       "blockers" => []
     }
+    artifact_root = File.dirname(output_path)
+    manifest["screenshotArtifacts"] = {
+      "iosMobile" => "screenshots/ios-mobile.png",
+      "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
+      "iosTablet" => "screenshots/ios-tablet.png",
+      "macosDesktop" => "screenshots/macos-desktop.png"
+    }.transform_values do |relative_path|
+      absolute_path = File.join(artifact_root, relative_path)
+      abort("missing screenshot artifact #{relative_path}") unless File.file?(absolute_path) && File.size(absolute_path).positive?
+      {
+        "path" => relative_path,
+        "bytes" => File.size(absolute_path),
+        "sha256" => Digest::SHA256.file(absolute_path).hexdigest
+      }
+    end
     if route == "settings"
       manifest["settingsCaptureVariant"] = settings_capture_variant
       manifest["settingsScreenshotAuth"] = screenshot_auth_enabled
-      manifest["settingsSignedInSurface"] = settings_capture_variant != "signed-out"
-      manifest["settingsSignedOutSurface"] = settings_capture_variant == "signed-out"
       manifest["settingsVisualFocus"] = settings_focus
       manifest["settingsSurfaceProofArtifacts"] = [ios_proof, ipad_proof, macos_proof]
       if settings_focus == "notifications"
-        manifest["settingsNotificationAPNsSurface"] = true
         manifest["settingsAPNsPermissionState"] = settings_apns_permission_state.empty? ? "not-determined" : settings_apns_permission_state
         manifest["settingsAPNsRegistrationState"] = settings_apns_registration_state.empty? ? "registered" : settings_apns_registration_state
-      elsif settings_focus == "signed-out"
-        manifest["settingsSignedOutHandoffSurface"] = true
-      else
-        manifest["settingsProfileSurface"] = true
       end
       manifest["settingsSections"] = if settings_focus == "signed-out"
                                        ["Session", "Environment", "Offline"]
@@ -573,7 +616,6 @@ write_design_review_success() {
                                      end
       manifest["settingsSeedAccountID"] = settings_capture_variant == "signed-out" ? "signed-out" : "chef_settings_capture"
     elsif route == "search"
-      manifest["searchNativeSurface"] = true
       manifest["searchScopes"] = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
       manifest["searchSeedAccountID"] = "chef_search_capture"
       manifest.merge!(
@@ -584,47 +626,40 @@ write_design_review_success() {
       )
       manifest["searchSurfaceProofArtifacts"] = [ios_proof, ipad_proof, macos_proof]
     elsif route == "recipes"
-      manifest["recipesNativeSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
     elsif route == "recipe-detail"
-      manifest["recipeDetailSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
+      manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+    elsif route == "recipe-editor" || route == "recipe-covers"
+      manifest["recipeSeedAccountID"] = "chef_ari"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
     elsif route == "cook-log"
-      manifest["cookLogSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
-      manifest["cookLogForm"] = true
-      manifest["cookLogPhotoSlot"] = true
-      manifest["cookLogActionBar"] = true
     elsif route == "cook-mode"
-      manifest["cookModeSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
     elsif route == "cookbooks"
-      manifest["cookbooksNativeSurface"] = true
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
-      manifest["cookbookLibrarySpread"] = true
-      manifest["cookbookShelfStrip"] = true
     elsif route == "cookbook-detail"
-      manifest["cookbookDetailSurface"] = true
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
       manifest["cookbookID"] = "cookbook_weeknights"
-      manifest["cookbookContentsIndex"] = true
-      manifest["cookbookOwnerToolsDisclosure"] = true
+    elsif route == "profile"
+      manifest["profileSeedAccountID"] = "chef_ari"
+      manifest["profileIdentifier"] = "ari"
+    elsif route == "profile-graph"
+      manifest["profileSeedAccountID"] = "chef_ari"
+      manifest["profileIdentifier"] = "ari"
+      manifest["profileGraphDirection"] = "kitchen-visitors"
+      manifest["profileGraphPage"] = 1
     elsif route == "shopping-list"
-      manifest["shoppingListSurface"] = true
       manifest["shoppingSeedAccountID"] = "chef_shopping_capture"
       manifest["shoppingListVariant"] = shopping_variant
-      manifest["shoppingConflictState"] = true if shopping_variant == "conflict"
     elsif route == "capture"
       manifest["captureSurfaceVariant"] = capture_surface_variant
-      manifest["captureSignedOutSurface"] = capture_surface_variant == "signed-out"
-      manifest["captureNativeSurface"] = capture_surface_variant != "signed-out"
       manifest["captureSeedAccountID"] = capture_surface_variant == "signed-out" ? "signed-out" : "chef_kitchen_capture"
       manifest["captureScreenshotAuth"] = screenshot_auth_enabled
-    else
-      manifest["kitchenSignedInSurface"] = true
+    elsif route == "kitchen"
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
@@ -846,7 +881,7 @@ write_sync_store() {
                   }
                 ]
               end
-    if ["kitchen", "recipe-detail"].include?(route)
+    if ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "profile-graph"].include?(route)
       cover_asset_path = File.expand_path("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png")
       recipes = recipes.map do |recipe|
         next recipe unless recipe.fetch("id") == "recipe_lemon_pantry_pasta"
@@ -857,6 +892,25 @@ write_sync_store() {
           "coverSourceType" => "chef-upload",
           "coverVariant" => "image"
         )
+      end
+    end
+    if ["profile", "profile-graph"].include?(route)
+      recipes = recipes.map do |recipe|
+        next recipe unless recipe.fetch("id") == "recipe_lemon_pantry_pasta"
+
+        recipe.merge("recentSpoons" => [{
+          "id" => "spoon_jules_lemon",
+          "chefId" => "chef_jules",
+          "recipeId" => "recipe_lemon_pantry_pasta",
+          "cookedAt" => "2026-06-02T18:30:00.000Z",
+          "photoUrl" => nil,
+          "note" => "More lemon next time.",
+          "nextTime" => "Add parsley.",
+          "deletedAt" => nil,
+          "createdAt" => "2026-06-02T18:30:00.000Z",
+          "updatedAt" => "2026-06-02T18:31:00.000Z",
+          "chef" => { "id" => "chef_jules", "username" => "jules" }
+        }])
       end
     end
     cookbooks = if File.file?(cookbooks_path)
@@ -1752,10 +1806,15 @@ wait_for_accessibility_proof() {
         "search" => "SearchView",
         "settings" => "SettingsView",
         "recipe-detail" => "RecipeDetailView",
+        "recipe-editor" => "RecipeEditorView",
+        "recipe-covers" => "RecipeCoverControlsView",
         "cook-log" => "SpoonCookLogView",
         "cook-mode" => "CookModeView",
         "shopping-list" => "ShoppingListView",
-        "chefs" => "ChefsView"
+        "chefs" => "ChefsView",
+        "profile" => "ProfileView",
+        "profile-graph" => "ProfileGraphList",
+        "unknown-link" => "ShellPlaceholderView"
       }.fetch(expected_route)
       expected_source = source_override unless source_override.empty?
       expected_bundle = expected_platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
@@ -2446,11 +2505,11 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Spoonjoy macOS process was not running after launch." \
       "Launch the app from an unlocked desktop session and rerun screenshot capture."
   fi
-  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"$deep_link_url\""; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "spoonjoy://$deep_link_path" \
+      "$deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS route open timeout or failure occurred before screenshot capture." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2467,7 +2526,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS did not prove the expected visible screenshot route." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2478,7 +2537,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs spoonjoy://$deep_link_path" \
+      "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs $deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2496,7 +2555,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS screenshot proof did not match the expected route." \
       "Rerun screenshot capture after the expected route is visible."
@@ -2536,11 +2595,11 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
         "Spoonjoy macOS process was not running after relaunch." \
         "Launch the app from an unlocked desktop session and rerun screenshot capture."
     fi
-    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"$deep_link_url\""; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "spoonjoy://$deep_link_path" \
+        "$deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS route open timeout or failure occurred after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2551,7 +2610,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS did not prove the expected visible screenshot route after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2562,7 +2621,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs spoonjoy://$deep_link_path" \
+        "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs $deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2580,7 +2639,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS screenshot proof did not match the expected route after relaunch." \
         "Rerun screenshot capture after the expected route is visible."

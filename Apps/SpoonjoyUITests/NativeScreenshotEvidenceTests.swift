@@ -16,31 +16,6 @@ private struct ObservedAuditIssue: Codable {
 
 private struct ObservedAuditResult {
     let blockingIssues: [ObservedAuditIssue]
-    let toolLimitations: [ObservedAuditToolLimitation]
-}
-
-private struct ObservedAuditToolLimitation: Codable {
-    let issue: ObservedAuditIssue
-    let reference: String
-    let reason: String
-    let contrastProof: ObservedContrastProof?
-    let tabBarOcclusionProof: ObservedTabBarOcclusionProof?
-}
-
-private struct ObservedContrastProof: Codable {
-    let backgroundHex: String
-    let foregroundHex: String
-    let contrastRatio: Double
-    let requiredRatio: Double
-    let backgroundPixelCount: Int
-    let foregroundPixelCount: Int
-    let cropPixelCount: Int
-}
-
-private struct ObservedTabBarOcclusionProof: Codable {
-    let tabBarFrame: ObservedRect
-    let occludedElements: [ObservedAccessibilityElement]
-    let postScrollAnonymousContrastIssueAbsent: Bool
 }
 
 private struct ObservedDeepScrollEvidence: Codable {
@@ -52,7 +27,6 @@ private struct ObservedDeepScrollEvidence: Codable {
     let terminalElement: ObservedAccessibilityElement?
     let findings: [ObservedAccessibilityFinding]
     let auditIssues: [ObservedAuditIssue]
-    let toolLimitations: [ObservedAuditToolLimitation]
 }
 
 private struct ObservedScreenshotEvidence: Codable {
@@ -65,7 +39,6 @@ private struct ObservedScreenshotEvidence: Codable {
     let deepScroll: ObservedDeepScrollEvidence?
     let operatingSystemVersion: String
     let observedContentSizeCategory: String
-    let toolLimitations: [ObservedAuditToolLimitation]
     let recordedAt: String
 }
 
@@ -84,7 +57,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         "button", "switch", "textField", "secureTextField", "link", "slider", "stepper"
     ]
     private static let deepScrollRoutes: Set<String> = [
-        "kitchen", "recipe-detail", "shopping-list", "cookbooks", "cookbook-detail"
+        "kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile",
+        "shopping-list", "cookbooks", "cookbook-detail"
     ]
 
     func testObservedAccessibilityAndGeometry() throws {
@@ -108,6 +82,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let viewport = contentViewport(windowFrame: window.frame, elements: initialElements)
         let apnsMode = environment["SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"] == "notifications"
         var requiredIdentifiers = csvSet(environment[Self.requiredIdentifiersEnvironmentKey])
+        requiredIdentifiers.formUnion(routeRequiredIdentifiers(route: route))
         var requiredVisibleIdentifiers = requiredIdentifiers
         let requiredLabels = routeRequiredLabels(route: route, signedIn: environment["SPOONJOY_SCREENSHOT_AUTH"] != "0")
         if apnsMode {
@@ -149,18 +124,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ? scrollPrimarySurfaceToTerminal(
                 in: app,
                 route: route,
+                terminalIdentifier: routeTerminalIdentifier(route: route),
                 windowFrame: window.frame,
                 requiresSystemTabBar: UIDevice.current.userInterfaceIdiom == .phone
                     && environment["SPOONJOY_SCREENSHOT_AUTH"] != "0"
+                    && routeUsesSystemTabBar(route)
             )
             : nil
-        let auditResult = resolvingTabBarOcclusionLimitations(
-            initialAuditResult,
-            elements: initialElements,
-            deepScroll: deepScroll
-        )
+        let auditResult = initialAuditResult
         let allAuditIssues = auditResult.blockingIssues + (deepScroll?.auditIssues ?? [])
-        let allToolLimitations = auditResult.toolLimitations + (deepScroll?.toolLimitations ?? [])
         let evidence = ObservedScreenshotEvidence(
             platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "ios",
             route: route,
@@ -170,8 +142,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             geometryFindings: geometryFindings,
             deepScroll: deepScroll,
             operatingSystemVersion: UIDevice.current.systemVersion,
-            observedContentSizeCategory: environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"] ?? "unspecified",
-            toolLimitations: allToolLimitations,
+            observedContentSizeCategory: "pending-host-attestation",
             recordedAt: ISO8601DateFormatter().string(from: Date())
         )
 
@@ -288,7 +259,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         windowFrame: CGRect
     ) -> ObservedAuditResult {
         var blockingIssues: [ObservedAuditIssue] = []
-        var toolLimitations: [ObservedAuditToolLimitation] = []
         var auditTypes = XCUIAccessibilityAuditType.contrast
             .union(.hitRegion)
             .union(.trait)
@@ -317,16 +287,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     elementType: element.map { self.elementTypeName($0.elementType) } ?? "",
                     elementFrame: elementFrame
                 )
-                if let limitation = self.knownAuditToolLimitation(
-                    issue: issue,
-                    observedIssue: observedIssue,
-                    screenshot: screenshot,
-                    windowFrame: windowFrame
-                ) {
-                    toolLimitations.append(limitation)
-                } else {
-                    blockingIssues.append(observedIssue)
-                }
+                blockingIssues.append(observedIssue)
                 return true
             }
         } catch {
@@ -344,196 +305,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ))
         }
         return ObservedAuditResult(
-            blockingIssues: blockingIssues,
-            toolLimitations: toolLimitations
+            blockingIssues: blockingIssues
         )
-    }
-
-    private func knownAuditToolLimitation(
-        issue: XCUIAccessibilityAuditIssue,
-        observedIssue: ObservedAuditIssue,
-        screenshot: XCUIScreenshot,
-        windowFrame: CGRect
-    ) -> ObservedAuditToolLimitation? {
-        guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26 else {
-            return nil
-        }
-        if issue.auditType == .dynamicType,
-           ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true,
-           observedIssue.compactDescription == "Dynamic Type font sizes are partially unsupported",
-           observedIssue.detailedDescription.contains("User will not be able to change the font size"),
-           !observedIssue.elementLabel.isEmpty,
-           observedIssue.elementFrame != nil {
-            return ObservedAuditToolLimitation(
-                issue: observedIssue,
-                reference: "https://developer.apple.com/forums/thread/823968",
-                reason: "Apple confirms that the iOS 26 Dynamic Type audit can report SwiftUI false positives.",
-                contrastProof: nil,
-                tabBarOcclusionProof: nil
-            )
-        }
-        if issue.auditType == .contrast,
-           let contrastProof = measuredContrastProof(
-               issue: observedIssue,
-               screenshot: screenshot,
-               windowFrame: windowFrame
-           ) {
-            return ObservedAuditToolLimitation(
-                issue: observedIssue,
-                reference: "https://developer.apple.com/videos/play/wwdc2023/10035/",
-                reason: "The rendered element independently exceeds the strict 4.5:1 WCAG AA text threshold; Apple documents classifying proven false-positive audit findings in the issue handler.",
-                contrastProof: contrastProof,
-                tabBarOcclusionProof: nil
-            )
-        }
-        return nil
-    }
-
-    private func resolvingTabBarOcclusionLimitations(
-        _ result: ObservedAuditResult,
-        elements: [ObservedAccessibilityElement],
-        deepScroll: ObservedDeepScrollEvidence?
-    ) -> ObservedAuditResult {
-        guard ProcessInfo.processInfo.operatingSystemVersion.majorVersion == 26,
-              UIDevice.current.userInterfaceIdiom == .phone,
-              let deepScroll,
-              !deepScroll.auditIssues.contains(where: isAnonymousContrastIssue),
-              let tabBar = elements.first(where: { $0.type == "tabBar" && $0.exists }) else {
-            return result
-        }
-        let occludedElements = elements.filter { element in
-            !Self.chromeTypes.contains(element.type)
-                && (!element.identifier.isEmpty || !element.label.isEmpty)
-                && !tabBar.frame.contains(element.frame)
-                && element.frame.intersection(with: tabBar.frame) != nil
-        }
-        guard !occludedElements.isEmpty else {
-            return result
-        }
-
-        var blockingIssues: [ObservedAuditIssue] = []
-        var toolLimitations = result.toolLimitations
-        for issue in result.blockingIssues {
-            guard isAnonymousContrastIssue(issue) else {
-                blockingIssues.append(issue)
-                continue
-            }
-            toolLimitations.append(ObservedAuditToolLimitation(
-                issue: issue,
-                reference: "https://developer.apple.com/videos/play/wwdc2023/10035/",
-                reason: "The anonymous iOS 26 contrast report only occurred while labeled content intersected the system tab bar and was absent after the same surface scrolled into the unobscured viewport.",
-                contrastProof: nil,
-                tabBarOcclusionProof: ObservedTabBarOcclusionProof(
-                    tabBarFrame: tabBar.frame,
-                    occludedElements: occludedElements,
-                    postScrollAnonymousContrastIssueAbsent: true
-                )
-            ))
-        }
-        return ObservedAuditResult(blockingIssues: blockingIssues, toolLimitations: toolLimitations)
-    }
-
-    private func isAnonymousContrastIssue(_ issue: ObservedAuditIssue) -> Bool {
-        issue.category == "contrast"
-            && issue.elementIdentifier.isEmpty
-            && issue.elementLabel.isEmpty
-            && issue.elementType.isEmpty
-            && issue.elementFrame == nil
-            && issue.diagnosticDescription.contains("Element:(null)")
-    }
-
-    private func measuredContrastProof(
-        issue: ObservedAuditIssue,
-        screenshot: XCUIScreenshot,
-        windowFrame: CGRect
-    ) -> ObservedContrastProof? {
-        guard let elementFrame = issue.elementFrame,
-              !issue.elementLabel.isEmpty,
-              issue.elementType == "staticText",
-              let image = screenshot.image.cgImage,
-              windowFrame.width > 0,
-              windowFrame.height > 0 else {
-            return nil
-        }
-        let scaleX = Double(image.width) / windowFrame.width
-        let scaleY = Double(image.height) / windowFrame.height
-        let frame = elementFrame.cgRect
-        let pixelRect = CGRect(
-            x: (frame.minX - windowFrame.minX) * scaleX,
-            y: (frame.minY - windowFrame.minY) * scaleY,
-            width: frame.width * scaleX,
-            height: frame.height * scaleY
-        ).integral.intersection(CGRect(x: 0, y: 0, width: image.width, height: image.height))
-        guard pixelRect.width >= 2,
-              pixelRect.height >= 2,
-              let crop = image.cropping(to: pixelRect) else {
-            return nil
-        }
-
-        let width = crop.width
-        let height = crop.height
-        var pixels = [UInt8](repeating: 0, count: width * height * 4)
-        guard let context = CGContext(
-            data: &pixels,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            return nil
-        }
-        context.draw(crop, in: CGRect(x: 0, y: 0, width: width, height: height))
-
-        var histogram: [UInt32: Int] = [:]
-        for index in stride(from: 0, to: pixels.count, by: 4) {
-            let key = UInt32(pixels[index]) << 16
-                | UInt32(pixels[index + 1]) << 8
-                | UInt32(pixels[index + 2])
-            histogram[key, default: 0] += 1
-        }
-        let ranked = histogram.sorted { first, second in first.value > second.value }
-        guard let background = ranked.first else { return nil }
-        let cropPixelCount = width * height
-        guard Double(background.value) / Double(cropPixelCount) >= 0.20 else { return nil }
-        let requiredRatio = 4.5
-        guard let foreground = ranked.dropFirst().first(where: { candidate in
-            Double(candidate.value) / Double(cropPixelCount) >= 0.04
-                && contrastRatio(candidate.key, background.key) >= requiredRatio
-        }) else {
-            return nil
-        }
-        return ObservedContrastProof(
-            backgroundHex: rgbHex(background.key),
-            foregroundHex: rgbHex(foreground.key),
-            contrastRatio: contrastRatio(foreground.key, background.key),
-            requiredRatio: requiredRatio,
-            backgroundPixelCount: background.value,
-            foregroundPixelCount: foreground.value,
-            cropPixelCount: cropPixelCount
-        )
-    }
-
-    private func contrastRatio(_ first: UInt32, _ second: UInt32) -> Double {
-        let firstLuminance = relativeLuminance(first)
-        let secondLuminance = relativeLuminance(second)
-        return (max(firstLuminance, secondLuminance) + 0.05)
-            / (min(firstLuminance, secondLuminance) + 0.05)
-    }
-
-    private func relativeLuminance(_ color: UInt32) -> Double {
-        func linear(_ component: UInt32) -> Double {
-            let value = Double(component) / 255
-            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
-        }
-        return 0.2126 * linear((color >> 16) & 0xFF)
-            + 0.7152 * linear((color >> 8) & 0xFF)
-            + 0.0722 * linear(color & 0xFF)
-    }
-
-    private func rgbHex(_ color: UInt32) -> String {
-        String(format: "#%06X", color)
     }
 
     private func auditCategory(_ type: XCUIAccessibilityAuditType) -> String {
@@ -561,14 +334,17 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             expectedLabel = "Spoonjoy"
         } else {
             expectedLabel = switch route {
-            case "kitchen", "recipes", "saved-recipes", "recipe-detail", "cook-mode": "Lemon Pantry Pasta"
+            case "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode": "Lemon Pantry Pasta"
             case "cook-log": "Cooks"
             case "cookbooks", "cookbook-detail": "Weeknights"
+            case "profile": "@ari"
+            case "profile-graph": "jules"
             case "shopping-list": "Lemons"
             case "chefs": "Chefs"
             case "search": "Search"
             case "capture": "Imports"
             case "settings": "Account"
+            case "unknown-link": "Link Not Found"
             default: route
             }
         }
@@ -590,16 +366,55 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case "kitchen": ["Ari's kitchen", "Lemon Pantry Pasta", "Recipe Index", "Cookbook Shelf"]
         case "recipes", "saved-recipes": ["Lemon Pantry Pasta"]
         case "recipe-detail": ["Lemon Pantry Pasta", "Start Cooking"]
-        case "cook-mode": ["Lemon Pantry Pasta"]
-        case "cook-log": ["Cooks"]
+        case "recipe-editor": ["Recipe", "Title", "Save"]
+        case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Add Photo", "Generate Placeholder"]
+        case "cook-mode": ["Lemon Pantry Pasta", "Current cooking step 1, Boil pasta", "Mark the current step done", "Tools", "Ingredients"]
+        case "cook-log": ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"]
         case "cookbooks", "cookbook-detail": ["Weeknights"]
+        case "profile": ["@ari", "Joined Spoonjoy", "Edit Profile"]
+        case "profile-graph": ["jules", "1 spoon"]
         case "shopping-list": ["Lemons"]
         case "chefs": ["Chefs"]
         case "search": ["Search"]
         case "capture": ["Imports"]
         case "settings": ["Account"]
+        case "unknown-link": ["Link Not Found", "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link."]
         default: [route]
         }
+    }
+
+    private func routeRequiredIdentifiers(route: String) -> Set<String> {
+        switch route {
+        case "recipe-editor":
+            ["recipe-editor.title", "recipe-editor.save"]
+        case "recipe-covers":
+            ["recipe-covers.photo-picker", "recipe-covers.generate-placeholder"]
+        case "profile":
+            ["profile.header"]
+        case "profile-graph":
+            ["profile-graph.row.chef_jules"]
+        case "unknown-link":
+            ["unknown-link.message"]
+        case "cook-mode":
+            ["cook.current-step", "cook.done", "cook.tools"]
+        case "cook-log":
+            ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
+        default:
+            []
+        }
+    }
+
+    private func routeTerminalIdentifier(route: String) -> String? {
+        switch route {
+        case "recipe-editor": "recipe-editor.delete"
+        case "recipe-covers": "recipe-covers.saved-covers"
+        case "profile": "profile.graph.kitchen-visitors"
+        default: nil
+        }
+    }
+
+    private func routeUsesSystemTabBar(_ route: String) -> Bool {
+        !["recipe-editor", "recipe-covers", "profile", "profile-graph", "unknown-link"].contains(route)
     }
 
     private func observedElements(
@@ -643,6 +458,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     private func scrollPrimarySurfaceToTerminal(
         in app: XCUIApplication,
         route: String,
+        terminalIdentifier: String?,
         windowFrame: CGRect,
         requiresSystemTabBar: Bool
     ) -> ObservedDeepScrollEvidence {
@@ -662,8 +478,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 tabBarFrame: nil,
                 terminalElement: nil,
                 findings: [finding],
-                auditIssues: [],
-                toolLimitations: []
+                auditIssues: []
             )
         }
 
@@ -685,13 +500,23 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let elements = observedElements(in: app, windowFrame: windowFrame)
         let tabBar = elements.first { $0.type == "tabBar" && $0.exists }
         let viewport = contentViewport(windowFrame: windowFrame, elements: elements)
-        let terminalElement = terminalContentElement(elements: elements, viewport: viewport)
+        let terminalElement = terminalIdentifier.flatMap { identifier in
+            elements.first { $0.identifier == identifier && $0.exists }
+        } ?? terminalContentElement(elements: elements, viewport: viewport)
         var findings: [ObservedAccessibilityFinding] = []
         if stablePasses < 2 {
             findings.append(ObservedAccessibilityFinding(
                 kind: .terminalNotReached,
                 identifiers: [route],
                 message: "Primary surface was still moving after 20 deep-scroll attempts.",
+                intersection: nil
+            ))
+        }
+        if let terminalIdentifier, terminalElement?.identifier != terminalIdentifier {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: [terminalIdentifier],
+                message: "Deep-scroll proof did not reach the route terminal control.",
                 intersection: nil
             ))
         }
@@ -719,14 +544,13 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
         let evidence = ObservedDeepScrollEvidence(
             route: route,
-            reachedTerminal: stablePasses >= 2,
+            reachedTerminal: stablePasses >= 2 && (terminalIdentifier == nil || terminalElement?.identifier == terminalIdentifier),
             swipeCount: swipeCount,
             contentViewport: viewport,
             tabBarFrame: tabBar?.frame,
             terminalElement: terminalElement,
             findings: findings,
-            auditIssues: auditResult.blockingIssues,
-            toolLimitations: auditResult.toolLimitations
+            auditIssues: auditResult.blockingIssues
         )
         if let data = try? JSONEncoder.observedEvidence.encode(evidence) {
             attachJSON(data, name: "deep-scroll-evidence")
