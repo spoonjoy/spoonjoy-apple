@@ -142,6 +142,8 @@ struct RecipeCoverControlsView: View {
     @State private var spoonCookedAt = ""
     @State private var placeholderPromptAddition = ""
     @State private var regenerationPromptAdditions: [String: String] = [:]
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         ScrollView {
@@ -157,6 +159,16 @@ struct RecipeCoverControlsView: View {
             .padding()
         }
         .background(KitchenTableTheme.bone)
+        .task(id: recipe.id) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "recipe-covers",
+                source: "RecipeCoverControlsView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
+        }
     }
 
     private var header: some View {
@@ -229,6 +241,7 @@ struct RecipeCoverControlsView: View {
                         .font(KitchenTableTheme.uiLabel)
                 }
                 .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("recipe-covers.photo-picker")
                 .onChange(of: selectedCoverPhotoItem) { _, item in
                     Task { @MainActor in
                         await stageSelectedCoverPhoto(item)
@@ -302,6 +315,7 @@ struct RecipeCoverControlsView: View {
             }
             .buttonStyle(.bordered)
             .disabled(connectivity == .offline)
+            .accessibilityIdentifier("recipe-covers.generate-placeholder")
         }
         .padding()
         .background(.background)
@@ -336,6 +350,7 @@ struct RecipeCoverControlsView: View {
             Text("Saved Covers")
                 .font(.title2)
                 .foregroundStyle(KitchenTableTheme.charcoal)
+                .accessibilityIdentifier("recipe-covers.saved-covers")
 
             if data.covers.isEmpty {
                 Text("No saved covers yet.")

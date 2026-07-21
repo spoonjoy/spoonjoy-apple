@@ -42,6 +42,8 @@ struct ProfileView: View {
     let viewModel: ProfileViewModel
     let openRoute: (AppRoute) -> Void
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         KitchenTablePage {
@@ -52,6 +54,16 @@ struct ProfileView: View {
             RecentSpoonsSection(spoons: viewModel.recentSpoons, openRoute: openRoute)
             FellowChefsSection(link: graphLink(.fellowChefs), openRoute: openRoute)
             KitchenVisitorsSection(link: graphLink(.kitchenVisitors), openRoute: openRoute)
+        }
+        .task(id: viewModel.header.username) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "profile",
+                source: "ProfileView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
         }
     }
 
@@ -98,6 +110,7 @@ private struct ProfileHero: View {
                 }
             }
         }
+        .accessibilityIdentifier("profile.header")
     }
 
     private var graphSummary: some View {
@@ -278,6 +291,7 @@ private struct FellowChefsSection: View {
             link: link,
             openRoute: openRoute
         )
+        .accessibilityIdentifier("profile.graph.fellow-chefs")
     }
 }
 
@@ -292,6 +306,7 @@ private struct KitchenVisitorsSection: View {
             link: link,
             openRoute: openRoute
         )
+        .accessibilityIdentifier("profile.graph.kitchen-visitors")
     }
 }
 
@@ -357,6 +372,8 @@ private struct ProfileGraphList: View {
     let viewModel: ProfileGraphViewModel
     let openRoute: (AppRoute) -> Void
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         List {
@@ -380,6 +397,7 @@ private struct ProfileGraphList: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("profile-graph.row.\(row.id)")
                 }
             }
         }
@@ -390,6 +408,16 @@ private struct ProfileGraphList: View {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
                     .padding()
             }
+        }
+        .task(id: viewModel.title) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "profile-graph",
+                source: "ProfileGraphList",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
         }
     }
 }

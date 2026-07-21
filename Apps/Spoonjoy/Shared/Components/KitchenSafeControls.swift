@@ -47,6 +47,7 @@ struct KitchenSafeControlDeck: View {
             Label("Mark done", systemImage: "checkmark.circle.fill")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .accessibilityIdentifier("cook.done")
         .accessibilityLabel("Mark the current step done")
         .accessibilityHint("Mark this cooking step complete.")
     }

@@ -161,6 +161,15 @@ struct CookModeView: View {
             ScrollView {
                 cookModeScrollContent
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                bottomControls
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(KitchenTableTheme.bone)
+                    .overlay(alignment: .top) {
+                        Divider()
+                    }
+            }
         }
     }
 
@@ -336,6 +345,7 @@ struct CookModeView: View {
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
         .frame(maxWidth: 156, alignment: .leading)
+        .accessibilityIdentifier("cook.tools")
         .accessibilityHint("Opens recipe scale and shopping-list tools.")
     }
 
@@ -392,8 +402,6 @@ struct CookModeView: View {
                     regularReferenceColumn
                 }
             }
-
-            bottomControls
         }
     }
 
@@ -446,6 +454,7 @@ struct CookModeView: View {
         Text("\(step.stepNum). \(step.stepTitle ?? "Step")")
             .font(.title2)
             .foregroundStyle(KitchenTableTheme.charcoal)
+            .accessibilityIdentifier("cook.current-step")
             .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
     }
 

@@ -160,9 +160,11 @@ struct SpoonCookLogView: View {
             TextField("What changed?", text: $note, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(2...4)
+                .accessibilityIdentifier("cook-log.note")
             TextField("Next time", text: $nextTime, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...3)
+                .accessibilityIdentifier("cook-log.next-time")
 
             cookLogPhotoSlot
             cookLogActionBar
@@ -218,6 +220,7 @@ struct SpoonCookLogView: View {
         }
         .buttonStyle(.plain)
         .disabled(actionInFlight)
+        .accessibilityIdentifier("cook-log.photo")
         .accessibilityLabel(hasStagedPhoto ? "Cook photo ready" : "Add cook photo")
         .onChange(of: selectedPhoto) { _, item in
             Task { @MainActor in
@@ -272,6 +275,7 @@ struct SpoonCookLogView: View {
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
         .disabled(actionInFlight)
+        .accessibilityIdentifier("cook-log.submit")
         .accessibilityLabel("Log cook")
     }
 

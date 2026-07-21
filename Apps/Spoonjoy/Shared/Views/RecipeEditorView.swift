@@ -18,6 +18,8 @@ struct RecipeEditorView: View {
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -66,6 +68,7 @@ struct RecipeEditorView: View {
 
             Section("Recipe") {
                 TextField("Title", text: $draft.title)
+                    .accessibilityIdentifier("recipe-editor.title")
                 TextEditor(text: descriptionText)
                     .frame(minHeight: 88)
                 TextField("Servings", text: servingsText)
@@ -157,6 +160,7 @@ struct RecipeEditorView: View {
                     }
                 }
                 .disabled(!activeViewModel.updatingDraft(draft).canSubmit || isSubmitting)
+                .accessibilityIdentifier("recipe-editor.save")
 
                 if draft.recipeID != nil {
                     Button(role: .destructive) {
@@ -164,6 +168,7 @@ struct RecipeEditorView: View {
                     } label: {
                         Label("Delete Recipe", systemImage: "trash")
                     }
+                    .accessibilityIdentifier("recipe-editor.delete")
                 }
             }
         }
@@ -182,6 +187,16 @@ struct RecipeEditorView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal)
                 .background(KitchenTableTheme.bone.opacity(0.94))
+        }
+        .task(id: draft.recipeID) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "recipe-editor",
+                source: "RecipeEditorView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
         }
     }
 

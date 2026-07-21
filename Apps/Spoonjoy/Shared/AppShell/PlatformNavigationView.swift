@@ -661,7 +661,14 @@ struct PlatformNavigationView: View {
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .unknownLink:
-            ShellPlaceholderView(title: "Link Not Found", systemImage: "link.badge.plus", detail: "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link.")
+            ShellPlaceholderView(
+                title: "Link Not Found",
+                systemImage: "link.badge.plus",
+                detail: "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link.",
+                screenshotRoute: "unknown-link",
+                screenshotSource: "ShellPlaceholderView",
+                accessibilityIdentifier: "unknown-link.message"
+            )
         }
     }
 
@@ -2205,6 +2212,11 @@ private struct ShellPlaceholderView: View {
     let title: String
     let systemImage: String
     let detail: String
+    var screenshotRoute: String? = nil
+    var screenshotSource: String? = nil
+    var accessibilityIdentifier: String? = nil
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2212,8 +2224,20 @@ private struct ShellPlaceholderView: View {
                 .font(.title)
             Text(detail)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
+                .accessibilityIdentifier(accessibilityIdentifier ?? "")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
+        .task(id: screenshotRoute) {
+            guard let screenshotRoute, let screenshotSource else { return }
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: screenshotRoute,
+                source: screenshotSource,
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
+        }
     }
 }

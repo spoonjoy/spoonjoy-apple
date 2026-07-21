@@ -284,6 +284,90 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("release screenshot evidence covers every shipping route and substantive cook controls")
+    func releaseScreenshotEvidenceCoversShippingRoutesAndCookControls() throws {
+        let matrixPath = "scripts/capture-native-screenshot-matrix.sh"
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        let observerPath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
+        let cookModePath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
+        let cookControlsPath = "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift"
+        let cookLogPath = "Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift"
+        let matrix = try readRepoFile(matrixPath)
+        let capture = try readRepoFile(capturePath)
+        let observer = uncommentedSwift(try readRepoFile(observerPath))
+        let cookMode = uncommentedSwift(try readRepoFile(cookModePath))
+        let cookControls = uncommentedSwift(try readRepoFile(cookControlsPath))
+        let cookLog = uncommentedSwift(try readRepoFile(cookLogPath))
+
+        expectContent(
+            matrix,
+            in: matrixPath,
+            contains: [
+                "recipe-editor|recipe-editor|",
+                "recipe-covers|recipe-covers|",
+                "profile|profile|",
+                "profile-graph|profile-graph|",
+                "unknown-link|unknown-link|"
+            ]
+        )
+        expectContent(
+            capture,
+            in: capturePath,
+            contains: [
+                "recipe-editor:recipe_lemon_pantry_pasta",
+                "recipe-covers:recipe_lemon_pantry_pasta",
+                "profile:ari",
+                "profile-graph:ari:kitchen-visitors:1",
+                "spoonjoy://unknown"
+            ]
+        )
+        expectContent(
+            observer,
+            in: observerPath,
+            contains: [
+                "recipe-editor.title",
+                "recipe-editor.save",
+                "recipe-editor.delete",
+                "recipe-covers.photo-picker",
+                "recipe-covers.saved-covers",
+                "profile.header",
+                "profile.graph.kitchen-visitors",
+                "profile-graph.row.chef_jules",
+                "unknown-link.message",
+                "cook.current-step",
+                "cook.done",
+                "cook.tools",
+                "cook-log.note",
+                "cook-log.next-time",
+                "cook-log.photo",
+                "cook-log.submit"
+            ]
+        )
+        expectContent(
+            cookMode,
+            in: cookModePath,
+            contains: [
+                ".accessibilityIdentifier(\"cook.current-step\")",
+                ".accessibilityIdentifier(\"cook.tools\")"
+            ]
+        )
+        expectContent(
+            cookControls,
+            in: cookControlsPath,
+            contains: [".accessibilityIdentifier(\"cook.done\")"]
+        )
+        expectContent(
+            cookLog,
+            in: cookLogPath,
+            contains: [
+                ".accessibilityIdentifier(\"cook-log.note\")",
+                ".accessibilityIdentifier(\"cook-log.next-time\")",
+                ".accessibilityIdentifier(\"cook-log.photo\")",
+                ".accessibilityIdentifier(\"cook-log.submit\")"
+            ]
+        )
+    }
+
     @Test("compact iOS shell uses native tab and navigation bars")
     func compactIOSShellUsesNativeTabAndNavigationBars() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"

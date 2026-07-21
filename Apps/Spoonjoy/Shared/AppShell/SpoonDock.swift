@@ -153,18 +153,21 @@ struct SpoonDock: View {
         if !action.isEnabled {
             dockLabel(action, prominence: prominence)
                 .opacity(action.role == .status || action.role == .place ? 1 : 0.58)
+                .accessibilityIdentifier(action.id)
                 .accessibilityLabel(action.accessibilityLabel)
                 .accessibilityHint(action.accessibilityHint ?? "")
         } else if let shareURL = action.shareURL {
             ShareLink(item: shareURL) {
                 dockLabel(action, prominence: prominence)
             }
+            .accessibilityIdentifier(action.id)
             .accessibilityLabel(action.accessibilityLabel)
             .accessibilityHint(action.accessibilityHint ?? "")
         } else {
             Button(action: action.action) {
                 dockLabel(action, prominence: prominence)
             }
+            .accessibilityIdentifier(action.id)
             .accessibilityLabel(action.accessibilityLabel)
             .accessibilityHint(action.accessibilityHint ?? "")
         }
