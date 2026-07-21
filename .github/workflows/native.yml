@@ -235,6 +235,109 @@ jobs:
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
 
+  native-visual-evidence:
+    name: Native visual evidence
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs:
+      - ruby-advisory-scan
+      - swift-tests
+      - native-scenario-verifier
+      - app-bundle
+      - coverage
+    runs-on: macos-26
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    outputs:
+      visual-artifact-id: ${{ steps.artifact-metadata.outputs.artifact-id }}
+      visual-artifact-name: ${{ steps.seal.outputs.artifact-name }}
+      visual-artifact-digest: ${{ steps.artifact-metadata.outputs.artifact-digest }}
+      visual-manifest-digest: ${{ steps.seal.outputs.manifest-digest }}
+      source-tree: ${{ steps.seal.outputs.source-tree }}
+    steps:
+      - name: Check out exact Native source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Capture the complete native screenshot matrix
+        run: |
+          set -euo pipefail
+          scripts/capture-native-screenshot-matrix.sh \
+            --artifact-root "$RUNNER_TEMP/native-visual-matrix" \
+            --unit-slug release \
+            --require-full-matrix
+
+      - name: Seal exact-run visual evidence
+        id: seal
+        run: |
+          set -euo pipefail
+          source_tree="$(git rev-parse "${GITHUB_SHA}^{tree}")"
+          artifact_name="native-visual-evidence-${GITHUB_SHA}-${GITHUB_RUN_ID}-${{ github.run_attempt }}"
+          ruby scripts/testflight-visual-evidence.rb seal \
+            --artifact-root "$RUNNER_TEMP/native-visual-matrix" \
+            --matrix-manifest "$RUNNER_TEMP/native-visual-matrix/apple/release-route-matrix.json" \
+            --output-dir "$RUNNER_TEMP/native-visual-evidence" \
+            --source-sha "$GITHUB_SHA" \
+            --source-tree "$source_tree" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --workflow-job "native-visual-evidence" \
+            --github-output "$GITHUB_OUTPUT"
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "source-tree=$source_tree" >> "$GITHUB_OUTPUT"
+
+      - name: Reverify sealed evidence before upload
+        run: |
+          set -euo pipefail
+          ruby scripts/testflight-visual-evidence.rb verify \
+            --artifact-dir "$RUNNER_TEMP/native-visual-evidence" \
+            --source-sha "$GITHUB_SHA" \
+            --source-tree "${{ steps.seal.outputs.source-tree }}" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --workflow-job "native-visual-evidence" \
+            --manifest-sha256 "${{ steps.seal.outputs.manifest-digest }}"
+
+      - name: Upload immutable visual evidence
+        id: upload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ${{ steps.seal.outputs.artifact-name }}
+          path: ${{ runner.temp }}/native-visual-evidence
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 90
+
+      - name: Normalize uploaded artifact identity
+        id: artifact-metadata
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]] || {
+            echo "Visual artifact ID is not a positive integer." >&2
+            exit 1
+          }
+          if [[ "$ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
+            normalized_digest="sha256:$ARTIFACT_DIGEST"
+          elif [[ "$ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            normalized_digest="$ARTIFACT_DIGEST"
+          else
+            echo "Visual artifact digest is not SHA-256." >&2
+            exit 1
+          fi
+          echo "artifact-id=$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
+          echo "artifact-digest=$normalized_digest" >> "$GITHUB_OUTPUT"
+
   testflight-release-note:
     name: TestFlight release note
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -244,6 +347,7 @@ jobs:
       - native-scenario-verifier
       - app-bundle
       - coverage
+      - native-visual-evidence
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -269,23 +373,39 @@ jobs:
           generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           jq -n \
             --arg sourceSha "$GITHUB_SHA" \
+            --arg sourceTree "${{ needs.native-visual-evidence.outputs.source-tree }}" \
             --argjson nativeRunId "$GITHUB_RUN_ID" \
             --argjson nativeRunAttempt "$GITHUB_RUN_ATTEMPT" \
             --arg generatedAt "$generated_at" \
             --arg notes "$notes" \
+            --argjson visualArtifactId "${{ needs.native-visual-evidence.outputs.visual-artifact-id }}" \
+            --arg visualArtifactName "${{ needs.native-visual-evidence.outputs.visual-artifact-name }}" \
+            --arg visualArtifactDigest "${{ needs.native-visual-evidence.outputs.visual-artifact-digest }}" \
+            --arg visualManifestSha256 "${{ needs.native-visual-evidence.outputs.visual-manifest-digest }}" \
             '{
-              schemaVersion: 1,
+              schemaVersion: 2,
               sourceSha: $sourceSha,
+              sourceTree: $sourceTree,
               nativeRunId: $nativeRunId,
               nativeRunAttempt: $nativeRunAttempt,
               generatedAt: $generatedAt,
-              notes: $notes
+              notes: $notes,
+              visualEvidence: {
+                artifactId: $visualArtifactId,
+                artifactName: $visualArtifactName,
+                artifactDigest: $visualArtifactDigest,
+                manifestSha256: $visualManifestSha256,
+                workflowRunId: $nativeRunId,
+                workflowRunAttempt: $nativeRunAttempt,
+                workflowJob: "native-visual-evidence",
+                jobName: "Native visual evidence"
+              }
             }' > "$note_dir/testflight-release-notes.json"
 
       - name: Upload exact-SHA TestFlight release note
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: testflight-release-notes-${{ github.sha }}
+          name: testflight-release-notes-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/testflight-release-note/testflight-release-notes.json
           if-no-files-found: error
           retention-days: 90

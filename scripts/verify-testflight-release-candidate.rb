@@ -6,6 +6,7 @@ require "json"
 require "open3"
 require "optparse"
 require "time"
+require_relative "testflight-visual-evidence"
 
 class CandidateVerificationError < StandardError; end
 
@@ -35,6 +36,10 @@ class LiveCandidateEvidence
     @runner.capture("git", "rev-parse", "HEAD").stdout.strip
   end
 
+  def checked_out_tree
+    @runner.capture("git", "rev-parse", "HEAD^{tree}").stdout.strip
+  end
+
   def main_ref
     gh_json("repos/#{@repository}/git/ref/heads/main")
   end
@@ -56,8 +61,11 @@ class LiveCandidateEvidence
     )
   end
 
-  def jobs(run_id)
-    gh_json("repos/#{@repository}/actions/runs/#{run_id}/jobs", "-f", "per_page=100")
+  def jobs(run_id, run_attempt)
+    gh_json(
+      "repos/#{@repository}/actions/runs/#{run_id}/attempts/#{run_attempt}/jobs",
+      "-f", "per_page=100"
+    )
   end
 
   def artifacts(run_id)
@@ -65,6 +73,17 @@ class LiveCandidateEvidence
   end
 
   def release_notes_path(run_id, artifact_name)
+    destination = download_artifact(run_id, artifact_name)
+    File.join(destination, "testflight-release-notes.json")
+  end
+
+  def visual_evidence_path(run_id, artifact_name)
+    download_artifact(run_id, artifact_name)
+  end
+
+  private
+
+  def download_artifact(run_id, artifact_name)
     destination = File.join(@output_dir, artifact_name)
     FileUtils.rm_rf(destination)
     FileUtils.mkdir_p(destination)
@@ -74,10 +93,8 @@ class LiveCandidateEvidence
       "--name", artifact_name,
       "--dir", destination
     )
-    File.join(destination, "testflight-release-notes.json")
+    destination
   end
-
-  private
 
   def gh_json(endpoint, *fields)
     result = @runner.capture("gh", "api", "--method", "GET", endpoint, *fields)
@@ -96,6 +113,10 @@ class FixtureCandidateEvidence
     read("checked-out-sha.txt").strip
   end
 
+  def checked_out_tree
+    read("checked-out-tree.txt").strip
+  end
+
   def main_ref
     read_json("main-ref.json")
   end
@@ -108,7 +129,7 @@ class FixtureCandidateEvidence
     read_json("runs.json")
   end
 
-  def jobs(_run_id)
+  def jobs(_run_id, _run_attempt)
     read_json("jobs.json")
   end
 
@@ -118,6 +139,10 @@ class FixtureCandidateEvidence
 
   def release_notes_path(_run_id, _artifact_name)
     File.join(@fixture_dir, "testflight-release-notes.json")
+  end
+
+  def visual_evidence_path(_run_id, _artifact_name)
+    File.join(@fixture_dir, "native-visual-evidence")
   end
 
   private
@@ -144,10 +169,12 @@ class TestFlightReleaseCandidateVerifier
     "App bundle",
     "Coverage"
   ].freeze
+  VISUAL_EVIDENCE_JOB = "Native visual evidence"
+  VISUAL_EVIDENCE_JOB_KEY = "native-visual-evidence"
   RELEASE_NOTE_JOB = "TestFlight release note"
   NATIVE_WORKFLOW_PATH = ".github/workflows/native.yml"
   RELEASE_NOTES_FILENAME = "testflight-release-notes.json"
-  RELEASE_NOTES_SCHEMA_VERSION = 1
+  RELEASE_NOTES_SCHEMA_VERSION = 2
   MAX_RELEASE_NOTES_LENGTH = 4_000
   TIMESTAMP_TOLERANCE_SECONDS = 300
 
@@ -173,17 +200,16 @@ class TestFlightReleaseCandidateVerifier
 
   def verify
     validate_inputs
-    validate_checkout
+    source_tree = validate_checkout
     main_sha = validate_main_membership
     rollback = validate_release_mode(main_sha)
-    explicit_rollback_notes = rollback && !@rollback_notes.empty?
     run = select_native_run
-    validate_required_jobs(run.fetch("id"), require_release_note: !explicit_rollback_notes)
-    artifact, release_notes_path, release_notes = if explicit_rollback_notes
-                                                     create_explicit_rollback_notes(run)
-                                                   else
-                                                     load_native_release_notes(run)
-                                                   end
+    validate_required_jobs(run.fetch("id"), run.fetch("run_attempt"))
+    artifact, release_notes_path, release_payload, release_notes = load_native_release_notes(run, source_tree)
+    visual = validate_visual_evidence(release_payload, run, source_tree)
+    if rollback && !@rollback_notes.empty?
+      release_notes_path, release_notes = create_explicit_rollback_notes(release_payload)
+    end
 
     attestation = {
       "schemaVersion" => 1,
@@ -196,7 +222,12 @@ class TestFlightReleaseCandidateVerifier
       "releaseNotesArtifactId" => artifact.fetch("id"),
       "releaseNotesArtifact" => artifact.fetch("name"),
       "releaseNotesPath" => release_notes_path,
-      "releaseNotes" => release_notes
+      "releaseNotes" => release_notes,
+      "visualEvidenceArtifactId" => visual.fetch("artifactId"),
+      "visualEvidenceArtifact" => visual.fetch("artifactName"),
+      "visualEvidenceArtifactDigest" => visual.fetch("artifactDigest"),
+      "visualEvidenceManifestSha256" => visual.fetch("manifestSha256"),
+      "visualEvidencePath" => visual.fetch("artifactPath")
     }
 
     FileUtils.mkdir_p(@output_dir)
@@ -205,7 +236,10 @@ class TestFlightReleaseCandidateVerifier
     write_github_output(
       "source_sha" => @source_sha,
       "native_run_id" => run.fetch("id"),
+      "native_run_attempt" => run.fetch("run_attempt"),
       "release_notes_path" => release_notes_path,
+      "visual_evidence_path" => visual.fetch("artifactPath"),
+      "visual_evidence_manifest_sha256" => visual.fetch("manifestSha256"),
       "candidate_attestation_path" => attestation_path
     )
     attestation
@@ -221,6 +255,9 @@ class TestFlightReleaseCandidateVerifier
   def validate_checkout
     checked_out_sha = @evidence.checked_out_sha
     fail_with("checked-out SHA does not match selected source SHA") unless checked_out_sha == @source_sha
+    checked_out_tree = @evidence.checked_out_tree
+    fail_with("checked-out source tree is not an exact Git tree SHA") unless checked_out_tree.match?(SHA_PATTERN)
+    checked_out_tree
   end
 
   def validate_main_membership
@@ -261,10 +298,9 @@ class TestFlightReleaseCandidateVerifier
     latest
   end
 
-  def validate_required_jobs(run_id, require_release_note:)
-    jobs = Array(@evidence.jobs(run_id)["jobs"])
-    required_jobs = REQUIRED_NATIVE_JOBS.dup
-    required_jobs << RELEASE_NOTE_JOB if require_release_note
+  def validate_required_jobs(run_id, run_attempt)
+    jobs = Array(@evidence.jobs(run_id, run_attempt)["jobs"])
+    required_jobs = REQUIRED_NATIVE_JOBS + [VISUAL_EVIDENCE_JOB, RELEASE_NOTE_JOB]
     required_jobs.each do |required_name|
       matching = jobs.select { |job| job["name"] == required_name }
       fail_with("missing required Native job #{required_name}") if matching.empty?
@@ -277,34 +313,27 @@ class TestFlightReleaseCandidateVerifier
     end
   end
 
-  def load_native_release_notes(run)
-    artifact = select_release_note_artifact(run.fetch("id"))
+  def load_native_release_notes(run, source_tree)
+    artifact = select_release_note_artifact(run)
     release_notes_path = @evidence.release_notes_path(run.fetch("id"), artifact.fetch("name"))
-    release_notes = validate_release_notes(release_notes_path, run)
-    [artifact, release_notes_path, release_notes]
+    payload, release_notes = validate_release_notes(release_notes_path, run, source_tree)
+    [artifact, release_notes_path, payload, release_notes]
   end
 
-  def create_explicit_rollback_notes(run)
+  def create_explicit_rollback_notes(release_payload)
     validate_notes_text(@rollback_notes)
-    artifact_name = "testflight-release-notes-#{@source_sha}"
-    directory = File.join(@output_dir, artifact_name)
+    artifact_name = "testflight-release-notes-#{@source_sha}-#{release_payload.fetch("nativeRunId")}-#{release_payload.fetch("nativeRunAttempt")}"
+    directory = File.join(@output_dir, "explicit-rollback-notes", artifact_name)
     FileUtils.mkdir_p(directory)
     release_notes_path = File.join(directory, RELEASE_NOTES_FILENAME)
-    payload = {
-      "schemaVersion" => RELEASE_NOTES_SCHEMA_VERSION,
-      "sourceSha" => @source_sha,
-      "nativeRunId" => run.fetch("id"),
-      "nativeRunAttempt" => run.fetch("run_attempt"),
-      "generatedAt" => Time.now.utc.iso8601,
-      "notes" => @rollback_notes,
-      "origin" => "explicitRollback"
-    }
+    payload = release_payload.merge("notes" => @rollback_notes, "origin" => "explicitRollback")
     File.write(release_notes_path, JSON.pretty_generate(payload) + "\n")
-    [{ "id" => nil, "name" => artifact_name }, release_notes_path, @rollback_notes]
+    [release_notes_path, @rollback_notes]
   end
 
-  def select_release_note_artifact(run_id)
-    expected_name = "testflight-release-notes-#{@source_sha}"
+  def select_release_note_artifact(run)
+    run_id = run.fetch("id")
+    expected_name = "testflight-release-notes-#{@source_sha}-#{run_id}-#{run.fetch("run_attempt")}"
     artifacts = Array(@evidence.artifacts(run_id)["artifacts"])
     matching = artifacts.select { |artifact| artifact["name"] == expected_name }
     fail_with("missing release note artifact #{expected_name}") if matching.empty?
@@ -316,11 +345,12 @@ class TestFlightReleaseCandidateVerifier
     artifact
   end
 
-  def validate_release_notes(path, run)
+  def validate_release_notes(path, run, source_tree)
     fail_with("missing release note artifact payload #{RELEASE_NOTES_FILENAME}") unless File.file?(path)
     payload = JSON.parse(File.read(path))
     fail_with("release note schema version is unsupported") unless payload["schemaVersion"] == RELEASE_NOTES_SCHEMA_VERSION
     fail_with("release note source SHA does not match selected source SHA") unless payload["sourceSha"] == @source_sha
+    fail_with("release note source tree does not match selected source tree") unless payload["sourceTree"] == source_tree
     fail_with("release note Native run ID does not match selected run") unless payload["nativeRunId"] == run["id"]
     unless payload["nativeRunAttempt"] == run["run_attempt"]
       fail_with("release note Native run attempt does not match selected run")
@@ -335,9 +365,66 @@ class TestFlightReleaseCandidateVerifier
 
     notes = payload["notes"]
     validate_notes_text(notes)
-    notes.strip
+    [payload, notes.strip]
   rescue JSON::ParserError => error
     raise CandidateVerificationError, "release note artifact payload is invalid JSON: #{error.message}"
+  end
+
+  def validate_visual_evidence(release_payload, run, source_tree)
+    visual = release_payload["visualEvidence"]
+    fail_with("release note visualEvidence must be an object") unless visual.is_a?(Hash)
+    artifact_id = integer_value(visual, "artifactId")
+    expected_name = "native-visual-evidence-#{@source_sha}-#{run.fetch("id")}-#{run.fetch("run_attempt")}"
+    fail_with("visual evidence artifact name does not match the exact run attempt") unless visual["artifactName"] == expected_name
+    artifact_digest = visual["artifactDigest"]
+    unless artifact_digest.is_a?(String) && artifact_digest.match?(/\Asha256:[0-9a-f]{64}\z/)
+      fail_with("visual evidence artifact digest is not SHA-256")
+    end
+    manifest_digest = visual["manifestSha256"]
+    unless manifest_digest.is_a?(String) && manifest_digest.match?(/\A[0-9a-f]{64}\z/)
+      fail_with("visual evidence manifest digest is not SHA-256")
+    end
+    fail_with("visual evidence run ID does not match selected run") unless visual["workflowRunId"] == run["id"]
+    unless visual["workflowRunAttempt"] == run["run_attempt"]
+      fail_with("visual evidence run attempt does not match selected run")
+    end
+    fail_with("visual evidence workflow job key mismatch") unless visual["workflowJob"] == VISUAL_EVIDENCE_JOB_KEY
+    fail_with("visual evidence job name mismatch") unless visual["jobName"] == VISUAL_EVIDENCE_JOB
+
+    artifacts = Array(@evidence.artifacts(run.fetch("id"))["artifacts"])
+    matching_names = artifacts.select { |candidate| candidate["name"] == expected_name }
+    fail_with("missing visual evidence artifact #{expected_name}") if matching_names.empty?
+    fail_with("visual evidence artifact name is ambiguous") unless matching_names.length == 1
+    matching = artifacts.select { |candidate| candidate["id"] == artifact_id }
+    fail_with("missing visual evidence artifact ID #{artifact_id}") if matching.empty?
+    fail_with("visual evidence artifact ID #{artifact_id} is ambiguous") unless matching.length == 1
+    artifact = matching.first
+    fail_with("visual evidence artifact name mismatch") unless artifact["name"] == expected_name
+    fail_with("visual evidence artifact digest mismatch") unless artifact["digest"] == artifact_digest
+    fail_with("visual evidence artifact is expired") if artifact["expired"] == true
+
+    artifact_path = @evidence.visual_evidence_path(run.fetch("id"), expected_name)
+    identity = {
+      "sourceSha" => @source_sha,
+      "sourceTree" => source_tree,
+      "workflowRunId" => run.fetch("id"),
+      "workflowRunAttempt" => run.fetch("run_attempt"),
+      "workflowJob" => VISUAL_EVIDENCE_JOB_KEY
+    }
+    verification = TestFlightVisualEvidence::Verifier.new(
+      artifact_dir: artifact_path,
+      expected_identity: identity,
+      expected_manifest_sha256: manifest_digest
+    ).verify
+    {
+      "artifactId" => artifact_id,
+      "artifactName" => expected_name,
+      "artifactDigest" => artifact_digest,
+      "manifestSha256" => verification.fetch("manifestSha256"),
+      "artifactPath" => artifact_path
+    }
+  rescue TestFlightVisualEvidence::Error => error
+    raise CandidateVerificationError, "visual evidence revalidation failed: #{error.message}"
   end
 
   def validate_notes_text(notes)
