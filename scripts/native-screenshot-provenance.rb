@@ -248,9 +248,11 @@ module NativeScreenshotProvenance
     raise Error, "#{platform} app bundle is missing after build: #{app_path}" unless app_path.directory?
 
     app_path = app_path.realpath
-    bundle_identifier = plist_value(app_path.join("Info.plist"), "CFBundleIdentifier")
-    executable_name = plist_value(app_path.join("Info.plist"), "CFBundleExecutable")
-    executable_path = app_path.join(executable_name)
+    bundle_contents = platform == "macos" ? app_path.join("Contents") : app_path
+    info_plist = bundle_contents.join("Info.plist")
+    bundle_identifier = plist_value(info_plist, "CFBundleIdentifier")
+    executable_name = plist_value(info_plist, "CFBundleExecutable")
+    executable_path = platform == "macos" ? bundle_contents.join("MacOS", executable_name) : app_path.join(executable_name)
     raise Error, "#{platform} executable is missing: #{executable_path}" unless executable_path.file?
 
     seal_tree!(app_path)

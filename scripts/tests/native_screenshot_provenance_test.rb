@@ -68,6 +68,7 @@ class NativeScreenshotProvenanceTest < Minitest::Test
 
     assert_equal "app.spoonjoy", manifest.dig("builds", "ios", "bundleIdentifier")
     assert_equal "app.spoonjoy.mac", manifest.dig("builds", "macos", "bundleIdentifier")
+    assert manifest.dig("builds", "macos", "executablePath").end_with?("/Spoonjoy.app/Contents/MacOS/Spoonjoy")
     ios_build = manifest.dig("builds", "ios")
     assert_includes ios_build.fetch("xcodebuildArguments"), "build-for-testing"
     assert_match DIGEST_PATTERN, ios_build.fetch("uiTestRunnerTreeSha256")
@@ -331,14 +332,18 @@ class NativeScreenshotProvenanceTest < Minitest::Test
       if [[ "$scheme" == "Spoonjoy iOS" ]]; then
         product="$derived/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app"
         bundle_id="app.spoonjoy"
+        info_dir="$product"
+        executable_dir="$product"
       else
         product="$derived/Build/Products/BootstrapDebug/Spoonjoy.app"
         bundle_id="app.spoonjoy.mac"
+        info_dir="$product/Contents"
+        executable_dir="$product/Contents/MacOS"
       fi
-      mkdir -p "$product"
-      printf 'binary:%s\n' "$scheme" > "$product/Spoonjoy"
-      chmod +x "$product/Spoonjoy"
-      cat > "$product/Info.plist" <<PLIST
+      mkdir -p "$info_dir" "$executable_dir"
+      printf 'binary:%s\n' "$scheme" > "$executable_dir/Spoonjoy"
+      chmod +x "$executable_dir/Spoonjoy"
+      cat > "$info_dir/Info.plist" <<PLIST
       <?xml version="1.0" encoding="UTF-8"?>
       <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
       <plist version="1.0"><dict>
