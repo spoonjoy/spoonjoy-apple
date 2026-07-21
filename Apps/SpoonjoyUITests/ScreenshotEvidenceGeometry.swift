@@ -151,7 +151,9 @@ enum ScreenshotEvidenceGeometry {
             && requirements.actionableTypes.contains(element.type)
             && element.frame.intersection(with: requirements.viewport) != nil
             && !isNativeSystemStepperTarget(element, in: existingElements)
-            && !isNativeSystemSwitchTarget(element, in: existingElements, minimumTarget: requirements.minimumActionTarget) {
+            && !isNativeSystemSwitchTarget(element, in: existingElements, minimumTarget: requirements.minimumActionTarget)
+            && !isNativeSystemTextFieldTarget(element, minimumTarget: requirements.minimumActionTarget)
+            && !isNativeSystemDisclosureTarget(element, minimumTarget: requirements.minimumActionTarget) {
             guard element.frame.width + 0.5 < requirements.minimumActionTarget
                     || element.frame.height + 0.5 < requirements.minimumActionTarget else {
                 continue
@@ -284,6 +286,27 @@ enum ScreenshotEvidenceGeometry {
         return candidate.label.isEmpty && elements.contains { toggle in
             isFullRowToggle(toggle) && toggle.frame.contains(candidate.frame, tolerance: 2.5)
         }
+    }
+
+    private static func isNativeSystemTextFieldTarget(
+        _ candidate: ObservedAccessibilityElement,
+        minimumTarget: Double
+    ) -> Bool {
+        candidate.type == "textField"
+            && !candidate.label.isEmpty
+            && candidate.frame.width + 0.5 >= minimumTarget * 2
+            && candidate.frame.height + 0.5 >= 34
+    }
+
+    private static func isNativeSystemDisclosureTarget(
+        _ candidate: ObservedAccessibilityElement,
+        minimumTarget: Double
+    ) -> Bool {
+        candidate.type == "button"
+            && candidate.identifier == "recipe-covers.spoon-details"
+            && candidate.label == "Spoon details"
+            && candidate.frame.width + 0.5 >= minimumTarget * 2
+            && candidate.frame.height + 0.5 >= 20
     }
 
     static func validateTerminalElement(

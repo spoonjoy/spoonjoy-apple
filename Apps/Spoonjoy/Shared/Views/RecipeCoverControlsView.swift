@@ -291,23 +291,26 @@ struct RecipeCoverControlsView: View {
                     TextField("Note", text: $spoonNote)
                         .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                        .accessibilityLabel("Note")
                     TextField("Next time", text: $spoonNextTime)
                         .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                        .accessibilityLabel("Next time")
                     TextField("Cooked at", text: $spoonCookedAt)
                         .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                        .accessibilityLabel("Cooked at")
                 }
                 .textFieldStyle(.roundedBorder)
                 .padding(.top, 8)
             } label: {
                 Text("Spoon details")
                     .foregroundStyle(KitchenTableTheme.charcoal)
-                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             }
             .font(KitchenTableTheme.uiLabel)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-            .accessibilityElement(children: .combine)
+            .contentShape(Rectangle())
+            .accessibilityIdentifier("recipe-covers.spoon-details")
 
             if hasStagedPhoto {
                 Button { submitStagedCoverPhoto() } label: {
@@ -336,6 +339,7 @@ struct RecipeCoverControlsView: View {
                 .textFieldStyle(.roundedBorder)
                 .controlSize(.extraLarge)
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .accessibilityLabel("Placeholder direction")
             Button { generatePlaceholderCover() } label: {
                 Label("Generate Placeholder", systemImage: "sparkles")
             }
@@ -480,6 +484,7 @@ struct RecipeCoverControlsView: View {
                         .textFieldStyle(.roundedBorder)
                         .controlSize(.extraLarge)
                         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                        .accessibilityLabel("Regeneration direction")
 
                     HStack {
                         Button {

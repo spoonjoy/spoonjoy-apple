@@ -476,6 +476,71 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
     }
 
+    func testGeometryAcceptsFullWidthLabeledNativeTextField() {
+        let textField = observedElement(
+            identifier: "",
+            label: "Placeholder direction",
+            type: "textField",
+            frame: ObservedRect(x: 32, y: 20, width: 338, height: 34),
+            hittable: true
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [textField],
+            requirements: requirements()
+        )
+
+        XCTAssertTrue(findings.isEmpty)
+    }
+
+    func testGeometryRejectsUnlabeledOrNarrowNativeTextField() {
+        let unlabeled = observedElement(
+            identifier: "",
+            label: "",
+            type: "textField",
+            frame: ObservedRect(x: 32, y: 20, width: 338, height: 34),
+            hittable: true
+        )
+        let narrow = observedElement(
+            identifier: "",
+            label: "Placeholder direction",
+            type: "textField",
+            frame: ObservedRect(x: 32, y: 70, width: 60, height: 34),
+            hittable: true
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [unlabeled, narrow],
+            requirements: requirements()
+        )
+
+        XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall, .actionTargetTooSmall])
+    }
+
+    func testGeometryAcceptsOnlyTheNamedFullWidthNativeDisclosure() {
+        let disclosure = observedElement(
+            identifier: "recipe-covers.spoon-details",
+            label: "Spoon details",
+            type: "button",
+            frame: ObservedRect(x: 32, y: 20, width: 338, height: 22),
+            hittable: true
+        )
+        let lookalike = observedElement(
+            identifier: "",
+            label: "Spoon details",
+            type: "button",
+            frame: ObservedRect(x: 32, y: 70, width: 338, height: 22),
+            hittable: true
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [disclosure, lookalike],
+            requirements: requirements()
+        )
+
+        XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
+    }
+
     func testGeometryRejectsAPNsChromeIntersection() {
         let heading = observedElement(
             identifier: Self.thisDeviceIdentifier,
@@ -1023,16 +1088,18 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
     private func observedElement(
         identifier: String,
+        label: String? = nil,
         type: String = "staticText",
-        frame: ObservedRect
+        frame: ObservedRect,
+        hittable: Bool = false
     ) -> ObservedAccessibilityElement {
         ObservedAccessibilityElement(
             identifier: identifier,
-            label: identifier,
+            label: label ?? identifier,
             type: type,
             frame: frame,
             exists: true,
-            hittable: false,
+            hittable: hittable,
             enabled: true,
             focused: nil
         )
