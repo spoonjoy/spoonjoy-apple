@@ -1241,22 +1241,21 @@ struct CoverControlSurfaceTests {
 
         let uploadTokens = [
             #"Text("Photo Studio")"#,
-            #"@State private var shouldActivateUploadedCover = true"#,
             #"@State private var shouldGenerateEditorialCover = true"#,
             #"@State private var shouldPostUploadedPhotoAsSpoon = true"#,
             #"@State private var spoonNote = """#,
             #"@State private var spoonNextTime = """#,
             #"@State private var spoonCookedAt = """#,
-            #"Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)"#,
             #"Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)"#,
             #"Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)"#,
-            #"DisclosureGroup("Spoon details""#,
+            #"DisclosureGroup {"#,
+            #"Text("Spoon details")"#,
             #"TextField("Note", text: $spoonNote)"#,
             #"TextField("Next time", text: $spoonNextTime)"#,
             #"TextField("Cooked at", text: $spoonCookedAt)"#,
             #"Button { submitStagedCoverPhoto() }"#,
             #"runAction(.uploadPhoto("#,
-            #"activateWhenReady: shouldActivateUploadedCover"#,
+            #"activateWhenReady: true"#,
             #"generateEditorial: shouldGenerateEditorialCover"#,
             #"postAsSpoon: shouldPostUploadedPhotoAsSpoon"#,
             #"note: trimmedOptional(spoonNote)"#,
@@ -1286,7 +1285,7 @@ struct CoverControlSurfaceTests {
         )
         for token in [
             #"Button { generatePlaceholderCover() }"#,
-            #".disabled(connectivity == .offline)"#
+            #".controlSize(.large)"#
         ] {
             #expect(
                 placeholderGenerationSource.contains(token),
@@ -1303,7 +1302,13 @@ struct CoverControlSurfaceTests {
         let missingProcessingTokens = processingTokens.filter { !coverControlsSource.contains($0) }
         #expect(missingProcessingTokens.isEmpty, "Missing native processing/copy tokens: \(missingProcessingTokens)")
 
-        let forbiddenTokens = [#"Text("Recipe Covers")"#].filter { coverControlsSource.contains($0) }
+        let forbiddenTokens = [
+            #"Text("Recipe Covers")"#,
+            #"@State private var shouldActivateUploadedCover = true"#,
+            #"Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)"#,
+            #"activateWhenReady: shouldActivateUploadedCover"#,
+            #".disabled(connectivity == .offline)"#
+        ].filter { coverControlsSource.contains($0) }
         #expect(forbiddenTokens.isEmpty, "Native Photo Studio still renders stale copy: \(forbiddenTokens)")
     }
 

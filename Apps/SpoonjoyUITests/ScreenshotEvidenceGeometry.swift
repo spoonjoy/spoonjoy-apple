@@ -150,7 +150,8 @@ enum ScreenshotEvidenceGeometry {
             && element.enabled
             && requirements.actionableTypes.contains(element.type)
             && element.frame.intersection(with: requirements.viewport) != nil
-            && !isNativeSystemStepperTarget(element, in: existingElements) {
+            && !isNativeSystemStepperTarget(element, in: existingElements)
+            && !isNativeSystemSwitchThumb(element, in: existingElements, minimumTarget: requirements.minimumActionTarget) {
             guard element.frame.width + 0.5 < requirements.minimumActionTarget
                     || element.frame.height + 0.5 < requirements.minimumActionTarget else {
                 continue
@@ -257,6 +258,24 @@ enum ScreenshotEvidenceGeometry {
                 return false
             }
             return candidate == stepper || controls.contains(candidate)
+        }
+    }
+
+    private static func isNativeSystemSwitchThumb(
+        _ candidate: ObservedAccessibilityElement,
+        in elements: [ObservedAccessibilityElement],
+        minimumTarget: Double
+    ) -> Bool {
+        guard candidate.type == "switch", candidate.label.isEmpty else {
+            return false
+        }
+
+        return elements.contains { toggle in
+            toggle.type == "switch"
+                && !toggle.label.isEmpty
+                && toggle.frame.width + 0.5 >= minimumTarget
+                && toggle.frame.height + 0.5 >= minimumTarget
+                && toggle.frame.contains(candidate.frame)
         }
     }
 

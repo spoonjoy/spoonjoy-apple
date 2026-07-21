@@ -134,7 +134,6 @@ struct RecipeCoverControlsView: View {
 
     @State private var selectedCoverPhotoItem: PhotosPickerItem?
     @State private var stagedCoverPhoto: NativeStagedMediaUpload?
-    @State private var shouldActivateUploadedCover = true
     @State private var shouldGenerateEditorialCover = true
     @State private var shouldPostUploadedPhotoAsSpoon = true
     @State private var spoonNote = ""
@@ -180,6 +179,7 @@ struct RecipeCoverControlsView: View {
                 Label("Recipe", systemImage: "chevron.left")
             }
             .buttonStyle(.borderless)
+            .controlSize(.large)
 
             Text("Photo Studio")
                 .font(KitchenTableTheme.displayTitle)
@@ -242,6 +242,7 @@ struct RecipeCoverControlsView: View {
                         .font(KitchenTableTheme.uiLabel)
                 }
                 .buttonStyle(.borderedProminent)
+                .controlSize(.large)
                 .accessibilityIdentifier("recipe-covers.photo-picker")
                 .onChange(of: selectedCoverPhotoItem) { _, item in
                     Task { @MainActor in
@@ -259,6 +260,7 @@ struct RecipeCoverControlsView: View {
                         Label("Clear", systemImage: "xmark.circle")
                     }
                     .buttonStyle(.bordered)
+                    .controlSize(.large)
                 }
             }
 
@@ -271,13 +273,14 @@ struct RecipeCoverControlsView: View {
                 .foregroundStyle(KitchenTableTheme.inkMuted)
 
             VStack(alignment: .leading, spacing: 8) {
-                Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)
                 Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                 Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             }
             .font(KitchenTableTheme.uiLabel)
 
-            DisclosureGroup("Spoon details") {
+            DisclosureGroup {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField("Note", text: $spoonNote)
                     TextField("Next time", text: $spoonNextTime)
@@ -285,14 +288,19 @@ struct RecipeCoverControlsView: View {
                 }
                 .textFieldStyle(.roundedBorder)
                 .padding(.top, 8)
+            } label: {
+                Text("Spoon details")
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             }
             .font(KitchenTableTheme.uiLabel)
 
-            Button { submitStagedCoverPhoto() } label: {
-                Label("Save Photo", systemImage: "square.and.arrow.up")
+            if hasStagedPhoto {
+                Button { submitStagedCoverPhoto() } label: {
+                    Label("Save Photo", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(!hasStagedPhoto)
         }
         .padding()
         .background(.background)
@@ -315,7 +323,7 @@ struct RecipeCoverControlsView: View {
                 Label("Generate Placeholder", systemImage: "sparkles")
             }
             .buttonStyle(.bordered)
-            .disabled(connectivity == .offline)
+            .controlSize(.large)
             .accessibilityIdentifier("recipe-covers.generate-placeholder")
         }
         .padding()
@@ -340,6 +348,7 @@ struct RecipeCoverControlsView: View {
                 Label("Set No Cover", systemImage: "photo.badge.minus")
             }
             .buttonStyle(.bordered)
+            .controlSize(.large)
         }
         .padding()
         .background(.background)
@@ -442,6 +451,7 @@ struct RecipeCoverControlsView: View {
                             Label("Use", systemImage: "checkmark.circle")
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
                     }
                 }
                 .padding(.vertical, 4)
@@ -464,6 +474,7 @@ struct RecipeCoverControlsView: View {
                             Label("Regenerate", systemImage: "wand.and.stars")
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
 
                         if cover.isActive {
                             let replacementOptions = replacementOptions(for: cover)
@@ -487,6 +498,7 @@ struct RecipeCoverControlsView: View {
                                     Label("Archive And Replace", systemImage: "arrow.triangle.2.circlepath")
                                 }
                                 .buttonStyle(.bordered)
+                                .controlSize(.large)
                             }
                         }
 
@@ -503,6 +515,7 @@ struct RecipeCoverControlsView: View {
                             Label(cover.isActive ? "Archive And Clear" : "Archive", systemImage: "archivebox")
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
                     }
                 }
             }
@@ -547,6 +560,7 @@ struct RecipeCoverControlsView: View {
                             Label("Create Cover", systemImage: "photo.badge.plus")
                         }
                         .buttonStyle(.bordered)
+                        .controlSize(.large)
                     }
                     .padding()
                     .background(.background)
@@ -567,7 +581,7 @@ struct RecipeCoverControlsView: View {
         }
         runAction(.uploadPhoto(
             photo: stagedCoverPhoto,
-            activateWhenReady: shouldActivateUploadedCover,
+            activateWhenReady: true,
             generateEditorial: shouldGenerateEditorialCover,
             postAsSpoon: shouldPostUploadedPhotoAsSpoon,
             note: trimmedOptional(spoonNote),

@@ -92,6 +92,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         requiredIdentifiers.formUnion(routeRequiredIdentifiers(route: route))
         var requiredVisibleIdentifiers = requiredIdentifiers
         requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))
+        requiredVisibleIdentifiers.subtract(routeRequiredScrollIdentifiers(route: route))
         let requiredLabels = routeRequiredLabels(route: route, signedIn: environment["SPOONJOY_SCREENSHOT_AUTH"] != "0")
         if apnsMode {
             requiredIdentifiers.formUnion([
@@ -263,6 +264,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(visible.contains("recipe-editor.title"))
     }
 
+    func testLongScrollActionsAreRequiredButMayStartBelowTheInitialViewport() {
+        let required = routeRequiredIdentifiers(route: "recipe-covers")
+        let visible = required.subtracting(routeRequiredScrollIdentifiers(route: "recipe-covers"))
+
+        XCTAssertTrue(required.contains("recipe-covers.generate-placeholder"))
+        XCTAssertFalse(visible.contains("recipe-covers.generate-placeholder"))
+        XCTAssertTrue(visible.contains("recipe-covers.photo-picker"))
+    }
+
     func testGeometryRejectsPeerOverlap() {
         let first = observedElement(identifier: "first", type: "button", frame: ObservedRect(x: 10, y: 10, width: 50, height: 50))
         let second = observedElement(identifier: "second", type: "button", frame: ObservedRect(x: 40, y: 20, width: 50, height: 50))
@@ -355,6 +365,56 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
         let findings = ScreenshotEvidenceGeometry.validate(
             elements: [decrement],
+            requirements: requirements()
+        )
+
+        XCTAssertEqual(findings.map(\.kind), [.actionTargetTooSmall])
+    }
+
+    func testGeometryAcceptsNativeSwitchThumbInsideFullSizeLabeledToggle() {
+        let row = ObservedAccessibilityElement(
+            identifier: "",
+            label: "Editorialize cover",
+            type: "switch",
+            frame: ObservedRect(x: 2, y: 14, width: 94, height: 44),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+        let thumb = ObservedAccessibilityElement(
+            identifier: "",
+            label: "",
+            type: "switch",
+            frame: ObservedRect(x: 33, y: 22, width: 63, height: 28),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [row, thumb],
+            requirements: requirements()
+        )
+
+        XCTAssertTrue(findings.isEmpty)
+    }
+
+    func testGeometryRejectsUnlabeledSmallSwitchWithoutFullSizeToggleRow() {
+        let thumb = ObservedAccessibilityElement(
+            identifier: "",
+            label: "",
+            type: "switch",
+            frame: ObservedRect(x: 33, y: 22, width: 63, height: 28),
+            exists: true,
+            hittable: true,
+            enabled: true,
+            focused: nil
+        )
+
+        let findings = ScreenshotEvidenceGeometry.validate(
+            elements: [thumb],
             requirements: requirements()
         )
 
@@ -590,6 +650,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         switch route {
         case "recipe-editor":
             ["recipe-editor.save"]
+        default:
+            []
+        }
+    }
+
+    private func routeRequiredScrollIdentifiers(route: String) -> Set<String> {
+        switch route {
+        case "recipe-covers":
+            ["recipe-covers.generate-placeholder"]
         default:
             []
         }
