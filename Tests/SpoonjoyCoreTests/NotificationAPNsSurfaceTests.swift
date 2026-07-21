@@ -239,18 +239,22 @@ struct NotificationAPNsSurfaceTests {
             encoding: .utf8
         )
         for required in [
-            "switch (viewModel.data.permissionState, viewModel.isRegistered)",
-            "case (.denied, _):",
-            "case (.notDetermined, _):",
-            "case (.authorized, true):",
-            "case (.authorized, false):",
+            "if viewModel.isRegistered, let registration = viewModel.apnsRegistration",
+            "return .registered(registration)",
+            "switch viewModel.data.permissionState",
+            "case .denied:",
+            "case .notDetermined:",
+            "case .authorized:",
+            "if let banner = viewModel.permissionDeniedBanner",
             "case .registrationRequired:",
             "This device isn't set up for Spoonjoy notifications.",
-            "Turn On for This Device"
+            "Turn On for This Device",
+            "Stop on This Device"
         ] {
             #expect(source.contains(required), "NotificationAPNsSettingsView.swift missing state contract: \(required)")
         }
         #expect(!source.contains("if let registration = viewModel.apnsRegistration"))
+        #expect(!source.contains("case (.denied, _):"))
     }
 
     @Test("notification screenshot readiness is measured instead of slept")

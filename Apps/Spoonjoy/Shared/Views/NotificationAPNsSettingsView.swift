@@ -133,22 +133,7 @@ struct NotificationAPNsSettingsView: View {
                 switch deviceSetupPresentation {
                 case .permissionDenied:
                     if let banner = viewModel.permissionDeniedBanner {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Label(banner.title, systemImage: "bell.slash")
-                                .font(KitchenTableTheme.bodyNote.weight(.semibold))
-                                .foregroundStyle(KitchenTableTheme.tomato)
-                            Text(banner.message)
-                                .font(KitchenTableTheme.bodyNote)
-                                .foregroundStyle(KitchenTableTheme.inkMuted)
-                                .fixedSize(horizontal: false, vertical: true)
-                            Button {
-                                openNotificationSettings()
-                            } label: {
-                                notificationRowLabel(banner.actionTitle, systemImage: "gearshape", prominence: .secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        .accessibilityIdentifier("permissionDenied")
+                        notificationPermissionDeniedBanner(banner)
                     }
 
                 case .permissionRequired:
@@ -160,9 +145,13 @@ struct NotificationAPNsSettingsView: View {
                     .buttonStyle(.plain)
 
                 case .registered(let registration):
-                    Label(deviceSetupReadyMessage, systemImage: "bell.badge")
-                        .font(KitchenTableTheme.bodyNote.weight(.semibold))
-                        .foregroundStyle(KitchenTableTheme.herb)
+                    if let banner = viewModel.permissionDeniedBanner {
+                        notificationPermissionDeniedBanner(banner)
+                    } else {
+                        Label(deviceSetupReadyMessage, systemImage: "bell.badge")
+                            .font(KitchenTableTheme.bodyNote.weight(.semibold))
+                            .foregroundStyle(KitchenTableTheme.herb)
+                    }
                     NotificationDiagnosticsDisclosure(
                         registration: registration,
                         blocker: nil,
@@ -201,17 +190,36 @@ struct NotificationAPNsSettingsView: View {
     }
 
     private var deviceSetupPresentation: NotificationAPNsDeviceSetupPresentation {
-        switch (viewModel.data.permissionState, viewModel.isRegistered) {
-        case (.denied, _):
-            .permissionDenied
-        case (.notDetermined, _):
-            .permissionRequired
-        case (.authorized, true):
-            viewModel.apnsRegistration.map(NotificationAPNsDeviceSetupPresentation.registered)
-                ?? .registrationRequired
-        case (.authorized, false):
-            .registrationRequired
+        if viewModel.isRegistered, let registration = viewModel.apnsRegistration {
+            return .registered(registration)
         }
+        switch viewModel.data.permissionState {
+        case .denied:
+            return .permissionDenied
+        case .notDetermined:
+            return .permissionRequired
+        case .authorized:
+            return .registrationRequired
+        }
+    }
+
+    private func notificationPermissionDeniedBanner(_ banner: NotificationAPNsPermissionBanner) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(banner.title, systemImage: "bell.slash")
+                .font(KitchenTableTheme.bodyNote.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.tomato)
+            Text(banner.message)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            Button {
+                openNotificationSettings()
+            } label: {
+                notificationRowLabel(banner.actionTitle, systemImage: "gearshape", prominence: .secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .accessibilityIdentifier("permissionDenied")
     }
 
     private var apnsDeliverySection: some View {
