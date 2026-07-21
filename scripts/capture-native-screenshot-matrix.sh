@@ -180,15 +180,15 @@ prepare_shared_builds() {
       return 1
     fi
     provenance_manifest="$(tail -n 1 "$provenance_log")"
-    shared_ios_app_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "appPath")' "$provenance_manifest")"
-    shared_ios_ui_test_runner_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "uiTestRunnerPath")' "$provenance_manifest")"
-    shared_ios_xctestrun_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "xctestrunPath")' "$provenance_manifest")"
+    shared_ios_app_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "captureAppPath")' "$provenance_manifest")"
+    shared_ios_ui_test_runner_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "captureUITestRunnerPath")' "$provenance_manifest")"
+    shared_ios_xctestrun_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "captureXctestrunPath")' "$provenance_manifest")"
     shared_macos_app_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "macos", "appPath")' "$provenance_manifest")"
   fi
 
   if [[ -z "$shared_ios_ui_test_runner_path" || -z "$shared_ios_xctestrun_path" ]]; then
-    shared_ios_ui_test_runner_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "uiTestRunnerPath")' "$provenance_manifest")"
-    shared_ios_xctestrun_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "xctestrunPath")' "$provenance_manifest")"
+    shared_ios_ui_test_runner_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "captureUITestRunnerPath")' "$provenance_manifest")"
+    shared_ios_xctestrun_path="$(ruby -rjson -e 'puts JSON.parse(File.read(ARGV.fetch(0))).dig("builds", "ios", "captureXctestrunPath")' "$provenance_manifest")"
   fi
 
   if ! verify_provenance "before"; then
@@ -213,8 +213,8 @@ prepare_shared_builds() {
   export SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER="$configured_ios_install_marker"
   export SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST="$provenance_manifest"
   export SPOONJOY_SCREENSHOT_PROVENANCE_RUN_UUID="$matrix_run_uuid"
-  printf 'route matrix using shared iOS app: %s\n' "$SPOONJOY_SCREENSHOT_IOS_APP_PATH"
-  printf 'route matrix using sealed iOS UI-test runner: %s\n' "$SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH"
+  printf 'route matrix using attested iOS capture app: %s\n' "$SPOONJOY_SCREENSHOT_IOS_APP_PATH"
+  printf 'route matrix using attested iOS UI-test runner: %s\n' "$SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH"
   printf 'route matrix using shared macOS app: %s\n' "$SPOONJOY_SCREENSHOT_MACOS_APP_PATH"
 }
 

@@ -291,6 +291,26 @@ module NativeScreenshotProvenance
         "xctestrunPath" => xctestrun_path.to_s,
         "xctestrunSha256" => Digest::SHA256.file(xctestrun_path).hexdigest
       )
+      capture_root = build_root.join("CaptureProducts-iOS")
+      capture_root.mkpath
+      capture_app_path = capture_root.join("Spoonjoy.app")
+      capture_runner_path = capture_root.join("SpoonjoyUITests-Runner.app")
+      capture_xctestrun_path = capture_root.join(xctestrun_path.basename)
+      FileUtils.cp_r(app_path.to_s, capture_app_path.to_s, preserve: true)
+      FileUtils.cp_r(runner_path.to_s, capture_runner_path.to_s, preserve: true)
+      FileUtils.cp(xctestrun_path.to_s, capture_xctestrun_path.to_s, preserve: true)
+      make_tree_owner_writable!(capture_app_path)
+      make_tree_owner_writable!(capture_runner_path)
+      capture_xctestrun_path.chmod(capture_xctestrun_path.lstat.mode | 0o200)
+      build.merge!(
+        "captureAppPath" => capture_app_path.realpath.to_s,
+        "captureAppTreeSha256" => deterministic_tree_hash(capture_app_path),
+        "captureUITestRunnerPath" => capture_runner_path.realpath.to_s,
+        "captureUITestRunnerTreeSha256" => deterministic_tree_hash(capture_runner_path),
+        "captureXctestrunPath" => capture_xctestrun_path.realpath.to_s,
+        "captureXctestrunSha256" => Digest::SHA256.file(capture_xctestrun_path).hexdigest,
+        "captureProductsOwnerWritable" => true
+      )
     end
     build
   end
@@ -307,7 +327,8 @@ module NativeScreenshotProvenance
     unless path_within?(app_path, build_root)
       raise Error, "#{label} app canonical path escapes the exclusive build root"
     end
-    if override_path && canonical_existing_path(override_path) != app_path
+    expected_override_path = key == "ios" ? canonical_existing_path(build.fetch("captureAppPath")) : app_path
+    if override_path && canonical_existing_path(override_path) != expected_override_path
       raise Error, "#{label} app override does not match the manifest canonical path"
     end
     executable_path = canonical_existing_path(build.fetch("executablePath"))
@@ -333,7 +354,11 @@ module NativeScreenshotProvenance
   end
 
   def verify_ios_observer_products!(build, build_root)
-    required = %w[uiTestRunnerPath uiTestRunnerTreeSha256 xctestrunPath xctestrunSha256]
+    required = %w[
+      uiTestRunnerPath uiTestRunnerTreeSha256 xctestrunPath xctestrunSha256
+      captureAppPath captureAppTreeSha256 captureUITestRunnerPath captureUITestRunnerTreeSha256
+      captureXctestrunPath captureXctestrunSha256 captureProductsOwnerWritable
+    ]
     missing = required.reject { |field| build.key?(field) }
     raise Error, "iOS manifest is missing observer products: #{missing.join(", ")}" unless missing.empty?
 
@@ -352,6 +377,35 @@ module NativeScreenshotProvenance
     raise Error, "iOS UI-test runner is not sealed read-only: #{writable}" if writable
     if (xctestrun_path.lstat.mode & 0o222).positive?
       raise Error, "iOS xctestrun is not sealed read-only"
+    end
+
+    capture_app_path = canonical_existing_path(build.fetch("captureAppPath"))
+    capture_runner_path = canonical_existing_path(build.fetch("captureUITestRunnerPath"))
+    capture_xctestrun_path = canonical_existing_path(build.fetch("captureXctestrunPath"))
+    [capture_app_path, capture_runner_path, capture_xctestrun_path].each do |path|
+      raise Error, "iOS capture product canonical path escapes the exclusive build root" unless path_within?(path, build_root)
+    end
+    unless secure_equal?(deterministic_tree_hash(capture_app_path), build.fetch("captureAppTreeSha256"))
+      raise Error, "iOS capture app tree hash mismatch"
+    end
+    unless secure_equal?(deterministic_tree_hash(capture_runner_path), build.fetch("captureUITestRunnerTreeSha256"))
+      raise Error, "iOS capture UI-test runner tree hash mismatch"
+    end
+    unless secure_equal?(Digest::SHA256.file(capture_xctestrun_path).hexdigest, build.fetch("captureXctestrunSha256"))
+      raise Error, "iOS capture xctestrun hash mismatch"
+    end
+    unless secure_equal?(build.fetch("captureAppTreeSha256"), build.fetch("bundleTreeSha256")) &&
+        secure_equal?(build.fetch("captureUITestRunnerTreeSha256"), build.fetch("uiTestRunnerTreeSha256")) &&
+        secure_equal?(build.fetch("captureXctestrunSha256"), build.fetch("xctestrunSha256"))
+      raise Error, "iOS capture products do not match the sealed reference products"
+    end
+    raise Error, "iOS manifest does not attest owner-writable capture products" unless build.fetch("captureProductsOwnerWritable") == true
+    [capture_app_path, capture_runner_path].each do |root|
+      nonwritable = tree_entries(root).find { |path| !path.symlink? && (path.lstat.mode & 0o200).zero? }
+      raise Error, "iOS capture product is not owner-writable: #{nonwritable}" if nonwritable
+    end
+    if (capture_xctestrun_path.lstat.mode & 0o200).zero?
+      raise Error, "iOS capture xctestrun is not owner-writable"
     end
   end
 
@@ -458,6 +512,14 @@ module NativeScreenshotProvenance
       next if path.symlink?
 
       path.chmod(path.lstat.mode & ~0o222)
+    end
+  end
+
+  def make_tree_owner_writable!(root)
+    tree_entries(root).each do |path|
+      next if path.symlink?
+
+      path.chmod(path.lstat.mode | 0o200)
     end
   end
 

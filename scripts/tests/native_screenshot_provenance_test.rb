@@ -75,6 +75,12 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     assert_match DIGEST_PATTERN, ios_build.fetch("xctestrunSha256")
     refute File.writable?(ios_build.fetch("uiTestRunnerPath"))
     refute File.writable?(ios_build.fetch("xctestrunPath"))
+    assert_equal ios_build.fetch("bundleTreeSha256"), ios_build.fetch("captureAppTreeSha256")
+    assert_equal ios_build.fetch("uiTestRunnerTreeSha256"), ios_build.fetch("captureUITestRunnerTreeSha256")
+    assert_equal ios_build.fetch("xctestrunSha256"), ios_build.fetch("captureXctestrunSha256")
+    assert File.writable?(ios_build.fetch("captureAppPath"))
+    assert File.writable?(ios_build.fetch("captureUITestRunnerPath"))
+    assert File.writable?(ios_build.fetch("captureXctestrunPath"))
     assert build_root.join("source/Spoonjoy.xcodeproj/project.pbxproj").file?
     refute build_root.join("source/.git").exist?
     refute build_root.join("source/.swiftpm").exist?
@@ -144,6 +150,18 @@ class NativeScreenshotProvenanceTest < Minitest::Test
 
     refute status.success?
     assert_includes stderr, "iOS UI-test runner tree hash mismatch"
+  end
+
+  def test_verify_rejects_capture_product_mutation
+    manifest_path = build_manifest
+    manifest = JSON.parse(manifest_path.read)
+    capture_executable = Pathname.new(manifest.dig("builds", "ios", "captureAppPath")).join("Spoonjoy")
+    capture_executable.write("mutated\n")
+
+    _stdout, stderr, status = verify_manifest(manifest_path)
+
+    refute status.success?
+    assert_includes stderr, "iOS capture app tree hash mismatch"
   end
 
   def test_verify_rejects_xctestrun_mutation
@@ -237,7 +255,7 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     _stdout, stderr, status = run_matrix(
       matrix_run_uuid: "matrix-run-b",
       manifest: manifest_path,
-      ios_app: manifest.dig("builds", "ios", "appPath"),
+      ios_app: manifest.dig("builds", "ios", "captureAppPath"),
       macos_app: manifest.dig("builds", "macos", "appPath")
     )
 
@@ -253,7 +271,7 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     stdout, stderr, status = run_matrix(
       matrix_run_uuid: "matrix-run-a",
       manifest: manifest_path,
-      ios_app: manifest.dig("builds", "ios", "appPath"),
+      ios_app: manifest.dig("builds", "ios", "captureAppPath"),
       macos_app: manifest.dig("builds", "macos", "appPath")
     )
 
@@ -449,7 +467,7 @@ class NativeScreenshotProvenanceTest < Minitest::Test
 
   def verify_manifest(manifest_path, matrix_run_uuid: "matrix-run-a", ios_app: nil)
     manifest = JSON.parse(manifest_path.read) if manifest_path.file? && manifest_path.basename.to_s != "missing.json"
-    ios_app ||= manifest&.dig("builds", "ios", "appPath")
+    ios_app ||= manifest&.dig("builds", "ios", "captureAppPath")
     macos_app = manifest&.dig("builds", "macos", "appPath")
     arguments = [
       "--manifest", manifest_path.to_s,
