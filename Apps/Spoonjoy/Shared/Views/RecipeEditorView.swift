@@ -440,7 +440,7 @@ struct RecipeEditorView: View {
                     Text("Duration")
                     HStack(spacing: 12) {
                         Text(durationSummary(value.wrappedValue))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
                         Spacer(minLength: 8)
                         durationStepper(value)
                     }
@@ -450,7 +450,7 @@ struct RecipeEditorView: View {
                 LabeledContent("Duration") {
                     HStack(spacing: 8) {
                         Text(durationSummary(value.wrappedValue))
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
                         durationStepper(value)
                     }
                 }
