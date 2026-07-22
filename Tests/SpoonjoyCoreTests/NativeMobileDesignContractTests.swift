@@ -331,7 +331,7 @@ struct NativeMobileDesignContractTests {
                 "drag(primarySurface, contentOffset: correction)",
                 "terminalScrollSignature(",
                 "app.scrollViews[\"spoonjoy.page-scroll\"]",
-                "case \"kitchen\": \"kitchen.cookbook.cookbook_weeknights\"",
+                "case \"kitchen\": \"kitchen.cookbook.cookbook_slow_sundays\"",
                 "waitForScrollToSettle()",
                 "observedContentMovement",
                 "contentFitsWithoutScrolling",
