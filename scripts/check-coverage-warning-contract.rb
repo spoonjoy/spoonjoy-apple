@@ -22,17 +22,20 @@ def run_command(*args)
   [status.success?, stdout, stderr]
 end
 
-def write_coverage_json(path, percent:)
-  covered = percent == 100.0 ? 10 : 9
+def write_coverage_json(path, covered:, total:, uncovered_line: nil)
+  percent = (covered * 100.0) / total
+  segments = [[1, 1, 1, true, true, false]]
+  segments << [uncovered_line, 1, 0, true, true, false] if uncovered_line
   payload = {
     "data" => [
       {
         "files" => [
           {
             "filename" => ROOT.join("Sources/SpoonjoyCore/Foo.swift").to_s,
+            "segments" => segments,
             "summary" => {
               "lines" => {
-                "count" => 10,
+                "count" => total,
                 "covered" => covered,
                 "percent" => percent
               }
@@ -65,9 +68,11 @@ def check_coverage_script_behavior
     dir_path = Pathname.new(dir)
     passing_json = dir_path.join("passing.json")
     failing_json = dir_path.join("failing.json")
+    nearly_passing_json = dir_path.join("nearly-passing.json")
     missing_json = dir_path.join("missing.json")
-    write_coverage_json(passing_json, percent: 100.0)
-    write_coverage_json(failing_json, percent: 90.0)
+    write_coverage_json(passing_json, covered: 10, total: 10)
+    write_coverage_json(failing_json, covered: 9, total: 10, uncovered_line: 10)
+    write_coverage_json(nearly_passing_json, covered: 27_852, total: 27_853, uncovered_line: 84)
 
     passing, = run_command(
       "ruby",
@@ -89,6 +94,23 @@ def check_coverage_script_behavior
       record_failure("coverage script must fail below the minimum threshold")
     elsif !("#{below_stdout}\n#{below_stderr}".match?(/below|threshold|90/i))
       record_failure("coverage script below-threshold failure should explain the measured shortfall")
+    end
+
+    nearly_passing, nearly_stdout, nearly_stderr = run_command(
+      "ruby",
+      COVERAGE_SCRIPT.to_s,
+      "--coverage-json", nearly_passing_json.to_s,
+      "--minimum", "100",
+      "--include", "Sources/SpoonjoyCore"
+    )
+    nearly_output = "#{nearly_stdout}\n#{nearly_stderr}"
+    if nearly_passing
+      record_failure("coverage script must fail when one included line remains uncovered")
+    else
+      record_failure("coverage script must not round a near-100 failure to 100.00%") if nearly_output.include?("100.00%")
+      unless nearly_output.include?("Sources/SpoonjoyCore/Foo.swift:84")
+        record_failure("coverage script must identify the uncovered included source line")
+      end
     end
 
     missing, missing_stdout, missing_stderr = run_command(

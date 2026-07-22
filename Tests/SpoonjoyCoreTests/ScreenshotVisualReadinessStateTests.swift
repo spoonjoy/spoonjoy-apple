@@ -146,5 +146,12 @@ struct ScreenshotVisualReadinessStateTests {
         let loadedGeneration = state.snapshot.generation
         state.finishMedia(token, succeeded: true)
         #expect(state.snapshot.generation == loadedGeneration)
+
+        state.finishMedia(token, succeeded: false)
+        let failedGeneration = state.snapshot.generation
+        state.finishMedia(token, succeeded: false)
+        #expect(state.snapshot.generation == failedGeneration)
+        #expect(state.snapshot.loadedMediaCount == 0)
+        #expect(state.snapshot.failedMediaCount == 1)
     }
 }
