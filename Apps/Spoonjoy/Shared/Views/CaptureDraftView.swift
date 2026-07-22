@@ -102,7 +102,8 @@ struct CaptureDraftView: View {
             hasCurrentDraft: currentDraft != nil,
             hasPendingImport: hasPendingImport,
             hasProviderBlocker: hasProviderBlocker,
-            isOffline: isOffline
+            isOffline: isOffline,
+            terminalAccessibilityIdentifier: currentDraft == nil ? "capture.terminal" : nil
         )
     }
 
@@ -188,6 +189,7 @@ struct CaptureDraftView: View {
                 .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("capture.terminal")
         .accessibilityLabel("Import actions")
         .help("Import actions")
     }
@@ -263,16 +265,14 @@ private struct ImportStatusPanel: View {
     let hasPendingImport: Bool
     let hasProviderBlocker: Bool
     let isOffline: Bool
+    let terminalAccessibilityIdentifier: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(statusTitle, systemImage: statusSymbol)
                 .font(KitchenTableTheme.sectionTitle)
                 .foregroundStyle(statusForeground)
-            Text(statusBody)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
+            statusBodyText
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -282,6 +282,21 @@ private struct ImportStatusPanel: View {
                 .stroke(statusStroke, lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    @ViewBuilder private var statusBodyText: some View {
+        if let terminalAccessibilityIdentifier {
+            Text(statusBody)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(terminalAccessibilityIdentifier)
+        } else {
+            Text(statusBody)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 
     private var statusTitle: String {

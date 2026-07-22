@@ -720,6 +720,7 @@ struct RecipeDetailView: View {
         SpoonCookLogView(
             viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
             showsHeader: showsHeader,
+            terminalAccessibilityIdentifier: showsHeader ? "recipe-detail.terminal" : "cook-log.terminal",
             draft: spoonCookLogDraft(viewModel),
             actionDidPlan: performSpoonCookLogAction,
             draftDidChange: { draft in

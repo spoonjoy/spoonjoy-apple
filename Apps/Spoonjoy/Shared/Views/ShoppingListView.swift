@@ -317,7 +317,8 @@ struct ShoppingListView: View {
             ReceiptListView(
                 sections: viewModel.sections,
                 setChecked: settingChecked,
-                deleteItem: deleteItem
+                deleteItem: deleteItem,
+                terminalAccessibilityIdentifier: "shopping-list.terminal"
             )
         }
     }
@@ -493,6 +494,7 @@ private struct ShoppingReceiptStateView: View {
                     Label("Add from recipe", systemImage: "book")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityIdentifier("shopping-list.terminal")
             }
         }
         .padding(18)

@@ -252,6 +252,10 @@ struct CookbooksView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier(
+                        row.id == list.rows.last?.id ? "cookbooks.terminal" : "cookbooks.row.\(row.id)"
+                    )
+                    .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
                     .contextMenu {
                         cookbookShareAction(row)
                     }
@@ -273,6 +277,7 @@ struct CookbooksView: View {
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("cookbooks.terminal")
         }
         .padding(.vertical, 28)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -946,7 +951,11 @@ private struct CookbookDetailView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
-                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1)
+                        CookbookRecipeIndexRow(
+                            recipe: recipe,
+                            ordinal: index + 1,
+                            isTerminal: index == viewModel.recipes.indices.last
+                        )
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if viewModel.ownerTools.isVisible {
                                 Button(role: .destructive) {
@@ -1116,6 +1125,7 @@ private struct CookbookDetailView: View {
 private struct CookbookRecipeIndexRow: View {
     let recipe: CookbookRecipeRowViewModel
     let ordinal: Int
+    let isTerminal: Bool
 
     var body: some View {
         NavigationLink(value: recipe.openRoute) {
@@ -1161,6 +1171,7 @@ private struct CookbookRecipeIndexRow: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(isTerminal ? "cookbook-detail.terminal" : "cookbook-detail.recipe.\(recipe.id)")
         .accessibilityLabel("\(ordinal). \(recipe.title)")
     }
 }

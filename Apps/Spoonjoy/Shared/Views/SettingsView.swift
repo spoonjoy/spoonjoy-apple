@@ -492,6 +492,9 @@ struct SettingsView: View {
                     onDismissOfflineIndicator()
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("settings.terminal")
+            .accessibilityLabel("Offline")
         }
     }
 
@@ -533,6 +536,9 @@ struct SettingsView: View {
                     onDismissOfflineIndicator()
                 }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("settings.terminal")
+            .accessibilityLabel("Offline")
         }
     }
 

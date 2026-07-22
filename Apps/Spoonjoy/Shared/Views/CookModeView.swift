@@ -493,6 +493,12 @@ struct CookModeView: View {
                         }
                         .toggleStyle(.largeCheck)
                         .tint(KitchenTableTheme.herb)
+                        .accessibilityIdentifier(
+                            row.id == viewModel.ingredientChecklistRows.last?.id ? "cook-mode.terminal" : "cook-mode.ingredient.\(row.id)"
+                        )
+                        .accessibilityLabel(
+                            row.quantityText.isEmpty ? row.title : "\(row.title), \(row.quantityText)"
+                        )
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }

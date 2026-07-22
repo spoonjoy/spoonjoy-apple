@@ -5,15 +5,18 @@ struct ReceiptListView: View {
     let sections: [ShoppingListReceiptSection]
     let setChecked: (ShoppingListItem, Bool) -> Void
     let deleteItem: (ShoppingListItem) -> Void
+    let terminalAccessibilityIdentifier: String?
 
     init(
         sections: [ShoppingListReceiptSection],
         setChecked: @escaping (ShoppingListItem, Bool) -> Void,
-        deleteItem: @escaping (ShoppingListItem) -> Void = { _ in }
+        deleteItem: @escaping (ShoppingListItem) -> Void = { _ in },
+        terminalAccessibilityIdentifier: String? = nil
     ) {
         self.sections = sections
         self.setChecked = setChecked
         self.deleteItem = deleteItem
+        self.terminalAccessibilityIdentifier = terminalAccessibilityIdentifier
     }
 
     var body: some View {
@@ -30,6 +33,11 @@ struct ReceiptListView: View {
                                 )
                             }
                             .toggleStyle(.largeCheck)
+                            .accessibilityIdentifier(
+                                item.id == terminalItemID
+                                    ? terminalAccessibilityIdentifier ?? "shopping-list.item.\(item.id)"
+                                    : "shopping-list.item.\(item.id)"
+                            )
 
                             if isDuplicateReview {
                                 Button(role: .destructive) {
@@ -84,6 +92,10 @@ struct ReceiptListView: View {
             get: { item.checked },
             set: { checked in setChecked(item, checked) }
         )
+    }
+
+    private var terminalItemID: String? {
+        sections.last?.items.last?.id
     }
 
     private var receiptListHeight: CGFloat {

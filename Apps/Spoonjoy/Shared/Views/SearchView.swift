@@ -51,13 +51,15 @@ struct SearchView: View {
                 SearchSurfaceMessageView(
                     title: errorState.title,
                     message: errorState.message,
-                    systemImage: errorState.systemImage
+                    systemImage: errorState.systemImage,
+                    terminalAccessibilityIdentifier: "search.terminal"
                 )
             } else if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
                 SearchSurfaceMessageView(
                     title: emptyState.title,
                     message: emptyState.message,
-                    systemImage: emptyState.systemImage
+                    systemImage: emptyState.systemImage,
+                    terminalAccessibilityIdentifier: "search.terminal"
                 )
             } else {
                 if viewModel.isLoading {
@@ -68,7 +70,11 @@ struct SearchView: View {
                         .accessibilityLabel("Searching")
                 }
                 ForEach(viewModel.sections) { section in
-                    SearchSurfaceSectionView(section: section, openRoute: openRoute)
+                    SearchSurfaceSectionView(
+                        section: section,
+                        terminalRowID: viewModel.sections.last?.rows.last?.id,
+                        openRoute: openRoute
+                    )
                 }
             }
         }
@@ -224,17 +230,21 @@ private enum SearchSurfaceContract {
 
 private struct SearchSurfaceSectionView: View {
     let section: SearchSurfaceSection
+    let terminalRowID: String?
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
         KitchenTableSection(title: section.title) {
             ForEach(section.rows) { row in
+                let isTerminal = row.id == terminalRowID
                 Button {
                     openRoute(row.openRoute)
                 } label: {
                     SearchSurfaceRowView(row: row)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(isTerminal ? "search.terminal" : "search.row.\(row.id)")
+                .accessibilityLabel(row.accessibilityLabel)
             }
         }
     }
@@ -385,6 +395,7 @@ private struct SearchSurfaceMessageView: View {
     let title: String
     let message: String
     let systemImage: String
+    let terminalAccessibilityIdentifier: String
 
     var body: some View {
         Label {
@@ -395,6 +406,7 @@ private struct SearchSurfaceMessageView: View {
                 Text(message)
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .accessibilityIdentifier(terminalAccessibilityIdentifier)
             }
         } icon: {
             Image(systemName: systemImage)

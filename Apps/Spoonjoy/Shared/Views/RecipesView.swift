@@ -61,7 +61,12 @@ struct RecipesView: View {
                     .transition(.opacity)
             } else if let leadRow = state.leadRow {
                 Group {
-                    RecipeCatalogLead(row: leadRow)
+                    RecipeCatalogLead(
+                        row: leadRow,
+                        accessibilityIdentifier: state.indexRows.isEmpty
+                            ? "\(proofRoute).terminal"
+                            : "recipe.lead.\(leadRow.id)"
+                    )
                     if !state.indexRows.isEmpty {
                         recipeIndexSection(rows: state.indexRows)
                     }
@@ -103,6 +108,7 @@ struct RecipesView: View {
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("\(proofRoute).terminal")
                 Spacer(minLength: 0)
             }
             .padding(14)
@@ -115,10 +121,13 @@ struct RecipesView: View {
     private func recipeIndexSection(rows: [RecipeCatalogRowViewModel]) -> some View {
         KitchenTableSection(title: "Recipe Index") {
             ForEach(rows) { row in
+                let isTerminal = row.id == rows.last?.id
                 NavigationLink(value: row.openRoute) {
                     RecipeIndexRow(row: row)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(isTerminal ? "\(proofRoute).terminal" : "recipe.row.\(row.id)")
+                .accessibilityLabel(row.title)
             }
         }
     }
@@ -164,10 +173,12 @@ struct ChefsView: View {
                         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
                         .background(KitchenTableTheme.paper)
                         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                        .accessibilityIdentifier("chefs.terminal")
                 }
             } else {
                 KitchenTableSection(title: "Fellow Chefs") {
                     ForEach(profiles.map(\.profile), id: \.id) { profile in
+                        let isTerminal = profile.id == profiles.last?.profile.id
                         NavigationLink(value: AppRoute.profile(identifier: profile.username)) {
                             KitchenTableObjectRow(title: profile.username, subtitle: "Open kitchen profile") {
                                 Image(systemName: "person.crop.circle")
@@ -183,6 +194,8 @@ struct ChefsView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier(isTerminal ? "chefs.terminal" : "chefs.row.\(profile.id)")
+                        .accessibilityLabel("\(profile.username), Open kitchen profile")
                         .accessibilityHint("Opens chef profile")
                     }
                 }
@@ -203,6 +216,7 @@ struct ChefsView: View {
 
 private struct RecipeCatalogLead: View {
     let row: RecipeCatalogRowViewModel
+    let accessibilityIdentifier: String
 
     var body: some View {
         NavigationLink(value: row.openRoute) {
@@ -227,6 +241,8 @@ private struct RecipeCatalogLead: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel(row.title)
         .accessibilityHint("Opens recipe detail")
     }
 

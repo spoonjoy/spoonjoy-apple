@@ -638,7 +638,9 @@ struct RecipeCoverControlsView: View {
         .buttonStyle(.bordered)
         .controlSize(.large)
         .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
-        .accessibilityIdentifier("recipe-covers.archive.\(cover.id)")
+        .accessibilityIdentifier(
+            cover.id == data.covers.last?.id ? "recipe-covers.terminal" : "recipe-covers.archive.\(cover.id)"
+        )
     }
 
     private func replacementOptions(for cover: RecipeCoverCandidate) -> [RecipeCoverReplacementOption] {
