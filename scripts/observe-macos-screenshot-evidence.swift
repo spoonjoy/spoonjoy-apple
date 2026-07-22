@@ -349,6 +349,13 @@ func observeTree(root: AXUIElement) -> [AXObservedNode] {
 
 func terminalExpectation(for route: String) -> AXRouteTerminalExpectation? {
     switch route {
+    case "kitchen":
+        AXRouteTerminalExpectation(
+            scrollIdentifier: "spoonjoy.page-scroll",
+            terminalIdentifier: "kitchen.cookbook.cookbook_weeknights",
+            role: kAXButtonRole as String,
+            requiredAction: kAXPressAction as String
+        )
     case "recipe-editor":
         AXRouteTerminalExpectation(
             scrollIdentifier: "recipe-editor.scroll",

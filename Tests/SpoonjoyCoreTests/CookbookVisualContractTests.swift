@@ -43,6 +43,7 @@ struct CookbookVisualContractTests {
         #expect(!thumb.contains("Text("))
         #expect(!thumb.contains("books.vertical.fill"))
         #expect(shelf.contains(".accessibilityElement(children: .ignore)"))
+        #expect(shelf.contains(".accessibilityAddTraits(.isButton)"))
         #expect(shelf.contains(".accessibilityLabel(\"\\(row.title), \\(row.recipeCountLabel)\")"))
         #expect(cover.contains(".accessibilityHidden(true)"))
         #expect(!cover.contains(".accessibilityElement(children: .combine)"))
