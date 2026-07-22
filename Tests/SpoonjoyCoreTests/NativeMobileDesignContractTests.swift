@@ -118,6 +118,9 @@ struct NativeMobileDesignContractTests {
                 ".frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)",
                 "NavigationLink(value: AppRoute.recipeDetail(id: recipe.id, presentation: .detail))",
                 ".accessibilityHint(\"Opens recipe detail\")",
+                "Image(systemName: systemImage)",
+                ".accessibilityLabel(title)",
+                "Label(title, systemImage: systemImage)",
                 "private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1"
             ],
             forbids: [

@@ -358,7 +358,12 @@ struct RecipeLead: View {
         route: AppRoute
     ) -> some View {
         NavigationLink(value: route) {
-            Label(title, systemImage: systemImage)
+            if dynamicTypeSize.isAccessibilitySize {
+                Image(systemName: systemImage)
+                    .accessibilityLabel(title)
+            } else {
+                Label(title, systemImage: systemImage)
+            }
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: prominence))
     }
