@@ -12,7 +12,7 @@ struct SpoonjoyMacApp: App {
 
     var body: some Scene {
         let _ = SpoonjoyMacLaunchProof.record("scene-body-evaluated")
-        WindowGroup("Spoonjoy", id: "main") {
+        Window("Spoonjoy", id: "main") {
             SpoonjoyRootView()
                 .frame(minWidth: 900, minHeight: 620)
         }

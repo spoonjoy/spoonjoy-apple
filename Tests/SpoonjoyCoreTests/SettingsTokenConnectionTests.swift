@@ -1295,7 +1295,7 @@ struct SettingsTokenConnectionTests {
 
         let macApp = try readRepoFile("Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift")
         for token in [
-            "WindowGroup(\"Spoonjoy\", id: \"main\")",
+            "Window(\"Spoonjoy\", id: \"main\")",
             ".frame(minWidth: 900, minHeight: 620)",
             ".defaultSize(width: 1040, height: 760)",
             ".windowResizability(.contentMinSize)",
@@ -1310,14 +1310,14 @@ struct SettingsTokenConnectionTests {
             #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
         }
         for forbidden in [
-            "Window(\"Spoonjoy\", id: \"main\")",
+            "WindowGroup(\"Spoonjoy\", id: \"main\")",
             "SpoonjoyMacMainWindowCoordinator",
             "fallbackWindow",
             "NSHostingController",
             "NSWindow(",
             "New Window"
         ] {
-            #expect(!macApp.contains(forbidden), "SpoonjoyMacApp.swift must leave the main window under single-scene SwiftUI ownership: \(forbidden)")
+            #expect(!macApp.contains(forbidden), "SpoonjoyMacApp.swift must leave the main window under singleton SwiftUI ownership: \(forbidden)")
         }
 
         #expect(!rootView.contains("signedOutRouteUsesNativeShell"), "Signed-out launch must not bypass native Apple sign-in into the shell.")
