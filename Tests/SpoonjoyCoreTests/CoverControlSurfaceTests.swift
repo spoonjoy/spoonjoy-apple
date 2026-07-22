@@ -824,6 +824,21 @@ struct CoverControlSurfaceTests {
         try assertNormalizedCoverJPEG(staged)
     }
 
+    @Test("cover photo selection session rejects stale and cleared completions")
+    func coverPhotoSelectionSessionRejectsStaleAndClearedCompletions() {
+        var session = RecipeCoverPhotoSelectionSession()
+
+        let first = session.beginSelection()
+        let second = session.beginSelection()
+
+        #expect(!session.accepts(first))
+        #expect(session.accepts(second))
+
+        session.invalidate()
+
+        #expect(!session.accepts(second))
+    }
+
     @Test("cover photo staging normalizes HEIF PNG JPEG WebP and oversized input to bounded JPEG")
     func coverPhotoStagingNormalizesSupportedFormatsToBoundedJPEG() throws {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
@@ -1208,12 +1223,16 @@ struct CoverControlSurfaceTests {
         #expect(coverControlsSource.contains("import UniformTypeIdentifiers"))
         #expect(coverControlsSource.contains("@State private var selectedCoverPhotoItem: PhotosPickerItem?"))
         #expect(coverControlsSource.contains("@State private var stagedCoverPhoto: NativeStagedMediaUpload?"))
+        #expect(coverControlsSource.contains("@State private var photoSelectionSession = RecipeCoverPhotoSelectionSession()"))
+        #expect(coverControlsSource.contains("@State private var photoStagingTask: Task<Void, Never>?"))
         #expect(coverControlsSource.contains("let stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage"))
         #expect(coverControlsSource.contains("PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images)"))
         #expect(coverControlsSource.contains("loadTransferable(type: Data.self)"))
         #expect(coverControlsSource.contains("RecipeCoverPhotoStagingPolicy.offlineProductContract"))
         #expect(coverControlsSource.contains("private static let photoStagingWorker = RecipeCoverPhotoStagingWorker()"))
         #expect(coverControlsSource.contains("stageSelectedCoverPhoto"))
+        #expect(coverControlsSource.contains("photoSelectionSession.accepts(token)"))
+        #expect(coverControlsSource.contains("invalidatePhotoStaging()"))
         #expect(coverControlsSource.contains("NativeStagedMediaUpload("))
         #expect(coverControlsSource.contains("\"image/heic\""))
         #expect(coverControlsSource.contains("\"image/webp\""))

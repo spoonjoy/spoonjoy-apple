@@ -204,6 +204,8 @@ struct RecipeCoverControlsView: View {
 
     @State private var selectedCoverPhotoItem: PhotosPickerItem?
     @State private var stagedCoverPhoto: NativeStagedMediaUpload?
+    @State private var photoSelectionSession = RecipeCoverPhotoSelectionSession()
+    @State private var photoStagingTask: Task<Void, Never>?
     @State private var shouldGenerateEditorialCover = true
     @State private var shouldPostUploadedPhotoAsSpoon = true
     @State private var spoonNote = ""
@@ -241,6 +243,9 @@ struct RecipeCoverControlsView: View {
                     reduceMotionEnabled: accessibilityReduceMotion
                 )
             )
+        }
+        .onDisappear {
+            invalidatePhotoStaging()
         }
     }
 
@@ -395,9 +400,7 @@ struct RecipeCoverControlsView: View {
         .frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)
         .accessibilityIdentifier("recipe-covers.photo-picker")
         .onChange(of: selectedCoverPhotoItem) { _, item in
-            Task { @MainActor in
-                await stageSelectedCoverPhoto(item)
-            }
+            beginStagingSelectedCoverPhoto(item)
         }
 
         if hasStagedPhoto {
@@ -716,24 +719,45 @@ struct RecipeCoverControlsView: View {
         return trimmed.isEmpty ? nil : trimmed
     }
 
-    @MainActor private func stageSelectedCoverPhoto(_ item: PhotosPickerItem?) async {
+    @MainActor private func beginStagingSelectedCoverPhoto(_ item: PhotosPickerItem?) {
+        photoStagingTask?.cancel()
+        let token = photoSelectionSession.beginSelection()
+        photoStagingTask = Task { @MainActor in
+            await stageSelectedCoverPhoto(item, token: token)
+        }
+    }
+
+    @MainActor private func stageSelectedCoverPhoto(
+        _ item: PhotosPickerItem?,
+        token: RecipeCoverPhotoSelectionSession.Token
+    ) async {
+        defer {
+            if photoSelectionSession.accepts(token) {
+                photoStagingTask = nil
+            }
+        }
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
         guard let item else {
+            guard photoSelectionSession.accepts(token), !Task.isCancelled else { return }
             let result = policy.cancel(existing: stagedCoverPhoto)
             stagedCoverPhoto = result.stagedPhoto
             return
         }
 
         guard let (contentType, fileExtension) = item.supportedContentTypes.compactMap(Self.supportedCoverPhotoContentType).first else {
-            rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(.unsupportedContentType(item.supportedContentTypes.first?.preferredMIMEType ?? "unknown")))
+            rejectSelectedCoverPhoto(
+                Self.photoStagingRejectionMessage(.unsupportedContentType(item.supportedContentTypes.first?.preferredMIMEType ?? "unknown")),
+                token: token
+            )
             return
         }
 
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else {
-                rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(.emptyData))
+                rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(.emptyData), token: token)
                 return
             }
+            guard photoSelectionSession.accepts(token), !Task.isCancelled else { return }
             let candidate = NativeStagedMediaUpload(
                 localStageID: "cover-photo-\(UUID().uuidString)",
                 fileName: "cover.\(fileExtension)",
@@ -745,26 +769,40 @@ struct RecipeCoverControlsView: View {
                 candidate: candidate,
                 existingUsage: stagedMediaUsage
             )
+            guard photoSelectionSession.accepts(token), !Task.isCancelled else { return }
             if let rejection = result.rejection {
-                rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(rejection))
+                rejectSelectedCoverPhoto(Self.photoStagingRejectionMessage(rejection), token: token)
                 return
             }
             stagedCoverPhoto = result.stagedPhoto
             actionError = nil
+        } catch is CancellationError {
+            return
         } catch {
-            rejectSelectedCoverPhoto("Photo could not be loaded.")
+            rejectSelectedCoverPhoto("Photo could not be loaded.", token: token)
         }
     }
 
-    @MainActor private func rejectSelectedCoverPhoto(_ message: String) {
+    @MainActor private func rejectSelectedCoverPhoto(
+        _ message: String,
+        token: RecipeCoverPhotoSelectionSession.Token
+    ) {
+        guard photoSelectionSession.accepts(token), !Task.isCancelled else { return }
         selectedCoverPhotoItem = nil
         actionError = message
     }
 
     @MainActor private func clearSelectedCoverPhoto() {
+        invalidatePhotoStaging()
         selectedCoverPhotoItem = nil
         stagedCoverPhoto = nil
         actionError = nil
+    }
+
+    @MainActor private func invalidatePhotoStaging() {
+        photoStagingTask?.cancel()
+        photoStagingTask = nil
+        photoSelectionSession.invalidate()
     }
 
     private static func supportedCoverPhotoContentType(_ contentType: UTType) -> (String, String)? {
