@@ -94,6 +94,31 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     assert_includes stdout, "native screenshot provenance verified"
   end
 
+  def test_build_attests_optional_ios_simulator_deployment_override
+    stdout, stderr, status = run_tool(
+      "build",
+      *build_arguments,
+      environment: { "SPOONJOY_SCREENSHOT_IOS_DEPLOYMENT_TARGET" => "26.4" }
+    )
+
+    assert status.success?, "build failed\nSTDOUT:\n#{stdout}\nSTDERR:\n#{stderr}"
+    manifest = JSON.parse(Pathname.new(stdout.lines.last.to_s.strip).read)
+    assert_includes manifest.dig("builds", "ios", "xcodebuildArguments"), "IPHONEOS_DEPLOYMENT_TARGET=26.4"
+    refute_includes manifest.dig("builds", "macos", "xcodebuildArguments"), "IPHONEOS_DEPLOYMENT_TARGET=26.4"
+  end
+
+  def test_build_rejects_invalid_ios_simulator_deployment_override
+    _stdout, stderr, status = run_tool(
+      "build",
+      *build_arguments,
+      environment: { "SPOONJOY_SCREENSHOT_IOS_DEPLOYMENT_TARGET" => "26.4 OTHER_SETTING=YES" }
+    )
+
+    refute status.success?
+    assert_includes stderr, "invalid iOS simulator deployment target override"
+    refute @build_log.exist?
+  end
+
   def test_build_rejects_dirty_tracked_source
     @repository.join("README.md").write("dirty\n")
 
@@ -501,12 +526,12 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     run_tool("verify", *arguments)
   end
 
-  def run_tool(*arguments)
+  def run_tool(*arguments, environment: {})
     Open3.capture3(
       {
         "PATH" => "#{@bin}:#{ENV.fetch("PATH")}",
         "FAKE_XCODEBUILD_LOG" => @build_log.to_s
-      },
+      }.merge(environment),
       "ruby",
       SCRIPT.to_s,
       *arguments

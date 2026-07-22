@@ -63,6 +63,10 @@ module NativeScreenshotProvenance
     build_uuid = validated_identifier(options.fetch(:build_uuid, SecureRandom.uuid), "build UUID")
     timeout_seconds = Integer(options.fetch(:timeout_seconds))
     raise Error, "timeout must be positive" unless timeout_seconds.positive?
+    ios_deployment_target = ENV.fetch("SPOONJOY_SCREENSHOT_IOS_DEPLOYMENT_TARGET", "").strip
+    unless ios_deployment_target.empty? || ios_deployment_target.match?(/\A\d+\.\d+(?:\.\d+)?\z/)
+      raise Error, "invalid iOS simulator deployment target override"
+    end
 
     assert_git_repository!(repo_root)
     assert_clean_source!(repo_root)
@@ -106,7 +110,8 @@ module NativeScreenshotProvenance
         log_path: apple_dir.join("#{unit_slug}-shared-ios-xcodebuild.log"),
         timeout_seconds: timeout_seconds,
         action: "build-for-testing",
-        ui_test_runner_relative_path: "Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyUITests-Runner.app"
+        ui_test_runner_relative_path: "Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyUITests-Runner.app",
+        build_settings: ios_deployment_target.empty? ? [] : ["IPHONEOS_DEPLOYMENT_TARGET=#{ios_deployment_target}"]
       ),
       "macos" => build_platform(
         platform: "macos",
@@ -118,7 +123,8 @@ module NativeScreenshotProvenance
         destination: "generic/platform=macOS",
         log_path: apple_dir.join("#{unit_slug}-shared-macos-xcodebuild.log"),
         timeout_seconds: timeout_seconds,
-        action: "build"
+        action: "build",
+        build_settings: []
       )
     }
 
@@ -229,7 +235,8 @@ module NativeScreenshotProvenance
     log_path:,
     timeout_seconds:,
     action:,
-    ui_test_runner_relative_path: nil
+    ui_test_runner_relative_path: nil,
+    build_settings:
   )
     derived_data = build_root.join(derived_data_name)
     arguments = [
@@ -240,6 +247,7 @@ module NativeScreenshotProvenance
       "-derivedDataPath", derived_data.to_s,
       "CODE_SIGNING_ALLOWED=NO",
       "GCC_TREAT_WARNINGS_AS_ERRORS=YES",
+      *build_settings,
       action
     ]
     run_with_timeout!(
