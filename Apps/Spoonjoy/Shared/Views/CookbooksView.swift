@@ -451,8 +451,6 @@ struct CookbookShelf: View {
                                     }
                                 }
                             }
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityAddTraits(.isButton)
                             .accessibilityIdentifier("kitchen.cookbook.\(row.id)")
                             .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
                             .accessibilityHint("Opens cookbook")
