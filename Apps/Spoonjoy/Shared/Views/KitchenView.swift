@@ -7,6 +7,7 @@ struct KitchenView: View {
     let recipes: [Recipe]
     let cookbooks: [Cookbook]
     let ownerUsername: String?
+    let openRoute: (AppRoute) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -62,7 +63,7 @@ struct KitchenView: View {
             }
 
             if !cookbooks.isEmpty {
-                CookbookShelf(cookbooks: cookbooks)
+                CookbookShelf(cookbooks: cookbooks, openRoute: openRoute)
             }
         }
     }

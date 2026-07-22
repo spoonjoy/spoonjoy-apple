@@ -413,13 +413,16 @@ private struct CookbookCreateSheet: View {
 
 struct CookbookShelf: View {
     let rows: [CookbookSurfaceRowViewModel]
+    let openRoute: (AppRoute) -> Void
 
-    init(rows: [CookbookSurfaceRowViewModel]) {
+    init(rows: [CookbookSurfaceRowViewModel], openRoute: @escaping (AppRoute) -> Void) {
         self.rows = rows
+        self.openRoute = openRoute
     }
 
-    init(cookbooks: [Cookbook]) {
+    init(cookbooks: [Cookbook], openRoute: @escaping (AppRoute) -> Void) {
         rows = cookbooks.map { CookbookSurfaceRowViewModel(summary: CookbookSummary(cookbook: $0)) }
+        self.openRoute = openRoute
     }
 
     var body: some View {
@@ -434,7 +437,9 @@ struct CookbookShelf: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(alignment: .top, spacing: 14) {
                         ForEach(rows) { row in
-                            NavigationLink(value: row.openRoute) {
+                            Button {
+                                openRoute(row.openRoute)
+                            } label: {
                                 CookbookCoverArt(row: row)
                                     .frame(width: 144)
                             }

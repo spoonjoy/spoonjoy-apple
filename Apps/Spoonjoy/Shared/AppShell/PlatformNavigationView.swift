@@ -520,7 +520,8 @@ struct PlatformNavigationView: View {
                 kitchen: contentState.kitchen,
                 recipes: contentState.recipes,
                 cookbooks: contentState.cookbooks,
-                ownerUsername: currentKitchenOwnerUsername
+                ownerUsername: currentKitchenOwnerUsername,
+                openRoute: openRoute
             )
         case .recipes:
             RecipesView(viewModel: myRecipesCatalogViewModel)

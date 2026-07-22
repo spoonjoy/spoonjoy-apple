@@ -26,6 +26,7 @@ struct KitchenRecipesStructureContractTests {
                 "recipe.id != leadRecipe.id",
                 "RecipeIndex(recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
+                "openRoute: openRoute",
                 "countLabel(kitchen.counts.recipes",
                 "countLabel(kitchen.counts.cookbooks",
                 "aspectRatio(16 / 10, contentMode: .fit)",
@@ -57,6 +58,7 @@ struct KitchenRecipesStructureContractTests {
             in: navigationPath,
             contains: [
                 "ownerUsername: currentKitchenOwnerUsername",
+                "openRoute: openRoute",
                 "contentState.cachedProfiles.first(where: { $0.profile.id == currentChefID })?.profile.username"
             ],
             forbids: ["recipes.first?.chef.username"]
