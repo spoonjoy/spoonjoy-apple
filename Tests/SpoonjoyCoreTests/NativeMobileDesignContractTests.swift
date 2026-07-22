@@ -83,7 +83,9 @@ struct NativeMobileDesignContractTests {
             in: themePath,
             contains: [
                 "static let compactTabBarContentInset: CGFloat = 148",
-                ".scrollEdgeEffectStyle(.hard, for: .bottom)"
+                ".scrollEdgeEffectStyle(.hard, for: .bottom)",
+                "@Environment(\\.dynamicTypeSize) private var dynamicTypeSize",
+                ".padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 11)"
             ],
             forbids: [
                 "static let compactTabBarBackdropHeight"
@@ -127,7 +129,7 @@ struct NativeMobileDesignContractTests {
                 "title: \"Open Recipe\""
             ]
         )
-        #expect(kitchen.components(separatedBy: ".dynamicTypeSize(accessibilityPresentationRange)").count - 1 == 2)
+        #expect(kitchen.components(separatedBy: ".dynamicTypeSize(accessibilityPresentationRange)").count - 1 == 1)
     }
 
     @Test("authored headers adapt without duplicate accessibility text trees")

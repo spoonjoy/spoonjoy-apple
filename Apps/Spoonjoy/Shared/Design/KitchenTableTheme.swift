@@ -472,13 +472,15 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
 
     let prominence: Prominence
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.vertical, 11)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 11)
             .padding(.horizontal, 14)
             .foregroundStyle(foreground)
             .background(background(configuration: configuration), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))

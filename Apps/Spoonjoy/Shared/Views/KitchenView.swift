@@ -361,7 +361,6 @@ struct RecipeLead: View {
             Label(title, systemImage: systemImage)
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: prominence))
-        .dynamicTypeSize(accessibilityPresentationRange)
     }
 }
 
