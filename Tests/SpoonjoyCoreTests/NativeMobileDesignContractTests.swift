@@ -793,6 +793,33 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("recipe editor cancels and identity-gates late submissions")
+    func recipeEditorCancelsAndIdentityGatesLateSubmissions() throws {
+        let editorPath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let editor = uncommentedSwift(try readRepoFile(editorPath))
+
+        expectContent(
+            editor,
+            in: editorPath,
+            contains: [
+                "@State private var submissionTask: Task<Void, Never>?",
+                "@State private var activeSubmissionID: UUID?",
+                "startSave()",
+                "startDelete()",
+                "startSubmission(",
+                "cancelSubmission()",
+                "submissionTask?.cancel()",
+                "guard activeSubmissionID == submissionID, !Task.isCancelled else",
+                "await plan(actions, submissionID: submissionID)"
+            ],
+            forbids: [
+                "Task {\n                            await save()",
+                "Task {\n                await save()",
+                "Task {\n                    await deleteRecipe()"
+            ]
+        )
+    }
+
     @Test("recipe editor owns a real macOS scroll viewport")
     func recipeEditorOwnsARealMacOSScrollViewport() throws {
         let editorPath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
