@@ -81,6 +81,7 @@ struct KitchenTablePage<Content: View>: View {
 
 struct KitchenTableHeader<Trailing: View>: View {
     @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let eyebrow: String
     let title: String
@@ -114,7 +115,9 @@ struct KitchenTableHeader<Trailing: View>: View {
             Text(eyebrow.uppercased())
                 .font(.caption2)
                 .fontWeight(.bold)
-                .foregroundStyle(KitchenTableTheme.brass)
+                .foregroundStyle(
+                    dynamicTypeSize.isAccessibilitySize ? KitchenTableTheme.charcoal : KitchenTableTheme.brass
+                )
                 .accessibilityHidden(true)
                 .fixedSize(horizontal: false, vertical: true)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {

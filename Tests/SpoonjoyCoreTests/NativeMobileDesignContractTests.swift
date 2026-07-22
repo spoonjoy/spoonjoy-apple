@@ -140,11 +140,13 @@ struct NativeMobileDesignContractTests {
             header,
             in: themePath,
             contains: [
+                "@Environment(\\.dynamicTypeSize)",
                 "KitchenTableHeaderLayout()",
                 "titleStack",
                 "trailing()",
                 ".font(.caption2)",
                 ".fontWeight(.bold)",
+                "dynamicTypeSize.isAccessibilitySize ? KitchenTableTheme.charcoal : KitchenTableTheme.brass",
                 ".accessibilityHidden(true)",
                 ".fixedSize(horizontal: false, vertical: true)"
             ],
