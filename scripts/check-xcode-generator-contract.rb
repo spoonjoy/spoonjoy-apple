@@ -125,6 +125,77 @@ matrix = ROOT.join("scripts/validate-native-local.sh").read
   fail_check("native workflow missing #{token}") unless workflow.include?(token)
 end
 fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep")
+
+visual_job_match = workflow.match(/^  native-visual-evidence:\n(?<body>.*?)(?=^  [a-z0-9-]+:\n|\z)/m)
+fail_check("native workflow missing native-visual-evidence job") unless visual_job_match
+visual_job = visual_job_match[:body]
+fail_check("native workflow must expose Native visual evidence to pull requests") unless workflow.match?(/^on:\n  pull_request:\s*$/)
+fail_check("Native visual evidence must execute unconditionally for every workflow event") if visual_job.match?(/^    if:/)
+[
+  "ref: ${{ github.sha }}",
+  "scripts/capture-native-screenshot-matrix.sh",
+  "--require-full-matrix",
+  'source_tree="$(git rev-parse "${GITHUB_SHA}^{tree}")"',
+  '--source-sha "$GITHUB_SHA"',
+  '--source-tree "$source_tree"',
+  '--workflow-run-id "$GITHUB_RUN_ID"',
+  '--workflow-run-attempt "$GITHUB_RUN_ATTEMPT"',
+  '--workflow-job "native-visual-evidence"'
+].each do |token|
+  fail_check("Native visual evidence missing exact-source token #{token}") unless visual_job.include?(token)
+end
+
+diagnostic_tokens = [
+  "Run non-release macOS window diagnostic",
+  'macos_destination="platform=macOS,arch=$(uname -m)"',
+  'diagnostic_root="$(mktemp -d "$RUNNER_TEMP/macos-window-diagnostic-non-release.XXXXXX")"',
+  'SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=kitchen',
+  'SPOONJOY_SCREENSHOT_AUTH=0',
+  "xcodebuild test",
+  '-scheme "Spoonjoy macOS Window Diagnostics"',
+  '-destination "$macos_destination"',
+  '-only-testing:SpoonjoyMacWindowDiagnosticUITests/NativeMacWindowDiagnosticTests/testExplicitRouteWindowDiagnostic',
+  '-resultBundlePath "$diagnostic_root/result.xcresult"',
+  'ruby scripts/fail-on-warning.rb --log "$diagnostic_log"'
+]
+diagnostic_tokens.each do |token|
+  fail_check("Native visual evidence missing non-release macOS diagnostic token #{token}") unless visual_job.include?(token)
+end
+fail_check("macOS diagnostic must use a concrete host destination") if visual_job.include?("-destination 'generic/platform=macOS'")
+diagnostic_index = visual_job.index("Run non-release macOS window diagnostic")
+capture_index = visual_job.index("Capture the complete native screenshot matrix")
+seal_index = visual_job.index("Seal exact-run visual evidence")
+unless diagnostic_index && capture_index && seal_index && diagnostic_index < capture_index && capture_index < seal_index
+  fail_check("non-release macOS diagnostic, full matrix capture, and release evidence sealing must remain explicitly ordered")
+end
+if visual_job.include?('$RUNNER_TEMP/native-visual-matrix/macos-window-diagnostic-non-release')
+  fail_check("non-release macOS diagnostic result must remain outside the sealed visual matrix")
+end
+fail_check("macOS diagnostic must not delete or reuse a fixed result bundle") if visual_job.include?("rm -rf")
+
+scenario_contracts_match = workflow.match(/^  native-scenario-contracts:\n(?<body>.*?)(?=^  [a-z0-9-]+:\n|\z)/m)
+fail_check("native workflow missing the executable native-scenario-contracts job") unless scenario_contracts_match
+scenario_contracts_job = scenario_contracts_match[:body]
+fail_check("native scenario contracts job has the wrong check name") unless scenario_contracts_job.include?("name: Native scenario contracts")
+fail_check("Native visual evidence must depend on native scenario contracts") unless visual_job.match?(/^    needs:\n(?:      - [^\n]+\n)*      - native-scenario-contracts$/)
+fail_check("Native visual evidence must not depend on its required result gate") if visual_job.include?("- native-scenario-verifier")
+
+scenario_gate_match = workflow.match(/^  native-scenario-verifier:\n(?<body>.*?)(?=^  [a-z0-9-]+:\n|\z)/m)
+fail_check("native workflow missing the required native-scenario-verifier result gate") unless scenario_gate_match
+scenario_gate = scenario_gate_match[:body]
+[
+  "name: Native scenario verifier",
+  'if: ${{ always() }}',
+  "- native-scenario-contracts",
+  "- native-visual-evidence",
+  'SCENARIO_CONTRACT_RESULT: ${{ needs.native-scenario-contracts.result }}',
+  'VISUAL_EVIDENCE_RESULT: ${{ needs.native-visual-evidence.result }}',
+  '[[ "$SCENARIO_CONTRACT_RESULT" == "success" ]]',
+  '[[ "$VISUAL_EVIDENCE_RESULT" == "success" ]]'
+].each do |token|
+  fail_check("required Native scenario verifier gate missing #{token}") unless scenario_gate.include?(token)
+end
+
 generic_mac_test = /xcodebuild\s+test[^\n]*-scheme\s+"Spoonjoy macOS"[^\n]*-destination\s+'generic\/platform=macOS'/
 fail_check("native workflow must build, not test, the app-only macOS scheme at a generic destination") if workflow.match?(generic_mac_test)
 generic_mac_build = /xcodebuild\s+build[^\n]*-scheme\s+"Spoonjoy macOS"[^\n]*-destination\s+'generic\/platform=macOS'/

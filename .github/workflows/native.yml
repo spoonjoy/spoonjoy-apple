@@ -102,8 +102,8 @@ jobs:
             2>&1 | tee "$ui_geometry_log"
           ruby scripts/fail-on-warning.rb --log "$ui_geometry_log"
 
-  native-scenario-verifier:
-    name: Native scenario verifier
+  native-scenario-contracts:
+    name: Native scenario contracts
     runs-on: macos-26
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -255,11 +255,10 @@ jobs:
 
   native-visual-evidence:
     name: Native visual evidence
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - ruby-advisory-scan
       - swift-tests
-      - native-scenario-verifier
+      - native-scenario-contracts
       - app-bundle
       - coverage
     runs-on: macos-26
@@ -283,6 +282,27 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
+
+      - name: Run non-release macOS window diagnostic
+        run: |
+          set -euo pipefail
+          macos_destination="platform=macOS,arch=$(uname -m)"
+          diagnostic_root="$(mktemp -d "$RUNNER_TEMP/macos-window-diagnostic-non-release.XXXXXX")"
+          diagnostic_log="$diagnostic_root/test.log"
+          echo "Running diagnostic-only macOS UI coverage; this result is not release accessibility evidence."
+          SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=kitchen \
+          SPOONJOY_SCREENSHOT_AUTH=0 \
+          xcodebuild test \
+            -project Spoonjoy.xcodeproj \
+            -scheme "Spoonjoy macOS Window Diagnostics" \
+            -configuration BootstrapDebug \
+            -destination "$macos_destination" \
+            -only-testing:SpoonjoyMacWindowDiagnosticUITests/NativeMacWindowDiagnosticTests/testExplicitRouteWindowDiagnostic \
+            -resultBundlePath "$diagnostic_root/result.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            2>&1 | tee "$diagnostic_log"
+          ruby scripts/fail-on-warning.rb --log "$diagnostic_log"
 
       - name: Capture the complete native screenshot matrix
         run: |
@@ -355,6 +375,30 @@ jobs:
           fi
           echo "artifact-id=$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
           echo "artifact-digest=$normalized_digest" >> "$GITHUB_OUTPUT"
+
+  native-scenario-verifier:
+    name: Native scenario verifier
+    if: ${{ always() }}
+    needs:
+      - native-scenario-contracts
+      - native-visual-evidence
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Enforce required Native scenario and visual results
+        env:
+          SCENARIO_CONTRACT_RESULT: ${{ needs.native-scenario-contracts.result }}
+          VISUAL_EVIDENCE_RESULT: ${{ needs.native-visual-evidence.result }}
+        run: |
+          set -euo pipefail
+          [[ "$SCENARIO_CONTRACT_RESULT" == "success" ]] || {
+            echo "Native scenario contracts did not succeed: $SCENARIO_CONTRACT_RESULT" >&2
+            exit 1
+          }
+          [[ "$VISUAL_EVIDENCE_RESULT" == "success" ]] || {
+            echo "Native visual evidence did not succeed: $VISUAL_EVIDENCE_RESULT" >&2
+            exit 1
+          }
 
   testflight-release-note:
     name: TestFlight release note

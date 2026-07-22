@@ -11,6 +11,7 @@ require "tmpdir"
 class NativeScreenshotProvenanceTest < Minitest::Test
   SCRIPT = Pathname.new(__dir__).join("../native-screenshot-provenance.rb").expand_path
   MATRIX_SCRIPT = Pathname.new(__dir__).join("../capture-native-screenshot-matrix.sh").expand_path
+  TRANSITION_SCRIPT = Pathname.new(__dir__).join("../capture-native-transition-evidence.sh").expand_path
   SHA_PATTERN = /\A[0-9a-f]{40}\z/
   DIGEST_PATTERN = /\A[0-9a-f]{64}\z/
 
@@ -312,6 +313,18 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     assert_includes summary.fetch("missingScreenshotRoutes"), "kitchen"
   end
 
+  def test_matrix_fails_closed_when_transition_evidence_helper_is_missing
+    FileUtils.rm_f(@repository.join("scripts/capture-native-transition-evidence.sh"))
+
+    _stdout, _stderr, status = run_matrix(matrix_run_uuid: "matrix-run-missing-transition-helper")
+
+    refute status.success?
+    refute capture_marker.exist?
+    summary = JSON.parse(@artifact_root.join("apple/unit-route-matrix.json").read)
+    assert_equal false, summary.fetch("ok")
+    assert_equal false, summary.fetch("transitionEvidenceValidated")
+  end
+
   private
 
   def write_fixture_repository
@@ -320,6 +333,7 @@ class NativeScreenshotProvenanceTest < Minitest::Test
     @repository.join("README.md").write("fixture\n")
     @repository.join("scripts").mkpath
     FileUtils.cp(MATRIX_SCRIPT, @repository.join("scripts/capture-native-screenshot-matrix.sh"))
+    FileUtils.cp(TRANSITION_SCRIPT, @repository.join("scripts/capture-native-transition-evidence.sh"))
     FileUtils.cp(SCRIPT, @repository.join("scripts/native-screenshot-provenance.rb")) if SCRIPT.file?
     write_executable(@repository.join("scripts/capture-native-screenshots.sh"), <<~'SH')
       #!/usr/bin/env bash
@@ -431,6 +445,12 @@ class NativeScreenshotProvenanceTest < Minitest::Test
         "--sdk macosx --show-sdk-version") printf '27.0\n' ;;
         *) exit 2 ;;
       esac
+    SH
+    write_executable(@bin.join("swift"), <<~'SH')
+      #!/usr/bin/env bash
+      set -euo pipefail
+      [[ "${1:-}" == "test" ]] || exit 2
+      printf 'fixture transition tests passed\n'
     SH
   end
 
