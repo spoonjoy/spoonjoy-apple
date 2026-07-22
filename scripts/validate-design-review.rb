@@ -487,12 +487,14 @@ def validate_readiness_handshake!(evidence_path, handshake, readiness_binding, r
   fail_check("#{evidence_path} #{capture_phase} readinessHandshake must be an object") unless handshake.is_a?(Hash)
   readiness = readiness_binding.fetch(:proof)
   generation = readiness["readinessGeneration"]
+  observer_suffix = readiness["observedDynamicTypeSize"] == "large" ? readiness["platform"] : "#{readiness["platform"]}-ax"
+  proof_filename = "native-accessibility-proof.observer-#{observer_suffix}-#{readiness["captureRunNonce"]}.generation-#{generation}.json"
   expected = {
     "captureRunNonce" => readiness["captureRunNonce"],
     "route" => route,
     "source" => readiness["source"],
     "readinessGeneration" => generation,
-    "proofFileName" => "native-accessibility-proof.generation-#{generation}.json",
+    "proofFileName" => proof_filename,
     "proofSHA256" => readiness_binding.fetch(:sha256)
   }
   expected.each do |field, value|

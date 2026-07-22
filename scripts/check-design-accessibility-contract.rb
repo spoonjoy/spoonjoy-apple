@@ -83,12 +83,14 @@ end
 
 def readiness_handshake(platform, dynamic_type:, capture_phase:)
   generation = readiness_generation(platform, dynamic_type: dynamic_type, capture_phase: capture_phase)
+  observer_suffix = dynamic_type == "large" ? platform : "#{platform}-ax"
+  capture_run_nonce = CAPTURE_RUN_NONCES.fetch([platform, dynamic_type])
   {
-    "captureRunNonce" => CAPTURE_RUN_NONCES.fetch([platform, dynamic_type]),
+    "captureRunNonce" => capture_run_nonce,
     "route" => "kitchen",
     "source" => "KitchenView",
     "readinessGeneration" => generation,
-    "proofFileName" => "native-accessibility-proof.generation-#{generation}.json",
+    "proofFileName" => "native-accessibility-proof.observer-#{observer_suffix}-#{capture_run_nonce}.generation-#{generation}.json",
     "proofSHA256" => Digest::SHA256.hexdigest(
       readiness_proof_bytes(platform, dynamic_type: dynamic_type, capture_phase: capture_phase)
     )

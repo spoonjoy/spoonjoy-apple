@@ -653,12 +653,14 @@ def add_accessibility_proofs!(root, manifest, stem)
         "isSettled" => true
       }
     ) + "\n")
+    observer_suffix = dynamic_type == "large" ? platform : "#{platform}-ax"
+    runtime_proof_stem = "native-accessibility-proof.observer-#{observer_suffix}-#{capture_run_nonce}"
     readiness_bindings[[platform, dynamic_type]] = {
       "captureRunNonce" => capture_run_nonce,
       "route" => route,
       "source" => accessibility_source(route),
       "readinessGeneration" => readiness_generation,
-      "proofFileName" => "native-accessibility-proof.generation-#{readiness_generation}.json",
+      "proofFileName" => "#{runtime_proof_stem}.generation-#{readiness_generation}.json",
       "proofSHA256" => Digest::SHA256.file(proof_path).hexdigest
     }
   end
@@ -668,6 +670,8 @@ def add_accessibility_proofs!(root, manifest, stem)
     manifest["deepScrollAccessibilityProofArtifacts"] = []
     proof_variants.reject { |_, platform, _, _, _| platform == "macos" }.each do |relative_path, platform, dynamic_type, capture_run_nonce, readiness_generation|
       deep_generation = readiness_generation + 1
+      observer_suffix = dynamic_type == "large" ? platform : "#{platform}-ax"
+      runtime_proof_stem = "native-accessibility-proof.observer-#{observer_suffix}-#{capture_run_nonce}"
       deep_relative_path = relative_path.sub(/\.json\z/, "-deep-scroll.json")
       initial_payload = JSON.parse(root.join(relative_path).read)
       initial_payload["readinessGeneration"] = deep_generation
@@ -680,7 +684,7 @@ def add_accessibility_proofs!(root, manifest, stem)
         "route" => route,
         "source" => accessibility_source(route),
         "readinessGeneration" => deep_generation,
-        "proofFileName" => "native-accessibility-proof.generation-#{deep_generation}.json",
+        "proofFileName" => "#{runtime_proof_stem}.generation-#{deep_generation}.json",
         "proofSHA256" => Digest::SHA256.file(deep_path).hexdigest
       }
     end
@@ -1184,6 +1188,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
   missing_deep_readiness_proof_manifest = valid_manifest.dup
   cross_run_deep_readiness_proof_manifest = valid_manifest.dup
   cross_run_deep_readiness_handshake_manifest = valid_manifest.dup
+  stale_generic_readiness_filename_manifest = valid_manifest.dup
   false_with_blocker = false_without_blocker.merge(
     "blockers" => [
       {
@@ -1242,6 +1247,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "missing-deep-readiness-proof.json" => [missing_deep_readiness_proof_manifest, false, "missing deep-scroll readiness proof"],
     "cross-run-deep-readiness-proof.json" => [cross_run_deep_readiness_proof_manifest, false, "cross-run deep-scroll readiness proof substitution"],
     "cross-run-deep-readiness-handshake.json" => [cross_run_deep_readiness_handshake_manifest, false, "cross-run deep-scroll readiness handshake substitution"],
+    "stale-generic-readiness-filename.json" => [stale_generic_readiness_filename_manifest, false, "stale generic readiness filename substitution"],
     "false-without-blocker.json" => [false_without_blocker, false, "false field without blocker"],
     "false-with-blocker.json" => [false_with_blocker, false, "legacy inline screenshot blocker"],
     "desktop-false-with-ios-blocker.json" => [desktop_false_with_only_ios_blocker, false, "desktop false field with unrelated iOS blocker"],
@@ -1281,6 +1287,12 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
       ios_observed = JSON.parse(ios_observed_path.read)
       ios_ax_observed = JSON.parse(ios_ax_observed_path.read)
       ios_observed.fetch("deepScroll")["readinessHandshake"] = ios_ax_observed.fetch("deepScroll").fetch("readinessHandshake")
+      ios_observed_path.write(JSON.pretty_generate(ios_observed) + "\n")
+    elsif filename == "stale-generic-readiness-filename.json"
+      ios_observed_path = temp_root.join("apple/stale-generic-readiness-filename-observed-accessibility-ios.json")
+      ios_observed = JSON.parse(ios_observed_path.read)
+      generation = ios_observed.fetch("readinessHandshake").fetch("readinessGeneration")
+      ios_observed.fetch("readinessHandshake")["proofFileName"] = "native-accessibility-proof.generation-#{generation}.json"
       ios_observed_path.write(JSON.pretty_generate(ios_observed) + "\n")
     end
     if filename == "missing-macos-deep-scroll.json"
@@ -1905,7 +1917,8 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         identifiers = ["settings.apns.this-device.heading", "settings.apns.push-delivery.heading", "settings.apns.notification-sync.heading"]
     elements = [terminal] + [{"identifier":identifier,"label":identifier,"type":"staticText","frame":{"x":10,"y":10 + index * 20,"width":80,"height":18},"exists":True,"hittable":False,"enabled":True,"focused":None} for index, identifier in enumerate(identifiers)]
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
-    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":1,"proofFileName":"native-accessibility-proof.generation-1.json","proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
+    initial_filename = f"{proof_path.stem}.generation-1{proof_path.suffix or '.json'}"
+    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":1,"proofFileName":initial_filename,"proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
     evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"geometryFindings":[product_finding] if product_finding else [],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","readinessHandshake":initial_handshake,"toolLimitations":[]}
     if args.route in {"kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs", "profile", "profile-graph", "search", "capture", "settings"}:
         deep_proof = dict(proof)
@@ -1913,7 +1926,8 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         deep_proof["readinessGeneration"] = 2
         deep_proof["visualReadiness"]["generation"] = 2
         deep_proof_bytes = (json.dumps(deep_proof, sort_keys=True) + "\n").encode()
-        deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":2,"proofFileName":"native-accessibility-proof.generation-2.json","proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
+        deep_filename = f"{proof_path.stem}.generation-2{proof_path.suffix or '.json'}"
+        deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
         evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}
         deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
         deep_output.write_bytes(deep_proof_bytes)
@@ -3392,13 +3406,15 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     readiness_output.parent.mkdir(parents=True, exist_ok=True)
     readiness_output.write_bytes(proof_bytes)
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
-    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":1,"proofFileName":"native-accessibility-proof.generation-1.json","proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
+    initial_filename = f"{proof_path.stem}.generation-1{proof_path.suffix or '.json'}"
+    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":1,"proofFileName":initial_filename,"proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
     deep_proof = dict(proof)
     deep_proof["visualReadiness"] = dict(proof["visualReadiness"])
     deep_proof["readinessGeneration"] = 2
     deep_proof["visualReadiness"]["generation"] = 2
     deep_proof_bytes = (json.dumps(deep_proof, sort_keys=True) + "\n").encode()
-    deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":2,"proofFileName":"native-accessibility-proof.generation-2.json","proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
+    deep_filename = f"{proof_path.stem}.generation-2{proof_path.suffix or '.json'}"
+    deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
     evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","readinessHandshake":initial_handshake,"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}}
     deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
     deep_output.write_bytes(deep_proof_bytes)
