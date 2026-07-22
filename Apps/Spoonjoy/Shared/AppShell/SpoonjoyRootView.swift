@@ -496,9 +496,7 @@ struct SpoonjoyRootView: View {
 
     private func applyURL(_ url: URL) {
         let route = router.route(for: url)
-        search.apply(route: route)
-        navigation.navigate(to: route)
-        liveStore.recordingOpenedRoute(route)
+        applyExplicitRoute(route)
     }
 
     private func applySpotlightIdentifier(_ uniqueIdentifier: String) {
@@ -508,15 +506,18 @@ struct SpoonjoyRootView: View {
         } else {
             route = .unknownLink
         }
-        search.apply(route: route)
-        navigation.navigate(to: route)
-        liveStore.recordingOpenedRoute(route)
+        applyExplicitRoute(route)
     }
 
     private func openKitchenFromStandaloneSettings() {
-        search.apply(route: .kitchen)
-        navigation.navigate(to: .kitchen)
-        liveStore.recordingOpenedRoute(.kitchen)
+        applyExplicitRoute(.kitchen)
+    }
+
+    private func applyExplicitRoute(_ route: AppRoute) {
+        hasAppliedRestoredRoute = true
+        search.apply(route: route)
+        navigation.navigate(to: route)
+        liveStore.recordingOpenedRoute(route)
     }
 
     private func applyRestoredRouteIfNeeded() {

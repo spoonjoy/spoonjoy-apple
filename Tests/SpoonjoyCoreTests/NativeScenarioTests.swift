@@ -1059,6 +1059,48 @@ struct NativeScenarioTests {
         ])
     }
 
+    @Test("explicit cold launch routes consume restoration before navigation or persistence")
+    func explicitColdLaunchRoutesConsumeRestorationBeforeNavigationOrPersistence() throws {
+        let source = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift")
+        let urlRoute = try sourceSection(
+            in: source,
+            startingAt: "    private func applyURL(_ url: URL)",
+            endingBefore: "    private func applySpotlightIdentifier(_ uniqueIdentifier: String)"
+        )
+        let spotlightRoute = try sourceSection(
+            in: source,
+            startingAt: "    private func applySpotlightIdentifier(_ uniqueIdentifier: String)",
+            endingBefore: "    private func openKitchenFromStandaloneSettings()"
+        )
+        let standaloneKitchenRoute = try sourceSection(
+            in: source,
+            startingAt: "    private func openKitchenFromStandaloneSettings()",
+            endingBefore: "    private func applyExplicitRoute(_ route: AppRoute)"
+        )
+        let explicitRoute = try sourceSection(
+            in: source,
+            startingAt: "    private func applyExplicitRoute(_ route: AppRoute)",
+            endingBefore: "    private func applyRestoredRouteIfNeeded()"
+        )
+
+        #expect(urlRoute.contains("applyExplicitRoute(route)"))
+        #expect(spotlightRoute.contains("applyExplicitRoute(route)"))
+        #expect(standaloneKitchenRoute.contains("applyExplicitRoute(.kitchen)"))
+        for entryPoint in [urlRoute, spotlightRoute, standaloneKitchenRoute] {
+            #expect(!entryPoint.contains("search.apply(route:"))
+            #expect(!entryPoint.contains("navigation.navigate(to:"))
+            #expect(!entryPoint.contains("recordingOpenedRoute("))
+        }
+
+        let restorationConsumed = try #require(explicitRoute.range(of: "hasAppliedRestoredRoute = true"))
+        let searchApplied = try #require(explicitRoute.range(of: "search.apply(route: route)"))
+        let navigationApplied = try #require(explicitRoute.range(of: "navigation.navigate(to: route)"))
+        let routePersisted = try #require(explicitRoute.range(of: "liveStore.recordingOpenedRoute(route)"))
+        #expect(restorationConsumed.lowerBound < searchApplied.lowerBound)
+        #expect(searchApplied.lowerBound < navigationApplied.lowerBound)
+        #expect(navigationApplied.lowerBound < routePersisted.lowerBound)
+    }
+
     @Test("AASA validation requires app IDs and every deep link route component")
     func aasaValidationRequiresAppIDsAndEveryDeepLinkRouteComponent() throws {
         try withTemporaryDirectory { directory in
@@ -1324,6 +1366,16 @@ struct NativeScenarioTests {
     private func readRepoFile(_ relativePath: String) throws -> String {
         let url = repoURL.appendingPathComponent(relativePath)
         return try String(contentsOf: url, encoding: .utf8)
+    }
+
+    private func sourceSection(
+        in source: String,
+        startingAt startMarker: String,
+        endingBefore endMarker: String
+    ) throws -> Substring {
+        let start = try #require(source.range(of: startMarker)?.lowerBound)
+        let end = try #require(source.range(of: endMarker, range: start..<source.endIndex)?.lowerBound)
+        return source[start..<end]
     }
 
     private func assertSwiftSourceTypechecks(_ relativePath: String) throws {
