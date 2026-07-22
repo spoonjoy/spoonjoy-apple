@@ -1657,9 +1657,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
 
         let maxScrollActions = 12
-        var reachedStableTerminal = terminalWasFullyVisibleInitially
-        var observedContentMovement = false
-        var scrollActionCount = 0
         let initialViewport = contentViewport(windowFrame: windowFrame, elements: initialElements)
         let movementViewport = ObservedRect(windowFrame)
         let initialNamedTerminal = terminalIdentifier.flatMap {
@@ -1668,6 +1665,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let terminalWasFullyVisibleInitially = initialNamedTerminal.map {
             initialViewport.contains($0.frame)
         } == true
+        var reachedStableTerminal = terminalWasFullyVisibleInitially
+        var observedContentMovement = false
+        var scrollActionCount = 0
         let movementCandidates = uniqueMovementCandidates(
             elements: initialElements,
             viewport: movementViewport
@@ -1860,7 +1860,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 let output = URL(fileURLWithPath: configuredPath)
                     .deletingPathExtension()
                     .appendingPathExtension("deep-scroll.json")
-                try? data.write(to: output, options: .atomic)
+                try? data.write(to: output, options: Data.WritingOptions.atomic)
             }
         }
         attachScreenshot(deepScreenshot, name: "deep-scroll-screenshot")
