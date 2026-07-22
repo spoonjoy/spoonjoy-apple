@@ -95,13 +95,17 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
     public let errorType: String?
     public let hasCachedResults: Bool
 
-    public static func started(state: SearchState, hasCachedResults: Bool) -> Self {
+    public static func started(
+        state: SearchState,
+        correlationID: String,
+        hasCachedResults: Bool
+    ) -> Self {
         Self(
             outcome: .started,
             state: state,
             resultCount: nil,
             durationMilliseconds: nil,
-            requestID: nil,
+            requestID: correlationID,
             errorType: nil,
             hasCachedResults: hasCachedResults
         )
@@ -110,15 +114,15 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
     public static func completed(
         state: SearchState,
         page: SearchSurfacePage,
+        correlationID: String,
         durationMilliseconds: Int
     ) -> Self {
-        let requestID: String? = if case .live(let value, _) = page.source { value } else { nil }
         return Self(
             outcome: .completed,
             state: state,
             resultCount: page.results.count,
             durationMilliseconds: durationMilliseconds,
-            requestID: requestID,
+            requestID: correlationID,
             errorType: nil,
             hasCachedResults: false
         )
@@ -127,6 +131,7 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
     public static func failed(
         state: SearchState,
         error: SearchSurfaceRepositoryError,
+        correlationID: String,
         durationMilliseconds: Int,
         hasCachedResults: Bool
     ) -> Self {
@@ -135,7 +140,7 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
             state: state,
             resultCount: nil,
             durationMilliseconds: durationMilliseconds,
-            requestID: nil,
+            requestID: correlationID,
             errorType: sanitizedErrorType(error),
             hasCachedResults: hasCachedResults
         )
@@ -143,6 +148,7 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
 
     public static func cancelled(
         state: SearchState,
+        correlationID: String,
         durationMilliseconds: Int,
         hasCachedResults: Bool
     ) -> Self {
@@ -151,7 +157,7 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
             state: state,
             resultCount: nil,
             durationMilliseconds: durationMilliseconds,
-            requestID: nil,
+            requestID: correlationID,
             errorType: "cancelled",
             hasCachedResults: hasCachedResults
         )
@@ -204,6 +210,97 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
         case .cancelled: "cancelled"
         case .searchFailed: "search_failed"
         }
+    }
+}
+
+public enum NativeSearchTelemetryTerminalCandidate: Equatable, Sendable {
+    case completed(SearchSurfacePage)
+    case failed(SearchSurfaceRepositoryError)
+    case cancelled
+}
+
+public struct NativeSearchTelemetryTerminalDecision: Equatable, Sendable {
+    public let descriptor: NativeSearchTelemetryDescriptor
+    public let shouldApplyResult: Bool
+
+    public static func classify(
+        _ candidate: NativeSearchTelemetryTerminalCandidate,
+        state: SearchState,
+        correlationID: String,
+        durationMilliseconds: Int,
+        hasCachedResults: Bool,
+        isCurrent: Bool
+    ) -> Self {
+        guard isCurrent else {
+            return Self(
+                descriptor: .cancelled(
+                    state: state,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds,
+                    hasCachedResults: hasCachedResults
+                ),
+                shouldApplyResult: false
+            )
+        }
+
+        switch candidate {
+        case .completed(let page):
+            return Self(
+                descriptor: .completed(
+                    state: state,
+                    page: page,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds
+                ),
+                shouldApplyResult: true
+            )
+        case .failed(let error):
+            return Self(
+                descriptor: .failed(
+                    state: state,
+                    error: error,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds,
+                    hasCachedResults: hasCachedResults
+                ),
+                shouldApplyResult: true
+            )
+        case .cancelled:
+            return Self(
+                descriptor: .cancelled(
+                    state: state,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds,
+                    hasCachedResults: hasCachedResults
+                ),
+                shouldApplyResult: false
+            )
+        }
+    }
+}
+
+@MainActor
+public final class NativeSearchTelemetryPipeline {
+    public typealias ReportOperation = @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void
+
+    private let report: ReportOperation
+    private var tail: Task<Void, Never>?
+
+    public init(report: @escaping ReportOperation) {
+        self.report = report
+    }
+
+    public func enqueue(_ descriptor: NativeSearchTelemetryDescriptor) {
+        let predecessor = tail
+        let report = report
+        tail = Task {
+            await predecessor?.value
+            await report(descriptor)
+        }
+    }
+
+    public func flush() async {
+        await tail?.value
     }
 }
 

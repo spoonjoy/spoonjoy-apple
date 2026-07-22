@@ -11,6 +11,7 @@ public struct AppNavigationState: Equatable {
     public private(set) var compactTabSelection: AppSection
     public private(set) var desktopPath: [AppRoute]
     private var compactPaths: [AppSection: [AppRoute]]
+    private var desktopCompactReturnTab: AppSection?
 
     public init(route: AppRoute = .kitchen) {
         self.route = route
@@ -19,6 +20,7 @@ public struct AppNavigationState: Equatable {
         self.compactTabSelection = compactTab
         self.desktopPath = Self.isDesktopRoot(route) ? [] : [route]
         self.compactPaths = [:]
+        self.desktopCompactReturnTab = nil
         if route != Self.compactRootRoute(for: compactTab) {
             compactPaths[compactTab] = [route]
         }
@@ -33,6 +35,7 @@ public struct AppNavigationState: Equatable {
     }
 
     public mutating func navigate(to route: AppRoute) {
+        desktopCompactReturnTab = nil
         let compactTab = Self.preferredCompactTab(for: route)
         compactTabSelection = compactTab
         if route == Self.compactRootRoute(for: compactTab) {
@@ -76,7 +79,19 @@ public struct AppNavigationState: Equatable {
         self.route = route
     }
 
+    public mutating func completeDesktopRoute(returningTo route: AppRoute) {
+        if Self.isDesktopRoot(route) {
+            if let section = route.section {
+                selectSidebar(section)
+            }
+            return
+        }
+        desktopPath = Self.completing(desktopPath, returningTo: route)
+        self.route = route
+    }
+
     public mutating func selectSidebar(_ section: AppSection) {
+        desktopCompactReturnTab = nil
         sidebarSelection = section
         desktopPath = []
         route = Self.desktopRootRoute(for: section)
@@ -109,14 +124,16 @@ public struct AppNavigationState: Equatable {
         switch shell {
         case .compact:
             let activeRoute = desktopPath.last ?? desktopRootRoute
-            let compactTab = Self.preferredCompactTab(for: activeRoute)
+            let compactTab = desktopCompactReturnTab ?? Self.preferredCompactTab(for: activeRoute)
             let activePath = desktopPath.isEmpty && activeRoute != Self.compactRootRoute(for: compactTab)
                 ? [activeRoute]
                 : desktopPath
             compactTabSelection = compactTab
             compactPaths[compactTab] = activePath
+            desktopCompactReturnTab = nil
             updateSelection(for: activeRoute)
         case .desktop:
+            desktopCompactReturnTab = compactTabSelection
             let activePath = compactPath(for: compactTabSelection)
             let activeRoute = activePath.last ?? Self.compactRootRoute(for: compactTabSelection)
             updateSelection(for: activeRoute)
@@ -150,6 +167,22 @@ public struct AppNavigationState: Equatable {
         updateSelection(for: route)
     }
 
+    public mutating func completeCompactRoute(returningTo route: AppRoute) {
+        if let rootTab = Self.compactRootTab(for: route) {
+            compactPaths[compactTabSelection] = []
+            compactTabSelection = rootTab
+            compactPaths[rootTab] = []
+            updateSelection(for: route)
+            return
+        }
+
+        compactPaths[compactTabSelection] = Self.completing(
+            compactPath(for: compactTabSelection),
+            returningTo: route
+        )
+        updateSelection(for: route)
+    }
+
     public mutating func applyDeepLink(_ url: URL, router: DeepLinkRouter = .spoonjoy) {
         navigate(to: router.route(for: url))
     }
@@ -159,6 +192,21 @@ public struct AppNavigationState: Equatable {
         if let section = route.section {
             sidebarSelection = section
         }
+    }
+
+    private static func completing(_ path: [AppRoute], returningTo route: AppRoute) -> [AppRoute] {
+        guard path.last != route else {
+            return path
+        }
+        if path.dropLast().last == route {
+            return Array(path.dropLast())
+        }
+        guard !path.isEmpty else {
+            return [route]
+        }
+        var path = path
+        path[path.index(before: path.endIndex)] = route
+        return path
     }
 
     private static let compactTabSections: Set<AppSection> = [

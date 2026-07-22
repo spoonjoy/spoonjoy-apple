@@ -115,12 +115,13 @@ struct NativeSearchSurfaceTests {
                     "routeOwnsOfflineStatus",
                     "routeKeepsSearchFocus",
                     "searchSurfaceRepositoryHandler(context)",
-                    "recordSearchTelemetryHandler",
+                    "NativeSearchTelemetryPipeline",
                     "NativeSearchTelemetryDescriptor",
                     "reportSearchTelemetry(.started",
-                    "reportSearchTelemetry(.completed",
-                    "reportSearchTelemetry(.cancelled",
-                    "reportSearchTelemetry(.failed",
+                    "reportSearchTerminalTelemetry(",
+                    "NativeSearchTelemetryTerminalDecision.classify",
+                    "isCurrent: canApplySearchResult(identity: identity, state: state)",
+                    "correlationID: telemetryCorrelationID",
                     "SearchSurfaceScopeGrammar.title(for: scope)",
                     "guard allowsLiveEffects else",
                     "isSearchFieldFocused = false"
@@ -224,6 +225,7 @@ struct NativeSearchSurfaceTests {
         let descriptor = NativeSearchTelemetryDescriptor.failed(
             state: state,
             error: .offline,
+            correlationID: "native-search-private-safe",
             durationMilliseconds: 321,
             hasCachedResults: true
         )
@@ -248,14 +250,22 @@ struct NativeSearchSurfaceTests {
     }
 
     @Test("search telemetry covers lifecycle outcomes clamps and sanitized failures")
-    func searchTelemetryCoversLifecycleOutcomesClampsAndSanitizedFailures() {
+    @MainActor
+    func searchTelemetryCoversLifecycleOutcomesClampsAndSanitizedFailures() async {
         let longState = SearchState(query: String(repeating: "x", count: 5_000), scope: .all)
         let metadata = NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.2", buildNumber: "45")
-        let started = NativeSearchTelemetryDescriptor.started(state: longState, hasCachedResults: true)
+        let correlationID = "native-search-telemetry-correlation"
+        let startedDescriptor = NativeSearchTelemetryDescriptor.started(
+            state: longState,
+            correlationID: correlationID,
+            hasCachedResults: true
+        )
+        let started = startedDescriptor
             .telemetryEvent(environment: "production", metadata: metadata)
 
         #expect(started.name == .searchStarted)
         #expect(started.stage == "request_started")
+        #expect(started.requestID == correlationID)
         #expect(started.searchQueryLength == 4_096)
         #expect(started.hasRenderableCacheContent == true)
 
@@ -270,12 +280,13 @@ struct NativeSearchSurfaceTests {
         let completed = NativeSearchTelemetryDescriptor.completed(
             state: SearchState(query: "tomato", scope: .recipes),
             page: livePage,
+            correlationID: correlationID,
             durationMilliseconds: -12
         ).telemetryEvent(environment: "production", metadata: metadata)
 
         #expect(completed.name == .searchCompleted)
         #expect(completed.stage == "request_completed")
-        #expect(completed.requestID == "req_search_complete")
+        #expect(completed.requestID == correlationID)
         #expect(completed.searchResultCount == 1)
         #expect(completed.durationMilliseconds == 0)
 
@@ -290,14 +301,16 @@ struct NativeSearchSurfaceTests {
         let cachedCompletion = NativeSearchTelemetryDescriptor.completed(
             state: SearchState(query: "tomato", scope: .recipes),
             page: cachedPage,
+            correlationID: correlationID,
             durationMilliseconds: 700_000
         ).telemetryEvent(environment: "production", metadata: metadata)
 
-        #expect(cachedCompletion.requestID == nil)
+        #expect(cachedCompletion.requestID == correlationID)
         #expect(cachedCompletion.durationMilliseconds == 600_000)
 
         let cancelled = NativeSearchTelemetryDescriptor.cancelled(
             state: SearchState(query: "private query", scope: .shoppingList),
+            correlationID: correlationID,
             durationMilliseconds: 42,
             hasCachedResults: true
         ).telemetryEvent(environment: "production", metadata: metadata)
@@ -307,6 +320,7 @@ struct NativeSearchSurfaceTests {
         #expect(cancelled.errorType == "cancelled")
         #expect(cancelled.durationMilliseconds == 42)
         #expect(cancelled.hasRenderableCacheContent == true)
+        #expect(cancelled.requestID == correlationID)
 
         let failures: [(SearchSurfaceRepositoryError, String)] = [
             (.authenticationRequired(scope: .shoppingList), "authentication_required"),
@@ -319,12 +333,30 @@ struct NativeSearchSurfaceTests {
             let event = NativeSearchTelemetryDescriptor.failed(
                 state: SearchState(query: "private query", scope: .shoppingList),
                 error: error,
+                correlationID: correlationID,
                 durationMilliseconds: 1,
                 hasCachedResults: false
             ).telemetryEvent(environment: "production", metadata: metadata)
             #expect(event.name == .searchFailed)
             #expect(event.errorType == expectedType)
+            #expect(event.requestID == correlationID)
         }
+
+        let recorder = DelayedSearchTelemetryRecorder()
+        let pipeline = NativeSearchTelemetryPipeline { descriptor in
+            await recorder.record(descriptor)
+        }
+        pipeline.enqueue(startedDescriptor)
+        pipeline.enqueue(.failed(
+            state: longState,
+            error: .offline,
+            correlationID: correlationID,
+            durationMilliseconds: 1,
+            hasCachedResults: false
+        ))
+        await pipeline.flush()
+        #expect(await recorder.outcomes() == [.started, .failed])
+        #expect(await recorder.requestIDs() == [correlationID, correlationID])
 
         let defaultClockLoading = SearchSurfaceViewModel.loading(
             state: SearchState(query: "tomato", scope: .recipes),
@@ -332,6 +364,81 @@ struct NativeSearchSurfaceTests {
             cachedPage: cachedPage
         )
         #expect(defaultClockLoading.offlineIndicator.display.isVisible)
+    }
+
+    @Test("superseded search terminals emit only correlated cancellation")
+    @MainActor
+    func supersededSearchTerminalsEmitOnlyCorrelatedCancellation() async {
+        let state = SearchState(query: "tomato", scope: .recipes)
+        let correlationID = "native-search-superseded"
+        let page = SearchSurfacePage(
+            query: "tomato",
+            scope: .recipes,
+            limit: 20,
+            isAuthenticated: false,
+            results: [Self.recipeResult()],
+            source: .live(requestID: "req_search_superseded", validatedAt: Self.now)
+        )
+        let recorder = DelayedSearchTelemetryRecorder()
+        let pipeline = NativeSearchTelemetryPipeline { descriptor in
+            await recorder.record(descriptor)
+        }
+
+        for candidate in [
+            NativeSearchTelemetryTerminalCandidate.completed(page),
+            .failed(.offline)
+        ] {
+            let decision = NativeSearchTelemetryTerminalDecision.classify(
+                candidate,
+                state: state,
+                correlationID: correlationID,
+                durationMilliseconds: 24,
+                hasCachedResults: true,
+                isCurrent: false
+            )
+            #expect(decision.shouldApplyResult == false)
+            #expect(decision.descriptor.outcome == .cancelled)
+            #expect(decision.descriptor.requestID == correlationID)
+            pipeline.enqueue(decision.descriptor)
+        }
+
+        let currentCompleted = NativeSearchTelemetryTerminalDecision.classify(
+            .completed(page),
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: 24,
+            hasCachedResults: false,
+            isCurrent: true
+        )
+        let currentFailed = NativeSearchTelemetryTerminalDecision.classify(
+            .failed(.offline),
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: 24,
+            hasCachedResults: false,
+            isCurrent: true
+        )
+        let currentCancelled = NativeSearchTelemetryTerminalDecision.classify(
+            .cancelled,
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: 24,
+            hasCachedResults: false,
+            isCurrent: true
+        )
+        #expect(currentCompleted.shouldApplyResult)
+        #expect(currentCompleted.descriptor.outcome == .completed)
+        #expect(currentFailed.shouldApplyResult)
+        #expect(currentFailed.descriptor.outcome == .failed)
+        #expect(currentCancelled.shouldApplyResult == false)
+        #expect(currentCancelled.descriptor.outcome == .cancelled)
+
+        await pipeline.flush()
+        let outcomes = await recorder.outcomes()
+        #expect(outcomes == [.cancelled, .cancelled])
+        #expect(!outcomes.contains(.completed))
+        #expect(!outcomes.contains(.failed))
+        #expect(await recorder.requestIDs() == [correlationID, correlationID])
     }
 
     @Test("live search repository uses API v1 search and gates private shopping-list results")
@@ -1609,6 +1716,25 @@ private struct UnexpectedSearchFailureTransport: SpoonjoyAPITransport {
         decode _: Value.Type
     ) async throws -> APIEnvelope<Value> {
         throw SearchTestError.unexpected
+    }
+}
+
+private actor DelayedSearchTelemetryRecorder {
+    private var descriptors: [NativeSearchTelemetryDescriptor] = []
+
+    func record(_ descriptor: NativeSearchTelemetryDescriptor) async {
+        if descriptor.outcome == .started {
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+        descriptors.append(descriptor)
+    }
+
+    func outcomes() -> [NativeSearchTelemetryOutcome] {
+        descriptors.map(\.outcome)
+    }
+
+    func requestIDs() -> [String?] {
+        descriptors.map(\.requestID)
     }
 }
 

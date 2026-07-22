@@ -48,7 +48,7 @@ struct PlatformNavigationView: View {
     private let recordSpoonCookLogDraftHandler: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     private let recordSearchSurfacePageHandler: @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void
     private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
-    private let recordSearchTelemetryHandler: @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void
+    private let searchTelemetryPipeline: NativeSearchTelemetryPipeline
     private let recordRecipeDetailTelemetryHandler: @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
     private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
@@ -121,7 +121,7 @@ struct PlatformNavigationView: View {
         self.recordSpoonCookLogDraftHandler = recordSpoonCookLogDraft
         self.recordSearchSurfacePageHandler = recordSearchSurfacePage
         self.searchSurfaceRepositoryHandler = searchSurfaceRepository
-        self.recordSearchTelemetryHandler = recordSearchTelemetry
+        self.searchTelemetryPipeline = NativeSearchTelemetryPipeline(report: recordSearchTelemetry)
         self.recordRecipeDetailTelemetryHandler = recordRecipeDetailTelemetry
         self.syncTriggerCoordinator = syncTriggerCoordinator
         self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
@@ -574,7 +574,7 @@ struct PlatformNavigationView: View {
                 shoppingViewModel: shoppingViewModel,
                 performShoppingAction: performShoppingAction,
                 close: {
-                    openRecipe(id)
+                    completeTerminalRoute(returningTo: .recipeDetail(id: id, presentation: .detail))
                 }
             )
         case .recipeEditor(let id):
@@ -584,7 +584,7 @@ struct PlatformNavigationView: View {
                     mutationDidPlan: handleRecipeEditorPlan,
                     mutationsDidQueue: queueMutations,
                     conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
-                    close: openRoute,
+                    close: completeTerminalRoute(returningTo:),
                     shellOfflineIndicatorState: offlineIndicatorState,
                     onDismissOfflineIndicator: dismissOfflineIndicator,
                     toolbarCoordinator: recipeEditorToolbarCoordinator
@@ -603,7 +603,7 @@ struct PlatformNavigationView: View {
                 stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage(queuedMutations: contentState.queuedMutations),
                 performCoverAction: performCoverAction,
                 close: {
-                    openRecipe(id)
+                    completeTerminalRoute(returningTo: .recipeDetail(id: id, presentation: .detail))
                 },
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
@@ -1024,6 +1024,15 @@ struct PlatformNavigationView: View {
         presentRoute(route)
     }
 
+    private func completeTerminalRoute(returningTo route: AppRoute) {
+        isSearchFieldFocused = false
+        if usesCompactMobileShell {
+            navigation.completeCompactRoute(returningTo: route)
+        } else {
+            navigation.completeDesktopRoute(returningTo: route)
+        }
+    }
+
     private func presentRoute(_ route: AppRoute, replacingCurrentRoute: Bool = false) {
         if usesCompactMobileShell {
             if replacingCurrentRoute {
@@ -1075,7 +1084,12 @@ struct PlatformNavigationView: View {
             clearLiveSearchRequestMarker(requestMarker)
         }
         let searchStartedAt = ContinuousClock.now
-        reportSearchTelemetry(.started(state: nextSearch, hasCachedResults: !cachedPage.results.isEmpty))
+        let telemetryCorrelationID = "native-search-\(UUID().uuidString.lowercased())"
+        reportSearchTelemetry(.started(
+            state: nextSearch,
+            correlationID: telemetryCorrelationID,
+            hasCachedResults: !cachedPage.results.isEmpty
+        ))
 
         let context = contentState.searchSurfaceContext
         let repository = searchSurfaceRepositoryHandler(context)
@@ -1083,16 +1097,23 @@ struct PlatformNavigationView: View {
             let page = try await repository.search(
                 request: SearchSurfaceRequest(query: nextSearch.query, scope: nextSearch.scope, limit: 20)
             )
-            reportSearchTelemetry(.completed(
+            let terminalDecision = reportSearchTerminalTelemetry(
+                .completed(page),
                 state: nextSearch,
-                page: page,
-                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt)
-            ))
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
+            guard terminalDecision.shouldApplyResult else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
             }
             try? await recordSearchSurfacePageHandler(page, identity)
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
             activeSearch = ActiveSearchSurfaceState(
                 identity: identity,
                 viewModel: contentState.performSearch(
@@ -1101,21 +1122,26 @@ struct PlatformNavigationView: View {
                 )
             )
         } catch SearchSurfaceRepositoryError.cancelled {
-            reportSearchTelemetry(.cancelled(
+            _ = reportSearchTerminalTelemetry(
+                .cancelled,
                 state: nextSearch,
-                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt),
-                hasCachedResults: !cachedPage.results.isEmpty
-            ))
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
             clearLiveSearchRequestMarker(requestMarker)
             return
         } catch let error as SearchSurfaceRepositoryError {
-            reportSearchTelemetry(.failed(
+            let terminalDecision = reportSearchTerminalTelemetry(
+                .failed(error),
                 state: nextSearch,
-                error: error,
-                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt),
-                hasCachedResults: !cachedPage.results.isEmpty
-            ))
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
+            guard terminalDecision.shouldApplyResult else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
             }
@@ -1129,13 +1155,15 @@ struct PlatformNavigationView: View {
             )
         } catch {
             let searchError = SearchSurfaceRepositoryError.searchFailed(message: String(describing: error))
-            reportSearchTelemetry(.failed(
+            let terminalDecision = reportSearchTerminalTelemetry(
+                .failed(searchError),
                 state: nextSearch,
-                error: searchError,
-                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt),
-                hasCachedResults: !cachedPage.results.isEmpty
-            ))
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
+            guard terminalDecision.shouldApplyResult else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
             }
@@ -1175,9 +1203,27 @@ struct PlatformNavigationView: View {
     }
 
     private func reportSearchTelemetry(_ descriptor: NativeSearchTelemetryDescriptor) {
-        Task {
-            await recordSearchTelemetryHandler(descriptor)
-        }
+        searchTelemetryPipeline.enqueue(descriptor)
+    }
+
+    private func reportSearchTerminalTelemetry(
+        _ candidate: NativeSearchTelemetryTerminalCandidate,
+        state: SearchState,
+        correlationID: String,
+        startedAt: ContinuousClock.Instant,
+        hasCachedResults: Bool,
+        identity: String
+    ) -> NativeSearchTelemetryTerminalDecision {
+        let decision = NativeSearchTelemetryTerminalDecision.classify(
+            candidate,
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: elapsedMilliseconds(since: startedAt),
+            hasCachedResults: hasCachedResults,
+            isCurrent: canApplySearchResult(identity: identity, state: state)
+        )
+        reportSearchTelemetry(decision.descriptor)
+        return decision
     }
 
     private func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Int {

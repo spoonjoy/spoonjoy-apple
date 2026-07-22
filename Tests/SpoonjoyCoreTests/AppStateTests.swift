@@ -179,6 +179,29 @@ struct AppStateTests {
         #expect(navigation.route == .settings)
     }
 
+    @Test("compact shell transitions preserve the originating tab until desktop selection changes it")
+    func shellTransitionsPreserveCompactRouteOwnership() {
+        let kitchenDetail = AppRoute.recipeDetail(id: "recipe_kitchen", presentation: .detail)
+        var navigation = AppNavigationState()
+
+        navigation.pushCompact(kitchenDetail)
+        navigation.synchronizeForShellTransition(to: .desktop)
+        navigation.synchronizeForShellTransition(to: .compact)
+
+        #expect(navigation.compactTabSelection == .kitchen)
+        #expect(navigation.compactPath(for: .kitchen) == [kitchenDetail])
+        #expect(navigation.compactPath(for: .recipes).isEmpty)
+
+        navigation.synchronizeForShellTransition(to: .desktop)
+        navigation.selectSidebar(.recipes)
+        navigation.pushDesktop(kitchenDetail)
+        navigation.synchronizeForShellTransition(to: .compact)
+
+        #expect(navigation.compactTabSelection == .recipes)
+        #expect(navigation.compactPath(for: .recipes) == [kitchenDetail])
+        #expect(navigation.compactPath(for: .kitchen) == [kitchenDetail])
+    }
+
     @Test("compact navigation covers every root invalid sections duplicate pushes and replacement")
     func compactNavigationCoversRootsInvalidSectionsDuplicatePushesAndReplacement() {
         var navigation = AppNavigationState()
@@ -216,6 +239,78 @@ struct AppStateTests {
         navigation.setCompactPath([], for: .recipes)
         navigation.replaceCompactTop(with: detail)
         #expect(navigation.compactPath(for: .recipes) == [detail])
+    }
+
+    @Test("terminal routes close instead of pushing duplicate compact destinations")
+    func terminalRoutesCloseCompactNavigationPaths() {
+        let detail = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+        let editor = AppRoute.recipeEditor(id: "recipe_lemon_pantry_pasta")
+        let covers = AppRoute.recipeCoverControls(id: "recipe_lemon_pantry_pasta")
+        let cook = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)
+        var navigation = AppNavigationState(route: .recipes)
+
+        navigation.pushCompact(detail)
+        for terminal in [editor, covers, cook] {
+            navigation.pushCompact(terminal)
+            navigation.completeCompactRoute(returningTo: detail)
+            #expect(navigation.compactPath(for: .recipes) == [detail])
+            #expect(navigation.route == detail)
+        }
+
+        navigation.pushCompact(editor)
+        navigation.completeCompactRoute(returningTo: .recipes)
+        #expect(navigation.compactTabSelection == .recipes)
+        #expect(navigation.compactPath(for: .recipes).isEmpty)
+        #expect(navigation.route == .recipes)
+
+        navigation.pushCompact(editor)
+        navigation.completeCompactRoute(returningTo: detail)
+        navigation.completeCompactRoute(returningTo: detail)
+        #expect(navigation.compactPath(for: .recipes) == [detail])
+
+        navigation.setCompactPath([], for: .recipes)
+        navigation.completeCompactRoute(returningTo: detail)
+        #expect(navigation.compactPath(for: .recipes) == [detail])
+
+        var kitchenNavigation = AppNavigationState()
+        kitchenNavigation.pushCompact(detail)
+        kitchenNavigation.pushCompact(editor)
+        kitchenNavigation.completeCompactRoute(returningTo: .recipes)
+        #expect(kitchenNavigation.compactTabSelection == .recipes)
+        #expect(kitchenNavigation.compactPath(for: .kitchen).isEmpty)
+        #expect(kitchenNavigation.compactPath(for: .recipes).isEmpty)
+    }
+
+    @Test("terminal routes close instead of pushing duplicate desktop destinations")
+    func terminalRoutesCloseDesktopNavigationPaths() {
+        let detail = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+        let editor = AppRoute.recipeEditor(id: "recipe_lemon_pantry_pasta")
+        let covers = AppRoute.recipeCoverControls(id: "recipe_lemon_pantry_pasta")
+        let cook = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .cook)
+        var navigation = AppNavigationState(route: .recipes)
+
+        navigation.pushDesktop(detail)
+        for terminal in [editor, covers, cook] {
+            navigation.pushDesktop(terminal)
+            navigation.completeDesktopRoute(returningTo: detail)
+            #expect(navigation.desktopPath == [detail])
+            #expect(navigation.route == detail)
+        }
+
+        navigation.pushDesktop(editor)
+        navigation.completeDesktopRoute(returningTo: .recipes)
+        #expect(navigation.sidebarSelection == .recipes)
+        #expect(navigation.desktopPath.isEmpty)
+        #expect(navigation.route == .recipes)
+
+        navigation.pushDesktop(editor)
+        navigation.completeDesktopRoute(returningTo: detail)
+        navigation.completeDesktopRoute(returningTo: detail)
+        #expect(navigation.desktopPath == [detail])
+
+        navigation.setDesktopPath([])
+        navigation.completeDesktopRoute(returningTo: detail)
+        #expect(navigation.desktopPath == [detail])
     }
 
     @Test("every desktop sidebar section maps to its native root route")

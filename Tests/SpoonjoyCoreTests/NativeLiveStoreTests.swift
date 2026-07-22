@@ -25,6 +25,7 @@ struct NativeLiveStoreTests {
             )
             let descriptor = NativeSearchTelemetryDescriptor.started(
                 state: SearchState(query: "private query", scope: .recipes),
+                correlationID: "native-search-live-store",
                 hasCachedResults: true
             )
 
@@ -41,6 +42,7 @@ struct NativeLiveStoreTests {
             #expect(event.searchScope == "recipes")
             #expect(event.searchQueryLength == 13)
             #expect(event.hasRenderableCacheContent == true)
+            #expect(event.requestID == "native-search-live-store")
             let recipeEvent = try #require(events.last)
             #expect(recipeEvent.name == .syncFailed)
             #expect(recipeEvent.stage == "recipe_detail.cook_history_enrichment")
