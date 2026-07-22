@@ -44,6 +44,7 @@ const INSTALL_VALIDATION_DELAY_MS = 250;
 const INSTALL_VALIDATION_TIMEOUT_MS = 15_000;
 const SUBPROCESS_TIMEOUT_MS = 10_000;
 const LOCAL_HEALTH_REQUEST_TIMEOUT_MS = 2_000;
+const HUNG_LOCAL_HEALTH_SELF_TEST_TIMEOUT_MS = 1_000;
 const PUBLIC_HEALTH_ATTEMPTS = 180;
 const PUBLIC_HEALTH_DELAY_MS = 1_000;
 const PUBLIC_HEALTH_TIMEOUT_MS = 180_000;
@@ -2269,7 +2270,7 @@ async function selfTestHungLocalHealth() {
 
   const health = await fetchHealth({
     url: `http://127.0.0.1:${address.port}/health`,
-    timeoutMs: 100,
+    timeoutMs: HUNG_LOCAL_HEALTH_SELF_TEST_TIMEOUT_MS,
   });
   let closeError = null;
   let serverClosed = false;

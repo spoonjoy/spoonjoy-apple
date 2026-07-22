@@ -279,7 +279,7 @@ struct TestFlightAutomationContractTests {
         #expect(hungLocalHealth["ok"] as? Bool == false)
         #expect(hungLocalHealth["requestSeen"] as? Bool == true)
         #expect(hungLocalHealth["connectionHeader"] as? String == "close")
-        #expect(hungLocalHealth["error"] as? String == "request timed out after 100ms")
+        #expect(hungLocalHealth["error"] as? String == "request timed out after 1000ms")
         #expect(hungLocalHealth["openConnections"] as? Int == 0)
         #expect(hungLocalHealth["forcedCleanup"] as? Bool == false)
         #expect(hungLocalHealth["serverClosed"] as? Bool == true)
