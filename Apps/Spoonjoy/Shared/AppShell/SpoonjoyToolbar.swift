@@ -11,17 +11,6 @@ struct SpoonjoyToolbar: ViewModifier {
     func body(content: Content) -> some View {
         content
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    VStack(spacing: 1) {
-                        Text("Spoonjoy")
-                            .font(.headline)
-                        Text(routeTitle)
-                            .font(.caption)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Spoonjoy, \(routeTitle)")
-                }
                 ToolbarItem(placement: .primaryAction) {
                     routeActions
                 }
@@ -44,45 +33,6 @@ struct SpoonjoyToolbar: ViewModifier {
             editControl
         case .recipeEditor, .recipeCoverControls, .profileGraph, .search, .capture, .settings, .unknownLink:
             EmptyView()
-        }
-    }
-
-    private var routeTitle: String {
-        switch navigation.route {
-        case .kitchen:
-            "Kitchen"
-        case .recipes:
-            "My Recipes"
-        case .savedRecipes:
-            "Saved Recipes"
-        case .recipeDetail(_, .detail):
-            "Recipe"
-        case .recipeDetail(_, .cook):
-            "Cook Mode"
-        case .recipeEditor:
-            "Recipe Editor"
-        case .recipeCoverControls:
-            "Recipe Covers"
-        case .cookbooks:
-            "Cookbooks"
-        case .cookbookDetail:
-            "Cookbook"
-        case .chefs:
-            "Chefs"
-        case .profile:
-            "Chef Profile"
-        case .profileGraph(_, let direction, _):
-            direction == .fellowChefs ? "Fellow Chefs" : "Kitchen Visitors"
-        case .shoppingList:
-            "Shopping List"
-        case .search:
-            "Kitchen Search"
-        case .capture:
-            "Imports"
-        case .settings:
-            "Settings"
-        case .unknownLink:
-            "Link Not Found"
         }
     }
 

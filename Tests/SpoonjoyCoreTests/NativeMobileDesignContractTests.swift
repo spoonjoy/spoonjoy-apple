@@ -118,10 +118,8 @@ struct NativeMobileDesignContractTests {
                 ".frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)",
                 "NavigationLink(value: AppRoute.recipeDetail(id: recipe.id, presentation: .detail))",
                 ".accessibilityHint(\"Opens recipe detail\")",
-                "Image(systemName: systemImage)",
-                ".accessibilityLabel(title)",
                 "Label(title, systemImage: systemImage)",
-                "private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1"
+                ".fixedSize(horizontal: false, vertical: true)"
             ],
             forbids: [
                 "if usesWideKitchenSpread",
@@ -129,10 +127,12 @@ struct NativeMobileDesignContractTests {
                 "ViewThatFits(in: .horizontal)",
                 "ownerUsername ?? recipes.first?.chef.username",
                 "Text(\"On the Counter\".uppercased())",
-                "title: \"Open Recipe\""
+                "title: \"Open Recipe\"",
+                "private let accessibilityPresentationRange",
+                ".dynamicTypeSize(accessibilityPresentationRange)",
+                "if dynamicTypeSize.isAccessibilitySize {\n                Image(systemName: systemImage)"
             ]
         )
-        #expect(kitchen.components(separatedBy: ".dynamicTypeSize(accessibilityPresentationRange)").count - 1 == 1)
 
         let recipeLead = try mobileDesignSourceSlice(
             kitchen,
@@ -334,7 +334,8 @@ struct NativeMobileDesignContractTests {
                 "observedContentMovement",
                 "contentFitsWithoutScrolling",
                 "terminalProofIsValid(",
-                "scrollActionCount > 0",
+                "persistentChromeFindings(before: initialElements, after: elements)",
+                "contentFitsWithoutScrolling",
                 "verifiedContrastFalsePositives",
                 "capturePhase: \"initial\"",
                 "capturePhase: \"deepScroll\"",
@@ -691,11 +692,13 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "SpoonjoyToolbar",
                 "ShareActions",
-                "Text(\"Spoonjoy\")",
-                "routeTitle",
                 "switch navigation.route"
             ],
             forbids: [
+                "ToolbarItem(placement: .principal)",
+                "Text(\"Spoonjoy\")",
+                "routeTitle",
+                ".accessibilityLabel(\"Spoonjoy,",
                 "Button(\"Kitchen\")",
                 "Button(\"Capture Draft\")",
                 "Button(\"Settings\")",
@@ -2178,9 +2181,9 @@ struct NativeMobileDesignContractTests {
                 "CookbookImageCover",
                 "private struct CookbookThumb",
                 "showsLeading: row.cover.imageURLs.contains { $0 != nil }",
-                "titleFontSize(for: proxy.size.width)",
-                "let estimatedGlyphWidth = max(CGFloat(longestWordLength) * 0.72, 1)",
-                "return min(24, max(8, availableWidth / estimatedGlyphWidth))",
+                "if dynamicTypeSize.isAccessibilitySize",
+                "accessibleCookbookRow",
+                ".font(.system(.title3, design: .serif).weight(.bold))",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",
                 "HStack(alignment: .top, spacing: 28)",
@@ -2203,7 +2206,7 @@ struct NativeMobileDesignContractTests {
                 "VStack(alignment: .leading, spacing: 8) {\n                Rectangle().frame(height: 1)",
                 "title: \"\\(emptyState.title). \\(emptyState.message)\"",
                 "RecipeCoverImage(\n                    url: row.cover.primaryImageURL",
-                "Image(systemName: \"books.vertical\")\n                    .foregroundStyle(KitchenTableTheme.brass)",
+                "titleFontSize(for:",
                 "Text(\"Owner Tools\")",
                 "Label(\"Remove\", systemImage: \"minus.circle\")",
                 "HStack(alignment: .bottom, spacing: 28) {\n                detailHeader",

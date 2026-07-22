@@ -153,7 +153,9 @@ struct PlatformNavigationView: View {
     }
 
     private var usesCompactMobileShell: Bool {
-#if os(iOS)
+#if os(macOS)
+        false
+#elseif os(iOS)
         horizontalSizeClass == .compact
 #else
         false
@@ -832,6 +834,11 @@ struct PlatformNavigationView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: dismissOfflineIndicator) {
                     Image(systemName: compactInformationalOfflineStatusSymbol)
+                        .frame(
+                            width: KitchenTableTheme.minimumTouchTarget,
+                            height: KitchenTableTheme.minimumTouchTarget
+                        )
+                        .contentShape(Rectangle())
                 }
                 .accessibilityLabel(compactInformationalOfflineStatusLabel)
                 .accessibilityHint("Hides this status")
@@ -882,6 +889,7 @@ struct PlatformNavigationView: View {
                     height: KitchenTableTheme.minimumTouchTarget
                 )
                 .contentShape(Rectangle())
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel("More")
                 .tint(KitchenTableTheme.charcoal)
             }

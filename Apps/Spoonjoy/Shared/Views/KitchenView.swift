@@ -232,7 +232,6 @@ struct RecipeLead: View {
     let recipe: Recipe
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -348,7 +347,6 @@ struct RecipeLead: View {
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(secondary)
         }
-        .dynamicTypeSize(accessibilityPresentationRange)
     }
 
     @ViewBuilder
@@ -359,12 +357,8 @@ struct RecipeLead: View {
         route: AppRoute
     ) -> some View {
         NavigationLink(value: route) {
-            if dynamicTypeSize.isAccessibilitySize {
-                Image(systemName: systemImage)
-                    .accessibilityLabel(title)
-            } else {
-                Label(title, systemImage: systemImage)
-            }
+            Label(title, systemImage: systemImage)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: prominence))
     }
@@ -442,7 +436,7 @@ struct KitchenRecipeIndexRow: View {
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
-        .joined(separator: " - ")
+        .joined(separator: "\n")
     }
 
     private var shareRecipe: URL {

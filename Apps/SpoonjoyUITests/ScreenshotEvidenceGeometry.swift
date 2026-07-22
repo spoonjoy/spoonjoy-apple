@@ -76,6 +76,7 @@ enum ObservedAccessibilityFindingKind: String, Codable, Sendable {
     case apnsChromeIntersection
     case terminalNotReached
     case terminalElementOccludedByTabBar
+    case persistentChromeChanged
 }
 
 struct ObservedAccessibilityFinding: Codable, Equatable, Sendable {

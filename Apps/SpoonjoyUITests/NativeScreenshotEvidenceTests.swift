@@ -229,7 +229,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(geometryFindings.isEmpty, "Geometry found: \(geometryFindings.map(\.message))")
         if let deepScroll {
             XCTAssertTrue(deepScroll.reachedTerminal, "Primary surface did not reach a stable terminal position")
-            XCTAssertGreaterThan(deepScroll.swipeCount, 0, "Deep-scroll evidence must perform a real scroll action")
+            if deepScroll.contentFitsWithoutScrolling {
+                XCTAssertEqual(deepScroll.swipeCount, 0, "Content that already fits must not be disturbed by an overscroll probe")
+            } else {
+                XCTAssertGreaterThan(deepScroll.swipeCount, 0, "Scrollable content must perform a real scroll action")
+            }
             XCTAssertTrue(
                 deepScroll.observedContentMovement || deepScroll.contentFitsWithoutScrolling,
                 "Deep-scroll evidence must observe movement or prove the terminal content already fits"
@@ -439,14 +443,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(didObserveIdentifiedMovement(before: before, after: after))
     }
 
-    func testTerminalProofAcceptsContentThatAlreadyFitsAfterARealScrollProbe() {
+    func testTerminalProofAcceptsContentThatAlreadyFitsWithoutADestructiveScrollProbe() {
         XCTAssertTrue(terminalProofIsValid(
-            reachedStableTerminal: true,
-            observedContentMovement: false,
-            contentFitsWithoutScrolling: true,
-            scrollActionCount: 1
-        ))
-        XCTAssertFalse(terminalProofIsValid(
             reachedStableTerminal: true,
             observedContentMovement: false,
             contentFitsWithoutScrolling: true,
@@ -455,9 +453,52 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertFalse(terminalProofIsValid(
             reachedStableTerminal: true,
             observedContentMovement: false,
+            contentFitsWithoutScrolling: true,
+            scrollActionCount: 1
+        ))
+        XCTAssertFalse(terminalProofIsValid(
+            reachedStableTerminal: true,
+            observedContentMovement: false,
             contentFitsWithoutScrolling: false,
             scrollActionCount: 1
         ))
+    }
+
+    func testPersistentChromeRejectsMissingOrMovedNavigationElements() {
+        let before = [
+            observedElement(
+                identifier: "Kitchen",
+                type: "navigationBar",
+                frame: ObservedRect(x: 0, y: 62, width: 402, height: 54)
+            ),
+            observedElement(
+                identifier: "tabs",
+                label: "Tab Bar",
+                type: "tabBar",
+                frame: ObservedRect(x: 0, y: 791, width: 402, height: 83)
+            ),
+            observedElement(
+                identifier: "house",
+                label: "Kitchen",
+                type: "button",
+                frame: ObservedRect(x: 25, y: 795, width: 74, height: 54)
+            )
+        ]
+        let stable = before
+        let missingTab = [before[0]]
+        let movedTitle = [
+            observedElement(
+                identifier: "Kitchen",
+                type: "navigationBar",
+                frame: ObservedRect(x: 0, y: 40, width: 402, height: 54)
+            ),
+            before[1],
+            before[2]
+        ]
+
+        XCTAssertTrue(persistentChromeFindings(before: before, after: stable).isEmpty)
+        XCTAssertEqual(persistentChromeFindings(before: before, after: missingTab).count, 1)
+        XCTAssertEqual(persistentChromeFindings(before: before, after: movedTitle).count, 1)
     }
 
     func testMovementCandidatesIncludeUniqueOffscreenContentButExcludeChrome() {
@@ -1616,7 +1657,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
 
         let maxScrollActions = 12
-        var reachedStableTerminal = false
+        var reachedStableTerminal = terminalWasFullyVisibleInitially
         var observedContentMovement = false
         var scrollActionCount = 0
         let initialViewport = contentViewport(windowFrame: windowFrame, elements: initialElements)
@@ -1631,7 +1672,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             elements: initialElements,
             viewport: movementViewport
         )
-        while scrollActionCount < maxScrollActions {
+        while !reachedStableTerminal && scrollActionCount < maxScrollActions {
             let namedTerminal = terminalIdentifier.flatMap {
                 observedElement(in: app, identifier: $0, windowFrame: windowFrame)
             }
@@ -1721,6 +1762,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let contentFitsWithoutScrolling = terminalWasFullyVisibleInitially
             && !observedContentMovement
         var findings: [ObservedAccessibilityFinding] = []
+        findings.append(contentsOf: persistentChromeFindings(before: initialElements, after: elements))
         findings.append(contentsOf: ScreenshotEvidenceGeometry.validate(
             elements: elements,
             requirements: ObservedGeometryRequirements(
@@ -1832,8 +1874,58 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         scrollActionCount: Int
     ) -> Bool {
         reachedStableTerminal
-            && scrollActionCount > 0
-            && (observedContentMovement || contentFitsWithoutScrolling)
+            && ((scrollActionCount > 0 && observedContentMovement)
+                || (scrollActionCount == 0 && contentFitsWithoutScrolling))
+    }
+
+    private func persistentChromeFindings(
+        before: [ObservedAccessibilityElement],
+        after: [ObservedAccessibilityElement]
+    ) -> [ObservedAccessibilityFinding] {
+        let beforeSignature = persistentChromeSignature(before)
+        let afterSignature = persistentChromeSignature(after)
+        guard beforeSignature != afterSignature else {
+            return []
+        }
+        return [ObservedAccessibilityFinding(
+            kind: .persistentChromeChanged,
+            identifiers: ["system.navigation.chrome"],
+            message: "Persistent navigation, sidebar, or tab chrome changed during deep scroll.",
+            intersection: nil
+        )]
+    }
+
+    private func persistentChromeSignature(_ elements: [ObservedAccessibilityElement]) -> [String] {
+        let containers = elements.filter { element in
+            Self.chromeTypes.contains(element.type)
+                || (element.type == "collectionView" && element.label == "Sidebar")
+        }
+        return elements
+            .filter { element in
+                guard element.exists else { return false }
+                if containers.contains(element) { return true }
+                guard ["button", "staticText"].contains(element.type),
+                      !element.identifier.isEmpty || !element.label.isEmpty else {
+                    return false
+                }
+                return containers.contains { $0.frame.contains(element.frame, tolerance: 2.5) }
+            }
+            .map { element in
+                [
+                    element.type,
+                    element.identifier,
+                    element.label,
+                    stableChromeCoordinate(element.frame.x),
+                    stableChromeCoordinate(element.frame.y),
+                    stableChromeCoordinate(element.frame.width),
+                    stableChromeCoordinate(element.frame.height)
+                ].joined(separator: "|")
+            }
+            .sorted()
+    }
+
+    private func stableChromeCoordinate(_ value: Double) -> String {
+        (value * 2).rounded().formatted(.number.grouping(.never))
     }
 
     private func didObserveContentMovement(
@@ -1979,7 +2071,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     }
 
     private func waitForScrollToSettle() {
-        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.8))
     }
 
     private func terminalScrollSignature(

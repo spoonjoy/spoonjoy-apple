@@ -70,7 +70,8 @@ require_tokens(geometry_support, [
   "peerOverlap",
   "actionTargetTooSmall",
   "apnsChromeIntersection",
-  "terminalElementOccludedByTabBar"
+  "terminalElementOccludedByTabBar",
+  "persistentChromeChanged"
 ])
 
 ios_observer = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
@@ -270,6 +271,7 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "terminalScrollSignature(",
   "observedContentMovement",
   "scrollActionCount > 0",
+  "persistentChromeFindings(before: initialElements, after: elements)",
   "terminalIdentifier == nil,",
   "reachedStableTerminal = true",
   "let initialCapture = try captureAttestedScreenshot(",

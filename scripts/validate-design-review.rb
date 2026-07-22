@@ -598,13 +598,18 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       fail_check("#{proof_path} macOS deep scroll missing final value") unless deep_scroll["finalScrollValue"].is_a?(Numeric)
       fail_check("#{proof_path} macOS deep scroll moved backwards") if deep_scroll["finalScrollValue"] < deep_scroll["initialScrollValue"]
     else
-      fail_check("#{proof_path} compact deep scroll must perform at least one scroll action") unless deep_scroll["swipeCount"].is_a?(Integer) && deep_scroll["swipeCount"].positive?
       fail_check("#{proof_path} compact deep-scroll accessibility audit issues must be empty") unless deep_scroll["auditIssues"] == []
+      swipe_count = deep_scroll["swipeCount"]
       observed_movement = deep_scroll["observedContentMovement"]
       content_fits = deep_scroll["contentFitsWithoutScrolling"]
+      fail_check("#{proof_path} compact deep scroll count must be a nonnegative integer") unless swipe_count.is_a?(Integer) && swipe_count >= 0
       fail_check("#{proof_path} compact deep scroll movement proof must be boolean") unless [true, false].include?(observed_movement)
       fail_check("#{proof_path} compact deep scroll fit proof must be boolean") unless [true, false].include?(content_fits)
-      fail_check("#{proof_path} compact deep scroll must prove movement or content that already fits") unless observed_movement || content_fits
+      if content_fits
+        fail_check("#{proof_path} content that already fits must not be disturbed by a scroll probe") unless swipe_count.zero? && observed_movement == false
+      else
+        fail_check("#{proof_path} scrollable content must prove a real movement") unless swipe_count.positive? && observed_movement == true
+      end
       expected_deep_screenshot_sha256 = expected_screenshot_digest!(
         manifest_path,
         manifest,

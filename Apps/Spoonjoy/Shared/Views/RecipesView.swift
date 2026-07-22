@@ -251,7 +251,7 @@ private struct RecipeCatalogLead: View {
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
-        .joined(separator: " - ")
+        .joined(separator: "\n")
     }
 }
 
@@ -314,7 +314,7 @@ private struct RecipeIndexRow: View {
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
-        .joined(separator: " - ")
+        .joined(separator: "\n")
     }
 }
 

@@ -353,7 +353,7 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   ipad_fits = JSON.parse(ipad_path.read)
   ipad_fits["deepScroll"]["observedContentMovement"] = false
   ipad_fits["deepScroll"]["contentFitsWithoutScrolling"] = true
-  ipad_fits["deepScroll"]["swipeCount"] = 1
+  ipad_fits["deepScroll"]["swipeCount"] = 0
   ipad_path.write(JSON.pretty_generate(ipad_fits) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "iPad terminal content that already fits")
   ipad_path.write(JSON.pretty_generate(observed_proof("ipad")) + "\n")

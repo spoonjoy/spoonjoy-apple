@@ -412,6 +412,8 @@ private struct CookbookCreateSheet: View {
 }
 
 struct CookbookShelf: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let rows: [CookbookSurfaceRowViewModel]
     let openRoute: (AppRoute) -> Void
 
@@ -434,32 +436,72 @@ struct CookbookShelf: View {
                     tint: KitchenTableTheme.brass
                 )
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(alignment: .top, spacing: 14) {
+                if dynamicTypeSize.isAccessibilitySize {
+                    LazyVStack(alignment: .leading, spacing: 8) {
                         ForEach(rows) { row in
-                            Button {
-                                openRoute(row.openRoute)
-                            } label: {
-                                CookbookCoverArt(row: row)
-                                    .frame(width: 144)
+                            cookbookButton(row: row) {
+                                accessibleCookbookRow(row)
                             }
-                            .buttonStyle(.plain)
-                            .contextMenu {
-                                if let payload = row.sharePayload, let publicURL = payload.publicURL {
-                                    ShareLink(item: publicURL) {
-                                        Label("Share \(row.title)", systemImage: "square.and.arrow.up")
-                                    }
-                                }
-                            }
-                            .accessibilityIdentifier("kitchen.cookbook.\(row.id)")
-                            .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
-                            .accessibilityHint("Opens cookbook")
                         }
                     }
-                    .padding(.vertical, 2)
+                } else {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .top, spacing: 14) {
+                            ForEach(rows) { row in
+                                cookbookButton(row: row) {
+                                    CookbookCoverArt(row: row)
+                                        .frame(width: 144)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 2)
+                    }
                 }
             }
         }
+    }
+
+    private func accessibleCookbookRow(_ row: CookbookSurfaceRowViewModel) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Image(systemName: "books.vertical")
+                .foregroundStyle(KitchenTableTheme.brass)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(row.title)
+                    .font(KitchenTableTheme.objectTitle)
+                Text(row.recipeCountLabel)
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.forward")
+                .font(.body.weight(.semibold))
+                .accessibilityHidden(true)
+        }
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+
+    private func cookbookButton<Content: View>(
+        row: CookbookSurfaceRowViewModel,
+        @ViewBuilder label: () -> Content
+    ) -> some View {
+        Button {
+            openRoute(row.openRoute)
+        } label: {
+            label()
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            if let payload = row.sharePayload, let publicURL = payload.publicURL {
+                ShareLink(item: publicURL) {
+                    Label("Share \(row.title)", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
+        .accessibilityIdentifier("kitchen.cookbook.\(row.id)")
+        .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
+        .accessibilityHint("Opens cookbook")
     }
 }
 
@@ -508,17 +550,16 @@ private struct CookbookCoverArt: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Spoonjoy cookbook")
-                        .font(.system(size: 10, weight: .bold))
-                        .tracking(1.1)
+                        .font(.caption2.weight(.bold))
                         .textCase(.uppercase)
                         .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                     Text(title)
-                        .font(.system(size: 22, weight: .bold, design: .serif))
+                        .font(.system(.title3, design: .serif).weight(.bold))
                         .foregroundStyle(KitchenTableTheme.onPhoto)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(recipeCountLabel)
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.caption2.weight(.bold))
                         .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                 }
                 .padding(12)
@@ -588,19 +629,16 @@ private struct CookbookFallbackCover: View {
     let recipeCountLabel: String
 
     var body: some View {
-        GeometryReader { proxy in
-            VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("Spoonjoy")
-                        .font(.system(size: 8, weight: .bold))
-                        .tracking(0.6)
+                        .font(.caption2.weight(.bold))
                         .textCase(.uppercase)
                         .foregroundStyle(KitchenTableTheme.charcoal)
                         .fixedSize(horizontal: true, vertical: false)
                     Spacer(minLength: 0)
                     Text(recipeCountLabel)
-                        .font(.system(size: 8, weight: .bold))
-                        .tracking(0.4)
+                        .font(.caption2.weight(.bold))
                         .textCase(.uppercase)
                         .foregroundStyle(KitchenTableTheme.inkMuted)
                         .fixedSize(horizontal: true, vertical: false)
@@ -616,28 +654,17 @@ private struct CookbookFallbackCover: View {
                 Spacer(minLength: 16)
 
                 Text(title)
-                    .font(.system(
-                        size: titleFontSize(for: proxy.size.width),
-                        weight: .bold,
-                        design: .serif
-                    ))
+                    .font(.system(.title3, design: .serif).weight(.bold))
                     .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 14)
 
                 Spacer(minLength: 14)
                     .padding(.bottom, 14)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(KitchenTableTheme.paper)
-    }
-
-    private func titleFontSize(for coverWidth: CGFloat) -> CGFloat {
-        let longestWordLength = max(title.split(whereSeparator: \.isWhitespace).map(\.count).max() ?? title.count, 1)
-        let availableWidth = max(coverWidth - 28, 1)
-        let estimatedGlyphWidth = max(CGFloat(longestWordLength) * 0.72, 1)
-        return min(24, max(8, availableWidth / estimatedGlyphWidth))
     }
 }
 
