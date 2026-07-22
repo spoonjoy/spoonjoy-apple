@@ -112,6 +112,7 @@ struct SearchVisualContractTests {
         #expect(!searchView.contains("@FocusState"))
         #expect(!searchView.contains("SearchSurfaceNativeChrome"))
         #expect(searchView.contains(".task(id: viewModel.renderFingerprint)"))
+        #expect(searchView.contains("} else if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {"))
 
         #expect(shell.contains("private let allowsLiveEffects: Bool"))
         #expect(shell.contains("SearchSurfaceScopeGrammar.title(for: scope)"))

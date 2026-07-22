@@ -757,23 +757,25 @@ struct RecipeCatalogDetailTests {
         )
         let recorder = ProgressiveRecipeResultRecorder()
         let telemetryRecorder = RecipeDetailTelemetryRecorder()
-        let repository = ScriptedSpoonCookLogRepository(responses: [.cancelled])
+        for response in [ScriptedSpoonCookLogResponse.cancelled, .transportCancelled] {
+            let repository = ScriptedSpoonCookLogRepository(responses: [response])
 
-        do {
-            try await RecipeDetailProgressiveLoader(
-                recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
-                spoonRepository: repository,
-                reportTelemetry: { descriptor in
-                    await telemetryRecorder.record(descriptor)
+            do {
+                try await RecipeDetailProgressiveLoader(
+                    recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
+                    spoonRepository: repository,
+                    reportTelemetry: { descriptor in
+                        await telemetryRecorder.record(descriptor)
+                    }
+                ).load(recipeID: recipe.id) { result in
+                    recorder.results.append(result)
                 }
-            ).load(recipeID: recipe.id) { result in
-                recorder.results.append(result)
+                Issue.record("Expected cook-history cancellation to propagate.")
+            } catch is CancellationError {
+                #expect(await telemetryRecorder.descriptors().isEmpty)
             }
-            Issue.record("Expected cook-history cancellation to propagate.")
-        } catch is CancellationError {
-            #expect(await recorder.results.count == 1)
-            #expect(await telemetryRecorder.descriptors().isEmpty)
         }
+        #expect(await recorder.results.count == 2)
     }
 
     private static func recipeDetail() throws -> Recipe {
@@ -1036,6 +1038,7 @@ private enum ScriptedSpoonCookLogResponse: Sendable {
     case page(SpoonCookLogListData)
     case failure
     case cancelled
+    case transportCancelled
 }
 
 private enum ScriptedSpoonCookLogError: Error {
@@ -1067,6 +1070,14 @@ private actor ScriptedSpoonCookLogRepository: SpoonCookLogRepository {
             throw ScriptedSpoonCookLogError.failed
         case .cancelled:
             throw CancellationError()
+        case .transportCancelled:
+            throw APITransportError(
+                kind: .cancelled,
+                requestID: nil,
+                statusCode: nil,
+                apiError: nil,
+                retryDecision: .doNotRetry
+            )
         }
     }
 
