@@ -37,6 +37,11 @@ private struct ObservedAuditResult {
     let hitRegionAuditPassed: Bool
 }
 
+private enum ObservedAccessibilityAuditScope: String, Codable {
+    case initialFullTree
+    case settledTerminalInteraction
+}
+
 private struct AttestedScreenshot {
     let screenshot: XCUIScreenshot
     let handshake: ObservedReadinessHandshake
@@ -51,6 +56,7 @@ private struct ObservedDeepScrollEvidence: Codable {
     let terminalElement: ObservedAccessibilityElement?
     let findings: [ObservedAccessibilityFinding]
     let auditIssues: [ObservedAuditIssue]
+    let auditScope: ObservedAccessibilityAuditScope
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
     let screenshotSHA256: String?
     let readinessHandshake: ObservedReadinessHandshake?
@@ -82,6 +88,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     private static let thisDeviceIdentifier = "settings.apns.this-device.heading"
     private static let pushDeliveryIdentifier = "settings.apns.push-delivery.heading"
     private static let notificationSyncIdentifier = "settings.apns.notification-sync.heading"
+    private static let minimumTerminalDragDistance: CGFloat = 44
     private static let chromeTypes: Set<String> = [
         "navigationBar", "toolbar", "tabBar", "keyboard", "sheet", "alert"
     ]
@@ -167,7 +174,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             screenshot: initialScreenshot,
             windowFrame: window.frame,
             hasSystemTabBar: provisionalElements.contains { $0.type == "tabBar" && $0.exists },
-            capturePhase: "initial"
+            capturePhase: "initial",
+            scope: .initialFullTree
         )
         let initialElements = observedElements(
             in: app,
@@ -272,6 +280,36 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ))
     }
 
+    func testAuditIgnoresOnlyNegligiblyVisibleContentAtViewportBoundary() {
+        let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
+
+        XCTAssertTrue(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 699, width: 160, height: 20),
+            elementType: "staticText",
+            viewport: viewport
+        ))
+        XCTAssertTrue(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 81, width: 160, height: 20),
+            elementType: "button",
+            viewport: viewport
+        ))
+        XCTAssertFalse(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 698, width: 160, height: 20),
+            elementType: "staticText",
+            viewport: viewport
+        ))
+        XCTAssertFalse(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 20, y: 82, width: 160, height: 20),
+            elementType: "button",
+            viewport: viewport
+        ))
+        XCTAssertFalse(shouldIgnoreAuditIssue(
+            elementFrame: ObservedRect(x: 0, y: 699, width: 400, height: 83),
+            elementType: "tabBar",
+            viewport: viewport
+        ))
+    }
+
     func testAuditRetainsContentClippedHorizontallyByTheViewport() {
         let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
 
@@ -343,6 +381,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             terminalFrame: ObservedRect(x: 16, y: 200, width: 160, height: 26),
             viewport: viewport
         ))
+    }
+
+    func testTerminalDragDistanceClearsSmallChromeOcclusions() {
+        XCTAssertEqual(terminalDragDistance(contentOffset: -10), -44)
+        XCTAssertEqual(terminalDragDistance(contentOffset: 10), 44)
+        XCTAssertEqual(terminalDragDistance(contentOffset: -60), -60)
     }
 
     func testContentMovementRejectsDuplicateLabelsWithoutStableIdentifiers() {
@@ -455,6 +499,32 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             elementFrame: nil,
             hasSystemTabBar: false
         ))
+    }
+
+    func testInitialAuditCoversVisualTypographyAndInteractionFailures() {
+        let auditTypes = accessibilityAuditTypes(
+            scope: .initialFullTree,
+            includesDynamicTypeChecks: true
+        )
+
+        XCTAssertTrue(auditTypes.contains(.contrast))
+        XCTAssertTrue(auditTypes.contains(.dynamicType))
+        XCTAssertTrue(auditTypes.contains(.textClipped))
+        XCTAssertTrue(auditTypes.contains(.hitRegion))
+        XCTAssertTrue(auditTypes.contains(.trait))
+    }
+
+    func testSettledTerminalAuditAvoidsStaleSwiftUIVisualNodesWhileRetainingInteractionChecks() {
+        let auditTypes = accessibilityAuditTypes(
+            scope: .settledTerminalInteraction,
+            includesDynamicTypeChecks: true
+        )
+
+        XCTAssertFalse(auditTypes.contains(.contrast))
+        XCTAssertFalse(auditTypes.contains(.dynamicType))
+        XCTAssertFalse(auditTypes.contains(.textClipped))
+        XCTAssertTrue(auditTypes.contains(.hitRegion))
+        XCTAssertTrue(auditTypes.contains(.trait))
     }
 
     func testReadinessHandshakeRequiresGenerationBoundProofArchive() {
@@ -1173,6 +1243,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         windowFrame: CGRect,
         hasSystemTabBar: Bool,
         capturePhase: String,
+        scope: ObservedAccessibilityAuditScope,
         includesDynamicTypeChecks: Bool = true
     ) -> ObservedAuditResult {
         var blockingIssues: [ObservedAuditIssue] = []
@@ -1186,14 +1257,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             pngData: screenshotPNG,
             pointSize: windowFrame.size
         )
-        var auditTypes = XCUIAccessibilityAuditType.contrast
-            .union(.hitRegion)
-            .union(.trait)
-        if includesDynamicTypeChecks,
-           ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true {
-            auditTypes.formUnion(.dynamicType)
-            auditTypes.formUnion(.textClipped)
-        }
+        let auditTypes = accessibilityAuditTypes(
+            scope: scope,
+            includesDynamicTypeChecks: includesDynamicTypeChecks
+                && ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true
+        )
         do {
             try app.performAccessibilityAudit(for: auditTypes) { issue in
                 let element = issue.element
@@ -1272,16 +1340,38 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
     }
 
+    private func accessibilityAuditTypes(
+        scope: ObservedAccessibilityAuditScope,
+        includesDynamicTypeChecks: Bool
+    ) -> XCUIAccessibilityAuditType {
+        var auditTypes = XCUIAccessibilityAuditType.hitRegion.union(.trait)
+        guard scope == .initialFullTree else {
+            return auditTypes
+        }
+
+        auditTypes.formUnion(.contrast)
+        if includesDynamicTypeChecks {
+            auditTypes.formUnion(.dynamicType)
+            auditTypes.formUnion(.textClipped)
+        }
+        return auditTypes
+    }
+
     private func shouldIgnoreAuditIssue(
         elementFrame: ObservedRect,
         elementType: String,
         viewport: ObservedRect
     ) -> Bool {
         let tolerance = 0.5
+        let negligibleVisibleHeight = 1.0
         let isHorizontallyContained = elementFrame.minX >= viewport.minX - tolerance
             && elementFrame.maxX <= viewport.maxX + tolerance
+        let visibleMinY = max(elementFrame.minY, viewport.minY)
+        let visibleMaxY = min(elementFrame.maxY, viewport.maxY)
+        let visibleHeight = max(0, visibleMaxY - visibleMinY)
         let isVerticallyOutside = elementFrame.maxY <= viewport.minY + tolerance
             || elementFrame.minY >= viewport.maxY - tolerance
+            || visibleHeight <= negligibleVisibleHeight
         return !Self.chromeTypes.contains(elementType)
             && isHorizontallyContained
             && isVerticallyOutside
@@ -1357,7 +1447,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             return ["Spoonjoy", "Sign in"]
         }
         return switch route {
-        case "kitchen": ["Ari's kitchen", "Lemon Pantry Pasta", "Recipe Index", "Cookbook Shelf"]
+        case "kitchen": ["My Kitchen", "Lemon Pantry Pasta", "Recipe Index", "Cookbook Shelf"]
         case "recipes", "saved-recipes": ["Lemon Pantry Pasta"]
         case "recipe-detail": ["Lemon Pantry Pasta", "Start Cooking"]
         case "recipe-editor": ["Recipe", "Title", "Save"]
@@ -1516,6 +1606,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 terminalElement: nil,
                 findings: [finding],
                 auditIssues: [],
+                auditScope: .settledTerminalInteraction,
                 verifiedContrastFalsePositives: [],
                 screenshotSHA256: nil,
                 readinessHandshake: nil,
@@ -1625,7 +1716,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let tabBar = elements.first { $0.type == "tabBar" && $0.exists }
         let viewport = contentViewport(windowFrame: windowFrame, elements: elements)
         let terminalElement = terminalIdentifier.flatMap { identifier in
-            elements.first { $0.identifier == identifier && $0.exists }
+            observedElement(in: app, identifier: identifier, windowFrame: windowFrame)
         } ?? terminalContentElement(elements: elements, viewport: viewport)
         let contentFitsWithoutScrolling = terminalWasFullyVisibleInitially
             && !observedContentMovement
@@ -1696,7 +1787,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             screenshot: deepScreenshot,
             windowFrame: windowFrame,
             hasSystemTabBar: tabBar != nil,
-            capturePhase: "deepScroll"
+            capturePhase: "deepScroll",
+            scope: .settledTerminalInteraction
         )
         let evidence = ObservedDeepScrollEvidence(
             route: route,
@@ -1713,6 +1805,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             terminalElement: terminalElement,
             findings: findings,
             auditIssues: auditResult.blockingIssues,
+            auditScope: .settledTerminalInteraction,
             verifiedContrastFalsePositives: auditResult.verifiedContrastFalsePositives,
             screenshotSHA256: Self.sha256(deepScreenshot.pngRepresentation),
             readinessHandshake: deepCapture.handshake,
@@ -1864,7 +1957,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
     private func drag(_ surface: XCUIElement, contentOffset: CGFloat) {
         let surfaceHeight = max(surface.frame.height, 1)
-        let endY = min(0.85, max(0.15, 0.5 + contentOffset / surfaceHeight))
+        let dragDistance = terminalDragDistance(contentOffset: contentOffset)
+        let endY = min(0.85, max(0.15, 0.5 + dragDistance / surfaceHeight))
         let start = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
         let end = surface.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY))
         start.press(
@@ -1873,6 +1967,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             withVelocity: .slow,
             thenHoldForDuration: 0.05
         )
+    }
+
+    private func terminalDragDistance(contentOffset: CGFloat) -> CGFloat {
+        guard contentOffset != 0 else {
+            return 0
+        }
+        return contentOffset.sign == .minus
+            ? min(contentOffset, -Self.minimumTerminalDragDistance)
+            : max(contentOffset, Self.minimumTerminalDragDistance)
     }
 
     private func waitForScrollToSettle() {

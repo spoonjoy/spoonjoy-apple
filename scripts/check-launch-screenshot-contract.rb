@@ -195,7 +195,10 @@ SCRIPT_CONTRACTS = {
       "emit_ios_foreground_barrier",
       "start_ios_foreground_stream",
       "stop_ios_foreground_stream",
-      "Process.setpgrp",
+      "start_new_session=True",
+      "signal.signal",
+      "spoonjoy-foreground-stream-supervisor-v1",
+      'local child_pid_file="${foreground_log}.child-pid"',
       "kill -TERM --",
       "foreground event barrier",
       "Spoonjoy stopped being the front display before screenshot capture",
@@ -722,6 +725,7 @@ def add_accessibility_proofs!(root, manifest, stem)
       "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
     }.fetch(route, [])
     terminal_identifier = {
+      "kitchen" => "kitchen.cookbook.cookbook_weeknights",
       "recipe-editor" => "recipe-editor.delete",
       "recipe-covers" => "recipe-covers.archive.cover_primary",
       "profile" => "profile.graph.kitchen-visitors"
@@ -866,6 +870,9 @@ SCRIPT_CONTRACTS.each do |relative_path, contract|
     record_failure("#{relative_path} must verify Spoonjoy foreground state before pixel capture") unless content.scan(/ios_foreground_is_spoonjoy/).length >= 2
     record_failure("#{relative_path} must bracket pixel capture and reject every intervening non-Spoonjoy event") unless content.include?("ios_foreground_interval_is_spoonjoy") && content.include?("-pre-") && content.include?("-post-") && content.include?("log emit")
     record_failure("#{relative_path} must not query historical simulator logs for foreground proof") if content.include?("log show")
+  end
+  if ["scripts/capture-native-screenshots.sh", "scripts/smoke-ios-simulator.sh"].include?(relative_path)
+    record_failure("#{relative_path} must not use CoreSimulator's hanging terminate-and-launch composite") if content.include?("--terminate-running-process")
   end
 
   assert_status(true, [*contract.fetch(:syntax), path], "#{relative_path} syntax")
@@ -1646,7 +1653,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
         printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
         exit 0
         ;;
-      simctl\ launch\ --terminate-running-process\ *)
+      simctl\ launch\ *)
         count="0"
         if [[ -f "${SIMCTL_LAUNCH_STATE_FILE:-}" ]]; then
           count="$(cat "$SIMCTL_LAUNCH_STATE_FILE")"
@@ -1719,7 +1726,7 @@ Dir.mktmpdir("spoonjoy-smoke-script-contract") do |directory|
         printf '%s\n' "$SIMCTL_INSTALLED_APP_PATH"
         exit 0
         ;;
-      simctl\ launch\ --terminate-running-process\ *)
+      simctl\ launch\ *)
         sleep 2
         ;;
       simctl\ spawn\ *\ launchctl\ list)
@@ -1809,14 +1816,18 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   bin_dir = script_root.join("bin")
   scripts_dir.mkpath
   bin_dir.mkpath
-  write_executable(bin_dir.join("ruby"), <<~SH)
+  python3_path = ENV.fetch("PATH").split(File::PATH_SEPARATOR)
+    .map { |entry| Pathname.new(entry).join("python3") }
+    .find(&:executable?)
+  raise "python3 is required for the capture contract fixture" unless python3_path
+  write_executable(bin_dir.join("python3"), <<~SH)
     #!/usr/bin/env bash
     set -euo pipefail
-    if [[ "${1:-}" == "-e" && "${2:-}" == *'Process.setpgrp; exec(*ARGV)'* && -n "${SPOONJOY_CONTRACT_STREAM_LEADER_DELAY_SECONDS:-}" ]]; then
+    if [[ "${1:-}" == "-" && "${3:-}" == "spoonjoy-foreground-stream-supervisor-v1" && -n "${SPOONJOY_CONTRACT_STREAM_LEADER_DELAY_SECONDS:-}" ]]; then
       printf '%s\n' "$$" >> "${SPOONJOY_CONTRACT_STREAM_LEADER_PID_FILE:?}"
       sleep "$SPOONJOY_CONTRACT_STREAM_LEADER_DELAY_SECONDS"
     fi
-    exec #{Shellwords.escape(RbConfig.ruby)} "$@"
+    exec #{Shellwords.escape(python3_path.to_s)} "$@"
   SH
   fixture_cover_source = script_root.join("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png")
   fixture_cover_source.dirname.mkpath
@@ -1849,7 +1860,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   }
   write_executable(scripts_dir.join("run-ios-screenshot-observer.py"), <<~'PY')
     #!/usr/bin/env python3
-    import argparse, hashlib, json
+    import argparse, hashlib, json, os, sys
     from pathlib import Path
 
     parser = argparse.ArgumentParser()
@@ -1858,11 +1869,28 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     parser.add_argument("--environment", action="append", default=[])
     parser.add_argument("--environment-json")
     args = parser.parse_args()
-    terminal = {"identifier":"fixture.terminal","label":"Terminal","type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
+    transient_failure_marker = os.environ.get("SPOONJOY_CONTRACT_FAIL_IOS_OBSERVER_ONCE_FILE")
+    if transient_failure_marker and not Path(transient_failure_marker).exists():
+        Path(transient_failure_marker).write_text("failed once\n")
+        raise SystemExit(65)
+    terminal_identifier = "kitchen.cookbook.cookbook_weeknights" if args.route == "kitchen" else "fixture.terminal"
+    terminal = {"identifier":terminal_identifier,"label":"Terminal","type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
     identifiers = []
     environment = dict(value.split("=", 1) for value in args.environment)
     if args.environment_json:
         environment.update(json.loads(Path(args.environment_json).read_text()))
+    proof_path_log = os.environ.get("SPOONJOY_CONTRACT_OBSERVER_PROOF_PATH_FILE")
+    if proof_path_log:
+        with Path(proof_path_log).open("a", encoding="utf-8") as handle:
+            handle.write(environment["SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH"] + "\n")
+    product_finding = None
+    if os.environ.get("SPOONJOY_CONTRACT_FAIL_IOS_OBSERVER") == "1":
+        product_finding = {"kind":"simulatedProductRegression","identifiers":[args.route],"message":"simulated product regression","intersection":None}
+    if (
+        os.environ.get("SPOONJOY_CONTRACT_FAIL_IOS_AX_OBSERVER") == "1"
+        and environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "").startswith("accessibility-")
+    ):
+        product_finding = {"kind":"simulatedAccessibilityProductRegression","identifiers":[args.route],"message":"simulated accessibility-size product regression","intersection":None}
     proof_path = Path(environment["SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH"])
     proof = json.loads(proof_path.read_bytes())
     proof["captureRunNonce"] = environment["SPOONJOY_SCREENSHOT_RUN_NONCE"]
@@ -1878,7 +1906,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     elements = [terminal] + [{"identifier":identifier,"label":identifier,"type":"staticText","frame":{"x":10,"y":10 + index * 20,"width":80,"height":18},"exists":True,"hittable":False,"enabled":True,"focused":None} for index, identifier in enumerate(identifiers)]
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
     initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":1,"proofFileName":"native-accessibility-proof.generation-1.json","proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","readinessHandshake":initial_handshake,"toolLimitations":[]}
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"geometryFindings":[product_finding] if product_finding else [],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","readinessHandshake":initial_handshake,"toolLimitations":[]}
     if args.route in {"kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs", "profile", "profile-graph", "search", "capture", "settings"}:
         deep_proof = dict(proof)
         deep_proof["visualReadiness"] = dict(proof["visualReadiness"])
@@ -1901,6 +1929,24 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         screenshot.parent.mkdir(parents=True, exist_ok=True)
         screenshot.write_bytes(b"png")
   PY
+
+  write_executable(bin_dir.join("mv"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -n "${SPOONJOY_CONTRACT_FAIL_IOS_PUBLISH_AFTER:-}" && "$*" == *-capture-attempt-* ]]; then
+      marker="${SPOONJOY_CONTRACT_IOS_PUBLISH_COUNT_FILE:?}"
+      count=0
+      if [[ -f "$marker" ]]; then
+        count="$(cat "$marker")"
+      fi
+      count=$((count + 1))
+      printf '%s\n' "$count" > "$marker"
+      if [[ "$count" -eq "$SPOONJOY_CONTRACT_FAIL_IOS_PUBLISH_AFTER" ]]; then
+        exit 73
+      fi
+    fi
+    exec /bin/mv "$@"
+  SH
 
   blocker_stub = lambda do |capability|
     <<~SH
@@ -2112,10 +2158,11 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       simctl\ terminate\ *)
         rm -f "$ios_running_file"
         ;;
-      simctl\ spawn\ *\ /usr/bin/pgrep\ -x\ Spoonjoy)
+      simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)
         if [[ -f "$ios_running_file" ]]; then
-          printf '12345\n'
+          printf 'spoonjoy-stop-probe-status=0\n'
         else
+          printf 'spoonjoy-stop-probe-status=1\n'
           exit 1
         fi
         ;;
@@ -2414,6 +2461,7 @@ PY
     ruby -rjson -rdigest -e '
       output, route, identifiers, pid, capture_run_nonce, readiness_proof_path, screenshot_path, bundle_id, bundle_path, executable_path = ARGV
       elements = JSON.parse(identifiers).map.with_index { |identifier, index| {identifier: identifier, role: "AXStaticText", title: identifier, frame: {x: 10, y: 10 + index * 45, width: 120, height: 44}, enabled: true, focused: false, actions: []} }
+      terminal_identifier = route == "kitchen" ? "kitchen.cookbook.cookbook_weeknights" : "fixture.terminal"
       evidence = {
         platform: "macos", route: route, captureRunNonce: capture_run_nonce,
         readinessProofSHA256: Digest::SHA256.file(readiness_proof_path).hexdigest,
@@ -2423,6 +2471,26 @@ PY
         executableSHA256: Digest::SHA256.file(executable_path).hexdigest,
         elements: elements, findings: []
       }
+      if terminal_identifier != "fixture.terminal"
+        evidence[:deepScroll] = {
+          route: route,
+          reachedTerminal: true,
+          scrollAreaIdentifier: "#{route}.scroll",
+          initialScrollValue: 0.0,
+          finalScrollValue: 1.0,
+          contentViewport: {x: 0, y: 0, width: 200, height: 120},
+          terminalElement: {
+            identifier: terminal_identifier,
+            role: "AXButton",
+            title: terminal_identifier,
+            frame: {x: 10, y: 40, width: 120, height: 44},
+            enabled: true,
+            focused: false,
+            actions: ["AXPress"]
+          },
+          findings: []
+        }
+      end
       File.write(output, JSON.generate(evidence) + "\n")
     ' "$output" "$route" "$identifiers" "$pid" "$capture_run_nonce" "$readiness_proof_path" "$screenshot_path" "$bundle_id" "$bundle_path" "$executable_path"
   SH
@@ -2441,6 +2509,7 @@ PY
     "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.05"
   )
   stream_child_pid_path = script_root.join("foreground-stream-child-pids")
+  observer_proof_path_log = script_root.join("observer-proof-paths")
   foreground_event_pipe = script_root.join("foreground-events.fifo")
   artifact_root.join("design-review-blocked.json").write("{}\n")
   success_stream_pid_index = stream_child_pid_path.file? ? stream_child_pid_path.readlines.length : 0
@@ -2457,11 +2526,15 @@ PY
     "screenshot success lane",
     env: fixture_runtime_env.merge(
       "SPOONJOY_CONTRACT_FOREGROUND_EVENT_PIPE" => foreground_event_pipe.to_s,
-      "SPOONJOY_CONTRACT_STREAM_CHILD_PID_FILE" => stream_child_pid_path.to_s
+      "SPOONJOY_CONTRACT_STREAM_CHILD_PID_FILE" => stream_child_pid_path.to_s,
+      "SPOONJOY_CONTRACT_OBSERVER_PROOF_PATH_FILE" => observer_proof_path_log.to_s
     ),
     chdir: script_root
   )
   assert_recorded_processes_gone(stream_child_pid_path, "screenshot success lane", from_index: success_stream_pid_index)
+  observer_proof_paths = observer_proof_path_log.readlines(chomp: true)
+  record_failure("screenshot observers did not record all three proof namespaces") unless observer_proof_paths.length == 3
+  record_failure("screenshot observers reused a proof namespace across capture phases") unless observer_proof_paths.uniq.length == 3
   assert_file(artifact_root.join("design-review.json"), "screenshot success lane")
   assert_missing(artifact_root.join("design-review-blocked.json"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile.png"), "screenshot success lane")
@@ -2494,6 +2567,147 @@ PY
   )
   record_failure("kitchen cache seed account mismatch") unless kitchen_cache_json["accountID"] == "chef_kitchen_capture"
   record_failure("kitchen cache seed missing recipe detail") unless kitchen_cache_json.fetch("records", []).any? { |record| record["id"] == "recipe-detail:recipe_lemon_pantry_pasta" }
+
+  visual_failure_root = temp_root.join("ios-visual-evidence-failure")
+  visual_failure_root.mkpath
+  assert_status(
+    false,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      visual_failure_root,
+      "--unit-slug",
+      "unit-contract-ios-visual-failure"
+    ],
+    "iOS visual assertion is a hard release failure",
+    env: fixture_runtime_env.merge(
+      "SPOONJOY_CONTRACT_FAIL_IOS_OBSERVER" => "1",
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "1"
+    ),
+    chdir: script_root
+  )
+  assert_missing(visual_failure_root.join("design-review.json"), "iOS visual assertion failure")
+  assert_missing(visual_failure_root.join("design-review-blocked.json"), "iOS visual assertion failure")
+  assert_missing(
+    visual_failure_root.join("apple/unit-contract-ios-visual-failure-screenshots-core-simulator-blocker.json"),
+    "iOS visual assertion failure"
+  )
+
+  partial_visual_failure_root = temp_root.join("ios-partial-visual-evidence-failure")
+  partial_visual_failure_root.mkpath
+  assert_status(
+    false,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      partial_visual_failure_root,
+      "--unit-slug",
+      "unit-contract-ios-partial-visual-failure"
+    ],
+    "accessibility-size failure cannot publish a partial iOS evidence generation",
+    env: fixture_runtime_env.merge(
+      "SPOONJOY_CONTRACT_FAIL_IOS_AX_OBSERVER" => "1",
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "1"
+    ),
+    chdir: script_root
+  )
+  [
+    "screenshots/ios-mobile.png",
+    "screenshots/ios-mobile-deep-scroll.png",
+    "apple/unit-contract-ios-partial-visual-failure-observed-accessibility-ios.json",
+    "apple/unit-contract-ios-partial-visual-failure-accessibility-proof-ios.json",
+    "apple/unit-contract-ios-partial-visual-failure-accessibility-proof-ios-deep-scroll.json"
+  ].each do |relative_path|
+    assert_missing(
+      partial_visual_failure_root.join(relative_path),
+      "accessibility-size partial-generation failure"
+    )
+  end
+  assert_missing(partial_visual_failure_root.join("design-review.json"), "accessibility-size partial-generation failure")
+  assert_missing(partial_visual_failure_root.join("design-review-blocked.json"), "accessibility-size partial-generation failure")
+
+  infrastructure_retry_root = temp_root.join("ios-observer-infrastructure-retry")
+  infrastructure_retry_root.mkpath
+  infrastructure_retry_marker = infrastructure_retry_root.join("observer-failed-once")
+  infrastructure_retry_stream_index = stream_child_pid_path.file? ? stream_child_pid_path.readlines.length : 0
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      infrastructure_retry_root,
+      "--unit-slug",
+      "unit-contract-ios-observer-infrastructure-retry"
+    ],
+    "transient observer infrastructure failure remains retryable",
+    env: fixture_runtime_env.merge(
+      "SPOONJOY_CONTRACT_FAIL_IOS_OBSERVER_ONCE_FILE" => infrastructure_retry_marker.to_s,
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "2"
+    ),
+    chdir: script_root
+  )
+  assert_recorded_processes_gone(
+    stream_child_pid_path,
+    "transient observer infrastructure retry",
+    from_index: infrastructure_retry_stream_index
+  )
+  terminate_recorded_processes(stream_child_pid_path, from_index: infrastructure_retry_stream_index)
+  assert_file(infrastructure_retry_marker, "transient observer infrastructure failure marker")
+  assert_json(infrastructure_retry_root.join("design-review.json"), "transient observer infrastructure retry review")
+  assert_missing(
+    infrastructure_retry_root.join("apple/unit-contract-ios-observer-infrastructure-retry-screenshots-core-simulator-blocker.json"),
+    "transient observer infrastructure retry"
+  )
+
+  publication_failure_root = temp_root.join("ios-publication-failure")
+  publication_failure_root.mkpath
+  publication_count_file = publication_failure_root.join("publication-count")
+  publication_failure_stream_index = stream_child_pid_path.file? ? stream_child_pid_path.readlines.length : 0
+  assert_status(
+    false,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      publication_failure_root,
+      "--unit-slug",
+      "unit-contract-ios-publication-failure"
+    ],
+    "mid-publication failure rolls back the complete iOS generation",
+    env: fixture_runtime_env.merge(
+      "SPOONJOY_CONTRACT_FAIL_IOS_PUBLISH_AFTER" => "2",
+      "SPOONJOY_CONTRACT_IOS_PUBLISH_COUNT_FILE" => publication_count_file.to_s,
+      "SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS" => "1"
+    ),
+    chdir: script_root
+  )
+  assert_recorded_processes_gone(
+    stream_child_pid_path,
+    "mid-publication rollback",
+    from_index: publication_failure_stream_index
+  )
+  terminate_recorded_processes(stream_child_pid_path, from_index: publication_failure_stream_index)
+  [
+    "screenshots/ios-mobile.png",
+    "screenshots/ios-mobile-accessibility.png",
+    "screenshots/ios-tablet.png",
+    "screenshots/ios-mobile-deep-scroll.png",
+    "screenshots/ios-mobile-accessibility-deep-scroll.png",
+    "screenshots/ios-tablet-deep-scroll.png",
+    "apple/unit-contract-ios-publication-failure-observed-accessibility-ios.json",
+    "apple/unit-contract-ios-publication-failure-accessibility-proof-ios.json"
+  ].each do |relative_path|
+    assert_missing(publication_failure_root.join(relative_path), "mid-publication rollback")
+  end
+  assert_missing(publication_failure_root.join("design-review.json"), "mid-publication rollback")
+  assert_missing(publication_failure_root.join("design-review-blocked.json"), "mid-publication rollback")
+  assert_missing(
+    publication_failure_root.join("apple/unit-contract-ios-publication-failure-screenshots-core-simulator-blocker.json"),
+    "mid-publication rollback"
+  )
 
   observed_launch_timeout_root = temp_root.join("observed-launch-timeout")
   observed_launch_timeout_root.mkpath
@@ -2678,8 +2892,12 @@ PY
     interruption_thread.join
     record_failure("foreground interruption lane did not terminate promptly")
   end
-  stdout.read
-  stderr.read
+  interruption_stdout = stdout.read
+  interruption_stderr = stderr.read
+  if interruption_stdout.include?("Traceback") || interruption_stderr.include?("Traceback") ||
+     interruption_stdout.include?("PermissionError") || interruption_stderr.include?("PermissionError")
+    record_failure("foreground interruption lane emitted a supervisor traceback")
+  end
   assert_recorded_processes_gone(stream_child_pid_path, "foreground interruption lane", from_index: interruption_stream_pid_index)
   assert_recorded_processes_gone(
     interruption_launch_pid_path,
@@ -2758,6 +2976,7 @@ PY
     env: fixture_runtime_env,
     chdir: script_root
   )
+  assert_missing(cookbook_detail_root.join("design-review-blocked.json"), "cookbook detail screenshot success lane")
   cookbook_detail_review = assert_json(cookbook_detail_root.join("design-review.json"), "cookbook detail screenshot success lane")
   record_failure("cookbook detail screenshot route mismatch") unless cookbook_detail_review["screenshotRoute"] == "cookbook-detail"
   record_failure("cookbook detail account seed mismatch") unless cookbook_detail_review["cookbookSeedAccountID"] == "chef_kitchen_capture"
@@ -2844,6 +3063,7 @@ PY
     env: fixture_runtime_env,
     chdir: script_root
   )
+  assert_missing(artifact_root.join("design-review-blocked.json"), "search screenshot success lane")
   search_review = assert_json(artifact_root.join("design-review.json"), "search screenshot success lane")
   record_failure("search screenshot route mismatch") unless search_review["screenshotRoute"] == "search"
   record_failure("search screenshot account seed mismatch") unless search_review["searchSeedAccountID"] == "chef_search_capture"
@@ -2933,6 +3153,7 @@ PY
     env: fixture_runtime_env,
     chdir: script_root
   )
+  assert_missing(artifact_root.join("design-review-blocked.json"), "settings screenshot success lane")
   settings_review = assert_json(artifact_root.join("design-review.json"), "settings screenshot success lane")
   record_failure("settings screenshot route mismatch") unless settings_review["screenshotRoute"] == "settings"
   record_failure("settings screenshot focus mismatch") unless settings_review["settingsVisualFocus"] == "profile"
@@ -2966,6 +3187,7 @@ PY
     env: fixture_runtime_env,
     chdir: script_root
   )
+  assert_missing(artifact_root.join("design-review-blocked.json"), "notification screenshot success lane")
   notification_review = assert_json(artifact_root.join("design-review.json"), "notification screenshot success lane")
   record_failure("notification screenshot route mismatch") unless notification_review["screenshotRoute"] == "settings"
   record_failure("notification screenshot focus mismatch") unless notification_review["settingsVisualFocus"] == "notifications"
@@ -3070,7 +3292,8 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
       simctl\ launch\ *)
         sleep 10
         ;;
-      simctl\ spawn\ *\ /usr/bin/pgrep*)
+      simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)
+        printf 'spoonjoy-stop-probe-status=1\n'
         exit 1
         ;;
       simctl\ shutdown\ *|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ terminate\ *)
@@ -3162,7 +3385,8 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     parser.add_argument("--environment", action="append", default=[])
     parser.add_argument("--environment-json")
     args = parser.parse_args()
-    terminal = {"identifier":"fixture.terminal","label":"Terminal","type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
+    terminal_identifier = "kitchen.cookbook.cookbook_weeknights" if args.route == "kitchen" else "fixture.terminal"
+    terminal = {"identifier":terminal_identifier,"label":"Terminal","type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
     environment = json.loads(Path(args.environment_json).read_text()) if args.environment_json else {}
     proof_path = Path(environment["SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH"])
     proof = json.loads(proof_path.read_bytes())
@@ -3253,6 +3477,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     mkdir -p "$(dirname "$output")"
     ruby -rjson -rdigest -e '
       output, route, pid, capture_run_nonce, readiness_proof_path, screenshot_path, bundle_id, bundle_path, executable_path = ARGV
+      terminal_identifier = route == "kitchen" ? "kitchen.cookbook.cookbook_weeknights" : "fixture.terminal"
       evidence = {
         platform: "macos", route: route, captureRunNonce: capture_run_nonce,
         readinessProofSHA256: Digest::SHA256.file(readiness_proof_path).hexdigest,
@@ -3263,6 +3488,26 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
         elements: [{identifier: "fixture.terminal", role: "AXStaticText", title: "Terminal", frame: {x: 10, y: 10, width: 120, height: 44}, enabled: true, focused: false, actions: []}],
         findings: []
       }
+      if terminal_identifier != "fixture.terminal"
+        evidence[:deepScroll] = {
+          route: route,
+          reachedTerminal: true,
+          scrollAreaIdentifier: "#{route}.scroll",
+          initialScrollValue: 0.0,
+          finalScrollValue: 1.0,
+          contentViewport: {x: 0, y: 0, width: 200, height: 120},
+          terminalElement: {
+            identifier: terminal_identifier,
+            role: "AXButton",
+            title: terminal_identifier,
+            frame: {x: 10, y: 40, width: 120, height: 44},
+            enabled: true,
+            focused: false,
+            actions: ["AXPress"]
+          },
+          findings: []
+        }
+      end
       File.write(output, JSON.generate(evidence) + "\n")
     ' "$output" "$route" "$pid" "$capture_run_nonce" "$readiness_proof_path" "$screenshot_path" "$bundle_id" "$bundle_path" "$executable_path"
   SH
@@ -3313,7 +3558,8 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
         write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$platform" "app.spoonjoy"
         printf 'app.spoonjoy: 12345\n'
         ;;
-      simctl\ spawn\ *\ /usr/bin/pgrep*)
+      simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)
+        printf 'spoonjoy-stop-probe-status=1\n'
         exit 1
         ;;
       simctl\ spawn\ *\ log\ stream*)

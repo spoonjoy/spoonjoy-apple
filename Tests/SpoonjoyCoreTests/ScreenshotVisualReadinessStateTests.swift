@@ -3,6 +3,19 @@ import Testing
 
 @Suite("Screenshot visual readiness state")
 struct ScreenshotVisualReadinessStateTests {
+    @Test("settled empty is the zero-generation no-work readiness state")
+    func settledEmptyIsTheZeroGenerationNoWorkReadinessState() {
+        #expect(ScreenshotVisualReadinessSnapshot.settledEmpty == ScreenshotVisualReadinessSnapshot(
+            generation: 0,
+            expectedMediaCount: 0,
+            loadedMediaCount: 0,
+            pendingMediaCount: 0,
+            failedMediaCount: 0,
+            blockingIndicatorCount: 0,
+            isSettled: true
+        ))
+    }
+
     @Test("media stays pending until it reaches a loaded terminal phase")
     func mediaStaysPendingUntilLoaded() {
         var state = ScreenshotVisualReadinessState()

@@ -147,6 +147,42 @@ struct SearchVisualContractTests {
         let refreshBody = capture[refreshFunction.lowerBound..<captureFunctionStart.lowerBound]
         #expect(refreshBody.contains("atomic_fixture_write \"$ios_state_directory/native-app-state.json\" write_app_state"))
     }
+
+    @Test("simulator termination and stop probes are bounded")
+    func simulatorTerminationAndStopProbesAreBounded() throws {
+        let capture = try readSearchContractFile("scripts/capture-native-screenshots.sh")
+        let start = try #require(capture.range(of: "terminate_ios_app_and_confirm_stopped() {"))
+        let end = try #require(capture.range(of: "terminate_macos_app_and_confirm_stopped() {", range: start.upperBound..<capture.endIndex))
+        let body = capture[start.lowerBound..<end.lowerBound]
+
+        #expect(body.contains("run_with_timeout \"simulator app termination timeout\""))
+        #expect(body.contains("run_with_timeout \"simulator stopped-process probe timeout\""))
+        #expect(body.contains("xcrun simctl terminate \"$udid\" app.spoonjoy"))
+        #expect(body.contains("xcrun simctl spawn \"$udid\" /bin/sh -c"))
+        #expect(body.contains("spoonjoy-stop-probe-status=%s"))
+        #expect(!body.contains("if ! xcrun simctl terminate"))
+        #expect(!body.contains("if ! xcrun simctl spawn"))
+    }
+
+    @Test("simulator launch does not use the hanging terminate-and-launch composite")
+    func simulatorLaunchAvoidsTerminateAndLaunchComposite() throws {
+        let capture = try readSearchContractFile("scripts/capture-native-screenshots.sh")
+        let smoke = try readSearchContractFile("scripts/smoke-ios-simulator.sh")
+
+        #expect(capture.contains("xcrun simctl launch --stdout=\"$ios_app_stdout_log\" --stderr=\"$ios_app_stderr_log\" \"$udid\" app.spoonjoy"))
+        #expect(smoke.contains("$launch_command --stdout='$app_stdout_path' --stderr='$app_stderr_path' $udid app.spoonjoy"))
+        #expect(capture.contains("ios_app_stdout_log=\"$artifact_root/apple/${unit_slug}-ios-app-stdout.log\""))
+        #expect(capture.contains("ios_app_stderr_log=\"$artifact_root/apple/${unit_slug}-ios-app-stderr.log\""))
+        #expect(smoke.contains("app_stdout_path=\"$artifact_root/apple/${unit_slug}-app-stdout.log\""))
+        #expect(smoke.contains("app_stderr_path=\"$artifact_root/apple/${unit_slug}-app-stderr.log\""))
+        #expect(smoke.contains("tempfile.TemporaryFile(mode=\"w+b\")"))
+        #expect(smoke.contains("exit_code = process.wait(timeout=timeout_seconds)"))
+        #expect(smoke.contains("sys.stdout.buffer.write(output.read())"))
+        #expect(!capture.contains("--terminate-running-process"))
+        #expect(!smoke.contains("--terminate-running-process"))
+        #expect(!smoke.contains("stdout=subprocess.PIPE"))
+        #expect(!smoke.contains("process.communicate("))
+    }
 }
 
 private func readSearchContractFile(_ path: String) throws -> String {
