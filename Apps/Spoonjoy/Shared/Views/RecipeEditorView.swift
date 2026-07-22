@@ -72,6 +72,8 @@ struct RecipeEditorView: View {
     @State private var blockedMessage: String?
     @State private var showDeleteConfirmation = false
     @State private var isSubmitting = false
+    @State private var submissionTask: Task<Void, Never>?
+    @State private var activeSubmissionID: UUID?
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
@@ -295,9 +297,7 @@ struct RecipeEditorView: View {
             if !usesCompactNavigation {
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
-                        Task {
-                            await save()
-                        }
+                        startSave()
                     } label: {
                         if isSubmitting {
                             ProgressView()
@@ -317,13 +317,12 @@ struct RecipeEditorView: View {
             synchronizeToolbarCoordinator()
         }
         .onDisappear {
+            cancelSubmission()
             toolbarCoordinator?.reset(ifMatching: editorRouteIdentifier)
         }
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Recipe", role: .destructive) {
-                Task {
-                    await deleteRecipe()
-                }
+                startDelete()
             }
             Button("Cancel", role: .cancel) {}
         }
@@ -606,9 +605,7 @@ struct RecipeEditorView: View {
             canSave: activeViewModel.updatingDraft(draft).canSubmit,
             isSaving: isSubmitting
         ) {
-            Task {
-                await save()
-            }
+            startSave()
         }
     }
 
@@ -619,27 +616,74 @@ struct RecipeEditorView: View {
             .textCase(nil)
     }
 
-    @MainActor private func save() async {
+    @MainActor private func startSave() {
+        startSubmission { submissionID in
+            await save(submissionID: submissionID)
+        }
+    }
+
+    @MainActor private func startDelete() {
+        startSubmission { submissionID in
+            await deleteRecipe(submissionID: submissionID)
+        }
+    }
+
+    @MainActor private func startSubmission(
+        operation: @escaping @MainActor (UUID) async -> Void
+    ) {
+        guard submissionTask == nil else {
+            return
+        }
+        let submissionID = UUID()
+        activeSubmissionID = submissionID
+        submissionTask = Task { @MainActor in
+            await operation(submissionID)
+            guard activeSubmissionID == submissionID else {
+                return
+            }
+            activeSubmissionID = nil
+            submissionTask = nil
+        }
+    }
+
+    @MainActor private func cancelSubmission() {
+        activeSubmissionID = nil
+        submissionTask?.cancel()
+        submissionTask = nil
+        isSubmitting = false
+    }
+
+    @MainActor private func save(submissionID: UUID) async {
         let actions = RecipeEditorDraftChangePlanner.actions(
             original: viewModel.draft,
             draft: draft,
             clientMutationID: clientMutationID
         )
-        await plan(actions)
+        await plan(actions, submissionID: submissionID)
     }
 
-    @MainActor private func deleteRecipe() async {
-        await plan([.deleteRecipe(clientMutationID: clientMutationID("recipe-delete"), confirmation: .confirmed)])
+    @MainActor private func deleteRecipe(submissionID: UUID) async {
+        await plan(
+            [.deleteRecipe(clientMutationID: clientMutationID("recipe-delete"), confirmation: .confirmed)],
+            submissionID: submissionID
+        )
     }
 
-    @MainActor private func plan(_ actions: [RecipeEditorAction]) async {
+    @MainActor private func plan(_ actions: [RecipeEditorAction], submissionID: UUID? = nil) async {
         guard !isSubmitting else {
             return
+        }
+        if let submissionID {
+            guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                return
+            }
         }
 
         isSubmitting = true
         defer {
-            isSubmitting = false
+            if submissionID == nil || activeSubmissionID == submissionID {
+                isSubmitting = false
+            }
         }
 
         do {
@@ -675,6 +719,11 @@ struct RecipeEditorView: View {
                 }
             }
 
+            if let submissionID {
+                guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                    return
+                }
+            }
             blockedMessage = nil
             offlineDisplayOverride = nil
             let successRoute = plannedActions.compactMap(\.plan.successRoute).last
@@ -682,8 +731,18 @@ struct RecipeEditorView: View {
                 close(successRoute)
             }
         } catch let error as RecipeEditorActionExecutionError {
+            if let submissionID {
+                guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                    return
+                }
+            }
             blockedMessage = message(for: error.underlyingError, action: error.action)
         } catch {
+            if let submissionID {
+                guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                    return
+                }
+            }
             blockedMessage = message(for: error, action: nil)
         }
     }

@@ -52,7 +52,11 @@ public struct AppNavigationState: Equatable {
     }
 
     public mutating func setDesktopPath(_ path: [AppRoute]) {
+        let poppedToRoot = !desktopPath.isEmpty && path.isEmpty
         desktopPath = path
+        if poppedToRoot {
+            desktopCompactReturnTab = nil
+        }
         route = path.last ?? desktopRootRoute
     }
 

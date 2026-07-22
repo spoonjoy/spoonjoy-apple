@@ -11,6 +11,15 @@ struct NativeSearchSurfaceTests {
         bearerToken: "sj_private_token"
     )
 
+    @Test("freshly loaded recipes take precedence over bootstrap snapshots")
+    func freshlyLoadedRecipesTakePrecedenceOverBootstrapSnapshots() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        #expect(navigation.contains("loadedRecipesByID[id] ?? contentState.recipes.first { $0.id == id }"))
+        #expect(!navigation.contains("contentState.recipes.first { $0.id == id } ?? loadedRecipesByID[id]"))
+    }
+
     @Test("search surface exists as a first-class native feature")
     func searchSurfaceExistsAsFirstClassNativeFeature() throws {
         let failures = sourceContractFailures(

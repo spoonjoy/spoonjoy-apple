@@ -202,6 +202,22 @@ struct AppStateTests {
         #expect(navigation.compactPath(for: .kitchen) == [kitchenDetail])
     }
 
+    @Test("popping desktop navigation to its root releases compact route ownership")
+    func desktopRootPopReleasesCompactRouteOwnership() {
+        let kitchenDetail = AppRoute.recipeDetail(id: "recipe_kitchen", presentation: .detail)
+        var navigation = AppNavigationState()
+
+        navigation.pushCompact(kitchenDetail)
+        navigation.synchronizeForShellTransition(to: .desktop)
+        navigation.setDesktopPath([])
+        navigation.synchronizeForShellTransition(to: .compact)
+
+        #expect(navigation.route == .recipes)
+        #expect(navigation.compactTabSelection == .recipes)
+        #expect(navigation.compactPath(for: .recipes).isEmpty)
+        #expect(navigation.compactPath(for: .kitchen) == [kitchenDetail])
+    }
+
     @Test("compact navigation covers every root invalid sections duplicate pushes and replacement")
     func compactNavigationCoversRootsInvalidSectionsDuplicatePushesAndReplacement() {
         var navigation = AppNavigationState()

@@ -979,7 +979,7 @@ struct PlatformNavigationView: View {
     }
 
     private func recipe(id: String) -> Recipe? {
-        contentState.recipes.first { $0.id == id } ?? loadedRecipesByID[id]
+        loadedRecipesByID[id] ?? contentState.recipes.first { $0.id == id }
     }
 
     private func recordLoadedRecipe(_ recipe: Recipe) {
