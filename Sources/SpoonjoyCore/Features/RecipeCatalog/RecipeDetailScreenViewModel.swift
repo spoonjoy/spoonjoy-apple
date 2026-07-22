@@ -384,16 +384,53 @@ public struct NativeRecipeDetailTelemetryDescriptor: Equatable, Sendable {
     public let status: Int?
     public let apiCode: String?
     public let retry: String?
+    public let hasRenderableCacheContent: Bool
 
     public static func cookHistoryEnrichmentFailed(error: Error) -> Self {
+        diagnostic(
+            stage: "recipe_detail.cook_history_enrichment",
+            error: error,
+            hasRenderableCacheContent: true
+        )
+    }
+
+    public static func primaryFetchFailed(error: Error) -> Self {
+        diagnostic(
+            stage: "recipe_detail.primary_fetch",
+            error: error,
+            hasRenderableCacheContent: false
+        )
+    }
+
+    public static func primaryFetchCancelled(error: Error, requestID: String? = nil) -> Self {
+        diagnostic(
+            stage: "recipe_detail.primary_fetch",
+            error: error,
+            errorType: "cancelled",
+            requestID: requestID,
+            hasRenderableCacheContent: false
+        )
+    }
+
+    private static func diagnostic(
+        stage: String,
+        error: Error,
+        errorType: String? = nil,
+        requestID: String? = nil,
+        hasRenderableCacheContent: Bool
+    ) -> Self {
         let transportError = error as? APITransportError
         return Self(
-            stage: "recipe_detail.cook_history_enrichment",
-            errorType: bounded(String(describing: Swift.type(of: error)), limit: 80),
-            requestID: bounded(transportError?.requestID ?? transportError?.apiError?.requestID, limit: 160),
+            stage: stage,
+            errorType: bounded(errorType ?? String(describing: Swift.type(of: error)), limit: 80),
+            requestID: bounded(
+                requestID ?? transportError?.requestID ?? transportError?.apiError?.requestID,
+                limit: 160
+            ),
             status: transportError?.statusCode ?? transportError?.apiError?.status,
             apiCode: bounded(transportError?.apiError?.code, limit: 80),
-            retry: transportError.map { retryDescription($0.retryDecision) }
+            retry: transportError.map { retryDescription($0.retryDecision) },
+            hasRenderableCacheContent: hasRenderableCacheContent
         )
     }
 
@@ -412,7 +449,7 @@ public struct NativeRecipeDetailTelemetryDescriptor: Equatable, Sendable {
             status: status,
             apiCode: apiCode,
             retry: retry,
-            hasRenderableCacheContent: true
+            hasRenderableCacheContent: hasRenderableCacheContent
         )
     }
 
@@ -462,7 +499,34 @@ public struct RecipeDetailProgressiveLoader: Sendable {
         recipeID: String,
         onRecipe: @escaping @MainActor @Sendable (RecipeCatalogDetailResult) -> Void
     ) async throws {
-        let initialResult = try await recipeRepository.recipeDetail(id: recipeID)
+        let initialResult: RecipeCatalogDetailResult
+        do {
+            initialResult = try await recipeRepository.recipeDetail(id: recipeID)
+        } catch is CancellationError {
+            await reportPrimaryFetchCancellation(.primaryFetchCancelled(error: CancellationError()))
+            throw CancellationError()
+        } catch let error as APITransportError where error.isCancelled {
+            await reportPrimaryFetchCancellation(.primaryFetchCancelled(error: error))
+            throw CancellationError()
+        } catch {
+            await reportTelemetry(.primaryFetchFailed(error: error))
+            throw error
+        }
+
+        do {
+            try Task.checkCancellation()
+        } catch {
+            let requestID: String? = if case .live(let requestID, _) = initialResult.source {
+                requestID
+            } else {
+                nil
+            }
+            await reportPrimaryFetchCancellation(.primaryFetchCancelled(
+                error: error,
+                requestID: requestID
+            ))
+            throw CancellationError()
+        }
         await onRecipe(initialResult)
 
         do {
@@ -480,6 +544,13 @@ public struct RecipeDetailProgressiveLoader: Sendable {
         } catch {
             await reportTelemetry(.cookHistoryEnrichmentFailed(error: error))
         }
+    }
+
+    private func reportPrimaryFetchCancellation(_ descriptor: NativeRecipeDetailTelemetryDescriptor) async {
+        let reportTelemetry = reportTelemetry
+        await Task.detached {
+            await reportTelemetry(descriptor)
+        }.value
     }
 
     private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {
