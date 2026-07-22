@@ -52,6 +52,10 @@ class LiveCandidateEvidence
     result.status.zero?
   end
 
+  def legacy_release_source?(source_sha, last_legacy_main_sha)
+    main_ancestor?(source_sha, last_legacy_main_sha)
+  end
+
   def workflow_runs(source_sha)
     gh_json(
       "repos/#{@repository}/actions/workflows/native.yml/runs",
@@ -125,6 +129,13 @@ class FixtureCandidateEvidence
     read("is-main-ancestor.txt").strip == "true"
   end
 
+  def legacy_release_source?(_source_sha, _last_legacy_main_sha)
+    path = File.join(@fixture_dir, "is-legacy-release-source.txt")
+    return false unless File.file?(path)
+
+    File.read(path).strip == "true"
+  end
+
   def workflow_runs(_source_sha)
     read_json("runs.json")
   end
@@ -175,6 +186,8 @@ class TestFlightReleaseCandidateVerifier
   NATIVE_WORKFLOW_PATH = ".github/workflows/native.yml"
   RELEASE_NOTES_FILENAME = "testflight-release-notes.json"
   RELEASE_NOTES_SCHEMA_VERSION = 2
+  PUBLISH_RELEASE_NOTES_SCHEMA_VERSION = 1
+  LAST_LEGACY_RELEASE_MAIN_SHA = "bad81b49a07c006814315a56e4c98311693a7256"
   MAX_RELEASE_NOTES_LENGTH = 4_000
   TIMESTAMP_TOLERANCE_SECONDS = 300
 
@@ -204,11 +217,20 @@ class TestFlightReleaseCandidateVerifier
     main_sha = validate_main_membership
     rollback = validate_release_mode(main_sha)
     run = select_native_run
-    validate_required_jobs(run.fetch("id"), run.fetch("run_attempt"))
-    artifact, release_notes_path, release_payload, release_notes = load_native_release_notes(run, source_tree)
-    visual = validate_visual_evidence(release_payload, run, source_tree)
-    if rollback && !@rollback_notes.empty?
-      release_notes_path, release_notes = create_explicit_rollback_notes(release_payload)
+    jobs = native_jobs(run.fetch("id"), run.fetch("run_attempt"))
+    legacy_rollback = select_legacy_rollback_mode(rollback, jobs)
+    if legacy_rollback
+      validate_required_jobs(jobs, REQUIRED_NATIVE_JOBS)
+      artifact = nil
+      visual = nil
+      release_notes_path, release_payload, release_notes = create_explicit_legacy_rollback_notes(run, source_tree)
+    else
+      validate_required_jobs(jobs, REQUIRED_NATIVE_JOBS + [VISUAL_EVIDENCE_JOB, RELEASE_NOTE_JOB])
+      artifact, release_notes_path, release_payload, release_notes = load_native_release_notes(run, source_tree)
+      visual = validate_visual_evidence(release_payload, run, source_tree)
+      if rollback && !@rollback_notes.empty?
+        release_notes_path, release_notes = create_explicit_rollback_notes(release_payload)
+      end
     end
 
     attestation = {
@@ -217,31 +239,36 @@ class TestFlightReleaseCandidateVerifier
       "mainSha" => main_sha,
       "rollback" => rollback,
       "rollbackReason" => rollback ? @rollback_reason : nil,
+      "evidenceMode" => legacy_rollback ? "legacyRollback" : "nativeArtifacts",
+      "legacyReleaseAnchorSha" => legacy_rollback ? LAST_LEGACY_RELEASE_MAIN_SHA : nil,
       "nativeRunId" => run.fetch("id"),
       "nativeRunAttempt" => run.fetch("run_attempt"),
-      "releaseNotesArtifactId" => artifact.fetch("id"),
-      "releaseNotesArtifact" => artifact.fetch("name"),
+      "releaseNotesArtifactId" => artifact&.fetch("id"),
+      "releaseNotesArtifact" => artifact&.fetch("name"),
       "releaseNotesPath" => release_notes_path,
       "releaseNotes" => release_notes,
-      "visualEvidenceArtifactId" => visual.fetch("artifactId"),
-      "visualEvidenceArtifact" => visual.fetch("artifactName"),
-      "visualEvidenceArtifactDigest" => visual.fetch("artifactDigest"),
-      "visualEvidenceManifestSha256" => visual.fetch("manifestSha256"),
-      "visualEvidencePath" => visual.fetch("artifactPath")
+      "visualEvidenceArtifactId" => visual&.fetch("artifactId"),
+      "visualEvidenceArtifact" => visual&.fetch("artifactName"),
+      "visualEvidenceArtifactDigest" => visual&.fetch("artifactDigest"),
+      "visualEvidenceManifestSha256" => visual&.fetch("manifestSha256"),
+      "visualEvidencePath" => visual&.fetch("artifactPath")
     }
 
     FileUtils.mkdir_p(@output_dir)
     attestation_path = File.join(@output_dir, "testflight-release-candidate.json")
     File.write(attestation_path, JSON.pretty_generate(attestation) + "\n")
-    write_github_output(
+    outputs = {
       "source_sha" => @source_sha,
       "native_run_id" => run.fetch("id"),
       "native_run_attempt" => run.fetch("run_attempt"),
       "release_notes_path" => release_notes_path,
-      "visual_evidence_path" => visual.fetch("artifactPath"),
-      "visual_evidence_manifest_sha256" => visual.fetch("manifestSha256"),
       "candidate_attestation_path" => attestation_path
-    )
+    }
+    if visual
+      outputs["visual_evidence_path"] = visual.fetch("artifactPath")
+      outputs["visual_evidence_manifest_sha256"] = visual.fetch("manifestSha256")
+    end
+    write_github_output(outputs)
     attestation
   end
 
@@ -298,9 +325,26 @@ class TestFlightReleaseCandidateVerifier
     latest
   end
 
-  def validate_required_jobs(run_id, run_attempt)
-    jobs = Array(@evidence.jobs(run_id, run_attempt)["jobs"])
-    required_jobs = REQUIRED_NATIVE_JOBS + [VISUAL_EVIDENCE_JOB, RELEASE_NOTE_JOB]
+  def native_jobs(run_id, run_attempt)
+    Array(@evidence.jobs(run_id, run_attempt)["jobs"])
+  end
+
+  def select_legacy_rollback_mode(rollback, jobs)
+    return false unless rollback
+    return false unless @evidence.legacy_release_source?(@source_sha, LAST_LEGACY_RELEASE_MAIN_SHA)
+
+    modern_names = jobs.map { |job| job["name"] }
+                       .select { |name| [VISUAL_EVIDENCE_JOB, RELEASE_NOTE_JOB].include?(name) }
+                       .uniq
+    fail_with("legacy rollback cannot use partial modern release evidence") if modern_names.length == 1
+    return false if modern_names.length == 2
+
+    fail_with("legacy rollback requires explicit rollback notes") if @rollback_notes.empty?
+    validate_notes_text(@rollback_notes)
+    true
+  end
+
+  def validate_required_jobs(jobs, required_jobs)
     required_jobs.each do |required_name|
       matching = jobs.select { |job| job["name"] == required_name }
       fail_with("missing required Native job #{required_name}") if matching.empty?
@@ -329,6 +373,26 @@ class TestFlightReleaseCandidateVerifier
     payload = release_payload.merge("notes" => @rollback_notes, "origin" => "explicitRollback")
     File.write(release_notes_path, JSON.pretty_generate(payload) + "\n")
     [release_notes_path, @rollback_notes]
+  end
+
+  def create_explicit_legacy_rollback_notes(run, source_tree)
+    artifact_name = "testflight-release-notes-#{@source_sha}-#{run.fetch("id")}-#{run.fetch("run_attempt")}"
+    directory = File.join(@output_dir, "explicit-legacy-rollback-notes", artifact_name)
+    FileUtils.mkdir_p(directory)
+    release_notes_path = File.join(directory, RELEASE_NOTES_FILENAME)
+    payload = {
+      "schemaVersion" => PUBLISH_RELEASE_NOTES_SCHEMA_VERSION,
+      "sourceSha" => @source_sha,
+      "sourceTree" => source_tree,
+      "nativeRunId" => run.fetch("id"),
+      "nativeRunAttempt" => run.fetch("run_attempt"),
+      "generatedAt" => Time.now.utc.iso8601,
+      "notes" => @rollback_notes,
+      "origin" => "explicitLegacyRollback",
+      "legacyReleaseAnchorSha" => LAST_LEGACY_RELEASE_MAIN_SHA
+    }
+    File.write(release_notes_path, JSON.pretty_generate(payload) + "\n")
+    [release_notes_path, payload, @rollback_notes]
   end
 
   def select_release_note_artifact(run)

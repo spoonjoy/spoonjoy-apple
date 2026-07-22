@@ -211,16 +211,22 @@ requires a specific recovery number.
 TestFlight builds are immutable, so rollback means republishing a last known-good main commit
 as a new TestFlight build number. Select the exact older
 main ancestor in `source_sha`, set `allow_rollback=true`, and provide a concrete
-`rollback_reason`. The same successful Native run, required-job, and SHA-keyed
-release-note checks still apply; unrelated commits and unreasoned rollbacks are
-rejected.
+`rollback_reason`. The same successful Native run and required-job checks still
+apply. Modern candidates must also satisfy the SHA-keyed release-note and
+visual-evidence checks; unrelated commits and unreasoned rollbacks are rejected.
 
-For a last known-good commit whose Native run predates SHA-keyed note artifacts,
-also provide non-empty `rollback_notes`. The trusted verifier still requires the
-four successful protected Native jobs, then materializes and uploads a fresh
-`testflight-release-notes-<source_sha>` artifact before Apple credentials are
-prepared. `rollback_notes` is rejected for ordinary current-main releases and
-cannot bypass a missing, failed, or superseded Native run.
+For a last known-good commit at or before the pinned last-legacy-main boundary
+`bad81b49a07c006814315a56e4c98311693a7256`, whose Native run predates SHA-keyed
+note and visual-evidence artifacts, also provide non-empty `rollback_notes`.
+This explicit legacy mode is available only when the selected source is an
+ancestor of that boundary and neither modern evidence job is present. The
+trusted verifier still requires the four successful protected Native jobs,
+rejects partial modern evidence, and then materializes a fresh SHA- and
+Native-run-bound note that the workflow uploads as the verified candidate note
+before Apple credentials are prepared. Its candidate attestation records
+`evidenceMode=legacyRollback`, the pinned boundary, and null modern artifact
+fields. `rollback_notes` is rejected for ordinary current-main releases and
+cannot bypass a missing, failed, ambiguous, or superseded Native run.
 
 ```bash
 gh workflow run testflight.yml \
