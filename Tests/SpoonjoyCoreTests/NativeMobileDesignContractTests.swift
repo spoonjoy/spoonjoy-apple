@@ -144,10 +144,12 @@ struct NativeMobileDesignContractTests {
             in: kitchenPath,
             contains: [
                 ".accessibilityLabel(recipe.title)",
-                ".accessibilityHint(\"By @\\(recipe.chef.username). Opens recipe detail\")"
+                ".accessibilityHint(\"By @\\(recipe.chef.username). Opens recipe detail\")",
+                "dynamicTypeSize >= .xxLarge"
             ],
             forbids: [
-                ".accessibilityLabel(\"\\(recipe.title), by @\\(recipe.chef.username)\")"
+                ".accessibilityLabel(\"\\(recipe.title), by @\\(recipe.chef.username)\")",
+                "if dynamicTypeSize.isAccessibilitySize"
             ]
         )
     }

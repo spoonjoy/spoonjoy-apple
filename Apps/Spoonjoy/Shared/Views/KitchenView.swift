@@ -253,7 +253,7 @@ struct RecipeLead: View {
 
     @ViewBuilder private var leadVisual: some View {
         if hasRealCover {
-            if dynamicTypeSize.isAccessibilitySize {
+            if dynamicTypeSize >= .xxLarge {
                 accessiblePhotoLead
             } else {
                 photoLead
