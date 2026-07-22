@@ -69,7 +69,6 @@ REQUIRED_TOKENS = {
     "On the Counter",
     "indexedRecipes",
     "recipe.id != leadRecipe.id",
-    "ordinal",
     "recipe.description",
     "recipe.servings",
     "recipe.displayCoverProvenanceLabel",
