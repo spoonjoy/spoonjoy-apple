@@ -163,7 +163,7 @@ kitchen_navigation_phrases = [
   "`Shopping List` -> `/shopping-list`",
   "`Chefs` -> `/chefs`",
   "`Kitchen Search` -> `/search`",
-  "compact iPhone tabs are exactly `Kitchen`, `My Recipes`, `Saved`, `Cookbooks`, and `Shopping List`",
+  "compact iPhone tabs are exactly `Kitchen`, `Recipes`, `Saved`, `Cookbooks`, and `Shopping`",
   "Search stays in the trailing `More` menu",
   "Saved Recipes derive from cookbooks owned by the current chef",
   "route matrix covers `kitchen`, `recipes`, `saved-recipes`, `cookbooks`, `shopping-list`, `chefs`, and `search`"

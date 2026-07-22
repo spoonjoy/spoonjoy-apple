@@ -158,10 +158,11 @@ struct SearchVisualContractTests {
         #expect(body.contains("run_with_timeout \"simulator app termination timeout\""))
         #expect(body.contains("run_with_timeout \"simulator stopped-process probe timeout\""))
         #expect(body.contains("xcrun simctl terminate \"$udid\" app.spoonjoy"))
-        #expect(body.contains("xcrun simctl spawn \"$udid\" /bin/sh -c"))
-        #expect(body.contains("spoonjoy-stop-probe-status=%s"))
+        #expect(body.contains("xcrun simctl spawn -a \"$ios_simulator_spawn_arch\" \"$udid\" launchctl list"))
+        #expect(body.contains("grep -Fq 'UIKitApplication:app.spoonjoy'"))
         #expect(!body.contains("if ! xcrun simctl terminate"))
         #expect(!body.contains("if ! xcrun simctl spawn"))
+        #expect(!body.contains("xcrun simctl spawn \"$udid\" /bin/sh -c"))
     }
 
     @Test("simulator launch does not use the hanging terminate-and-launch composite")

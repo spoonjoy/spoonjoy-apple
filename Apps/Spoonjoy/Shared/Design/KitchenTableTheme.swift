@@ -112,7 +112,8 @@ struct KitchenTableHeader<Trailing: View>: View {
     private var titleStack: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(eyebrow.uppercased())
-                .font(.caption2.weight(.bold))
+                .font(.caption2)
+                .fontWeight(.bold)
                 .foregroundStyle(KitchenTableTheme.brass)
                 .fixedSize(horizontal: false, vertical: true)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {

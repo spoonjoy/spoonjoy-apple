@@ -143,12 +143,15 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableHeaderLayout()",
                 "titleStack",
                 "trailing()",
+                ".font(.caption2)",
+                ".fontWeight(.bold)",
                 ".fixedSize(horizontal: false, vertical: true)"
             ],
             forbids: [
                 "ViewThatFits",
                 "HStack(alignment: .top, spacing: 16)",
-                "VStack(alignment: .leading, spacing: 12)"
+                "VStack(alignment: .leading, spacing: 12)",
+                ".font(.caption2.weight(.bold))"
             ]
         )
         #expect(header.components(separatedBy: "titleStack").count - 1 == 2)
@@ -616,6 +619,8 @@ struct NativeMobileDesignContractTests {
                 "ToolbarItem(placement: .topBarTrailing)",
                 ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
                 ".toolbarBackground(.visible, for: .navigationBar)",
+                ".toolbarColorScheme(.light, for: .navigationBar)",
+                ".toolbarColorScheme(.light, for: .tabBar)",
                 "compactOfflineStatusBar",
                 "compactInformationalOfflineStatusSymbol",
                 "compactInformationalOfflineStatusLabel",

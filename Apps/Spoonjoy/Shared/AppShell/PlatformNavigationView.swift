@@ -238,6 +238,7 @@ struct PlatformNavigationView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
 #endif
     }
 
@@ -374,6 +375,7 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         .toolbarBackground(KitchenTableTheme.bone, for: .tabBar)
         .toolbarBackground(.visible, for: .tabBar)
+        .toolbarColorScheme(.light, for: .tabBar)
         .tabBarMinimizeBehavior(.never)
 #endif
     }
@@ -489,6 +491,7 @@ struct PlatformNavigationView: View {
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
                         .toolbarBackground(.visible, for: .navigationBar)
+                        .toolbarColorScheme(.light, for: .navigationBar)
 #endif
                         .toolbar {
                             compactNavigationToolbar
