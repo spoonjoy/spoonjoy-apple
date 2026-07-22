@@ -802,7 +802,7 @@ func isNativeSystemControl(_ element: AXObservedElement) -> Bool {
 func requiredTitles(for route: String, signedIn: Bool) -> Set<String> {
     guard signedIn else { return ["Spoonjoy", "Sign in"] }
     return switch route {
-    case "kitchen": ["Ari's kitchen", "Lemon Pantry Pasta"]
+    case "kitchen": ["My Kitchen", "Lemon Pantry Pasta"]
     case "recipes", "saved-recipes", "recipe-detail": ["Lemon Pantry Pasta"]
     case "recipe-editor": ["Recipe", "Title", "Save"]
     case "recipe-covers": ["Photo Studio", "Lemon Pantry Pasta", "Replace Photo", "Photo ready", "Clear", "Save Photo"]

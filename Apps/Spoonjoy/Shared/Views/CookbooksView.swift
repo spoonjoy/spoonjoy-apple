@@ -504,17 +504,17 @@ private struct CookbookCoverArt: View {
 
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Spoonjoy cookbook")
-                        .font(.caption2.weight(.bold))
+                        .font(.system(size: 10, weight: .bold))
                         .tracking(1.1)
                         .textCase(.uppercase)
                         .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                     Text(title)
-                        .font(.system(.title3, design: .serif).weight(.bold))
+                        .font(.system(size: 22, weight: .bold, design: .serif))
                         .foregroundStyle(KitchenTableTheme.onPhoto)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(recipeCountLabel)
-                        .font(KitchenTableTheme.uiLabel)
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                 }
                 .padding(12)
@@ -529,9 +529,7 @@ private struct CookbookCoverArt: View {
                 .strokeBorder(KitchenTableTheme.lineStrong.opacity(0.56), lineWidth: 1)
         }
         .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 10, y: 6)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title), \(recipeCountLabel)")
-        .accessibilityIdentifier("CookbookCoverArt")
+        .accessibilityHidden(true)
     }
 }
 
@@ -586,42 +584,56 @@ private struct CookbookFallbackCover: View {
     let recipeCountLabel: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text("Spoonjoy")
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.2)
-                    .textCase(.uppercase)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                Spacer()
-                Text(recipeCountLabel)
-                    .font(.caption2.weight(.bold))
-                    .tracking(0.8)
-                    .textCase(.uppercase)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+        GeometryReader { proxy in
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("Spoonjoy")
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(0.6)
+                        .textCase(.uppercase)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 0)
+                    Text(recipeCountLabel)
+                        .font(.system(size: 8, weight: .bold))
+                        .tracking(0.4)
+                        .textCase(.uppercase)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
+                .padding([.horizontal, .top], 14)
+                .padding(.bottom, 12)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(KitchenTableTheme.lineStrong.opacity(0.45))
+                        .frame(height: 1)
+                }
+
+                Spacer(minLength: 16)
+
+                Text(title)
+                    .font(.system(
+                        size: titleFontSize(for: proxy.size.width),
+                        weight: .bold,
+                        design: .serif
+                    ))
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14)
+
+                Spacer(minLength: 14)
+                    .padding(.bottom, 14)
             }
-            .padding([.horizontal, .top], 14)
-            .padding(.bottom, 12)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(KitchenTableTheme.lineStrong.opacity(0.45))
-                    .frame(height: 1)
-            }
-
-            Spacer(minLength: 24)
-
-            Text(title)
-                .font(.system(.title, design: .serif).weight(.bold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .lineLimit(4)
-                .minimumScaleFactor(0.72)
-                .padding(.horizontal, 14)
-
-            Spacer(minLength: 18)
-                .padding(.bottom, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .background(KitchenTableTheme.paper)
+    }
+
+    private func titleFontSize(for coverWidth: CGFloat) -> CGFloat {
+        let longestWordLength = max(title.split(whereSeparator: \.isWhitespace).map(\.count).max() ?? title.count, 1)
+        let availableWidth = max(coverWidth - 28, 1)
+        let estimatedGlyphWidth = max(CGFloat(longestWordLength) * 0.72, 1)
+        return min(24, max(8, availableWidth / estimatedGlyphWidth))
     }
 }
 

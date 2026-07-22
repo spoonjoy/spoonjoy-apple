@@ -39,6 +39,7 @@ REQUIRED_OBSERVED_IDENTIFIERS = {
   "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
 }.freeze
 REQUIRED_DEEP_SCROLL_TERMINALS = {
+  "kitchen" => "kitchen.cookbook.cookbook_weeknights",
   "recipe-editor" => "recipe-editor.delete",
   "recipe-covers" => "recipe-covers.archive.cover_primary",
   "profile" => "profile.graph.kitchen-visitors"

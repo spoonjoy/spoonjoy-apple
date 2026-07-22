@@ -22,7 +22,7 @@ struct NativeMobileDesignContractTests {
                 #"PROCESS_TIMEOUT_WRAPPER,\n    "45""#
             ]
         )
-        let stoppedProbe = #"simctl\ spawn\ *\ /usr/bin/pgrep*)"#
+        let stoppedProbe = #"simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)"#
         #expect(
             contract.components(separatedBy: stoppedProbe).count - 1 >= 2,
             "Every timeout fixture must make the simulated app-stopped probe deterministic."
@@ -92,15 +92,53 @@ struct NativeMobileDesignContractTests {
             kitchen,
             in: kitchenPath,
             contains: [
-                "ViewThatFits(in: .horizontal)",
-                ".frame(width: 360, alignment: .topLeading)",
-                ".frame(minWidth: 928, alignment: .leading)",
-                "VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing)"
+                "KitchenSpreadLayout()",
+                "static let wideMinimumWidth: CGFloat = 928",
+                "availableWidth >= Self.wideMinimumWidth",
+                "let indexWidth: CGFloat = 360",
+                "let leadWidth: CGFloat = 540",
+                "usesWideKitchenSpread ? 56 : KitchenTableTheme.compactTabBarContentInset",
+                "KitchenTableHeader(eyebrow: identityLabel, title: \"My Kitchen\"",
+                "Text(\"Latest from the kitchen\".uppercased())",
+                "private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1"
             ],
             forbids: [
-                "if usesWideKitchenSpread, let leadRecipe"
+                "if usesWideKitchenSpread",
+                ".frame(minWidth: 928",
+                "ViewThatFits(in: .horizontal)",
+                "ownerUsername ?? recipes.first?.chef.username",
+                "Text(\"On the Counter\".uppercased())"
             ]
         )
+        #expect(kitchen.components(separatedBy: ".dynamicTypeSize(accessibilityPresentationRange)").count - 1 == 2)
+    }
+
+    @Test("authored headers adapt without duplicate accessibility text trees")
+    func authoredHeadersAdaptWithoutDuplicateAccessibilityTextTrees() throws {
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+        let header = try mobileDesignSourceSlice(
+            theme,
+            from: "struct KitchenTableHeader<Trailing: View>: View",
+            to: "extension KitchenTableHeader where Trailing == EmptyView"
+        )
+
+        expectContent(
+            header,
+            in: themePath,
+            contains: [
+                "KitchenTableHeaderLayout()",
+                "titleStack",
+                "trailing()",
+                ".fixedSize(horizontal: false, vertical: true)"
+            ],
+            forbids: [
+                "ViewThatFits",
+                "HStack(alignment: .top, spacing: 16)",
+                "VStack(alignment: .leading, spacing: 12)"
+            ]
+        )
+        #expect(header.components(separatedBy: "titleStack").count - 1 == 2)
     }
 
     @Test("desktop navigation gives labels room and cook mode removes the library shell")
@@ -295,7 +333,9 @@ struct NativeMobileDesignContractTests {
                 "SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_URL",
                 "SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_BASE64",
                 "inline_fixture_cover_url",
-                "inline_sync_store"
+                "inline_sync_store",
+                "ios_visual_evidence_failure_seen=true",
+                "iOS visual evidence or transactional publication failed for route"
             ],
             forbids: [
                 "registered as running before foreground pixel validation",
@@ -546,12 +586,11 @@ struct NativeMobileDesignContractTests {
                 "navigation.pushCompact(route)",
                 ".safeAreaInset(edge: .top, spacing: 0)",
                 ".background(KitchenTableTheme.paper)",
-                ".tabItem",
-                "Label(\"Kitchen\", systemImage: \"house\")",
-                "Label(\"My Recipes\", systemImage: \"book.closed\")",
-                "Label(\"Saved\", systemImage: \"bookmark\")",
-                "Label(\"Cookbooks\", systemImage: \"books.vertical\")",
-                "Label(\"Shopping List\", systemImage: \"checklist\")",
+                "Tab(\"Kitchen\", systemImage: \"house\", value: AppSection.kitchen)",
+                "Tab(\"Recipes\", systemImage: \"book.closed\", value: AppSection.recipes)",
+                "Tab(\"Saved\", systemImage: \"bookmark\", value: AppSection.savedRecipes)",
+                "Tab(\"Cookbooks\", systemImage: \"books.vertical\", value: AppSection.cookbooks)",
+                "Tab(\"Shopping\", systemImage: \"checklist\", value: AppSection.shoppingList)",
                 "Button(\"Chefs\", systemImage: \"person.2\")",
                 "Button(\"Search\", systemImage: \"magnifyingglass\")",
                 "compactNavigationToolbar",
@@ -565,6 +604,11 @@ struct NativeMobileDesignContractTests {
                 ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
                 ".toolbarBackground(.visible, for: .navigationBar)",
                 "compactOfflineStatusBar",
+                "compactInformationalOfflineStatusSymbol",
+                "compactInformationalOfflineStatusLabel",
+                "Image(systemName: compactInformationalOfflineStatusSymbol)",
+                ".accessibilityLabel(compactInformationalOfflineStatusLabel)",
+                "if shouldShowShellOfflineStatus && !offlineIndicatorState.display.informationalOnly",
                 "desktopClassShell",
                 "NavigationStack",
                 "NavigationSplitView",
@@ -580,6 +624,8 @@ struct NativeMobileDesignContractTests {
                 "spoonDockContext",
                 "compactBackAction(for:",
                 "private func compactBackAction",
+                "OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet",
+                "if shouldShowShellOfflineStatus && navigation.compactTabSelection == section {",
                 "case .kitchen:\n            \"\""
             ]
         )
@@ -759,6 +805,12 @@ struct NativeMobileDesignContractTests {
         expectContent(
             navigation,
             in: navigationPath,
+            forbids: [".tabItem"]
+        )
+
+        expectContent(
+            navigation,
+            in: navigationPath,
             contains: [
                 "TabView(selection: compactTabSelection)",
                 "NavigationStack(path: compactPathBinding(for: section))"
@@ -780,14 +832,18 @@ struct NativeMobileDesignContractTests {
                 "compactDockReserve"
             ]
         )
-        for (path, content) in [(kitchenPath, kitchen), (cookbooksPath, cookbooks)] {
-            expectContent(
-                content,
-                in: path,
-                contains: ["KitchenTableTheme.pageBottomSpacing"],
-                forbids: ["KitchenTableTheme.compactDockReserve"]
-            )
-        }
+        expectContent(
+            kitchen,
+            in: kitchenPath,
+            contains: ["KitchenTableTheme.compactTabBarContentInset"],
+            forbids: ["KitchenTableTheme.compactDockReserve"]
+        )
+        expectContent(
+            cookbooks,
+            in: cookbooksPath,
+            contains: ["KitchenTableTheme.pageBottomSpacing"],
+            forbids: ["KitchenTableTheme.compactDockReserve"]
+        )
     }
 
     @Test("Spoonjoy section headers keep titles legible before drawing dividers")
@@ -1655,8 +1711,7 @@ struct NativeMobileDesignContractTests {
             in: navigationPath,
             contains: [
                 "TabView(selection: compactTabSelection)",
-                "Label(\"Shopping List\", systemImage: \"checklist\")",
-                ".tag(AppSection.shoppingList)",
+                "Tab(\"Shopping\", systemImage: \"checklist\", value: AppSection.shoppingList)",
                 "case .shoppingList:\n            .shoppingList",
                 "navigation.selectCompactTab(section)",
                 ".settings,\n             .shoppingList,\n             .search:\n            true"
@@ -2068,8 +2123,9 @@ struct NativeMobileDesignContractTests {
                 "CookbookImageCover",
                 "private struct CookbookThumb",
                 "showsLeading: row.cover.imageURLs.contains { $0 != nil }",
-                ".system(.title, design: .serif).weight(.bold)",
-                ".minimumScaleFactor(0.72)",
+                "titleFontSize(for: proxy.size.width)",
+                "let estimatedGlyphWidth = max(CGFloat(longestWordLength) * 0.72, 1)",
+                "return min(24, max(8, availableWidth / estimatedGlyphWidth))",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",
                 "HStack(alignment: .top, spacing: 28)",
@@ -2096,7 +2152,8 @@ struct NativeMobileDesignContractTests {
                 "Text(\"Owner Tools\")",
                 "Label(\"Remove\", systemImage: \"minus.circle\")",
                 "HStack(alignment: .bottom, spacing: 28) {\n                detailHeader",
-                "HStack(alignment: .firstTextBaseline) {\n                    TextField(\"Title\""
+                "HStack(alignment: .firstTextBaseline) {\n                    TextField(\"Title\"",
+                ".minimumScaleFactor(0.72)"
             ]
         )
 

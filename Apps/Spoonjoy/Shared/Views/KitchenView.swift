@@ -16,7 +16,10 @@ struct KitchenView: View {
 
     var body: some View {
         KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve) {
-            KitchenMasthead(kitchen: kitchen, ownerUsername: ownerUsername)
+            KitchenMasthead(
+                kitchen: kitchen,
+                ownerUsername: ownerUsername
+            )
 
             kitchenContent
         }
@@ -43,20 +46,9 @@ struct KitchenView: View {
 
     @ViewBuilder private var kitchenContent: some View {
         if let leadRecipe {
-            ViewThatFits(in: .horizontal) {
-                HStack(alignment: .top, spacing: 28) {
-                    RecipeLead(recipe: leadRecipe)
-                        .frame(width: 540, alignment: .topLeading)
-
-                    kitchenIndexStack
-                        .frame(width: 360, alignment: .topLeading)
-                }
-                .frame(minWidth: 928, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
-                    RecipeLead(recipe: leadRecipe)
-                    kitchenIndexStack
-                }
+            KitchenSpreadLayout() {
+                RecipeLead(recipe: leadRecipe)
+                kitchenIndexStack
             }
         } else {
             kitchenIndexStack
@@ -98,7 +90,7 @@ struct KitchenView: View {
     }
 
     private var pageBottomReserve: CGFloat {
-        usesWideKitchenSpread ? 56 : KitchenTableTheme.pageBottomSpacing
+        usesWideKitchenSpread ? 56 : KitchenTableTheme.compactTabBarContentInset
     }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
@@ -106,6 +98,80 @@ struct KitchenView: View {
             dynamicTypeSize: String(describing: dynamicTypeSize),
             reduceMotionEnabled: accessibilityReduceMotion
         )
+    }
+}
+
+private struct KitchenSpreadLayout: Layout {
+    static let wideMinimumWidth: CGFloat = 928
+
+    private let wideSpacing: CGFloat = 28
+    private let leadWidth: CGFloat = 540
+    private let indexWidth: CGFloat = 360
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        guard subviews.count == 2 else {
+            return .zero
+        }
+
+        let availableWidth = resolvedWidth(proposal: proposal, subviews: subviews)
+        if availableWidth >= Self.wideMinimumWidth {
+            let leadSize = subviews[0].sizeThatFits(ProposedViewSize(width: leadWidth, height: proposal.height))
+            let indexSize = subviews[1].sizeThatFits(ProposedViewSize(width: indexWidth, height: proposal.height))
+            return CGSize(width: availableWidth, height: max(leadSize.height, indexSize.height))
+        }
+
+        let childProposal = ProposedViewSize(width: availableWidth, height: nil)
+        let leadSize = subviews[0].sizeThatFits(childProposal)
+        let indexSize = subviews[1].sizeThatFits(childProposal)
+        return CGSize(
+            width: availableWidth,
+            height: leadSize.height + KitchenTableTheme.pageSpacing + indexSize.height
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard subviews.count == 2 else {
+            return
+        }
+
+        if bounds.width >= Self.wideMinimumWidth {
+            subviews[0].place(
+                at: bounds.origin,
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: leadWidth, height: bounds.height)
+            )
+            subviews[1].place(
+                at: CGPoint(x: bounds.minX + leadWidth + wideSpacing, y: bounds.minY),
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: indexWidth, height: bounds.height)
+            )
+            return
+        }
+
+        let childProposal = ProposedViewSize(width: bounds.width, height: nil)
+        let leadSize = subviews[0].sizeThatFits(childProposal)
+        subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: childProposal)
+        subviews[1].place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY + leadSize.height + KitchenTableTheme.pageSpacing),
+            anchor: .topLeading,
+            proposal: childProposal
+        )
+    }
+
+    private func resolvedWidth(proposal: ProposedViewSize, subviews: Subviews) -> CGFloat {
+        if let proposedWidth = proposal.width, proposedWidth.isFinite {
+            return max(proposedWidth, 0)
+        }
+        return subviews.map { $0.sizeThatFits(.unspecified).width }.max() ?? 0
     }
 }
 
@@ -165,6 +231,7 @@ struct RecipeLead: View {
     let recipe: Recipe
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -178,12 +245,12 @@ struct RecipeLead: View {
                 coverlessLead
             }
 
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) {
                     leadButtons
                 }
-
-                VStack(spacing: 10) {
+            } else {
+                HStack(spacing: 10) {
                     leadButtons
                 }
             }
@@ -274,6 +341,7 @@ struct RecipeLead: View {
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(secondary)
         }
+        .dynamicTypeSize(accessibilityPresentationRange)
     }
 
     @ViewBuilder private var leadButtons: some View {
@@ -302,6 +370,7 @@ struct RecipeLead: View {
             Label(title, systemImage: systemImage)
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: prominence))
+        .dynamicTypeSize(accessibilityPresentationRange)
     }
 }
 

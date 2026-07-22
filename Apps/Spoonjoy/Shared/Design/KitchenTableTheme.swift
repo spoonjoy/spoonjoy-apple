@@ -103,17 +103,9 @@ struct KitchenTableHeader<Trailing: View>: View {
     }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 16) {
-                titleStack
-                Spacer(minLength: 12)
-                trailing()
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                titleStack
-                trailing()
-            }
+        KitchenTableHeaderLayout() {
+            titleStack
+            trailing()
         }
     }
 
@@ -122,18 +114,120 @@ struct KitchenTableHeader<Trailing: View>: View {
             Text(eyebrow.uppercased())
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(KitchenTableTheme.brass)
+                .fixedSize(horizontal: false, vertical: true)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
                     .font(KitchenTableTheme.displayTitle)
                     .foregroundStyle(KitchenTableTheme.charcoal)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct KitchenTableHeaderLayout: Layout {
+    private let horizontalSpacing: CGFloat = 16
+    private let verticalSpacing: CGFloat = 12
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        guard let title = subviews.first else {
+            return .zero
+        }
+
+        let availableWidth = finiteWidth(proposal.width)
+        guard subviews.count > 1 else {
+            let titleSize = title.sizeThatFits(ProposedViewSize(width: availableWidth, height: proposal.height))
+            return CGSize(width: availableWidth ?? titleSize.width, height: titleSize.height)
+        }
+
+        let trailing = subviews[1]
+        if let availableWidth, usesHorizontalPlacement(width: availableWidth, title: title, trailing: trailing) {
+            let trailingSize = trailing.sizeThatFits(.unspecified)
+            let titleWidth = max(availableWidth - horizontalSpacing - trailingSize.width, 0)
+            let titleSize = title.sizeThatFits(ProposedViewSize(width: titleWidth, height: proposal.height))
+            return CGSize(width: availableWidth, height: max(titleSize.height, trailingSize.height))
+        }
+
+        let titleSize = title.sizeThatFits(ProposedViewSize(width: availableWidth, height: nil))
+        let trailingSize = trailing.sizeThatFits(ProposedViewSize(width: availableWidth, height: nil))
+        return CGSize(
+            width: availableWidth ?? max(titleSize.width, trailingSize.width),
+            height: titleSize.height + verticalSpacing + trailingSize.height
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard let title = subviews.first else {
+            return
+        }
+
+        guard subviews.count > 1 else {
+            title.place(
+                at: bounds.origin,
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: bounds.width, height: bounds.height)
+            )
+            return
+        }
+
+        let trailing = subviews[1]
+        if usesHorizontalPlacement(width: bounds.width, title: title, trailing: trailing) {
+            let trailingSize = trailing.sizeThatFits(.unspecified)
+            let titleWidth = max(bounds.width - horizontalSpacing - trailingSize.width, 0)
+            title.place(
+                at: bounds.origin,
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: titleWidth, height: bounds.height)
+            )
+            trailing.place(
+                at: CGPoint(x: bounds.maxX, y: bounds.minY),
+                anchor: .topTrailing,
+                proposal: ProposedViewSize(width: trailingSize.width, height: trailingSize.height)
+            )
+            return
+        }
+
+        let childProposal = ProposedViewSize(width: bounds.width, height: nil)
+        let titleSize = title.sizeThatFits(childProposal)
+        title.place(at: bounds.origin, anchor: .topLeading, proposal: childProposal)
+        trailing.place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY + titleSize.height + verticalSpacing),
+            anchor: .topLeading,
+            proposal: childProposal
+        )
+    }
+
+    private func usesHorizontalPlacement(
+        width: CGFloat,
+        title: LayoutSubview,
+        trailing: LayoutSubview
+    ) -> Bool {
+        let titleWidth = title.sizeThatFits(.unspecified).width
+        let trailingWidth = trailing.sizeThatFits(.unspecified).width
+        return titleWidth + horizontalSpacing + trailingWidth <= width
+    }
+
+    private func finiteWidth(_ width: CGFloat?) -> CGFloat? {
+        guard let width, width.isFinite else {
+            return nil
+        }
+        return max(width, 0)
     }
 }
 

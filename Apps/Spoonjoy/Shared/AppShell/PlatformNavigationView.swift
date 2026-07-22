@@ -349,35 +349,25 @@ struct PlatformNavigationView: View {
 
     private var compactTabShellContent: some View {
         TabView(selection: compactTabSelection) {
-            compactTabNavigationStack(for: .kitchen)
-                .tabItem {
-                    Label("Kitchen", systemImage: "house")
-                }
-                .tag(AppSection.kitchen)
+            Tab("Kitchen", systemImage: "house", value: AppSection.kitchen) {
+                compactTabNavigationStack(for: .kitchen)
+            }
 
-            compactTabNavigationStack(for: .recipes)
-                .tabItem {
-                    Label("My Recipes", systemImage: "book.closed")
-                }
-                .tag(AppSection.recipes)
+            Tab("Recipes", systemImage: "book.closed", value: AppSection.recipes) {
+                compactTabNavigationStack(for: .recipes)
+            }
 
-            compactTabNavigationStack(for: .savedRecipes)
-                .tabItem {
-                    Label("Saved", systemImage: "bookmark")
-                }
-                .tag(AppSection.savedRecipes)
+            Tab("Saved", systemImage: "bookmark", value: AppSection.savedRecipes) {
+                compactTabNavigationStack(for: .savedRecipes)
+            }
 
-            compactTabNavigationStack(for: .cookbooks)
-                .tabItem {
-                    Label("Cookbooks", systemImage: "books.vertical")
-                }
-                .tag(AppSection.cookbooks)
+            Tab("Cookbooks", systemImage: "books.vertical", value: AppSection.cookbooks) {
+                compactTabNavigationStack(for: .cookbooks)
+            }
 
-            compactTabNavigationStack(for: .shoppingList)
-                .tabItem {
-                    Label("Shopping List", systemImage: "checklist")
-                }
-                .tag(AppSection.shoppingList)
+            Tab("Shopping", systemImage: "checklist", value: AppSection.shoppingList) {
+                compactTabNavigationStack(for: .shoppingList)
+            }
         }
         .tint(KitchenTableTheme.action)
         .background(KitchenTableTheme.bone.ignoresSafeArea())
@@ -436,20 +426,14 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private var compactOfflineStatusBar: some View {
-        if offlineIndicatorState.display.informationalOnly {
-            OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet, onDismiss: dismissOfflineIndicator)
-                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-                .padding(.horizontal, 4)
-        } else {
-            OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
-                .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
-                .padding(.horizontal, 12)
-                .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
-                .overlay {
-                    Capsule()
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
-                }
-        }
+        OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+            .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
+            .padding(.horizontal, 12)
+            .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
+            }
     }
 
     private var compactOfflineStatusBand: some View {
@@ -518,7 +502,8 @@ struct PlatformNavigationView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .environment(\.spoonjoyCompactNavigation, true)
             .safeAreaInset(edge: .top, spacing: 0) {
-                if shouldShowShellOfflineStatus && navigation.compactTabSelection == section {
+                if shouldShowShellOfflineStatus && !offlineIndicatorState.display.informationalOnly
+                    && navigation.compactTabSelection == section {
                     compactOfflineStatusBand
                 }
             }
@@ -832,6 +817,15 @@ struct PlatformNavigationView: View {
 
     @ToolbarContentBuilder private var compactNavigationToolbar: some ToolbarContent {
 #if os(iOS)
+        if shouldShowShellOfflineStatus && offlineIndicatorState.display.informationalOnly {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: dismissOfflineIndicator) {
+                    Image(systemName: compactInformationalOfflineStatusSymbol)
+                }
+                .accessibilityLabel(compactInformationalOfflineStatusLabel)
+                .accessibilityHint("Hides this status")
+            }
+        }
         if isRecipeEditorRoute {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -886,6 +880,28 @@ struct PlatformNavigationView: View {
             EmptyView()
         }
 #endif
+    }
+
+    private var compactInformationalOfflineStatusSymbol: String {
+        switch offlineIndicatorState.display {
+        case .stale:
+            "clock.badge.exclamationmark"
+        case .offline:
+            "wifi.slash"
+        case .synced, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            "wifi.slash"
+        }
+    }
+
+    private var compactInformationalOfflineStatusLabel: String {
+        switch offlineIndicatorState.display {
+        case .stale:
+            "Saved kitchen may be out of date"
+        case .offline:
+            "Showing saved kitchen"
+        case .synced, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            "Offline status"
+        }
     }
 
     private var isRecipeEditorRoute: Bool {

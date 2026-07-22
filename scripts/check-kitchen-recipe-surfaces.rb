@@ -66,7 +66,7 @@ REQUIRED_TOKENS = {
     "RecipeLead",
     "RecipeIndex",
     "CookbookShelf",
-    "On the Counter",
+    "Recipe Index",
     "indexedRecipes",
     "recipe.id != leadRecipe.id",
     "recipe.description",
@@ -98,7 +98,7 @@ REQUIRED_TOKENS = {
     "KitchenTablePage",
     "KitchenTableHeader",
     "KitchenTableObjectRow",
-    "Button",
+    "NavigationLink",
     "openRoute",
     "RecipeCoverImage(",
     "KitchenTableTheme"
