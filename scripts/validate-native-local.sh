@@ -215,12 +215,21 @@ write_xcode_screenshot_blocker() {
       "sourceBlockerPath" => screenshot_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
+        "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "screenshots/ios-tablet-deep-scroll.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         "apple/matrix-accessibility-proof-ios.json",
+        "apple/matrix-accessibility-proof-ios-ax.json",
         "apple/matrix-accessibility-proof-ipad.json",
-        "apple/matrix-accessibility-proof-macos.json"
+        "apple/matrix-accessibility-proof-macos.json",
+        "apple/matrix-observed-accessibility-ios.json",
+        "apple/matrix-observed-accessibility-ios-ax.json",
+        "apple/matrix-observed-accessibility-ipad.json",
+        "apple/matrix-observed-accessibility-macos.json"
       ],
       "reason" => screenshot_blocker.fetch("reason"),
       "ownerAction" => screenshot_blocker.fetch("ownerAction")
@@ -228,8 +237,9 @@ write_xcode_screenshot_blocker() {
     File.write(design_review_blocked_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$source_blocker" "$screenshot_blocker" "$design_review_blocked"
   rm -f "$artifact_root/design-review.json"
-  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/ios-tablet.png" "$artifact_root/screenshots/macos-desktop.png"
-  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-ipad.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
+  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/ios-mobile-accessibility.png" "$artifact_root/screenshots/ios-tablet.png" "$artifact_root/screenshots/ios-mobile-deep-scroll.png" "$artifact_root/screenshots/ios-mobile-accessibility-deep-scroll.png" "$artifact_root/screenshots/ios-tablet-deep-scroll.png" "$artifact_root/screenshots/macos-desktop.png"
+  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-ios-ax.json" "$artifact_root/apple/matrix-accessibility-proof-ipad.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
+  rm -f "$artifact_root/apple/matrix-observed-accessibility-ios.json" "$artifact_root/apple/matrix-observed-accessibility-ios-ax.json" "$artifact_root/apple/matrix-observed-accessibility-ipad.json" "$artifact_root/apple/matrix-observed-accessibility-macos.json"
 }
 
 run_required() {

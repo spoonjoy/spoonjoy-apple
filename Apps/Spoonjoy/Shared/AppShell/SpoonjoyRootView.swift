@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import SpoonjoyCore
 import SwiftUI
@@ -10,6 +11,7 @@ struct SpoonjoyRootView: View {
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
     @State private var hasAppliedRestoredRoute = false
+    @State private var screenshotProofReceipt: ScreenshotAccessibilityProofReceipt?
     @StateObject private var liveStore: NativeLiveAppStore
 
     private let router: DeepLinkRouter
@@ -24,9 +26,18 @@ struct SpoonjoyRootView: View {
 
     var body: some View {
         rootContent
+            .overlay(alignment: .topLeading) {
+                screenshotReadinessMarker
+            }
             .task {
+                synchronizeScreenshotProofReceipt()
                 await liveStore.bootstrap()
                 applyRestoredRouteIfNeeded()
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: ScreenshotAccessibilityProofHandshake.notification
+            )) { _ in
+                synchronizeScreenshotProofReceipt()
             }
             .onOpenURL { url in
                 applyURL(url)
@@ -42,6 +53,34 @@ struct SpoonjoyRootView: View {
                     applySpotlightIdentifier(uniqueIdentifier)
                 }
             }
+#endif
+    }
+
+    @ViewBuilder private var screenshotReadinessMarker: some View {
+#if DEBUG
+        if let screenshotProofReceipt {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(screenshotProofReceipt.markerIdentifier)
+                .accessibilityLabel(screenshotProofReceipt.markerLabel)
+                .allowsHitTesting(false)
+        }
+#endif
+    }
+
+    @MainActor private func synchronizeScreenshotProofReceipt() {
+#if DEBUG
+        let expectedNonce = ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let expectedNonce,
+              !expectedNonce.isEmpty,
+              let receipt = ScreenshotAccessibilityProofHandshake.latestReceipt,
+              receipt.captureRunNonce == expectedNonce else {
+            screenshotProofReceipt = nil
+            return
+        }
+        screenshotProofReceipt = receipt
 #endif
     }
 
@@ -822,6 +861,10 @@ struct SpoonjoyRootView: View {
         environment: [String: String],
         directory: URL
     ) {
+        let mediaFixture = materializeScreenshotMediaFixture(
+            environment: environment,
+            directory: directory
+        )
         let payloads = [
             ("SPOONJOY_SCREENSHOT_APP_STATE_JSON", "native-app-state.json"),
             ("SPOONJOY_SCREENSHOT_DURABLE_CACHE_JSON", "native-durable-cache.json"),
@@ -830,11 +873,79 @@ struct SpoonjoyRootView: View {
         for (environmentKey, fileName) in payloads {
             guard let rawPayload = environment[environmentKey],
                   let data = rawPayload.data(using: .utf8),
-                  (try? JSONSerialization.jsonObject(with: data)) != nil else {
+                  var object = try? JSONSerialization.jsonObject(with: data) else {
                 continue
             }
-            try? data.write(to: directory.appendingPathComponent(fileName), options: .atomic)
+            if environmentKey == "SPOONJOY_SCREENSHOT_SYNC_STORE_JSON", let mediaFixture {
+                object = replacingScreenshotMediaURL(
+                    in: object,
+                    sourceURL: mediaFixture.sourceURL,
+                    destinationURL: mediaFixture.destinationURL
+                )
+            }
+            guard JSONSerialization.isValidJSONObject(object),
+                  let materializedData = try? JSONSerialization.data(
+                      withJSONObject: object,
+                      options: [.prettyPrinted, .sortedKeys]
+                  ) else {
+                continue
+            }
+            try? materializedData.write(
+                to: directory.appendingPathComponent(fileName),
+                options: .atomic
+            )
         }
+    }
+
+    private static func materializeScreenshotMediaFixture(
+        environment: [String: String],
+        directory: URL
+    ) -> (sourceURL: String, destinationURL: String)? {
+        guard let sourceURL = environment["SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_URL"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              let parsedSourceURL = URL(string: sourceURL),
+              parsedSourceURL.isFileURL,
+              !parsedSourceURL.lastPathComponent.isEmpty,
+              let encodedData = environment["SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_BASE64"],
+              let data = Data(base64Encoded: encodedData, options: .ignoreUnknownCharacters) else {
+            return nil
+        }
+        let destinationURL = directory.appendingPathComponent(parsedSourceURL.lastPathComponent)
+        do {
+            try data.write(to: destinationURL, options: .atomic)
+            return (sourceURL, destinationURL.absoluteString)
+        } catch {
+            return nil
+        }
+    }
+
+    private static func replacingScreenshotMediaURL(
+        in value: Any,
+        sourceURL: String,
+        destinationURL: String
+    ) -> Any {
+        if let string = value as? String {
+            return string == sourceURL ? destinationURL : string
+        }
+        if let array = value as? [Any] {
+            return array.map {
+                replacingScreenshotMediaURL(
+                    in: $0,
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL
+                )
+            }
+        }
+        if let dictionary = value as? [String: Any] {
+            return dictionary.mapValues {
+                replacingScreenshotMediaURL(
+                    in: $0,
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL
+                )
+            }
+        }
+        return value
     }
 
     private static func screenshotValidationTokenVault(environment: [String: String]) -> (any TokenVault)? {

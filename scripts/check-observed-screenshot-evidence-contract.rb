@@ -77,12 +77,12 @@ ios_observer = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
 require_tokens(ios_observer, [
   "XCUIApplication()",
   "let observedTypes: [XCUIElement.ElementType]",
-  "app.descendants(matching: type).allElementsBoundByIndex",
+  "app.descendants(matching: type).allElementsBoundByAccessibilityElement",
   "elementLabel",
   "elementType",
   "elementFrame",
   "operatingSystemVersion",
-  "let initialScreenshot = XCUIScreen.main.screenshot()",
+  "let initialScreenshot = initialCapture.screenshot",
   "viewport: ObservedRect",
   "frame.intersects(windowFrame)",
   "performAccessibilityAudit",
@@ -100,6 +100,13 @@ require_tokens(ios_observer, [
   "testGeometryRejectsPeerOverlap",
   "testGeometryRejectsAPNsChromeIntersection",
   "testGeometryRejectsTerminalElementBehindTabBar",
+  "verifiedContrastFalsePositives",
+  "capturePhase: \"initial\"",
+  "capturePhase: \"deepScroll\"",
+  "screenshotSHA256: screenshotSHA256",
+  "testScreenshotContrastAdjudicatorRejectsLowContrastTextPixels",
+  "testScreenshotContrastAdjudicatorRejectsMixedHighAndLowContrastRuns",
+  "testScreenshotContrastBufferDecodesAntialiasedSystemTextFromPNG",
   "scrollPrimarySurfaceToTerminal",
   "deepScrollRoutes",
   "kitchen",
@@ -112,7 +119,7 @@ require_tokens(ios_observer, [
   "case \"recipe-editor\": \"Recipe\"",
   "case \"recipe-covers\": \"Photo Studio\"",
   "case \"cook-mode\": \"Current cooking step 1, Boil pasta\"",
-  "app.collectionViews.allElementsBoundByIndex",
+  "app.collectionViews.allElementsBoundByAccessibilityElement",
   ".collectionView",
   "requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))",
   "testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport"
@@ -123,7 +130,19 @@ forbid_tokens(ios_observer, [
   "knownAuditToolLimitation",
   "measuredContrastProof",
   "resolvingTabBarOcclusionLimitations",
-  "postScrollAnonymousContrastIssueAbsent"
+  "postScrollAnonymousContrastIssueAbsent",
+  "shouldIgnoreVerifiedHighContrastFalsePositive("
+])
+
+require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", [
+  "screenshotPixelContrastV1",
+  "screenshotSHA256",
+  "minimumBackgroundCoverage = 0.6",
+  "requiredContrastRatio = 4.5",
+  "evaluatedForegroundClusterCount",
+  "substantialForegroundClusters",
+  "backgroundPixelCount",
+  "foregroundPixelCount"
 ])
 
 require_tokens("scripts/run-ios-screenshot-observer.py", [
@@ -135,6 +154,9 @@ require_tokens("scripts/run-ios-screenshot-observer.py", [
 
 mac_observer = "scripts/observe-macos-screenshot-evidence.swift"
 require_tokens(mac_observer, [
+  "--self-test-non-finite-frame",
+  "normalizedObservedRect",
+  "values.allSatisfy(\\.isFinite)",
   "NSRunningApplication(processIdentifier:",
   "expectedBundleIdentifier",
   "expectedBundlePath",
@@ -181,6 +203,10 @@ require_tokens(mac_observer, [
   "profile.graph.kitchen-visitors"
 ])
 
+unless system("swift", mac_observer, "--self-test-non-finite-frame", chdir: ROOT.to_s)
+  fail_check("#{mac_observer} non-finite frame self-test failed")
+end
+
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
   "RecipeEditorPlatformScroller",
   "content.fixedSize(horizontal: false, vertical: true)",
@@ -208,7 +234,9 @@ forbid_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
 require_tokens("scripts/capture-native-screenshots.sh", [
   "refresh_ios_fixture_paths()",
   "refresh_ios_fixture_paths \"$udid\" \"$expected_platform\" || return 1",
-  "capture_ios_observed_accessibility \"$udid\" \"$expected_platform\" \"$observed_accessibility_output\" \"large\" || return 1\n  if [[ \"$expected_platform\" == \"ios\" ]]; then\n    terminate_ios_app_and_confirm_stopped \"$udid\" || return 1\n    refresh_ios_fixture_paths",
+  "--readiness-proof-output \"$readiness_proof_output\"",
+  "\"$observed_accessibility_output\" \\\n    \"large\" \\\n    \"$screenshot_output\" \\\n    \"$accessibility_proof_output\" || return 1",
+  "\"$observed_accessibility_ios_ax_abs\" \\\n      \"accessibility-extra-extra-extra-large\" \\\n      \"$ios_accessibility_screenshot\" \\\n      \"$accessibility_proof_ios_ax_abs\" || return 1",
   "observed-accessibility-macos-diagnostic.json",
   "macos-desktop-diagnostic.png",
   "screenshots-macos-accessibility-blocker.json",
@@ -221,20 +249,46 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "terminalScrollCorrection(",
   "drag(primarySurface, contentOffset: correction)",
   "hittable: element.isHittable",
+  "allElementsBoundByAccessibilityElement",
   "enabled: element.isEnabled",
   "hitRegionAuditPassed",
   "let maxScrollActions = 12",
   "routeRequiredAccessibilityScrollIdentifiers(route: route)",
   "namedTerminalIsVisible(",
   "terminalScrollSignature(",
-  "if terminalIdentifier == nil, let signature, signature == previousSignature",
+  "observedContentMovement",
+  "scrollActionCount > 0",
+  "terminalIdentifier == nil,",
   "reachedStableTerminal = true",
+  "let initialCapture = try captureAttestedScreenshot(",
+  "let initialScreenshot = initialCapture.screenshot",
+  "let readinessHandshake = initialCapture.handshake",
+  "readinessGeneration: Int",
+  "proofFileName: String",
+  "readinessHandshake: deepCapture.handshake",
+  "readinessHandshakeRemainsStable(",
+  "Date().timeIntervalSince(stableSince) >= 0.35",
+  "Screenshot readiness marker never held a stable lease.",
+  "ScreenshotEvidenceGeometry.validate(\n            elements: elements",
+  "screenshotSHA256: Self.sha256(deepScreenshot.pngRepresentation)",
+  "data: screenshot.pngRepresentation",
   "isHorizontallyContained",
-  "isVerticallyClipped",
-  "includesDynamicTypeChecks: false"
+  "isVerticallyOutside",
+  "captureAttestedScreenshot("
+])
+require_tokens("scripts/run-ios-screenshot-observer.py", [
+  "attest_exported_screenshot",
+  "readiness_proof_path",
+  "deep_readiness_proof_output",
+  'deep_scroll.get("readinessHandshake")',
+  "observed screenshot attachment SHA-256 mismatch",
+  'attest_exported_screenshot(evidence, screenshots[0], "screenshotSHA256")',
+  'attest_exported_screenshot(deep_scroll, deep_screenshots[0], "screenshotSHA256")'
 ])
 forbid_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "hittable: actionable && intersectsWindow",
+  "app.descendants(matching: type).allElementsBoundByIndex",
+  "includesDynamicTypeChecks: false",
   "fatalError(\"Implemented after the focused regression test fails\")"
 ])
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift", ["recipe-covers.scroll"])

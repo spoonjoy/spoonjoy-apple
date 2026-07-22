@@ -2,6 +2,7 @@
 
 import AppKit
 import ApplicationServices
+import CryptoKit
 import Darwin
 import Foundation
 
@@ -83,10 +84,14 @@ struct AXObservedDeepScrollEvidence: Codable {
 struct AXObservedEvidence: Codable {
     let platform: String
     let route: String
+    let captureRunNonce: String
+    let readinessProofSHA256: String
+    let screenshotSHA256: String
     let pid: Int32
     let bundleIdentifier: String
     let bundlePath: String
     let executablePath: String
+    let executableSHA256: String
     let windowFrames: [AXObservedRect]
     let elements: [AXObservedElement]
     let findings: [AXObservedFinding]
@@ -104,6 +109,9 @@ struct AXRouteTerminalExpectation {
 struct Options {
     let pid: pid_t
     let route: String
+    let captureRunNonce: String
+    let readinessProofPath: String
+    let screenshotPath: String
     let expectedBundleIdentifier: String
     let expectedBundlePath: String
     let expectedExecutablePath: String
@@ -112,6 +120,7 @@ struct Options {
     let peerPairs: [(String, String)]
     let observesAPNs: Bool
     let signedIn: Bool
+    let preflightOnly: Bool
 }
 
 func fail(_ message: String) -> Never {
@@ -125,6 +134,7 @@ func parseOptions() -> Options {
     var peerPairs: [(String, String)] = []
     var observesAPNs = false
     var signedIn = true
+    var preflightOnly = false
     var index = 1
     let arguments = CommandLine.arguments
     while index < arguments.count {
@@ -136,6 +146,11 @@ func parseOptions() -> Options {
         }
         if argument == "--signed-out" {
             signedIn = false
+            index += 1
+            continue
+        }
+        if argument == "--preflight" {
+            preflightOnly = true
             index += 1
             continue
         }
@@ -160,6 +175,15 @@ func parseOptions() -> Options {
     guard let executablePath = values["--executable-path"], !executablePath.isEmpty else { fail("--executable-path is required") }
     guard let outputPath = values["--output"], !outputPath.isEmpty else { fail("--output is required") }
     guard let route = values["--route"], !route.isEmpty else { fail("--route is required") }
+    guard let captureRunNonce = values["--capture-run-nonce"], UUID(uuidString: captureRunNonce) != nil else {
+        fail("--capture-run-nonce must be a UUID")
+    }
+    guard let readinessProofPath = values["--readiness-proof-path"], !readinessProofPath.isEmpty else {
+        fail("--readiness-proof-path is required")
+    }
+    guard let screenshotPath = values["--screenshot-path"], !screenshotPath.isEmpty else {
+        fail("--screenshot-path is required")
+    }
 
     if observesAPNs {
         requiredIdentifierSet.formUnion([
@@ -172,6 +196,9 @@ func parseOptions() -> Options {
     return Options(
         pid: pid,
         route: route,
+        captureRunNonce: captureRunNonce,
+        readinessProofPath: readinessProofPath,
+        screenshotPath: screenshotPath,
         expectedBundleIdentifier: bundleIdentifier,
         expectedBundlePath: bundlePath,
         expectedExecutablePath: executablePath,
@@ -179,12 +206,42 @@ func parseOptions() -> Options {
         requiredIdentifiers: requiredIdentifierSet,
         peerPairs: peerPairs,
         observesAPNs: observesAPNs,
-        signedIn: signedIn
+        signedIn: signedIn,
+        preflightOnly: preflightOnly
     )
 }
 
 func canonicalPath(_ path: String) -> String {
     URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+}
+
+func requiredFileData(at path: String, label: String) -> Data {
+    guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)), !data.isEmpty else {
+        fail("\(label) is missing or empty")
+    }
+    return data
+}
+
+func sha256Hex(_ data: Data) -> String {
+    SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+}
+
+func validateReadinessProof(_ data: Data, options: Options) {
+    guard let proof = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        fail("readiness proof must be a JSON object")
+    }
+    guard proof["platform"] as? String == "macos" else {
+        fail("readiness proof platform does not match macOS")
+    }
+    guard proof["route"] as? String == options.route else {
+        fail("readiness proof route does not match expected route")
+    }
+    guard proof["captureRunNonce"] as? String == options.captureRunNonce else {
+        fail("readiness proof capture nonce does not match the observer run")
+    }
+    guard proof["bundleIdentifier"] as? String == options.expectedBundleIdentifier else {
+        fail("readiness proof bundle identifier does not match the exact application")
+    }
 }
 
 func attribute(_ element: AXUIElement, _ name: CFString) -> CFTypeRef? {
@@ -238,10 +295,18 @@ func sizeAttribute(_ element: AXUIElement, _ name: CFString) -> CGSize? {
     return AXValueGetValue(value, .cgSize, &size) ? size : nil
 }
 
+func normalizedObservedRect(x: Double, y: Double, width: Double, height: Double) -> AXObservedRect {
+    let values = [x, y, width, height]
+    guard values.allSatisfy(\.isFinite) else {
+        return AXObservedRect(x: 0, y: 0, width: 0, height: 0)
+    }
+    return AXObservedRect(x: x, y: y, width: width, height: height)
+}
+
 func frame(of element: AXUIElement) -> AXObservedRect {
     let position = pointAttribute(element, kAXPositionAttribute as CFString) ?? .zero
     let size = sizeAttribute(element, kAXSizeAttribute as CFString) ?? .zero
-    return AXObservedRect(
+    return normalizedObservedRect(
         x: Double(position.x),
         y: Double(position.y),
         width: Double(size.width),
@@ -780,6 +845,15 @@ func requiredIdentifiers(for route: String) -> Set<String> {
     }
 }
 
+if CommandLine.arguments.dropFirst() == ["--self-test-non-finite-frame"] {
+    let rect = normalizedObservedRect(x: .infinity, y: 12, width: 40, height: 40)
+    guard rect.isEmpty, (try? JSONEncoder().encode(rect)) != nil else {
+        fail("non-finite AX frame normalization self-test failed")
+    }
+    print("macOS non-finite frame normalization ok")
+    exit(0)
+}
+
 let options = parseOptions()
 guard let runningApplication = NSRunningApplication(processIdentifier: options.pid) else {
     fail("no running application for PID \(options.pid)")
@@ -792,6 +866,17 @@ guard canonicalPath(runningApplication.bundleURL?.path ?? "") == canonicalPath(o
 }
 guard canonicalPath(runningApplication.executableURL?.path ?? "") == canonicalPath(options.expectedExecutablePath) else {
     fail("PID executable path does not match expected executable")
+}
+let readinessProofData = requiredFileData(at: options.readinessProofPath, label: "readiness proof")
+validateReadinessProof(readinessProofData, options: options)
+let screenshotData = requiredFileData(at: options.screenshotPath, label: "macOS screenshot")
+guard screenshotData.starts(with: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]) else {
+    fail("macOS screenshot must be a PNG")
+}
+let executableData = requiredFileData(at: options.expectedExecutablePath, label: "macOS executable")
+if options.preflightOnly {
+    print("macOS observer preflight ok")
+    exit(0)
 }
 guard AXIsProcessTrusted() else {
     fail("Accessibility permission is required for the observing process")
@@ -820,10 +905,14 @@ let deepScroll = terminalExpectation(for: options.route).map {
 let evidence = AXObservedEvidence(
     platform: "macos",
     route: options.route,
+    captureRunNonce: options.captureRunNonce,
+    readinessProofSHA256: sha256Hex(readinessProofData),
+    screenshotSHA256: sha256Hex(screenshotData),
     pid: options.pid,
     bundleIdentifier: options.expectedBundleIdentifier,
     bundlePath: canonicalPath(options.expectedBundlePath),
     executablePath: canonicalPath(options.expectedExecutablePath),
+    executableSHA256: sha256Hex(executableData),
     windowFrames: windowFrames,
     elements: elements,
     findings: observedFindings,

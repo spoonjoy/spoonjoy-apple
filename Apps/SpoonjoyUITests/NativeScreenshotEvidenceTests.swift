@@ -1,7 +1,9 @@
+import CryptoKit
 import Foundation
+import UIKit
 import XCTest
 
-private struct ObservedAuditIssue: Codable {
+struct ObservedAuditIssue: Codable {
     let category: String
     let type: String
     let compactDescription: String
@@ -14,9 +16,30 @@ private struct ObservedAuditIssue: Codable {
     let elementFrame: ObservedRect?
 }
 
+private struct ObservedVerifiedContrastFalsePositive: Codable {
+    let capturePhase: String
+    let issue: ObservedAuditIssue
+    let pixelEvidence: ObservedContrastPixelEvidence
+}
+
+private struct ObservedReadinessHandshake: Codable, Equatable {
+    let captureRunNonce: String
+    let route: String
+    let source: String
+    let readinessGeneration: Int
+    let proofFileName: String
+    let proofSHA256: String
+}
+
 private struct ObservedAuditResult {
     let blockingIssues: [ObservedAuditIssue]
+    let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
     let hitRegionAuditPassed: Bool
+}
+
+private struct AttestedScreenshot {
+    let screenshot: XCUIScreenshot
+    let handshake: ObservedReadinessHandshake
 }
 
 private struct ObservedDeepScrollEvidence: Codable {
@@ -28,6 +51,11 @@ private struct ObservedDeepScrollEvidence: Codable {
     let terminalElement: ObservedAccessibilityElement?
     let findings: [ObservedAccessibilityFinding]
     let auditIssues: [ObservedAuditIssue]
+    let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
+    let screenshotSHA256: String?
+    let readinessHandshake: ObservedReadinessHandshake?
+    let observedContentMovement: Bool
+    let contentFitsWithoutScrolling: Bool
 }
 
 private struct ObservedScreenshotEvidence: Codable {
@@ -36,6 +64,9 @@ private struct ObservedScreenshotEvidence: Codable {
     let viewport: ObservedRect
     let elements: [ObservedAccessibilityElement]
     let auditIssues: [ObservedAuditIssue]
+    let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
+    let screenshotSHA256: String
+    let readinessHandshake: ObservedReadinessHandshake
     let geometryFindings: [ObservedAccessibilityFinding]
     let deepScroll: ObservedDeepScrollEvidence?
     let operatingSystemVersion: String
@@ -123,13 +154,20 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             apnsThisDeviceIdentifier: apnsMode ? Self.thisDeviceIdentifier : nil,
             apnsPushDeliveryIdentifier: apnsMode ? Self.pushDeliveryIdentifier : nil
         )
-        let initialScreenshot = XCUIScreen.main.screenshot()
+        let initialCapture = try captureAttestedScreenshot(
+            in: app,
+            route: route,
+            captureRunNonce: environment["SPOONJOY_SCREENSHOT_RUN_NONCE"]
+        )
+        let initialScreenshot = initialCapture.screenshot
+        let readinessHandshake = initialCapture.handshake
         let initialAuditResult = accessibilityAuditIssues(
             in: app,
             viewport: viewport,
             screenshot: initialScreenshot,
             windowFrame: window.frame,
-            hasSystemTabBar: provisionalElements.contains { $0.type == "tabBar" && $0.exists }
+            hasSystemTabBar: provisionalElements.contains { $0.type == "tabBar" && $0.exists },
+            capturePhase: "initial"
         )
         let initialElements = observedElements(
             in: app,
@@ -141,10 +179,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             requirements: requirements
         )
         let deepScroll = Self.deepScrollRoutes.contains(route)
-            ? scrollPrimarySurfaceToTerminal(
+            ? try scrollPrimarySurfaceToTerminal(
                 in: app,
                 route: route,
                 terminalIdentifier: routeTerminalIdentifier(route: route),
+                initialElements: initialElements,
                 windowFrame: window.frame,
                 requiresSystemTabBar: UIDevice.current.userInterfaceIdiom == .phone
                     && environment["SPOONJOY_SCREENSHOT_AUTH"] != "0"
@@ -153,12 +192,16 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             : nil
         let auditResult = initialAuditResult
         let allAuditIssues = auditResult.blockingIssues + (deepScroll?.auditIssues ?? [])
+        let verifiedContrastFalsePositives = auditResult.verifiedContrastFalsePositives
         let evidence = ObservedScreenshotEvidence(
             platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "ios",
             route: route,
             viewport: viewport,
             elements: initialElements,
             auditIssues: allAuditIssues,
+            verifiedContrastFalsePositives: verifiedContrastFalsePositives,
+            screenshotSHA256: Self.sha256(initialScreenshot.pngRepresentation),
+            readinessHandshake: readinessHandshake,
             geometryFindings: geometryFindings,
             deepScroll: deepScroll,
             operatingSystemVersion: UIDevice.current.systemVersion,
@@ -178,6 +221,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(geometryFindings.isEmpty, "Geometry found: \(geometryFindings.map(\.message))")
         if let deepScroll {
             XCTAssertTrue(deepScroll.reachedTerminal, "Primary surface did not reach a stable terminal position")
+            XCTAssertGreaterThan(deepScroll.swipeCount, 0, "Deep-scroll evidence must perform a real scroll action")
+            XCTAssertTrue(
+                deepScroll.observedContentMovement || deepScroll.contentFitsWithoutScrolling,
+                "Deep-scroll evidence must observe movement or prove the terminal content already fits"
+            )
             XCTAssertTrue(deepScroll.findings.isEmpty, "Deep scroll found: \(deepScroll.findings.map(\.message))")
         }
     }
@@ -199,10 +247,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(findings.map(\.kind), [.outsideViewport])
     }
 
-    func testAuditIgnoresContentPartiallyClippedVerticallyByChrome() {
+    func testAuditRetainsContentPartiallyClippedVerticallyByChrome() {
         let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
 
-        XCTAssertTrue(shouldIgnoreAuditIssue(
+        XCTAssertFalse(shouldIgnoreAuditIssue(
             elementFrame: ObservedRect(x: 20, y: 90, width: 160, height: 20),
             elementType: "staticText",
             viewport: viewport
@@ -271,7 +319,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             elements: [navigationBar, tabBar]
         )
 
-        XCTAssertEqual(viewport, ObservedRect(x: 0, y: 140, width: 402, height: 503))
+        XCTAssertEqual(viewport, ObservedRect(x: 0, y: 140, width: 402, height: 651))
     }
 
     func testTerminalScrollCorrectionMovesClippedContentIntoViewport() {
@@ -297,8 +345,99 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ))
     }
 
-    func testAuditOnlyIgnoresUnattributedSwiftUIContrastBehindSystemTabBar() {
-        XCTAssertTrue(shouldIgnoreUnattributedSystemTabBarContrast(
+    func testContentMovementRejectsDuplicateLabelsWithoutStableIdentifiers() {
+        let viewport = ObservedRect(x: 0, y: 0, width: 400, height: 600)
+        let before = [
+            observedElement(identifier: "", label: "Recipe", frame: ObservedRect(x: 20, y: 120, width: 160, height: 30)),
+            observedElement(identifier: "", label: "Recipe", frame: ObservedRect(x: 20, y: 220, width: 160, height: 30))
+        ]
+        let after = [
+            observedElement(identifier: "", label: "Recipe", frame: ObservedRect(x: 20, y: 80, width: 160, height: 30)),
+            observedElement(identifier: "", label: "Recipe", frame: ObservedRect(x: 20, y: 180, width: 160, height: 30))
+        ]
+
+        XCTAssertFalse(didObserveContentMovement(before: before, after: after, viewport: viewport))
+    }
+
+    func testContentMovementRequiresUniqueStableIdentifierInBothFrames() {
+        let viewport = ObservedRect(x: 0, y: 0, width: 400, height: 600)
+        let duplicateBefore = [
+            observedElement(identifier: "recipe.row", frame: ObservedRect(x: 20, y: 120, width: 160, height: 30)),
+            observedElement(identifier: "recipe.row", frame: ObservedRect(x: 20, y: 220, width: 160, height: 30))
+        ]
+        let duplicateAfter = [
+            observedElement(identifier: "recipe.row", frame: ObservedRect(x: 20, y: 80, width: 160, height: 30)),
+            observedElement(identifier: "recipe.row", frame: ObservedRect(x: 20, y: 180, width: 160, height: 30))
+        ]
+
+        XCTAssertFalse(didObserveContentMovement(
+            before: duplicateBefore,
+            after: duplicateAfter,
+            viewport: viewport
+        ))
+        XCTAssertTrue(didObserveContentMovement(
+            before: [observedElement(identifier: "recipe.row", frame: ObservedRect(x: 20, y: 220, width: 160, height: 30))],
+            after: [observedElement(identifier: "recipe.row", frame: ObservedRect(x: 20, y: 180, width: 160, height: 30))],
+            viewport: viewport
+        ))
+    }
+
+    func testNamedTerminalMovementAcceptsOffscreenToVisibleTransition() {
+        let before = observedElement(
+            identifier: "kitchen.cookbook.cookbook_weeknights",
+            frame: ObservedRect(x: 20, y: 3_200, width: 308, height: 196)
+        )
+        let after = observedElement(
+            identifier: "kitchen.cookbook.cookbook_weeknights",
+            frame: ObservedRect(x: 20, y: 415, width: 308, height: 196)
+        )
+
+        XCTAssertTrue(didObserveIdentifiedMovement(before: before, after: after))
+    }
+
+    func testTerminalProofAcceptsContentThatAlreadyFitsAfterARealScrollProbe() {
+        XCTAssertTrue(terminalProofIsValid(
+            reachedStableTerminal: true,
+            observedContentMovement: false,
+            contentFitsWithoutScrolling: true,
+            scrollActionCount: 1
+        ))
+        XCTAssertFalse(terminalProofIsValid(
+            reachedStableTerminal: true,
+            observedContentMovement: false,
+            contentFitsWithoutScrolling: true,
+            scrollActionCount: 0
+        ))
+        XCTAssertFalse(terminalProofIsValid(
+            reachedStableTerminal: true,
+            observedContentMovement: false,
+            contentFitsWithoutScrolling: false,
+            scrollActionCount: 1
+        ))
+    }
+
+    func testMovementCandidatesIncludeUniqueOffscreenContentButExcludeChrome() {
+        let viewport = ObservedRect(x: 0, y: 0, width: 402, height: 874)
+        let candidates = uniqueMovementCandidates(
+            elements: [
+                observedElement(
+                    identifier: "kitchen.recipe-index.count",
+                    frame: ObservedRect(x: 20, y: 1_604, width: 280, height: 53)
+                ),
+                observedElement(
+                    identifier: "tabs",
+                    type: "tabBar",
+                    frame: ObservedRect(x: 0, y: 791, width: 402, height: 83)
+                )
+            ],
+            viewport: viewport
+        )
+
+        XCTAssertEqual(candidates.map(\.identifier), ["kitchen.recipe-index.count"])
+    }
+
+    func testAuditNeverIgnoresUnattributedSwiftUIContrastBehindSystemTabBar() {
+        XCTAssertFalse(shouldIgnoreUnattributedSystemTabBarContrast(
             auditType: .contrast,
             detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
             elementFrame: nil,
@@ -315,6 +454,188 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
             elementFrame: nil,
             hasSystemTabBar: false
+        ))
+    }
+
+    func testReadinessHandshakeRequiresGenerationBoundProofArchive() {
+        let nonce = "123e4567-e89b-12d3-a456-426614174000"
+        XCTAssertNotNil(parseReadinessHandshake(
+            "Screenshot readiness|\(nonce)|kitchen|KitchenView|12|screenshot-accessibility-proof.generation-12.json|\(String(repeating: "a", count: 64))",
+            expectedNonce: nonce,
+            expectedRoute: "kitchen"
+        ))
+        XCTAssertNil(parseReadinessHandshake(
+            "Screenshot readiness|\(nonce)|kitchen|KitchenView|\(String(repeating: "a", count: 64))",
+            expectedNonce: nonce,
+            expectedRoute: "kitchen"
+        ))
+    }
+
+    func testScreenshotContrastAdjudicatorVerifiesStableHighContrastTextPixels() {
+        let pixels = syntheticContrastPixels(
+            width: 40,
+            height: 20,
+            background: ObservedRGBPixel(red: 251, green: 250, blue: 244),
+            foreground: ObservedRGBPixel(red: 40, green: 35, blue: 29)
+        )
+
+        let evidence = ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: pixels,
+            width: 40,
+            height: 20
+        )
+
+        XCTAssertNotNil(evidence)
+        XCTAssertGreaterThanOrEqual(evidence?.contrastRatio ?? 0, 4.5)
+        XCTAssertGreaterThanOrEqual(evidence?.backgroundCoverage ?? 0, 0.65)
+        XCTAssertGreaterThan(evidence?.foregroundPixelCount ?? 0, 0)
+    }
+
+    func testScreenshotContrastAdjudicatorRejectsLowContrastTextPixels() {
+        var pixels = syntheticContrastPixels(
+            width: 40,
+            height: 20,
+            background: ObservedRGBPixel(red: 251, green: 250, blue: 244),
+            foreground: ObservedRGBPixel(red: 145, green: 141, blue: 136)
+        )
+        pixels[0] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+        pixels[1] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+        pixels[2] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+        pixels[3] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+        pixels[40] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+        pixels[41] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+        pixels[42] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+        pixels[43] = ObservedRGBPixel(red: 20, green: 20, blue: 20)
+
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: pixels,
+            width: 40,
+            height: 20
+        ))
+    }
+
+    func testScreenshotContrastAdjudicatorRejectsFlatAndNoisyCrops() {
+        let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: Array(repeating: background, count: 800),
+            width: 40,
+            height: 20
+        ))
+
+        var noisyPixels: [ObservedRGBPixel] = []
+        noisyPixels.reserveCapacity(800)
+        for index in 0..<800 {
+            let red = UInt8((index * 37) % 256)
+            let green = UInt8((index * 67) % 256)
+            let blue = UInt8((index * 97) % 256)
+            noisyPixels.append(ObservedRGBPixel(red: red, green: green, blue: blue))
+        }
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: noisyPixels,
+            width: 40,
+            height: 20
+        ))
+    }
+
+    func testScreenshotContrastAdjudicatorRejectsMixedHighAndLowContrastRuns() {
+        let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        var pixels = Array(repeating: background, count: 800)
+        for row in 5..<15 {
+            for column in 8..<13 {
+                pixels[row * 40 + column] = ObservedRGBPixel(red: 40, green: 35, blue: 29)
+            }
+            for column in 27..<32 {
+                pixels[row * 40 + column] = ObservedRGBPixel(red: 145, green: 141, blue: 136)
+            }
+        }
+
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: pixels,
+            width: 40,
+            height: 20
+        ))
+    }
+
+    func testScreenshotContrastBufferDecodesAntialiasedSystemTextFromPNG() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 96, height: 32), format: format)
+        let image = renderer.image { context in
+            UIColor(red: 251 / 255, green: 250 / 255, blue: 244 / 255, alpha: 1).setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 96, height: 32))
+            ("Inbox" as NSString).draw(
+                at: CGPoint(x: 4, y: 6),
+                withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 17, weight: .semibold),
+                    .foregroundColor: UIColor(red: 40 / 255, green: 35 / 255, blue: 29 / 255, alpha: 1)
+                ]
+            )
+        }
+        let pngData = try XCTUnwrap(image.pngData())
+        let buffer = try XCTUnwrap(ScreenshotPixelBuffer(
+            pngData: pngData,
+            pointSize: CGSize(width: 96, height: 32)
+        ))
+        let crop = try XCTUnwrap(buffer.crop(in: ObservedRect(x: 4, y: 6, width: 48, height: 21)))
+
+        XCTAssertNotNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: crop.pixels,
+            width: crop.width,
+            height: crop.height,
+            screenshotSHA256: SHA256.hash(data: pngData).map { String(format: "%02x", $0) }.joined()
+        ))
+    }
+
+    func testScreenshotContrastBufferRejectsOutOfBoundsIssueFrame() {
+        let buffer = ScreenshotPixelBuffer(
+            width: 20,
+            height: 20,
+            pixels: Array(
+                repeating: ObservedRGBPixel(red: 251, green: 250, blue: 244),
+                count: 400
+            ),
+            pointSize: CGSize(width: 10, height: 10)
+        )
+
+        XCTAssertNil(buffer.pixels(in: ObservedRect(x: 9, y: 9, width: 2, height: 2)))
+    }
+
+    func testReadinessHandshakeRequiresExactNonceRouteSourceAndSHA256() {
+        let nonce = "7238f644-ff7a-4c1a-a9aa-60dd478c1c1d"
+        let hash = String(repeating: "a", count: 64)
+        let generation = 3
+        let proofFileName = "screenshot-accessibility-proof.generation-3.json"
+
+        XCTAssertEqual(
+            parseReadinessHandshake(
+                "Screenshot readiness|\(nonce)|kitchen|KitchenView|\(generation)|\(proofFileName)|\(hash)",
+                expectedNonce: nonce,
+                expectedRoute: "kitchen"
+            ),
+            ObservedReadinessHandshake(
+                captureRunNonce: nonce,
+                route: "kitchen",
+                source: "KitchenView",
+                readinessGeneration: generation,
+                proofFileName: proofFileName,
+                proofSHA256: hash
+            )
+        )
+        XCTAssertNil(parseReadinessHandshake(
+            "Screenshot readiness|dd9e30cb-630f-4b4d-99b4-9ed82b80a7f2|kitchen|KitchenView|\(generation)|\(proofFileName)|\(hash)",
+            expectedNonce: nonce,
+            expectedRoute: "kitchen"
+        ))
+        XCTAssertNil(parseReadinessHandshake(
+            "Screenshot readiness|\(nonce)|recipes|RecipesView|\(generation)|\(proofFileName)|\(hash)",
+            expectedNonce: nonce,
+            expectedRoute: "kitchen"
+        ))
+        XCTAssertNil(parseReadinessHandshake(
+            "Screenshot readiness|\(nonce)|kitchen|KitchenView|\(generation)|\(proofFileName)|not-a-hash",
+            expectedNonce: nonce,
+            expectedRoute: "kitchen"
         ))
     }
 
@@ -703,16 +1024,168 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(Set(findings.map(\.kind)), [.outsideViewport, .terminalElementOccludedByTabBar])
     }
 
+    private func waitForReadinessHandshake(
+        in app: XCUIApplication,
+        route: String,
+        captureRunNonce: String?
+    ) throws -> ObservedReadinessHandshake {
+        let captureRunNonce = try XCTUnwrap(
+            captureRunNonce?.trimmingCharacters(in: .whitespacesAndNewlines),
+            "Screenshot observer requires a capture run nonce"
+        )
+        XCTAssertNotNil(UUID(uuidString: captureRunNonce), "Screenshot capture run nonce must be a UUID")
+        let identifier = "screenshot.readiness.\(captureRunNonce)"
+        let marker = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        XCTAssertTrue(
+            marker.waitForExistence(timeout: 15),
+            "Spoonjoy did not publish settled readiness for capture run \(captureRunNonce)"
+        )
+        let deadline = Date().addingTimeInterval(15)
+        var candidate: ObservedReadinessHandshake?
+        var stableSince: Date?
+        while Date() < deadline {
+            let current = currentReadinessHandshake(
+                in: app,
+                route: route,
+                captureRunNonce: captureRunNonce
+            )
+            if current != candidate {
+                candidate = current
+                stableSince = current == nil ? nil : Date()
+            } else if let current,
+                      let stableSince,
+                      Date().timeIntervalSince(stableSince) >= 0.35 {
+                return current
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        throw NSError(
+            domain: "app.spoonjoy.screenshot-readiness",
+            code: 2,
+            userInfo: [NSLocalizedDescriptionKey: "Screenshot readiness marker never held a stable lease."]
+        )
+    }
+
+    private func captureAttestedScreenshot(
+        in app: XCUIApplication,
+        route: String,
+        captureRunNonce: String?
+    ) throws -> AttestedScreenshot {
+        let nonce = try XCTUnwrap(
+            captureRunNonce?.trimmingCharacters(in: .whitespacesAndNewlines),
+            "Screenshot observer requires a capture run nonce"
+        )
+        for _ in 0..<4 {
+            let before = try waitForReadinessHandshake(
+                in: app,
+                route: route,
+                captureRunNonce: nonce
+            )
+            let screenshot = XCUIScreen.main.screenshot()
+            guard readinessHandshakeRemainsStable(
+                in: app,
+                route: route,
+                captureRunNonce: nonce,
+                expected: before
+            ) else {
+                continue
+            }
+            return AttestedScreenshot(screenshot: screenshot, handshake: before)
+        }
+        throw NSError(
+            domain: "app.spoonjoy.screenshot-readiness",
+            code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "Visual readiness changed during every screenshot lease attempt."]
+        )
+    }
+
+    private func readinessHandshakeRemainsStable(
+        in app: XCUIApplication,
+        route: String,
+        captureRunNonce: String,
+        expected: ObservedReadinessHandshake
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(0.35)
+        while Date() < deadline {
+            guard currentReadinessHandshake(
+                in: app,
+                route: route,
+                captureRunNonce: captureRunNonce
+            ) == expected else {
+                return false
+            }
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        return true
+    }
+
+    private func currentReadinessHandshake(
+        in app: XCUIApplication,
+        route: String,
+        captureRunNonce: String
+    ) -> ObservedReadinessHandshake? {
+        let identifier = "screenshot.readiness.\(captureRunNonce)"
+        let marker = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        guard marker.exists else { return nil }
+        return parseReadinessHandshake(
+            marker.label,
+            expectedNonce: captureRunNonce,
+            expectedRoute: route
+        )
+    }
+
+    private func parseReadinessHandshake(
+        _ label: String,
+        expectedNonce: String,
+        expectedRoute: String
+    ) -> ObservedReadinessHandshake? {
+        let fields = label.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+        guard fields.count == 7,
+              fields[0] == "Screenshot readiness",
+              fields[1] == expectedNonce,
+              UUID(uuidString: fields[1]) != nil,
+              fields[2] == expectedRoute,
+              !fields[3].isEmpty,
+              let readinessGeneration = Int(fields[4]),
+              readinessGeneration >= 0,
+              fields[5].range(
+                of: #"\A[A-Za-z0-9._-]+\.generation-[0-9]+\.json\z"#,
+                options: .regularExpression
+              ) != nil,
+              fields[5].contains(".generation-\(readinessGeneration)."),
+              fields[6].range(of: #"\A[0-9a-f]{64}\z"#, options: .regularExpression) != nil else {
+            return nil
+        }
+        return ObservedReadinessHandshake(
+            captureRunNonce: fields[1],
+            route: fields[2],
+            source: fields[3],
+            readinessGeneration: readinessGeneration,
+            proofFileName: fields[5],
+            proofSHA256: fields[6]
+        )
+    }
+
     private func accessibilityAuditIssues(
         in app: XCUIApplication,
         viewport: ObservedRect,
         screenshot: XCUIScreenshot,
         windowFrame: CGRect,
         hasSystemTabBar: Bool,
+        capturePhase: String,
         includesDynamicTypeChecks: Bool = true
     ) -> ObservedAuditResult {
         var blockingIssues: [ObservedAuditIssue] = []
+        var verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive] = []
         var hitRegionAuditPassed = true
+        let screenshotPNG = screenshot.pngRepresentation
+        let screenshotSHA256 = SHA256.hash(data: screenshotPNG)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        let screenshotBuffer = ScreenshotPixelBuffer(
+            pngData: screenshotPNG,
+            pointSize: windowFrame.size
+        )
         var auditTypes = XCUIAccessibilityAuditType.contrast
             .union(.hitRegion)
             .union(.trait)
@@ -742,7 +1215,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                        elementFrame: elementFrame,
                        elementType: elementType,
                        viewport: viewport
-                   ) {
+                ) {
                     return true
                 }
                 let observedIssue = ObservedAuditIssue(
@@ -757,6 +1230,23 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     elementType: elementType,
                     elementFrame: elementFrame
                 )
+                if issue.auditType == .contrast,
+                   elementType == "staticText",
+                   let elementFrame,
+                   let crop = screenshotBuffer?.crop(in: elementFrame),
+                   let pixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
+                       pixels: crop.pixels,
+                       width: crop.width,
+                       height: crop.height,
+                       screenshotSHA256: screenshotSHA256
+                   ) {
+                    verifiedContrastFalsePositives.append(ObservedVerifiedContrastFalsePositive(
+                        capturePhase: capturePhase,
+                        issue: observedIssue,
+                        pixelEvidence: pixelEvidence
+                    ))
+                    return true
+                }
                 blockingIssues.append(observedIssue)
                 return true
             }
@@ -777,6 +1267,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
         return ObservedAuditResult(
             blockingIssues: blockingIssues,
+            verifiedContrastFalsePositives: verifiedContrastFalsePositives,
             hitRegionAuditPassed: hitRegionAuditPassed
         )
     }
@@ -789,11 +1280,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let tolerance = 0.5
         let isHorizontallyContained = elementFrame.minX >= viewport.minX - tolerance
             && elementFrame.maxX <= viewport.maxX + tolerance
-        let isVerticallyClipped = elementFrame.minY < viewport.minY - tolerance
-            || elementFrame.maxY > viewport.maxY + tolerance
+        let isVerticallyOutside = elementFrame.maxY <= viewport.minY + tolerance
+            || elementFrame.minY >= viewport.maxY - tolerance
         return !Self.chromeTypes.contains(elementType)
             && isHorizontallyContained
-            && isVerticallyClipped
+            && isVerticallyOutside
     }
 
     private func shouldIgnoreUnattributedSystemTabBarContrast(
@@ -802,10 +1293,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         elementFrame: ObservedRect?,
         hasSystemTabBar: Bool
     ) -> Bool {
-        auditType == .contrast
-            && elementFrame == nil
-            && hasSystemTabBar
-            && detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode"
+        _ = auditType
+        _ = detailedDescription
+        _ = elementFrame
+        _ = hasSystemTabBar
+        return false
     }
 
     private func auditCategory(_ type: XCUIAccessibilityAuditType) -> String {
@@ -941,6 +1433,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
     private func routeTerminalIdentifier(route: String) -> String? {
         switch route {
+        case "kitchen": "kitchen.cookbook.cookbook_weeknights"
         case "recipe-editor": "recipe-editor.delete"
         case "recipe-covers": "recipe-covers.archive.cover_primary"
         case "profile": "profile.graph.kitchen-visitors"
@@ -963,7 +1456,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             .staticText
         ]
         return observedTypes.flatMap { type in
-            app.descendants(matching: type).allElementsBoundByIndex.map { element in
+            app.descendants(matching: type).allElementsBoundByAccessibilityElement.map { element in
                 let typeName = elementTypeName(type)
                 let frame = element.frame
                 let hasUsableFrame = !frame.isNull
@@ -995,14 +1488,19 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         in app: XCUIApplication,
         route: String,
         terminalIdentifier: String?,
+        initialElements: [ObservedAccessibilityElement],
         windowFrame: CGRect,
         requiresSystemTabBar: Bool
-    ) -> ObservedDeepScrollEvidence {
+    ) throws -> ObservedDeepScrollEvidence {
+        let identifiedPageSurface = app.scrollViews["spoonjoy.page-scroll"]
         let scrollViews = (
-            app.scrollViews.allElementsBoundByIndex
-                + app.collectionViews.allElementsBoundByIndex
+            app.scrollViews.allElementsBoundByAccessibilityElement
+                + app.collectionViews.allElementsBoundByAccessibilityElement
         ).filter(\.exists)
-        guard let primarySurface = scrollViews.max(by: { frameArea($0.frame) < frameArea($1.frame) }) else {
+        let primarySurface = identifiedPageSurface.exists
+            ? identifiedPageSurface
+            : scrollViews.max(by: { frameArea($0.frame) < frameArea($1.frame) })
+        guard let primarySurface else {
             let finding = ObservedAccessibilityFinding(
                 kind: .terminalNotReached,
                 identifiers: [route],
@@ -1017,71 +1515,149 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 tabBarFrame: nil,
                 terminalElement: nil,
                 findings: [finding],
-                auditIssues: []
+                auditIssues: [],
+                verifiedContrastFalsePositives: [],
+                screenshotSHA256: nil,
+                readinessHandshake: nil,
+                observedContentMovement: false,
+                contentFitsWithoutScrolling: false
             )
         }
 
         let maxScrollActions = 12
-        var previousSignature: String?
         var reachedStableTerminal = false
+        var observedContentMovement = false
         var scrollActionCount = 0
+        let initialViewport = contentViewport(windowFrame: windowFrame, elements: initialElements)
+        let movementViewport = ObservedRect(windowFrame)
+        let initialNamedTerminal = terminalIdentifier.flatMap {
+            observedElement(in: app, identifier: $0, windowFrame: windowFrame)
+        }
+        let terminalWasFullyVisibleInitially = initialNamedTerminal.map {
+            initialViewport.contains($0.frame)
+        } == true
+        let movementCandidates = uniqueMovementCandidates(
+            elements: initialElements,
+            viewport: movementViewport
+        )
         while scrollActionCount < maxScrollActions {
-            let beforeScrollElements = observedElements(in: app, windowFrame: windowFrame)
-            let beforeScrollViewport = contentViewport(windowFrame: windowFrame, elements: beforeScrollElements)
-            if namedTerminalIsVisible(
-                in: beforeScrollElements,
-                terminalIdentifier: terminalIdentifier,
-                viewport: beforeScrollViewport
-            ) {
+            let namedTerminal = terminalIdentifier.flatMap {
+                observedElement(in: app, identifier: $0, windowFrame: windowFrame)
+            }
+            if scrollActionCount > 0,
+               observedContentMovement || terminalWasFullyVisibleInitially,
+               namedTerminal.map({ initialViewport.contains($0.frame) }) == true {
                 reachedStableTerminal = true
                 break
             }
-            let namedTerminal = terminalIdentifier.flatMap { identifier in
-                beforeScrollElements.first { $0.identifier == identifier && $0.exists }
-            }
             if let correction = terminalScrollCorrection(
                 terminalFrame: namedTerminal?.frame,
-                viewport: beforeScrollViewport
+                viewport: initialViewport
             ) {
                 drag(primarySurface, contentOffset: correction)
             } else {
                 primarySurface.swipeUp(velocity: .fast)
             }
             scrollActionCount += 1
-            let probeElements = observedElements(in: app, windowFrame: windowFrame)
-            let probeViewport = contentViewport(windowFrame: windowFrame, elements: probeElements)
-            if namedTerminalIsVisible(
-                in: probeElements,
-                terminalIdentifier: terminalIdentifier,
-                viewport: probeViewport
-            ) {
-                reachedStableTerminal = true
+            waitForScrollToSettle()
+            if !observedContentMovement {
+                let currentNamedTerminal = terminalIdentifier.flatMap {
+                    observedElement(in: app, identifier: $0, windowFrame: windowFrame)
+                }
+                let namedTerminalMoved: Bool
+                if let initialNamedTerminal, let currentNamedTerminal {
+                    namedTerminalMoved = didObserveIdentifiedMovement(
+                        before: initialNamedTerminal,
+                        after: currentNamedTerminal
+                    )
+                } else {
+                    namedTerminalMoved = false
+                }
+                observedContentMovement = namedTerminalMoved || movementCandidates.contains { before in
+                    guard let after = observedElement(
+                        in: app,
+                        identifier: before.identifier,
+                        windowFrame: windowFrame
+                    ) else {
+                        return false
+                    }
+                    return didObserveIdentifiedMovement(before: before, after: after)
+                }
+            }
+            if terminalIdentifier == nil, scrollActionCount >= 4 {
                 break
             }
-            let signature = terminalScrollSignature(
-                elements: probeElements,
-                terminalIdentifier: terminalIdentifier,
-                viewport: probeViewport
-            )
-            if terminalIdentifier == nil, let signature, signature == previousSignature {
-                reachedStableTerminal = true
-                break
-            }
-            previousSignature = signature
         }
 
+        let terminalProbeElements = observedElements(in: app, windowFrame: windowFrame)
+        let terminalProbeViewport = contentViewport(
+            windowFrame: windowFrame,
+            elements: terminalProbeElements
+        )
+        let terminalProbeElement = terminalIdentifier.flatMap { identifier in
+            terminalProbeElements.first { $0.identifier == identifier && $0.exists }
+        } ?? terminalContentElement(elements: terminalProbeElements, viewport: terminalProbeViewport)
+        if terminalIdentifier == nil,
+           observedContentMovement,
+           let terminalProbeElement,
+           !terminalProbeElement.identifier.isEmpty,
+           let signature = terminalScrollSignature(
+               elements: [terminalProbeElement],
+               terminalIdentifier: terminalProbeElement.identifier,
+               viewport: terminalProbeViewport
+           ) {
+            primarySurface.swipeUp(velocity: .fast)
+            scrollActionCount += 1
+            waitForScrollToSettle()
+            if let probe = observedElement(
+                in: app,
+                identifier: terminalProbeElement.identifier,
+                windowFrame: windowFrame
+            ) {
+                reachedStableTerminal = terminalScrollSignature(
+                    elements: [probe],
+                    terminalIdentifier: terminalProbeElement.identifier,
+                    viewport: terminalProbeViewport
+                ) == signature
+            }
+        }
         let elements = observedElements(in: app, windowFrame: windowFrame)
         let tabBar = elements.first { $0.type == "tabBar" && $0.exists }
         let viewport = contentViewport(windowFrame: windowFrame, elements: elements)
         let terminalElement = terminalIdentifier.flatMap { identifier in
             elements.first { $0.identifier == identifier && $0.exists }
         } ?? terminalContentElement(elements: elements, viewport: viewport)
+        let contentFitsWithoutScrolling = terminalWasFullyVisibleInitially
+            && !observedContentMovement
         var findings: [ObservedAccessibilityFinding] = []
+        findings.append(contentsOf: ScreenshotEvidenceGeometry.validate(
+            elements: elements,
+            requirements: ObservedGeometryRequirements(
+                viewport: viewport,
+                requiredIdentifiers: [],
+                requiredVisibleIdentifiers: [],
+                requiredLabels: [],
+                peerPairs: [],
+                chromeTypes: Self.chromeTypes,
+                actionableTypes: Self.actionableTypes,
+                minimumActionTarget: 44,
+                apnsThisDeviceIdentifier: nil,
+                apnsPushDeliveryIdentifier: nil
+            )
+        ))
         if !reachedStableTerminal {
             findings.append(ObservedAccessibilityFinding(
                 kind: .terminalNotReached,
                 identifiers: [route],
                 message: "Primary surface did not settle after \(maxScrollActions) terminal scroll actions.",
+                intersection: nil
+            ))
+        }
+        if !observedContentMovement && !contentFitsWithoutScrolling {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .terminalNotReached,
+                identifiers: [route],
+                message: "Primary surface did not produce observed content movement.",
                 intersection: nil
             ))
         }
@@ -1108,24 +1684,40 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ))
         }
 
-        let deepScreenshot = XCUIScreen.main.screenshot()
+        let deepCapture = try captureAttestedScreenshot(
+            in: app,
+            route: route,
+            captureRunNonce: ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"]
+        )
+        let deepScreenshot = deepCapture.screenshot
         let auditResult = accessibilityAuditIssues(
             in: app,
             viewport: viewport,
             screenshot: deepScreenshot,
             windowFrame: windowFrame,
             hasSystemTabBar: tabBar != nil,
-            includesDynamicTypeChecks: false
+            capturePhase: "deepScroll"
         )
         let evidence = ObservedDeepScrollEvidence(
             route: route,
-            reachedTerminal: reachedStableTerminal && (terminalIdentifier == nil || terminalElement?.identifier == terminalIdentifier),
+            reachedTerminal: terminalProofIsValid(
+                reachedStableTerminal: reachedStableTerminal,
+                observedContentMovement: observedContentMovement,
+                contentFitsWithoutScrolling: contentFitsWithoutScrolling,
+                scrollActionCount: scrollActionCount
+            )
+                && (terminalIdentifier == nil || terminalElement?.identifier == terminalIdentifier),
             swipeCount: scrollActionCount,
             contentViewport: viewport,
             tabBarFrame: tabBar?.frame,
             terminalElement: terminalElement,
             findings: findings,
-            auditIssues: auditResult.blockingIssues
+            auditIssues: auditResult.blockingIssues,
+            verifiedContrastFalsePositives: auditResult.verifiedContrastFalsePositives,
+            screenshotSHA256: Self.sha256(deepScreenshot.pngRepresentation),
+            readinessHandshake: deepCapture.handshake,
+            observedContentMovement: observedContentMovement,
+            contentFitsWithoutScrolling: contentFitsWithoutScrolling
         )
         if let data = try? JSONEncoder.observedEvidence.encode(evidence) {
             attachJSON(data, name: "deep-scroll-evidence")
@@ -1138,6 +1730,104 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
         attachScreenshot(deepScreenshot, name: "deep-scroll-screenshot")
         return evidence
+    }
+
+    private func terminalProofIsValid(
+        reachedStableTerminal: Bool,
+        observedContentMovement: Bool,
+        contentFitsWithoutScrolling: Bool,
+        scrollActionCount: Int
+    ) -> Bool {
+        reachedStableTerminal
+            && scrollActionCount > 0
+            && (observedContentMovement || contentFitsWithoutScrolling)
+    }
+
+    private func didObserveContentMovement(
+        before: [ObservedAccessibilityElement],
+        after: [ObservedAccessibilityElement],
+        viewport: ObservedRect
+    ) -> Bool {
+        let excludedTypes = Self.chromeTypes.union(["application", "window", "scrollView", "collectionView"])
+        let eligibleBefore = before.filter {
+            !$0.identifier.isEmpty
+                && !excludedTypes.contains($0.type)
+                && $0.frame.intersection(with: viewport) != nil
+        }
+        let eligibleAfter = after.filter {
+            !$0.identifier.isEmpty && !excludedTypes.contains($0.type)
+        }
+        let beforeByIdentifier = Dictionary(grouping: eligibleBefore, by: \.identifier)
+        let afterByIdentifier = Dictionary(grouping: eligibleAfter, by: \.identifier)
+        return beforeByIdentifier.contains { identifier, beforeMatches in
+            guard beforeMatches.count == 1,
+                  let afterMatches = afterByIdentifier[identifier],
+                  afterMatches.count == 1,
+                  let element = beforeMatches.first,
+                  let moved = afterMatches.first else {
+                return false
+            }
+            return didObserveIdentifiedMovement(before: element, after: moved)
+        }
+    }
+
+    private func didObserveIdentifiedMovement(
+        before: ObservedAccessibilityElement,
+        after: ObservedAccessibilityElement
+    ) -> Bool {
+        guard before.exists,
+              after.exists,
+              !before.identifier.isEmpty,
+              before.identifier == after.identifier,
+              !Self.chromeTypes.contains(before.type),
+              !Self.chromeTypes.contains(after.type) else {
+            return false
+        }
+        return abs(after.frame.x - before.frame.x) > 1
+            || abs(after.frame.y - before.frame.y) > 1
+    }
+
+    private func uniqueMovementCandidates(
+        elements: [ObservedAccessibilityElement],
+        viewport: ObservedRect
+    ) -> [ObservedAccessibilityElement] {
+        let excludedTypes = Self.chromeTypes.union(["application", "window", "scrollView", "collectionView"])
+        return Dictionary(
+            grouping: elements.filter {
+                !$0.identifier.isEmpty
+                    && !excludedTypes.contains($0.type)
+            },
+            by: \.identifier
+        )
+        .values
+        .filter { $0.count == 1 }
+        .compactMap(\.first)
+        .sorted { $0.frame.maxY > $1.frame.maxY }
+    }
+
+    private func observedElement(
+        in app: XCUIApplication,
+        identifier: String,
+        windowFrame: CGRect
+    ) -> ObservedAccessibilityElement? {
+        let matches = app.descendants(matching: .any)
+            .matching(identifier: identifier)
+            .allElementsBoundByAccessibilityElement
+        guard matches.count == 1, let element = matches.first else {
+            return nil
+        }
+        let frame = element.frame
+        return ObservedAccessibilityElement(
+            identifier: element.identifier,
+            label: element.label,
+            type: elementTypeName(element.elementType),
+            frame: ObservedRect(frame),
+            exists: element.exists,
+            hittable: element.isHittable,
+            enabled: element.isEnabled,
+            hitRegionAuditVerified: false,
+            focused: nil
+        )
     }
 
     private func namedTerminalIsVisible(
@@ -1185,6 +1875,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
     }
 
+    private func waitForScrollToSettle() {
+        RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+    }
+
     private func terminalScrollSignature(
         elements: [ObservedAccessibilityElement],
         terminalIdentifier: String?,
@@ -1212,14 +1906,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         viewport: ObservedRect
     ) -> ObservedAccessibilityElement? {
         let excludedTypes = Self.chromeTypes.union(["application", "window", "scrollView", "collectionView"])
-        return elements
-            .filter { element in
+        let eligible = elements.filter { element in
                 element.exists
                     && !excludedTypes.contains(element.type)
                     && (!element.identifier.isEmpty || !element.label.isEmpty)
                     && element.frame.intersection(with: viewport) != nil
                     && element.frame.height <= viewport.height * 1.25
             }
+        let identified = eligible.filter { !$0.identifier.isEmpty }
+        return (identified.isEmpty ? eligible : identified)
             .max { first, second in
                 if first.frame.maxY == second.frame.maxY {
                     return first.frame.minY < second.frame.minY
@@ -1251,10 +1946,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             .filter { ["tabBar", "keyboard"].contains($0.type) && $0.exists }
             .map(\.frame.minY)
             .min() ?? window.maxY
-        let hasSystemTabBar = elements.contains { $0.type == "tabBar" && $0.exists }
-        let bottomClearance = hasSystemTabBar ? 148.0 : 0
         let contentMinY = min(window.maxY, max(window.minY, topChrome + topClearance))
-        let contentMaxY = max(contentMinY, min(window.maxY, bottomChrome) - bottomClearance)
+        let contentMaxY = max(contentMinY, min(window.maxY, bottomChrome))
         return ObservedRect(
             x: max(window.minX, sidebarMaxX),
             y: contentMinY,
@@ -1302,6 +1995,25 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             hitRegionAuditVerified: hitRegionAuditVerified,
             focused: nil
         )
+    }
+
+    private func syntheticContrastPixels(
+        width: Int,
+        height: Int,
+        background: ObservedRGBPixel,
+        foreground: ObservedRGBPixel
+    ) -> [ObservedRGBPixel] {
+        var pixels = Array(repeating: background, count: width * height)
+        let foregroundMinX = width / 3
+        let foregroundMaxX = foregroundMinX + max(2, width / 4)
+        let foregroundMinY = height / 4
+        let foregroundMaxY = foregroundMinY + max(2, height / 2)
+        for row in foregroundMinY..<min(height, foregroundMaxY) {
+            for column in foregroundMinX..<min(width, foregroundMaxX) {
+                pixels[row * width + column] = foreground
+            }
+        }
+        return pixels
     }
 
     private func csvSet(_ raw: String?) -> Set<String> {
@@ -1361,10 +2073,19 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     }
 
     private func attachScreenshot(_ screenshot: XCUIScreenshot, name: String) {
-        let attachment = XCTAttachment(screenshot: screenshot)
+        let attachment = XCTAttachment(
+            data: screenshot.pngRepresentation,
+            uniformTypeIdentifier: "public.png"
+        )
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    private static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
     }
 }
 

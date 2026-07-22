@@ -10,6 +10,7 @@ struct ScreenshotVisualReadinessStateTests {
 
         state.beginMedia(token)
         #expect(state.snapshot == ScreenshotVisualReadinessSnapshot(
+            generation: 1,
             expectedMediaCount: 1,
             loadedMediaCount: 0,
             pendingMediaCount: 1,
@@ -70,7 +71,9 @@ struct ScreenshotVisualReadinessStateTests {
         state.beginMedia(token)
         state.removeMedia(token)
 
-        #expect(state.snapshot == .settledEmpty)
+        #expect(state.snapshot.generation == 2)
+        #expect(state.snapshot.expectedMediaCount == 0)
+        #expect(state.snapshot.isSettled)
     }
 
     @Test("identical media resources settle independently by rendered instance")
@@ -96,5 +99,39 @@ struct ScreenshotVisualReadinessStateTests {
         state.finishMedia(index, succeeded: true)
         #expect(state.snapshot.isSettled)
         #expect(state.snapshot.loadedMediaCount == 1)
+    }
+
+    @Test("late media invalidates an earlier settled readiness generation")
+    func lateMediaInvalidatesEarlierSettledGeneration() {
+        var state = ScreenshotVisualReadinessState()
+        let initial = ScreenshotVisualReadinessMediaToken(resourceID: "cover-1", instanceID: "lead")
+        let late = ScreenshotVisualReadinessMediaToken(resourceID: "cover-2", instanceID: "lazy-row")
+
+        state.beginMedia(initial)
+        state.finishMedia(initial, succeeded: true)
+        let publishedGeneration = state.snapshot.generation
+        #expect(state.snapshot.isSettled)
+
+        state.beginMedia(late)
+
+        #expect(state.snapshot.generation > publishedGeneration)
+        #expect(!state.snapshot.isSettled)
+        #expect(state.snapshot.pendingMediaCount == 1)
+    }
+
+    @Test("idempotent readiness observations do not manufacture generations")
+    func idempotentObservationsDoNotAdvanceGeneration() {
+        var state = ScreenshotVisualReadinessState()
+        let token = ScreenshotVisualReadinessMediaToken(resourceID: "cover-1", instanceID: "lead")
+
+        state.beginMedia(token)
+        let pendingGeneration = state.snapshot.generation
+        state.beginMedia(token)
+        #expect(state.snapshot.generation == pendingGeneration)
+
+        state.finishMedia(token, succeeded: true)
+        let loadedGeneration = state.snapshot.generation
+        state.finishMedia(token, succeeded: true)
+        #expect(state.snapshot.generation == loadedGeneration)
     }
 }

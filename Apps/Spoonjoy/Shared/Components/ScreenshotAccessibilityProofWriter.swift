@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SpoonjoyCore
 #if os(iOS)
@@ -10,47 +11,72 @@ actor ScreenshotVisualReadiness {
     private var state = ScreenshotVisualReadinessState()
 
     static func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
-        await shared.beginMedia(token)
+        await handleTransition(await shared.beginMedia(token))
     }
 
     static func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) async {
-        await shared.finishMedia(token, succeeded: succeeded)
+        await handleTransition(await shared.finishMedia(token, succeeded: succeeded))
     }
 
     static func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
-        await shared.removeMedia(token)
+        await handleTransition(await shared.removeMedia(token))
     }
 
     static func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
-        await shared.beginBlockingIndicator(token)
+        await handleTransition(await shared.beginBlockingIndicator(token))
     }
 
     static func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
-        await shared.endBlockingIndicator(token)
+        await handleTransition(await shared.endBlockingIndicator(token))
     }
 
     static func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {
         await shared.waitForSettled()
     }
 
-    private func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+    static func currentSnapshot() async -> ScreenshotVisualReadinessSnapshot {
+        await shared.state.snapshot
+    }
+
+    private static func handleTransition(_ generation: Int?) async {
+        guard let generation else { return }
+        await ScreenshotAccessibilityProofHandshake.revoke(before: generation)
+        await ScreenshotAccessibilityProofWriter.visualReadinessDidTransition()
+    }
+
+    private func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.beginMedia(token)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) {
+    private func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.finishMedia(token, succeeded: succeeded)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+    private func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.removeMedia(token)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+    private func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.beginBlockingIndicator(token)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+    private func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.endBlockingIndicator(token)
+        return transitionedGeneration(after: previousGeneration)
+    }
+
+    private func transitionedGeneration(after previousGeneration: Int) -> Int? {
+        let generation = state.snapshot.generation
+        return generation == previousGeneration ? nil : generation
     }
 
     private func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {
@@ -103,9 +129,86 @@ struct ScreenshotObservedSurfaceState {
     }
 }
 
+struct ScreenshotAccessibilityProofReceipt: Equatable, Sendable {
+    let captureRunNonce: String
+    let route: String
+    let source: String
+    let readinessGeneration: Int
+    let proofFileName: String
+    let proofSHA256: String
+
+    var markerIdentifier: String {
+        "screenshot.readiness.\(captureRunNonce)"
+    }
+
+    var markerLabel: String {
+        [
+            "Screenshot readiness",
+            captureRunNonce,
+            route,
+            source,
+            String(readinessGeneration),
+            proofFileName,
+            proofSHA256
+        ]
+            .joined(separator: "|")
+    }
+}
+
+@MainActor
+enum ScreenshotAccessibilityProofHandshake {
+    nonisolated static let notification = Notification.Name("app.spoonjoy.screenshot-proof-ready")
+    private(set) static var latestReceipt: ScreenshotAccessibilityProofReceipt?
+
+    static func existingReceipt(
+        captureRunNonce: String,
+        route: String,
+        source: String,
+        readinessGeneration: Int
+    ) -> ScreenshotAccessibilityProofReceipt? {
+        guard latestReceipt?.captureRunNonce == captureRunNonce,
+              latestReceipt?.route == route,
+              latestReceipt?.source == source,
+              latestReceipt?.readinessGeneration == readinessGeneration else {
+            return nil
+        }
+        return latestReceipt
+    }
+
+    static func publish(_ receipt: ScreenshotAccessibilityProofReceipt) {
+        latestReceipt = receipt
+        NotificationCenter.default.post(name: notification, object: nil)
+    }
+
+    static func revoke(before generation: Int) {
+        guard let receipt = latestReceipt,
+              receipt.readinessGeneration < generation else {
+            return
+        }
+        latestReceipt = nil
+        NotificationCenter.default.post(name: notification, object: nil)
+    }
+}
+
 enum ScreenshotAccessibilityProofWriter {
     private static let environmentKey = "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH"
     private static let expectedRouteEnvironmentKey = "SPOONJOY_SCREENSHOT_EXPECTED_ROUTE"
+    private static let captureRunNonceEnvironmentKey = "SPOONJOY_SCREENSHOT_RUN_NONCE"
+
+#if DEBUG
+    private struct Request {
+        let configuredPath: String
+        let captureRunNonce: String
+        let route: String
+        let source: String
+        let runtimeContext: ScreenshotAccessibilityRuntimeContext
+        let observedSurfaceVariant: String?
+        let observedSurfaceState: ScreenshotObservedSurfaceState?
+    }
+
+    @MainActor private static var activeRequest: Request?
+    @MainActor private static var reattestationTask: Task<Void, Never>?
+#endif
 
     @MainActor static func writeIfNeeded(
         route: String,
@@ -119,8 +222,9 @@ enum ScreenshotAccessibilityProofWriter {
               !rawPath.isEmpty else {
             return
         }
-        let visualReadiness = await ScreenshotVisualReadiness.waitForSettled()
-        guard !Task.isCancelled else {
+        guard let captureRunNonce = ProcessInfo.processInfo.environment[captureRunNonceEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              UUID(uuidString: captureRunNonce) != nil else {
             return
         }
         if let expectedRoute = ProcessInfo.processInfo.environment[expectedRouteEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -128,25 +232,17 @@ enum ScreenshotAccessibilityProofWriter {
            expectedRoute != route {
             return
         }
-
-        let outputURL = URL(fileURLWithPath: rawPath)
-        let payload = basePayload(
+        let request = Request(
+            configuredPath: rawPath,
+            captureRunNonce: captureRunNonce,
             route: route,
             source: source,
             runtimeContext: runtimeContext,
-            visualReadiness: visualReadiness,
             observedSurfaceVariant: observedSurfaceVariant,
             observedSurfaceState: observedSurfaceState
         )
-        guard JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
-            return
-        }
-        try? FileManager.default.createDirectory(
-            at: outputURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try? data.write(to: outputURL, options: [.atomic])
+        activeRequest = request
+        await issueProof(for: request)
 #else
         _ = route
         _ = source
@@ -156,10 +252,113 @@ enum ScreenshotAccessibilityProofWriter {
 #endif
     }
 
+    @MainActor static func visualReadinessDidTransition() {
 #if DEBUG
+        guard let activeRequest else { return }
+        reattestationTask?.cancel()
+        reattestationTask = Task { @MainActor in
+            await issueProof(for: activeRequest)
+        }
+#endif
+    }
+
+#if DEBUG
+    @MainActor private static func issueProof(for request: Request) async {
+        let visualReadiness = await ScreenshotVisualReadiness.waitForSettled()
+        guard !Task.isCancelled, visualReadiness.isSettled else {
+            return
+        }
+        if ScreenshotAccessibilityProofHandshake.existingReceipt(
+            captureRunNonce: request.captureRunNonce,
+            route: request.route,
+            source: request.source,
+            readinessGeneration: visualReadiness.generation
+        ) != nil {
+            return
+        }
+        let outputURL = screenshotProofOutputURL(
+            configuredPath: request.configuredPath,
+            environment: ProcessInfo.processInfo.environment
+        )
+        let generationOutputURL = proofArchiveURL(
+            for: outputURL,
+            generation: visualReadiness.generation
+        )
+        let payload = basePayload(
+            route: request.route,
+            source: request.source,
+            captureRunNonce: request.captureRunNonce,
+            runtimeContext: request.runtimeContext,
+            visualReadiness: visualReadiness,
+            observedSurfaceVariant: request.observedSurfaceVariant,
+            observedSurfaceState: request.observedSurfaceState
+        )
+        guard JSONSerialization.isValidJSONObject(payload),
+              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
+            return
+        }
+        do {
+            try FileManager.default.createDirectory(
+                at: outputURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            if FileManager.default.fileExists(atPath: generationOutputURL.path) {
+                guard try Data(contentsOf: generationOutputURL) == data else {
+                    return
+                }
+            } else {
+                try data.write(to: generationOutputURL, options: [.atomic])
+            }
+            try data.write(to: outputURL, options: [.atomic])
+        } catch {
+            return
+        }
+        let currentReadiness = await ScreenshotVisualReadiness.currentSnapshot()
+        guard !Task.isCancelled,
+              currentReadiness.isSettled,
+              currentReadiness.generation == visualReadiness.generation else {
+            return
+        }
+        let proofSHA256 = SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        ScreenshotAccessibilityProofHandshake.publish(ScreenshotAccessibilityProofReceipt(
+            captureRunNonce: request.captureRunNonce,
+            route: request.route,
+            source: request.source,
+            readinessGeneration: visualReadiness.generation,
+            proofFileName: generationOutputURL.lastPathComponent,
+            proofSHA256: proofSHA256
+        ))
+    }
+
+    private static func proofArchiveURL(for outputURL: URL, generation: Int) -> URL {
+        outputURL.deletingPathExtension()
+            .appendingPathExtension("generation-\(generation)")
+            .appendingPathExtension(outputURL.pathExtension.isEmpty ? "json" : outputURL.pathExtension)
+    }
+
+    private static func screenshotProofOutputURL(
+        configuredPath: String,
+        environment: [String: String]
+    ) -> URL {
+        let usesInlineFixtures = ["1", "true", "yes"].contains(
+            environment["SPOONJOY_SCREENSHOT_INLINE_FIXTURES"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased() ?? ""
+        )
+        guard usesInlineFixtures else {
+            return URL(fileURLWithPath: configuredPath)
+        }
+        return NativeAppStateLocation.defaultFileURL()
+            .deletingLastPathComponent()
+            .appendingPathComponent(URL(fileURLWithPath: configuredPath).lastPathComponent)
+    }
+
     @MainActor private static func basePayload(
         route: String,
         source: String,
+        captureRunNonce: String,
         runtimeContext: ScreenshotAccessibilityRuntimeContext,
         visualReadiness: ScreenshotVisualReadinessSnapshot,
         observedSurfaceVariant: String?,
@@ -169,11 +368,14 @@ enum ScreenshotAccessibilityProofWriter {
             "platform": platform,
             "route": route,
             "source": source,
+            "captureRunNonce": captureRunNonce,
+            "readinessGeneration": visualReadiness.generation,
             "launchEnvironmentProof": launchEnvironmentProof,
             "screenshotStateSnapshotProof": screenshotStateSnapshotProof,
             "observedDynamicTypeSize": runtimeContext.dynamicTypeSize,
             "observedReduceMotion": runtimeContext.reduceMotionEnabled,
             "visualReadiness": [
+                "generation": visualReadiness.generation,
                 "expectedMediaCount": visualReadiness.expectedMediaCount,
                 "loadedMediaCount": visualReadiness.loadedMediaCount,
                 "pendingMediaCount": visualReadiness.pendingMediaCount,

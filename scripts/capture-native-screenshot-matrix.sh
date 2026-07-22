@@ -307,9 +307,13 @@ write_route_timeout_blocker() {
         "screenshots/ios-mobile.png",
         "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
+        "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "screenshots/ios-tablet-deep-scroll.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         "apple/#{route_slug}-accessibility-proof-ios.json",
+        "apple/#{route_slug}-accessibility-proof-ios-ax.json",
         "apple/#{route_slug}-accessibility-proof-ipad.json",
         "apple/#{route_slug}-accessibility-proof-macos.json",
         "apple/#{route_slug}-observed-accessibility-ios.json",
@@ -325,9 +329,9 @@ write_route_timeout_blocker() {
     File.write(source_path, JSON.pretty_generate(source_blocker) + "\n")
     File.write(review_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$name" "$route" "$route_root" "$route_slug" "$command" "$output_path" "$route_timeout_seconds"
-  rm -f "$route_root/screenshots/ios-mobile.png" "$route_root/screenshots/ios-mobile-accessibility.png" "$route_root/screenshots/ios-tablet.png" "$route_root/screenshots/macos-desktop.png"
+  rm -f "$route_root/screenshots/ios-mobile.png" "$route_root/screenshots/ios-mobile-accessibility.png" "$route_root/screenshots/ios-tablet.png" "$route_root/screenshots/ios-mobile-deep-scroll.png" "$route_root/screenshots/ios-mobile-accessibility-deep-scroll.png" "$route_root/screenshots/ios-tablet-deep-scroll.png" "$route_root/screenshots/macos-desktop.png"
   rm -f "$route_root/design-review.json"
-  rm -f "$route_root/apple/${route_slug}-accessibility-proof-ios.json" "$route_root/apple/${route_slug}-accessibility-proof-ipad.json" "$route_root/apple/${route_slug}-accessibility-proof-macos.json"
+  rm -f "$route_root/apple/${route_slug}-accessibility-proof-ios.json" "$route_root/apple/${route_slug}-accessibility-proof-ios-ax.json" "$route_root/apple/${route_slug}-accessibility-proof-ipad.json" "$route_root/apple/${route_slug}-accessibility-proof-macos.json"
   rm -f "$route_root/apple/${route_slug}-observed-accessibility-ios.json" "$route_root/apple/${route_slug}-observed-accessibility-ios-ax.json" "$route_root/apple/${route_slug}-observed-accessibility-ipad.json" "$route_root/apple/${route_slug}-observed-accessibility-macos.json"
 }
 
