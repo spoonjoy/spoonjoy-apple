@@ -28,17 +28,24 @@ struct CookbookVisualContractTests {
     func cookbookThumbnailsAndTextOnlyCoversTellTheTruthWithoutSqueezedTypography() throws {
         let path = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
         let source = try readCookbookRepoFile(path)
+        let theme = try readCookbookRepoFile("Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift")
         let index = try cookbookSourceSlice(source, from: "private var cookbookIndexRows", to: "private func cookbookEmptyState")
+        let shelf = try cookbookSourceSlice(source, from: "struct CookbookShelf: View", to: "private struct CookbookThumb")
         let thumb = try cookbookSourceSlice(source, from: "private struct CookbookThumb", to: "private struct CookbookCoverArt")
         let fallback = try cookbookSourceSlice(source, from: "private struct CookbookFallbackCover", to: "struct CookbookDetailRouteView")
 
         #expect(index.contains("CookbookThumb(row: row)"))
+        #expect(index.contains("showsLeading: row.cover.imageURLs.contains { $0 != nil }"))
         #expect(thumb.contains("CookbookImageCover(imageURLs:"))
-        #expect(thumb.contains("KitchenTableNoPhotoView("))
+        #expect(!thumb.contains("KitchenTableNoPhotoView("))
         #expect(!thumb.contains("Text("))
         #expect(!thumb.contains("books.vertical.fill"))
-        #expect(fallback.contains("KitchenTableNoPhotoView("))
-        #expect(fallback.contains("subtitle: \"Photo not added\""))
+        #expect(shelf.contains(".accessibilityElement(children: .ignore)"))
+        #expect(shelf.contains(".accessibilityLabel(\"\\(row.title), \\(row.recipeCountLabel)\")"))
+        #expect(!theme.contains("hidesTextFromAccessibility"))
+        #expect(!fallback.contains("KitchenTableNoPhotoView("))
+        #expect(!fallback.contains("photo.badge.plus"))
+        #expect(fallback.contains("Text(title)"))
         #expect(!fallback.contains("books.vertical.fill"))
     }
 
