@@ -144,6 +144,9 @@ struct PlatformNavigationView: View {
             liveSearchRequestMarker = nil
             loadedRecipesByID.removeAll()
         }
+        .onChange(of: usesCompactMobileShell) { _, usesCompactMobileShell in
+            navigation.synchronizeForShellTransition(to: usesCompactMobileShell ? .compact : .desktop)
+        }
     }
 
     private var usesCompactMobileShell: Bool {

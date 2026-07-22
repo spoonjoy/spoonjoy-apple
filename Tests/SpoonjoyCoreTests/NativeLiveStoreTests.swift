@@ -1958,6 +1958,55 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("cold Kitchen links replace the restored route after bootstrap")
+    func coldKitchenLinksReplaceRestoredRouteAfterBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_cold_kitchen_link"
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            try appStateStore.save(NativeAppSnapshot(
+                schemaVersion: 1,
+                accountID: accountID,
+                environment: .production,
+                hasCompletedFirstRun: true,
+                cookProgressByRecipeID: [:],
+                shoppingList: nil,
+                captureDraft: nil,
+                pendingMutations: MutationQueue(),
+                lastOpenedRoute: "settings",
+                savedAt: Self.isoString(Self.now)
+            ))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: accountID,
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: NativeMutationQueue()
+                ),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                appStateStoreProvider: { appStateStore },
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw NativeLiveStoreTestError.unexpectedRequest
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            liveStore.recordingOpenedRoute(.kitchen)
+            await liveStore.bootstrap()
+
+            let persisted = try appStateStore.loadOrCreate(fallback: .bootstrap(
+                shoppingList: nil,
+                accountID: accountID,
+                environment: .production,
+                savedAt: Self.isoString(Self.now)
+            )).value
+            #expect(persisted.lastOpenedRoute == "kitchen")
+            #expect(liveStore.restoredRoute == .kitchen)
+        }
+    }
+
+    @MainActor
     @Test("concurrent bootstrap callers join one auth scope resolution")
     func concurrentBootstrapCallersJoinOneAuthScopeResolution() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

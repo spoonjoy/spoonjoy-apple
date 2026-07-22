@@ -134,6 +134,51 @@ struct AppStateTests {
         #expect(navigation.route == detail)
     }
 
+    @Test("iPad shell transitions carry the active navigation stack in both directions")
+    func iPadShellTransitionsCarryActiveNavigationStack() {
+        var navigation = AppNavigationState()
+        let kitchenDetail = AppRoute.recipeDetail(id: "recipe_kitchen", presentation: .detail)
+        let recipeDetail = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+        let recipeEditor = AppRoute.recipeEditor(id: "recipe_lemon_pantry_pasta")
+
+        navigation.pushCompact(kitchenDetail)
+        navigation.selectCompactTab(.recipes)
+        navigation.pushCompact(recipeDetail)
+        navigation.pushCompact(recipeEditor)
+
+        navigation.synchronizeForShellTransition(to: .desktop)
+
+        #expect(navigation.sidebarSelection == .recipes)
+        #expect(navigation.desktopPath == [recipeDetail, recipeEditor])
+        #expect(navigation.route == recipeEditor)
+        #expect(navigation.compactPath(for: .kitchen) == [kitchenDetail])
+
+        navigation.setDesktopPath([recipeDetail])
+        navigation.synchronizeForShellTransition(to: .compact)
+
+        #expect(navigation.compactTabSelection == .recipes)
+        #expect(navigation.compactPath(for: .recipes) == [recipeDetail])
+        #expect(navigation.compactPath(for: .kitchen) == [kitchenDetail])
+        #expect(navigation.route == recipeDetail)
+
+        navigation.setCompactPath([], for: .recipes)
+        navigation.synchronizeForShellTransition(to: .desktop)
+
+        #expect(navigation.sidebarSelection == .recipes)
+        #expect(navigation.desktopPath.isEmpty)
+        #expect(navigation.route == .recipes)
+
+        navigation.synchronizeForShellTransition(to: .compact)
+        #expect(navigation.compactTabSelection == .recipes)
+        #expect(navigation.compactPath(for: .recipes).isEmpty)
+
+        navigation.selectSidebar(.settings)
+        navigation.synchronizeForShellTransition(to: .compact)
+        #expect(navigation.compactTabSelection == .kitchen)
+        #expect(navigation.compactPath(for: .kitchen) == [.settings])
+        #expect(navigation.route == .settings)
+    }
+
     @Test("compact navigation covers every root invalid sections duplicate pushes and replacement")
     func compactNavigationCoversRootsInvalidSectionsDuplicatePushesAndReplacement() {
         var navigation = AppNavigationState()

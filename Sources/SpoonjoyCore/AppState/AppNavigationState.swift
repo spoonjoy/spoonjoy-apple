@@ -1,5 +1,10 @@
 import Foundation
 
+public enum AppNavigationShell: Equatable, Sendable {
+    case compact
+    case desktop
+}
+
 public struct AppNavigationState: Equatable {
     public private(set) var route: AppRoute
     public private(set) var sidebarSelection: AppSection
@@ -98,6 +103,25 @@ public struct AppNavigationState: Equatable {
         }
         compactTabSelection = section
         updateSelection(for: compactPath(for: section).last ?? Self.compactRootRoute(for: section))
+    }
+
+    public mutating func synchronizeForShellTransition(to shell: AppNavigationShell) {
+        switch shell {
+        case .compact:
+            let activeRoute = desktopPath.last ?? desktopRootRoute
+            let compactTab = Self.preferredCompactTab(for: activeRoute)
+            let activePath = desktopPath.isEmpty && activeRoute != Self.compactRootRoute(for: compactTab)
+                ? [activeRoute]
+                : desktopPath
+            compactTabSelection = compactTab
+            compactPaths[compactTab] = activePath
+            updateSelection(for: activeRoute)
+        case .desktop:
+            let activePath = compactPath(for: compactTabSelection)
+            let activeRoute = activePath.last ?? Self.compactRootRoute(for: compactTabSelection)
+            updateSelection(for: activeRoute)
+            desktopPath = activeRoute == desktopRootRoute ? [] : activePath
+        }
     }
 
     public mutating func pushCompact(_ route: AppRoute) {

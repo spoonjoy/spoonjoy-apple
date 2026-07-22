@@ -1906,6 +1906,7 @@ public final class NativeLiveAppStore: ObservableObject {
         hasResolvedAuthScope = true
         if let pendingOpenedRoute {
             self.pendingOpenedRoute = nil
+            restoredRoute = pendingOpenedRoute
             persistOpenedRoute(pendingOpenedRoute)
         }
     }
