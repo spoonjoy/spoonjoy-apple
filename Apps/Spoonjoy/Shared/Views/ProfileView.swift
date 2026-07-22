@@ -354,7 +354,7 @@ private struct ProfileGraphLinkSection: View {
                 }
             } else {
                 Label(title, systemImage: systemImage)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
             }
         }
         .buttonStyle(.bordered)
