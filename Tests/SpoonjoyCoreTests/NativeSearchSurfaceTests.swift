@@ -119,6 +119,7 @@ struct NativeSearchSurfaceTests {
                     "NativeSearchTelemetryDescriptor",
                     "reportSearchTelemetry(.started",
                     "reportSearchTelemetry(.completed",
+                    "reportSearchTelemetry(.cancelled",
                     "reportSearchTelemetry(.failed",
                     "SearchSurfaceScopeGrammar.title(for: scope)",
                     "guard allowsLiveEffects else",
@@ -294,6 +295,18 @@ struct NativeSearchSurfaceTests {
 
         #expect(cachedCompletion.requestID == nil)
         #expect(cachedCompletion.durationMilliseconds == 600_000)
+
+        let cancelled = NativeSearchTelemetryDescriptor.cancelled(
+            state: SearchState(query: "private query", scope: .shoppingList),
+            durationMilliseconds: 42,
+            hasCachedResults: true
+        ).telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(cancelled.name == .searchFailed)
+        #expect(cancelled.stage == "request_cancelled")
+        #expect(cancelled.errorType == "cancelled")
+        #expect(cancelled.durationMilliseconds == 42)
+        #expect(cancelled.hasRenderableCacheContent == true)
 
         let failures: [(SearchSurfaceRepositoryError, String)] = [
             (.authenticationRequired(scope: .shoppingList), "authentication_required"),
@@ -585,7 +598,27 @@ struct NativeSearchSurfaceTests {
             message: "Spoonjoy search is offline.",
             systemImage: "wifi.exclamationmark"
         ))
+        #expect(failedSearch.emptyState == nil)
         #expect(failedSearch.offlineIndicator.display == .syncFailure(errorID: "search-all", retryAfter: nil))
+
+        let emptyCachedFailure = SearchSurfaceViewModel(
+            error: .searchFailed(message: "Spoonjoy search is offline."),
+            state: SearchState(query: "tomato", scope: .all),
+            cachedPage: SearchSurfacePage(
+                query: "tomato",
+                scope: .all,
+                limit: 20,
+                isAuthenticated: true,
+                results: [],
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+            ),
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        #expect(emptyCachedFailure.sections.isEmpty)
+        #expect(emptyCachedFailure.errorState?.title == "Search could not load")
+        #expect(emptyCachedFailure.emptyState == nil)
+        #expect(emptyCachedFailure.renderFingerprint.emptyState == nil)
 
         let offlineSearch = SearchSurfaceViewModel(
             error: .offline,

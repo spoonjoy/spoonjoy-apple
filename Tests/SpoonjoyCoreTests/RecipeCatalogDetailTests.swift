@@ -704,6 +704,50 @@ struct RecipeCatalogDetailTests {
         }
     }
 
+    @Test("cook history enrichment failures report privacy-safe native telemetry and remain best effort")
+    func cookHistoryEnrichmentFailuresReportTelemetryAndRemainBestEffort() async throws {
+        let recipe = try Self.recipeDetail()
+        let detail = RecipeCatalogDetailResult(
+            recipe: recipe,
+            source: .live(requestID: "req_recipe_progressive_telemetry", validatedAt: Self.now)
+        )
+        let resultRecorder = ProgressiveRecipeResultRecorder()
+        let telemetryRecorder = RecipeDetailTelemetryRecorder()
+
+        try await RecipeDetailProgressiveLoader(
+            recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
+            spoonRepository: ScriptedSpoonCookLogRepository(responses: [.failure]),
+            reportTelemetry: { descriptor in
+                await telemetryRecorder.record(descriptor)
+            }
+        ).load(recipeID: recipe.id) { result in
+            resultRecorder.results.append(result)
+        }
+
+        #expect(await resultRecorder.results.count == 1)
+        let descriptor = try #require(await telemetryRecorder.descriptors().first)
+        let event = descriptor.telemetryEvent(
+            environment: "production",
+            metadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "2.0", buildNumber: "59")
+        )
+        #expect(event.name == .syncFailed)
+        #expect(event.stage == "recipe_detail.cook_history_enrichment")
+        #expect(event.route == "recipe_detail")
+        #expect(event.errorType == "ScriptedSpoonCookLogError")
+        #expect(event.hasRenderableCacheContent == true)
+
+        let request = try NativeTelemetryRequests.recordEvent(event).urlRequest(
+            configuration: APIClientConfiguration(
+                baseURL: URL(string: "https://spoonjoy.app")!,
+                bearerToken: "sj_private_token"
+            )
+        )
+        let body = try #require(request.httpBody)
+        let payload = String(decoding: body, as: UTF8.self)
+        #expect(payload.contains("recipe_detail.cook_history_enrichment"))
+        #expect(!payload.contains(recipe.id))
+    }
+
     @Test("progressive recipe detail propagates cancellation after publishing recipe content")
     func progressiveRecipeDetailPropagatesCancellationAfterPublishingRecipeContent() async throws {
         let recipe = try Self.recipeDetail()
@@ -712,18 +756,23 @@ struct RecipeCatalogDetailTests {
             source: .live(requestID: "req_recipe_progressive_cancel", validatedAt: Self.now)
         )
         let recorder = ProgressiveRecipeResultRecorder()
+        let telemetryRecorder = RecipeDetailTelemetryRecorder()
         let repository = ScriptedSpoonCookLogRepository(responses: [.cancelled])
 
         do {
             try await RecipeDetailProgressiveLoader(
                 recipeRepository: ImmediateRecipeDetailRepository(detail: detail),
-                spoonRepository: repository
+                spoonRepository: repository,
+                reportTelemetry: { descriptor in
+                    await telemetryRecorder.record(descriptor)
+                }
             ).load(recipeID: recipe.id) { result in
                 recorder.results.append(result)
             }
             Issue.record("Expected cook-history cancellation to propagate.")
         } catch is CancellationError {
             #expect(await recorder.results.count == 1)
+            #expect(await telemetryRecorder.descriptors().isEmpty)
         }
     }
 
@@ -1029,6 +1078,18 @@ private actor ScriptedSpoonCookLogRepository: SpoonCookLogRepository {
 @MainActor
 private final class ProgressiveRecipeResultRecorder {
     var results: [RecipeCatalogDetailResult] = []
+}
+
+private actor RecipeDetailTelemetryRecorder {
+    private var values: [NativeRecipeDetailTelemetryDescriptor] = []
+
+    func record(_ descriptor: NativeRecipeDetailTelemetryDescriptor) {
+        values.append(descriptor)
+    }
+
+    func descriptors() -> [NativeRecipeDetailTelemetryDescriptor] {
+        values
+    }
 }
 
 private enum RecordingSpoonjoyAPITransportError: Error, Equatable {
