@@ -87,7 +87,6 @@ struct KitchenTableHeader<Trailing: View>: View {
     let subtitle: String?
     let hidesTitleInCompactNavigation: Bool
     @ViewBuilder let trailing: () -> Trailing
-    private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1
 
     init(
         eyebrow: String,
@@ -126,13 +125,12 @@ struct KitchenTableHeader<Trailing: View>: View {
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(KitchenTableTheme.bodyNote)
+                    .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .dynamicTypeSize(accessibilityPresentationRange)
     }
 }
 

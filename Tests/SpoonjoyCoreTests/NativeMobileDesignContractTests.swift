@@ -141,21 +141,21 @@ struct NativeMobileDesignContractTests {
             in: themePath,
             contains: [
                 "KitchenTableHeaderLayout()",
-                "private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1",
                 "titleStack",
                 "trailing()",
                 ".font(.caption2)",
                 ".fontWeight(.bold)",
                 ".foregroundStyle(KitchenTableTheme.brass)",
                 ".accessibilityHidden(true)",
-                ".dynamicTypeSize(accessibilityPresentationRange)",
+                ".font(KitchenTableTheme.uiLabel)",
                 ".fixedSize(horizontal: false, vertical: true)"
             ],
             forbids: [
                 "ViewThatFits",
                 "HStack(alignment: .top, spacing: 16)",
                 "VStack(alignment: .leading, spacing: 12)",
-                ".font(.caption2.weight(.bold))"
+                ".font(.caption2.weight(.bold))",
+                ".dynamicTypeSize("
             ]
         )
         #expect(header.components(separatedBy: "titleStack").count - 1 == 2)
