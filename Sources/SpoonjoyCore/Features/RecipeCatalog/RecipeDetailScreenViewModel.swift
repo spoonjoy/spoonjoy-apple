@@ -402,6 +402,21 @@ public struct NativeRecipeDetailTelemetryDescriptor: Equatable, Sendable {
         )
     }
 
+    public static func primaryFetchFailed(
+        failure: RecipeCatalogPrimaryFetchFailure,
+        hasRenderableCacheContent: Bool
+    ) -> Self {
+        Self(
+            stage: "recipe_detail.primary_fetch",
+            errorType: failure.errorType,
+            requestID: failure.requestID,
+            status: failure.status,
+            apiCode: failure.apiCode,
+            retry: failure.retryDecision.map(retryDescription),
+            hasRenderableCacheContent: hasRenderableCacheContent
+        )
+    }
+
     public static func primaryFetchCancelled(error: Error, requestID: String? = nil) -> Self {
         diagnostic(
             stage: "recipe_detail.primary_fetch",
@@ -476,23 +491,119 @@ public struct NativeRecipeDetailTelemetryDescriptor: Equatable, Sendable {
     }
 }
 
+/// Reporters must promptly finish when their task is cancelled. The deadline requests cancellation,
+/// structured ownership waits for exit, and a fixed task budget caps reporters that violate the contract.
+/// Production satisfies the cooperative-exit contract through URLSession cancellation.
 public typealias NativeRecipeDetailTelemetryReportOperation = @Sendable (
     NativeRecipeDetailTelemetryDescriptor
 ) async -> Void
 
+final class NativeRecipeDetailTelemetryTaskBudget: @unchecked Sendable {
+    static let shared = NativeRecipeDetailTelemetryTaskBudget(capacity: 16)
+
+    private let capacity: Int
+    private let lock = NSLock()
+    private var inFlight = 0
+
+    init(capacity: Int) {
+        self.capacity = max(capacity, 1)
+    }
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard inFlight < capacity else {
+            return false
+        }
+        inFlight += 1
+        return true
+    }
+
+    func release() {
+        lock.lock()
+        defer { lock.unlock() }
+        inFlight -= 1
+    }
+
+    func inFlightCount() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return inFlight
+    }
+}
+
+private struct NativeRecipeDetailTelemetryDispatcher: Sendable {
+    private let report: NativeRecipeDetailTelemetryReportOperation
+    private let timeout: Duration
+    private let taskBudget: NativeRecipeDetailTelemetryTaskBudget
+
+    init(
+        report: @escaping NativeRecipeDetailTelemetryReportOperation,
+        timeout: Duration,
+        taskBudget: NativeRecipeDetailTelemetryTaskBudget
+    ) {
+        self.report = report
+        self.timeout = max(timeout, .zero)
+        self.taskBudget = taskBudget
+    }
+
+    func submit(_ descriptor: NativeRecipeDetailTelemetryDescriptor) {
+        guard taskBudget.claim() else {
+            return
+        }
+        let report = report
+        let timeout = timeout
+        let taskBudget = taskBudget
+        Task.detached(priority: .utility) {
+            defer { taskBudget.release() }
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    await report(descriptor)
+                }
+                group.addTask {
+                    try? await Task.sleep(for: timeout)
+                }
+                await group.next()
+                group.cancelAll()
+            }
+        }
+    }
+}
+
 public struct RecipeDetailProgressiveLoader: Sendable {
     private let recipeRepository: any RecipeCatalogRepository
     private let spoonRepository: any SpoonCookLogRepository
-    private let reportTelemetry: NativeRecipeDetailTelemetryReportOperation
+    private let telemetryDispatcher: NativeRecipeDetailTelemetryDispatcher
 
     public init(
         recipeRepository: any RecipeCatalogRepository,
         spoonRepository: any SpoonCookLogRepository,
-        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation = { _ in }
+        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation = { _ in },
+        telemetryTimeout: Duration = .seconds(5)
+    ) {
+        self.init(
+            recipeRepository: recipeRepository,
+            spoonRepository: spoonRepository,
+            reportTelemetry: reportTelemetry,
+            telemetryTimeout: telemetryTimeout,
+            telemetryTaskBudget: .shared
+        )
+    }
+
+    init(
+        recipeRepository: any RecipeCatalogRepository,
+        spoonRepository: any SpoonCookLogRepository,
+        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation,
+        telemetryTimeout: Duration,
+        telemetryTaskBudget: NativeRecipeDetailTelemetryTaskBudget
     ) {
         self.recipeRepository = recipeRepository
         self.spoonRepository = spoonRepository
-        self.reportTelemetry = reportTelemetry
+        telemetryDispatcher = NativeRecipeDetailTelemetryDispatcher(
+            report: reportTelemetry,
+            timeout: telemetryTimeout,
+            taskBudget: telemetryTaskBudget
+        )
     }
 
     public func load(
@@ -503,13 +614,13 @@ public struct RecipeDetailProgressiveLoader: Sendable {
         do {
             initialResult = try await recipeRepository.recipeDetail(id: recipeID)
         } catch is CancellationError {
-            await reportPrimaryFetchCancellation(.primaryFetchCancelled(error: CancellationError()))
+            telemetryDispatcher.submit(.primaryFetchCancelled(error: CancellationError()))
             throw CancellationError()
         } catch let error as APITransportError where error.isCancelled {
-            await reportPrimaryFetchCancellation(.primaryFetchCancelled(error: error))
+            telemetryDispatcher.submit(.primaryFetchCancelled(error: error))
             throw CancellationError()
         } catch {
-            await reportTelemetry(.primaryFetchFailed(error: error))
+            telemetryDispatcher.submit(.primaryFetchFailed(error: error))
             throw error
         }
 
@@ -519,13 +630,19 @@ public struct RecipeDetailProgressiveLoader: Sendable {
             let requestID: String? = if case .live(let requestID, _) = initialResult.source {
                 requestID
             } else {
-                nil
+                initialResult.primaryFetchFailure?.requestID
             }
-            await reportPrimaryFetchCancellation(.primaryFetchCancelled(
+            telemetryDispatcher.submit(.primaryFetchCancelled(
                 error: error,
                 requestID: requestID
             ))
             throw CancellationError()
+        }
+        if let primaryFetchFailure = initialResult.primaryFetchFailure {
+            telemetryDispatcher.submit(.primaryFetchFailed(
+                failure: primaryFetchFailure,
+                hasRenderableCacheContent: true
+            ))
         }
         await onRecipe(initialResult)
 
@@ -534,7 +651,8 @@ public struct RecipeDetailProgressiveLoader: Sendable {
             try Task.checkCancellation()
             let enrichedResult = RecipeCatalogDetailResult(
                 recipe: initialResult.recipe.replacingRecentSpoons(cookLog.spoons),
-                source: initialResult.source
+                source: initialResult.source,
+                primaryFetchFailure: initialResult.primaryFetchFailure
             )
             await onRecipe(enrichedResult)
         } catch is CancellationError {
@@ -542,15 +660,8 @@ public struct RecipeDetailProgressiveLoader: Sendable {
         } catch let error as APITransportError where error.isCancelled {
             throw CancellationError()
         } catch {
-            await reportTelemetry(.cookHistoryEnrichmentFailed(error: error))
+            telemetryDispatcher.submit(.cookHistoryEnrichmentFailed(error: error))
         }
-    }
-
-    private func reportPrimaryFetchCancellation(_ descriptor: NativeRecipeDetailTelemetryDescriptor) async {
-        let reportTelemetry = reportTelemetry
-        await Task.detached {
-            await reportTelemetry(descriptor)
-        }.value
     }
 
     private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {

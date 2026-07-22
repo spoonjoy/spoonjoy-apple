@@ -18,6 +18,39 @@ public enum RecipeCatalogDataSource: Equatable, Sendable {
     case cache(serverRevision: NativeCacheServerRevision?, lastValidatedAt: Date)
 }
 
+public struct RecipeCatalogPrimaryFetchFailure: Equatable, Sendable {
+    public let errorType: String
+    public let requestID: String?
+    public let status: Int?
+    public let apiCode: String?
+    public let retryDecision: APIRetryDecision?
+    public let isCancelled: Bool
+
+    public init(error: Error) {
+        let transportError = error as? APITransportError
+        errorType = Self.bounded(String(describing: Swift.type(of: error)), limit: 80)
+        requestID = Self.bounded(
+            transportError?.requestID ?? transportError?.apiError?.requestID,
+            limit: 160
+        )
+        status = transportError?.statusCode ?? transportError?.apiError?.status
+        apiCode = Self.bounded(transportError?.apiError?.code, limit: 80)
+        retryDecision = transportError?.retryDecision
+        isCancelled = error is CancellationError || transportError?.isCancelled == true
+    }
+
+    private static func bounded(_ value: String?, limit: Int) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+        return String(value.prefix(limit))
+    }
+
+    private static func bounded(_ value: String, limit: Int) -> String {
+        String(value.prefix(limit))
+    }
+}
+
 public struct RecipeCatalogPage: Equatable, Sendable {
     public let query: String?
     public let limit: Int
@@ -26,6 +59,7 @@ public struct RecipeCatalogPage: Equatable, Sendable {
     public let hasMore: Bool
     public let rows: [RecipeSummary]
     public let source: RecipeCatalogDataSource
+    public let primaryFetchFailure: RecipeCatalogPrimaryFetchFailure?
 
     public init(
         query: String?,
@@ -34,7 +68,8 @@ public struct RecipeCatalogPage: Equatable, Sendable {
         nextCursor: PaginationCursor?,
         hasMore: Bool,
         rows: [RecipeSummary],
-        source: RecipeCatalogDataSource
+        source: RecipeCatalogDataSource,
+        primaryFetchFailure: RecipeCatalogPrimaryFetchFailure? = nil
     ) {
         let trimmedQuery = query?.trimmingCharacters(in: .whitespacesAndNewlines)
         self.query = trimmedQuery?.isEmpty == false ? trimmedQuery : nil
@@ -44,6 +79,7 @@ public struct RecipeCatalogPage: Equatable, Sendable {
         self.hasMore = hasMore
         self.rows = rows
         self.source = source
+        self.primaryFetchFailure = primaryFetchFailure
     }
 
     public func offlineIndicator(
@@ -104,10 +140,16 @@ public struct RecipeCatalogPage: Equatable, Sendable {
 public struct RecipeCatalogDetailResult: Equatable, Sendable {
     public let recipe: Recipe
     public let source: RecipeCatalogDataSource
+    public let primaryFetchFailure: RecipeCatalogPrimaryFetchFailure?
 
-    public init(recipe: Recipe, source: RecipeCatalogDataSource) {
+    public init(
+        recipe: Recipe,
+        source: RecipeCatalogDataSource,
+        primaryFetchFailure: RecipeCatalogPrimaryFetchFailure? = nil
+    ) {
         self.recipe = recipe
         self.source = source
+        self.primaryFetchFailure = primaryFetchFailure
     }
 
     public func offlineIndicator(
@@ -200,7 +242,8 @@ public struct SnapshotRecipeCatalogRepository: RecipeCatalogRepository {
             nextCursor: nil,
             hasMore: filteredRows.count > request.limit,
             rows: Array(filteredRows.prefix(request.limit)),
-            source: page.source
+            source: page.source,
+            primaryFetchFailure: page.primaryFetchFailure
         )
     }
 
@@ -237,16 +280,61 @@ public struct FallbackRecipeCatalogRepository: RecipeCatalogRepository {
     public func listRecipes(request: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
         do {
             return try await primary.listRecipes(request: request)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as APITransportError where error.isCancelled {
+            throw error
         } catch {
-            return try await fallback.listRecipes(request: request)
+            let primaryError = error
+            try Task.checkCancellation()
+            do {
+                let page = try await fallback.listRecipes(request: request)
+                try Task.checkCancellation()
+                return RecipeCatalogPage(
+                    query: page.query,
+                    limit: page.limit,
+                    cursor: page.cursor,
+                    nextCursor: page.nextCursor,
+                    hasMore: page.hasMore,
+                    rows: page.rows,
+                    source: page.source,
+                    primaryFetchFailure: RecipeCatalogPrimaryFetchFailure(error: primaryError)
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as APITransportError where error.isCancelled {
+                throw error
+            } catch {
+                throw primaryError
+            }
         }
     }
 
     public func recipeDetail(id: String) async throws -> RecipeCatalogDetailResult {
         do {
             return try await primary.recipeDetail(id: id)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as APITransportError where error.isCancelled {
+            throw error
         } catch {
-            return try await fallback.recipeDetail(id: id)
+            let primaryError = error
+            try Task.checkCancellation()
+            do {
+                let detail = try await fallback.recipeDetail(id: id)
+                try Task.checkCancellation()
+                return RecipeCatalogDetailResult(
+                    recipe: detail.recipe,
+                    source: detail.source,
+                    primaryFetchFailure: RecipeCatalogPrimaryFetchFailure(error: primaryError)
+                )
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as APITransportError where error.isCancelled {
+                throw error
+            } catch {
+                throw primaryError
+            }
         }
     }
 }

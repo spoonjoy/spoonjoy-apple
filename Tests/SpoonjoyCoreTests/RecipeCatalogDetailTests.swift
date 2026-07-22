@@ -535,6 +535,297 @@ struct RecipeCatalogDetailTests {
         #expect(convenienceDetail.offlineIndicator.display == .stale(domain: .recipeDetail(id: recipe.id)))
     }
 
+    @Test("fallback preserves bounded primary transport and auth diagnostics on renderable cache")
+    func fallbackPreservesPrimaryDiagnosticsOnRenderableCache() async throws {
+        let recipe = try Self.recipeDetail()
+        let cachedRepository = SnapshotRecipeCatalogRepository(
+            page: RecipeCatalogPage(
+                query: nil,
+                limit: 48,
+                cursor: nil,
+                nextCursor: nil,
+                hasMore: false,
+                rows: [RecipeSummary(recipe: recipe)],
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+            ),
+            details: [
+                RecipeCatalogDetailResult(
+                    recipe: recipe,
+                    source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+                )
+            ]
+        )
+        let privateMessage = "private authentication response"
+        let failures: [(APITransportError, String, Int, String?, APIRetryDecision)] = [
+            (
+                APITransportError(
+                    kind: .networkFailure,
+                    requestID: String(repeating: "r", count: 200),
+                    statusCode: 503,
+                    apiError: nil,
+                    retryDecision: .retrySameRequest(afterSeconds: 4)
+                ),
+                String(repeating: "r", count: 160),
+                503,
+                nil,
+                .retrySameRequest(afterSeconds: 4)
+            ),
+            (
+                APITransportError(
+                    kind: .apiError,
+                    requestID: nil,
+                    statusCode: nil,
+                    apiError: APIError(
+                        requestID: "req_auth_fallback",
+                        code: "invalid_token",
+                        message: privateMessage,
+                        status: 401
+                    ),
+                    retryDecision: .refreshAuthentication
+                ),
+                "req_auth_fallback",
+                401,
+                "invalid_token",
+                .refreshAuthentication
+            )
+        ]
+
+        for (error, requestID, status, apiCode, retryDecision) in failures {
+            let repository = FallbackRecipeCatalogRepository(
+                primary: ThrowingRecipeCatalogRepository(error: error),
+                fallback: cachedRepository
+            )
+            let page = try await repository.listRecipes(
+                request: RecipeCatalogListRequest(query: nil, limit: 20)
+            )
+            let detail = try await repository.recipeDetail(id: recipe.id)
+
+            #expect(page.rows.map(\.id) == [recipe.id])
+            #expect(detail.recipe.id == recipe.id)
+            for diagnostic in [page.primaryFetchFailure, detail.primaryFetchFailure] {
+                let diagnostic = try #require(diagnostic)
+                #expect(diagnostic.errorType == "APITransportError")
+                #expect(diagnostic.requestID == requestID)
+                #expect(diagnostic.status == status)
+                #expect(diagnostic.apiCode == apiCode)
+                #expect(diagnostic.retryDecision == retryDecision)
+                #expect(!diagnostic.isCancelled)
+                #expect(!String(describing: diagnostic).contains(privateMessage))
+            }
+        }
+
+        let primaryError = failures[0].0
+        let repositoryWithoutRenderableCache = FallbackRecipeCatalogRepository(
+            primary: ThrowingRecipeCatalogRepository(error: primaryError),
+            fallback: FailingRecipeCatalogRepository()
+        )
+        do {
+            _ = try await repositoryWithoutRenderableCache.recipeDetail(id: recipe.id)
+            Issue.record("Expected the original live failure when cache cannot render the recipe.")
+        } catch let error as APITransportError {
+            #expect(error == primaryError)
+        }
+        do {
+            _ = try await repositoryWithoutRenderableCache.listRecipes(
+                request: RecipeCatalogListRequest(query: nil, limit: 20)
+            )
+            Issue.record("Expected the original live failure when cache cannot render the catalog.")
+        } catch let error as APITransportError {
+            #expect(error == primaryError)
+        }
+    }
+
+    @Test("fallback never converts primary cancellation into cached success")
+    func fallbackNeverConvertsPrimaryCancellationIntoCachedSuccess() async throws {
+        let recipe = try Self.recipeDetail()
+        let fallbackRepository = RecordingRecipeCatalogRepository(
+            page: RecipeCatalogPage(
+                query: nil,
+                limit: 20,
+                cursor: nil,
+                nextCursor: nil,
+                hasMore: false,
+                rows: [RecipeSummary(recipe: recipe)],
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+            ),
+            detail: RecipeCatalogDetailResult(
+                recipe: recipe,
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+            )
+        )
+        let cancellation = APITransportError(
+            kind: .cancelled,
+            requestID: "req_primary_cancelled_before_fallback",
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .doNotRetry
+        )
+        let repository = FallbackRecipeCatalogRepository(
+            primary: ThrowingRecipeCatalogRepository(error: cancellation),
+            fallback: fallbackRepository
+        )
+
+        do {
+            _ = try await repository.recipeDetail(id: recipe.id)
+            Issue.record("Expected primary cancellation to propagate without reading cache.")
+        } catch let error as APITransportError {
+            #expect(error == cancellation)
+        }
+
+        do {
+            _ = try await repository.listRecipes(
+                request: RecipeCatalogListRequest(query: nil, limit: 20)
+            )
+            Issue.record("Expected primary list cancellation to propagate without reading cache.")
+        } catch let error as APITransportError {
+            #expect(error == cancellation)
+        }
+
+        #expect(await fallbackRepository.detailRequests.isEmpty)
+        #expect(await fallbackRepository.listRequests.isEmpty)
+
+        let directlyCancelled = FallbackRecipeCatalogRepository(
+            primary: CancellingRecipeCatalogRepository(),
+            fallback: fallbackRepository
+        )
+        do {
+            _ = try await directlyCancelled.recipeDetail(id: recipe.id)
+            Issue.record("Expected direct detail cancellation to bypass cache.")
+        } catch is CancellationError {
+            // Expected.
+        }
+        do {
+            _ = try await directlyCancelled.listRecipes(
+                request: RecipeCatalogListRequest(query: nil, limit: 20)
+            )
+            Issue.record("Expected direct list cancellation to bypass cache.")
+        } catch is CancellationError {
+            // Expected.
+        }
+
+        let cancelledFallback = FallbackRecipeCatalogRepository(
+            primary: FailingRecipeCatalogRepository(),
+            fallback: CancellingRecipeCatalogRepository()
+        )
+        do {
+            _ = try await cancelledFallback.recipeDetail(id: recipe.id)
+            Issue.record("Expected fallback detail cancellation to propagate.")
+        } catch is CancellationError {
+            // Expected.
+        }
+        do {
+            _ = try await cancelledFallback.listRecipes(
+                request: RecipeCatalogListRequest(query: nil, limit: 20)
+            )
+            Issue.record("Expected fallback list cancellation to propagate.")
+        } catch is CancellationError {
+            // Expected.
+        }
+
+        let transportCancelledFallback = FallbackRecipeCatalogRepository(
+            primary: FailingRecipeCatalogRepository(),
+            fallback: ThrowingRecipeCatalogRepository(error: cancellation)
+        )
+        do {
+            _ = try await transportCancelledFallback.recipeDetail(id: recipe.id)
+            Issue.record("Expected fallback transport detail cancellation to propagate.")
+        } catch let error as APITransportError {
+            #expect(error == cancellation)
+        }
+        do {
+            _ = try await transportCancelledFallback.listRecipes(
+                request: RecipeCatalogListRequest(query: nil, limit: 20)
+            )
+            Issue.record("Expected fallback transport list cancellation to propagate.")
+        } catch let error as APITransportError {
+            #expect(error == cancellation)
+        }
+
+        #expect(await fallbackRepository.detailRequests.isEmpty)
+        #expect(await fallbackRepository.listRequests.isEmpty)
+    }
+
+    @Test("renderable fallback publishes immediately and reports the primary failure truthfully")
+    func renderableFallbackPublishesAndReportsPrimaryFailureTruthfully() async throws {
+        let recipe = try Self.recipeDetail()
+        let privateMessage = "private upstream response body"
+        let primaryError = APITransportError(
+            kind: .apiError,
+            requestID: nil,
+            statusCode: nil,
+            apiError: APIError(
+                requestID: "req_cached_auth_failure",
+                code: "token_expired",
+                message: privateMessage,
+                status: 401
+            ),
+            retryDecision: .refreshAuthentication
+        )
+        let cachedDetail = RecipeCatalogDetailResult(
+            recipe: recipe,
+            source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+        )
+        let repository = FallbackRecipeCatalogRepository(
+            primary: ThrowingRecipeCatalogRepository(error: primaryError),
+            fallback: ImmediateRecipeDetailRepository(detail: cachedDetail)
+        )
+        let spoonRepository = ControlledSpoonCookLogRepository()
+        let resultRecorder = ProgressiveRecipeResultRecorder()
+        let telemetry = BlockingRecipeDetailTelemetryReporter()
+        let completion = RecipeDetailLoadCompletion()
+        let task = Task {
+            do {
+                try await RecipeDetailProgressiveLoader(
+                    recipeRepository: repository,
+                    spoonRepository: spoonRepository,
+                    reportTelemetry: { descriptor in
+                        await telemetry.report(descriptor)
+                    },
+                    telemetryTimeout: .milliseconds(50)
+                ).load(recipeID: recipe.id) { result in
+                    resultRecorder.results.append(result)
+                }
+            } catch {
+                Issue.record("Renderable cache fallback should not fail: \(error)")
+            }
+            await completion.finish()
+        }
+
+        let telemetryStarted = await telemetry.waitUntilStarted()
+        let recipePublished = await resultRecorder.results.count == 1
+        if !telemetryStarted {
+            await telemetry.release()
+        }
+        #expect(telemetryStarted)
+        #expect(recipePublished)
+        #expect(!(await completion.isFinished()))
+
+        let descriptor = try #require(await telemetry.descriptors().first)
+        #expect(descriptor.stage == "recipe_detail.primary_fetch")
+        #expect(descriptor.errorType == "APITransportError")
+        #expect(descriptor.requestID == "req_cached_auth_failure")
+        #expect(descriptor.status == 401)
+        #expect(descriptor.apiCode == "token_expired")
+        #expect(descriptor.retry == "refresh_authentication")
+        #expect(descriptor.hasRenderableCacheContent)
+        let request = try NativeTelemetryRequests.recordEvent(
+            descriptor.telemetryEvent(environment: "production", metadata: .unknown)
+        ).urlRequest(configuration: APIClientConfiguration(
+            baseURL: URL(string: "https://spoonjoy.app")!,
+            bearerToken: "sj_private_token"
+        ))
+        let payload = String(decoding: try #require(request.body), as: UTF8.self)
+        #expect(!payload.contains(recipe.id))
+        #expect(!payload.contains(privateMessage))
+
+        #expect(await telemetry.waitUntilCancellationObserved())
+        await spoonRepository.complete(
+            SpoonCookLogListData(spoons: [], nextCursor: nil, hasMore: false)
+        )
+        await task.value
+        #expect(await completion.isFinished())
+    }
+
     @Test("recipe surfaces require feature layer wiring rather than raw fixture arrays")
     func recipeSurfacesRequireFeatureLayerWiringRatherThanRawFixtureArrays() throws {
         let requiredFiles = [
@@ -693,6 +984,7 @@ struct RecipeCatalogDetailTests {
         }
 
         #expect(await resultRecorder.results.isEmpty)
+        #expect(await telemetryRecorder.waitForCount(1))
         let descriptors = await telemetryRecorder.descriptors()
         #expect(descriptors.count == 1)
         let descriptor = try #require(descriptors.first)
@@ -762,6 +1054,7 @@ struct RecipeCatalogDetailTests {
                 #expect(!caughtError.isCancelled)
             }
 
+            #expect(await telemetryRecorder.waitForCount(1))
             let descriptors = await telemetryRecorder.descriptors()
             #expect(descriptors.count == 1)
             let descriptor = try #require(descriptors.first)
@@ -788,6 +1081,197 @@ struct RecipeCatalogDetailTests {
         }
     }
 
+    @Test("primary failure telemetry never blocks the error transition and expires on deadline")
+    func primaryFailureTelemetryIsNonblockingAndBounded() async throws {
+        let recipe = try Self.recipeDetail()
+        let telemetry = BlockingRecipeDetailTelemetryReporter()
+        let completion = RecipeDetailLoadCompletion()
+        let primaryError = APITransportError(
+            kind: .networkFailure,
+            requestID: "req_nonblocking_failure",
+            statusCode: 503,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: 2)
+        )
+        let task = Task {
+            do {
+                try await RecipeDetailProgressiveLoader(
+                    recipeRepository: ThrowingRecipeDetailRepository(error: primaryError),
+                    spoonRepository: ScriptedSpoonCookLogRepository(responses: []),
+                    reportTelemetry: { descriptor in
+                        await telemetry.report(descriptor)
+                    },
+                    telemetryTimeout: .milliseconds(50)
+                ).load(recipeID: recipe.id) { _ in
+                    Issue.record("A failed primary fetch must not publish content.")
+                }
+                Issue.record("Expected the primary failure to propagate.")
+            } catch let error as APITransportError {
+                #expect(error == primaryError)
+            } catch {
+                Issue.record("Expected APITransportError, got \(error).")
+            }
+            await completion.finish()
+        }
+
+        #expect(await telemetry.waitUntilStarted())
+        let transitioned = await completion.waitUntilFinished(maximumAttempts: 20)
+        if !transitioned {
+            await telemetry.release()
+        }
+        #expect(transitioned)
+        #expect(await telemetry.inheritedCancellationStates() == [false])
+        #expect(await telemetry.waitUntilCancellationObserved())
+        await task.value
+    }
+
+    @Test("primary cancellation telemetry survives its caller and never blocks cancellation")
+    func primaryCancellationTelemetryIsDurableNonblockingAndBounded() async throws {
+        let recipe = try Self.recipeDetail()
+        let detail = RecipeCatalogDetailResult(
+            recipe: recipe,
+            source: .live(requestID: "req_primary_late_nonblocking", validatedAt: Self.now)
+        )
+        let repository = ControlledRecipeDetailRepository()
+        let telemetry = BlockingRecipeDetailTelemetryReporter()
+        let completion = RecipeDetailLoadCompletion()
+        let task = Task {
+            do {
+                try await RecipeDetailProgressiveLoader(
+                    recipeRepository: repository,
+                    spoonRepository: ScriptedSpoonCookLogRepository(responses: []),
+                    reportTelemetry: { descriptor in
+                        await telemetry.report(descriptor)
+                    },
+                    telemetryTimeout: .milliseconds(50)
+                ).load(recipeID: recipe.id) { _ in
+                    Issue.record("A cancelled primary fetch must not publish content.")
+                }
+                Issue.record("Expected primary cancellation to propagate.")
+            } catch is CancellationError {
+                // Expected.
+            } catch {
+                Issue.record("Expected CancellationError, got \(error).")
+            }
+            await completion.finish()
+        }
+
+        await repository.waitUntilFetchStarts()
+        task.cancel()
+        await repository.complete(detail)
+
+        #expect(await telemetry.waitUntilStarted())
+        let transitioned = await completion.waitUntilFinished(maximumAttempts: 20)
+        if !transitioned {
+            await telemetry.release()
+        }
+        #expect(transitioned)
+        #expect(await telemetry.inheritedCancellationStates() == [false])
+        #expect(await telemetry.descriptors().first?.requestID == "req_primary_late_nonblocking")
+        #expect(await telemetry.waitUntilCancellationObserved())
+        await task.value
+    }
+
+    @Test("telemetry deadline cancels the production URLSession reporting path")
+    func telemetryDeadlineCancelsProductionURLSessionReporter() async throws {
+        let recipe = try Self.recipeDetail()
+        let session = CancellationObservingTelemetryURLSession()
+        let transport = URLSessionAPITransport(session: session)
+        let taskBudget = NativeRecipeDetailTelemetryTaskBudget(capacity: 1)
+        let configuration = APIClientConfiguration(
+            baseURL: URL(string: "https://spoonjoy.app")!,
+            bearerToken: "sj_private_token"
+        )
+        let completion = RecipeDetailLoadCompletion()
+        let task = Task {
+            do {
+                try await RecipeDetailProgressiveLoader(
+                    recipeRepository: ThrowingRecipeDetailRepository(error: APITransportError(
+                        kind: .networkFailure,
+                        requestID: "req_urlsession_deadline",
+                        statusCode: 503,
+                        apiError: nil,
+                        retryDecision: .retrySameRequest(afterSeconds: 2)
+                    )),
+                    spoonRepository: ScriptedSpoonCookLogRepository(responses: []),
+                    reportTelemetry: { descriptor in
+                        do {
+                            _ = try await transport.send(
+                                try NativeTelemetryRequests.recordEvent(descriptor.telemetryEvent(
+                                    environment: "production",
+                                    metadata: .unknown
+                                )),
+                                configuration: configuration,
+                                decode: NativeTelemetryResponse.self
+                            )
+                        } catch {
+                            // Mirrors the production telemetry boundary: reporting is best effort.
+                        }
+                    },
+                    telemetryTimeout: .milliseconds(50),
+                    telemetryTaskBudget: taskBudget
+                ).load(recipeID: recipe.id) { _ in
+                    Issue.record("A failed primary fetch must not publish content.")
+                }
+                Issue.record("Expected the primary failure to propagate.")
+            } catch is APITransportError {
+                // Expected.
+            } catch {
+                Issue.record("Expected APITransportError, got \(error).")
+            }
+            await completion.finish()
+        }
+
+        #expect(await session.waitUntilRequestStarts())
+        #expect(await completion.waitUntilFinished(maximumAttempts: 20))
+        #expect(await session.waitUntilCancellationObserved())
+        #expect(await session.requestPath() == "/api/v1/native/telemetry")
+        #expect(await waitUntilTelemetryBudgetIsEmpty(taskBudget))
+        await task.value
+    }
+
+    @Test("noncooperative telemetry cannot exceed its detached task budget")
+    func noncooperativeTelemetryCannotRetainUnboundedDetachedWork() async throws {
+        let recipe = try Self.recipeDetail()
+        let telemetry = NoncooperativeRecipeDetailTelemetryReporter()
+        let taskBudget = NativeRecipeDetailTelemetryTaskBudget(capacity: 2)
+        let primaryError = APITransportError(
+            kind: .networkFailure,
+            requestID: "req_noncooperative_budget",
+            statusCode: 503,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: 2)
+        )
+        let loader = RecipeDetailProgressiveLoader(
+            recipeRepository: ThrowingRecipeDetailRepository(error: primaryError),
+            spoonRepository: ScriptedSpoonCookLogRepository(responses: []),
+            reportTelemetry: { descriptor in
+                await telemetry.report(descriptor)
+            },
+            telemetryTimeout: .milliseconds(20),
+            telemetryTaskBudget: taskBudget
+        )
+
+        for _ in 0..<5 {
+            do {
+                try await loader.load(recipeID: recipe.id) { _ in
+                    Issue.record("A failed primary fetch must not publish content.")
+                }
+                Issue.record("Expected the primary failure to propagate.")
+            } catch let error as APITransportError {
+                #expect(error == primaryError)
+            }
+        }
+
+        #expect(await telemetry.waitUntilStarted(count: 2))
+        try await Task.sleep(for: .milliseconds(60))
+        #expect(await telemetry.startedCount() == 2)
+        #expect(taskBudget.inFlightCount() == 2)
+
+        await telemetry.releaseAll()
+        #expect(await waitUntilTelemetryBudgetIsEmpty(taskBudget))
+    }
+
     @Test("primary cancellation reports no invented request ID without a returned live source")
     func primaryCancellationWithoutReturnedLiveSourceReportsNoRequestID() async throws {
         let recipe = try Self.recipeDetail()
@@ -807,7 +1291,8 @@ struct RecipeCatalogDetailTests {
         } catch is CancellationError {
             // Expected.
         }
-        #expect(await directTelemetry.descriptors().first?.requestID == nil)
+        #expect(await directTelemetry.waitForCount(1))
+        #expect(try #require(await directTelemetry.descriptors().first).requestID == nil)
 
         let cachedDetail = RecipeCatalogDetailResult(
             recipe: recipe,
@@ -839,7 +1324,8 @@ struct RecipeCatalogDetailTests {
         } catch is CancellationError {
             // Expected.
         }
-        #expect(await cachedTelemetry.descriptors().first?.requestID == nil)
+        #expect(await cachedTelemetry.waitForCount(1))
+        #expect(try #require(await cachedTelemetry.descriptors().first).requestID == nil)
     }
 
     @Test("progressive recipe detail paginates and keeps history failures best effort")
@@ -911,6 +1397,7 @@ struct RecipeCatalogDetailTests {
         }
 
         #expect(await resultRecorder.results.count == 1)
+        #expect(await telemetryRecorder.waitForCount(1))
         let descriptor = try #require(await telemetryRecorder.descriptors().first)
         let event = descriptor.telemetryEvent(
             environment: "production",
@@ -1295,9 +1782,31 @@ private struct ThrowingRecipeDetailRepository: RecipeCatalogRepository {
     }
 }
 
+private struct ThrowingRecipeCatalogRepository: RecipeCatalogRepository {
+    let error: APITransportError
+
+    func listRecipes(request _: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
+        throw error
+    }
+
+    func recipeDetail(id _: String) async throws -> RecipeCatalogDetailResult {
+        throw error
+    }
+}
+
 private struct CancelledRecipeDetailRepository: RecipeCatalogRepository {
     func listRecipes(request _: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
         throw RecipeCatalogRepositoryError.recipeNotFound("unused")
+    }
+
+    func recipeDetail(id _: String) async throws -> RecipeCatalogDetailResult {
+        throw CancellationError()
+    }
+}
+
+private struct CancellingRecipeCatalogRepository: RecipeCatalogRepository {
+    func listRecipes(request _: RecipeCatalogListRequest) async throws -> RecipeCatalogPage {
+        throw CancellationError()
     }
 
     func recipeDetail(id _: String) async throws -> RecipeCatalogDetailResult {
@@ -1395,6 +1904,193 @@ private actor RecipeDetailTelemetryRecorder {
     func descriptors() -> [NativeRecipeDetailTelemetryDescriptor] {
         values
     }
+
+    func waitForCount(_ count: Int, maximumAttempts: Int = 500) async -> Bool {
+        for _ in 0..<maximumAttempts {
+            if values.count >= count {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return values.count >= count
+    }
+}
+
+private actor RecipeDetailLoadCompletion {
+    private var finished = false
+
+    func finish() {
+        finished = true
+    }
+
+    func isFinished() -> Bool {
+        finished
+    }
+
+    func waitUntilFinished(maximumAttempts: Int = 500) async -> Bool {
+        for _ in 0..<maximumAttempts {
+            if finished {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return finished
+    }
+}
+
+private actor BlockingRecipeDetailTelemetryReporter {
+    private var values: [NativeRecipeDetailTelemetryDescriptor] = []
+    private var inheritedCancellation: [Bool] = []
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var cancellationObserved = false
+    private var released = false
+
+    func report(_ descriptor: NativeRecipeDetailTelemetryDescriptor) async {
+        values.append(descriptor)
+        inheritedCancellation.append(Task.isCancelled)
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                if released || cancellationObserved {
+                    continuation.resume()
+                } else {
+                    self.continuation = continuation
+                }
+            }
+        } onCancel: {
+            Task {
+                await self.observeCancellation()
+            }
+        }
+    }
+
+    func descriptors() -> [NativeRecipeDetailTelemetryDescriptor] {
+        values
+    }
+
+    func inheritedCancellationStates() -> [Bool] {
+        inheritedCancellation
+    }
+
+    func release() {
+        released = true
+        continuation?.resume()
+        continuation = nil
+    }
+
+    func waitUntilStarted(maximumAttempts: Int = 500) async -> Bool {
+        for _ in 0..<maximumAttempts {
+            if !values.isEmpty {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return !values.isEmpty
+    }
+
+    func waitUntilCancellationObserved(maximumAttempts: Int = 500) async -> Bool {
+        for _ in 0..<maximumAttempts {
+            if cancellationObserved {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return cancellationObserved
+    }
+
+    private func observeCancellation() {
+        cancellationObserved = true
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
+private actor CancellationObservingTelemetryURLSession: URLSessionPerforming {
+    private var path: String?
+    private var requestStarted = false
+    private var cancellationObserved = false
+
+    func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        path = request.url?.path
+        requestStarted = true
+        do {
+            try await Task.sleep(for: .seconds(60))
+            throw URLError(.timedOut)
+        } catch is CancellationError {
+            cancellationObserved = true
+            throw URLError(.cancelled)
+        }
+    }
+
+    func requestPath() -> String? {
+        path
+    }
+
+    func waitUntilRequestStarts(maximumAttempts: Int = 500) async -> Bool {
+        for _ in 0..<maximumAttempts {
+            if requestStarted {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return requestStarted
+    }
+
+    func waitUntilCancellationObserved(maximumAttempts: Int = 500) async -> Bool {
+        for _ in 0..<maximumAttempts {
+            if cancellationObserved {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return cancellationObserved
+    }
+}
+
+private actor NoncooperativeRecipeDetailTelemetryReporter {
+    private var continuations: [CheckedContinuation<Void, Never>] = []
+    private var started = 0
+
+    func report(_: NativeRecipeDetailTelemetryDescriptor) async {
+        started += 1
+        await withCheckedContinuation { continuation in
+            continuations.append(continuation)
+        }
+    }
+
+    func startedCount() -> Int {
+        started
+    }
+
+    func waitUntilStarted(count: Int, maximumAttempts: Int = 500) async -> Bool {
+        for _ in 0..<maximumAttempts {
+            if started >= count {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(1))
+        }
+        return started >= count
+    }
+
+    func releaseAll() {
+        let pending = continuations
+        continuations.removeAll()
+        for continuation in pending {
+            continuation.resume()
+        }
+    }
+}
+
+private func waitUntilTelemetryBudgetIsEmpty(
+    _ budget: NativeRecipeDetailTelemetryTaskBudget,
+    maximumAttempts: Int = 500
+) async -> Bool {
+    for _ in 0..<maximumAttempts {
+        if budget.inFlightCount() == 0 {
+            return true
+        }
+        try? await Task.sleep(for: .milliseconds(1))
+    }
+    return budget.inFlightCount() == 0
 }
 
 private enum RecordingSpoonjoyAPITransportError: Error, Equatable {
