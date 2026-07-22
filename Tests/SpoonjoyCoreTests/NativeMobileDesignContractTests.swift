@@ -114,6 +114,8 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableHeader(eyebrow: identityLabel, title: \"My Kitchen\"",
                 "Text(\"Latest from the kitchen\".uppercased())",
                 ".frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)",
+                "NavigationLink(value: AppRoute.recipeDetail(id: recipe.id, presentation: .detail))",
+                ".accessibilityHint(\"Opens recipe detail\")",
                 "private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1"
             ],
             forbids: [
@@ -121,7 +123,8 @@ struct NativeMobileDesignContractTests {
                 ".frame(minWidth: 928",
                 "ViewThatFits(in: .horizontal)",
                 "ownerUsername ?? recipes.first?.chef.username",
-                "Text(\"On the Counter\".uppercased())"
+                "Text(\"On the Counter\".uppercased())",
+                "title: \"Open Recipe\""
             ]
         )
         #expect(kitchen.components(separatedBy: ".dynamicTypeSize(accessibilityPresentationRange)").count - 1 == 2)

@@ -235,25 +235,31 @@ struct RecipeLead: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if hasRealCover {
-                if dynamicTypeSize.isAccessibilitySize {
-                    accessiblePhotoLead
-                } else {
-                    photoLead
-                }
-            } else {
-                coverlessLead
+            NavigationLink(value: AppRoute.recipeDetail(id: recipe.id, presentation: .detail)) {
+                leadVisual
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(recipe.title), by @\(recipe.chef.username)")
+            .accessibilityHint("Opens recipe detail")
 
+            leadLink(
+                title: "Start Cooking",
+                systemImage: "fork.knife",
+                prominence: .primary,
+                route: .recipeDetail(id: recipe.id, presentation: .cook)
+            )
+        }
+    }
+
+    @ViewBuilder private var leadVisual: some View {
+        if hasRealCover {
             if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 10) {
-                    leadButtons
-                }
+                accessiblePhotoLead
             } else {
-                HStack(spacing: 10) {
-                    leadButtons
-                }
+                photoLead
             }
+        } else {
+            coverlessLead
         }
     }
 
@@ -342,21 +348,6 @@ struct RecipeLead: View {
                 .foregroundStyle(secondary)
         }
         .dynamicTypeSize(accessibilityPresentationRange)
-    }
-
-    @ViewBuilder private var leadButtons: some View {
-        leadLink(
-            title: "Start Cooking",
-            systemImage: "fork.knife",
-            prominence: .primary,
-            route: .recipeDetail(id: recipe.id, presentation: .cook)
-        )
-        leadLink(
-            title: "Open Recipe",
-            systemImage: "book",
-            prominence: .secondary,
-            route: .recipeDetail(id: recipe.id, presentation: .detail)
-        )
     }
 
     @ViewBuilder
