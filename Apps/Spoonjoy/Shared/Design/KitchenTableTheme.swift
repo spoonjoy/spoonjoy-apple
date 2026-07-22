@@ -81,13 +81,13 @@ struct KitchenTablePage<Content: View>: View {
 
 struct KitchenTableHeader<Trailing: View>: View {
     @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let eyebrow: String
     let title: String
     let subtitle: String?
     let hidesTitleInCompactNavigation: Bool
     @ViewBuilder let trailing: () -> Trailing
+    private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1
 
     init(
         eyebrow: String,
@@ -115,9 +115,7 @@ struct KitchenTableHeader<Trailing: View>: View {
             Text(eyebrow.uppercased())
                 .font(.caption2)
                 .fontWeight(.bold)
-                .foregroundStyle(
-                    dynamicTypeSize.isAccessibilitySize ? KitchenTableTheme.charcoal : KitchenTableTheme.brass
-                )
+                .foregroundStyle(KitchenTableTheme.brass)
                 .accessibilityHidden(true)
                 .fixedSize(horizontal: false, vertical: true)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
@@ -134,6 +132,7 @@ struct KitchenTableHeader<Trailing: View>: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .dynamicTypeSize(accessibilityPresentationRange)
     }
 }
 

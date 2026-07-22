@@ -140,14 +140,15 @@ struct NativeMobileDesignContractTests {
             header,
             in: themePath,
             contains: [
-                "@Environment(\\.dynamicTypeSize)",
                 "KitchenTableHeaderLayout()",
+                "private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1",
                 "titleStack",
                 "trailing()",
                 ".font(.caption2)",
                 ".fontWeight(.bold)",
-                "dynamicTypeSize.isAccessibilitySize ? KitchenTableTheme.charcoal : KitchenTableTheme.brass",
+                ".foregroundStyle(KitchenTableTheme.brass)",
                 ".accessibilityHidden(true)",
+                ".dynamicTypeSize(accessibilityPresentationRange)",
                 ".fixedSize(horizontal: false, vertical: true)"
             ],
             forbids: [
