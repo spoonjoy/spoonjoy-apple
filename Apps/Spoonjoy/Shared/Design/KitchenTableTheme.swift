@@ -74,6 +74,7 @@ struct KitchenTablePage<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .scrollEdgeEffectStyle(.hard, for: .bottom)
+        .accessibilityIdentifier("spoonjoy.page-scroll")
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 }
@@ -169,17 +170,20 @@ struct KitchenTableSection<Content: View>: View {
     let title: String
     let subtitle: String?
     let accessibilityHeaderIdentifier: String?
+    let accessibilitySubtitleIdentifier: String?
     @ViewBuilder let content: () -> Content
 
     init(
         title: String,
         subtitle: String? = nil,
         accessibilityHeaderIdentifier: String? = nil,
+        accessibilitySubtitleIdentifier: String? = nil,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.title = title
         self.subtitle = subtitle
         self.accessibilityHeaderIdentifier = accessibilityHeaderIdentifier
+        self.accessibilitySubtitleIdentifier = accessibilitySubtitleIdentifier
         self.content = content
     }
 
@@ -201,11 +205,24 @@ struct KitchenTableSection<Content: View>: View {
                     .accessibilityHidden(true)
             }
             if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                subtitleText(subtitle)
             }
         }
+    }
+
+    @ViewBuilder private func subtitleText(_ subtitle: String) -> some View {
+        if let accessibilitySubtitleIdentifier {
+            styledSubtitle(subtitle)
+                .accessibilityIdentifier(accessibilitySubtitleIdentifier)
+        } else {
+            styledSubtitle(subtitle)
+        }
+    }
+
+    private func styledSubtitle(_ subtitle: String) -> some View {
+        Text(subtitle)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(KitchenTableTheme.charcoal)
     }
 
     @ViewBuilder private var sectionTitle: some View {
@@ -226,42 +243,31 @@ struct KitchenTableSection<Content: View>: View {
 }
 
 struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
     let title: String
     let subtitle: String?
+    let showsLeading: Bool
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
     init(
         title: String,
         subtitle: String? = nil,
+        showsLeading: Bool = true,
         @ViewBuilder leading: @escaping () -> Leading,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.title = title
         self.subtitle = subtitle
+        self.showsLeading = showsLeading
         self.leading = leading
         self.trailing = trailing
     }
 
     var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 12) {
-                    objectIdentity
-                    HStack {
-                        Spacer(minLength: 0)
-                        trailing()
-                    }
-                }
-            } else {
-                HStack(alignment: .center, spacing: 12) {
-                    objectIdentity
-                    Spacer(minLength: 8)
-                    trailing()
-                }
-            }
+        HStack(alignment: .center, spacing: 12) {
+            objectIdentity
+            Spacer(minLength: 8)
+            trailing()
         }
         .padding(.vertical, 10)
         .overlay(alignment: .bottom) {
@@ -275,10 +281,12 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
 
     private var objectIdentity: some View {
         HStack(alignment: .top, spacing: 12) {
-            leading()
-                .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                .accessibilityHidden(true)
+            if showsLeading {
+                leading()
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .accessibilityHidden(true)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
@@ -298,8 +306,18 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
 }
 
 extension KitchenTableObjectRow where Trailing == EmptyView {
-    init(title: String, subtitle: String? = nil, @ViewBuilder leading: @escaping () -> Leading) {
-        self.init(title: title, subtitle: subtitle, leading: leading) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        showsLeading: Bool = true,
+        @ViewBuilder leading: @escaping () -> Leading
+    ) {
+        self.init(
+            title: title,
+            subtitle: subtitle,
+            showsLeading: showsLeading,
+            leading: leading
+        ) {
             EmptyView()
         }
     }

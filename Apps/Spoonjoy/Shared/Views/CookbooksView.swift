@@ -15,6 +15,7 @@ struct CookbooksView: View {
 
     @State private var list: CookbookSurfaceListState
     @State private var errorMessage: String?
+    @State private var isLoading: Bool
     @State private var isPresentingCreate = false
     @State private var newCookbookTitle = ""
     @State private var createErrorMessage: String?
@@ -30,6 +31,7 @@ struct CookbooksView: View {
         self.performCookbookAction = performCookbookAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _list = State(initialValue: viewModel.list)
+        _isLoading = State(initialValue: viewModel.list.rows.isEmpty)
     }
 
     var body: some View {
@@ -37,12 +39,23 @@ struct CookbooksView: View {
             header
             statusBanner
 
-            if let emptyState = list.emptyState {
+            if isLoading, list.rows.isEmpty {
+                KitchenTableLoadingStateView(
+                    title: "Loading cookbooks",
+                    subtitle: "Opening your cookbook shelf.",
+                    systemImage: "books.vertical"
+                )
+                .transition(.opacity)
+            } else if let emptyState = list.emptyState {
                 cookbookEmptyState(emptyState)
+                    .transition(.opacity)
             } else {
-                cookbookLibrarySpread
-                cookbookShelfStrip
-                cookbookIndexRows
+                Group {
+                    cookbookLibrarySpread
+                    cookbookShelfStrip
+                    cookbookIndexRows
+                }
+                .transition(.opacity)
             }
         }
         .task {
@@ -155,9 +168,7 @@ struct CookbooksView: View {
     }
 
     private func leadCookbookCoverButton(_ cookbook: CookbookSurfaceRowViewModel, width: CGFloat) -> some View {
-        Button {
-            openRoute(cookbook.openRoute)
-        } label: {
+        NavigationLink(value: cookbook.openRoute) {
             CookbookCoverArt(row: cookbook)
                 .frame(width: width)
         }
@@ -206,14 +217,15 @@ struct CookbooksView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 14) {
                     ForEach(list.rows) { row in
-                        Button {
-                            openRoute(row.openRoute)
-                        } label: {
+                        NavigationLink(value: row.openRoute) {
                             CookbookCoverArt(row: row)
                                 .frame(width: 132)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
+                        .contextMenu {
+                            cookbookShareAction(row)
+                        }
                     }
                 }
                 .padding(.vertical, 2)
@@ -226,31 +238,22 @@ struct CookbooksView: View {
         KitchenTableSection(title: "Index", subtitle: list.resultCountLabel) {
             LazyVStack(alignment: .leading, spacing: 0) {
                 ForEach(list.rows) { row in
-                    HStack(spacing: 10) {
-                        Button {
-                            openRoute(row.openRoute)
-                        } label: {
-                            KitchenTableObjectRow(title: row.title, subtitle: "\(row.chefLine) - \(row.recipeCountLabel)") {
-                                CookbookThumb(row: row)
-                            } trailing: {
-                                Image(systemName: "chevron.forward")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(KitchenTableTheme.brass)
-                            }
+                    NavigationLink(value: row.openRoute) {
+                        KitchenTableObjectRow(
+                            title: row.title,
+                            subtitle: "\(row.chefLine) - \(row.recipeCountLabel)",
+                            showsLeading: row.cover.imageURLs.contains { $0 != nil }
+                        ) {
+                            CookbookThumb(row: row)
+                        } trailing: {
+                            Image(systemName: "chevron.forward")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(KitchenTableTheme.brass)
                         }
-                        .buttonStyle(.plain)
-
-                        if let payload = row.sharePayload, let publicURL = payload.publicURL {
-                            ShareLink(item: publicURL) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.body.weight(.semibold))
-                                    .frame(width: 36, height: 44)
-                                    .foregroundStyle(KitchenTableTheme.brass)
-                            }
-                            .buttonStyle(.plain)
-                            .contentShape(Rectangle())
-                            .accessibilityLabel("Share \(row.title)")
-                        }
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu {
+                        cookbookShareAction(row)
                     }
                 }
             }
@@ -299,12 +302,31 @@ struct CookbooksView: View {
     }
 
     @MainActor private func loadCookbooks() async {
+        isLoading = true
         do {
             try await viewModel.loadList(query: list.query, limit: list.limit, cursor: list.cursor)
-            list = viewModel.list
-            errorMessage = nil
+            withAnimation(contentAnimation) {
+                list = viewModel.list
+                errorMessage = nil
+                isLoading = false
+            }
         } catch {
-            errorMessage = "We couldn't load your cookbooks."
+            withAnimation(contentAnimation) {
+                errorMessage = "We couldn't load your cookbooks."
+                isLoading = false
+            }
+        }
+    }
+
+    private var contentAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2)
+    }
+
+    @ViewBuilder private func cookbookShareAction(_ cookbook: CookbookSurfaceRowViewModel) -> some View {
+        if let payload = cookbook.sharePayload, let publicURL = payload.publicURL {
+            ShareLink(item: publicURL) {
+                Label("Share \(cookbook.title)", systemImage: "square.and.arrow.up")
+            }
         }
     }
 
@@ -391,24 +413,17 @@ private struct CookbookCreateSheet: View {
 
 struct CookbookShelf: View {
     let rows: [CookbookSurfaceRowViewModel]
-    let openRoute: (AppRoute) -> Void
 
-    init(rows: [CookbookSurfaceRowViewModel], openRoute: @escaping (AppRoute) -> Void) {
+    init(rows: [CookbookSurfaceRowViewModel]) {
         self.rows = rows
-        self.openRoute = openRoute
     }
 
-    init(cookbooks: [Cookbook], openCookbook: @escaping (String) -> Void) {
+    init(cookbooks: [Cookbook]) {
         rows = cookbooks.map { CookbookSurfaceRowViewModel(summary: CookbookSummary(cookbook: $0)) }
-        openRoute = { route in
-            if case .cookbookDetail(let id) = route {
-                openCookbook(id)
-            }
-        }
     }
 
     var body: some View {
-        KitchenTableSection(title: "Cookbook Shelf", subtitle: "\(rows.count) \(rows.count == 1 ? "shelf" : "shelves")") {
+        KitchenTableSection(title: "Cookbook Shelf") {
             if rows.isEmpty {
                 KitchenEmptySection(
                     title: "No cookbooks saved yet",
@@ -416,40 +431,28 @@ struct CookbookShelf: View {
                     tint: KitchenTableTheme.brass
                 )
             } else {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(rows) { row in
-                        HStack(spacing: 10) {
-                            Button {
-                                openRoute(row.openRoute)
-                            } label: {
-                                KitchenTableObjectRow(title: row.title, subtitle: row.recipeCountLabel) {
-                                    CookbookThumb(row: row)
-                                } trailing: {
-                                    Image(systemName: "chevron.forward")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(KitchenTableTheme.charcoal)
-                                        .accessibilityHidden(true)
-                                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(rows) { row in
+                            NavigationLink(value: row.openRoute) {
+                                CookbookCoverArt(row: row)
+                                    .frame(width: 144)
                             }
                             .buttonStyle(.plain)
-
-                            if let payload = row.sharePayload, let publicURL = payload.publicURL {
-                                ShareLink(item: publicURL) {
-                                    Image(systemName: "square.and.arrow.up")
-                                        .font(.system(size: 17, weight: .semibold))
-                                        .foregroundStyle(KitchenTableTheme.charcoal)
-                                        .accessibilityHidden(true)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityIdentifier("kitchen.cookbook.\(row.id)")
+                            .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
+                            .accessibilityHint("Opens cookbook")
+                            .contextMenu {
+                                if let payload = row.sharePayload, let publicURL = payload.publicURL {
+                                    ShareLink(item: publicURL) {
+                                        Label("Share \(row.title)", systemImage: "square.and.arrow.up")
+                                    }
                                 }
-                                .frame(
-                                    width: KitchenTableTheme.minimumTouchTarget,
-                                    height: KitchenTableTheme.minimumTouchTarget
-                                )
-                                .buttonStyle(.plain)
-                                .contentShape(Rectangle())
-                                .accessibilityLabel("Share \(row.title)")
                             }
                         }
                     }
+                    .padding(.vertical, 2)
                 }
             }
         }
@@ -460,16 +463,9 @@ private struct CookbookThumb: View {
     let row: CookbookSurfaceRowViewModel
 
     var body: some View {
+        let imageURLs = row.cover.imageURLs.compactMap { $0 }
         Group {
-            let imageURLs = row.cover.imageURLs.compactMap { $0 }
-            if imageURLs.isEmpty {
-                KitchenTableNoPhotoView(
-                    title: row.title,
-                    subtitle: "Photo not added",
-                    mode: .missing,
-                    showsLabel: false
-                )
-            } else {
+            if !imageURLs.isEmpty {
                 CookbookImageCover(imageURLs: imageURLs, title: row.title)
             }
         }
@@ -612,22 +608,16 @@ private struct CookbookFallbackCover: View {
                     .frame(height: 1)
             }
 
-            KitchenTableNoPhotoView(
-                title: title,
-                subtitle: "Photo not added",
-                mode: .missing,
-                showsLabel: true
-            )
-            .padding(14)
+            Spacer(minLength: 24)
 
             Text(title)
-                .font(.system(.title2, design: .serif).weight(.bold))
+                .font(.system(.title, design: .serif).weight(.bold))
                 .foregroundStyle(KitchenTableTheme.charcoal)
-                .lineLimit(2)
-                .minimumScaleFactor(0.66)
-                .allowsTightening(true)
+                .lineLimit(4)
+                .minimumScaleFactor(0.72)
                 .padding(.horizontal, 14)
 
+            Spacer(minLength: 18)
                 .padding(.bottom, 14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
@@ -636,6 +626,8 @@ private struct CookbookFallbackCover: View {
 }
 
 struct CookbookDetailRouteView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let cookbookID: String
     let viewModel: CookbookSurfaceViewModel
     let openRoute: (AppRoute) -> Void
@@ -657,7 +649,7 @@ struct CookbookDetailRouteView: View {
         self.openRoute = openRoute
         self.performCookbookAction = performCookbookAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
-        _detail = State(initialValue: viewModel.detail)
+        _detail = State(initialValue: viewModel.detail?.id == cookbookID ? viewModel.detail : nil)
     }
 
     var body: some View {
@@ -669,10 +661,13 @@ struct CookbookDetailRouteView: View {
                     performCookbookAction: performAndApplyCookbookAction,
                     onDismissOfflineIndicator: onDismissOfflineIndicator
                 )
+                .transition(.opacity)
             } else if let errorMessage {
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "books.vertical")
+                    .transition(.opacity)
             } else {
                 KitchenTableLoadingStateView(title: "Loading cookbook", subtitle: "Opening the cookbook shelf.", systemImage: "books.vertical")
+                    .transition(.opacity)
             }
         }
         .task(id: cookbookID) {
@@ -683,13 +678,21 @@ struct CookbookDetailRouteView: View {
     @MainActor private func loadDetail() async {
         do {
             try await viewModel.loadDetail(id: cookbookID)
-            detail = viewModel.detail
-            errorMessage = nil
+            withAnimation(contentAnimation) {
+                detail = viewModel.detail
+                errorMessage = nil
+            }
         } catch {
             if detail == nil {
-                errorMessage = "We couldn't load this cookbook."
+                withAnimation(contentAnimation) {
+                    errorMessage = "We couldn't load this cookbook."
+                }
             }
         }
+    }
+
+    private var contentAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2)
     }
 
     @MainActor private func performAndApplyCookbookAction(_ plan: CookbookSurfaceActionPlan) async throws -> NativeQueuedMutation? {
@@ -900,15 +903,7 @@ private struct CookbookDetailView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
-                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1) {
-                            openRoute(recipe.openRoute)
-                        } remove: {
-                            runAction(.removeRecipe(
-                                recipeID: recipe.id,
-                                clientMutationID: clientMutationID(prefix: "cookbook-remove-recipe"),
-                                confirmation: .required
-                            ))
-                        }
+                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             if viewModel.ownerTools.isVisible {
                                 Button(role: .destructive) {
@@ -1078,11 +1073,9 @@ private struct CookbookDetailView: View {
 private struct CookbookRecipeIndexRow: View {
     let recipe: CookbookRecipeRowViewModel
     let ordinal: Int
-    let open: () -> Void
-    let remove: () -> Void
 
     var body: some View {
-        Button(action: open) {
+        NavigationLink(value: recipe.openRoute) {
             HStack(alignment: .center, spacing: 12) {
                 Text(String(ordinal).padStart(length: 2, pad: "0"))
                     .font(.caption.weight(.bold))

@@ -2,6 +2,8 @@ import SpoonjoyCore
 import SwiftUI
 
 struct ProfileRouteView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let identifier: String
     let viewModel: ProfileChefGraphSurfaceViewModel
     let openRoute: (AppRoute) -> Void
@@ -10,14 +12,32 @@ struct ProfileRouteView: View {
     @State private var profile: ProfileViewModel?
     @State private var errorMessage: String?
 
+    init(
+        identifier: String,
+        viewModel: ProfileChefGraphSurfaceViewModel,
+        openRoute: @escaping (AppRoute) -> Void,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void
+    ) {
+        self.identifier = identifier
+        self.viewModel = viewModel
+        self.openRoute = openRoute
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
+        _profile = State(initialValue: viewModel.profile.map { profile in
+            profile.header.id == identifier || profile.header.username == identifier ? profile : nil
+        } ?? nil)
+    }
+
     var body: some View {
         Group {
             if let profile {
                 ProfileView(viewModel: profile, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
+                    .transition(.opacity)
             } else if let errorMessage {
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "person.crop.circle")
+                    .transition(.opacity)
             } else {
                 KitchenTableLoadingStateView(title: "Loading profile", subtitle: "Opening this kitchen.", systemImage: "person.crop.circle")
+                    .transition(.opacity)
             }
         }
         .task(id: identifier) {
@@ -28,13 +48,21 @@ struct ProfileRouteView: View {
     @MainActor private func loadProfile() async {
         do {
             try await viewModel.loadProfile(identifier: identifier)
-            profile = viewModel.profile
-            errorMessage = nil
+            withAnimation(contentAnimation) {
+                profile = viewModel.profile
+                errorMessage = nil
+            }
         } catch {
             if profile == nil {
-                errorMessage = "We couldn't load this profile."
+                withAnimation(contentAnimation) {
+                    errorMessage = "We couldn't load this profile."
+                }
             }
         }
+    }
+
+    private var contentAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2)
     }
 }
 
@@ -102,9 +130,7 @@ private struct ProfileHero: View {
             ) {
                 graphSummary
                 if viewModel.ownerActions.isVisible, let editRoute = viewModel.ownerActions.editProfileRoute {
-                    Button {
-                        openRoute(editRoute)
-                    } label: {
+                    NavigationLink(value: editRoute) {
                         Label("Edit Profile", systemImage: "pencil")
                     }
                     .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
@@ -117,9 +143,7 @@ private struct ProfileHero: View {
     private var graphSummary: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(viewModel.graphLinks, id: \.direction) { link in
-                Button {
-                    openRoute(link.route)
-                } label: {
+                NavigationLink(value: link.route) {
                     Label("\(link.count) \(link.title)", systemImage: link.direction == .fellowChefs ? "person.2" : "person.crop.circle.badge.clock")
                 }
                 .font(KitchenTableTheme.uiLabel)
@@ -159,10 +183,12 @@ private struct ProfileRecipeShelf: View {
                 KitchenEmptySection(title: "No recipes yet", systemImage: "book.closed", tint: KitchenTableTheme.brass)
             } else {
                 ForEach(recipes, id: \.id) { recipe in
-                    Button {
-                        openRoute(recipe.openRoute)
-                    } label: {
-                        KitchenTableObjectRow(title: recipe.title, subtitle: recipeSubtitle(recipe)) {
+                    NavigationLink(value: recipe.openRoute) {
+                        KitchenTableObjectRow(
+                            title: recipe.title,
+                            subtitle: recipeSubtitle(recipe),
+                            showsLeading: recipe.coverImageURL != nil
+                        ) {
                             RecipeCoverImage(
                                 url: recipe.coverImageURL,
                                 title: recipe.title,
@@ -194,13 +220,16 @@ private struct ProfileRecipeCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RecipeCoverImage(
-                url: recipe.coverImageURL,
-                title: recipe.title,
-                subtitle: "Photo not added"
-            )
+            if let coverImageURL = recipe.coverImageURL {
+                RecipeCoverImage(
+                    url: coverImageURL,
+                    title: recipe.title,
+                    subtitle: nil,
+                    showsFallbackLabel: false
+                )
                 .frame(width: 132, height: 96)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            }
             Text(recipe.title)
                 .font(.headline)
                 .foregroundStyle(KitchenTableTheme.charcoal)
@@ -230,9 +259,7 @@ private struct ProfileCookbookShelf: View {
                 KitchenEmptySection(title: "No cookbooks yet", systemImage: "books.vertical", tint: KitchenTableTheme.brass)
             } else {
                 ForEach(cookbooks, id: \.id) { cookbook in
-                    Button {
-                        openRoute(cookbook.openRoute)
-                    } label: {
+                    NavigationLink(value: cookbook.openRoute) {
                         KitchenTableObjectRow(title: cookbook.title, subtitle: cookbook.recipeCountLabel) {
                             ZStack {
                                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
@@ -263,11 +290,13 @@ private struct RecentSpoonsSection: View {
                 KitchenEmptySection(title: "No spoons yet", systemImage: "fork.knife", tint: KitchenTableTheme.brass)
             } else {
                 ForEach(spoons, id: \.id) { spoon in
-                    Button {
-                        openRoute(spoon.recipe.openRoute)
-                    } label: {
-                        KitchenTableObjectRow(title: spoon.recipe.title, subtitle: spoon.note) {
-                            RecipeCoverImage(url: nil, title: spoon.recipe.title, subtitle: "Cook log")
+                    NavigationLink(value: spoon.recipe.openRoute) {
+                        KitchenTableObjectRow(
+                            title: spoon.recipe.title,
+                            subtitle: spoon.note,
+                            showsLeading: false
+                        ) {
+                            EmptyView()
                         } trailing: {
                             Image(systemName: "fork.knife")
                                 .font(KitchenTableTheme.uiLabel)
@@ -318,19 +347,23 @@ private struct ProfileGraphLinkSection: View {
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
-        Button {
+        Group {
             if let link {
-                openRoute(link.route)
+                NavigationLink(value: link.route) {
+                    Label("\(link.count) \(link.title)", systemImage: systemImage)
+                }
+            } else {
+                Label(title, systemImage: systemImage)
+                    .foregroundStyle(.secondary)
             }
-        } label: {
-            Label(link.map { "\($0.count) \($0.title)" } ?? title, systemImage: systemImage)
         }
         .buttonStyle(.bordered)
-        .disabled(link == nil)
     }
 }
 
 struct ProfileGraphRouteView: View {
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     let identifier: String
     let direction: ProfileGraphDirection
     let page: Int
@@ -341,14 +374,37 @@ struct ProfileGraphRouteView: View {
     @State private var graph: ProfileGraphViewModel?
     @State private var errorMessage: String?
 
+    init(
+        identifier: String,
+        direction: ProfileGraphDirection,
+        page: Int,
+        viewModel: ProfileChefGraphSurfaceViewModel,
+        openRoute: @escaping (AppRoute) -> Void,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void
+    ) {
+        self.identifier = identifier
+        self.direction = direction
+        self.page = page
+        self.viewModel = viewModel
+        self.openRoute = openRoute
+        self.onDismissOfflineIndicator = onDismissOfflineIndicator
+        _graph = State(initialValue: viewModel.graph.flatMap { graph in
+            let matchesIdentifier = graph.page.profile.id == identifier || graph.page.profile.username == identifier
+            return matchesIdentifier && graph.page.direction == direction && graph.page.page == page ? graph : nil
+        })
+    }
+
     var body: some View {
         Group {
             if let graph {
                 ProfileGraphList(viewModel: graph, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
+                    .transition(.opacity)
             } else if let errorMessage {
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "person.2")
+                    .transition(.opacity)
             } else {
                 KitchenTableLoadingStateView(title: "Loading chefs", subtitle: "Opening this kitchen graph.", systemImage: "person.2")
+                    .transition(.opacity)
             }
         }
         .task(id: "\(identifier)-\(direction.rawValue)-\(page)") {
@@ -359,13 +415,21 @@ struct ProfileGraphRouteView: View {
     @MainActor private func loadGraph() async {
         do {
             try await viewModel.loadGraph(identifier: identifier, direction: direction, page: page)
-            graph = viewModel.graph
-            errorMessage = nil
+            withAnimation(contentAnimation) {
+                graph = viewModel.graph
+                errorMessage = nil
+            }
         } catch {
             if graph == nil {
-                errorMessage = "We couldn't load these chefs."
+                withAnimation(contentAnimation) {
+                    errorMessage = "We couldn't load these chefs."
+                }
             }
         }
+    }
+
+    private var contentAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2)
     }
 }
 
@@ -386,9 +450,7 @@ private struct ProfileGraphList: View {
                 )
             } else {
                 ForEach(viewModel.rows) { row in
-                    Button {
-                        openRoute(row.openRoute)
-                    } label: {
+                    NavigationLink(value: row.openRoute) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(row.username)
                                 .font(KitchenTableTheme.bodyNote)
@@ -404,10 +466,12 @@ private struct ProfileGraphList: View {
         }
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
-        .overlay(alignment: .bottomLeading) {
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             if viewModel.offlineIndicator.display != .synced {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
                     .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(KitchenTableTheme.paper)
             }
         }
         .task(id: viewModel.title) {

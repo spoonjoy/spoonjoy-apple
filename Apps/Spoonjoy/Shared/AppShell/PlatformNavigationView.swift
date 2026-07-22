@@ -182,12 +182,7 @@ struct PlatformNavigationView: View {
     }
 
     private func compactMobileNavigationStack(spotlightPayload: SpotlightIndexPayload) -> some View {
-        NavigationStack {
-            compactNavigationRootContent
-        }
-        .navigationDestination(for: AppRoute.self) { route in
-            destinationContent(for: route)
-        }
+        compactTabShell
         .task(id: spotlightIndexIdentity) {
             await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
         }
@@ -229,20 +224,18 @@ struct PlatformNavigationView: View {
         }
     }
 
-    private var compactNavigationRootContent: some View {
-        compactNavigationBaseContent
+    private func compactNavigationRootContent(for section: AppSection) -> some View {
+        compactNavigationBaseContent(for: section)
             .toolbar {
                 compactNavigationToolbar
             }
     }
 
-    private var compactNavigationBaseContent: some View {
-        compactNavigationContent
-            .navigationTitle(compactNavigationTitle(for: navigation.route))
+    private func compactNavigationBaseContent(for section: AppSection) -> some View {
+        compactRouteSurface(for: compactRootRoute(for: section), in: section)
+            .navigationTitle(compactNavigationTitle(for: compactRootRoute(for: section)))
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
-#endif
-#if os(iOS)
             .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
 #endif
@@ -300,16 +293,17 @@ struct PlatformNavigationView: View {
     }
 
     private func baseRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, hidesNavigationBar: Bool) -> some View {
-        NavigationStack {
-            detailContentWithShellStatus
-                .navigationTitle(usesCompactMobileShell ? title(for: navigation.route) : "")
+        NavigationStack(path: desktopPathBinding) {
+            detailContentWithShellStatus(for: navigation.desktopRootRoute)
+                .navigationTitle(title(for: navigation.desktopRootRoute))
 #if os(iOS)
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
         }
         .navigationDestination(for: AppRoute.self) { route in
-            destinationContent(for: route)
+            detailContentWithShellStatus(for: route)
+                .navigationTitle(title(for: route))
         }
         .task(id: spotlightIndexIdentity) {
             await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
@@ -349,45 +343,37 @@ struct PlatformNavigationView: View {
         }
     }
 
-    @ViewBuilder private var compactNavigationContent: some View {
-        if navigation.route.isCookModeActive || navigation.route.usesCompactAuxiliaryShell {
-            compactImmersiveRouteContent(for: navigation.route)
-        } else {
-            compactTabShell
-        }
-    }
-
     private var compactTabShell: some View {
         compactTabShellContent
     }
 
     private var compactTabShellContent: some View {
         TabView(selection: compactTabSelection) {
-            compactTabContent(for: .kitchen)
+            compactTabNavigationStack(for: .kitchen)
                 .tabItem {
                     Label("Kitchen", systemImage: "house")
                 }
                 .tag(AppSection.kitchen)
 
-            compactTabContent(for: .recipes)
+            compactTabNavigationStack(for: .recipes)
                 .tabItem {
                     Label("My Recipes", systemImage: "book.closed")
                 }
                 .tag(AppSection.recipes)
 
-            compactTabContent(for: .savedRecipes)
+            compactTabNavigationStack(for: .savedRecipes)
                 .tabItem {
                     Label("Saved", systemImage: "bookmark")
                 }
                 .tag(AppSection.savedRecipes)
 
-            compactTabContent(for: .cookbooks)
+            compactTabNavigationStack(for: .cookbooks)
                 .tabItem {
                     Label("Cookbooks", systemImage: "books.vertical")
                 }
                 .tag(AppSection.cookbooks)
 
-            compactTabContent(for: .shoppingList)
+            compactTabNavigationStack(for: .shoppingList)
                 .tabItem {
                     Label("Shopping List", systemImage: "checklist")
                 }
@@ -438,9 +424,9 @@ struct PlatformNavigationView: View {
         }
     }
 
-    @ViewBuilder private var detailContentWithShellStatus: some View {
+    @ViewBuilder private func detailContentWithShellStatus(for route: AppRoute) -> some View {
         VStack(spacing: 0) {
-            detailContent
+            destinationContent(for: route)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if shouldShowShellOfflineStatus && !usesCompactMobileShell {
@@ -464,6 +450,17 @@ struct PlatformNavigationView: View {
                         .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
                 }
         }
+    }
+
+    private var compactOfflineStatusBand: some View {
+        compactOfflineStatusBar
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(KitchenTableTheme.paper)
+            .overlay(alignment: .bottom) {
+                Divider()
+            }
     }
 
     private var shellOfflineStatusBar: some View {
@@ -493,24 +490,39 @@ struct PlatformNavigationView: View {
             sidebarLink(section: .capture, title: "Imports", systemImage: "tray.and.arrow.down")
             sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
         }
+        .scrollContentBackground(.hidden)
+        .background(KitchenTableTheme.paper)
+        .foregroundStyle(KitchenTableTheme.charcoal)
     }
 
-    @ViewBuilder private var detailContent: some View {
-        destinationContent(for: navigation.route)
-    }
-
-    @ViewBuilder private func compactImmersiveRouteContent(for route: AppRoute) -> some View {
-        VStack(spacing: 0) {
-            if shouldShowShellOfflineStatus {
-                compactOfflineStatusBar
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-
-            destinationContent(for: route)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private func compactTabNavigationStack(for section: AppSection) -> some View {
+        NavigationStack(path: compactPathBinding(for: section)) {
+            compactNavigationRootContent(for: section)
+                .navigationDestination(for: AppRoute.self) { route in
+                    compactRouteSurface(for: route, in: section)
+                        .navigationTitle(compactNavigationTitle(for: route))
+#if os(iOS)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
+                        .toolbarBackground(.visible, for: .navigationBar)
+#endif
+                        .toolbar {
+                            compactNavigationToolbar
+                        }
+                }
         }
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+    }
+
+    private func compactRouteSurface(for route: AppRoute, in section: AppSection) -> some View {
+        destinationContent(for: route)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(\.spoonjoyCompactNavigation, true)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if shouldShowShellOfflineStatus && navigation.compactTabSelection == section {
+                    compactOfflineStatusBand
+                }
+            }
+            .background(KitchenTableTheme.bone)
     }
 
     @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
@@ -520,14 +532,12 @@ struct PlatformNavigationView: View {
                 kitchen: contentState.kitchen,
                 recipes: contentState.recipes,
                 cookbooks: contentState.cookbooks,
-                openRecipe: openRecipe,
-                startCooking: startCooking,
-                openCookbook: openCookbook
+                ownerUsername: currentKitchenOwnerUsername
             )
         case .recipes:
-            RecipesView(viewModel: myRecipesCatalogViewModel, openRoute: openRoute)
+            RecipesView(viewModel: myRecipesCatalogViewModel)
         case .savedRecipes:
-            SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
+            SavedRecipesView(viewModel: savedRecipesCatalogViewModel)
         case .recipeDetail(let id, .detail):
             RecipeDetailRouteView(
                 recipeID: id,
@@ -627,7 +637,7 @@ struct PlatformNavigationView: View {
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .chefs:
-            ChefsView(profiles: chefProfiles, openRoute: openRoute)
+            ChefsView(profiles: chefProfiles)
         case .shoppingList:
             ShoppingListView(
                 viewModel: shoppingViewModel,
@@ -647,7 +657,7 @@ struct PlatformNavigationView: View {
             .onAppear {
                 search.apply(route: routeSearch.route)
                 if routeSearch.route != navigation.route {
-                    navigation.navigate(to: routeSearch.route)
+                    presentRoute(routeSearch.route, replacingCurrentRoute: true)
                 }
                 if shouldAutoFocusSearchField {
                     isSearchFieldFocused = true
@@ -756,45 +766,36 @@ struct PlatformNavigationView: View {
             get: { navigation.sidebarSelection },
             set: { section in
                 guard let section else { return }
-                navigateToSidebar(section)
+                navigation.selectSidebar(section)
+                if section != .search {
+                    isSearchFieldFocused = false
+                }
             }
         )
     }
 
     private func sidebarLink(section: AppSection, title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
+            .foregroundStyle(KitchenTableTheme.charcoal)
             .tag(section)
     }
 
     private var compactTabSelection: Binding<AppSection> {
         Binding(
-            get: { compactTabSection(for: navigation.route) },
+            get: { navigation.compactTabSelection },
             set: { section in
-                navigateToCompactTab(section)
+                navigation.selectCompactTab(section)
             }
         )
     }
 
-    @ViewBuilder private func compactTabContent(for section: AppSection) -> some View {
-        VStack(spacing: 0) {
-            if shouldShowShellOfflineStatus && section == compactTabSection(for: navigation.route) {
-                compactOfflineStatusBar
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+    private func compactPathBinding(for section: AppSection) -> Binding<[AppRoute]> {
+        Binding(
+            get: { navigation.compactPath(for: section) },
+            set: { path in
+                navigation.setCompactPath(path, for: section)
             }
-
-            destinationContent(for: compactPresentedRoute(for: section))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .environment(\.spoonjoyCompactNavigation, true)
-                .safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)
-        }
-        .background(KitchenTableTheme.bone)
-    }
-
-    private func compactPresentedRoute(for section: AppSection) -> AppRoute {
-        compactTabSection(for: navigation.route) == section
-            ? navigation.route
-            : compactRootRoute(for: section)
+        )
     }
 
     private func compactRootRoute(for section: AppSection) -> AppRoute {
@@ -820,68 +821,17 @@ struct PlatformNavigationView: View {
         }
     }
 
-    private func compactTabSection(for route: AppRoute) -> AppSection {
-        switch route {
-        case .kitchen:
-            .kitchen
-        case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
-            .recipes
-        case .savedRecipes:
-            .savedRecipes
-        case .cookbooks, .cookbookDetail:
-            .cookbooks
-        case .shoppingList:
-            .shoppingList
-        case .search:
-            .kitchen
-        case .chefs, .profile, .profileGraph:
-            .chefs
-        case .capture, .settings, .unknownLink:
-            .kitchen
-        }
-    }
-
-    private func navigateToCompactTab(_ section: AppSection) {
-        if section != .search {
-            isSearchFieldFocused = false
-        }
-        switch section {
-        case .kitchen:
-            navigation.navigate(to: .kitchen)
-        case .recipes:
-            navigation.navigate(to: .recipes)
-        case .savedRecipes:
-            navigation.navigate(to: .savedRecipes)
-        case .cookbooks:
-            navigation.navigate(to: .cookbooks)
-        case .shoppingList:
-            navigation.navigate(to: .shoppingList)
-        case .chefs:
-            navigation.navigate(to: .chefs)
-        case .search:
-            Task {
-                await performSearch(search)
+    private var desktopPathBinding: Binding<[AppRoute]> {
+        Binding(
+            get: { navigation.desktopPath },
+            set: { path in
+                navigation.setDesktopPath(path)
             }
-        case .capture:
-            navigation.navigate(to: .capture)
-        case .settings:
-            navigation.navigate(to: .settings)
-        }
+        )
     }
 
     @ToolbarContentBuilder private var compactNavigationToolbar: some ToolbarContent {
 #if os(iOS)
-        if let backAction = compactBackAction(for: navigation.route) {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    openRoute(backAction.route)
-                } label: {
-                    Label(backAction.title, systemImage: "chevron.backward")
-                }
-                .accessibilityLabel(backAction.accessibilityLabel)
-            }
-        }
-
         if isRecipeEditorRoute {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -946,54 +896,9 @@ struct PlatformNavigationView: View {
         }
     }
 
-    private func compactBackAction(for route: AppRoute) -> (title: String, accessibilityLabel: String, route: AppRoute)? {
-        switch route {
-        case .recipeDetail(let id, .cook):
-            (title: "Recipe", accessibilityLabel: "Back to recipe", route: .recipeDetail(id: id, presentation: .detail))
-        case .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
-            (title: "My Recipes", accessibilityLabel: "Back to My Recipes", route: .recipes)
-        case .cookbookDetail:
-            (title: "Cookbooks", accessibilityLabel: "Back to Cookbooks", route: .cookbooks)
-        case .profile, .profileGraph:
-            (title: "Chefs", accessibilityLabel: "Back to Chefs", route: .chefs)
-        case .capture, .settings, .unknownLink:
-            (title: "Kitchen", accessibilityLabel: "Back to Kitchen", route: .kitchen)
-        case .kitchen, .recipes, .savedRecipes, .cookbooks, .shoppingList, .chefs, .search:
-            nil
-        }
-    }
-
     private func openSearchFromDock() {
         Task {
             await performSearch(search)
-        }
-    }
-
-    private func navigateToSidebar(_ section: AppSection) {
-        if section != .search {
-            isSearchFieldFocused = false
-        }
-        switch section {
-        case .kitchen:
-            navigation.navigate(to: .kitchen)
-        case .recipes:
-            navigation.navigate(to: .recipes)
-        case .savedRecipes:
-            navigation.navigate(to: .savedRecipes)
-        case .cookbooks:
-            navigation.navigate(to: .cookbooks)
-        case .shoppingList:
-            navigation.navigate(to: .shoppingList)
-        case .chefs:
-            navigation.navigate(to: .chefs)
-        case .search:
-            Task {
-                await performSearch(search)
-            }
-        case .capture:
-            navigation.navigate(to: .capture)
-        case .settings:
-            navigation.navigate(to: .settings)
         }
     }
 
@@ -1031,12 +936,7 @@ struct PlatformNavigationView: View {
     }
 
     private func compactNavigationTitle(for route: AppRoute) -> String {
-        switch route {
-        case .kitchen:
-            ""
-        default:
-            title(for: route)
-        }
+        title(for: route)
     }
 
     private func recipe(id: String) -> Recipe? {
@@ -1075,14 +975,28 @@ struct PlatformNavigationView: View {
 
     private func openRecipe(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
+        presentRoute(.recipeDetail(id: id, presentation: .detail))
     }
 
     private func openRoute(_ route: AppRoute) {
         if !routeKeepsSearchFocus(route) {
             isSearchFieldFocused = false
         }
-        navigation.navigate(to: route)
+        presentRoute(route)
+    }
+
+    private func presentRoute(_ route: AppRoute, replacingCurrentRoute: Bool = false) {
+        if usesCompactMobileShell {
+            if replacingCurrentRoute {
+                navigation.replaceCompactTop(with: route)
+            } else {
+                navigation.pushCompact(route)
+            }
+        } else if replacingCurrentRoute {
+            navigation.replaceDesktopTop(with: route)
+        } else {
+            navigation.pushDesktop(route)
+        }
     }
 
     @MainActor
@@ -1095,7 +1009,7 @@ struct PlatformNavigationView: View {
             viewModel: loadingSearchViewModel(for: nextSearch, cachedPage: cachedPage)
         )
         search.apply(route: .search(query: nextSearch.query, scope: nextSearch.scope))
-        navigation.navigate(to: search.route)
+        presentRoute(search.route, replacingCurrentRoute: routeKeepsSearchFocus(navigation.route))
         guard allowsLiveEffects else {
             liveSearchRequestMarker = nil
             activeSearch = ActiveSearchSurfaceState(
@@ -1282,17 +1196,17 @@ struct PlatformNavigationView: View {
     }
 
     private func openProfileRoute(_ route: AppRoute) {
-        navigation.navigate(to: route)
+        presentRoute(route)
     }
 
     private func startCooking(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
+        presentRoute(.recipeDetail(id: id, presentation: .cook))
     }
 
     private func openCookbook(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .cookbookDetail(id: id))
+        presentRoute(.cookbookDetail(id: id))
     }
 
     private var shoppingViewModel: ShoppingSurfaceViewModel {
@@ -1561,9 +1475,31 @@ struct PlatformNavigationView: View {
     }
 
     private var currentChefSummary: ChefSummary? {
-        contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef ?? currentChefID.map {
-            ChefSummary(id: $0, username: "Spoonjoy")
+        guard let currentChefID else {
+            return nil
         }
+
+        if let cachedProfile = contentState.cachedProfiles.first(where: { $0.profile.id == currentChefID }) {
+            return ChefSummary(
+                id: cachedProfile.profile.id,
+                username: cachedProfile.profile.username,
+                photoURL: cachedProfile.profile.photoURL
+            )
+        }
+
+        return (contentState.recipes.map(\.chef) + contentState.cookbooks.map(\.chef))
+            .first(where: { $0.id == currentChefID })
+            ?? ChefSummary(id: currentChefID, username: "Spoonjoy")
+    }
+
+    private var currentKitchenOwnerUsername: String? {
+        guard let currentChefID else {
+            return nil
+        }
+
+        return contentState.cachedProfiles.first(where: { $0.profile.id == currentChefID })?.profile.username
+            ?? (contentState.recipes.map(\.chef) + contentState.cookbooks.map(\.chef))
+                .first(where: { $0.id == currentChefID })?.username
     }
 
     private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
@@ -2278,25 +2214,6 @@ private extension View {
     }
 }
 #endif
-
-private extension AppRoute {
-    var usesCompactAuxiliaryShell: Bool {
-        switch self {
-        case .chefs, .profile, .profileGraph, .search, .capture, .settings, .unknownLink:
-            true
-        case .kitchen,
-             .recipes,
-             .savedRecipes,
-             .recipeDetail,
-             .recipeEditor,
-             .recipeCoverControls,
-             .cookbooks,
-             .cookbookDetail,
-             .shoppingList:
-            false
-        }
-    }
-}
 
 private struct ActiveSearchSurfaceState: Equatable {
     let identity: String

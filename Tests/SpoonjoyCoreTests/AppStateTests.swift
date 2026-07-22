@@ -54,6 +54,62 @@ struct AppStateTests {
         #expect(navigation.sidebarSelection == .recipes)
     }
 
+    @Test("compact navigation preserves an independent native path for every tab")
+    func compactNavigationPreservesIndependentTabPaths() {
+        var navigation = AppNavigationState()
+        let recipe = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+        let cookbook = AppRoute.cookbookDetail(id: "cookbook_weeknights")
+
+        navigation.pushCompact(recipe)
+        #expect(navigation.compactTabSelection == .kitchen)
+        #expect(navigation.compactPath(for: .kitchen) == [recipe])
+        #expect(navigation.route == recipe)
+
+        navigation.selectCompactTab(.cookbooks)
+        navigation.pushCompact(cookbook)
+        #expect(navigation.compactTabSelection == .cookbooks)
+        #expect(navigation.compactPath(for: .cookbooks) == [cookbook])
+        #expect(navigation.compactPath(for: .kitchen) == [recipe])
+
+        navigation.selectCompactTab(.kitchen)
+        #expect(navigation.route == recipe)
+        navigation.setCompactPath([], for: .kitchen)
+        #expect(navigation.route == .kitchen)
+        #expect(navigation.compactPath(for: .cookbooks) == [cookbook])
+    }
+
+    @Test("deep links seed the appropriate compact tab without erasing another tab history")
+    func deepLinksSeedAppropriateCompactTab() throws {
+        var navigation = AppNavigationState()
+        let kitchenRecipe = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+
+        navigation.pushCompact(kitchenRecipe)
+        navigation.applyDeepLink(try url("https://spoonjoy.app/cookbooks/cookbook_weeknights"))
+
+        #expect(navigation.compactTabSelection == .cookbooks)
+        #expect(navigation.compactPath(for: .cookbooks) == [.cookbookDetail(id: "cookbook_weeknights")])
+        #expect(navigation.compactPath(for: .kitchen) == [kitchenRecipe])
+    }
+
+    @Test("desktop navigation binds native pushes and pops to the selected sidebar root")
+    func desktopNavigationBindsNativePathToSidebarRoot() {
+        var navigation = AppNavigationState()
+        let detail = AppRoute.recipeDetail(id: "recipe_lemon_pantry_pasta", presentation: .detail)
+
+        navigation.pushDesktop(detail)
+        #expect(navigation.desktopRootRoute == .kitchen)
+        #expect(navigation.desktopPath == [detail])
+        #expect(navigation.route == detail)
+
+        navigation.setDesktopPath([])
+        #expect(navigation.route == .kitchen)
+
+        navigation.selectSidebar(.cookbooks)
+        #expect(navigation.desktopRootRoute == .cookbooks)
+        #expect(navigation.desktopPath.isEmpty)
+        #expect(navigation.route == .cookbooks)
+    }
+
     @Test("search state trims queries and exposes a route")
     func searchStateTrimsQueriesAndExposesRoute() {
         var search = SearchState(query: "  pantry  ", scope: .cookbooks)

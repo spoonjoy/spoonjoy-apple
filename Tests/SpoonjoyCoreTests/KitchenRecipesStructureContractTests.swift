@@ -6,7 +6,11 @@ struct KitchenRecipesStructureContractTests {
     @Test("Kitchen follows the web kitchen-table masthead lead index and shelf hierarchy")
     func kitchenFollowsWebKitchenTableHierarchy() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let cookbooksPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+        let cookbooks = uncommentedSwift(try readRepoFile(cookbooksPath))
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
 
         expectContent(
             kitchen,
@@ -16,37 +20,62 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeLead",
                 "RecipeIndex",
                 "CookbookShelf",
-                "On the Counter",
+                "My Kitchen",
+                "Latest from the kitchen",
                 "private var indexedRecipes",
                 "recipe.id != leadRecipe.id",
                 "RecipeIndex(recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
                 "countLabel(kitchen.counts.recipes",
-                "countLabel(kitchen.counts.cookbooks"
+                "countLabel(kitchen.counts.cookbooks",
+                "aspectRatio(16 / 10, contentMode: .fit)",
+                ".clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))"
             ],
             forbids: [
                 "coverlessNoPhotoBadge",
                 "Text(\"Photo not added\")",
                 "From your kitchen",
+                "On the Counter",
+                "recipe.attribution.creditText",
+                "case .ready:\n            \"Ready\"",
+                "recipes.first?.chef.username",
                 "kitchen.counts.shoppingItems",
                 "RecipeIndex(recipes: recipes",
                 ".frame(maxWidth: .infinity, minHeight: 210"
             ]
+        )
+        expectContent(
+            cookbooks,
+            in: cookbooksPath,
+            contains: [
+                "CookbookCoverArt(row: row)",
+                "ScrollView(.horizontal, showsIndicators: false)"
+            ]
+        )
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "ownerUsername: currentKitchenOwnerUsername",
+                "contentState.cachedProfiles.first(where: { $0.profile.id == currentChefID })?.profile.username"
+            ],
+            forbids: ["recipes.first?.chef.username"]
         )
     }
 
     @Test("Kitchen recipe index rows read as index entries instead of bare open rows")
     func kitchenRecipeIndexRowsReadAsIndexEntries() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let cookbooksPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
         let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+        let cookbooks = uncommentedSwift(try readRepoFile(cookbooksPath))
 
         expectContent(
             kitchen,
             in: kitchenPath,
             contains: [
-                "let ordinal: Int",
-                "ordinalLabel",
-                "String(format: \"%02d\", ordinal)",
+                "NavigationLink(value: recipeRoute)",
+                ".contextMenu",
                 "recipe.description",
                 "recipe.servings",
                 "recipe.displayCoverProvenanceLabel",
@@ -56,7 +85,59 @@ struct KitchenRecipesStructureContractTests {
             forbids: [
                 "subtitle: recipe.chef.username",
                 "Text(\"Open\")",
-                "Label(\"Open\""
+                "Label(\"Open\"",
+                "ordinalLabel",
+                "let ordinal: Int",
+                "HStack(spacing: 8) {\n            Button(action: open)"
+            ]
+        )
+        expectContent(
+            cookbooks,
+            in: cookbooksPath,
+            contains: [
+                ".accessibilityIdentifier(\"kitchen.cookbook.\\(row.id)\")"
+            ],
+            forbids: ["accessibilitySubtitleIdentifier: \"kitchen.cookbook-shelf.count\""]
+        )
+    }
+
+    @Test("owned loading routes retain cached content and animate settled replacements")
+    func ownedLoadingRoutesRetainCachedContentAndAnimateSettledReplacements() throws {
+        let recipesPath = "Apps/Spoonjoy/Shared/Views/RecipesView.swift"
+        let cookbooksPath = "Apps/Spoonjoy/Shared/Views/CookbooksView.swift"
+        let profilePath = "Apps/Spoonjoy/Shared/Views/ProfileView.swift"
+        let recipes = uncommentedSwift(try readRepoFile(recipesPath))
+        let cookbooks = uncommentedSwift(try readRepoFile(cookbooksPath))
+        let profile = uncommentedSwift(try readRepoFile(profilePath))
+
+        expectContent(
+            recipes,
+            in: recipesPath,
+            contains: [
+                "_isLoading = State(initialValue: viewModel.state.rows.isEmpty)",
+                "withAnimation(contentAnimation)",
+                ".transition(.opacity)"
+            ]
+        )
+        expectContent(
+            cookbooks,
+            in: cookbooksPath,
+            contains: [
+                "@State private var isLoading",
+                "_isLoading = State(initialValue: viewModel.list.rows.isEmpty)",
+                "if isLoading, list.rows.isEmpty",
+                "detail?.id == cookbookID",
+                "withAnimation(contentAnimation)",
+                ".transition(.opacity)"
+            ]
+        )
+        expectContent(
+            profile,
+            in: profilePath,
+            contains: [
+                "viewModel.profile.map",
+                "withAnimation(contentAnimation)",
+                ".transition(.opacity)"
             ]
         )
     }
@@ -145,7 +226,7 @@ struct KitchenRecipesStructureContractTests {
             observer,
             in: observerPath,
             contains: [
-                "app.descendants(matching: type).allElementsBoundByIndex",
+                "app.descendants(matching: type).allElementsBoundByAccessibilityElement",
                 "performAccessibilityAudit",
                 "scrollPrimarySurfaceToTerminal",
                 "recipe-detail",
