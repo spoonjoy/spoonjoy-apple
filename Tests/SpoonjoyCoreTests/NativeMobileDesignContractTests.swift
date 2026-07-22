@@ -145,6 +145,7 @@ struct NativeMobileDesignContractTests {
                 "trailing()",
                 ".font(.caption2)",
                 ".fontWeight(.bold)",
+                ".accessibilityHidden(true)",
                 ".fixedSize(horizontal: false, vertical: true)"
             ],
             forbids: [

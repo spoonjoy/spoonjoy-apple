@@ -115,6 +115,7 @@ struct KitchenTableHeader<Trailing: View>: View {
                 .font(.caption2)
                 .fontWeight(.bold)
                 .foregroundStyle(KitchenTableTheme.brass)
+                .accessibilityHidden(true)
                 .fixedSize(horizontal: false, vertical: true)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
