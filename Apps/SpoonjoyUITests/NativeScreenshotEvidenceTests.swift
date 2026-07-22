@@ -504,6 +504,37 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(movedTitleFindings[0].message.contains("Added:"))
     }
 
+    func testPersistentChromeIgnoresScrolledContentBehindSystemTabBar() {
+        let navigationBar = observedElement(
+            identifier: "Kitchen",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 62, width: 402, height: 54)
+        )
+        let tabBar = observedElement(
+            identifier: "tabs",
+            label: "Tab Bar",
+            type: "tabBar",
+            frame: ObservedRect(x: 0, y: 791, width: 402, height: 83)
+        )
+        let tabButton = observedElement(
+            identifier: "house",
+            label: "Kitchen",
+            type: "button",
+            frame: ObservedRect(x: 25, y: 795, width: 74, height: 54)
+        )
+        let obscuredContent = observedElement(
+            identifier: "",
+            label: "Weeknights",
+            type: "staticText",
+            frame: ObservedRect(x: 183, y: 821, width: 118, height: 24)
+        )
+
+        XCTAssertTrue(persistentChromeFindings(
+            before: [navigationBar, tabBar, tabButton, obscuredContent],
+            after: [navigationBar, tabBar, tabButton]
+        ).isEmpty)
+    }
+
     func testMovementCandidatesIncludeUniqueOffscreenContentButExcludeChrome() {
         let viewport = ObservedRect(x: 0, y: 0, width: 402, height: 874)
         let candidates = uniqueMovementCandidates(
@@ -1918,7 +1949,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                       !element.identifier.isEmpty || !element.label.isEmpty else {
                     return false
                 }
-                return containers.contains { $0.frame.contains(element.frame, tolerance: 2.5) }
+                return containers.contains { container in
+                    guard container.frame.contains(element.frame, tolerance: 2.5) else {
+                        return false
+                    }
+                    return container.type != "tabBar" || element.type == "button"
+                }
             }
             .map { element in
                 [
