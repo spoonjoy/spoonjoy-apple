@@ -1454,8 +1454,8 @@ struct NativeMobileDesignContractTests {
                 "case missing(message: String)",
                 "case failed(message: String)",
                 "@State private var routeState: RecipeDetailRouteState",
-                "let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID",
-                "if !hasVisibleCurrentRecipe",
+                "guard routeState.currentViewModel?.id != recipeID else",
+                "catch is CancellationError",
                 "private var recipeMasthead",
                 "private var recipeHeroMedia",
                 "if viewModel.cover.hasRealCover",
@@ -1474,7 +1474,35 @@ struct NativeMobileDesignContractTests {
                 ".navigationTitle(\"Save\")",
                 "subtitle: viewModel.cover.noPhotoLabel",
                 "showsFallbackLabel: true",
-                "private var recipeNoPhotoHeight"
+                "private var recipeNoPhotoHeight",
+                "let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID"
+            ]
+        )
+
+        let liveStateGuard = "guard routeState.currentViewModel?.id != recipeID else"
+        #expect(
+            detail.components(separatedBy: liveStateGuard).count - 1 == 2,
+            "Both missing and generic failures must re-check live route state after progressive publication."
+        )
+    }
+
+    @Test("recipe yield selector exposes independent VoiceOver controls")
+    func recipeYieldSelectorExposesIndependentVoiceOverControls() throws {
+        let detailPath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let detail = uncommentedSwift(try readRepoFile(detailPath))
+
+        expectContent(
+            detail,
+            in: detailPath,
+            contains: [
+                "private struct RecipeScaleSelector",
+                ".accessibilityElement(children: .ignore)",
+                ".accessibilityLabel(\"Yield\")",
+                ".accessibilityValue(displayValue)",
+                ".accessibilityLabel(label)"
+            ],
+            forbids: [
+                ".accessibilityElement(children: .combine)"
             ]
         )
     }

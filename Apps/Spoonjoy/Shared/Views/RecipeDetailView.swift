@@ -123,8 +123,7 @@ struct RecipeDetailRouteView: View {
 
     @MainActor private func loadRecipe() async {
         errorMessage = nil
-        let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID
-        if !hasVisibleCurrentRecipe {
+        if routeState.currentViewModel?.id != recipeID {
             routeState = .loading(snapshotTitle: loadingTitle)
         }
         do {
@@ -138,16 +137,22 @@ struct RecipeDetailRouteView: View {
                 onRecipeLoaded(result.recipe)
             }
             errorMessage = nil
+        } catch is CancellationError {
+            return
+        } catch let error as APITransportError where error.isCancelled {
+            return
         } catch RecipeCatalogRepositoryError.recipeNotFound {
-            if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't find this recipe."
-                routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
+            guard routeState.currentViewModel?.id != recipeID else {
+                return
             }
+            errorMessage = "We couldn't find this recipe."
+            routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
         } catch {
-            if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't load this recipe."
-                routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
+            guard routeState.currentViewModel?.id != recipeID else {
+                return
             }
+            errorMessage = "We couldn't load this recipe."
+            routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
         }
     }
 
@@ -1113,6 +1118,9 @@ private struct RecipeScaleSelector: View {
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .padding(.horizontal, 12)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Yield")
+            .accessibilityValue(displayValue)
 
             scaleButton(systemImage: "plus", label: "Increase scale", isDisabled: scaleFactor >= maximum) {
                 setScaleFactor(min(maximum, rounded(scaleFactor + step)))
@@ -1124,9 +1132,6 @@ private struct RecipeScaleSelector: View {
                 .stroke(KitchenTableTheme.line.opacity(0.72), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Yield")
-        .accessibilityValue(displayValue)
     }
 
     private func scaleButton(
