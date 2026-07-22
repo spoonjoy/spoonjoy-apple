@@ -439,11 +439,6 @@ struct CookbookShelf: View {
                                     .frame(width: 144)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityAddTraits(.isButton)
-                            .accessibilityIdentifier("kitchen.cookbook.\(row.id)")
-                            .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
-                            .accessibilityHint("Opens cookbook")
                             .contextMenu {
                                 if let payload = row.sharePayload, let publicURL = payload.publicURL {
                                     ShareLink(item: publicURL) {
@@ -451,6 +446,11 @@ struct CookbookShelf: View {
                                     }
                                 }
                             }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityIdentifier("kitchen.cookbook.\(row.id)")
+                            .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
+                            .accessibilityHint("Opens cookbook")
                         }
                     }
                     .padding(.vertical, 2)

@@ -533,9 +533,9 @@ func observeDeepScroll(
 ) -> AXObservedDeepScrollEvidence {
     let initialNodes = observeTree(root: rootWindowElement)
     let scrollAnchor = initialNodes.first(where: {
-        $0.observation.identifier == expectation.terminalIdentifier
-    }) ?? initialNodes.first(where: {
         $0.observation.identifier == expectation.scrollIdentifier
+    }) ?? initialNodes.first(where: {
+        $0.observation.identifier == expectation.terminalIdentifier
     })
     guard let scrollAnchor, let scrollArea = enclosingScrollArea(for: scrollAnchor) else {
         return AXObservedDeepScrollEvidence(

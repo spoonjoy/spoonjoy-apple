@@ -204,6 +204,16 @@ require_tokens(mac_observer, [
   "recipe-covers.archive.cover_primary",
   "profile.graph.kitchen-visitors"
 ])
+mac_observer_source = source(mac_observer)
+deep_scroll_start = mac_observer_source.index("func observeDeepScroll")
+deep_scroll_end = mac_observer_source.index("func findings", deep_scroll_start)
+fail_check("#{mac_observer} missing bounded observeDeepScroll implementation") unless deep_scroll_start && deep_scroll_end
+deep_scroll_source = mac_observer_source[deep_scroll_start...deep_scroll_end]
+named_scroll_anchor = deep_scroll_source.index("$0.observation.identifier == expectation.scrollIdentifier")
+terminal_anchor = deep_scroll_source.index("$0.observation.identifier == expectation.terminalIdentifier")
+unless named_scroll_anchor && terminal_anchor && named_scroll_anchor < terminal_anchor
+  fail_check("#{mac_observer} must prefer the exact named scroll area before a nested terminal scroll ancestor")
+end
 
 unless system("swift", mac_observer, "--self-test-non-finite-frame", chdir: ROOT.to_s)
   fail_check("#{mac_observer} non-finite frame self-test failed")

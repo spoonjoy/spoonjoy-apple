@@ -45,6 +45,7 @@ struct CookbookVisualContractTests {
         #expect(shelf.contains(".accessibilityElement(children: .ignore)"))
         #expect(shelf.contains(".accessibilityAddTraits(.isButton)"))
         #expect(shelf.contains(".accessibilityLabel(\"\\(row.title), \\(row.recipeCountLabel)\")"))
+        #expect(shelf.firstRange(of: ".contextMenu")!.lowerBound < shelf.firstRange(of: ".accessibilityElement(children: .ignore)")!.lowerBound)
         #expect(cover.contains(".accessibilityHidden(true)"))
         #expect(!cover.contains(".accessibilityElement(children: .combine)"))
         #expect(!cover.contains(".accessibilityIdentifier(\"CookbookCoverArt\")"))
