@@ -1999,10 +1999,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 context: context
             )
         }
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
-        )
+        let refresher = makeAPIRefresher()
         return LiveSearchSurfaceRepository(
             transport: dependencies.recipeEditorAPITransport(refresher),
             configuration: configuration,
@@ -2203,10 +2200,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
-        )
+        let refresher = makeAPIRefresher()
         let transport = dependencies.recipeEditorAPITransport(refresher)
         _ = try await transport.send(
             request,
@@ -2225,10 +2219,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
-        )
+        let refresher = makeAPIRefresher()
         let transport = dependencies.recipeEditorAPITransport(refresher)
 
         switch responseHandling {
@@ -2257,10 +2248,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
-        )
+        let refresher = makeAPIRefresher()
         let transport = dependencies.recipeEditorAPITransport(refresher)
         let envelope = try await transport.send(
             request,
@@ -3258,6 +3246,18 @@ public final class NativeLiveAppStore: ObservableObject {
         )
     }
 
+    private func makeAPIRefresher() -> NativeLiveAppStoreAPIRefresher {
+        NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL,
+            didRefresh: { [weak self] refreshedConfiguration in
+                await MainActor.run {
+                    self?.configuration = refreshedConfiguration
+                }
+            }
+        )
+    }
+
     private func reportNativeTelemetry(
         name: NativeTelemetryEvent.Name,
         stage: String,
@@ -3698,13 +3698,16 @@ private enum NativeLiveAppStoreTelemetry {
 private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {
     let authSessionRepository: NativeAuthSessionRepository
     let baseURL: URL
+    let didRefresh: @Sendable (APIClientConfiguration) async -> Void
 
     func refreshedConfiguration(
         after _: APIError,
         configuration _: APIClientConfiguration
     ) async throws -> APIClientConfiguration {
         let session = try await authSessionRepository.validSession()
-        return APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
+        let configuration = APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
+        await didRefresh(configuration)
+        return configuration
     }
 }
 

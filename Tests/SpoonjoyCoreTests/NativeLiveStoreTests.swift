@@ -53,6 +53,63 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("auth-refreshed search carries the new bearer into search and recipe telemetry")
+    func authRefreshedSearchCarriesNewBearerIntoTelemetry() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_expired",
+                refreshToken: "sj_refresh_current",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(-60),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "client_live"
+            ))
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let configuration = APIClientConfiguration(
+                baseURL: APIClientConfiguration.spoonjoyProduction.baseURL,
+                bearerToken: "sj_access_expired"
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                configuration: configuration,
+                recipeEditorAPITransport: { refresher in
+                    RefreshingSearchAPITransport(refresher: refresher)
+                },
+                nativeTelemetryReport: { event, eventConfiguration in
+                    await telemetryRecorder.record(event, configuration: eventConfiguration)
+                }
+            )
+
+            let repository = liveStore.searchSurfaceRepository(context: SearchSurfaceContext(
+                isAuthenticated: true,
+                canReadShoppingList: true
+            ))
+            _ = try await repository.search(request: SearchSurfaceRequest(
+                query: "lemons",
+                scope: .shoppingList,
+                limit: 10
+            ))
+            await liveStore.recordSearchTelemetry(.started(
+                state: SearchState(query: "lemons", scope: .shoppingList),
+                correlationID: "native-search-refreshed-auth",
+                hasCachedResults: false
+            ))
+            await liveStore.recordRecipeDetailTelemetry(.cookHistoryEnrichmentFailed(
+                error: NativeLiveStoreTestError.unexpectedRequest
+            ))
+
+            let configurations = await telemetryRecorder.recordedConfigurations()
+            #expect(configurations.map(\.bearerToken) == ["sj_access_refreshed", "sj_access_refreshed"])
+        }
+    }
+
+    @MainActor
     @Test("live store refreshes auth before sync and hydrates applied sync cache")
     func liveStoreRefreshesAuthBeforeSyncAndHydratesAppliedSyncCache() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6816,6 +6873,43 @@ private struct RefreshingRecipeEditorAPITransport: SpoonjoyAPITransport {
             throw NativeLiveStoreTestError.unexpectedEnvelopeType
         }
         return APIEnvelope(requestID: "recipe-editor-ok", data: data)
+    }
+}
+
+private struct RefreshingSearchAPITransport: SpoonjoyAPITransport {
+    let refresher: any APIAuthenticationRefresher
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        guard request.pathComponents == ["api", "v1", "search"],
+              configuration.bearerToken == "sj_access_expired" else {
+            throw NativeLiveStoreTestError.unexpectedBearerToken(configuration.bearerToken)
+        }
+        let refreshed = try await refresher.refreshedConfiguration(
+            after: APIError(
+                requestID: "search-refresh",
+                code: "invalid_token",
+                message: "Refresh search auth.",
+                status: 401
+            ),
+            configuration: configuration
+        )
+        guard refreshed.bearerToken == "sj_access_refreshed" else {
+            throw NativeLiveStoreTestError.unexpectedBearerToken(refreshed.bearerToken)
+        }
+        guard let data = SearchSurfaceData(
+            query: "lemons",
+            scope: .shoppingList,
+            limit: 10,
+            isAuthenticated: true,
+            results: []
+        ) as? Value else {
+            throw NativeLiveStoreTestError.unexpectedEnvelopeType
+        }
+        return APIEnvelope(requestID: "search-refreshed", data: data)
     }
 }
 
