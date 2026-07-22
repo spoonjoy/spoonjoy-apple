@@ -103,16 +103,12 @@ final class SpoonjoyMacMainWindowCoordinator {
 
     func showMainWindow() {
         if let existingWindow = existingMainWindow() {
-            existingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            SpoonjoyMacLaunchProof.record("show-main-window-existing")
+            present(existingWindow, event: "show-main-window-existing")
             return
         }
 
         if let fallbackWindow {
-            fallbackWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            SpoonjoyMacLaunchProof.record("show-main-window-fallback")
+            present(fallbackWindow, event: "show-main-window-fallback")
             return
         }
 
@@ -144,8 +140,26 @@ final class SpoonjoyMacMainWindowCoordinator {
     private func existingMainWindow() -> NSWindow? {
         NSApp.windows.first { window in
             (fallbackWindow.map { window !== $0 } ?? true) &&
-            window.canBecomeMain &&
-            !window.isMiniaturized
+            window.canBecomeMain
         }
+    }
+
+    private func present(_ window: NSWindow, event: String) {
+        let windowCountBeforePresentation = restorableMainWindowCount()
+        let wasMiniaturized = window.isMiniaturized
+        if wasMiniaturized {
+            window.deminiaturize(nil)
+        }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        let outcome = wasMiniaturized ? "\(event)-deminiaturized" : event
+        SpoonjoyMacLaunchProof.record(
+            "\(outcome) cardinality-before=\(windowCountBeforePresentation) " +
+            "cardinality-after=\(restorableMainWindowCount())"
+        )
+    }
+
+    private func restorableMainWindowCount() -> Int {
+        NSApp.windows.filter(\.canBecomeMain).count
     }
 }

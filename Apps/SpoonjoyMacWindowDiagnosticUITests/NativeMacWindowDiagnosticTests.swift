@@ -24,6 +24,9 @@ private struct MacWindowDiagnostic: Encodable {
     let windowFrame: MacWindowDiagnosticRect
     let accessibilityElementCount: Int
     let labeledAccessibilityElementCount: Int
+    let initialWindowCount: Int
+    let reopenedWindowCount: Int
+    let restoredMinimizedWindow: Bool
     let recordedAt: String
 }
 
@@ -52,6 +55,11 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
     @MainActor
     func testExplicitRouteWindowDiagnostic() throws {
         let environment = ProcessInfo.processInfo.environment
+        let reopenProofURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("spoonjoy-mac-reopen-\(UUID().uuidString).log")
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: reopenProofURL)
+        }
         let configuredRoute = try XCTUnwrap(
             environment["SPOONJOY_SCREENSHOT_EXPECTED_ROUTE"],
             "The macOS UI window diagnostic requires SPOONJOY_SCREENSHOT_EXPECTED_ROUTE."
@@ -69,10 +77,13 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
         app.launchEnvironment = environment.filter { entry in
             entry.key.hasPrefix("SPOONJOY_")
         }
+        app.launchEnvironment["SPOONJOY_MAC_LAUNCH_PROOF_PATH"] = reopenProofURL.path
         app.launch()
 
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 15), "Spoonjoy did not expose a macOS application window")
+        let initialWindowCount = app.windows.allElementsBoundByIndex.filter(\.exists).count
+        XCTAssertEqual(initialWindowCount, 1, "Spoonjoy must launch with exactly one macOS application window")
         XCTAssertGreaterThan(window.frame.width, 0, "Spoonjoy macOS window has no measurable width")
         XCTAssertGreaterThan(window.frame.height, 0, "Spoonjoy macOS window has no measurable height")
 
@@ -109,6 +120,28 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
             "The macOS window exposed no labeled XCUI accessibility elements."
         )
 
+        let proofLineCountBeforeReopen = try launchProofLines(at: reopenProofURL).count
+        let minimizeButton = window.buttons[XCUIIdentifierMinimizeWindow]
+        XCTAssertTrue(minimizeButton.waitForExistence(timeout: 5), "Spoonjoy did not expose a native minimize control")
+        minimizeButton.click()
+        XCTAssertTrue(
+            waitUntil(timeout: 5) { !window.isHittable },
+            "Spoonjoy did not minimize its existing macOS window"
+        )
+
+        app.activate()
+        XCTAssertTrue(
+            waitUntil(timeout: 10) { window.exists && window.isHittable },
+            "Reactivating Spoonjoy did not restore its minimized macOS window"
+        )
+        let reopenedWindowCount = app.windows.allElementsBoundByIndex.filter(\.exists).count
+        XCTAssertEqual(reopenedWindowCount, 1, "Dock reopen must not construct a second Spoonjoy window")
+        let reopenProofLines = try launchProofLines(at: reopenProofURL).dropFirst(proofLineCountBeforeReopen)
+        XCTAssertTrue(
+            reopenProofLines.contains { $0.contains("show-main-window-existing-deminiaturized cardinality-before=1 cardinality-after=1") },
+            "Dock reopen must deminiaturize the existing app window while preserving cardinality: \(Array(reopenProofLines))"
+        )
+
         let diagnostic = MacWindowDiagnostic(
             platform: "macos",
             route: route,
@@ -117,6 +150,9 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
             windowFrame: MacWindowDiagnosticRect(window.frame),
             accessibilityElementCount: accessibilityElements.count,
             labeledAccessibilityElementCount: labeledAccessibilityElements.count,
+            initialWindowCount: initialWindowCount,
+            reopenedWindowCount: reopenedWindowCount,
+            restoredMinimizedWindow: true,
             recordedAt: ISO8601DateFormatter().string(from: Date())
         )
         let encoder = JSONEncoder()
@@ -131,5 +167,25 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
         screenshotAttachment.name = "macos-ui-window-diagnostic-screenshot"
         screenshotAttachment.lifetime = .keepAlways
         add(screenshotAttachment)
+    }
+
+    private func launchProofLines(at url: URL) throws -> [String] {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return []
+        }
+        return try String(contentsOf: url, encoding: .utf8)
+            .split(whereSeparator: \.isNewline)
+            .map(String.init)
+    }
+
+    private func waitUntil(timeout: TimeInterval, condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        repeat {
+            if condition() {
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        } while Date() < deadline
+        return condition()
     }
 }

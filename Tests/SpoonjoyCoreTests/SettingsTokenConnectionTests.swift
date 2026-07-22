@@ -1312,6 +1312,12 @@ struct SettingsTokenConnectionTests {
             "DispatchQueue.main.asyncAfter(deadline: .now() + 0.5)",
             "showMainWindowIfNeeded()",
             "fallbackWindow",
+            "let windowCountBeforePresentation = restorableMainWindowCount()",
+            "window.isMiniaturized",
+            "window.deminiaturize(nil)",
+            "let outcome = wasMiniaturized ? \"\\(event)-deminiaturized\" : event",
+            "\\(outcome) cardinality-before=",
+            "cardinality-after=\\(restorableMainWindowCount())",
             "NSHostingController(rootView: SpoonjoyRootView())",
             "NSWindow("
         ] {
@@ -1320,6 +1326,7 @@ struct SettingsTokenConnectionTests {
         for forbidden in [
             "WindowGroup(\"Spoonjoy\", id: \"main\")",
             "launch-window-check-immediate",
+            "!window.isMiniaturized",
             "New Window"
         ] {
             #expect(!macApp.contains(forbidden), "SpoonjoyMacApp.swift must leave the main window under singleton SwiftUI ownership: \(forbidden)")

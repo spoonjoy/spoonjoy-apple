@@ -332,7 +332,12 @@ diagnostic_source = ROOT.join("Apps/SpoonjoyMacWindowDiagnosticUITests/NativeMac
   "app.descendants(matching: .any)",
   "supportedRouteMarkers[route]",
   "routeMarker.waitForExistence",
-  "accessibilityElementCount"
+  "accessibilityElementCount",
+  "XCUIIdentifierMinimizeWindow",
+  "app.activate()",
+  "initialWindowCount",
+  "reopenedWindowCount",
+  "restoredMinimizedWindow"
 ].each do |token|
   fail_check("macOS window diagnostic source missing #{token}") unless diagnostic_source.include?(token)
 end
