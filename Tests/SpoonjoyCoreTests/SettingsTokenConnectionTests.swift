@@ -1305,16 +1305,21 @@ struct SettingsTokenConnectionTests {
             "SPOONJOY_MAC_LAUNCH_PROOF_PATH",
             "SpoonjoyMacLaunchProof.record",
             "scene-body-evaluated",
-            "delegate-did-finish-launching"
+            "delegate-did-finish-launching",
+            "SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()",
+            "applicationShouldHandleReopen",
+            "SpoonjoyMacMainWindowCoordinator.shared.showMainWindow()",
+            "DispatchQueue.main.asyncAfter(deadline: .now() + 0.5)",
+            "showMainWindowIfNeeded()",
+            "fallbackWindow",
+            "NSHostingController(rootView: SpoonjoyRootView())",
+            "NSWindow("
         ] {
             #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
         }
         for forbidden in [
             "WindowGroup(\"Spoonjoy\", id: \"main\")",
-            "SpoonjoyMacMainWindowCoordinator",
-            "fallbackWindow",
-            "NSHostingController",
-            "NSWindow(",
+            "launch-window-check-immediate",
             "New Window"
         ] {
             #expect(!macApp.contains(forbidden), "SpoonjoyMacApp.swift must leave the main window under singleton SwiftUI ownership: \(forbidden)")

@@ -53,6 +53,14 @@ private enum SpoonjoyMacLaunchProof {
 final class SpoonjoyMacAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         SpoonjoyMacLaunchProof.record("delegate-did-finish-launching")
+        SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag {
+            SpoonjoyMacMainWindowCoordinator.shared.showMainWindow()
+        }
+        return true
     }
 
     func application(
@@ -67,5 +75,77 @@ final class SpoonjoyMacAppDelegate: NSObject, NSApplicationDelegate {
         didFailToRegisterForRemoteNotificationsWithError error: Error
     ) {
         NotificationAPNsDeviceBridge.shared.didFailToRegisterForRemoteNotifications(error: error)
+    }
+}
+
+@MainActor
+final class SpoonjoyMacMainWindowCoordinator {
+    static let shared = SpoonjoyMacMainWindowCoordinator()
+
+    private var fallbackWindow: NSWindow?
+    private var didScheduleLaunchCheck = false
+
+    private init() {}
+
+    func scheduleLaunchWindowCheck() {
+        SpoonjoyMacLaunchProof.record("schedule-launch-window-check")
+        guard !didScheduleLaunchCheck else {
+            return
+        }
+        didScheduleLaunchCheck = true
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            MainActor.assumeIsolated {
+                self.showMainWindowIfNeeded()
+            }
+        }
+    }
+
+    func showMainWindow() {
+        if let existingWindow = existingMainWindow() {
+            existingWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            SpoonjoyMacLaunchProof.record("show-main-window-existing")
+            return
+        }
+
+        if let fallbackWindow {
+            fallbackWindow.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            SpoonjoyMacLaunchProof.record("show-main-window-fallback")
+            return
+        }
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1040, height: 760),
+            styleMask: [.titled, .closable, .miniaturizable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = "Spoonjoy"
+        window.minSize = NSSize(width: 900, height: 620)
+        window.contentViewController = NSHostingController(rootView: SpoonjoyRootView())
+        window.isReleasedWhenClosed = false
+        window.center()
+        fallbackWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        SpoonjoyMacLaunchProof.record("show-main-window-created")
+    }
+
+    private func showMainWindowIfNeeded() {
+        guard existingMainWindow()?.isVisible != true,
+              fallbackWindow?.isVisible != true else {
+            return
+        }
+        showMainWindow()
+    }
+
+    private func existingMainWindow() -> NSWindow? {
+        NSApp.windows.first { window in
+            (fallbackWindow.map { window !== $0 } ?? true) &&
+            window.canBecomeMain &&
+            !window.isMiniaturized
+        }
     }
 }
