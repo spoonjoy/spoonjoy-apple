@@ -239,8 +239,8 @@ struct RecipeLead: View {
                 leadVisual
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("\(recipe.title), by @\(recipe.chef.username)")
-            .accessibilityHint("Opens recipe detail")
+            .accessibilityLabel(recipe.title)
+            .accessibilityHint("By @\(recipe.chef.username). Opens recipe detail")
 
             leadLink(
                 title: "Start Cooking",

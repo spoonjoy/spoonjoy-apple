@@ -133,6 +133,23 @@ struct NativeMobileDesignContractTests {
             ]
         )
         #expect(kitchen.components(separatedBy: ".dynamicTypeSize(accessibilityPresentationRange)").count - 1 == 1)
+
+        let recipeLead = try mobileDesignSourceSlice(
+            kitchen,
+            from: "struct RecipeLead: View",
+            to: "struct RecipeIndex: View"
+        )
+        expectContent(
+            recipeLead,
+            in: kitchenPath,
+            contains: [
+                ".accessibilityLabel(recipe.title)",
+                ".accessibilityHint(\"By @\\(recipe.chef.username). Opens recipe detail\")"
+            ],
+            forbids: [
+                ".accessibilityLabel(\"\\(recipe.title), by @\\(recipe.chef.username)\")"
+            ]
+        )
     }
 
     @Test("authored headers adapt without duplicate accessibility text trees")
