@@ -669,7 +669,7 @@ struct NativeMobileDesignContractTests {
                 "NavigationStack",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.bone.ignoresSafeArea())",
-                ".navigationBarTitleDisplayMode(.inline)"
+                ".toolbarTitleDisplayMode(.inline)"
             ],
             forbids: [
                 "compactBottomChrome",
@@ -2417,7 +2417,7 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                ".navigationBarTitleDisplayMode(.inline)",
+                ".toolbarTitleDisplayMode(.inline)",
                 ".navigationTitle(compactNavigationTitle(for: compactRootRoute(for: section)))",
                 ".navigationTitle(compactNavigationTitle(for: route))"
             ],
