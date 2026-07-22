@@ -63,9 +63,12 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     assert_equal JOB, manifest.dig("identity", "workflowJob")
     assert_equal ROUTES, manifest.dig("matrix", "routes").map { |route| route.fetch("name") }
     kitchen = manifest.dig("matrix", "routes").find { |route| route.fetch("name") == "kitchen" }
-    assert_equal %w[iosAccessibility iosMobile iosTablet], kitchen.fetch("deepScrollScreenshots").keys.sort
+    expected_deep_scroll_keys = %w[
+      iosAccessibility iosMobile iosTablet iosTabletAccessibility iosTabletXXXL iosXXXL macosDesktop
+    ]
+    assert_equal expected_deep_scroll_keys, kitchen.fetch("deepScrollScreenshots").keys.sort
     recipes = manifest.dig("matrix", "routes").find { |route| route.fetch("name") == "recipes" }
-    assert_equal %w[iosAccessibility iosMobile iosTablet], recipes.fetch("deepScrollScreenshots").keys.sort
+    assert_equal expected_deep_scroll_keys, recipes.fetch("deepScrollScreenshots").keys.sort
     assert manifest.fetch("files").all? { |entry| entry.fetch("sha256").match?(/\A[0-9a-f]{64}\z/) }
 
     verify = run_tool("verify", *verify_arguments)
@@ -80,6 +83,30 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     result = run_tool("seal", *seal_arguments)
     refute result.success?
     assert_includes result.output, "deep-scroll screenshot"
+  end
+
+  def test_rejects_missing_xxxl_primary_screenshot
+    @artifact_root.join("screenshots/ios-mobile-xxxl.png").delete
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "iosXXXL"
+  end
+
+  def test_rejects_missing_macos_terminal_screenshot_for_a_long_route
+    @artifact_root.join("screenshots/macos-desktop-deep-scroll.png").delete
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "macosDesktop"
+  end
+
+  def test_rejects_missing_xxxl_deep_scroll_readiness_proof
+    @artifact_root.join("apple/accessibility-ios-xxxl-deep-scroll.json").delete
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "deepScrollAccessibilityProofArtifacts"
   end
 
   def test_rejects_recipe_covers_without_the_action_state_fixture
@@ -503,8 +530,11 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     route_root = route == ROUTES.first ? @artifact_root : @artifact_root.join("screenshot-routes", route)
     screenshot_paths = {
       "iosMobile" => "screenshots/ios-mobile.png",
+      "iosXXXL" => "screenshots/ios-mobile-xxxl.png",
       "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
       "iosTablet" => "screenshots/ios-tablet.png",
+      "iosTabletXXXL" => "screenshots/ios-tablet-xxxl.png",
+      "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility.png",
       "macosDesktop" => "screenshots/macos-desktop.png"
     }
     screenshot_paths.each_value do |relative_path|
@@ -514,8 +544,12 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     end
     deep_scroll_paths = {
       "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+      "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
       "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
-      "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+      "iosTablet" => "screenshots/ios-tablet-deep-scroll.png",
+      "iosTabletXXXL" => "screenshots/ios-tablet-xxxl-deep-scroll.png",
+      "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility-deep-scroll.png",
+      "macosDesktop" => "screenshots/macos-desktop-deep-scroll.png"
     }
     if DEEP_SCROLL_ROUTES.include?(capture_route_for(route))
       deep_scroll_paths.each_value do |relative_path|
@@ -524,18 +558,25 @@ class TestFlightVisualEvidenceTest < Minitest::Test
         path.binwrite(png_bytes("#{route}:#{relative_path}"))
       end
     end
-    proof_paths = %w[
-      apple/accessibility-ios.json apple/accessibility-ipad.json apple/accessibility-macos.json
-      apple/observed-ios.json apple/observed-ios-ax.json apple/observed-ipad.json apple/observed-macos.json
+    accessibility_proof_paths = %w[
+      apple/accessibility-ios.json apple/accessibility-ios-xxxl.json apple/accessibility-ios-ax.json
+      apple/accessibility-ipad.json apple/accessibility-ipad-xxxl.json apple/accessibility-ipad-ax.json
+      apple/accessibility-macos.json
     ]
+    observed_proof_paths = %w[
+      apple/observed-ios.json apple/observed-ios-xxxl.json apple/observed-ios-ax.json
+      apple/observed-ipad.json apple/observed-ipad-xxxl.json apple/observed-ipad-ax.json
+      apple/observed-macos.json
+    ]
+    proof_paths = accessibility_proof_paths + observed_proof_paths
     proof_paths.each do |relative_path|
       write_json(route_root.join(relative_path), "route" => route, "proof" => relative_path)
     end
 
     review = {
       "screenshotRoute" => capture_route_for(route),
-      "accessibilityProofArtifacts" => proof_paths.first(3),
-      "observedAccessibilityEvidenceArtifacts" => proof_paths.drop(3),
+      "accessibilityProofArtifacts" => accessibility_proof_paths,
+      "observedAccessibilityEvidenceArtifacts" => observed_proof_paths,
       "accessibilityContentSizeScreenshot" => screenshot_paths.fetch("iosAccessibility"),
       "blockers" => [],
       "screenshotArtifacts" => screenshot_paths.transform_values do |relative_path|
@@ -543,6 +584,15 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       end
     }
     if DEEP_SCROLL_ROUTES.include?(capture_route_for(route))
+      deep_scroll_proof_paths = %w[
+        apple/accessibility-ios-deep-scroll.json apple/accessibility-ios-xxxl-deep-scroll.json
+        apple/accessibility-ios-ax-deep-scroll.json apple/accessibility-ipad-deep-scroll.json
+        apple/accessibility-ipad-xxxl-deep-scroll.json apple/accessibility-ipad-ax-deep-scroll.json
+      ]
+      deep_scroll_proof_paths.each do |relative_path|
+        write_json(route_root.join(relative_path), "route" => route, "proof" => relative_path)
+      end
+      review["deepScrollAccessibilityProofArtifacts"] = deep_scroll_proof_paths
       review["deepScrollScreenshotArtifacts"] = deep_scroll_paths.transform_values do |relative_path|
         artifact_entry(route_root.join(relative_path), relative_path)
       end
@@ -564,8 +614,11 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       "designReview" => artifact_entry(review_path, review_path.to_s),
       "designReviewBlocked" => { "path" => route_root.join("design-review-blocked.json").to_s, "exists" => false },
       "iosScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosMobile")), route_root.join(screenshot_paths.fetch("iosMobile")).to_s),
+      "iosXXXLScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosXXXL")), route_root.join(screenshot_paths.fetch("iosXXXL")).to_s),
       "iosAccessibilityScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosAccessibility")), route_root.join(screenshot_paths.fetch("iosAccessibility")).to_s),
       "iosTabletScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosTablet")), route_root.join(screenshot_paths.fetch("iosTablet")).to_s),
+      "iosTabletXXXLScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosTabletXXXL")), route_root.join(screenshot_paths.fetch("iosTabletXXXL")).to_s),
+      "iosTabletAccessibilityScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosTabletAccessibility")), route_root.join(screenshot_paths.fetch("iosTabletAccessibility")).to_s),
       "macosScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("macosDesktop")), route_root.join(screenshot_paths.fetch("macosDesktop")).to_s)
     }
   end

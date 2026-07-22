@@ -39,22 +39,32 @@ module TestFlightVisualEvidence
   end.freeze
   SCREENSHOTS = {
     "iosMobile" => ["iosScreenshot", "screenshots/ios-mobile.png"],
+    "iosXXXL" => ["iosXXXLScreenshot", "screenshots/ios-mobile-xxxl.png"],
     "iosAccessibility" => ["iosAccessibilityScreenshot", "screenshots/ios-mobile-accessibility.png"],
     "iosTablet" => ["iosTabletScreenshot", "screenshots/ios-tablet.png"],
+    "iosTabletXXXL" => ["iosTabletXXXLScreenshot", "screenshots/ios-tablet-xxxl.png"],
+    "iosTabletAccessibility" => ["iosTabletAccessibilityScreenshot", "screenshots/ios-tablet-accessibility.png"],
     "macosDesktop" => ["macosScreenshot", "screenshots/macos-desktop.png"]
   }.freeze
   DEEP_SCROLL_SCREENSHOTS = {
     "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+    "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
     "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
-    "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+    "iosTablet" => "screenshots/ios-tablet-deep-scroll.png",
+    "iosTabletXXXL" => "screenshots/ios-tablet-xxxl-deep-scroll.png",
+    "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility-deep-scroll.png",
+    "macosDesktop" => "screenshots/macos-desktop-deep-scroll.png"
   }.freeze
   DEEP_SCROLL_ROUTES = %w[
     kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log
     cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings
   ].freeze
   REQUIRED_PROOF_ARRAYS = {
-    "accessibilityProofArtifacts" => 3,
-    "observedAccessibilityEvidenceArtifacts" => 4
+    "accessibilityProofArtifacts" => 7,
+    "observedAccessibilityEvidenceArtifacts" => 7
+  }.freeze
+  DEEP_SCROLL_PROOF_ARRAYS = {
+    "deepScrollAccessibilityProofArtifacts" => 6
   }.freeze
   OPTIONAL_PROOF_ARRAYS = %w[settingsSurfaceProofArtifacts searchSurfaceProofArtifacts].freeze
   MATRIX_EMPTY_ARRAYS = %w[
@@ -408,6 +418,17 @@ module TestFlightVisualEvidence
         end
         proofs.concat(seal_proofs(name, route_root, key, values))
       end
+      if DEEP_SCROLL_ROUTES.include?(row.fetch("route"))
+        DEEP_SCROLL_PROOF_ARRAYS.each do |key, expected_count|
+          values = design[key]
+          unless values.is_a?(Array) && values.length == expected_count
+            raise Error, "route #{name} #{key} must contain #{expected_count} proofs"
+          end
+          proofs.concat(seal_proofs(name, route_root, key, values))
+        end
+      elsif DEEP_SCROLL_PROOF_ARRAYS.keys.any? { |key| design.key?(key) }
+        raise Error, "route #{name} must not claim deep-scroll proofs"
+      end
       OPTIONAL_PROOF_ARRAYS.each do |key|
         next unless design.key?(key)
         values = design[key]
@@ -716,7 +737,7 @@ module TestFlightVisualEvidence
           raise Error, "route #{route_name} must not claim deep-scroll screenshots"
         end
         proofs = route["proofs"]
-        raise Error, "route #{route_name} proof set is incomplete" unless proofs.is_a?(Array) && proofs.length >= 7
+        raise Error, "route #{route_name} proof set is incomplete" unless proofs.is_a?(Array)
         proofs.each do |reference|
           path = require_file_reference!(reference, files, "route #{route_name} proof", referenced)
           proof = TestFlightVisualEvidence.parse_json(path, "route #{route_name} proof")
@@ -731,6 +752,19 @@ module TestFlightVisualEvidence
           expected_proofs.concat(values.map do |value|
             portable_from_design_relative(design_reference, value, "route #{route_name} #{key}")
           end)
+        end
+        if DEEP_SCROLL_ROUTES.include?(route.fetch("route"))
+          DEEP_SCROLL_PROOF_ARRAYS.each do |key, expected_count|
+            values = design[key]
+            unless values.is_a?(Array) && values.length == expected_count
+              raise Error, "route #{route_name} #{key} must contain #{expected_count} proofs"
+            end
+            expected_proofs.concat(values.map do |value|
+              portable_from_design_relative(design_reference, value, "route #{route_name} #{key}")
+            end)
+          end
+        elsif DEEP_SCROLL_PROOF_ARRAYS.keys.any? { |key| design.key?(key) }
+          raise Error, "route #{route_name} must not claim deep-scroll proofs"
         end
         OPTIONAL_PROOF_ARRAYS.each do |key|
           next unless design.key?(key)
