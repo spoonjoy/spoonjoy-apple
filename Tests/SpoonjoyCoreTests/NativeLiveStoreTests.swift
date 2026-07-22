@@ -29,14 +29,23 @@ struct NativeLiveStoreTests {
             )
 
             await liveStore.recordSearchTelemetry(descriptor)
+            await liveStore.recordRecipeDetailTelemetry(.cookHistoryEnrichmentFailed(
+                error: NativeLiveStoreTestError.unexpectedRequest
+            ))
 
-            let event = try #require(await telemetryRecorder.recordedEvents().first)
+            let events = await telemetryRecorder.recordedEvents()
+            let event = try #require(events.first)
             #expect(event.name == .searchStarted)
             #expect(event.environment == "production")
             #expect(event.metadata == NativeTelemetryAppMetadata(platform: "ios", appVersion: "2.0", buildNumber: "99"))
             #expect(event.searchScope == "recipes")
             #expect(event.searchQueryLength == 13)
             #expect(event.hasRenderableCacheContent == true)
+            let recipeEvent = try #require(events.last)
+            #expect(recipeEvent.name == .syncFailed)
+            #expect(recipeEvent.stage == "recipe_detail.cook_history_enrichment")
+            #expect(recipeEvent.route == "recipe_detail")
+            #expect(recipeEvent.hasRenderableCacheContent == true)
             #expect(await telemetryRecorder.recordedConfigurations().first?.baseURL == APIClientConfiguration.spoonjoyProduction.baseURL)
         }
     }

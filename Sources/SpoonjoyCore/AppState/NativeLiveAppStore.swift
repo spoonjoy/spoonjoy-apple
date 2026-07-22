@@ -3248,6 +3248,16 @@ public final class NativeLiveAppStore: ObservableObject {
         )
     }
 
+    public func recordRecipeDetailTelemetry(_ descriptor: NativeRecipeDetailTelemetryDescriptor) async {
+        await dependencies.nativeTelemetryReport(
+            descriptor.telemetryEvent(
+                environment: cacheEnvironment.rawValue,
+                metadata: dependencies.nativeTelemetryMetadata
+            ),
+            configuration
+        )
+    }
+
     private func reportNativeTelemetry(
         name: NativeTelemetryEvent.Name,
         stage: String,

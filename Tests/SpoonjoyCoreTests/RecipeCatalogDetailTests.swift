@@ -742,10 +742,69 @@ struct RecipeCatalogDetailTests {
                 bearerToken: "sj_private_token"
             )
         )
-        let body = try #require(request.httpBody)
+        let body = try #require(request.body)
         let payload = String(decoding: body, as: UTF8.self)
         #expect(payload.contains("recipe_detail.cook_history_enrichment"))
         #expect(!payload.contains(recipe.id))
+    }
+
+    @Test("cook history telemetry preserves bounded transport diagnostics without messages")
+    func cookHistoryTelemetryPreservesBoundedTransportDiagnosticsWithoutMessages() {
+        let longRequestID = String(repeating: "r", count: 200)
+        let longCode = String(repeating: "c", count: 100)
+        let direct = NativeRecipeDetailTelemetryDescriptor.cookHistoryEnrichmentFailed(error: APITransportError(
+            kind: .networkFailure,
+            requestID: longRequestID,
+            statusCode: 503,
+            apiError: APIError(
+                requestID: "req_fallback",
+                code: longCode,
+                message: "private response message",
+                status: 502
+            ),
+            retryDecision: .retrySameRequest(afterSeconds: 7)
+        ))
+        #expect(direct.requestID?.count == 160)
+        #expect(direct.status == 503)
+        #expect(direct.apiCode?.count == 80)
+        #expect(direct.retry == "retry_same_request:7")
+
+        let fallback = NativeRecipeDetailTelemetryDescriptor.cookHistoryEnrichmentFailed(error: APITransportError(
+            kind: .apiError,
+            requestID: nil,
+            statusCode: nil,
+            apiError: APIError(
+                requestID: "req_from_api_error",
+                code: "token_expired",
+                message: "private token detail",
+                status: 401
+            ),
+            retryDecision: .refreshAuthentication
+        ))
+        #expect(fallback.requestID == "req_from_api_error")
+        #expect(fallback.status == 401)
+        #expect(fallback.apiCode == "token_expired")
+        #expect(fallback.retry == "refresh_authentication")
+
+        let unspecified = NativeRecipeDetailTelemetryDescriptor.cookHistoryEnrichmentFailed(error: APITransportError(
+            kind: .offline,
+            requestID: "   ",
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: nil)
+        ))
+        #expect(unspecified.requestID == nil)
+        #expect(unspecified.apiCode == nil)
+        #expect(unspecified.retry == "retry_same_request:unspecified")
+
+        let terminal = NativeRecipeDetailTelemetryDescriptor.cookHistoryEnrichmentFailed(error: APITransportError(
+            kind: .nonJSONResponse,
+            requestID: nil,
+            statusCode: 500,
+            apiError: nil,
+            retryDecision: .doNotRetry
+        ))
+        #expect(terminal.retry == "do_not_retry")
     }
 
     @Test("progressive recipe detail propagates cancellation after publishing recipe content")

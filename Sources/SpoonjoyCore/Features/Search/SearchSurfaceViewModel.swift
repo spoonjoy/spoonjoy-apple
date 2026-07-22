@@ -73,13 +73,14 @@ public struct SearchSurfaceContext: Equatable, Hashable, Sendable {
 public enum NativeSearchTelemetryOutcome: String, Equatable, Sendable {
     case started
     case completed
+    case cancelled
     case failed
 
     fileprivate var eventName: NativeTelemetryEvent.Name {
         switch self {
         case .started: .searchStarted
         case .completed: .searchCompleted
-        case .failed: .searchFailed
+        case .cancelled, .failed: .searchFailed
         }
     }
 }
@@ -136,6 +137,22 @@ public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
             durationMilliseconds: durationMilliseconds,
             requestID: nil,
             errorType: sanitizedErrorType(error),
+            hasCachedResults: hasCachedResults
+        )
+    }
+
+    public static func cancelled(
+        state: SearchState,
+        durationMilliseconds: Int,
+        hasCachedResults: Bool
+    ) -> Self {
+        Self(
+            outcome: .cancelled,
+            state: state,
+            resultCount: nil,
+            durationMilliseconds: durationMilliseconds,
+            requestID: nil,
+            errorType: "cancelled",
             hasCachedResults: hasCachedResults
         )
     }
@@ -405,15 +422,18 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
         let recoveredSections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
         sections = recoveredSections
-        let recoveredEmptyState = cachedPage.map { _ in
+        let renderedErrorState = recoveredSections.isEmpty ? Self.errorState(error) : nil
+        let recoveredEmptyState: SearchSurfaceEmptyState? = if renderedErrorState == nil, cachedPage != nil {
             Self.emptyState(
                 hasRenderedResults: !recoveredSections.isEmpty,
                 state: state,
                 context: context
             )
-        } ?? nil
+        } else {
+            nil
+        }
         emptyState = recoveredEmptyState
-        errorState = recoveredSections.isEmpty ? Self.errorState(error) : nil
+        errorState = renderedErrorState
         self.offlineIndicator = offlineIndicator ?? Self.offlineIndicator(
             error: error,
             state: state,

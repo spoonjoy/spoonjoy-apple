@@ -232,6 +232,9 @@ struct SpoonjoyRootView: View {
             recordSearchTelemetry: { descriptor in
                 await liveStore.recordSearchTelemetry(descriptor)
             },
+            recordRecipeDetailTelemetry: { descriptor in
+                await liveStore.recordRecipeDetailTelemetry(descriptor)
+            },
             syncTriggerCoordinator: liveStore.syncTriggerCoordinator,
             purgeShoppingEntityIndexes: { request in
                 await liveStore.purgeShoppingEntityIdentifiers(

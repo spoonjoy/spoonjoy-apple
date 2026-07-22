@@ -53,9 +53,7 @@ struct SearchView: View {
                     message: errorState.message,
                     systemImage: errorState.systemImage
                 )
-            }
-
-            if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
+            } else if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
                 SearchSurfaceMessageView(
                     title: emptyState.title,
                     message: emptyState.message,

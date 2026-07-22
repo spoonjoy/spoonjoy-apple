@@ -377,16 +377,85 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
     }
 }
 
+public struct NativeRecipeDetailTelemetryDescriptor: Equatable, Sendable {
+    public let stage: String
+    public let errorType: String
+    public let requestID: String?
+    public let status: Int?
+    public let apiCode: String?
+    public let retry: String?
+
+    public static func cookHistoryEnrichmentFailed(error: Error) -> Self {
+        let transportError = error as? APITransportError
+        return Self(
+            stage: "recipe_detail.cook_history_enrichment",
+            errorType: bounded(String(describing: Swift.type(of: error)), limit: 80),
+            requestID: bounded(transportError?.requestID ?? transportError?.apiError?.requestID, limit: 160),
+            status: transportError?.statusCode ?? transportError?.apiError?.status,
+            apiCode: bounded(transportError?.apiError?.code, limit: 80),
+            retry: transportError.map { retryDescription($0.retryDecision) }
+        )
+    }
+
+    public func telemetryEvent(
+        environment: String,
+        metadata: NativeTelemetryAppMetadata
+    ) -> NativeTelemetryEvent {
+        NativeTelemetryEvent(
+            name: .syncFailed,
+            stage: stage,
+            environment: environment,
+            metadata: metadata,
+            route: "recipe_detail",
+            errorType: errorType,
+            requestID: requestID,
+            status: status,
+            apiCode: apiCode,
+            retry: retry,
+            hasRenderableCacheContent: true
+        )
+    }
+
+    private static func bounded(_ value: String?, limit: Int) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+        return String(value.prefix(limit))
+    }
+
+    private static func bounded(_ value: String, limit: Int) -> String {
+        String(value.prefix(limit))
+    }
+
+    private static func retryDescription(_ decision: APIRetryDecision) -> String {
+        switch decision {
+        case .retrySameRequest(let seconds):
+            "retry_same_request:\(seconds.map(String.init) ?? "unspecified")"
+        case .refreshAuthentication:
+            "refresh_authentication"
+        case .doNotRetry:
+            "do_not_retry"
+        }
+    }
+}
+
+public typealias NativeRecipeDetailTelemetryReportOperation = @Sendable (
+    NativeRecipeDetailTelemetryDescriptor
+) async -> Void
+
 public struct RecipeDetailProgressiveLoader: Sendable {
     private let recipeRepository: any RecipeCatalogRepository
     private let spoonRepository: any SpoonCookLogRepository
+    private let reportTelemetry: NativeRecipeDetailTelemetryReportOperation
 
     public init(
         recipeRepository: any RecipeCatalogRepository,
-        spoonRepository: any SpoonCookLogRepository
+        spoonRepository: any SpoonCookLogRepository,
+        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation = { _ in }
     ) {
         self.recipeRepository = recipeRepository
         self.spoonRepository = spoonRepository
+        self.reportTelemetry = reportTelemetry
     }
 
     public func load(
@@ -406,8 +475,10 @@ public struct RecipeDetailProgressiveLoader: Sendable {
             await onRecipe(enrichedResult)
         } catch is CancellationError {
             throw CancellationError()
+        } catch let error as APITransportError where error.isCancelled {
+            throw CancellationError()
         } catch {
-            // Recipe content is already visible; history enrichment is best-effort.
+            await reportTelemetry(.cookHistoryEnrichmentFailed(error: error))
         }
     }
 

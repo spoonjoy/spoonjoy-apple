@@ -49,6 +49,7 @@ struct PlatformNavigationView: View {
     private let recordSearchSurfacePageHandler: @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void
     private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
     private let recordSearchTelemetryHandler: @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void
+    private let recordRecipeDetailTelemetryHandler: @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void
     private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
     private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
     private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
@@ -85,6 +86,7 @@ struct PlatformNavigationView: View {
         recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
         recordSearchTelemetry: @escaping @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void,
+        recordRecipeDetailTelemetry: @escaping @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
         purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
         purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
@@ -120,6 +122,7 @@ struct PlatformNavigationView: View {
         self.recordSearchSurfacePageHandler = recordSearchSurfacePage
         self.searchSurfaceRepositoryHandler = searchSurfaceRepository
         self.recordSearchTelemetryHandler = recordSearchTelemetry
+        self.recordRecipeDetailTelemetryHandler = recordRecipeDetailTelemetry
         self.syncTriggerCoordinator = syncTriggerCoordinator
         self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
         self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
@@ -538,6 +541,7 @@ struct PlatformNavigationView: View {
                 initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
                 loadingTitle: recipeLoadingTitle(id: id),
                 onRecipeLoaded: recordLoadedRecipe,
+                reportTelemetry: recordRecipeDetailTelemetryHandler,
                 actionConnectivity: recipeActionConnectivity,
                 shoppingViewModel: shoppingViewModel,
                 context: recipeDetailContext(for:),
@@ -1085,6 +1089,11 @@ struct PlatformNavigationView: View {
                 )
             )
         } catch SearchSurfaceRepositoryError.cancelled {
+            reportSearchTelemetry(.cancelled(
+                state: nextSearch,
+                durationMilliseconds: elapsedMilliseconds(since: searchStartedAt),
+                hasCachedResults: !cachedPage.results.isEmpty
+            ))
             clearLiveSearchRequestMarker(requestMarker)
             return
         } catch let error as SearchSurfaceRepositoryError {

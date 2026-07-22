@@ -16,6 +16,7 @@ struct RecipeDetailRouteView: View {
     let snapshotViewModel: RecipeDetailScreenViewModel?
     let loadingTitle: String?
     let onRecipeLoaded: @MainActor @Sendable (Recipe) -> Void
+    let reportTelemetry: NativeRecipeDetailTelemetryReportOperation
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
     let context: (Recipe) -> RecipeDetailContext
@@ -41,6 +42,7 @@ struct RecipeDetailRouteView: View {
         initialViewModel: RecipeDetailScreenViewModel?,
         loadingTitle: String? = nil,
         onRecipeLoaded: @escaping @MainActor @Sendable (Recipe) -> Void = { _ in },
+        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation = { _ in },
         actionConnectivity: RecipeActionConnectivity,
         shoppingViewModel: ShoppingSurfaceViewModel,
         context: @escaping (Recipe) -> RecipeDetailContext,
@@ -61,6 +63,7 @@ struct RecipeDetailRouteView: View {
         snapshotViewModel = initialViewModel
         self.loadingTitle = loadingTitle
         self.onRecipeLoaded = onRecipeLoaded
+        self.reportTelemetry = reportTelemetry
         self.actionConnectivity = actionConnectivity
         self.shoppingViewModel = shoppingViewModel
         self.context = context
@@ -127,7 +130,8 @@ struct RecipeDetailRouteView: View {
         do {
             let loader = RecipeDetailProgressiveLoader(
                 recipeRepository: repository,
-                spoonRepository: spoonRepository
+                spoonRepository: spoonRepository,
+                reportTelemetry: reportTelemetry
             )
             try await loader.load(recipeID: recipeID) { result in
                 publishLoadedRecipe(result)
