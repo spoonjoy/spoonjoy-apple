@@ -114,6 +114,8 @@ ios_accessibility_proof_runtime_path=""
 screenshot_proof_path=""
 screenshot_run_nonce=""
 macos_screenshot_pid=""
+macos_display_assertion_pid=""
+macos_display_wake_pid=""
 ios_state_directory=""
 screenshot_route="kitchen"
 shopping_capture_variant="normal"
@@ -635,6 +637,36 @@ run_cleanup_command() {
     printf 'cleanup timeout while running %s\n' "$description" >> "$capture_log"
   fi
   return "$status"
+}
+
+start_macos_display_assertion() {
+  if ! command -v caffeinate >/dev/null 2>&1; then
+    printf 'caffeinate is unavailable; macOS screenshot capture cannot keep the display awake\n' >> "$capture_log"
+    return 1
+  fi
+
+  caffeinate -d -i -w "$$" >> "$capture_log" 2>&1 &
+  macos_display_assertion_pid="$!"
+  caffeinate -u -t 5 >> "$capture_log" 2>&1 &
+  macos_display_wake_pid="$!"
+  sleep 0.1
+  if ! kill -0 "$macos_display_assertion_pid" >/dev/null 2>&1 \
+    || ! kill -0 "$macos_display_wake_pid" >/dev/null 2>&1; then
+    printf 'caffeinate display assertion exited before macOS screenshot capture\n' >> "$capture_log"
+    kill -TERM "$macos_display_assertion_pid" "$macos_display_wake_pid" >/dev/null 2>&1 || true
+    macos_display_assertion_pid=""
+    macos_display_wake_pid=""
+    return 1
+  fi
+}
+
+stop_macos_display_assertion() {
+  [[ -z "$macos_display_assertion_pid" ]] || kill -TERM "$macos_display_assertion_pid" >/dev/null 2>&1 || true
+  [[ -z "$macos_display_wake_pid" ]] || kill -TERM "$macos_display_wake_pid" >/dev/null 2>&1 || true
+  [[ -z "$macos_display_assertion_pid" ]] || wait "$macos_display_assertion_pid" >/dev/null 2>&1 || true
+  [[ -z "$macos_display_wake_pid" ]] || wait "$macos_display_wake_pid" >/dev/null 2>&1 || true
+  macos_display_assertion_pid=""
+  macos_display_wake_pid=""
 }
 
 write_design_review_success() {
@@ -2870,7 +2902,7 @@ rm -f "$design_review_blocked"
 rm -f "$design_review"
 rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker" "$macos_accessibility_blocker"
 rm -f "$observed_accessibility_macos_diagnostic"
-trap cleanup_uncommitted_ios_generation EXIT
+trap 'stop_macos_display_assertion; cleanup_uncommitted_ios_generation' EXIT
 
 ios_udid=""
 ipad_udid=""
@@ -2891,7 +2923,16 @@ fi
 if [[ ! -f "$xcode_blocker" ]]; then
   run_ios_smoke "iPad simulator" "ipad" "$ipad_smoke_log" "$ipad_blocker"
 fi
-if [[ ! -f "$xcode_blocker" ]]; then
+if [[ ! -f "$xcode_blocker" ]] && ! start_macos_display_assertion; then
+  write_blocker \
+    "$macos_blocker" \
+    "MacOSDisplayWake" \
+    "caffeinate -d -i -w <capture-pid> and caffeinate -u -t 5" \
+    "$capture_log" \
+    "The capture host could not wake and hold the macOS display for deterministic screenshot evidence." \
+    "Repair the host caffeinate capability and rerun screenshot capture."
+fi
+if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   run_smoke "macOS launch" "$macos_smoke_log" "$macos_blocker" scripts/smoke-macos.sh
 fi
 
@@ -3002,7 +3043,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       rm -f "$auth_file"
     fi
   }
-  trap 'restore_capture_state || true; cleanup_uncommitted_ios_generation' EXIT
+  trap 'restore_capture_state || true; stop_macos_display_assertion; cleanup_uncommitted_ios_generation' EXIT
   if ! terminate_macos_app_and_confirm_stopped; then
     write_blocker \
       "$macos_blocker" \

@@ -1295,20 +1295,22 @@ struct SettingsTokenConnectionTests {
 
         let macApp = try readRepoFile("Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift")
         for token in [
-            "Window(\"Spoonjoy\", id: \"main\")",
+            "WindowGroup(\"Spoonjoy\", id: \"main\")",
             ".frame(minWidth: 900, minHeight: 620)",
             ".defaultSize(width: 1040, height: 760)",
             ".windowResizability(.contentMinSize)",
             ".restorationBehavior(.disabled)",
             ".defaultLaunchBehavior(.presented)",
+            "CommandGroup(replacing: .newItem)",
             "SPOONJOY_MAC_LAUNCH_PROOF_PATH",
             "SpoonjoyMacLaunchProof.record",
+            "scene-body-evaluated",
             "delegate-did-finish-launching"
         ] {
             #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
         }
         for forbidden in [
-            "WindowGroup",
+            "Window(\"Spoonjoy\", id: \"main\")",
             "SpoonjoyMacMainWindowCoordinator",
             "fallbackWindow",
             "NSHostingController",

@@ -11,7 +11,8 @@ struct SpoonjoyMacApp: App {
     }
 
     var body: some Scene {
-        Window("Spoonjoy", id: "main") {
+        let _ = SpoonjoyMacLaunchProof.record("scene-body-evaluated")
+        WindowGroup("Spoonjoy", id: "main") {
             SpoonjoyRootView()
                 .frame(minWidth: 900, minHeight: 620)
         }
@@ -19,6 +20,9 @@ struct SpoonjoyMacApp: App {
         .windowResizability(.contentMinSize)
         .restorationBehavior(.disabled)
         .defaultLaunchBehavior(.presented)
+        .commands {
+            CommandGroup(replacing: .newItem) { }
+        }
     }
 }
 
