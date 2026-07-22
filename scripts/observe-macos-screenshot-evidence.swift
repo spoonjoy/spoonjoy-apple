@@ -102,6 +102,7 @@ struct AXObservedEvidence: Codable {
 struct AXRouteTerminalExpectation {
     let scrollIdentifier: String
     let terminalIdentifier: String
+    let terminalTitle: String?
     let role: String
     let requiredAction: String?
 }
@@ -352,7 +353,8 @@ func terminalExpectation(for route: String) -> AXRouteTerminalExpectation? {
     case "kitchen":
         AXRouteTerminalExpectation(
             scrollIdentifier: "spoonjoy.page-scroll",
-            terminalIdentifier: "kitchen.cookbook.cookbook_weeknights",
+            terminalIdentifier: "kitchen.cookbook.cookbook_slow_sundays",
+            terminalTitle: "Slow Sundays and Long Simmering Suppers, 0 recipes",
             role: kAXButtonRole as String,
             requiredAction: kAXPressAction as String
         )
@@ -360,6 +362,7 @@ func terminalExpectation(for route: String) -> AXRouteTerminalExpectation? {
         AXRouteTerminalExpectation(
             scrollIdentifier: "recipe-editor.scroll",
             terminalIdentifier: "recipe-editor.delete",
+            terminalTitle: nil,
             role: kAXButtonRole as String,
             requiredAction: kAXPressAction as String
         )
@@ -367,6 +370,7 @@ func terminalExpectation(for route: String) -> AXRouteTerminalExpectation? {
         AXRouteTerminalExpectation(
             scrollIdentifier: "recipe-covers.scroll",
             terminalIdentifier: "recipe-covers.archive.cover_primary",
+            terminalTitle: nil,
             role: kAXStaticTextRole as String,
             requiredAction: nil
         )
@@ -374,6 +378,7 @@ func terminalExpectation(for route: String) -> AXRouteTerminalExpectation? {
         AXRouteTerminalExpectation(
             scrollIdentifier: "profile.scroll",
             terminalIdentifier: "profile.graph.kitchen-visitors",
+            terminalTitle: nil,
             role: kAXButtonRole as String,
             requiredAction: kAXPressAction as String
         )
@@ -420,6 +425,7 @@ func terminalMatches(
     element.map { candidate in
         candidate.role == expectation.role
             && candidate.enabled
+            && expectation.terminalTitle.map { candidate.title == $0 } != false
             && viewport.contains(candidate.frame)
             && expectation.requiredAction.map(candidate.actions.contains) != false
     } ?? false
@@ -615,6 +621,7 @@ func observeDeepScroll(
         let terminalMatches = candidate.map { element in
             element.role == expectation.role
                 && element.enabled
+                && expectation.terminalTitle.map { element.title == $0 } != false
                 && viewport.contains(element.frame)
                 && expectation.requiredAction.map(element.actions.contains) != false
         } ?? false

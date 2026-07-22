@@ -7,12 +7,14 @@ require "pathname"
 
 SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile.png",
+  "iosXXXL" => "screenshots/ios-mobile-xxxl.png",
   "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
   "iosTablet" => "screenshots/ios-tablet.png",
   "macosDesktop" => "screenshots/macos-desktop.png"
 }.freeze
 DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+  "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
   "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
   "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
 }.freeze
@@ -39,10 +41,13 @@ REQUIRED_OBSERVED_IDENTIFIERS = {
   "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
 }.freeze
 REQUIRED_DEEP_SCROLL_TERMINALS = {
-  "kitchen" => "kitchen.cookbook.cookbook_weeknights",
+  "kitchen" => "kitchen.cookbook.cookbook_slow_sundays",
   "recipe-editor" => "recipe-editor.delete",
   "recipe-covers" => "recipe-covers.archive.cover_primary",
   "profile" => "profile.graph.kitchen-visitors"
+}.freeze
+REQUIRED_DEEP_SCROLL_TERMINAL_LABELS = {
+  "kitchen" => "Slow Sundays and Long Simmering Suppers, 0 recipes"
 }.freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 EXPECTED_CAPTURE_VARIANTS = ["empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
@@ -487,7 +492,11 @@ def validate_readiness_handshake!(evidence_path, handshake, readiness_binding, r
   fail_check("#{evidence_path} #{capture_phase} readinessHandshake must be an object") unless handshake.is_a?(Hash)
   readiness = readiness_binding.fetch(:proof)
   generation = readiness["readinessGeneration"]
-  observer_suffix = readiness["observedDynamicTypeSize"] == "large" ? readiness["platform"] : "#{readiness["platform"]}-ax"
+  observer_suffix = case readiness["observedDynamicTypeSize"]
+                    when "large" then readiness["platform"]
+                    when "xxxLarge" then "#{readiness["platform"]}-xxxl"
+                    else "#{readiness["platform"]}-ax"
+                    end
   proof_filename = "native-accessibility-proof.observer-#{observer_suffix}-#{readiness["captureRunNonce"]}.generation-#{generation}.json"
   expected = {
     "captureRunNonce" => readiness["captureRunNonce"],
@@ -500,6 +509,26 @@ def validate_readiness_handshake!(evidence_path, handshake, readiness_binding, r
   expected.each do |field, value|
     fail_check("#{evidence_path} #{capture_phase} readiness handshake #{field} mismatch") unless handshake[field] == value
   end
+  process_identifier = handshake["applicationProcessIdentifier"]
+  fail_check("#{evidence_path} #{capture_phase} readiness handshake applicationProcessIdentifier must be positive") unless process_identifier.is_a?(Integer) && process_identifier.positive?
+end
+
+def validate_capture_identity!(evidence_path, identity, handshake, capture_phase, screenshot_sha256)
+  fail_check("#{evidence_path} #{capture_phase} captureIdentity must be an object") unless identity.is_a?(Hash)
+  expected_keys = %w[
+    applicationBundleIdentifier applicationProcessIdentifier captureID capturePhase captureRunNonce
+    foregroundAfterCapture foregroundBeforeCapture schema screenshotSHA256
+  ]
+  fail_check("#{evidence_path} #{capture_phase} captureIdentity fields must be exact") unless identity.keys.sort == expected_keys.sort
+  uuid_pattern = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
+  fail_check("#{evidence_path} #{capture_phase} capture ID must be a UUID") unless identity["captureID"].is_a?(String) && identity["captureID"].match?(uuid_pattern)
+  fail_check("#{evidence_path} #{capture_phase} capture schema mismatch") unless identity["schema"] == "iosObservedCaptureV1"
+  fail_check("#{evidence_path} #{capture_phase} capture phase mismatch") unless identity["capturePhase"] == capture_phase
+  fail_check("#{evidence_path} #{capture_phase} capture nonce mismatch") unless identity["captureRunNonce"] == handshake["captureRunNonce"]
+  fail_check("#{evidence_path} #{capture_phase} capture bundle mismatch") unless identity["applicationBundleIdentifier"] == "app.spoonjoy"
+  fail_check("#{evidence_path} #{capture_phase} capture process mismatch") unless identity["applicationProcessIdentifier"] == handshake["applicationProcessIdentifier"]
+  fail_check("#{evidence_path} #{capture_phase} was not foreground before and after capture") unless identity["foregroundBeforeCapture"] == true && identity["foregroundAfterCapture"] == true
+  fail_check("#{evidence_path} #{capture_phase} capture screenshot SHA-256 mismatch") unless identity["screenshotSHA256"] == screenshot_sha256
 end
 
 def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path, route, manifest, readiness_bindings, deep_readiness_bindings)
@@ -554,6 +583,7 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     observed_dynamic_type = proof["observedDynamicTypeSize"]
     expected_dynamic_type = {
       "large" => "large",
+      "extra-extra-extra-large" => "xxxLarge",
       "accessibility-extra-extra-extra-large" => "accessibility5"
     }[content_size_category]
     fail_check("#{proof_path} observedContentSizeCategory is unsupported") if expected_dynamic_type.nil?
@@ -569,6 +599,13 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     readiness_binding = readiness_bindings[[platform, observed_dynamic_type]]
     fail_check("#{proof_path} has no readiness artifact for #{platform}/#{observed_dynamic_type}") unless readiness_binding
     validate_readiness_handshake!(proof_path, proof["readinessHandshake"], readiness_binding, route, "initial")
+    validate_capture_identity!(
+      proof_path,
+      proof["captureIdentity"],
+      proof["readinessHandshake"],
+      "initial",
+      expected_initial_screenshot_sha256
+    )
     validate_verified_contrast_false_positives!(
       proof_path,
       proof["verifiedContrastFalsePositives"],
@@ -591,6 +628,10 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     expected_terminal = REQUIRED_DEEP_SCROLL_TERMINALS[route]
     if expected_terminal
       fail_check("#{proof_path} deep scroll did not prove #{expected_terminal}") unless deep_scroll.dig("terminalElement", "identifier") == expected_terminal
+    end
+    expected_terminal_label = REQUIRED_DEEP_SCROLL_TERMINAL_LABELS[route]
+    if expected_terminal_label && platform != "macos"
+      fail_check("#{proof_path} deep scroll did not prove terminal label #{expected_terminal_label}") unless deep_scroll.dig("terminalElement", "label") == expected_terminal_label
     end
     if platform == "macos"
       fail_check("#{proof_path} macOS deep scroll missing route-specific scroll identifier") unless deep_scroll["scrollAreaIdentifier"].is_a?(String) && !deep_scroll["scrollAreaIdentifier"].empty?
@@ -627,6 +668,17 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         route,
         "deep-scroll"
       )
+      validate_capture_identity!(
+        proof_path,
+        deep_scroll["captureIdentity"],
+        deep_scroll["readinessHandshake"],
+        "deepScroll",
+        expected_deep_screenshot_sha256
+      )
+      initial_capture_identity = proof["captureIdentity"]
+      deep_capture_identity = deep_scroll["captureIdentity"]
+      fail_check("#{proof_path} initial and deep-scroll captures must have distinct capture IDs") unless initial_capture_identity["captureID"] != deep_capture_identity["captureID"]
+      fail_check("#{proof_path} initial and deep-scroll captures must use the same app process") unless initial_capture_identity["applicationProcessIdentifier"] == deep_capture_identity["applicationProcessIdentifier"]
       validate_verified_contrast_false_positives!(
         proof_path,
         deep_scroll["verifiedContrastFalsePositives"],
@@ -657,6 +709,8 @@ def expected_screenshot_digest!(manifest_path, manifest, platform, content_size_
           "iosTablet"
         elsif content_size_category == "accessibility-extra-extra-extra-large"
           "iosAccessibility"
+        elsif content_size_category == "extra-extra-extra-large"
+          "iosXXXL"
         else
           "iosMobile"
         end
@@ -735,7 +789,7 @@ fail_check("#{path} screenshotRoute must be one of #{VALID_ROUTES.join(", ")}") 
 
 accessibility_proofs = manifest["accessibilityProofArtifacts"]
 fail_check("#{path} accessibilityProofArtifacts must be an array") unless accessibility_proofs.is_a?(Array)
-fail_check("#{path} accessibilityProofArtifacts must include standard and accessibility iPhone, iPad, and macOS proof artifacts") unless accessibility_proofs.length == 4
+fail_check("#{path} accessibilityProofArtifacts must include standard, XXXL, and accessibility iPhone, iPad, and macOS proof artifacts") unless accessibility_proofs.length == 5
 platforms = []
 readiness_bindings = {}
 accessibility_proofs.each do |proof_relative_path|
@@ -752,13 +806,13 @@ accessibility_proofs.each do |proof_relative_path|
     sha256: Digest::SHA256.hexdigest(proof_bytes)
   }
 end
-fail_check("#{path} accessibilityProofArtifacts must include two ios, one ipad, and one macos platform") unless platforms.sort == ["ios", "ios", "ipad", "macos"]
-fail_check("#{path} iPhone readiness must include large and accessibility5 Dynamic Type") unless readiness_bindings.keys.select { |platform, _| platform == "ios" }.map(&:last).sort == ["accessibility5", "large"]
+fail_check("#{path} accessibilityProofArtifacts must include three ios, one ipad, and one macos platform") unless platforms.sort == ["ios", "ios", "ios", "ipad", "macos"]
+fail_check("#{path} iPhone readiness must include large, xxxLarge, and accessibility5 Dynamic Type") unless readiness_bindings.keys.select { |platform, _| platform == "ios" }.map(&:last).sort == ["accessibility5", "large", "xxxLarge"]
 
 deep_readiness_bindings = {}
 deep_readiness_proofs = manifest["deepScrollAccessibilityProofArtifacts"]
 if COMPACT_DEEP_SCROLL_ROUTES.include?(route)
-  fail_check("#{path} deepScrollAccessibilityProofArtifacts must include standard and accessibility iPhone plus iPad proof artifacts") unless deep_readiness_proofs.is_a?(Array) && deep_readiness_proofs.length == 3
+  fail_check("#{path} deepScrollAccessibilityProofArtifacts must include standard, XXXL, and accessibility iPhone plus iPad proof artifacts") unless deep_readiness_proofs.is_a?(Array) && deep_readiness_proofs.length == 4
   expected_deep_paths = accessibility_proofs.each_with_object([]) do |proof_relative_path, paths|
     proof = JSON.parse(path.dirname.join(proof_relative_path).cleanpath.read)
     paths << proof_relative_path.sub(/\.json\z/, "-deep-scroll.json") unless proof["platform"] == "macos"
@@ -778,15 +832,15 @@ if COMPACT_DEEP_SCROLL_ROUTES.include?(route)
       sha256: Digest::SHA256.hexdigest(proof_bytes)
     }
   end
-  expected_deep_binding_keys = [["ios", "large"], ["ios", "accessibility5"], ["ipad", "large"]]
-  fail_check("#{path} deep-scroll readiness proofs must cover standard and accessibility iPhone plus iPad") unless deep_readiness_bindings.keys.sort == expected_deep_binding_keys.sort
+  expected_deep_binding_keys = [["ios", "large"], ["ios", "xxxLarge"], ["ios", "accessibility5"], ["ipad", "large"]]
+  fail_check("#{path} deep-scroll readiness proofs must cover standard, XXXL, and accessibility iPhone plus iPad") unless deep_readiness_bindings.keys.sort == expected_deep_binding_keys.sort
 elsif !deep_readiness_proofs.nil?
   fail_check("#{path} deepScrollAccessibilityProofArtifacts are only valid for deep-scroll routes")
 end
 
 observed_accessibility_proofs = manifest["observedAccessibilityEvidenceArtifacts"]
 fail_check("#{path} observedAccessibilityEvidenceArtifacts must be an array") unless observed_accessibility_proofs.is_a?(Array)
-fail_check("#{path} observedAccessibilityEvidenceArtifacts must include standard and accessibility iPhone, iPad, and macOS evidence") unless observed_accessibility_proofs.length == 4
+fail_check("#{path} observedAccessibilityEvidenceArtifacts must include standard, XXXL, and accessibility iPhone, iPad, and macOS evidence") unless observed_accessibility_proofs.length == 5
 observed_content_sizes = []
 observed_platforms = observed_accessibility_proofs.map do |proof_relative_path|
   fail_check("#{path} observedAccessibilityEvidenceArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
@@ -795,8 +849,8 @@ observed_platforms = observed_accessibility_proofs.map do |proof_relative_path|
   observed_content_sizes << JSON.parse(proof_path.read)["observedContentSizeCategory"] if platform == "ios"
   platform
 end
-fail_check("#{path} observedAccessibilityEvidenceArtifacts must include two ios, one ipad, and one macos platform") unless observed_platforms.sort == ["ios", "ios", "ipad", "macos"]
-fail_check("#{path} iPhone evidence must include large and accessibility-extra-extra-extra-large content sizes") unless observed_content_sizes.sort == ["accessibility-extra-extra-extra-large", "large"]
+fail_check("#{path} observedAccessibilityEvidenceArtifacts must include three ios, one ipad, and one macos platform") unless observed_platforms.sort == ["ios", "ios", "ios", "ipad", "macos"]
+fail_check("#{path} iPhone evidence must include Large, XXXL, and accessibility XXXL content sizes") unless observed_content_sizes.sort == ["accessibility-extra-extra-extra-large", "extra-extra-extra-large", "large"]
 
 accessibility_screenshot = manifest["accessibilityContentSizeScreenshot"]
 fail_check("#{path} accessibilityContentSizeScreenshot must be a relative path") unless accessibility_screenshot.is_a?(String) && !accessibility_screenshot.empty? && !accessibility_screenshot.start_with?("/")

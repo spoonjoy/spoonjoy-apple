@@ -66,6 +66,23 @@ class DynamicTypeObservationTests(unittest.TestCase):
             )
             self.assertEqual(evidence["observedDynamicTypeSize"], "accessibility5")
 
+    def test_records_xxx_large_from_the_app_proof(self):
+        with tempfile.TemporaryDirectory() as directory:
+            proof = self.write_proof(Path(directory), "xxxLarge")
+            evidence = {}
+
+            MODULE.attest_observed_dynamic_type(
+                evidence,
+                proof,
+                "extra-extra-extra-large",
+            )
+
+            self.assertEqual(
+                evidence["observedContentSizeCategory"],
+                "extra-extra-extra-large",
+            )
+            self.assertEqual(evidence["observedDynamicTypeSize"], "xxxLarge")
+
     def test_rejects_requested_and_observed_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:
             proof = self.write_proof(Path(directory), "large")
@@ -316,6 +333,105 @@ class ScreenshotAttachmentTests(unittest.TestCase):
                     screenshot,
                     "screenshotSHA256",
                 )
+
+    def test_attests_capture_identity_to_exact_foreground_process_and_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            screenshot = Path(directory) / "observed.png"
+            screenshot.write_bytes(b"exact-png-bytes")
+            digest = hashlib.sha256(screenshot.read_bytes()).hexdigest()
+            evidence = {
+                "screenshotSHA256": digest,
+                "captureIdentity": {
+                    "schema": "iosObservedCaptureV1",
+                    "captureID": "4bd46f3c-5d3d-4c9f-9dd2-16dd476f4355",
+                    "captureRunNonce": "7238f644-ff7a-4c1a-a9aa-60dd478c1c1d",
+                    "capturePhase": "initial",
+                    "applicationBundleIdentifier": "app.spoonjoy",
+                    "applicationProcessIdentifier": 4312,
+                    "foregroundBeforeCapture": True,
+                    "foregroundAfterCapture": True,
+                    "screenshotSHA256": digest,
+                },
+            }
+
+            identity = MODULE.attest_capture_identity(
+                evidence,
+                screenshot,
+                expected_run_nonce="7238f644-ff7a-4c1a-a9aa-60dd478c1c1d",
+                expected_phase="initial",
+            )
+
+            self.assertEqual(identity["applicationProcessIdentifier"], 4312)
+
+    def test_rejects_coherently_substituted_capture_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            screenshot = Path(directory) / "observed.png"
+            screenshot.write_bytes(b"exact-png-bytes")
+            digest = hashlib.sha256(screenshot.read_bytes()).hexdigest()
+            base_identity = {
+                "schema": "iosObservedCaptureV1",
+                "captureID": "4bd46f3c-5d3d-4c9f-9dd2-16dd476f4355",
+                "captureRunNonce": "7238f644-ff7a-4c1a-a9aa-60dd478c1c1d",
+                "capturePhase": "initial",
+                "applicationBundleIdentifier": "app.spoonjoy",
+                "applicationProcessIdentifier": 4312,
+                "foregroundBeforeCapture": True,
+                "foregroundAfterCapture": True,
+                "screenshotSHA256": digest,
+            }
+            substitutions = [
+                {**base_identity, "captureID": "not-a-uuid"},
+                {**base_identity, "captureRunNonce": "dd9e30cb-630f-4b4d-99b4-9ed82b80a7f2"},
+                {**base_identity, "capturePhase": "deepScroll"},
+                {**base_identity, "applicationBundleIdentifier": "com.apple.springboard"},
+                {**base_identity, "applicationProcessIdentifier": 0},
+                {**base_identity, "foregroundBeforeCapture": False},
+                {**base_identity, "foregroundAfterCapture": False},
+                {**base_identity, "screenshotSHA256": "0" * 64},
+            ]
+
+            for identity in substitutions:
+                with self.subTest(identity=identity):
+                    with self.assertRaises(SystemExit):
+                        MODULE.attest_capture_identity(
+                            {"screenshotSHA256": digest, "captureIdentity": identity},
+                            screenshot,
+                            expected_run_nonce=base_identity["captureRunNonce"],
+                            expected_phase="initial",
+                        )
+
+    def test_publishes_only_attested_bytes_atomically(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "attachment.png"
+            destination = root / "sealed" / "ios-mobile.png"
+            source.write_bytes(b"exact-png-bytes")
+            digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            evidence = {
+                "screenshotSHA256": digest,
+                "captureIdentity": {
+                    "schema": "iosObservedCaptureV1",
+                    "captureID": "4bd46f3c-5d3d-4c9f-9dd2-16dd476f4355",
+                    "captureRunNonce": "7238f644-ff7a-4c1a-a9aa-60dd478c1c1d",
+                    "capturePhase": "initial",
+                    "applicationBundleIdentifier": "app.spoonjoy",
+                    "applicationProcessIdentifier": 4312,
+                    "foregroundBeforeCapture": True,
+                    "foregroundAfterCapture": True,
+                    "screenshotSHA256": digest,
+                },
+            }
+
+            MODULE.publish_attested_screenshot(
+                evidence,
+                source,
+                destination,
+                expected_run_nonce="7238f644-ff7a-4c1a-a9aa-60dd478c1c1d",
+                expected_phase="initial",
+            )
+
+            self.assertEqual(destination.read_bytes(), source.read_bytes())
+            self.assertEqual(list(destination.parent.glob(".*.tmp-*")), [])
 
 
 class SimulatorLifecycleTests(unittest.TestCase):

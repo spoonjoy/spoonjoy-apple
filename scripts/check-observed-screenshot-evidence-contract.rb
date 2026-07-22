@@ -104,9 +104,17 @@ require_tokens(ios_observer, [
   "verifiedContrastFalsePositives",
   "capturePhase: \"initial\"",
   "capturePhase: \"deepScroll\"",
+  "ObservedCaptureIdentity",
+  "before.applicationProcessIdentifier",
+  "captureIdentity: initialCapture.identity",
+  "captureIdentity: deepCapture.identity",
+  "applicationProcessIdentifier",
+  "foregroundBeforeCapture",
+  "foregroundAfterCapture",
   "screenshotSHA256: screenshotSHA256",
   "testScreenshotContrastAdjudicatorRejectsLowContrastTextPixels",
   "testScreenshotContrastAdjudicatorRejectsMixedHighAndLowContrastRuns",
+  "testScreenshotContrastAdjudicatorRejectsMeaningfulMinorityLowContrastCluster",
   "testScreenshotContrastBufferDecodesAntialiasedSystemTextFromPNG",
   "scrollPrimarySurfaceToTerminal",
   "deepScrollRoutes",
@@ -124,6 +132,11 @@ require_tokens(ios_observer, [
   ".collectionView",
   "requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))",
   "testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport"
+])
+forbid_tokens(ios_observer, ["app.processID"])
+require_tokens("Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift", [
+  "applicationProcessIdentifier: ProcessInfo.processInfo.processIdentifier",
+  "String(applicationProcessIdentifier)"
 ])
 forbid_tokens(ios_observer, [
   "toolLimitations",
@@ -145,11 +158,19 @@ require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", 
   "backgroundPixelCount",
   "foregroundPixelCount"
 ])
+require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", [
+  "minimumForegroundClusterShare = 0.2",
+  "foregroundCandidates.count"
+])
+forbid_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", [
+  "dominantForegroundBucket.count) * 0.75"
+])
 
 require_tokens("scripts/run-ios-screenshot-observer.py", [
   "attest_observed_dynamic_type",
   "observedDynamicTypeSize",
   "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
+  "\"extra-extra-extra-large\": \"xxxLarge\"",
   "Dynamic Type mismatch"
 ])
 
@@ -200,7 +221,8 @@ require_tokens(mac_observer, [
   "performNativePageScroll",
   "kAXPressAction",
   "spoonjoy.page-scroll",
-  "kitchen.cookbook.cookbook_weeknights",
+  "kitchen.cookbook.cookbook_slow_sundays",
+  "Slow Sundays and Long Simmering Suppers, 0 recipes",
   "recipe-editor.delete",
   "recipe-covers.archive.cover_primary",
   "profile.graph.kitchen-visitors"
@@ -245,10 +267,17 @@ forbid_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
   "Back to My Recipes"
 ])
 require_tokens("scripts/capture-native-screenshots.sh", [
+  "ios-mobile-xxxl.png",
+  "ios-mobile-xxxl-deep-scroll.png",
+  "cookbook_slow_sundays",
+  "Slow Sundays and Long Simmering Suppers",
+  "extra-extra-extra-large",
+  "observed-accessibility-ios-xxxl.json",
+  "accessibility-proof-ios-xxxl.json",
   "refresh_ios_fixture_paths()",
   "refresh_ios_fixture_paths \"$udid\" \"$expected_platform\" || return 1",
   "--readiness-proof-output \"$readiness_proof_output\"",
-  "\"$observed_accessibility_output\" \\\n    \"large\" \\\n    \"$screenshot_output\" \\\n    \"$accessibility_proof_output\"; then\n    return 1",
+  "\"$observed_accessibility_output\" \\\n    \"large\" \\\n    \"$screenshot_output\" \\\n    \"$accessibility_proof_output\" \\\n    \"$surface_proof_output\"; then\n    return 1",
   "\"$observed_accessibility_ios_ax_abs\" \\\n      \"accessibility-extra-extra-extra-large\" \\\n      \"$ios_accessibility_screenshot\" \\\n      \"$accessibility_proof_ios_ax_abs\"; then\n      return 1",
   "observed-accessibility-macos-diagnostic.json",
   "macos-desktop-diagnostic.png",
@@ -292,13 +321,34 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
 ])
 require_tokens("scripts/run-ios-screenshot-observer.py", [
   "attest_exported_screenshot",
+  "attest_capture_identity",
+  "publish_attested_screenshot",
+  'expected_phase="initial"',
+  'expected_phase="deepScroll"',
   "readiness_proof_path",
   "deep_readiness_proof_output",
   'deep_scroll.get("readinessHandshake")',
   "observed screenshot attachment SHA-256 mismatch",
-  'attest_exported_screenshot(evidence, screenshots[0], "screenshotSHA256")',
-  'attest_exported_screenshot(deep_scroll, deep_screenshots[0], "screenshotSHA256")'
+  'initial_capture_identity = attest_capture_identity(',
+  'deep_capture_identity = attest_capture_identity('
 ])
+
+capture_script = source("scripts/capture-native-screenshots.sh")
+capture_ios_app_start = capture_script.index("capture_ios_app() {")
+capture_ios_app_end = capture_script.index("\npublish_ios_capture_artifact()", capture_ios_app_start)
+fail_check("scripts/capture-native-screenshots.sh missing bounded capture_ios_app implementation") unless capture_ios_app_start && capture_ios_app_end
+capture_ios_app_source = capture_script[capture_ios_app_start...capture_ios_app_end]
+if capture_ios_app_source.include?("capture_ios_foreground_route")
+  fail_check("scripts/capture-native-screenshots.sh must not capture and validate pixels before the observer-owned screenshot")
+end
+observer_capture_start = capture_script.index("capture_ios_observed_accessibility() {")
+observer_capture_end = capture_script.index("\nrefresh_ios_fixture_paths()", observer_capture_start)
+fail_check("scripts/capture-native-screenshots.sh missing bounded capture_ios_observed_accessibility implementation") unless observer_capture_start && observer_capture_end
+observer_capture_source = capture_script[observer_capture_start...observer_capture_end]
+unless capture_ios_app_source.include?("capture_ios_observed_accessibility") &&
+       observer_capture_source.include?("validate_ios_screenshot \"$screenshot_output\"")
+  fail_check("scripts/capture-native-screenshots.sh must pixel-validate the observer-owned screenshot")
+end
 forbid_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "hittable: actionable && intersectsWindow",
   "app.descendants(matching: type).allElementsBoundByIndex",

@@ -29,9 +29,11 @@ apple_dir="$artifact_root/apple"
 mkdir -p "$artifact_root/screenshots" "$apple_dir"
 artifact_root_abs="$(cd "$artifact_root" && pwd -P)"
 ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
+ios_xxxl_screenshot="$artifact_root/screenshots/ios-mobile-xxxl.png"
 ios_accessibility_screenshot="$artifact_root/screenshots/ios-mobile-accessibility.png"
 ios_tablet_screenshot="$artifact_root/screenshots/ios-tablet.png"
 ios_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-deep-scroll.png"
+ios_xxxl_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-xxxl-deep-scroll.png"
 ios_accessibility_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-accessibility-deep-scroll.png"
 ios_tablet_deep_scroll_screenshot="$artifact_root/screenshots/ios-tablet-deep-scroll.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
@@ -74,36 +76,45 @@ ios_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ios.json"
 ipad_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ipad.json"
 macos_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-macos.json"
 accessibility_proof_ios="$artifact_root/apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ios_xxxl="$artifact_root/apple/${unit_slug}-accessibility-proof-ios-xxxl.json"
 accessibility_proof_ios_ax="$artifact_root/apple/${unit_slug}-accessibility-proof-ios-ax.json"
 accessibility_proof_ipad="$artifact_root/apple/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos="$artifact_root/apple/${unit_slug}-accessibility-proof-macos.json"
 accessibility_proof_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ios_xxxl_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios-xxxl.json"
 accessibility_proof_ios_ax_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios-ax.json"
 accessibility_proof_ipad_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-macos.json"
 accessibility_proof_ios_rel="apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ios_xxxl_rel="apple/${unit_slug}-accessibility-proof-ios-xxxl.json"
 accessibility_proof_ios_ax_rel="apple/${unit_slug}-accessibility-proof-ios-ax.json"
 accessibility_proof_ipad_rel="apple/${unit_slug}-accessibility-proof-ipad.json"
 accessibility_proof_macos_rel="apple/${unit_slug}-accessibility-proof-macos.json"
 accessibility_proof_ios_deep_scroll="${accessibility_proof_ios%.json}-deep-scroll.json"
+accessibility_proof_ios_xxxl_deep_scroll="${accessibility_proof_ios_xxxl%.json}-deep-scroll.json"
 accessibility_proof_ios_ax_deep_scroll="${accessibility_proof_ios_ax%.json}-deep-scroll.json"
 accessibility_proof_ipad_deep_scroll="${accessibility_proof_ipad%.json}-deep-scroll.json"
 accessibility_proof_ios_deep_scroll_abs="${accessibility_proof_ios_abs%.json}-deep-scroll.json"
+accessibility_proof_ios_xxxl_deep_scroll_abs="${accessibility_proof_ios_xxxl_abs%.json}-deep-scroll.json"
 accessibility_proof_ios_ax_deep_scroll_abs="${accessibility_proof_ios_ax_abs%.json}-deep-scroll.json"
 accessibility_proof_ipad_deep_scroll_abs="${accessibility_proof_ipad_abs%.json}-deep-scroll.json"
 accessibility_proof_ios_deep_scroll_rel="${accessibility_proof_ios_rel%.json}-deep-scroll.json"
+accessibility_proof_ios_xxxl_deep_scroll_rel="${accessibility_proof_ios_xxxl_rel%.json}-deep-scroll.json"
 accessibility_proof_ios_ax_deep_scroll_rel="${accessibility_proof_ios_ax_rel%.json}-deep-scroll.json"
 accessibility_proof_ipad_deep_scroll_rel="${accessibility_proof_ipad_rel%.json}-deep-scroll.json"
 observed_accessibility_ios="$artifact_root/apple/${unit_slug}-observed-accessibility-ios.json"
+observed_accessibility_ios_xxxl="$artifact_root/apple/${unit_slug}-observed-accessibility-ios-xxxl.json"
 observed_accessibility_ios_ax="$artifact_root/apple/${unit_slug}-observed-accessibility-ios-ax.json"
 observed_accessibility_ipad="$artifact_root/apple/${unit_slug}-observed-accessibility-ipad.json"
 observed_accessibility_macos="$artifact_root/apple/${unit_slug}-observed-accessibility-macos.json"
 observed_accessibility_macos_diagnostic="$artifact_root/apple/${unit_slug}-observed-accessibility-macos-diagnostic.json"
 observed_accessibility_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios.json"
+observed_accessibility_ios_xxxl_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios-xxxl.json"
 observed_accessibility_ios_ax_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios-ax.json"
 observed_accessibility_ipad_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ipad.json"
 observed_accessibility_macos_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-macos.json"
 observed_accessibility_ios_rel="apple/${unit_slug}-observed-accessibility-ios.json"
+observed_accessibility_ios_xxxl_rel="apple/${unit_slug}-observed-accessibility-ios-xxxl.json"
 observed_accessibility_ios_ax_rel="apple/${unit_slug}-observed-accessibility-ios-ax.json"
 observed_accessibility_ipad_rel="apple/${unit_slug}-observed-accessibility-ipad.json"
 observed_accessibility_macos_rel="apple/${unit_slug}-observed-accessibility-macos.json"
@@ -515,7 +526,7 @@ write_blocker() {
 write_design_review_blocked() {
   local source_blocker_path="$1"
   ruby -rjson -e '
-    source_path, output_path, ios_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, ios_observed, ios_ax_observed, ipad_observed, macos_observed = ARGV
+    source_path, output_path, ios_accessibility_proof, ios_xxxl_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, ios_observed, ios_xxxl_observed, ios_ax_observed, ipad_observed, macos_observed = ARGV
     blocker = JSON.parse(File.read(source_path))
     manifest = {
       "blocked" => true,
@@ -523,21 +534,26 @@ write_design_review_blocked() {
       "sourceBlockerPath" => source_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-mobile-xxxl.png",
         "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
         "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-xxxl-deep-scroll.png",
         "screenshots/ios-mobile-accessibility-deep-scroll.png",
         "screenshots/ios-tablet-deep-scroll.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         ios_accessibility_proof,
+        ios_xxxl_accessibility_proof,
         ios_ax_accessibility_proof,
         ipad_accessibility_proof,
         macos_accessibility_proof,
         ios_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ios_xxxl_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
         ios_ax_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
         ipad_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
         ios_observed,
+        ios_xxxl_observed,
         ios_ax_observed,
         ipad_observed,
         macos_observed
@@ -546,15 +562,15 @@ write_design_review_blocked() {
       "ownerAction" => blocker.fetch("ownerAction")
     }
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_ios_ax_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$observed_accessibility_ios_rel" "$observed_accessibility_ios_ax_rel" "$observed_accessibility_ipad_rel" "$observed_accessibility_macos_rel"
-  rm -f "$ios_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
-  rm -f "$ios_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
-  rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad" "$accessibility_proof_macos"
-  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
-  rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll"
-  rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs"
-  rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_macos"
-  rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_macos_abs"
+  ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_ios_xxxl_rel" "$accessibility_proof_ios_ax_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$observed_accessibility_ios_rel" "$observed_accessibility_ios_xxxl_rel" "$observed_accessibility_ios_ax_rel" "$observed_accessibility_ipad_rel" "$observed_accessibility_macos_rel"
+  rm -f "$ios_screenshot" "$ios_xxxl_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+  rm -f "$ios_deep_scroll_screenshot" "$ios_xxxl_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
+  rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_xxxl" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad" "$accessibility_proof_macos"
+  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_xxxl_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
+  rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_xxxl_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll"
+  rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_xxxl_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs"
+  rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_xxxl" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_macos"
+  rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_xxxl_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_macos_abs"
   rm -f "$design_review"
 }
 
@@ -671,17 +687,18 @@ stop_macos_display_assertion() {
 
 write_design_review_success() {
   ruby -rjson -rdigest -e '
-    output_path, route, settings_focus, ios_proof, ipad_proof, macos_proof, ios_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, ios_observed, ios_ax_observed, ipad_observed, macos_observed, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
+    output_path, route, settings_focus, ios_proof, ipad_proof, macos_proof, ios_accessibility_proof, ios_xxxl_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, ios_observed, ios_xxxl_observed, ios_ax_observed, ipad_observed, macos_observed, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
     manifest = {
       "screenshotRoute" => route,
-      "accessibilityProofArtifacts" => [ios_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof],
-      "observedAccessibilityEvidenceArtifacts" => [ios_observed, ios_ax_observed, ipad_observed, macos_observed],
+      "accessibilityProofArtifacts" => [ios_accessibility_proof, ios_xxxl_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof],
+      "observedAccessibilityEvidenceArtifacts" => [ios_observed, ios_xxxl_observed, ios_ax_observed, ipad_observed, macos_observed],
       "accessibilityContentSizeScreenshot" => "screenshots/ios-mobile-accessibility.png",
       "blockers" => []
     }
     artifact_root = File.dirname(output_path)
     manifest["screenshotArtifacts"] = {
       "iosMobile" => "screenshots/ios-mobile.png",
+      "iosXXXL" => "screenshots/ios-mobile-xxxl.png",
       "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
       "iosTablet" => "screenshots/ios-tablet.png",
       "macosDesktop" => "screenshots/macos-desktop.png"
@@ -701,11 +718,13 @@ write_design_review_success() {
     ].include?(route)
       manifest["deepScrollAccessibilityProofArtifacts"] = [
         ios_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ios_xxxl_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
         ios_ax_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
         ipad_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json")
       ]
       manifest["deepScrollScreenshotArtifacts"] = {
         "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+        "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
         "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
         "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
       }.transform_values do |relative_path|
@@ -794,7 +813,7 @@ write_design_review_success() {
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$ipad_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_ios_ax_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$observed_accessibility_ios_rel" "$observed_accessibility_ios_ax_rel" "$observed_accessibility_ipad_rel" "$observed_accessibility_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$settings_capture_variant" "$settings_apns_permission_state" "$settings_apns_registration_state" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$ipad_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_ios_xxxl_rel" "$accessibility_proof_ios_ax_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$observed_accessibility_ios_rel" "$observed_accessibility_ios_xxxl_rel" "$observed_accessibility_ios_ax_rel" "$observed_accessibility_ipad_rel" "$observed_accessibility_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$settings_capture_variant" "$settings_apns_permission_state" "$settings_apns_registration_state" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
 }
 
 is_xcode_platform_blocker() {
@@ -1052,30 +1071,46 @@ write_sync_store() {
         }])
       end
     end
-    cookbooks = if File.file?(cookbooks_path)
-                  JSON.parse(File.read(cookbooks_path)).fetch("cookbooks")
-                else
-                  [
-                    {
-                      "id" => "cookbook_weeknights",
-                      "title" => "Weeknights",
-                      "chef" => { "id" => "chef_ari", "username" => "ari" },
-                      "recipeCount" => 1,
-                      "coverImageUrls" => [],
-                      "href" => "/cookbooks/cookbook_weeknights",
-                      "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights",
-                      "attribution" => {
-                        "creditText" => "Weeknights by ari on Spoonjoy",
-                        "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights"
-                      },
-                      "createdAt" => "2026-06-01T00:00:00.000Z",
-                      "updatedAt" => "2026-06-01T00:10:00.000Z",
-                      "recipes" => recipes.map do |recipe|
-                        recipe.slice("id", "title", "description", "servings", "chef", "coverImageUrl", "coverProvenanceLabel", "coverSourceType", "coverVariant", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt")
-                      end
-                    }
-                  ]
-                end
+    fixture_cookbooks = if File.file?(cookbooks_path)
+                          JSON.parse(File.read(cookbooks_path)).fetch("cookbooks")
+                        else
+                          []
+                        end
+    weeknights = fixture_cookbooks.find { |cookbook| cookbook.fetch("id") == "cookbook_weeknights" } || {
+      "id" => "cookbook_weeknights",
+      "title" => "Weeknights",
+      "chef" => { "id" => "chef_ari", "username" => "ari" },
+      "recipeCount" => 1,
+      "coverImageUrls" => [],
+      "href" => "/cookbooks/cookbook_weeknights",
+      "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+      "attribution" => {
+        "creditText" => "Weeknights by ari on Spoonjoy",
+        "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights"
+      },
+      "createdAt" => "2026-06-01T00:00:00.000Z",
+      "updatedAt" => "2026-06-01T00:10:00.000Z",
+      "recipes" => recipes.map do |recipe|
+        recipe.slice("id", "title", "description", "servings", "chef", "coverImageUrl", "coverProvenanceLabel", "coverSourceType", "coverVariant", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt")
+      end
+    }
+    terminal_cookbook = {
+      "id" => "cookbook_slow_sundays",
+      "title" => "Slow Sundays and Long Simmering Suppers",
+      "chef" => { "id" => "chef_ari", "username" => "ari" },
+      "recipeCount" => 0,
+      "coverImageUrls" => [],
+      "href" => "/cookbooks/cookbook_slow_sundays",
+      "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_slow_sundays",
+      "attribution" => {
+        "creditText" => "Slow Sundays and Long Simmering Suppers by ari on Spoonjoy",
+        "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_slow_sundays"
+      },
+      "createdAt" => "2026-06-02T00:00:00.000Z",
+      "updatedAt" => "2026-06-02T00:10:00.000Z",
+      "recipes" => []
+    }
+    cookbooks = [weeknights, terminal_cookbook]
     shopping = if File.file?(shopping_path)
                  JSON.parse(File.read(shopping_path))
                else
@@ -1287,7 +1322,7 @@ write_cache_state() {
               "sourceEndpoint" => "/api/v1/cookbooks",
               "serverRevision" => { "cursor" => { "_0" => "screenshot-cookbooks" } }
             },
-            "payload" => { "cookbookList" => { "cookbookIDs" => ["cookbook_weeknights"] } }
+            "payload" => { "cookbookList" => { "cookbookIDs" => ["cookbook_weeknights", "cookbook_slow_sundays"] } }
           },
           {
             "id" => "cookbook-detail:cookbook_weeknights",
@@ -1305,6 +1340,25 @@ write_cache_state() {
               "cookbookDetail" => {
                 "id" => "cookbook_weeknights",
                 "title" => "Weeknights"
+              }
+            }
+          },
+          {
+            "id" => "cookbook-detail:cookbook_slow_sundays",
+            "metadata" => {
+              "accountID" => account_id,
+              "environment" => "production",
+              "schemaVersion" => 2,
+              "domain" => { "cookbookDetail" => { "id" => "cookbook_slow_sundays" } },
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "sourceEndpoint" => "/api/v1/cookbooks/cookbook_slow_sundays",
+              "serverRevision" => { "etag" => { "_0" => "\"cookbook-slow-sundays-screenshot-v1\"" } }
+            },
+            "payload" => {
+              "cookbookDetail" => {
+                "id" => "cookbook_slow_sundays",
+                "title" => "Slow Sundays and Long Simmering Suppers"
               }
             }
           }
@@ -2302,15 +2356,26 @@ capture_ios_observed_accessibility() {
   local content_size_category="${4:-large}"
   local screenshot_output="${5:-}"
   local readiness_proof_output="$6"
+  local surface_proof_output="${7:-}"
   local deep_scroll_screenshot_output=""
-  local observer_suffix="$expected_platform"
-  [[ "$content_size_category" == "large" ]] || observer_suffix="${expected_platform}-ax"
+  local observer_suffix
+  case "$content_size_category" in
+    large) observer_suffix="$expected_platform" ;;
+    extra-extra-extra-large) observer_suffix="${expected_platform}-xxxl" ;;
+    accessibility-extra-extra-extra-large) observer_suffix="${expected_platform}-ax" ;;
+    *)
+      printf 'unsupported observed Dynamic Type category: %s\n' "$content_size_category" >> "$capture_log"
+      return 1
+      ;;
+  esac
   case "$screenshot_route" in
     kitchen|recipes|saved-recipes|recipe-detail|recipe-editor|recipe-covers|cook-mode|cook-log|cookbooks|cookbook-detail|shopping-list|chefs|profile|profile-graph|search|capture|settings)
       if [[ "$expected_platform" == "ipad" ]]; then
         deep_scroll_screenshot_output="$ios_tablet_deep_scroll_screenshot"
       elif [[ "$content_size_category" == "large" ]]; then
         deep_scroll_screenshot_output="$ios_deep_scroll_screenshot"
+      elif [[ "$content_size_category" == "extra-extra-extra-large" ]]; then
+        deep_scroll_screenshot_output="$ios_xxxl_deep_scroll_screenshot"
       else
         deep_scroll_screenshot_output="$ios_accessibility_deep_scroll_screenshot"
       fi
@@ -2419,6 +2484,19 @@ capture_ios_observed_accessibility() {
   if [[ "$observer_status" -ne 0 ]]; then
     return "$observer_status"
   fi
+  if [[ -n "$screenshot_output" ]]; then
+    validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1 || return 1
+  fi
+  if [[ -n "$surface_proof_output" && ( "$screenshot_route" == "settings" || "$screenshot_route" == "search" ) ]]; then
+    local proof_focus="$settings_capture_focus"
+    local proof_route_identifier=""
+    if [[ "$screenshot_route" == "search" ]]; then
+      proof_focus=""
+      proof_route_identifier="$expected_search_route_identifier"
+    fi
+    wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" "$proof_route_identifier" || return 1
+    validate_screenshot_surface_proof "$screenshot_proof_path" "$surface_proof_output" "$expected_platform" >> "$capture_log" 2>&1 || return 1
+  fi
   if jq -e '
     ((.auditIssues // []) | length)
       + ((.geometryFindings // []) | length)
@@ -2486,23 +2564,34 @@ capture_ios_app() {
   if ! terminate_ios_app_and_confirm_stopped "$udid"; then
     return 1
   fi
-  screenshot_run_nonce="$(uuidgen | tr '[:upper:]' '[:lower:]')"
   refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
   rm -f "$screenshot_proof_path"
   rm -f "$ios_accessibility_proof_runtime_path"
   rm -f "$ios_state_directory/debug-auth-session.json"
   xcrun simctl ui "$udid" content_size large >> "$capture_log" 2>&1 || return 1
-  capture_ios_foreground_route "$udid" "$expected_platform" "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output" || return 1
   if ! capture_ios_observed_accessibility \
     "$udid" \
     "$expected_platform" \
     "$observed_accessibility_output" \
     "large" \
     "$screenshot_output" \
-    "$accessibility_proof_output"; then
+    "$accessibility_proof_output" \
+    "$surface_proof_output"; then
     return 1
   fi
   if [[ "$expected_platform" == "ios" ]]; then
+    terminate_ios_app_and_confirm_stopped "$udid" || return 1
+    refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
+    xcrun simctl ui "$udid" content_size extra-extra-extra-large >> "$capture_log" 2>&1 || return 1
+    if ! capture_ios_observed_accessibility \
+      "$udid" \
+      "$expected_platform" \
+      "$observed_accessibility_ios_xxxl_abs" \
+      "extra-extra-extra-large" \
+      "$ios_xxxl_screenshot" \
+      "$accessibility_proof_ios_xxxl_abs"; then
+      return 1
+    fi
     terminate_ios_app_and_confirm_stopped "$udid" || return 1
     refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
     xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large >> "$capture_log" 2>&1 || return 1
@@ -2547,15 +2636,15 @@ cleanup_uncommitted_ios_generation() {
   if [[ "$ios_capture_generation_committed" == true ]]; then
     return 0
   fi
-  rm -f "$ios_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot"
-  rm -f "$ios_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
+  rm -f "$ios_screenshot" "$ios_xxxl_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot"
+  rm -f "$ios_deep_scroll_screenshot" "$ios_xxxl_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
   rm -f "$ios_proof_artifact" "$ipad_proof_artifact"
-  rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad"
-  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs"
-  rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll"
-  rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs"
-  rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad"
-  rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs"
+  rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_xxxl" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad"
+  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_xxxl_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs"
+  rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_xxxl_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll"
+  rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_xxxl_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs"
+  rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_xxxl" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad"
+  rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_xxxl_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs"
 }
 
 capture_ios_app_with_retries() {
@@ -2565,21 +2654,28 @@ capture_ios_app_with_retries() {
   local surface_proof_output="$4"
   local accessibility_proof_output="$5"
   local observed_accessibility_output="$6"
+  local final_observed_accessibility_ios_xxxl_abs="$observed_accessibility_ios_xxxl_abs"
   local final_observed_accessibility_ios_ax_abs="$observed_accessibility_ios_ax_abs"
+  local final_ios_xxxl_screenshot="$ios_xxxl_screenshot"
   local final_ios_accessibility_screenshot="$ios_accessibility_screenshot"
+  local final_accessibility_proof_ios_xxxl_abs="$accessibility_proof_ios_xxxl_abs"
   local final_accessibility_proof_ios_ax_abs="$accessibility_proof_ios_ax_abs"
   local final_accessibility_proof_ios_deep_scroll_abs="$accessibility_proof_ios_deep_scroll_abs"
+  local final_accessibility_proof_ios_xxxl_deep_scroll_abs="$accessibility_proof_ios_xxxl_deep_scroll_abs"
   local final_accessibility_proof_ios_ax_deep_scroll_abs="$accessibility_proof_ios_ax_deep_scroll_abs"
   local final_accessibility_proof_ipad_deep_scroll_abs="$accessibility_proof_ipad_deep_scroll_abs"
   local final_ios_deep_scroll_screenshot="$ios_deep_scroll_screenshot"
+  local final_ios_xxxl_deep_scroll_screenshot="$ios_xxxl_deep_scroll_screenshot"
   local final_ios_accessibility_deep_scroll_screenshot="$ios_accessibility_deep_scroll_screenshot"
   local final_ios_tablet_deep_scroll_screenshot="$ios_tablet_deep_scroll_screenshot"
   local attempt=1
   rm -f "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output" "$observed_accessibility_output"
   if [[ "$expected_platform" == "ios" ]]; then
-    rm -f "$final_observed_accessibility_ios_ax_abs" "$final_ios_accessibility_screenshot" "$final_accessibility_proof_ios_ax_abs"
-    rm -f "$final_accessibility_proof_ios_deep_scroll_abs" "$final_accessibility_proof_ios_ax_deep_scroll_abs"
-    rm -f "$final_ios_deep_scroll_screenshot" "$final_ios_accessibility_deep_scroll_screenshot"
+    rm -f "$final_observed_accessibility_ios_xxxl_abs" "$final_observed_accessibility_ios_ax_abs"
+    rm -f "$final_ios_xxxl_screenshot" "$final_ios_accessibility_screenshot"
+    rm -f "$final_accessibility_proof_ios_xxxl_abs" "$final_accessibility_proof_ios_ax_abs"
+    rm -f "$final_accessibility_proof_ios_deep_scroll_abs" "$final_accessibility_proof_ios_xxxl_deep_scroll_abs" "$final_accessibility_proof_ios_ax_deep_scroll_abs"
+    rm -f "$final_ios_deep_scroll_screenshot" "$final_ios_xxxl_deep_scroll_screenshot" "$final_ios_accessibility_deep_scroll_screenshot"
   else
     rm -f "$final_accessibility_proof_ipad_deep_scroll_abs" "$final_ios_tablet_deep_scroll_screenshot"
   fi
@@ -2591,23 +2687,33 @@ capture_ios_app_with_retries() {
     local staged_surface_proof="$attempt_directory/$(basename "$surface_proof_output")"
     local staged_accessibility_proof="$attempt_directory/$(basename "$accessibility_proof_output")"
     local staged_observed_accessibility="$attempt_directory/$(basename "$observed_accessibility_output")"
+    observed_accessibility_ios_xxxl_abs="$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")"
     observed_accessibility_ios_ax_abs="$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")"
+    ios_xxxl_screenshot="$attempt_directory/$(basename "$final_ios_xxxl_screenshot")"
     ios_accessibility_screenshot="$attempt_directory/$(basename "$final_ios_accessibility_screenshot")"
+    accessibility_proof_ios_xxxl_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_abs")"
     accessibility_proof_ios_ax_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_abs")"
     accessibility_proof_ios_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")"
+    accessibility_proof_ios_xxxl_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_deep_scroll_abs")"
     accessibility_proof_ios_ax_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_deep_scroll_abs")"
     accessibility_proof_ipad_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ipad_deep_scroll_abs")"
     ios_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_deep_scroll_screenshot")"
+    ios_xxxl_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_xxxl_deep_scroll_screenshot")"
     ios_accessibility_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_accessibility_deep_scroll_screenshot")"
     ios_tablet_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_tablet_deep_scroll_screenshot")"
     if capture_ios_app "$udid" "$expected_platform" "$staged_screenshot" "$staged_surface_proof" "$staged_accessibility_proof" "$staged_observed_accessibility"; then
+      observed_accessibility_ios_xxxl_abs="$final_observed_accessibility_ios_xxxl_abs"
       observed_accessibility_ios_ax_abs="$final_observed_accessibility_ios_ax_abs"
+      ios_xxxl_screenshot="$final_ios_xxxl_screenshot"
       ios_accessibility_screenshot="$final_ios_accessibility_screenshot"
+      accessibility_proof_ios_xxxl_abs="$final_accessibility_proof_ios_xxxl_abs"
       accessibility_proof_ios_ax_abs="$final_accessibility_proof_ios_ax_abs"
       accessibility_proof_ios_deep_scroll_abs="$final_accessibility_proof_ios_deep_scroll_abs"
+      accessibility_proof_ios_xxxl_deep_scroll_abs="$final_accessibility_proof_ios_xxxl_deep_scroll_abs"
       accessibility_proof_ios_ax_deep_scroll_abs="$final_accessibility_proof_ios_ax_deep_scroll_abs"
       accessibility_proof_ipad_deep_scroll_abs="$final_accessibility_proof_ipad_deep_scroll_abs"
       ios_deep_scroll_screenshot="$final_ios_deep_scroll_screenshot"
+      ios_xxxl_deep_scroll_screenshot="$final_ios_xxxl_deep_scroll_screenshot"
       ios_accessibility_deep_scroll_screenshot="$final_ios_accessibility_deep_scroll_screenshot"
       ios_tablet_deep_scroll_screenshot="$final_ios_tablet_deep_scroll_screenshot"
       require_ios_capture_artifact "$staged_screenshot" || return 1
@@ -2617,16 +2723,21 @@ capture_ios_app_with_retries() {
         require_ios_capture_artifact "$staged_surface_proof" || return 1
       fi
       if [[ "$expected_platform" == "ios" ]]; then
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_screenshot")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_screenshot")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_abs")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_abs")" || return 1
       fi
       case "$screenshot_route" in
         kitchen|recipes|saved-recipes|recipe-detail|recipe-editor|recipe-covers|cook-mode|cook-log|cookbooks|cookbook-detail|shopping-list|chefs|profile|profile-graph|search|capture|settings)
           if [[ "$expected_platform" == "ios" ]]; then
             require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_deep_scroll_abs")" || return 1
             require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_deep_scroll_abs")" || return 1
             require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_deep_scroll_screenshot")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_deep_scroll_screenshot")" || return 1
             require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_deep_scroll_screenshot")" || return 1
           else
             require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_deep_scroll_abs")" || return 1
@@ -2644,13 +2755,18 @@ capture_ios_app_with_retries() {
       publish_ios_capture_artifact "$staged_accessibility_proof" "$accessibility_proof_output" || return 1
       publish_ios_capture_artifact "$staged_observed_accessibility" "$observed_accessibility_output" || return 1
       if [[ "$expected_platform" == "ios" ]]; then
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" "$final_observed_accessibility_ios_xxxl_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" "$final_observed_accessibility_ios_ax_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_screenshot")" "$final_ios_xxxl_screenshot" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_screenshot")" "$final_ios_accessibility_screenshot" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_abs")" "$final_accessibility_proof_ios_xxxl_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_abs")" "$final_accessibility_proof_ios_ax_abs" || return 1
         if [[ -s "$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")" ]]; then
           publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")" "$final_accessibility_proof_ios_deep_scroll_abs" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_deep_scroll_abs")" "$final_accessibility_proof_ios_xxxl_deep_scroll_abs" || return 1
           publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_deep_scroll_abs")" "$final_accessibility_proof_ios_ax_deep_scroll_abs" || return 1
           publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_deep_scroll_screenshot")" "$final_ios_deep_scroll_screenshot" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_deep_scroll_screenshot")" "$final_ios_xxxl_deep_scroll_screenshot" || return 1
           publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_deep_scroll_screenshot")" "$final_ios_accessibility_deep_scroll_screenshot" || return 1
         fi
       elif [[ -s "$attempt_directory/$(basename "$final_accessibility_proof_ipad_deep_scroll_abs")" ]]; then
@@ -2660,13 +2776,18 @@ capture_ios_app_with_retries() {
       rm -rf "$attempt_directory"
       return 0
     fi
+    observed_accessibility_ios_xxxl_abs="$final_observed_accessibility_ios_xxxl_abs"
     observed_accessibility_ios_ax_abs="$final_observed_accessibility_ios_ax_abs"
+    ios_xxxl_screenshot="$final_ios_xxxl_screenshot"
     ios_accessibility_screenshot="$final_ios_accessibility_screenshot"
+    accessibility_proof_ios_xxxl_abs="$final_accessibility_proof_ios_xxxl_abs"
     accessibility_proof_ios_ax_abs="$final_accessibility_proof_ios_ax_abs"
     accessibility_proof_ios_deep_scroll_abs="$final_accessibility_proof_ios_deep_scroll_abs"
+    accessibility_proof_ios_xxxl_deep_scroll_abs="$final_accessibility_proof_ios_xxxl_deep_scroll_abs"
     accessibility_proof_ios_ax_deep_scroll_abs="$final_accessibility_proof_ios_ax_deep_scroll_abs"
     accessibility_proof_ipad_deep_scroll_abs="$final_accessibility_proof_ipad_deep_scroll_abs"
     ios_deep_scroll_screenshot="$final_ios_deep_scroll_screenshot"
+    ios_xxxl_deep_scroll_screenshot="$final_ios_xxxl_deep_scroll_screenshot"
     ios_accessibility_deep_scroll_screenshot="$final_ios_accessibility_deep_scroll_screenshot"
     ios_tablet_deep_scroll_screenshot="$final_ios_tablet_deep_scroll_screenshot"
     rm -rf "$attempt_directory"
@@ -2888,16 +3009,16 @@ run_ios_smoke() {
 }
 
 : > "$capture_log"
-rm -f "$ios_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
-rm -f "$ios_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
+rm -f "$ios_screenshot" "$ios_xxxl_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+rm -f "$ios_deep_scroll_screenshot" "$ios_xxxl_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot"
 rm -f "$macos_screenshot_diagnostic"
 rm -f "$ios_proof_artifact" "$ipad_proof_artifact" "$macos_proof_artifact"
-rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad" "$accessibility_proof_macos"
-rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
-rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll"
-rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs"
-rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_macos"
-rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_macos_abs"
+rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_xxxl" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad" "$accessibility_proof_macos"
+rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_xxxl_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
+rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_xxxl_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll"
+rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_xxxl_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs"
+rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_xxxl" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_macos"
+rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_xxxl_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_macos_abs"
 rm -f "$design_review_blocked"
 rm -f "$design_review"
 rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker" "$macos_accessibility_blocker"
@@ -3266,24 +3387,24 @@ elif [[ -f "$macos_blocker" ]]; then
 elif [[ -f "$macos_accessibility_blocker" ]]; then
   write_design_review_blocked "$macos_accessibility_blocker"
 else
-  if [[ ! -s "$ios_screenshot" || ! -s "$ios_accessibility_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$macos_screenshot" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce standard iPhone, accessibility iPhone, iPad, and macOS screenshots\n' >&2
+  if [[ ! -s "$ios_screenshot" || ! -s "$ios_xxxl_screenshot" || ! -s "$ios_accessibility_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$macos_screenshot" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce standard, XXXL, accessibility iPhone, iPad, and macOS screenshots\n' >&2
     exit 1
   fi
-  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_ios_ax_abs" || ! -s "$accessibility_proof_ipad_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce standard iPhone, accessibility iPhone, iPad, and macOS accessibility proofs\n' >&2
+  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_ios_xxxl_abs" || ! -s "$accessibility_proof_ios_ax_abs" || ! -s "$accessibility_proof_ipad_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce standard, XXXL, accessibility iPhone, iPad, and macOS accessibility proofs\n' >&2
     exit 1
   fi
   case "$screenshot_route" in
     kitchen|recipes|saved-recipes|recipe-detail|recipe-editor|recipe-covers|cook-mode|cook-log|cookbooks|cookbook-detail|shopping-list|chefs|profile|profile-graph|search|capture|settings)
-      if [[ ! -s "$accessibility_proof_ios_deep_scroll_abs" || ! -s "$accessibility_proof_ios_ax_deep_scroll_abs" || ! -s "$accessibility_proof_ipad_deep_scroll_abs" ]]; then
+      if [[ ! -s "$accessibility_proof_ios_deep_scroll_abs" || ! -s "$accessibility_proof_ios_xxxl_deep_scroll_abs" || ! -s "$accessibility_proof_ios_ax_deep_scroll_abs" || ! -s "$accessibility_proof_ipad_deep_scroll_abs" ]]; then
         printf 'Screenshot capture produced no blocker but did not produce all deep-scroll readiness proofs\n' >&2
         exit 1
       fi
       ;;
   esac
-  if [[ ! -s "$observed_accessibility_ios_abs" || ! -s "$observed_accessibility_ios_ax_abs" || ! -s "$observed_accessibility_ipad_abs" || ! -s "$observed_accessibility_macos_abs" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce standard iPhone, accessibility iPhone, iPad, and macOS observed accessibility evidence\n' >&2
+  if [[ ! -s "$observed_accessibility_ios_abs" || ! -s "$observed_accessibility_ios_xxxl_abs" || ! -s "$observed_accessibility_ios_ax_abs" || ! -s "$observed_accessibility_ipad_abs" || ! -s "$observed_accessibility_macos_abs" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce standard, XXXL, accessibility iPhone, iPad, and macOS observed accessibility evidence\n' >&2
     exit 1
   fi
   write_design_review_success

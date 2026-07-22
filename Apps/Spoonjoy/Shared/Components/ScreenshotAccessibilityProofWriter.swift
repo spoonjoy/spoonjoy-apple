@@ -133,6 +133,7 @@ struct ScreenshotAccessibilityProofReceipt: Equatable, Sendable {
     let captureRunNonce: String
     let route: String
     let source: String
+    let applicationProcessIdentifier: Int32
     let readinessGeneration: Int
     let proofFileName: String
     let proofSHA256: String
@@ -147,6 +148,7 @@ struct ScreenshotAccessibilityProofReceipt: Equatable, Sendable {
             captureRunNonce,
             route,
             source,
+            String(applicationProcessIdentifier),
             String(readinessGeneration),
             proofFileName,
             proofSHA256
@@ -326,6 +328,7 @@ enum ScreenshotAccessibilityProofWriter {
             captureRunNonce: request.captureRunNonce,
             route: request.route,
             source: request.source,
+            applicationProcessIdentifier: ProcessInfo.processInfo.processIdentifier,
             readinessGeneration: visualReadiness.generation,
             proofFileName: generationOutputURL.lastPathComponent,
             proofSHA256: proofSHA256

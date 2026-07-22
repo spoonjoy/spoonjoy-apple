@@ -159,6 +159,91 @@ def attest_exported_screenshot(evidence: dict, screenshot_path: Path, field: str
         fail(f"observed screenshot attachment SHA-256 mismatch for {field}")
 
 
+def attest_capture_identity(
+    evidence: dict,
+    screenshot_path: Path,
+    *,
+    expected_run_nonce: str,
+    expected_phase: str,
+) -> dict:
+    identity = evidence.get("captureIdentity")
+    expected_fields = {
+        "schema",
+        "captureID",
+        "captureRunNonce",
+        "capturePhase",
+        "applicationBundleIdentifier",
+        "applicationProcessIdentifier",
+        "foregroundBeforeCapture",
+        "foregroundAfterCapture",
+        "screenshotSHA256",
+    }
+    if not isinstance(identity, dict) or set(identity) != expected_fields:
+        fail("observed screenshot capture identity is missing or malformed")
+    capture_id = identity.get("captureID")
+    try:
+        canonical_capture_id = str(uuid.UUID(capture_id))
+    except (AttributeError, TypeError, ValueError):
+        fail("observed screenshot capture ID is not a UUID")
+    if capture_id != canonical_capture_id:
+        fail("observed screenshot capture ID is not canonical")
+    if identity.get("schema") != "iosObservedCaptureV1":
+        fail("observed screenshot capture identity schema mismatch")
+    if identity.get("captureRunNonce") != expected_run_nonce:
+        fail("observed screenshot capture run nonce mismatch")
+    if identity.get("capturePhase") != expected_phase:
+        fail("observed screenshot capture phase mismatch")
+    if identity.get("applicationBundleIdentifier") != "app.spoonjoy":
+        fail("observed screenshot application bundle mismatch")
+    process_identifier = identity.get("applicationProcessIdentifier")
+    if isinstance(process_identifier, bool) or not isinstance(process_identifier, int) or process_identifier <= 0:
+        fail("observed screenshot application process identity is invalid")
+    if identity.get("foregroundBeforeCapture") is not True:
+        fail("Spoonjoy was not foreground before the observed screenshot capture")
+    if identity.get("foregroundAfterCapture") is not True:
+        fail("Spoonjoy was not foreground after the observed screenshot capture")
+    expected_digest = identity.get("screenshotSHA256")
+    if evidence.get("screenshotSHA256") != expected_digest:
+        fail("observed screenshot evidence and capture identity SHA-256 mismatch")
+    attest_exported_screenshot(identity, screenshot_path, "screenshotSHA256")
+    return identity
+
+
+def publish_attested_screenshot(
+    evidence: dict,
+    source: Path,
+    destination: Path,
+    *,
+    expected_run_nonce: str,
+    expected_phase: str,
+) -> None:
+    attest_capture_identity(
+        evidence,
+        source,
+        expected_run_nonce=expected_run_nonce,
+        expected_phase=expected_phase,
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.tmp-{uuid.uuid4()}")
+    try:
+        shutil.copyfile(source, temporary)
+        attest_capture_identity(
+            evidence,
+            temporary,
+            expected_run_nonce=expected_run_nonce,
+            expected_phase=expected_phase,
+        )
+        os.replace(temporary, destination)
+        attest_capture_identity(
+            evidence,
+            destination,
+            expected_run_nonce=expected_run_nonce,
+            expected_phase=expected_phase,
+        )
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def attest_observed_dynamic_type(
     evidence: dict,
     app_proof_path: Path,
@@ -166,6 +251,7 @@ def attest_observed_dynamic_type(
 ) -> None:
     expected_dynamic_type = {
         "large": "large",
+        "extra-extra-extra-large": "xxxLarge",
         "accessibility-extra-extra-extra-large": "accessibility5",
     }.get(requested_content_size)
     if expected_dynamic_type is None:
@@ -457,7 +543,12 @@ def main() -> None:
     screenshots = observed_screenshot_files(attachments)
     if len(screenshots) != 1:
         fail(f"expected one initial observed screenshot, found {len(screenshots)}; see {attachments}")
-    attest_exported_screenshot(evidence, screenshots[0], "screenshotSHA256")
+    initial_capture_identity = attest_capture_identity(
+        evidence,
+        screenshots[0],
+        expected_run_nonce=capture_run_nonce,
+        expected_phase="initial",
+    )
     deep_scroll = evidence.get("deepScroll")
     deep_screenshots: list[Path] = []
     if isinstance(deep_scroll, dict):
@@ -475,7 +566,19 @@ def main() -> None:
         deep_screenshots = deep_scroll_screenshot_files(attachments)
         if len(deep_screenshots) != 1:
             fail(f"expected one deep-scroll screenshot, found {len(deep_screenshots)}; see {attachments}")
-        attest_exported_screenshot(deep_scroll, deep_screenshots[0], "screenshotSHA256")
+        deep_capture_identity = attest_capture_identity(
+            deep_scroll,
+            deep_screenshots[0],
+            expected_run_nonce=capture_run_nonce,
+            expected_phase="deepScroll",
+        )
+        if (
+            deep_capture_identity["applicationProcessIdentifier"]
+            != initial_capture_identity["applicationProcessIdentifier"]
+        ):
+            fail("initial and deep-scroll screenshots came from different app processes")
+        if deep_capture_identity["captureID"] == initial_capture_identity["captureID"]:
+            fail("initial and deep-scroll screenshots reused one capture ID")
     arguments.readiness_proof_output.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(app_proof_path, arguments.readiness_proof_output)
     if isinstance(deep_scroll, dict):
@@ -483,18 +586,28 @@ def main() -> None:
             deep_app_proof_path,
             deep_readiness_proof_output(arguments.readiness_proof_output),
         )
-    arguments.output.parent.mkdir(parents=True, exist_ok=True)
-    arguments.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
     if arguments.screenshot_output:
-        arguments.screenshot_output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(screenshots[0], arguments.screenshot_output)
+        publish_attested_screenshot(
+            evidence,
+            screenshots[0],
+            arguments.screenshot_output,
+            expected_run_nonce=capture_run_nonce,
+            expected_phase="initial",
+        )
     if isinstance(deep_scroll, dict):
         if not arguments.deep_scroll_screenshot_output:
             fail("deep-scroll evidence requires a sealed deep-scroll screenshot output")
-        arguments.deep_scroll_screenshot_output.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(deep_screenshots[0], arguments.deep_scroll_screenshot_output)
+        publish_attested_screenshot(
+            deep_scroll,
+            deep_screenshots[0],
+            arguments.deep_scroll_screenshot_output,
+            expected_run_nonce=capture_run_nonce,
+            expected_phase="deepScroll",
+        )
     elif arguments.deep_scroll_screenshot_output:
         fail("deep-scroll screenshot output was requested without deep-scroll evidence")
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    arguments.output.write_text(json.dumps(evidence, indent=2, sort_keys=True) + "\n")
     product_findings = list(evidence.get("auditIssues", [])) + list(evidence.get("geometryFindings", []))
     if isinstance(deep_scroll, dict):
         product_findings.extend(deep_scroll.get("findings", []))

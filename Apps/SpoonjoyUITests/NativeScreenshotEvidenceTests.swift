@@ -26,9 +26,22 @@ private struct ObservedReadinessHandshake: Codable, Equatable {
     let captureRunNonce: String
     let route: String
     let source: String
+    let applicationProcessIdentifier: Int
     let readinessGeneration: Int
     let proofFileName: String
     let proofSHA256: String
+}
+
+private struct ObservedCaptureIdentity: Codable, Equatable {
+    let schema: String
+    let captureID: String
+    let captureRunNonce: String
+    let capturePhase: String
+    let applicationBundleIdentifier: String
+    let applicationProcessIdentifier: Int
+    let foregroundBeforeCapture: Bool
+    let foregroundAfterCapture: Bool
+    let screenshotSHA256: String
 }
 
 private struct ObservedAuditResult {
@@ -45,6 +58,7 @@ private enum ObservedAccessibilityAuditScope: String, Codable {
 private struct AttestedScreenshot {
     let screenshot: XCUIScreenshot
     let handshake: ObservedReadinessHandshake
+    let identity: ObservedCaptureIdentity
 }
 
 private struct ObservedDeepScrollEvidence: Codable {
@@ -60,6 +74,7 @@ private struct ObservedDeepScrollEvidence: Codable {
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
     let screenshotSHA256: String?
     let readinessHandshake: ObservedReadinessHandshake?
+    let captureIdentity: ObservedCaptureIdentity?
     let observedContentMovement: Bool
     let contentFitsWithoutScrolling: Bool
 }
@@ -73,6 +88,7 @@ private struct ObservedScreenshotEvidence: Codable {
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
     let screenshotSHA256: String
     let readinessHandshake: ObservedReadinessHandshake
+    let captureIdentity: ObservedCaptureIdentity
     let geometryFindings: [ObservedAccessibilityFinding]
     let deepScroll: ObservedDeepScrollEvidence?
     let operatingSystemVersion: String
@@ -164,7 +180,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let initialCapture = try captureAttestedScreenshot(
             in: app,
             route: route,
-            captureRunNonce: environment["SPOONJOY_SCREENSHOT_RUN_NONCE"]
+            captureRunNonce: environment["SPOONJOY_SCREENSHOT_RUN_NONCE"],
+            capturePhase: "initial"
         )
         let initialScreenshot = initialCapture.screenshot
         let readinessHandshake = initialCapture.handshake
@@ -191,6 +208,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 in: app,
                 route: route,
                 terminalIdentifier: routeTerminalIdentifier(route: route),
+                terminalLabel: routeTerminalLabel(route: route),
                 initialElements: initialElements,
                 windowFrame: window.frame,
                 requiresSystemTabBar: UIDevice.current.userInterfaceIdiom == .phone
@@ -210,6 +228,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             verifiedContrastFalsePositives: verifiedContrastFalsePositives,
             screenshotSHA256: Self.sha256(initialScreenshot.pngRepresentation),
             readinessHandshake: readinessHandshake,
+            captureIdentity: initialCapture.identity,
             geometryFindings: geometryFindings,
             deepScroll: deepScroll,
             operatingSystemVersion: UIDevice.current.systemVersion,
@@ -443,6 +462,20 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(didObserveIdentifiedMovement(before: before, after: after))
     }
 
+    func testKitchenTerminalTraversesEveryCookbookToTheFinalFixtureObject() {
+        let fixtureCookbookIdentifiers = [
+            "kitchen.cookbook.cookbook_weeknights",
+            "kitchen.cookbook.cookbook_slow_sundays"
+        ]
+
+        XCTAssertEqual(routeTerminalIdentifier(route: "kitchen"), fixtureCookbookIdentifiers.last)
+        XCTAssertNotEqual(routeTerminalIdentifier(route: "kitchen"), fixtureCookbookIdentifiers.first)
+        XCTAssertEqual(
+            routeTerminalLabel(route: "kitchen"),
+            "Slow Sundays and Long Simmering Suppers, 0 recipes"
+        )
+    }
+
     func testTerminalProofAcceptsContentThatAlreadyFitsWithoutADestructiveScrollProbe() {
         XCTAssertTrue(terminalProofIsValid(
             reachedStableTerminal: true,
@@ -605,7 +638,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     func testReadinessHandshakeRequiresGenerationBoundProofArchive() {
         let nonce = "123e4567-e89b-12d3-a456-426614174000"
         XCTAssertNotNil(parseReadinessHandshake(
-            "Screenshot readiness|\(nonce)|kitchen|KitchenView|12|screenshot-accessibility-proof.generation-12.json|\(String(repeating: "a", count: 64))",
+            "Screenshot readiness|\(nonce)|kitchen|KitchenView|42012|12|screenshot-accessibility-proof.generation-12.json|\(String(repeating: "a", count: 64))",
             expectedNonce: nonce,
             expectedRoute: "kitchen"
         ))
@@ -701,6 +734,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ))
     }
 
+    func testScreenshotContrastAdjudicatorRejectsMeaningfulMinorityLowContrastCluster() {
+        let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        let highContrast = ObservedRGBPixel(red: 40, green: 35, blue: 29)
+        let lowContrast = ObservedRGBPixel(red: 145, green: 141, blue: 136)
+        let pixels = Array(repeating: background, count: 700)
+            + Array(repeating: highContrast, count: 172)
+            + Array(repeating: lowContrast, count: 128)
+
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: pixels,
+            width: 50,
+            height: 20
+        ))
+    }
+
     func testScreenshotContrastBufferDecodesAntialiasedSystemTextFromPNG() throws {
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -754,7 +802,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
         XCTAssertEqual(
             parseReadinessHandshake(
-                "Screenshot readiness|\(nonce)|kitchen|KitchenView|\(generation)|\(proofFileName)|\(hash)",
+                "Screenshot readiness|\(nonce)|kitchen|KitchenView|42012|\(generation)|\(proofFileName)|\(hash)",
                 expectedNonce: nonce,
                 expectedRoute: "kitchen"
             ),
@@ -762,23 +810,29 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 captureRunNonce: nonce,
                 route: "kitchen",
                 source: "KitchenView",
+                applicationProcessIdentifier: 42_012,
                 readinessGeneration: generation,
                 proofFileName: proofFileName,
                 proofSHA256: hash
             )
         )
         XCTAssertNil(parseReadinessHandshake(
-            "Screenshot readiness|dd9e30cb-630f-4b4d-99b4-9ed82b80a7f2|kitchen|KitchenView|\(generation)|\(proofFileName)|\(hash)",
+            "Screenshot readiness|dd9e30cb-630f-4b4d-99b4-9ed82b80a7f2|kitchen|KitchenView|42012|\(generation)|\(proofFileName)|\(hash)",
             expectedNonce: nonce,
             expectedRoute: "kitchen"
         ))
         XCTAssertNil(parseReadinessHandshake(
-            "Screenshot readiness|\(nonce)|recipes|RecipesView|\(generation)|\(proofFileName)|\(hash)",
+            "Screenshot readiness|\(nonce)|recipes|RecipesView|42012|\(generation)|\(proofFileName)|\(hash)",
             expectedNonce: nonce,
             expectedRoute: "kitchen"
         ))
         XCTAssertNil(parseReadinessHandshake(
-            "Screenshot readiness|\(nonce)|kitchen|KitchenView|\(generation)|\(proofFileName)|not-a-hash",
+            "Screenshot readiness|\(nonce)|kitchen|KitchenView|42012|\(generation)|\(proofFileName)|not-a-hash",
+            expectedNonce: nonce,
+            expectedRoute: "kitchen"
+        ))
+        XCTAssertNil(parseReadinessHandshake(
+            "Screenshot readiness|\(nonce)|kitchen|KitchenView|0|\(generation)|\(proofFileName)|\(hash)",
             expectedNonce: nonce,
             expectedRoute: "kitchen"
         ))
@@ -1214,19 +1268,45 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     private func captureAttestedScreenshot(
         in app: XCUIApplication,
         route: String,
-        captureRunNonce: String?
+        captureRunNonce: String?,
+        capturePhase: String
     ) throws -> AttestedScreenshot {
         let nonce = try XCTUnwrap(
             captureRunNonce?.trimmingCharacters(in: .whitespacesAndNewlines),
             "Screenshot observer requires a capture run nonce"
         )
+        guard capturePhase == "initial" || capturePhase == "deepScroll" else {
+            throw NSError(
+                domain: "app.spoonjoy.screenshot-capture",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Screenshot observer requires an exact capture phase."]
+            )
+        }
         for _ in 0..<4 {
             let before = try waitForReadinessHandshake(
                 in: app,
                 route: route,
                 captureRunNonce: nonce
             )
+            let applicationProcessIdentifier = before.applicationProcessIdentifier
+            let foregroundBeforeCapture = app.state == .runningForeground
+            guard applicationProcessIdentifier > 0, foregroundBeforeCapture else {
+                throw NSError(
+                    domain: "app.spoonjoy.screenshot-capture",
+                    code: 2,
+                    userInfo: [NSLocalizedDescriptionKey: "Spoonjoy was not the foreground application before capture."]
+                )
+            }
             let screenshot = XCUIScreen.main.screenshot()
+            let screenshotSHA256 = Self.sha256(screenshot.pngRepresentation)
+            let foregroundAfterCapture = app.state == .runningForeground
+            guard foregroundAfterCapture else {
+                throw NSError(
+                    domain: "app.spoonjoy.screenshot-capture",
+                    code: 3,
+                    userInfo: [NSLocalizedDescriptionKey: "Spoonjoy foreground process changed during capture."]
+                )
+            }
             guard readinessHandshakeRemainsStable(
                 in: app,
                 route: route,
@@ -1235,7 +1315,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ) else {
                 continue
             }
-            return AttestedScreenshot(screenshot: screenshot, handshake: before)
+            return AttestedScreenshot(
+                screenshot: screenshot,
+                handshake: before,
+                identity: ObservedCaptureIdentity(
+                    schema: "iosObservedCaptureV1",
+                    captureID: UUID().uuidString.lowercased(),
+                    captureRunNonce: nonce,
+                    capturePhase: capturePhase,
+                    applicationBundleIdentifier: "app.spoonjoy",
+                    applicationProcessIdentifier: applicationProcessIdentifier,
+                    foregroundBeforeCapture: foregroundBeforeCapture,
+                    foregroundAfterCapture: foregroundAfterCapture,
+                    screenshotSHA256: screenshotSHA256
+                )
+            )
         }
         throw NSError(
             domain: "app.spoonjoy.screenshot-readiness",
@@ -1285,29 +1379,32 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         expectedRoute: String
     ) -> ObservedReadinessHandshake? {
         let fields = label.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
-        guard fields.count == 7,
+        guard fields.count == 8,
               fields[0] == "Screenshot readiness",
               fields[1] == expectedNonce,
               UUID(uuidString: fields[1]) != nil,
               fields[2] == expectedRoute,
               !fields[3].isEmpty,
-              let readinessGeneration = Int(fields[4]),
+              let applicationProcessIdentifier = Int(fields[4]),
+              applicationProcessIdentifier > 0,
+              let readinessGeneration = Int(fields[5]),
               readinessGeneration >= 0,
-              fields[5].range(
+              fields[6].range(
                 of: #"\A[A-Za-z0-9._-]+\.generation-[0-9]+\.json\z"#,
                 options: .regularExpression
               ) != nil,
-              fields[5].contains(".generation-\(readinessGeneration)."),
-              fields[6].range(of: #"\A[0-9a-f]{64}\z"#, options: .regularExpression) != nil else {
+              fields[6].contains(".generation-\(readinessGeneration)."),
+              fields[7].range(of: #"\A[0-9a-f]{64}\z"#, options: .regularExpression) != nil else {
             return nil
         }
         return ObservedReadinessHandshake(
             captureRunNonce: fields[1],
             route: fields[2],
             source: fields[3],
+            applicationProcessIdentifier: applicationProcessIdentifier,
             readinessGeneration: readinessGeneration,
-            proofFileName: fields[5],
-            proofSHA256: fields[6]
+            proofFileName: fields[6],
+            proofSHA256: fields[7]
         )
     }
 
@@ -1522,7 +1619,13 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             return ["Spoonjoy", "Sign in"]
         }
         return switch route {
-        case "kitchen": ["My Kitchen", "Lemon Pantry Pasta", "Recipe Index", "Cookbook Shelf"]
+        case "kitchen": [
+            "My Kitchen",
+            "Lemon Pantry Pasta",
+            "Recipe Index",
+            "Cookbook Shelf",
+            "Slow Sundays and Long Simmering Suppers"
+        ]
         case "recipes", "saved-recipes": ["Lemon Pantry Pasta"]
         case "recipe-detail": ["Lemon Pantry Pasta", "Start Cooking"]
         case "recipe-editor": ["Recipe", "Title", "Save"]
@@ -1598,10 +1701,17 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
     private func routeTerminalIdentifier(route: String) -> String? {
         switch route {
-        case "kitchen": "kitchen.cookbook.cookbook_weeknights"
+        case "kitchen": "kitchen.cookbook.cookbook_slow_sundays"
         case "recipe-editor": "recipe-editor.delete"
         case "recipe-covers": "recipe-covers.archive.cover_primary"
         case "profile": "profile.graph.kitchen-visitors"
+        default: nil
+        }
+    }
+
+    private func routeTerminalLabel(route: String) -> String? {
+        switch route {
+        case "kitchen": "Slow Sundays and Long Simmering Suppers, 0 recipes"
         default: nil
         }
     }
@@ -1653,6 +1763,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         in app: XCUIApplication,
         route: String,
         terminalIdentifier: String?,
+        terminalLabel: String?,
         initialElements: [ObservedAccessibilityElement],
         windowFrame: CGRect,
         requiresSystemTabBar: Bool
@@ -1685,6 +1796,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 verifiedContrastFalsePositives: [],
                 screenshotSHA256: nil,
                 readinessHandshake: nil,
+                captureIdentity: nil,
                 observedContentMovement: false,
                 contentFitsWithoutScrolling: false
             )
@@ -1836,6 +1948,14 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 intersection: nil
             ))
         }
+        if let terminalLabel, terminalElement?.label != terminalLabel {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: ["label:\(terminalLabel)"],
+                message: "Deep-scroll proof did not reach the route terminal object label.",
+                intersection: nil
+            ))
+        }
         if let terminalElement, tabBar != nil || !requiresSystemTabBar {
             findings.append(contentsOf: ScreenshotEvidenceGeometry.validateTerminalElement(
                 terminalElement,
@@ -1854,7 +1974,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let deepCapture = try captureAttestedScreenshot(
             in: app,
             route: route,
-            captureRunNonce: ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"]
+            captureRunNonce: ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"],
+            capturePhase: "deepScroll"
         )
         let deepScreenshot = deepCapture.screenshot
         let auditResult = accessibilityAuditIssues(
@@ -1885,6 +2006,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             verifiedContrastFalsePositives: auditResult.verifiedContrastFalsePositives,
             screenshotSHA256: Self.sha256(deepScreenshot.pngRepresentation),
             readinessHandshake: deepCapture.handshake,
+            captureIdentity: deepCapture.identity,
             observedContentMovement: observedContentMovement,
             contentFitsWithoutScrolling: contentFitsWithoutScrolling
         )

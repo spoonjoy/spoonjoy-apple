@@ -20,12 +20,14 @@ ENV["SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS"] = "0"
 
 SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile.png",
+  "iosXXXL" => "screenshots/ios-mobile-xxxl.png",
   "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
   "iosTablet" => "screenshots/ios-tablet.png",
   "macosDesktop" => "screenshots/macos-desktop.png"
 }.freeze
 DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+  "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
   "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
   "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
 }.freeze
@@ -121,11 +123,12 @@ SCRIPT_CONTRACTS = {
       "--artifact-root",
       "--unit-slug",
       "screenshots/ios-mobile.png",
+      "screenshots/ios-mobile-xxxl.png",
       "screenshots/ios-mobile-accessibility.png",
       "screenshots/macos-desktop.png",
       "design-review.json",
       "design-review-blocked.json",
-      "rm -f \"$ios_screenshot\" \"$ios_accessibility_screenshot\" \"$ios_tablet_screenshot\" \"$macos_screenshot\"",
+      "rm -f \"$ios_screenshot\" \"$ios_xxxl_screenshot\" \"$ios_accessibility_screenshot\" \"$ios_tablet_screenshot\" \"$macos_screenshot\"",
       "rm -f \"$design_review_blocked\"",
       "rm -f \"$design_review\"",
       "xcrun simctl io",
@@ -615,6 +618,7 @@ def add_accessibility_proofs!(root, manifest, stem)
 
   proof_variants = [
     ["apple/#{stem}-accessibility-proof-ios.json", "ios", "large", "7238f644-ff7a-4c1a-a9aa-60dd478c1c1d", 10],
+    ["apple/#{stem}-accessibility-proof-ios-xxxl.json", "ios", "xxxLarge", "43afb485-26a1-4d2a-a205-4317fa1c4210", 15],
     ["apple/#{stem}-accessibility-proof-ios-ax.json", "ios", "accessibility5", "f62de99c-0067-4c71-9fc5-f7ba5cc27e6c", 20],
     ["apple/#{stem}-accessibility-proof-ipad.json", "ipad", "large", "817a858d-c004-4036-9c1d-d816b97f5d99", 30],
     ["apple/#{stem}-accessibility-proof-macos.json", "macos", "large", "bf3d228e-0f1f-4450-b8dc-e48db62686b6", 40]
@@ -653,12 +657,13 @@ def add_accessibility_proofs!(root, manifest, stem)
         "isSettled" => true
       }
     ) + "\n")
-    observer_suffix = dynamic_type == "large" ? platform : "#{platform}-ax"
+    observer_suffix = dynamic_type == "large" ? platform : dynamic_type == "xxxLarge" ? "#{platform}-xxxl" : "#{platform}-ax"
     runtime_proof_stem = "native-accessibility-proof.observer-#{observer_suffix}-#{capture_run_nonce}"
     readiness_bindings[[platform, dynamic_type]] = {
       "captureRunNonce" => capture_run_nonce,
       "route" => route,
       "source" => accessibility_source(route),
+      "applicationProcessIdentifier" => 42_012,
       "readinessGeneration" => readiness_generation,
       "proofFileName" => "#{runtime_proof_stem}.generation-#{readiness_generation}.json",
       "proofSHA256" => Digest::SHA256.file(proof_path).hexdigest
@@ -670,7 +675,7 @@ def add_accessibility_proofs!(root, manifest, stem)
     manifest["deepScrollAccessibilityProofArtifacts"] = []
     proof_variants.reject { |_, platform, _, _, _| platform == "macos" }.each do |relative_path, platform, dynamic_type, capture_run_nonce, readiness_generation|
       deep_generation = readiness_generation + 1
-      observer_suffix = dynamic_type == "large" ? platform : "#{platform}-ax"
+      observer_suffix = dynamic_type == "large" ? platform : dynamic_type == "xxxLarge" ? "#{platform}-xxxl" : "#{platform}-ax"
       runtime_proof_stem = "native-accessibility-proof.observer-#{observer_suffix}-#{capture_run_nonce}"
       deep_relative_path = relative_path.sub(/\.json\z/, "-deep-scroll.json")
       initial_payload = JSON.parse(root.join(relative_path).read)
@@ -683,6 +688,7 @@ def add_accessibility_proofs!(root, manifest, stem)
         "captureRunNonce" => capture_run_nonce,
         "route" => route,
         "source" => accessibility_source(route),
+        "applicationProcessIdentifier" => 42_012,
         "readinessGeneration" => deep_generation,
         "proofFileName" => "#{runtime_proof_stem}.generation-#{deep_generation}.json",
         "proofSHA256" => Digest::SHA256.file(deep_path).hexdigest
@@ -692,6 +698,7 @@ def add_accessibility_proofs!(root, manifest, stem)
 
   observed_paths = [
     "apple/#{stem}-observed-accessibility-ios.json",
+    "apple/#{stem}-observed-accessibility-ios-xxxl.json",
     "apple/#{stem}-observed-accessibility-ios-ax.json",
     "apple/#{stem}-observed-accessibility-ipad.json",
     "apple/#{stem}-observed-accessibility-macos.json"
@@ -700,6 +707,7 @@ def add_accessibility_proofs!(root, manifest, stem)
   manifest["accessibilityContentSizeScreenshot"] = "screenshots/ios-mobile-accessibility.png"
   observed_variants = [
     ["ios", "large"],
+    ["ios", "extra-extra-extra-large"],
     ["ios", "accessibility-extra-extra-extra-large"],
     ["ipad", "large"],
     ["macos", nil]
@@ -729,7 +737,7 @@ def add_accessibility_proofs!(root, manifest, stem)
       "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
     }.fetch(route, [])
     terminal_identifier = {
-      "kitchen" => "kitchen.cookbook.cookbook_weeknights",
+      "kitchen" => "kitchen.cookbook.cookbook_slow_sundays",
       "recipe-editor" => "recipe-editor.delete",
       "recipe-covers" => "recipe-covers.archive.cover_primary",
       "profile" => "profile.graph.kitchen-visitors"
@@ -765,7 +773,7 @@ def add_accessibility_proofs!(root, manifest, stem)
         terminal = {
           "identifier" => terminal_identifier,
           "role" => "AXButton",
-          "title" => terminal_identifier,
+          "title" => route == "kitchen" ? "Slow Sundays and Long Simmering Suppers, 0 recipes" : terminal_identifier,
           "frame" => { "x" => 10, "y" => 40, "width" => 120, "height" => 44 },
           "enabled" => true,
           "focused" => false,
@@ -785,7 +793,7 @@ def add_accessibility_proofs!(root, manifest, stem)
     else
       terminal = {
         "identifier" => terminal_identifier,
-        "label" => "Terminal",
+        "label" => route == "kitchen" ? "Slow Sundays and Long Simmering Suppers, 0 recipes" : "Terminal",
         "type" => terminal_identifier == "recipe-covers.archive.cover_primary" ? "button" : "staticText",
         "frame" => { "x" => 10, "y" => 40, "width" => 44, "height" => 40 },
         "exists" => true,
@@ -812,17 +820,28 @@ def add_accessibility_proofs!(root, manifest, stem)
         "auditIssues" => [],
         "verifiedContrastFalsePositives" => [],
         "screenshotSHA256" => Digest::SHA256.file(root.join(
-          content_size_category == "accessibility-extra-extra-extra-large" ? "screenshots/ios-mobile-accessibility.png" : platform == "ipad" ? "screenshots/ios-tablet.png" : "screenshots/ios-mobile.png"
+          content_size_category == "accessibility-extra-extra-extra-large" ? "screenshots/ios-mobile-accessibility.png" : content_size_category == "extra-extra-extra-large" ? "screenshots/ios-mobile-xxxl.png" : platform == "ipad" ? "screenshots/ios-tablet.png" : "screenshots/ios-mobile.png"
         )).hexdigest,
         "geometryFindings" => [],
         "observedContentSizeCategory" => content_size_category,
-        "observedDynamicTypeSize" => content_size_category == "accessibility-extra-extra-extra-large" ? "accessibility5" : "large",
+        "observedDynamicTypeSize" => content_size_category == "accessibility-extra-extra-extra-large" ? "accessibility5" : content_size_category == "extra-extra-extra-large" ? "xxxLarge" : "large",
         "toolLimitations" => []
       }
       observed["readinessHandshake"] = readiness_bindings.fetch([
         platform,
         observed["observedDynamicTypeSize"]
       ])
+      observed["captureIdentity"] = {
+        "schema" => "iosObservedCaptureV1",
+        "captureID" => "7616b756-9527-4fd6-982a-8f3cb9f9c4dc",
+        "captureRunNonce" => observed["readinessHandshake"].fetch("captureRunNonce"),
+        "capturePhase" => "initial",
+        "applicationBundleIdentifier" => "app.spoonjoy",
+        "applicationProcessIdentifier" => observed["readinessHandshake"].fetch("applicationProcessIdentifier"),
+        "foregroundBeforeCapture" => true,
+        "foregroundAfterCapture" => true,
+        "screenshotSHA256" => observed.fetch("screenshotSHA256")
+      }
       if DEEP_SCROLL_ROUTES.include?(route)
         observed["deepScroll"] = {
           "route" => route,
@@ -835,7 +854,7 @@ def add_accessibility_proofs!(root, manifest, stem)
           "auditIssues" => [],
           "verifiedContrastFalsePositives" => [],
           "screenshotSHA256" => Digest::SHA256.file(root.join(
-            content_size_category == "accessibility-extra-extra-extra-large" ? "screenshots/ios-mobile-accessibility-deep-scroll.png" : platform == "ipad" ? "screenshots/ios-tablet-deep-scroll.png" : "screenshots/ios-mobile-deep-scroll.png"
+            content_size_category == "accessibility-extra-extra-extra-large" ? "screenshots/ios-mobile-accessibility-deep-scroll.png" : content_size_category == "extra-extra-extra-large" ? "screenshots/ios-mobile-xxxl-deep-scroll.png" : platform == "ipad" ? "screenshots/ios-tablet-deep-scroll.png" : "screenshots/ios-mobile-deep-scroll.png"
           )).hexdigest,
           "observedContentMovement" => true,
           "contentFitsWithoutScrolling" => false,
@@ -845,6 +864,17 @@ def add_accessibility_proofs!(root, manifest, stem)
           platform,
           observed["observedDynamicTypeSize"]
         ])
+        observed["deepScroll"]["captureIdentity"] = {
+          "schema" => "iosObservedCaptureV1",
+          "captureID" => "19dc51d4-5113-4268-80a5-c85cc05e8d0b",
+          "captureRunNonce" => observed["deepScroll"]["readinessHandshake"].fetch("captureRunNonce"),
+          "capturePhase" => "deepScroll",
+          "applicationBundleIdentifier" => "app.spoonjoy",
+          "applicationProcessIdentifier" => observed["deepScroll"]["readinessHandshake"].fetch("applicationProcessIdentifier"),
+          "foregroundBeforeCapture" => true,
+          "foregroundAfterCapture" => true,
+          "screenshotSHA256" => observed["deepScroll"].fetch("screenshotSHA256")
+        }
       end
     end
     observed_path.write(JSON.pretty_generate(observed) + "\n")
@@ -1885,8 +1915,9 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     if transient_failure_marker and not Path(transient_failure_marker).exists():
         Path(transient_failure_marker).write_text("failed once\n")
         raise SystemExit(65)
-    terminal_identifier = "kitchen.cookbook.cookbook_weeknights" if args.route == "kitchen" else "fixture.terminal"
-    terminal = {"identifier":terminal_identifier,"label":"Terminal","type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
+    terminal_identifier = "kitchen.cookbook.cookbook_slow_sundays" if args.route == "kitchen" else "fixture.terminal"
+    terminal_label = "Slow Sundays and Long Simmering Suppers, 0 recipes" if args.route == "kitchen" else "Terminal"
+    terminal = {"identifier":terminal_identifier,"label":terminal_label,"type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
     identifiers = []
     environment = dict(value.split("=", 1) for value in args.environment)
     if args.environment_json:
@@ -1918,8 +1949,12 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     elements = [terminal] + [{"identifier":identifier,"label":identifier,"type":"staticText","frame":{"x":10,"y":10 + index * 20,"width":80,"height":18},"exists":True,"hittable":False,"enabled":True,"focused":None} for index, identifier in enumerate(identifiers)]
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
     initial_filename = f"{proof_path.stem}.generation-1{proof_path.suffix or '.json'}"
-    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":1,"proofFileName":initial_filename,"proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"geometryFindings":[product_finding] if product_finding else [],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","readinessHandshake":initial_handshake,"toolLimitations":[]}
+    application_process_identifier = 42012
+    screenshot_sha256 = hashlib.sha256(b"png").hexdigest()
+    observed_dynamic_type = "accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "xxxLarge" if content_size == "extra-extra-extra-large" else "large"
+    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"applicationProcessIdentifier":application_process_identifier,"readinessGeneration":1,"proofFileName":initial_filename,"proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
+    initial_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"7616b756-9527-4fd6-982a-8f3cb9f9c4dc","captureRunNonce":proof["captureRunNonce"],"capturePhase":"initial","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"geometryFindings":[product_finding] if product_finding else [],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[]}
     if args.route in {"kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs", "profile", "profile-graph", "search", "capture", "settings"}:
         deep_proof = dict(proof)
         deep_proof["visualReadiness"] = dict(proof["visualReadiness"])
@@ -1927,8 +1962,9 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         deep_proof["visualReadiness"]["generation"] = 2
         deep_proof_bytes = (json.dumps(deep_proof, sort_keys=True) + "\n").encode()
         deep_filename = f"{proof_path.stem}.generation-2{proof_path.suffix or '.json'}"
-        deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
-        evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}
+        deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"applicationProcessIdentifier":application_process_identifier,"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
+        deep_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"19dc51d4-5113-4268-80a5-c85cc05e8d0b","captureRunNonce":proof["captureRunNonce"],"capturePhase":"deepScroll","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
+        evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}
         deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
         deep_output.write_bytes(deep_proof_bytes)
     output = Path(args.output)
@@ -1990,13 +2026,16 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   artifact_root.join("design-review.json").write("{}\n")
   artifact_root.join("design-review-blocked.json").write("{}\n")
   artifact_root.join("screenshots/ios-mobile.png").write("stale")
+  artifact_root.join("screenshots/ios-mobile-xxxl.png").write("stale")
   artifact_root.join("screenshots/ios-mobile-accessibility.png").write("stale")
   artifact_root.join("screenshots/ios-tablet.png").write("stale")
   artifact_root.join("screenshots/ios-mobile-deep-scroll.png").write("stale")
+  artifact_root.join("screenshots/ios-mobile-xxxl-deep-scroll.png").write("stale")
   artifact_root.join("screenshots/ios-mobile-accessibility-deep-scroll.png").write("stale")
   artifact_root.join("screenshots/ios-tablet-deep-scroll.png").write("stale")
   artifact_root.join("screenshots/macos-desktop.png").write("stale")
   artifact_root.join("apple/unit-contract-accessibility-proof-ios.json").write("{}\n")
+  artifact_root.join("apple/unit-contract-accessibility-proof-ios-xxxl.json").write("{}\n")
   artifact_root.join("apple/unit-contract-accessibility-proof-ios-ax.json").write("{}\n")
   artifact_root.join("apple/unit-contract-accessibility-proof-ipad.json").write("{}\n")
   artifact_root.join("apple/unit-contract-accessibility-proof-macos.json").write("{}\n")
@@ -2019,13 +2058,16 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   record_failure("screenshot blocker source path mismatch") unless blocked_review["sourceBlockerPath"] == expected_source
   assert_missing(artifact_root.join("design-review.json"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-mobile.png"), "screenshot blocker lane")
+  assert_missing(artifact_root.join("screenshots/ios-mobile-xxxl.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-mobile-accessibility.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-tablet.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-mobile-deep-scroll.png"), "screenshot blocker lane")
+  assert_missing(artifact_root.join("screenshots/ios-mobile-xxxl-deep-scroll.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-mobile-accessibility-deep-scroll.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/ios-tablet-deep-scroll.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/macos-desktop.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("apple/unit-contract-accessibility-proof-ios.json"), "screenshot blocker lane")
+  assert_missing(artifact_root.join("apple/unit-contract-accessibility-proof-ios-xxxl.json"), "screenshot blocker lane")
   assert_missing(artifact_root.join("apple/unit-contract-accessibility-proof-ios-ax.json"), "screenshot blocker lane")
   assert_missing(artifact_root.join("apple/unit-contract-accessibility-proof-ipad.json"), "screenshot blocker lane")
   assert_missing(artifact_root.join("apple/unit-contract-accessibility-proof-macos.json"), "screenshot blocker lane")
@@ -2469,7 +2511,8 @@ PY
     ruby -rjson -rdigest -e '
       output, route, identifiers, pid, capture_run_nonce, readiness_proof_path, screenshot_path, bundle_id, bundle_path, executable_path = ARGV
       elements = JSON.parse(identifiers).map.with_index { |identifier, index| {identifier: identifier, role: "AXStaticText", title: identifier, frame: {x: 10, y: 10 + index * 45, width: 120, height: 44}, enabled: true, focused: false, actions: []} }
-      terminal_identifier = route == "kitchen" ? "kitchen.cookbook.cookbook_weeknights" : "fixture.terminal"
+      terminal_identifier = route == "kitchen" ? "kitchen.cookbook.cookbook_slow_sundays" : "fixture.terminal"
+      terminal_title = route == "kitchen" ? "Slow Sundays and Long Simmering Suppers, 0 recipes" : "Terminal"
       evidence = {
         platform: "macos", route: route, captureRunNonce: capture_run_nonce,
         readinessProofSHA256: Digest::SHA256.file(readiness_proof_path).hexdigest,
@@ -2490,7 +2533,7 @@ PY
           terminalElement: {
             identifier: terminal_identifier,
             role: "AXButton",
-            title: terminal_identifier,
+            title: terminal_title,
             frame: {x: 10, y: 40, width: 120, height: 44},
             enabled: true,
             focused: false,
@@ -2541,14 +2584,16 @@ PY
   )
   assert_recorded_processes_gone(stream_child_pid_path, "screenshot success lane", from_index: success_stream_pid_index)
   observer_proof_paths = observer_proof_path_log.readlines(chomp: true)
-  record_failure("screenshot observers did not record all three proof namespaces") unless observer_proof_paths.length == 3
-  record_failure("screenshot observers reused a proof namespace across capture phases") unless observer_proof_paths.uniq.length == 3
+  record_failure("screenshot observers did not record all four proof namespaces") unless observer_proof_paths.length == 4
+  record_failure("screenshot observers reused a proof namespace across capture phases") unless observer_proof_paths.uniq.length == 4
   assert_file(artifact_root.join("design-review.json"), "screenshot success lane")
   assert_missing(artifact_root.join("design-review-blocked.json"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile.png"), "screenshot success lane")
+  assert_file(artifact_root.join("screenshots/ios-mobile-xxxl.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile-accessibility.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-tablet.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile-deep-scroll.png"), "screenshot success lane")
+  assert_file(artifact_root.join("screenshots/ios-mobile-xxxl-deep-scroll.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-mobile-accessibility-deep-scroll.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/ios-tablet-deep-scroll.png"), "screenshot success lane")
   assert_file(artifact_root.join("screenshots/macos-desktop.png"), "screenshot success lane")
@@ -2557,13 +2602,13 @@ PY
   record_failure("kitchen screenshot account seed mismatch") unless kitchen_review["kitchenSeedAccountID"] == "chef_kitchen_capture"
   record_failure("kitchen screenshot set is not hash-bound") unless kitchen_review.fetch("screenshotArtifacts", {}).keys.sort == SCREENSHOT_ARTIFACTS.keys.sort
   record_failure("kitchen deep-scroll screenshot set is not hash-bound") unless kitchen_review.fetch("deepScrollScreenshotArtifacts", {}).keys.sort == DEEP_SCROLL_SCREENSHOT_ARTIFACTS.keys.sort
-  record_failure("kitchen screenshot missing four capture-bound accessibility proof artifacts") unless kitchen_review.fetch("accessibilityProofArtifacts", []).length == 4
+  record_failure("kitchen screenshot missing five capture-bound accessibility proof artifacts") unless kitchen_review.fetch("accessibilityProofArtifacts", []).length == 5
   kitchen_review.fetch("accessibilityProofArtifacts", []).each do |relative_path|
     proof = assert_json(artifact_root.join(relative_path), "kitchen accessibility proof artifact")
     record_failure("kitchen accessibility proof source mismatch") unless proof["source"] == "KitchenView"
     record_failure("kitchen readiness proof did not settle") unless proof.dig("visualReadiness", "isSettled") == true
   end
-  record_failure("kitchen screenshot missing observed accessibility evidence") unless kitchen_review.fetch("observedAccessibilityEvidenceArtifacts", []).length == 4
+  record_failure("kitchen screenshot missing five observed accessibility evidence artifacts") unless kitchen_review.fetch("observedAccessibilityEvidenceArtifacts", []).length == 5
   kitchen_review.fetch("observedAccessibilityEvidenceArtifacts", []).each do |relative_path|
     proof = assert_json(artifact_root.join(relative_path), "kitchen observed accessibility evidence")
     findings = proof["platform"] == "macos" ? proof["findings"] : proof["geometryFindings"]
@@ -2623,7 +2668,9 @@ PY
   )
   [
     "screenshots/ios-mobile.png",
+    "screenshots/ios-mobile-xxxl.png",
     "screenshots/ios-mobile-deep-scroll.png",
+    "screenshots/ios-mobile-xxxl-deep-scroll.png",
     "apple/unit-contract-ios-partial-visual-failure-observed-accessibility-ios.json",
     "apple/unit-contract-ios-partial-visual-failure-accessibility-proof-ios.json",
     "apple/unit-contract-ios-partial-visual-failure-accessibility-proof-ios-deep-scroll.json"
@@ -2700,9 +2747,11 @@ PY
   terminate_recorded_processes(stream_child_pid_path, from_index: publication_failure_stream_index)
   [
     "screenshots/ios-mobile.png",
+    "screenshots/ios-mobile-xxxl.png",
     "screenshots/ios-mobile-accessibility.png",
     "screenshots/ios-tablet.png",
     "screenshots/ios-mobile-deep-scroll.png",
+    "screenshots/ios-mobile-xxxl-deep-scroll.png",
     "screenshots/ios-mobile-accessibility-deep-scroll.png",
     "screenshots/ios-tablet-deep-scroll.png",
     "apple/unit-contract-ios-publication-failure-observed-accessibility-ios.json",
@@ -3392,8 +3441,9 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     parser.add_argument("--environment", action="append", default=[])
     parser.add_argument("--environment-json")
     args = parser.parse_args()
-    terminal_identifier = "kitchen.cookbook.cookbook_weeknights" if args.route == "kitchen" else "fixture.terminal"
-    terminal = {"identifier":terminal_identifier,"label":"Terminal","type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
+    terminal_identifier = "kitchen.cookbook.cookbook_slow_sundays" if args.route == "kitchen" else "fixture.terminal"
+    terminal_label = "Slow Sundays and Long Simmering Suppers, 0 recipes" if args.route == "kitchen" else "Terminal"
+    terminal = {"identifier":terminal_identifier,"label":terminal_label,"type":"staticText","frame":{"x":10,"y":40,"width":44,"height":40},"exists":True,"hittable":False,"enabled":True,"focused":None}
     environment = json.loads(Path(args.environment_json).read_text()) if args.environment_json else {}
     proof_path = Path(environment["SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH"])
     proof = json.loads(proof_path.read_bytes())
@@ -3407,15 +3457,20 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     readiness_output.write_bytes(proof_bytes)
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
     initial_filename = f"{proof_path.stem}.generation-1{proof_path.suffix or '.json'}"
-    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":1,"proofFileName":initial_filename,"proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
+    application_process_identifier = 42012
+    screenshot_sha256 = hashlib.sha256(b"png").hexdigest()
+    observed_dynamic_type = "accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "xxxLarge" if content_size == "extra-extra-extra-large" else "large"
+    initial_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"applicationProcessIdentifier":application_process_identifier,"readinessGeneration":1,"proofFileName":initial_filename,"proofSHA256":hashlib.sha256(proof_bytes).hexdigest()}
     deep_proof = dict(proof)
     deep_proof["visualReadiness"] = dict(proof["visualReadiness"])
     deep_proof["readinessGeneration"] = 2
     deep_proof["visualReadiness"]["generation"] = 2
     deep_proof_bytes = (json.dumps(deep_proof, sort_keys=True) + "\n").encode()
     deep_filename = f"{proof_path.stem}.generation-2{proof_path.suffix or '.json'}"
-    deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":"accessibility5" if content_size == "accessibility-extra-extra-extra-large" else "large","readinessHandshake":initial_handshake,"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":hashlib.sha256(b"png").hexdigest(),"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}}
+    deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"applicationProcessIdentifier":application_process_identifier,"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
+    initial_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"7616b756-9527-4fd6-982a-8f3cb9f9c4dc","captureRunNonce":proof["captureRunNonce"],"capturePhase":"initial","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
+    deep_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"19dc51d4-5113-4268-80a5-c85cc05e8d0b","captureRunNonce":proof["captureRunNonce"],"capturePhase":"deepScroll","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}}
     deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
     deep_output.write_bytes(deep_proof_bytes)
     output = Path(args.output)
@@ -3486,7 +3541,8 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     mkdir -p "$(dirname "$output")"
     ruby -rjson -rdigest -e '
       output, route, pid, capture_run_nonce, readiness_proof_path, screenshot_path, bundle_id, bundle_path, executable_path = ARGV
-      terminal_identifier = route == "kitchen" ? "kitchen.cookbook.cookbook_weeknights" : "fixture.terminal"
+      terminal_identifier = route == "kitchen" ? "kitchen.cookbook.cookbook_slow_sundays" : "fixture.terminal"
+      terminal_title = route == "kitchen" ? "Slow Sundays and Long Simmering Suppers, 0 recipes" : "Terminal"
       evidence = {
         platform: "macos", route: route, captureRunNonce: capture_run_nonce,
         readinessProofSHA256: Digest::SHA256.file(readiness_proof_path).hexdigest,
@@ -3508,7 +3564,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
           terminalElement: {
             identifier: terminal_identifier,
             role: "AXButton",
-            title: terminal_identifier,
+            title: terminal_title,
             frame: {x: 10, y: 40, width: 120, height: 44},
             enabled: true,
             focused: false,

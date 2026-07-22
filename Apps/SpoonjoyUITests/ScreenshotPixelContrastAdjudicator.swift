@@ -155,6 +155,7 @@ enum ScreenshotPixelContrastAdjudicator {
     private static let requiredContrastRatio = 4.5
     private static let minimumBackgroundCoverage = 0.6
     private static let maximumForegroundCoverage = 0.4
+    private static let minimumForegroundClusterShare = 0.2
 
     static func analyze(
         pixels: [ObservedRGBPixel],
@@ -192,12 +193,9 @@ enum ScreenshotPixelContrastAdjudicator {
         }
 
         let foregroundBuckets = Dictionary(grouping: foregroundCandidates, by: quantizedKey)
-        guard let dominantForegroundBucket = foregroundBuckets.values.max(by: { $0.count < $1.count }) else {
-            return nil
-        }
         let substantialClusterMinimum = max(
             minimumForegroundPixels,
-            Int(ceil(Double(dominantForegroundBucket.count) * 0.75))
+            Int(ceil(Double(foregroundCandidates.count) * minimumForegroundClusterShare))
         )
         let substantialForegroundClusters = foregroundBuckets.values.filter {
             $0.count >= substantialClusterMinimum
