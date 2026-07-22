@@ -498,7 +498,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
         XCTAssertTrue(persistentChromeFindings(before: before, after: stable).isEmpty)
         XCTAssertEqual(persistentChromeFindings(before: before, after: missingTab).count, 1)
-        XCTAssertEqual(persistentChromeFindings(before: before, after: movedTitle).count, 1)
+        let movedTitleFindings = persistentChromeFindings(before: before, after: movedTitle)
+        XCTAssertEqual(movedTitleFindings.count, 1)
+        XCTAssertTrue(movedTitleFindings[0].message.contains("Removed:"))
+        XCTAssertTrue(movedTitleFindings[0].message.contains("Added:"))
     }
 
     func testMovementCandidatesIncludeUniqueOffscreenContentButExcludeChrome() {
@@ -1890,9 +1893,16 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return [ObservedAccessibilityFinding(
             kind: .persistentChromeChanged,
             identifiers: ["system.navigation.chrome"],
-            message: "Persistent navigation, sidebar, or tab chrome changed during deep scroll.",
+            message: persistentChromeChangeMessage(before: beforeSignature, after: afterSignature),
             intersection: nil
         )]
+    }
+
+    private func persistentChromeChangeMessage(before: [String], after: [String]) -> String {
+        let removed = before.filter { !after.contains($0) }
+        let added = after.filter { !before.contains($0) }
+        return "Persistent navigation, sidebar, or tab chrome changed during deep scroll. "
+            + "Removed: \(removed.joined(separator: "; ")). Added: \(added.joined(separator: "; "))."
     }
 
     private func persistentChromeSignature(_ elements: [ObservedAccessibilityElement]) -> [String] {

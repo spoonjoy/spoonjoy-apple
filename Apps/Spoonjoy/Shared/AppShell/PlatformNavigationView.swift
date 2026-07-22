@@ -240,7 +240,9 @@ struct PlatformNavigationView: View {
     }
 
     private func compactNavigationBaseContent(for section: AppSection) -> some View {
-        compactRouteSurface(for: compactRootRoute(for: section), in: section)
+        ZStack {
+            compactRouteSurface(for: compactRootRoute(for: section), in: section)
+        }
             .navigationTitle(compactNavigationTitle(for: compactRootRoute(for: section)))
 #if os(iOS)
             .toolbarTitleDisplayMode(.inline)
@@ -493,7 +495,9 @@ struct PlatformNavigationView: View {
         NavigationStack(path: compactPathBinding(for: section)) {
             compactNavigationRootContent(for: section)
                 .navigationDestination(for: AppRoute.self) { route in
-                    compactRouteSurface(for: route, in: section)
+                    ZStack {
+                        compactRouteSurface(for: route, in: section)
+                    }
                         .navigationTitle(compactNavigationTitle(for: route))
 #if os(iOS)
                         .toolbarTitleDisplayMode(.inline)
@@ -830,13 +834,6 @@ struct PlatformNavigationView: View {
 
     @ToolbarContentBuilder private var compactNavigationToolbar: some ToolbarContent {
 #if os(iOS)
-        ToolbarItem(placement: .principal) {
-            Text(compactNavigationTitle(for: navigation.route))
-                .font(.headline)
-                .lineLimit(1)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("spoonjoy.navigation-title")
-        }
         if shouldShowShellOfflineStatus && offlineIndicatorState.display.informationalOnly {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: dismissOfflineIndicator) {
