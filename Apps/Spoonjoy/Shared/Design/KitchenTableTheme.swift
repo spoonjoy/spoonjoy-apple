@@ -37,7 +37,6 @@ enum KitchenTableTheme {
     static let objectTitle = Font.system(.headline, design: .rounded).weight(.semibold)
     static let bodyNote = Font.body
     static let uiLabel = Font.caption.weight(.semibold)
-    static let headerMeta = Font.caption2.weight(.semibold)
 
     private static func webColor(_ hex: UInt32) -> Color {
         Color(
@@ -126,7 +125,7 @@ struct KitchenTableHeader<Trailing: View>: View {
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(KitchenTableTheme.headerMeta)
+                    .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }

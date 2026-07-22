@@ -113,6 +113,7 @@ struct NativeMobileDesignContractTests {
                 "usesWideKitchenSpread ? 56 : KitchenTableTheme.compactTabBarContentInset",
                 "KitchenTableHeader(eyebrow: identityLabel, title: \"My Kitchen\"",
                 "Text(\"Latest from the kitchen\".uppercased())",
+                ".frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)",
                 "private let accessibilityPresentationRange: ClosedRange<DynamicTypeSize> = .xSmall ... .accessibility1"
             ],
             forbids: [
@@ -148,7 +149,7 @@ struct NativeMobileDesignContractTests {
                 ".fontWeight(.bold)",
                 ".foregroundStyle(KitchenTableTheme.brass)",
                 ".accessibilityHidden(true)",
-                ".font(KitchenTableTheme.headerMeta)",
+                ".font(KitchenTableTheme.uiLabel)",
                 ".fixedSize(horizontal: false, vertical: true)"
             ],
             forbids: [
@@ -156,7 +157,8 @@ struct NativeMobileDesignContractTests {
                 "HStack(alignment: .top, spacing: 16)",
                 "VStack(alignment: .leading, spacing: 12)",
                 ".font(.caption2.weight(.bold))",
-                ".dynamicTypeSize("
+                ".dynamicTypeSize(",
+                "KitchenTableTheme.headerMeta"
             ]
         )
         #expect(header.components(separatedBy: "titleStack").count - 1 == 2)

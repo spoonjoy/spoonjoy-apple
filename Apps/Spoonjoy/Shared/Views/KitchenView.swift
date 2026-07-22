@@ -291,7 +291,7 @@ struct RecipeLead: View {
                 subtitle: "Cover",
                 showsFallbackLabel: false
             )
-            .frame(maxWidth: .infinity, minHeight: 120, maxHeight: 120)
+            .frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)
             .clipped()
             .accessibilityLabel("\(recipe.title) cover image")
 
