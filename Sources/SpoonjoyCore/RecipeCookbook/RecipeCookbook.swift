@@ -27,6 +27,21 @@ public enum RecipeCoverSourceType: String, Equatable, Sendable {
     case spoon
 }
 
+enum RecipeCoverDisplayPolicy {
+    static func imageURL(_ coverImageURL: URL?, sourceType coverSourceType: RecipeCoverSourceType?) -> URL? {
+        coverSourceType == .aiPlaceholder ? nil : coverImageURL
+    }
+
+    static func provenanceLabel(
+        _ coverProvenanceLabel: String?,
+        imageURL coverImageURL: URL?,
+        sourceType coverSourceType: RecipeCoverSourceType?
+    ) -> String? {
+        let displayCoverImageURL = self.imageURL(coverImageURL, sourceType: coverSourceType)
+        return displayCoverImageURL == nil ? nil : coverProvenanceLabel
+    }
+}
+
 extension RecipeCoverSourceType: Codable {
     public init(from decoder: Decoder) throws {
         let rawValue = try decoder.singleValueContainer().decode(String.self)
@@ -280,11 +295,15 @@ public struct RecipeSummary: Codable, Equatable, Sendable {
     }
 
     public var displayCoverImageURL: URL? {
-        coverSourceType == .aiPlaceholder ? nil : coverImageURL
+        RecipeCoverDisplayPolicy.imageURL(coverImageURL, sourceType: coverSourceType)
     }
 
     public var displayCoverProvenanceLabel: String? {
-        displayCoverImageURL == nil ? nil : coverProvenanceLabel
+        RecipeCoverDisplayPolicy.provenanceLabel(
+            coverProvenanceLabel,
+            imageURL: coverImageURL,
+            sourceType: coverSourceType
+        )
     }
 }
 
@@ -366,11 +385,15 @@ public struct Recipe: Codable, Equatable, Sendable {
     }
 
     public var displayCoverImageURL: URL? {
-        coverSourceType == .aiPlaceholder ? nil : coverImageURL
+        RecipeCoverDisplayPolicy.imageURL(coverImageURL, sourceType: coverSourceType)
     }
 
     public var displayCoverProvenanceLabel: String? {
-        displayCoverImageURL == nil ? nil : coverProvenanceLabel
+        RecipeCoverDisplayPolicy.provenanceLabel(
+            coverProvenanceLabel,
+            imageURL: coverImageURL,
+            sourceType: coverSourceType
+        )
     }
 
     public init(from decoder: Decoder) throws {

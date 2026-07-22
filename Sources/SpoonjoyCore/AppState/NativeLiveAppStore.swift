@@ -942,16 +942,7 @@ public struct NativeShellContentState {
     }
 
     private func profileRecipeSummary(recipe: Recipe) -> ProfileRecipeSummary {
-        ProfileRecipeSummary(
-            id: recipe.id,
-            title: recipe.title,
-            description: recipe.description,
-            servings: recipe.servings,
-            coverImageURL: recipe.coverImageURL,
-            coverProvenanceLabel: recipe.coverProvenanceLabel,
-            href: recipe.href,
-            canonicalURL: recipe.canonicalURL
-        )
+        ProfileRecipeSummary(recipe: recipe)
     }
 
     private func profileCookbookSummary(cookbook: Cookbook) -> ProfileCookbookSummary {
