@@ -127,6 +127,15 @@ end
 
 def observed_proof(platform, dynamic_type: "large")
   if platform == "macos"
+    terminal = {
+      "identifier" => "kitchen.cookbook.cookbook_weeknights",
+      "role" => "AXStaticText",
+      "title" => "Weeknights",
+      "frame" => rect(x: 10, y: 10, width: 44, height: 44),
+      "enabled" => true,
+      "focused" => false,
+      "actions" => []
+    }
     proof = {
       "platform" => platform,
       "route" => "kitchen",
@@ -139,19 +148,24 @@ def observed_proof(platform, dynamic_type: "large")
       "executablePath" => "/Applications/Spoonjoy.app/Contents/MacOS/Spoonjoy",
       "executableSHA256" => "e" * 64,
       "windowFrames" => [rect],
-      "elements" => [{
-        "identifier" => "kitchen.terminal",
-        "role" => "AXStaticText",
-        "title" => "Cookbook shelf",
-        "frame" => rect(x: 10, y: 10, width: 44, height: 44),
-        "enabled" => true,
-        "focused" => false,
-        "actions" => []
-      }],
-      "findings" => []
+      "elements" => [terminal],
+      "findings" => [],
+      "deepScroll" => {
+        "route" => "kitchen",
+        "reachedTerminal" => true,
+        "contentViewport" => rect,
+        "terminalElement" => terminal,
+        "findings" => [],
+        "scrollAreaIdentifier" => "spoonjoy.page-scroll",
+        "initialScrollValue" => 0,
+        "finalScrollValue" => 1
+      }
     }
   else
-    terminal = ios_element("kitchen.terminal", frame: rect(x: 10, y: 40, width: 44, height: 40))
+    terminal = ios_element(
+      "kitchen.cookbook.cookbook_weeknights",
+      frame: rect(x: 10, y: 40, width: 44, height: 40)
+    )
     proof = {
       "platform" => platform,
       "route" => "kitchen",
