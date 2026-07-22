@@ -143,11 +143,12 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableHeaderLayout()",
                 "titleStack",
                 "trailing()",
+                "VStack(alignment: .leading, spacing: 4)",
                 ".font(.caption2)",
                 ".fontWeight(.bold)",
                 ".foregroundStyle(KitchenTableTheme.brass)",
                 ".accessibilityHidden(true)",
-                ".font(KitchenTableTheme.uiLabel)",
+                ".font(KitchenTableTheme.headerMeta)",
                 ".fixedSize(horizontal: false, vertical: true)"
             ],
             forbids: [
