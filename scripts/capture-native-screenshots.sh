@@ -298,6 +298,7 @@ ios_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS:-30
 ios_boot_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS:-90}"
 ios_host_settle_seconds="${SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS:-5}"
 ios_foreground_probe_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS:-15}"
+ios_simulator_spawn_arch="${SPOONJOY_SCREENSHOT_SIMULATOR_ARCH:-$(uname -m)}"
 macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
 ios_smoke_attempts="${SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS:-2}"
@@ -305,6 +306,13 @@ ios_capture_attempts="${SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS:-2}"
 ios_visual_evidence_failure_seen=false
 ios_evidence_publication_failure_seen=false
 ios_capture_generation_committed=false
+case "$ios_simulator_spawn_arch" in
+  arm64|x86_64) ;;
+  *)
+    printf 'Unsupported simulator spawn architecture: %s\n' "$ios_simulator_spawn_arch" >&2
+    exit 2
+    ;;
+esac
 expected_recorded_route="$screenshot_route"
 deep_link_path="$screenshot_route"
 deep_link_url=""
@@ -1631,7 +1639,7 @@ emit_ios_foreground_barrier() {
   local barrier_emit_log="$5"
   : > "$barrier_emit_log"
   if ! run_with_timeout "simulator foreground barrier timeout" "$ios_foreground_probe_timeout_seconds" "$barrier_emit_log" \
-    xcrun simctl spawn "$udid" log emit \
+    xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" log emit \
       --subsystem app.spoonjoy.screenshot-proof \
       --category foreground-barrier \
       --public "$barrier_token"; then
@@ -1649,7 +1657,7 @@ start_ios_foreground_stream() {
   : > "$foreground_log"
   rm -f "$child_pid_file"
   printf 'Starting simulator foreground event stream for %s\n' "$udid" >> "$capture_log"
-  python3 - "$child_pid_file" spoonjoy-foreground-stream-supervisor-v1 xcrun simctl spawn "$udid" log stream --style compact \
+  python3 - "$child_pid_file" spoonjoy-foreground-stream-supervisor-v1 xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" log stream --style compact \
     --predicate '(process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change") OR (subsystem == "app.spoonjoy.screenshot-proof" AND category == "foreground-barrier")' \
     > "$foreground_log" 2>&1 <<'PY' &
 import os
@@ -1762,11 +1770,10 @@ terminate_ios_app_and_confirm_stopped() {
     : > "$probe_log"
     set +e
     run_with_timeout "simulator stopped-process probe timeout" "$cleanup_timeout_seconds" "$probe_log" \
-      xcrun simctl spawn "$udid" /bin/sh -c \
-      '/usr/bin/pgrep -x Spoonjoy >/dev/null; status=$?; printf "spoonjoy-stop-probe-status=%s\n" "$status"; exit "$status"'
+      xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" launchctl list
     probe_status=$?
     set -e
-    if [[ "$probe_status" -eq 1 ]] && grep -q '^spoonjoy-stop-probe-status=1$' "$probe_log"; then
+    if [[ "$probe_status" -eq 0 ]] && ! grep -Fq 'UIKitApplication:app.spoonjoy' "$probe_log"; then
       rm -f "$probe_log"
       return 0
     fi

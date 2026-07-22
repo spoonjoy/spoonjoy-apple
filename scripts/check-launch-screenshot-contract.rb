@@ -2158,16 +2158,10 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       simctl\ terminate\ *)
         rm -f "$ios_running_file"
         ;;
-      simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)
+      simctl\ spawn\ *\ launchctl\ list*)
         if [[ -f "$ios_running_file" ]]; then
-          printf 'spoonjoy-stop-probe-status=0\n'
-        else
-          printf 'spoonjoy-stop-probe-status=1\n'
-          exit 1
+          printf '12345\t0\tUIKitApplication:app.spoonjoy[contract]\n'
         fi
-        ;;
-      simctl\ spawn\ *\ launchctl\ list)
-        printf '12345\t0\tUIKitApplication:app.spoonjoy[contract]\n'
         ;;
       simctl\ spawn\ *\ log\ stream*)
         event_pipe="${SPOONJOY_CONTRACT_FOREGROUND_EVENT_PIPE:-$PWD/foreground-events.fifo}"
@@ -3292,9 +3286,8 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
       simctl\ launch\ *)
         sleep 10
         ;;
-      simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)
-        printf 'spoonjoy-stop-probe-status=1\n'
-        exit 1
+      simctl\ spawn\ *\ launchctl\ list*)
+        exit 0
         ;;
       simctl\ shutdown\ *|simctl\ boot\ *|simctl\ bootstatus\ *|simctl\ terminate\ *)
         exit 0
@@ -3558,9 +3551,8 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
         write_accessibility_proof "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH" "$platform" "app.spoonjoy"
         printf 'app.spoonjoy: 12345\n'
         ;;
-      simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)
-        printf 'spoonjoy-stop-probe-status=1\n'
-        exit 1
+      simctl\ spawn\ *\ launchctl\ list*)
+        exit 0
         ;;
       simctl\ spawn\ *\ log\ stream*)
         printf 'Front display did change: <SBApplication; app.spoonjoy>\n'

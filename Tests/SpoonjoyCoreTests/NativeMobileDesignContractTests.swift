@@ -22,10 +22,23 @@ struct NativeMobileDesignContractTests {
                 #"PROCESS_TIMEOUT_WRAPPER,\n    "45""#
             ]
         )
-        let stoppedProbe = #"simctl\ spawn\ *\ /bin/sh\ -c\ *spoonjoy-stop-probe-status*)"#
+        let stoppedProbe = #"simctl\ spawn\ *\ launchctl\ list*)"#
         #expect(
             contract.components(separatedBy: stoppedProbe).count - 1 >= 2,
             "Every timeout fixture must make the simulated app-stopped probe deterministic."
+        )
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        let capture = try readRepoFile(capturePath)
+        expectContent(
+            capture,
+            in: capturePath,
+            contains: [
+                #"ios_simulator_spawn_arch="${SPOONJOY_SCREENSHOT_SIMULATOR_ARCH:-$(uname -m)}""#,
+                #"xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" launchctl list"#,
+                #"xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" log emit"#,
+                #"xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" log stream"#
+            ],
+            forbids: [#"xcrun simctl spawn "$udid" /bin/sh"#]
         )
     }
 
