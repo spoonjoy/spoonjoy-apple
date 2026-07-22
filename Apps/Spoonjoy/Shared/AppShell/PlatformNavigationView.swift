@@ -830,6 +830,13 @@ struct PlatformNavigationView: View {
 
     @ToolbarContentBuilder private var compactNavigationToolbar: some ToolbarContent {
 #if os(iOS)
+        ToolbarItem(placement: .principal) {
+            Text(compactNavigationTitle(for: navigation.route))
+                .font(.headline)
+                .lineLimit(1)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("spoonjoy.navigation-title")
+        }
         if shouldShowShellOfflineStatus && offlineIndicatorState.display.informationalOnly {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(action: dismissOfflineIndicator) {

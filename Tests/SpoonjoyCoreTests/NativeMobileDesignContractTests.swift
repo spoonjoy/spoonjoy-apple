@@ -648,6 +648,8 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Chefs\", systemImage: \"person.2\")",
                 "Button(\"Search\", systemImage: \"magnifyingglass\")",
                 "compactNavigationToolbar",
+                "ToolbarItem(placement: .principal)",
+                ".accessibilityIdentifier(\"spoonjoy.navigation-title\")",
                 "compactNavigationRootContent",
                 "compactNavigationBaseContent",
                 "RecipeEditorToolbarCoordinator",
