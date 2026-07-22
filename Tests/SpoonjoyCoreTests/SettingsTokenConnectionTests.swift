@@ -1299,6 +1299,8 @@ struct SettingsTokenConnectionTests {
             ".frame(minWidth: 900, minHeight: 620)",
             ".defaultSize(width: 1040, height: 760)",
             ".windowResizability(.contentMinSize)",
+            ".restorationBehavior(.disabled)",
+            ".defaultLaunchBehavior(.presented)",
             "SPOONJOY_MAC_LAUNCH_PROOF_PATH",
             "SpoonjoyMacLaunchProof.record",
             "delegate-did-finish-launching"

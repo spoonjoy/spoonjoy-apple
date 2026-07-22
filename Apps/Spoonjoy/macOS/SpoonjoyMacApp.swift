@@ -17,6 +17,8 @@ struct SpoonjoyMacApp: App {
         }
         .defaultSize(width: 1040, height: 760)
         .windowResizability(.contentMinSize)
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(.presented)
     }
 }
 
