@@ -73,11 +73,11 @@ jobs:
           elif [ -d Spoonjoy.xcodeproj ]; then
             ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
             ios_test_log="$RUNNER_TEMP/xcode-ios-tests.log"
-            macos_test_log="$RUNNER_TEMP/xcode-macos-tests.log"
+            macos_build_log="$RUNNER_TEMP/xcode-macos-build.log"
             xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$ios_test_log"
             ruby scripts/fail-on-warning.rb --log "$ios_test_log"
-            xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$macos_test_log"
-            ruby scripts/fail-on-warning.rb --log "$macos_test_log"
+            xcodebuild build -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$macos_build_log"
+            ruby scripts/fail-on-warning.rb --log "$macos_build_log"
           elif ls ./*.xcodeproj >/dev/null 2>&1; then
             echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
             exit 1

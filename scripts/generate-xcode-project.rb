@@ -11,10 +11,13 @@ ROOT = Pathname.new(__dir__).join("..").expand_path
 PROJECT_NAME = "Spoonjoy"
 IOS_SCHEME_NAME = "Spoonjoy iOS"
 MAC_SCHEME_NAME = "Spoonjoy macOS"
+MAC_WINDOW_DIAGNOSTIC_SCHEME_NAME = "Spoonjoy macOS Window Diagnostics"
 IOS_UI_TEST_TARGET_NAME = "SpoonjoyUITests"
+MAC_WINDOW_DIAGNOSTIC_TARGET_NAME = "SpoonjoyMacWindowDiagnosticUITests"
 IOS_BUNDLE_ID = "app.spoonjoy"
 MAC_BUNDLE_ID = "app.spoonjoy.mac"
 IOS_UI_TEST_BUNDLE_ID = "app.spoonjoy.uitests"
+MAC_WINDOW_DIAGNOSTIC_BUNDLE_ID = "app.spoonjoy.mac.windowdiagnosticuitests"
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
 INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
 ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
@@ -34,6 +37,7 @@ SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/Shared").freeze
 IOS_SWIFT = swift_sources_under("Apps/Spoonjoy/iOS").freeze
 MAC_SWIFT = swift_sources_under("Apps/Spoonjoy/macOS").freeze
 IOS_UI_TEST_SWIFT = swift_sources_under("Apps/SpoonjoyUITests").freeze
+MAC_WINDOW_DIAGNOSTIC_SWIFT = swift_sources_under("Apps/SpoonjoyMacWindowDiagnosticUITests").freeze
 
 options = {
   output_dir: nil
@@ -88,17 +92,17 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
   end
 end
 
-def apply_ui_test_settings(target)
+def apply_ui_test_settings(target, bundle_id:, product_name:, test_target_name:, deployment_key:, deployment_targets:)
   CONFIGURATIONS.each do |configuration|
     build_configuration = target.build_configuration_list[configuration]
-    build_configuration.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = IOS_UI_TEST_BUNDLE_ID
-    build_configuration.build_settings["PRODUCT_NAME"] = IOS_UI_TEST_TARGET_NAME
+    build_configuration.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = bundle_id
+    build_configuration.build_settings["PRODUCT_NAME"] = product_name
     build_configuration.build_settings["SWIFT_VERSION"] = "6.0"
     build_configuration.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
     build_configuration.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
     build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "YES"
-    build_configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = configuration == "BootstrapDebug" ? "26.5" : "27.0"
-    build_configuration.build_settings["TEST_TARGET_NAME"] = "#{PROJECT_NAME} iOS"
+    build_configuration.build_settings[deployment_key] = deployment_targets.fetch(configuration)
+    build_configuration.build_settings["TEST_TARGET_NAME"] = test_target_name
     build_configuration.build_settings["SKIP_INSTALL"] = "YES"
     build_configuration.build_settings["LM_FILTER_WARNINGS"] = "YES"
     build_configuration.build_settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
@@ -156,6 +160,7 @@ end
 ios_target = project.new_target(:application, "#{PROJECT_NAME} iOS", :ios, "26.5")
 mac_target = project.new_target(:application, "#{PROJECT_NAME} macOS", :osx, "26.2")
 ios_ui_test_target = project.new_target(:ui_test_bundle, IOS_UI_TEST_TARGET_NAME, :ios, "26.5")
+mac_window_diagnostic_target = project.new_target(:ui_test_bundle, MAC_WINDOW_DIAGNOSTIC_TARGET_NAME, :osx, "26.2")
 ios_target.frameworks_build_phase.files.clear
 mac_target.frameworks_build_phase.files.clear
 project.files
@@ -174,7 +179,31 @@ apply_common_settings(
   }
 )
 
-apply_ui_test_settings(ios_ui_test_target)
+apply_ui_test_settings(
+  ios_ui_test_target,
+  bundle_id: IOS_UI_TEST_BUNDLE_ID,
+  product_name: IOS_UI_TEST_TARGET_NAME,
+  test_target_name: "#{PROJECT_NAME} iOS",
+  deployment_key: "IPHONEOS_DEPLOYMENT_TARGET",
+  deployment_targets: {
+    "Debug" => "27.0",
+    "Release" => "27.0",
+    "BootstrapDebug" => "26.5"
+  }
+)
+
+apply_ui_test_settings(
+  mac_window_diagnostic_target,
+  bundle_id: MAC_WINDOW_DIAGNOSTIC_BUNDLE_ID,
+  product_name: MAC_WINDOW_DIAGNOSTIC_TARGET_NAME,
+  test_target_name: "#{PROJECT_NAME} macOS",
+  deployment_key: "MACOSX_DEPLOYMENT_TARGET",
+  deployment_targets: {
+    "Debug" => "27.0",
+    "Release" => "27.0",
+    "BootstrapDebug" => "26.2"
+  }
+)
 
 apply_common_settings(
   mac_target,
@@ -192,11 +221,13 @@ apply_common_settings(
 add_sources(project, ios_target, SHARED_SWIFT + IOS_SWIFT)
 add_sources(project, mac_target, SHARED_SWIFT + MAC_SWIFT)
 add_sources(project, ios_ui_test_target, IOS_UI_TEST_SWIFT)
+add_sources(project, mac_window_diagnostic_target, MAC_WINDOW_DIAGNOSTIC_SWIFT)
 add_resources(project, ios_target, [ASSET_CATALOG])
 add_resources(project, mac_target, [ASSET_CATALOG])
 add_package_product(project, ios_target, "SpoonjoyCore")
 add_package_product(project, mac_target, "SpoonjoyCore")
 ios_ui_test_target.add_dependency(ios_target)
+mac_window_diagnostic_target.add_dependency(mac_target)
 
 project.sort
 project.predictabilize_uuids
@@ -213,6 +244,12 @@ end
 
 save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ios_ui_test_target])
 save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
+save_app_scheme(
+  project_path,
+  MAC_WINDOW_DIAGNOSTIC_SCHEME_NAME,
+  mac_target,
+  test_targets: [mac_window_diagnostic_target]
+)
 
 project.save
 

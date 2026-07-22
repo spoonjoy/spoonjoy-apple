@@ -125,6 +125,10 @@ matrix = ROOT.join("scripts/validate-native-local.sh").read
   fail_check("native workflow missing #{token}") unless workflow.include?(token)
 end
 fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep")
+generic_mac_test = /xcodebuild\s+test[^\n]*-scheme\s+"Spoonjoy macOS"[^\n]*-destination\s+'generic\/platform=macOS'/
+fail_check("native workflow must build, not test, the app-only macOS scheme at a generic destination") if workflow.match?(generic_mac_test)
+generic_mac_build = /xcodebuild\s+build[^\n]*-scheme\s+"Spoonjoy macOS"[^\n]*-destination\s+'generic\/platform=macOS'/
+fail_check("native workflow missing generic macOS app build") unless workflow.match?(generic_mac_build)
 fail_check("local matrix must not pipe xcodebuild -version into grep -q") if matrix.include?("xcodebuild -version | grep")
 fail_check("local matrix missing captured xcodebuild version check") unless matrix.include?('xcode_version="$(xcodebuild -version)"') &&
   matrix.include?('minimum_xcode_version="26.5"') &&
@@ -170,12 +174,25 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   fail_check("generated project missing AppIcon compiler setting") unless project_content.include?("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;")
   scheme_dir = one.join("Spoonjoy.xcodeproj/xcshareddata/xcschemes")
   scheme_files = scheme_dir.children.select { |path| path.extname == ".xcscheme" }.map(&:basename).map(&:to_s).sort
-  expected_scheme_files = ["Spoonjoy iOS.xcscheme", "Spoonjoy macOS.xcscheme"]
+  expected_scheme_files = [
+    "Spoonjoy iOS.xcscheme",
+    "Spoonjoy macOS Window Diagnostics.xcscheme",
+    "Spoonjoy macOS.xcscheme"
+  ]
   fail_check("generated schemes were #{scheme_files.inspect}, expected #{expected_scheme_files.inspect}") unless scheme_files == expected_scheme_files
 
   {
     "Spoonjoy iOS.xcscheme" => { required: "Spoonjoy iOS", required_test: "SpoonjoyUITests", forbidden: "Spoonjoy macOS" },
-    "Spoonjoy macOS.xcscheme" => { required: "Spoonjoy macOS", forbidden: "Spoonjoy iOS" }
+    "Spoonjoy macOS.xcscheme" => {
+      required: "Spoonjoy macOS",
+      forbidden: "SpoonjoyMacWindowDiagnosticUITests",
+      forbids_testable: true
+    },
+    "Spoonjoy macOS Window Diagnostics.xcscheme" => {
+      required: "Spoonjoy macOS",
+      required_test: "SpoonjoyMacWindowDiagnosticUITests",
+      forbidden: "Spoonjoy iOS"
+    }
   }.each do |scheme_name, targets|
     scheme_text = scheme_dir.join(scheme_name).read
     fail_check("#{scheme_name} missing #{targets.fetch(:required)}") unless scheme_text.include?(targets.fetch(:required))
@@ -186,11 +203,17 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
       fail_check("#{scheme_name} missing TestableReference") unless scheme_text.include?("<TestableReference")
       fail_check("#{scheme_name} Test action must use BootstrapDebug") unless scheme_text.match?(%r{<TestAction\s+buildConfiguration = "BootstrapDebug"})
     end
+    if targets[:forbids_testable]
+      fail_check("#{scheme_name} generic app scheme must not include TestableReference") if scheme_text.include?("<TestableReference")
+    end
   end
 
   fail_check("generated project missing SpoonjoyUITests target") unless project_content.include?("SpoonjoyUITests")
   fail_check("generated project missing UI test bundle identifier") unless project_content.include?("PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.uitests;")
   fail_check("generated project missing observed UI test source") unless project_content.include?("NativeScreenshotEvidenceTests.swift")
+  fail_check("generated project missing SpoonjoyMacWindowDiagnosticUITests target") unless project_content.include?("SpoonjoyMacWindowDiagnosticUITests")
+  fail_check("generated project missing macOS window diagnostic bundle identifier") unless project_content.include?("PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy.mac.windowdiagnosticuitests;")
+  fail_check("generated project missing macOS window diagnostic source") unless project_content.include?("NativeMacWindowDiagnosticTests.swift")
   fail_check("generated project must quiet irrelevant App Intents metadata warnings for the UI test bundle") unless project_content.include?("LM_FILTER_WARNINGS = YES;")
   fail_check("generated project must skip App Intents metadata extraction for the UI test bundle") unless project_content.include?("LM_SKIP_METADATA_EXTRACTION = YES;")
 
