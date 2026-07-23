@@ -698,7 +698,8 @@ struct SpoonCookLogSurfaceTests {
 
         #expect(detailSource.contains("SpoonCookLogView("))
         #expect(detailSource.contains("RecipeDetailProgressiveLoader("))
-        #expect(detailSource.contains(".onChange(of: snapshotViewModel)"))
+        #expect(detailSource.contains(".onChange(of: loadContext.taskIdentity)"))
+        #expect(detailSource.contains("routeState.transition("))
         #expect(progressiveLoaderSource.contains("spoonRepository.fetchCookLog"))
         #expect(progressiveLoaderSource.contains("await onRecipe(initialResult)"))
         #expect(progressiveLoaderSource.contains("while page.hasMore"))
