@@ -14,6 +14,7 @@ struct PlatformNavigationView: View {
 
     @Environment(\.openURL) private var openURL
 #if os(iOS)
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
     @FocusState private var isSearchFieldFocused: Bool
@@ -156,7 +157,7 @@ struct PlatformNavigationView: View {
 #if os(macOS)
         false
 #elseif os(iOS)
-        horizontalSizeClass == .compact
+        horizontalSizeClass == .compact || dynamicTypeSize >= .xxxLarge
 #else
         false
 #endif
@@ -532,8 +533,7 @@ struct PlatformNavigationView: View {
                 kitchen: contentState.kitchen,
                 recipes: contentState.recipes,
                 cookbooks: contentState.cookbooks,
-                ownerUsername: currentKitchenOwnerUsername,
-                openRoute: openRoute
+                ownerUsername: currentKitchenOwnerUsername
             )
         case .recipes:
             RecipesView(viewModel: myRecipesCatalogViewModel)
@@ -798,7 +798,13 @@ struct PlatformNavigationView: View {
     }
 
     private func sidebarLink(section: AppSection, title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
+        Label {
+            Text(title)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: systemImage)
+        }
             .foregroundStyle(KitchenTableTheme.charcoal)
             .tag(section)
     }

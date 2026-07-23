@@ -102,6 +102,46 @@ require_tokens(ios_observer, [
   "testGeometryRejectsAPNsChromeIntersection",
   "testGeometryRejectsTerminalElementBehindTabBar",
   "verifiedContrastFalsePositives",
+  "ObservedContrastPixelAdjudicationDiagnostic",
+  "iosContrastPixelAdjudicationFailureV1",
+  "matchingAttestedElementCount",
+  "screenshotBufferUnavailable",
+  "cropUnavailable",
+  "analyzerRejected",
+  "contrastPixelAdjudicationDiagnostics",
+  "testBlockingContrastPixelDiagnosticEncodesTheExactFailedStage",
+  "ObservedVerifiedStaleOffscreenContrastFalsePositive",
+  "iosStaleOffscreenContrastFalsePositiveV1",
+  "priorHighContrastPixelsBoundToNowOffscreenAttestedElement",
+  "verifiedStaleOffscreenContrastFalsePositives",
+  "testStaleOffscreenContrastRequiresPriorPixelsAndExactScrollDisplacement",
+  "ObservedVerifiedSystemChromeContrastFalsePositive",
+  "verifiedSystemChromeContrastFalsePositives",
+  "iosNativeCompactTabChromeContrastFalsePositiveV1",
+  "anonymousContrastBoundToAttestedNativeCompactTabChrome",
+  "testAnonymousContrastRequiresExactLargeTypeNativeCompactTabChromeAttestation",
+  "iosNativeBottomTabChromeContrastFalsePositiveV2",
+  "anonymousContrastBoundToAttestedNativeBottomTabChrome",
+  "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3",
+  "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome",
+  "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4",
+  "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome",
+  "testAnonymousContrastRequiresExactShippedPhoneNativeBottomTabChromeAttestation",
+  "ObservedVerifiedNativeSidebarSelectionContrastFalsePositive",
+  "ObservedVisibleTextContrastEvidence",
+  "verifiedNativeSidebarSelectionContrastFalsePositives",
+  "iosNativeSidebarSelectionContrastFalsePositiveV1",
+  "anonymousContrastBoundToAttestedNativeSidebarSelection",
+  "selectedCellInteriorFrame",
+  "selectedCellPixelEvidence",
+  "selectedSymbolPixelEvidence",
+  "visibleTextPixelEvidence",
+  "testAnonymousContrastRequiresExactLargeIpadNativeSidebarSelectionPixelAttestation",
+  "ObservedVerifiedTextClippedFalsePositive",
+  "verifiedTextClippedFalsePositives",
+  "iosNativeSidebarTextClippedFalsePositiveV1",
+  "nativeSidebarRowExpandedWithinAttestedContainer",
+  "testNativeIPadSidebarClippingWarningRequiresExactFrameBoundAttestation",
   "capturePhase: \"initial\"",
   "capturePhase: \"deepScroll\"",
   "ObservedCaptureIdentity",
@@ -118,6 +158,7 @@ require_tokens(ios_observer, [
   "testScreenshotContrastAdjudicatorRejectsLowContrastTextPixels",
   "testScreenshotContrastAdjudicatorRejectsMixedHighAndLowContrastRuns",
   "testScreenshotContrastAdjudicatorRejectsMeaningfulMinorityLowContrastCluster",
+  "testScreenshotContrastAdjudicatorIgnoresOnlyWideEdgeAlignedDividerPixels",
   "testScreenshotContrastBufferDecodesAntialiasedSystemTextFromPNG",
   "scrollPrimarySurfaceToTerminal",
   "deepScrollRoutes",
@@ -133,9 +174,14 @@ require_tokens(ios_observer, [
   "case \"cook-mode\": \"Current cooking step 1, Boil pasta\"",
   "selectedScrollHierarchy: primarySurface",
   "deepCapture.selectedScrollHierarchyElements",
+  "elements: elements",
   ".collectionView",
   "requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))",
   "testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport"
+])
+require_tokens("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift", [
+  "@Environment(\\.dynamicTypeSize) private var dynamicTypeSize",
+  "horizontalSizeClass == .compact || dynamicTypeSize >= .xxxLarge"
 ])
 forbid_tokens(ios_observer, ["app.processID"])
 require_tokens("Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift", [
@@ -153,14 +199,17 @@ forbid_tokens(ios_observer, [
 ])
 
 require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", [
-  "screenshotPixelContrastV1",
+  "screenshotPixelContrastV2",
   "screenshotSHA256",
   "minimumBackgroundCoverage = 0.6",
   "requiredContrastRatio = 4.5",
   "evaluatedForegroundClusterCount",
   "substantialForegroundClusters",
   "backgroundPixelCount",
-  "foregroundPixelCount"
+  "foregroundPixelCount",
+  "ignoredEdgeRulePixelCount",
+  "ignoredEdgeRuleRowCount",
+  "ignoredEdgeRuleRows"
 ])
 require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", [
   "minimumForegroundClusterShare = 0.2",
@@ -182,6 +231,13 @@ require_tokens("scripts/run-ios-screenshot-observer.py", [
   "attest_host_process_binding",
   "iosHostProcessObservationV1"
 ])
+require_tokens("scripts/validate-design-review.rb", [
+  "validate_verified_text_clipped_false_positives!",
+  "iosNativeSidebarTextClippedFalsePositiveV1",
+  "nativeSidebarRowExpandedWithinAttestedContainer",
+  "ordinary-size native iPad sidebar rows",
+  'deep_scroll["elements"]'
+])
 
 capture_script = "scripts/capture-native-screenshots.sh"
 require_tokens(capture_script, [
@@ -202,6 +258,8 @@ require_tokens(capture_script, [
 mac_observer = "scripts/observe-macos-screenshot-evidence.swift"
 require_tokens(mac_observer, [
   "--self-test-non-finite-frame",
+  "--self-test-screenshot-temporary-name",
+  "screenshotTemporaryURL",
   "normalizedObservedRect",
   "values.allSatisfy(\\.isFinite)",
   "NSRunningApplication(processIdentifier:",
@@ -246,8 +304,8 @@ require_tokens(mac_observer, [
   "performNativePageScroll",
   "kAXPressAction",
   "spoonjoy.page-scroll",
-  "kitchen.cookbook.cookbook_slow_sundays",
-  "Slow Sundays and Long Simmering Suppers, 0 recipes",
+  "kitchen.cookbook.cookbook_weeknights",
+  "Weeknights",
   "recipe-editor.delete",
   "recipe-covers.terminal",
   "profile.graph.kitchen-visitors",
@@ -260,6 +318,10 @@ require_tokens(mac_observer, [
   "windowID",
   "capturePostScrollScreenshot",
   "publishPostScrollScreenshot",
+  "publishFailureDiagnostic",
+  "macOS diagnostic evidence",
+  "findingSummary",
+  'macOS initial accessibility audit found \(findingSummary(observedFindings))',
   "failureCleanupURLs",
   "validateRunningApplication",
   "boundRootWindow",
@@ -270,12 +332,23 @@ require_tokens(mac_observer, [
   "stableInitialObservation",
   "pixelAccessibilityBinding",
   "observationDigest",
+  "observationDifferenceSummary",
+  "let maximumCaptureBindingAttempts = 4",
+  "for attempt in 1...maximumCaptureBindingAttempts",
+  "Thread.sleep(forTimeInterval: 0.25)",
+  "accessibility tree was not stable across the exact-window screenshot after",
+  "waitForRequiredRouteTitles",
+  "route content did not become accessibility-ready after",
+  "waitForRequiredRouteTitles(options: options)",
   "guard scrollEvidence.reachedTerminal, scrollEvidence.findings.isEmpty",
   'failureCleanupURLs.append(outputURL)',
   'post-scroll accessibility tree changed before evidence publication',
   'published macOS post-scroll screenshot changed before evidence publication',
   'post-scroll evidence process or window binding changed before evidence publication',
   'macOS observed screenshot evidence publication failed'
+])
+forbid_tokens(mac_observer, [
+  '".\(outputURL.lastPathComponent).\(UUID().uuidString).capture.png"'
 ])
 
 require_tokens(ios_observer, [
@@ -327,6 +400,10 @@ end
 
 unless system("swift", mac_observer, "--self-test-non-finite-frame", chdir: ROOT.to_s)
   fail_check("#{mac_observer} non-finite frame self-test failed")
+end
+
+unless system("swift", mac_observer, "--self-test-screenshot-temporary-name", chdir: ROOT.to_s)
+  fail_check("#{mac_observer} screenshot temporary-name self-test failed")
 end
 
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [

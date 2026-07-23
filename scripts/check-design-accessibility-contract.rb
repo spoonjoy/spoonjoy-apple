@@ -146,7 +146,7 @@ end
 
 def macos_pixel_accessibility_binding(screenshot_sha256, phase)
   deep = phase == "deepScroll"
-  {
+  binding = {
     "schema" => "macosPixelAccessibilityBindingV1",
     "capturePhase" => phase,
     "pixelSource" => "exactCGWindowID",
@@ -155,11 +155,14 @@ def macos_pixel_accessibility_binding(screenshot_sha256, phase)
     "accessibilitySnapshotAfterSHA256" => "c" * 64,
     "applicationProcessIdentifier" => 123,
     "windowID" => 456,
-    "windowFrame" => rect,
-    "selectedScrollHierarchyIdentifier" => deep ? "spoonjoy.page-scroll" : nil,
-    "selectedScrollHierarchySnapshotBeforeSHA256" => deep ? "d" * 64 : nil,
-    "selectedScrollHierarchySnapshotAfterSHA256" => deep ? "d" * 64 : nil
+    "windowFrame" => rect
   }
+  binding.merge!(
+    "selectedScrollHierarchyIdentifier" => "spoonjoy.page-scroll",
+    "selectedScrollHierarchySnapshotBeforeSHA256" => "d" * 64,
+    "selectedScrollHierarchySnapshotAfterSHA256" => "d" * 64
+  ) if deep
+  binding
 end
 
 def fixture_screenshot_sha256(platform, dynamic_type:, capture_phase:)
@@ -181,10 +184,10 @@ end
 def observed_proof(platform, dynamic_type: "large")
   if platform == "macos"
     terminal = {
-      "identifier" => "kitchen.cookbook.cookbook_slow_sundays",
+      "identifier" => "kitchen.cookbook.cookbook_weeknights",
       "role" => "AXButton",
       "subrole" => "",
-      "title" => "Slow Sundays and Long Simmering Suppers, 0 recipes",
+      "title" => "Weeknights",
       "frame" => rect(x: 10, y: 10, width: 44, height: 44),
       "enabled" => true,
       "focused" => false,
@@ -212,7 +215,7 @@ def observed_proof(platform, dynamic_type: "large")
       "deepScroll" => {
         "route" => "kitchen",
         "reachedTerminal" => true,
-        "contentViewport" => rect,
+        "contentViewport" => rect(x: 5, y: 5, width: 90, height: 90),
         "terminalElement" => terminal,
         "findings" => [],
         "scrollAreaIdentifier" => "spoonjoy.page-scroll",
@@ -233,11 +236,11 @@ def observed_proof(platform, dynamic_type: "large")
     }
   else
     terminal = ios_element(
-      "kitchen.cookbook.cookbook_slow_sundays",
+      "kitchen.cookbook.cookbook_weeknights",
       type: "button",
       frame: rect(x: 10, y: 20, width: 44, height: 44)
     )
-    terminal["label"] = "Slow Sundays and Long Simmering Suppers, 0 recipes"
+    terminal["label"] = "Weeknights"
     initial_screenshot_sha256 = fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "initial")
     deep_screenshot_sha256 = fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "deepScroll")
     initial_handshake = readiness_handshake(platform, dynamic_type: dynamic_type, capture_phase: "initial")
@@ -250,6 +253,11 @@ def observed_proof(platform, dynamic_type: "large")
       "auditIssues" => [],
       "auditTypes" => REQUIRED_AUDIT_TYPES,
       "verifiedContrastFalsePositives" => [],
+      "verifiedStaleOffscreenContrastFalsePositives" => [],
+      "contrastPixelAdjudicationDiagnostics" => [],
+      "verifiedSystemChromeContrastFalsePositives" => [],
+      "verifiedNativeSidebarSelectionContrastFalsePositives" => [],
+      "verifiedTextClippedFalsePositives" => [],
       "screenshotSHA256" => initial_screenshot_sha256,
       "captureIdentity" => {
         "schema" => "iosObservedCaptureV1",
@@ -284,6 +292,11 @@ def observed_proof(platform, dynamic_type: "large")
         "auditIssues" => [],
         "auditTypes" => REQUIRED_AUDIT_TYPES,
         "verifiedContrastFalsePositives" => [],
+        "verifiedStaleOffscreenContrastFalsePositives" => [],
+        "contrastPixelAdjudicationDiagnostics" => [],
+        "verifiedSystemChromeContrastFalsePositives" => [],
+        "verifiedNativeSidebarSelectionContrastFalsePositives" => [],
+        "verifiedTextClippedFalsePositives" => [],
         "screenshotSHA256" => deep_screenshot_sha256,
         "readinessHandshake" => deep_handshake,
         "captureIdentity" => {
@@ -298,6 +311,7 @@ def observed_proof(platform, dynamic_type: "large")
           "screenshotSHA256" => deep_screenshot_sha256
         },
         "selectedScrollHierarchyIdentifier" => "spoonjoy.page-scroll",
+        "elements" => [terminal, ios_element("system.tabBar", type: "tabBar", frame: rect(x: 0, y: 80, width: 100, height: 20))],
         "selectedScrollHierarchyElements" => [terminal],
         "observedContentMovement" => true,
         "contentFitsWithoutScrolling" => false,
@@ -335,7 +349,7 @@ def verified_contrast_false_positive(screenshot_sha256, capture_phase)
       "elementFrame" => rect(x: 10, y: 10, width: 44, height: 20)
     },
     "pixelEvidence" => {
-      "method" => "screenshotPixelContrastV1",
+      "method" => "screenshotPixelContrastV2",
       "screenshotSHA256" => screenshot_sha256,
       "contrastRatio" => 14.7,
       "requiredContrastRatio" => 4.5,
@@ -345,9 +359,220 @@ def verified_contrast_false_positive(screenshot_sha256, capture_phase)
       "analyzedPixelCount" => 1_000,
       "backgroundPixelCount" => 730,
       "foregroundPixelCount" => 200,
+      "ignoredEdgeRulePixelCount" => 0,
+      "ignoredEdgeRuleRowCount" => 0,
       "background" => { "red" => 250, "green" => 249, "blue" => 243 },
       "foreground" => { "red" => 40, "green" => 35, "blue" => 29 }
     }
+  }
+end
+
+def contrast_pixel_evidence(screenshot_sha256)
+  verified_contrast_false_positive(screenshot_sha256, "initial").fetch("pixelEvidence")
+end
+
+def native_sidebar_selection_fixture(screenshot_sha256)
+  sidebar_navigation = ios_element(
+    "Spoonjoy",
+    type: "navigationBar",
+    frame: rect(x: 0, y: 32, width: 320, height: 54)
+  ).merge("label" => "", "hittable" => false)
+  detail_navigation = ios_element(
+    "Kitchen",
+    type: "navigationBar",
+    frame: rect(x: 0, y: 32, width: 700, height: 106)
+  ).merge("label" => "", "hittable" => false)
+  sidebar_collection = ios_element(
+    "",
+    type: "collectionView",
+    frame: rect(x: 0, y: 32, width: 320, height: 850)
+  ).merge("label" => "Sidebar", "hittable" => false)
+  selected_frame = rect(x: 20, y: 100, width: 288, height: 64)
+  selected_cell = ios_element("", type: "cell", frame: selected_frame).merge(
+    "label" => "",
+    "hittable" => false
+  )
+  selected_label = ios_element("", frame: selected_frame).merge(
+    "label" => "Kitchen",
+    "hittable" => false
+  )
+  selected_symbol = ios_element(
+    "house",
+    type: "image",
+    frame: rect(x: 38, y: 118, width: 28, height: 28)
+  ).merge("label" => "Home", "hittable" => false)
+  visible_text = 20.times.map do |index|
+    ios_element(
+      "content.text.#{index}",
+      frame: rect(x: 360, y: 150 + index * 30, width: 160, height: 20)
+    ).merge("label" => "Visible text #{index}", "hittable" => false)
+  end
+  reference = lambda do |element|
+    element.slice("identifier", "label", "type", "frame")
+  end
+  entry = {
+    "schema" => "iosNativeSidebarSelectionContrastFalsePositiveV1",
+    "capturePhase" => "initial",
+    "reason" => "anonymousContrastBoundToAttestedNativeSidebarSelection",
+    "contentSizeCategory" => "large",
+    "issue" => {
+      "category" => "contrast",
+      "type" => "XCUIAccessibilityAuditType(rawValue: 1)",
+      "compactDescription" => "Contrast failed",
+      "detailedDescription" => "Contrast failed for SwiftUI.AccessibilityNode",
+      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:(null)",
+      "diagnosticMirror" => "",
+      "elementIdentifier" => "",
+      "elementLabel" => "",
+      "elementType" => ""
+    },
+    "sidebarNavigationBar" => reference.call(sidebar_navigation),
+    "detailNavigationBar" => reference.call(detail_navigation),
+    "sidebarCollection" => reference.call(sidebar_collection),
+    "selectedCell" => reference.call(selected_cell),
+    "selectedLabel" => reference.call(selected_label),
+    "selectedSymbol" => reference.call(selected_symbol),
+    "selectedCellInteriorFrame" => rect(x: 32, y: 112, width: 264, height: 40),
+    "selectedCellPixelEvidence" => contrast_pixel_evidence(screenshot_sha256),
+    "selectedSymbolPixelEvidence" => contrast_pixel_evidence(screenshot_sha256),
+    "visibleTextPixelEvidence" => visible_text.map do |element|
+      {
+        "element" => reference.call(element),
+        "pixelEvidence" => contrast_pixel_evidence(screenshot_sha256)
+      }
+    end
+  }
+  {
+    "elements" => [
+      sidebar_navigation,
+      detail_navigation,
+      sidebar_collection,
+      selected_cell,
+      selected_label,
+      selected_symbol
+    ] + visible_text,
+    "entry" => entry
+  }
+end
+
+def verified_text_clipped_false_positive(row_frame:, sidebar_frame:, capture_phase: "initial")
+  {
+    "schema" => "iosNativeSidebarTextClippedFalsePositiveV1",
+    "capturePhase" => capture_phase,
+    "reason" => "nativeSidebarRowExpandedWithinAttestedContainer",
+    "detailedDescription" => "Text of this SwiftUI.AccessibilityNode may be clipped at larger Dynamic Type sizes.",
+    "elementIdentifier" => "",
+    "elementLabel" => "Cookbooks",
+    "elementType" => "staticText",
+    "elementFrame" => row_frame,
+    "containerType" => "collectionView",
+    "containerLabel" => "Sidebar",
+    "containerFrame" => sidebar_frame
+  }
+end
+
+def native_compact_tab_chrome
+  navigation_frame = rect(x: 0, y: 0, width: 400, height: 54)
+  navigation_bar = ios_element("Kitchen", type: "navigationBar", frame: navigation_frame).merge(
+    "label" => "",
+    "hittable" => true
+  )
+  destinations = [
+    ["house", "Kitchen", rect(x: 60, y: 5, width: 64, height: 44)],
+    ["book.closed", "Recipes", rect(x: 124, y: 5, width: 72, height: 44)],
+    ["bookmark", "Saved", rect(x: 196, y: 5, width: 64, height: 44)],
+    ["books.vertical", "Cookbooks", rect(x: 260, y: 5, width: 92, height: 44)]
+  ].map do |identifier, label, frame|
+    ios_element(identifier, type: "button", frame: frame).merge("label" => label)
+  end
+  [navigation_bar, destinations]
+end
+
+def verified_system_chrome_contrast_false_positive(content_size_category:, capture_phase: "initial")
+  navigation_bar, destinations = native_compact_tab_chrome
+  reference = lambda do |element|
+    element.slice("identifier", "label", "type", "frame")
+  end
+  {
+    "schema" => "iosNativeCompactTabChromeContrastFalsePositiveV1",
+    "capturePhase" => capture_phase,
+    "reason" => "anonymousContrastBoundToAttestedNativeCompactTabChrome",
+    "contentSizeCategory" => content_size_category,
+    "issue" => {
+      "category" => "contrast",
+      "type" => "XCUIAccessibilityAuditType(rawValue: 1)",
+      "compactDescription" => "Contrast failed",
+      "detailedDescription" => "Contrast failed for SwiftUI.AccessibilityNode",
+      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:(null)",
+      "diagnosticMirror" => "",
+      "elementIdentifier" => "",
+      "elementLabel" => "",
+      "elementType" => ""
+    },
+    "navigationBar" => reference.call(navigation_bar),
+    "destinations" => destinations.map { |destination| reference.call(destination) }
+  }
+end
+
+def native_bottom_tab_chrome(label_only: false)
+  navigation_frame = rect(x: 0, y: 0, width: 400, height: 54)
+  tab_frame = rect(x: 0, y: 117, width: 400, height: 83)
+  navigation_bar = ios_element("Kitchen", type: "navigationBar", frame: navigation_frame).merge(
+    "label" => "",
+    "hittable" => true
+  )
+  tab_bar = ios_element("", type: "tabBar", frame: tab_frame).merge(
+    "label" => "Tab Bar",
+    "hittable" => true
+  )
+  destinations = [
+    ["house", "Kitchen", rect(x: 12, y: 121, width: 70, height: 54)],
+    ["book.closed", "Recipes", rect(x: 82, y: 121, width: 70, height: 54)],
+    ["bookmark", "Saved", rect(x: 152, y: 121, width: 70, height: 54)],
+    ["books.vertical", "Cookbooks", rect(x: 222, y: 121, width: 88, height: 54)],
+    ["checklist", "Shopping", rect(x: 310, y: 121, width: 78, height: 54)]
+  ].map do |identifier, label, frame|
+    ios_element(label_only ? "" : identifier, type: "button", frame: frame).merge("label" => label)
+  end
+  [navigation_bar, tab_bar, destinations]
+end
+
+def verified_bottom_tab_chrome_contrast_false_positive(capture_phase: "initial", content_size_category: "large", label_only: false)
+  navigation_bar, tab_bar, destinations = native_bottom_tab_chrome(label_only: label_only)
+  reference = lambda do |element|
+    element.slice("identifier", "label", "type", "frame")
+  end
+  {
+    "schema" => if label_only && content_size_category == "large"
+                  "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4"
+                elsif label_only
+                  "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3"
+                else
+                  "iosNativeBottomTabChromeContrastFalsePositiveV2"
+                end,
+    "capturePhase" => capture_phase,
+    "reason" => if label_only && content_size_category == "large"
+                  "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
+                elsif label_only
+                  "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
+                else
+                  "anonymousContrastBoundToAttestedNativeBottomTabChrome"
+                end,
+    "contentSizeCategory" => content_size_category,
+    "issue" => {
+      "category" => "contrast",
+      "type" => "XCUIAccessibilityAuditType(rawValue: 1)",
+      "compactDescription" => "Contrast failed",
+      "detailedDescription" => "Contrast failed for SwiftUI.AccessibilityNode",
+      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:(null)",
+      "diagnosticMirror" => "",
+      "elementIdentifier" => "",
+      "elementLabel" => "",
+      "elementType" => ""
+    },
+    "navigationBar" => reference.call(navigation_bar),
+    "tabBar" => reference.call(tab_bar),
+    "destinations" => destinations.map { |destination| reference.call(destination) }
   }
 end
 
@@ -477,6 +702,71 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   manifest_path.write(JSON.pretty_generate(valid_manifest) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "valid observed accessibility evidence")
 
+  observed_macos_path = root.join("apple/observed-macos.json")
+  native_splitter = {
+    "identifier" => "",
+    "role" => "AXSplitter",
+    "subrole" => "",
+    "title" => "",
+    "frame" => rect(x: 50, y: 10, width: 0, height: 80),
+    "enabled" => false,
+    "focused" => false,
+    "actions" => []
+  }
+  macos_with_native_splitter = observed_proof("macos")
+  macos_with_native_splitter["elements"] << native_splitter
+  macos_with_native_splitter.fetch("deepScroll").fetch("postScrollElements") << native_splitter
+  observed_macos_path.write(JSON.pretty_generate(macos_with_native_splitter) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "one-dimensional native macOS splitter acceptance")
+
+  zero_sized_splitter = Marshal.load(Marshal.dump(macos_with_native_splitter))
+  zero_sized_splitter["elements"].last["frame"] = rect(x: 50, y: 10, width: 0, height: 0)
+  observed_macos_path.write(JSON.pretty_generate(zero_sized_splitter) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "zero-sized macOS splitter rejection")
+
+  spoofed_splitter = Marshal.load(Marshal.dump(macos_with_native_splitter))
+  spoofed_splitter["elements"].last["role"] = "AXGroup"
+  observed_macos_path.write(JSON.pretty_generate(spoofed_splitter) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "zero-width macOS content rejection")
+
+  interactive_splitter = Marshal.load(Marshal.dump(macos_with_native_splitter))
+  interactive_splitter["elements"].last["enabled"] = true
+  interactive_splitter["elements"].last["actions"] = ["AXPress"]
+  observed_macos_path.write(JSON.pretty_generate(interactive_splitter) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "interactive zero-width macOS splitter rejection")
+
+  hidden_scrollbar_arrow = {
+    "identifier" => "",
+    "role" => "AXButton",
+    "subrole" => "AXIncrementArrow",
+    "title" => "",
+    "frame" => rect(x: 90, y: 10, width: 0, height: 0),
+    "enabled" => true,
+    "focused" => false,
+    "actions" => ["AXPress"]
+  }
+  macos_with_hidden_scrollbar_arrow = observed_proof("macos")
+  macos_with_hidden_scrollbar_arrow["elements"] << hidden_scrollbar_arrow
+  macos_with_hidden_scrollbar_arrow.fetch("deepScroll").fetch("postScrollElements") << hidden_scrollbar_arrow
+  observed_macos_path.write(JSON.pretty_generate(macos_with_hidden_scrollbar_arrow) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "hidden native macOS scrollbar arrow acceptance")
+
+  spoofed_scrollbar_arrow = Marshal.load(Marshal.dump(macos_with_hidden_scrollbar_arrow))
+  spoofed_scrollbar_arrow["elements"].last["subrole"] = "AXCloseButton"
+  observed_macos_path.write(JSON.pretty_generate(spoofed_scrollbar_arrow) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "non-scrollbar zero-sized native control rejection")
+
+  labeled_scrollbar_arrow = Marshal.load(Marshal.dump(macos_with_hidden_scrollbar_arrow))
+  labeled_scrollbar_arrow["elements"].last["title"] = "Load more"
+  observed_macos_path.write(JSON.pretty_generate(labeled_scrollbar_arrow) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "labeled zero-sized scrollbar control rejection")
+
+  mutated_scrollbar_action = Marshal.load(Marshal.dump(macos_with_hidden_scrollbar_arrow))
+  mutated_scrollbar_action["elements"].last["actions"] = ["AXShowMenu"]
+  observed_macos_path.write(JSON.pretty_generate(mutated_scrollbar_action) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "mutated zero-sized scrollbar action rejection")
+  observed_macos_path.write(JSON.pretty_generate(observed_proof("macos")) + "\n")
+
   readiness_ios_path = root.join("apple/readiness-ios.json")
   missing_generation = readiness_proof("ios").tap { |proof| proof.delete("readinessGeneration") }
   readiness_ios_path.write(JSON.pretty_generate(missing_generation) + "\n")
@@ -490,6 +780,12 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   readiness_ios_path.write(readiness_proof_bytes("ios"))
 
   observed_ios_path = root.join("apple/observed-ios.json")
+  missing_contrast_diagnostics = observed_proof("ios")
+  missing_contrast_diagnostics.delete("contrastPixelAdjudicationDiagnostics")
+  observed_ios_path.write(JSON.pretty_generate(missing_contrast_diagnostics) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing contrast pixel diagnostics rejection")
+  observed_ios_path.write(JSON.pretty_generate(observed_proof("ios")) + "\n")
+
   substituted_handshake = observed_proof("ios")
   substituted_handshake["readinessHandshake"]["proofSHA256"] = "0" * 64
   observed_ios_path.write(JSON.pretty_generate(substituted_handshake) + "\n")
@@ -514,10 +810,296 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   ]
   ipad_path.write(JSON.pretty_generate(ipad_verified) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "screenshot-bound contrast adjudication")
+  inconsistent_ignored_rule = Marshal.load(Marshal.dump(ipad_verified))
+  inconsistent_ignored_rule["verifiedContrastFalsePositives"][0]["pixelEvidence"]["ignoredEdgeRulePixelCount"] = 30
+  ipad_path.write(JSON.pretty_generate(inconsistent_ignored_rule) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "contrast edge-rule telemetry consistency")
   ipad_verified["verifiedContrastFalsePositives"][0]["pixelEvidence"]["screenshotSHA256"] = "0" * 64
   ipad_path.write(JSON.pretty_generate(ipad_verified) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "contrast adjudication screenshot substitution")
   ipad_path.write(JSON.pretty_generate(observed_proof("ipad")) + "\n")
+
+  ipad_native_sidebar = observed_proof("ipad")
+  native_sidebar_fixture = native_sidebar_selection_fixture(
+    valid_manifest.dig("screenshotArtifacts", "iosTablet", "sha256")
+  )
+  initial_terminal = Marshal.load(Marshal.dump(ipad_native_sidebar.fetch("elements").find do |element|
+    element["identifier"] == "kitchen.cookbook.cookbook_weeknights"
+  end))
+  initial_terminal["frame"] = rect(x: 560, y: 760, width: 100, height: 44)
+  ipad_native_sidebar["viewport"] = rect(x: 320, y: 138, width: 380, height: 762)
+  ipad_native_sidebar.fetch("pixelAccessibilityBinding")["windowFrame"] = rect(
+    x: 0,
+    y: 0,
+    width: 700,
+    height: 900
+  )
+  ipad_native_sidebar["elements"] = [initial_terminal] + native_sidebar_fixture.fetch("elements")
+  ipad_native_sidebar["verifiedNativeSidebarSelectionContrastFalsePositives"] = [
+    native_sidebar_fixture.fetch("entry")
+  ]
+  ipad_path.write(JSON.pretty_generate(ipad_native_sidebar) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "pixel-bound native iPad sidebar selection contrast adjudication")
+
+  low_sidebar_contrast = Marshal.load(Marshal.dump(ipad_native_sidebar))
+  low_sidebar_contrast["verifiedNativeSidebarSelectionContrastFalsePositives"][0]["selectedCellPixelEvidence"]["contrastRatio"] = 3.9
+  ipad_path.write(JSON.pretty_generate(low_sidebar_contrast) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "low native sidebar selection contrast rejection")
+
+  missing_sidebar_symbol = Marshal.load(Marshal.dump(ipad_native_sidebar))
+  missing_sidebar_symbol["elements"].reject! { |element| element["type"] == "image" }
+  ipad_path.write(JSON.pretty_generate(missing_sidebar_symbol) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing native sidebar symbol rejection")
+
+  incomplete_sidebar_census = Marshal.load(Marshal.dump(ipad_native_sidebar))
+  incomplete_sidebar_census["verifiedNativeSidebarSelectionContrastFalsePositives"][0]["visibleTextPixelEvidence"].pop
+  ipad_path.write(JSON.pretty_generate(incomplete_sidebar_census) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "incomplete native sidebar visible-text census rejection")
+
+  substituted_sidebar_screenshot = Marshal.load(Marshal.dump(ipad_native_sidebar))
+  substituted_sidebar_screenshot["verifiedNativeSidebarSelectionContrastFalsePositives"][0]["selectedSymbolPixelEvidence"]["screenshotSHA256"] = "0" * 64
+  ipad_path.write(JSON.pretty_generate(substituted_sidebar_screenshot) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "native sidebar screenshot substitution rejection")
+
+  attributed_sidebar_issue = Marshal.load(Marshal.dump(ipad_native_sidebar))
+  attributed_sidebar_issue["verifiedNativeSidebarSelectionContrastFalsePositives"][0]["issue"]["elementLabel"] = "Kitchen"
+  ipad_path.write(JSON.pretty_generate(attributed_sidebar_issue) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "attributed native sidebar issue rejection")
+  ipad_path.write(JSON.pretty_generate(observed_proof("ipad")) + "\n")
+
+  sidebar_frame = rect(x: 0, y: 0, width: 40, height: 80)
+  row_frame = rect(x: 1, y: 1, width: 38, height: 15)
+  sidebar = ios_element("", type: "collectionView", frame: sidebar_frame).merge("label" => "Sidebar")
+  sidebar_row = ios_element("", frame: row_frame).merge("label" => "Cookbooks")
+  ipad_verified_text = observed_proof("ipad")
+  ipad_verified_text["elements"] += [sidebar, sidebar_row]
+  ipad_verified_text["verifiedTextClippedFalsePositives"] = [
+    verified_text_clipped_false_positive(row_frame: row_frame, sidebar_frame: sidebar_frame)
+  ]
+  ipad_path.write(JSON.pretty_generate(ipad_verified_text) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "frame-bound native iPad sidebar clipping adjudication")
+
+  wrong_label = Marshal.load(Marshal.dump(ipad_verified_text))
+  wrong_label["verifiedTextClippedFalsePositives"][0]["elementLabel"] = "Unknown"
+  ipad_path.write(JSON.pretty_generate(wrong_label) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "unknown sidebar clipping label rejection")
+
+  wrong_warning = Marshal.load(Marshal.dump(ipad_verified_text))
+  wrong_warning["verifiedTextClippedFalsePositives"][0]["detailedDescription"] = "Different warning"
+  ipad_path.write(JSON.pretty_generate(wrong_warning) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "changed sidebar clipping warning rejection")
+
+  missing_sidebar = Marshal.load(Marshal.dump(ipad_verified_text))
+  missing_sidebar["elements"].reject! { |element| element["type"] == "collectionView" }
+  ipad_path.write(JSON.pretty_generate(missing_sidebar) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing Sidebar container rejection")
+
+  outside_sidebar = Marshal.load(Marshal.dump(ipad_verified_text))
+  outside_frame = rect(x: 50, y: 1, width: 38, height: 15)
+  outside_sidebar["elements"].find { |element| element["label"] == "Cookbooks" }["frame"] = outside_frame
+  outside_sidebar["verifiedTextClippedFalsePositives"][0]["elementFrame"] = outside_frame
+  ipad_path.write(JSON.pretty_generate(outside_sidebar) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "sidebar-external clipping frame rejection")
+
+  ambiguous_row = Marshal.load(Marshal.dump(ipad_verified_text))
+  ambiguous_row["elements"] << Marshal.load(Marshal.dump(sidebar_row))
+  ipad_path.write(JSON.pretty_generate(ambiguous_row) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "ambiguous sidebar row rejection")
+  ipad_path.write(JSON.pretty_generate(observed_proof("ipad")) + "\n")
+
+  ios_verified_text = observed_proof("ios")
+  ios_verified_text["elements"] += [sidebar, sidebar_row]
+  ios_verified_text["verifiedTextClippedFalsePositives"] = [
+    verified_text_clipped_false_positive(row_frame: row_frame, sidebar_frame: sidebar_frame)
+  ]
+  observed_ios_path.write(JSON.pretty_generate(ios_verified_text) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "phone sidebar clipping adjudication rejection")
+  observed_ios_path.write(JSON.pretty_generate(observed_proof("ios")) + "\n")
+
+  ipad_xxxl_path = root.join("apple/observed-ipad-xxxl.json")
+  ipad_xxxl_verified_text = JSON.parse(ipad_xxxl_path.read)
+  ipad_xxxl_verified_text["elements"] += [sidebar, sidebar_row]
+  ipad_xxxl_verified_text["verifiedTextClippedFalsePositives"] = [
+    verified_text_clipped_false_positive(row_frame: row_frame, sidebar_frame: sidebar_frame)
+  ]
+  ipad_xxxl_path.write(JSON.pretty_generate(ipad_xxxl_verified_text) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "large-type iPad sidebar adjudication rejection")
+  ipad_xxxl_path.write(JSON.pretty_generate(
+    observed_proof("ipad", dynamic_type: "xxxLarge").merge(
+      "observedContentSizeCategory" => "extra-extra-extra-large",
+      "observedDynamicTypeSize" => "xxxLarge"
+    )
+  ) + "\n")
+
+  ipad_ax_path = root.join("apple/observed-ipad-ax.json")
+  valid_ipad_ax = JSON.parse(ipad_ax_path.read)
+  navigation_bar, destinations = native_compact_tab_chrome
+  verified_system_chrome = Marshal.load(Marshal.dump(valid_ipad_ax))
+  verified_system_chrome["viewport"] = rect(x: 0, y: 60, width: 400, height: 140)
+  verified_system_chrome["pixelAccessibilityBinding"]["windowFrame"] = rect(x: 0, y: 0, width: 400, height: 200)
+  verified_system_chrome["elements"] = verified_system_chrome["elements"].reject { |element| element["type"] == "tabBar" }
+  verified_system_chrome["elements"].each do |element|
+    element["frame"] = rect(x: 10, y: 70, width: 120, height: 44) unless element["type"] == "navigationBar"
+  end
+  verified_system_chrome["elements"] += [navigation_bar] + destinations + destinations
+  verified_system_chrome["verifiedSystemChromeContrastFalsePositives"] = [
+    verified_system_chrome_contrast_false_positive(
+      content_size_category: "accessibility-extra-extra-extra-large"
+    )
+  ]
+  ipad_ax_path.write(JSON.pretty_generate(verified_system_chrome) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "serialized native compact-tab contrast adjudication")
+
+  attributed_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
+  attributed_system_chrome["verifiedSystemChromeContrastFalsePositives"][0]["issue"]["elementLabel"] = "Recipe Index"
+  ipad_ax_path.write(JSON.pretty_generate(attributed_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "attributed compact-tab contrast rejection")
+
+  framed_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
+  framed_system_chrome["verifiedSystemChromeContrastFalsePositives"][0]["issue"]["elementFrame"] = rect(x: 10, y: 60, width: 40, height: 20)
+  ipad_ax_path.write(JSON.pretty_generate(framed_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "framed compact-tab contrast rejection")
+
+  wrong_diagnostic_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
+  wrong_diagnostic_system_chrome["verifiedSystemChromeContrastFalsePositives"][0]["issue"]["diagnosticDescription"] = "Element:Recipe Index"
+  ipad_ax_path.write(JSON.pretty_generate(wrong_diagnostic_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "non-anonymous compact-tab contrast rejection")
+
+  missing_destination_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
+  missing_destination_system_chrome["elements"].reject! { |element| element["identifier"] == "books.vertical" }
+  ipad_ax_path.write(JSON.pretty_generate(missing_destination_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing compact-tab destination rejection")
+
+  conflicting_destination_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
+  conflicting_destination_system_chrome["elements"] << destinations.first.merge(
+    "frame" => rect(x: 4, y: 60, width: 22, height: 42)
+  )
+  ipad_ax_path.write(JSON.pretty_generate(conflicting_destination_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "conflicting compact-tab destination rejection")
+
+  tab_bar_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
+  tab_bar_system_chrome["elements"] << ios_element(
+    "system.tabBar",
+    type: "tabBar",
+    frame: rect(x: 0, y: 80, width: 100, height: 20)
+  )
+  ipad_ax_path.write(JSON.pretty_generate(tab_bar_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "mixed tab-bar compact-tab contrast rejection")
+
+  ordinary_system_chrome = observed_proof("ipad")
+  ordinary_system_chrome["elements"] = ordinary_system_chrome["elements"].reject { |element| element["type"] == "tabBar" }
+  ordinary_system_chrome["elements"] += [navigation_bar] + destinations
+  ordinary_system_chrome["verifiedSystemChromeContrastFalsePositives"] = [
+    verified_system_chrome_contrast_false_positive(content_size_category: "large")
+  ]
+  ipad_path.write(JSON.pretty_generate(ordinary_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "ordinary-size compact-tab contrast rejection")
+  ipad_path.write(JSON.pretty_generate(observed_proof("ipad")) + "\n")
+  ipad_ax_path.write(JSON.pretty_generate(valid_ipad_ax) + "\n")
+
+  valid_ios = JSON.parse(observed_ios_path.read)
+  phone_navigation_bar, phone_tab_bar, phone_destinations = native_bottom_tab_chrome
+  verified_phone_chrome = Marshal.load(Marshal.dump(valid_ios))
+  verified_phone_chrome["viewport"] = rect(x: 0, y: 54, width: 400, height: 63)
+  verified_phone_chrome["pixelAccessibilityBinding"]["windowFrame"] = rect(x: 0, y: 0, width: 400, height: 200)
+  verified_phone_chrome["elements"] = verified_phone_chrome["elements"].reject { |element| element["type"] == "tabBar" }
+  verified_phone_chrome["elements"] += [phone_navigation_bar, phone_tab_bar] + phone_destinations + phone_destinations
+  verified_phone_chrome["verifiedSystemChromeContrastFalsePositives"] = [
+    verified_bottom_tab_chrome_contrast_false_positive
+  ]
+  observed_ios_path.write(JSON.pretty_generate(verified_phone_chrome) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "serialized native bottom-tab contrast adjudication")
+
+  ordinary_label_navigation_bar, ordinary_label_tab_bar, ordinary_label_destinations = native_bottom_tab_chrome(label_only: true)
+  ordinary_label_only_phone_issue = Marshal.load(Marshal.dump(valid_ios))
+  ordinary_label_only_phone_issue["viewport"] = rect(x: 0, y: 54, width: 400, height: 63)
+  ordinary_label_only_phone_issue["pixelAccessibilityBinding"]["windowFrame"] = rect(x: 0, y: 0, width: 400, height: 200)
+  ordinary_label_only_phone_issue["elements"] = ordinary_label_only_phone_issue["elements"].reject { |element| element["type"] == "tabBar" }
+  ordinary_label_only_phone_issue["elements"] += [ordinary_label_navigation_bar, ordinary_label_tab_bar] + ordinary_label_destinations
+  ordinary_label_only_phone_issue["verifiedSystemChromeContrastFalsePositives"] = [
+    verified_bottom_tab_chrome_contrast_false_positive(label_only: true)
+  ]
+  observed_ios_path.write(JSON.pretty_generate(ordinary_label_only_phone_issue) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "ordinary label-only native bottom-tab contrast adjudication")
+
+  missing_phone_tab = Marshal.load(Marshal.dump(verified_phone_chrome))
+  missing_phone_tab["elements"].reject! { |element| element["type"] == "tabBar" }
+  observed_ios_path.write(JSON.pretty_generate(missing_phone_tab) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing native bottom tab rejection")
+
+  extra_phone_destination = Marshal.load(Marshal.dump(verified_phone_chrome))
+  extra_phone_destination["elements"] << ios_element(
+    "magnifyingglass",
+    type: "button",
+    frame: rect(x: 12, y: 121, width: 70, height: 54)
+  ).merge("label" => "Search")
+  observed_ios_path.write(JSON.pretty_generate(extra_phone_destination) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "unexpected native bottom-tab destination rejection")
+
+  conflicting_phone_destination = Marshal.load(Marshal.dump(verified_phone_chrome))
+  conflicting_phone_destination["elements"] << phone_destinations.first.merge(
+    "frame" => rect(x: 10, y: 60, width: 70, height: 54)
+  )
+  observed_ios_path.write(JSON.pretty_generate(conflicting_phone_destination) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "conflicting native bottom-tab destination rejection")
+  observed_ios_path.write(JSON.pretty_generate(verified_phone_chrome) + "\n")
+
+  observed_ios_xxxl_path = root.join("apple/observed-ios-xxxl.json")
+  valid_ios_xxxl = JSON.parse(observed_ios_xxxl_path.read)
+  duplicate_phone_issue = Marshal.load(Marshal.dump(valid_ios_xxxl))
+  duplicate_phone_issue["viewport"] = rect(x: 0, y: 54, width: 400, height: 63)
+  duplicate_phone_issue["pixelAccessibilityBinding"]["windowFrame"] = rect(x: 0, y: 0, width: 400, height: 200)
+  duplicate_phone_issue["elements"] = duplicate_phone_issue["elements"].reject { |element| element["type"] == "tabBar" }
+  duplicate_phone_issue["elements"].each do |element|
+    frame = element["frame"]
+    element["hittable"] = false if frame.is_a?(Hash) && frame["y"] >= 117
+  end
+  duplicate_phone_issue["elements"] += [phone_navigation_bar, phone_tab_bar] + phone_destinations + phone_destinations
+  duplicate_phone_issue["verifiedSystemChromeContrastFalsePositives"] = [
+    verified_bottom_tab_chrome_contrast_false_positive(content_size_category: "extra-extra-extra-large")
+  ] * 2
+  observed_ios_xxxl_path.write(JSON.pretty_generate(duplicate_phone_issue) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "two serialized native bottom-tab contrast warnings")
+
+  excessive_phone_issues = Marshal.load(Marshal.dump(duplicate_phone_issue))
+  excessive_phone_issues["verifiedSystemChromeContrastFalsePositives"] <<
+    verified_bottom_tab_chrome_contrast_false_positive(content_size_category: "extra-extra-extra-large")
+  observed_ios_xxxl_path.write(JSON.pretty_generate(excessive_phone_issues) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "excessive native bottom-tab issue rejection")
+
+  label_navigation_bar, label_tab_bar, label_only_destinations = native_bottom_tab_chrome(label_only: true)
+  label_only_phone_issue = Marshal.load(Marshal.dump(valid_ios_xxxl))
+  label_only_phone_issue["viewport"] = rect(x: 0, y: 54, width: 400, height: 63)
+  label_only_phone_issue["pixelAccessibilityBinding"]["windowFrame"] = rect(x: 0, y: 0, width: 400, height: 200)
+  label_only_phone_issue["elements"] = label_only_phone_issue["elements"].reject { |element| element["type"] == "tabBar" }
+  label_only_phone_issue["elements"].each do |element|
+    frame = element["frame"]
+    element["hittable"] = false if frame.is_a?(Hash) && frame["y"] >= 117
+  end
+  label_only_phone_issue["elements"] += [label_navigation_bar, label_tab_bar] + label_only_destinations + label_only_destinations
+  label_only_phone_issue["verifiedSystemChromeContrastFalsePositives"] = [
+    verified_bottom_tab_chrome_contrast_false_positive(
+      content_size_category: "extra-extra-extra-large",
+      label_only: true
+    )
+  ] * 2
+  observed_ios_xxxl_path.write(JSON.pretty_generate(label_only_phone_issue) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "large-type label-only native bottom-tab contrast adjudication")
+
+  mixed_label_only_identity = Marshal.load(Marshal.dump(label_only_phone_issue))
+  mixed_label_only_identity["elements"].find { |element| element["label"] == "Kitchen" && element["type"] == "button" }["identifier"] = "house"
+  observed_ios_xxxl_path.write(JSON.pretty_generate(mixed_label_only_identity) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "mixed large-type native bottom-tab identity rejection")
+  observed_ios_xxxl_path.write(JSON.pretty_generate(valid_ios_xxxl) + "\n")
+
+  compact_phone_chrome = Marshal.load(Marshal.dump(verified_phone_chrome))
+  compact_phone_chrome["elements"].reject! { |element| element["type"] == "tabBar" || element["identifier"] == "checklist" }
+  compact_phone_chrome["verifiedSystemChromeContrastFalsePositives"] = [
+    verified_system_chrome_contrast_false_positive(content_size_category: "large")
+  ]
+  observed_ios_path.write(JSON.pretty_generate(compact_phone_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "phone compact-tab substitution rejection")
+  observed_ios_path.write(JSON.pretty_generate(valid_ios) + "\n")
 
   root.join("screenshots/ios-mobile.png").write("tampered")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "tampered screenshot rejection")
@@ -752,6 +1334,22 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   missing_macos_initial_pixel_ax_binding.delete("pixelAccessibilityBinding")
   macos_path.write(JSON.pretty_generate(missing_macos_initial_pixel_ax_binding) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing initial macOS pixel/AX binding rejection")
+
+  initial_macos_with_scroll_binding = observed_proof("macos")
+  initial_macos_with_scroll_binding.fetch("pixelAccessibilityBinding").merge!(
+    "selectedScrollHierarchyIdentifier" => "spoonjoy.page-scroll",
+    "selectedScrollHierarchySnapshotBeforeSHA256" => "d" * 64,
+    "selectedScrollHierarchySnapshotAfterSHA256" => "d" * 64
+  )
+  macos_path.write(JSON.pretty_generate(initial_macos_with_scroll_binding) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "initial macOS scroll-binding field rejection")
+
+  deep_macos_without_scroll_binding = observed_proof("macos")
+  deep_macos_without_scroll_binding.fetch("deepScroll").fetch("pixelAccessibilityBinding").delete(
+    "selectedScrollHierarchySnapshotAfterSHA256"
+  )
+  macos_path.write(JSON.pretty_generate(deep_macos_without_scroll_binding) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "incomplete deep-scroll macOS binding rejection")
 
   failed_post_scroll_audit = observed_proof("macos")
   failed_post_scroll_audit.fetch("deepScroll")["postScrollAuditFindings"] = [

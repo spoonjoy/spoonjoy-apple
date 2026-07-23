@@ -375,7 +375,7 @@ enum ScreenshotAccessibilityProofWriter {
             "readinessGeneration": visualReadiness.generation,
             "launchEnvironmentProof": launchEnvironmentProof,
             "screenshotStateSnapshotProof": screenshotStateSnapshotProof,
-            "observedDynamicTypeSize": runtimeContext.dynamicTypeSize,
+            "observedDynamicTypeSize": observedDynamicTypeSize(fallback: runtimeContext.dynamicTypeSize),
             "observedReduceMotion": runtimeContext.reduceMotionEnabled,
             "visualReadiness": [
                 "generation": visualReadiness.generation,
@@ -397,6 +397,41 @@ enum ScreenshotAccessibilityProofWriter {
             payload["observedSurfaceState"] = observedSurfaceState.dictionary
         }
         return payload
+    }
+
+    @MainActor private static func observedDynamicTypeSize(fallback: String) -> String {
+#if os(iOS)
+        switch UIApplication.shared.preferredContentSizeCategory {
+        case .extraSmall:
+            return "xSmall"
+        case .small:
+            return "small"
+        case .medium:
+            return "medium"
+        case .large:
+            return "large"
+        case .extraLarge:
+            return "xLarge"
+        case .extraExtraLarge:
+            return "xxLarge"
+        case .extraExtraExtraLarge:
+            return "xxxLarge"
+        case .accessibilityMedium:
+            return "accessibility1"
+        case .accessibilityLarge:
+            return "accessibility2"
+        case .accessibilityExtraLarge:
+            return "accessibility3"
+        case .accessibilityExtraExtraLarge:
+            return "accessibility4"
+        case .accessibilityExtraExtraExtraLarge:
+            return "accessibility5"
+        default:
+            return fallback
+        }
+#else
+        return fallback
+#endif
     }
 
     private static var screenshotStateSnapshotProof: [String: Any] {

@@ -91,7 +91,7 @@ struct NativeMobileDesignContractTests {
                 "static let compactTabBarContentInset: CGFloat = 148",
                 ".scrollEdgeEffectStyle(.hard, for: .bottom)",
                 "@Environment(\\.dynamicTypeSize) private var dynamicTypeSize",
-                ".padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 11)"
+                ".padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 6)"
             ],
             forbids: [
                 "static let compactTabBarBackdropHeight"
@@ -120,7 +120,7 @@ struct NativeMobileDesignContractTests {
                 "let leadWidth: CGFloat = 540",
                 "usesWideKitchenSpread ? 56 : KitchenTableTheme.compactTabBarContentInset",
                 "KitchenTableHeader(eyebrow: identityLabel, title: \"My Kitchen\"",
-                "Text(\"Latest from the kitchen\".uppercased())",
+                "Text(\"On the Counter\".uppercased())",
                 ".frame(maxWidth: .infinity, minHeight: 104, maxHeight: 104)",
                 "NavigationLink(value: AppRoute.recipeDetail(id: recipe.id, presentation: .detail))",
                 ".accessibilityHint(\"Opens recipe detail\")",
@@ -132,11 +132,13 @@ struct NativeMobileDesignContractTests {
                 ".frame(minWidth: 928",
                 "ViewThatFits(in: .horizontal)",
                 "ownerUsername ?? recipes.first?.chef.username",
-                "Text(\"On the Counter\".uppercased())",
+                "Text(\"Latest from the kitchen\".uppercased())",
                 "title: \"Open Recipe\"",
                 "private let accessibilityPresentationRange",
                 ".dynamicTypeSize(accessibilityPresentationRange)",
-                "if dynamicTypeSize.isAccessibilitySize {\n                Image(systemName: systemImage)"
+                "if dynamicTypeSize.isAccessibilitySize {\n                Image(systemName: systemImage)",
+                ".safeAreaInset(edge: .bottom, spacing: 0)",
+                "KitchenTableTheme.compactTabBarViewportClearance"
             ]
         )
 
@@ -206,6 +208,8 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
+                "@Environment(\\.dynamicTypeSize) private var dynamicTypeSize",
+                "horizontalSizeClass == .compact || dynamicTypeSize >= .xxxLarge",
                 "sidebar.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)",
                 ".scrollContentBackground(.hidden)",
                 ".background(KitchenTableTheme.paper)",
@@ -308,11 +312,13 @@ struct NativeMobileDesignContractTests {
         let proofPath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
         let capturePath = "scripts/capture-native-screenshots.sh"
         let matrixPath = "scripts/capture-native-screenshot-matrix.sh"
+        let validatorPath = "scripts/validate-design-review.rb"
         let image = uncommentedSwift(try readRepoFile(imagePath))
         let theme = uncommentedSwift(try readRepoFile(themePath))
         let proof = uncommentedSwift(try readRepoFile(proofPath))
         let capture = try readRepoFile(capturePath)
         let matrix = try readRepoFile(matrixPath)
+        let validator = try readRepoFile(validatorPath)
 
         expectContent(
             image,
@@ -339,17 +345,36 @@ struct NativeMobileDesignContractTests {
                 "terminalScrollSignature(",
                 "app.scrollViews[\"spoonjoy.page-scroll\"]",
                 "case \"kitchen\":",
-                "identifier: \"kitchen.cookbook.cookbook_slow_sundays\"",
+                "identifier: \"kitchen.cookbook.cookbook_weeknights\"",
                 "waitForScrollToSettle()",
                 "observedContentMovement",
                 "contentFitsWithoutScrolling",
                 "terminalProofIsValid(",
-                "persistentChromeFindings(before: initialElements, after: elements)",
+                "findings.append(contentsOf: persistentChromeFindings(",
+                "beforeScrollContent: initialPrimaryElements",
+                "afterScrollContent: selectedHierarchyElements",
                 "contentFitsWithoutScrolling",
                 "verifiedContrastFalsePositives",
+                "ObservedVerifiedSystemChromeContrastFalsePositive",
+                "verifiedSystemChromeContrastFalsePositives",
+                "iosNativeCompactTabChromeContrastFalsePositiveV1",
+                "anonymousContrastBoundToAttestedNativeCompactTabChrome",
+                "testAnonymousContrastRequiresExactLargeTypeNativeCompactTabChromeAttestation",
+                "iosNativeBottomTabChromeContrastFalsePositiveV2",
+                "anonymousContrastBoundToAttestedNativeBottomTabChrome",
+                "testAnonymousContrastRequiresExactShippedPhoneNativeBottomTabChromeAttestation",
+                "ObservedVerifiedTextClippedFalsePositive",
+                "verifiedTextClippedFalsePositives",
+                "iosNativeSidebarTextClippedFalsePositiveV1",
+                "nativeSidebarRowExpandedWithinAttestedContainer",
+                "testNativeIPadSidebarClippingWarningRequiresExactFrameBoundAttestation",
                 "capturePhase: \"initial\"",
                 "capturePhase: \"deepScroll\"",
+                "screenshotPixelContrastV2",
+                "ignoredEdgeRulePixelCount",
+                "ignoredEdgeRuleRowCount",
                 "testScreenshotContrastAdjudicatorRejectsMixedHighAndLowContrastRuns",
+                "testScreenshotContrastAdjudicatorIgnoresOnlyWideEdgeAlignedDividerPixels",
                 "testScreenshotContrastBufferDecodesAntialiasedSystemTextFromPNG"
             ],
             forbids: [
@@ -410,6 +435,17 @@ struct NativeMobileDesignContractTests {
                 "stop_ios_foreground_stream",
                 "Front display did change",
                 "SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS"
+            ]
+        )
+        expectContent(
+            validator,
+            in: validatorPath,
+            contains: [
+                "validate_verified_text_clipped_false_positives!",
+                "ordinary-size native iPad sidebar rows",
+                "verified text-clipped row must match exactly one attested element",
+                "verified text-clipped Sidebar must match exactly one attested container",
+                "verified text-clipped evidence contains duplicates"
             ]
         )
         let root = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"))
@@ -733,6 +769,11 @@ struct NativeMobileDesignContractTests {
             from: "struct KitchenTableObjectRow",
             to: "extension KitchenTableObjectRow where Trailing == EmptyView"
         )
+        let objectText = try mobileDesignSourceSlice(
+            row,
+            from: "private var objectText",
+            to: "private func objectThumbnail"
+        )
 
         expectContent(
             row,
@@ -759,6 +800,17 @@ struct NativeMobileDesignContractTests {
                 ".font(.system(size:",
                 ".dynamicTypeSize(",
                 ".fixedSize(horizontal: false, vertical: true)"
+            ]
+        )
+        expectContent(
+            objectText,
+            in: themePath,
+            contains: [
+                "VStack(alignment: .leading, spacing: 4)",
+                "Text(title)"
+            ],
+            forbids: [
+                ".frame(maxWidth: .infinity, alignment: .leading)"
             ]
         )
     }
@@ -2297,8 +2349,8 @@ struct NativeMobileDesignContractTests {
                 "CookbookImageCover",
                 "private struct CookbookThumb",
                 "showsLeading: row.cover.imageURLs.contains { $0 != nil }",
-                "if dynamicTypeSize.isAccessibilitySize",
-                "accessibleCookbookRow",
+                "if horizontalSizeClass == .compact || dynamicTypeSize >= .xxLarge",
+                "KitchenTableObjectRow(",
                 ".font(.system(.title3, design: .serif).weight(.bold))",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",
@@ -2522,6 +2574,29 @@ struct NativeMobileDesignContractTests {
                 "routeIdentifier must be search:all:",
                 "query must be blank",
                 "scope must be all"
+            ]
+        )
+    }
+
+    @Test("screenshot readiness records the global iOS content size outside capped subtrees")
+    func screenshotReadinessRecordsGlobalIOSContentSize() throws {
+        let writerPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let writer = uncommentedSwift(try readRepoFile(writerPath))
+
+        expectContent(
+            writer,
+            in: writerPath,
+            contains: [
+                "private static func observedDynamicTypeSize(fallback:",
+                "UIApplication.shared.preferredContentSizeCategory",
+                "case .extraExtraExtraLarge:",
+                "return \"xxxLarge\"",
+                "case .accessibilityExtraExtraExtraLarge:",
+                "return \"accessibility5\"",
+                "\"observedDynamicTypeSize\": observedDynamicTypeSize(fallback: runtimeContext.dynamicTypeSize)"
+            ],
+            forbids: [
+                "\"observedDynamicTypeSize\": runtimeContext.dynamicTypeSize"
             ]
         )
     }

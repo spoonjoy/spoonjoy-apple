@@ -46,7 +46,7 @@ REQUIRED_OBSERVED_IDENTIFIERS = {
   "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
 }.freeze
 REQUIRED_DEEP_SCROLL_TERMINALS = {
-  "kitchen" => "kitchen.cookbook.cookbook_slow_sundays",
+  "kitchen" => "kitchen.cookbook.cookbook_weeknights",
   "recipes" => "recipes.terminal",
   "saved-recipes" => "saved-recipes.terminal",
   "recipe-detail" => "recipe-detail.terminal",
@@ -65,7 +65,7 @@ REQUIRED_DEEP_SCROLL_TERMINALS = {
   "settings" => "settings.terminal"
 }.freeze
 REQUIRED_DEEP_SCROLL_TERMINAL_LABELS = {
-  "kitchen" => "Slow Sundays and Long Simmering Suppers, 0 recipes",
+  "kitchen" => "Weeknights",
   "recipes" => "Start your recipe box with the dishes you actually cook.",
   "saved-recipes" => "Recipes you save to your cookbooks will appear here.",
   "recipe-detail" => "No cooks logged yet",
@@ -142,12 +142,35 @@ def required_deep_scroll_terminal(manifest, route)
 end
 
 REQUIRED_IOS_AUDIT_TYPES = %w[contrast dynamicType textClipped hitRegion trait].sort.freeze
+IOS_NATIVE_SIDEBAR_LABELS = [
+  "Kitchen",
+  "My Recipes",
+  "Saved Recipes",
+  "Cookbooks",
+  "Shopping List",
+  "Chefs",
+  "Kitchen Search",
+  "Imports",
+  "Settings"
+].freeze
+IOS_NATIVE_COMPACT_TAB_DESTINATIONS = [
+  { "identifier" => "house", "label" => "Kitchen" },
+  { "identifier" => "book.closed", "label" => "Recipes" },
+  { "identifier" => "bookmark", "label" => "Saved" },
+  { "identifier" => "books.vertical", "label" => "Cookbooks" }
+].freeze
+IOS_NATIVE_BOTTOM_TAB_DESTINATIONS = IOS_NATIVE_COMPACT_TAB_DESTINATIONS + [
+  { "identifier" => "checklist", "label" => "Shopping" }
+].freeze
 IOS_ACTIONABLE_TYPES = %w[button switch textField secureTextField link slider stepper].freeze
 IOS_CHROME_TYPES = %w[navigationBar toolbar tabBar keyboard sheet alert].freeze
 MAC_ACTIONABLE_ROLES = %w[AXButton AXCheckBox AXPopUpButton AXRadioButton AXTextField].freeze
 MAC_NATIVE_CONTROL_SUBROLES = %w[
   AXCloseButton AXMinimizeButton AXZoomButton AXFullScreenButton AXIncrementArrow
   AXDecrementArrow AXIncrementPage AXDecrementPage
+].freeze
+MAC_NATIVE_SCROLLBAR_SUBROLES = %w[
+  AXIncrementArrow AXDecrementArrow AXIncrementPage AXDecrementPage
 ].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
 EXPECTED_CAPTURE_VARIANTS = ["empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
@@ -182,6 +205,31 @@ def observed_rect!(path, value, label)
   fail_check("#{path} #{label} must contain finite numbers") unless values.all? { |item| item.is_a?(Numeric) && item.finite? }
   fail_check("#{path} #{label} must have positive dimensions") unless value["width"].positive? && value["height"].positive?
   value
+end
+
+def observed_element_rect!(path, element, index, platform, viewport)
+  frame = element["frame"]
+  label = "element #{index} frame"
+  fail_check("#{path} #{label} must be an exact rectangle") unless frame.is_a?(Hash) && frame.keys.sort == %w[height width x y]
+  fail_check("#{path} #{label} must contain finite numbers") unless frame.values.all? { |item| item.is_a?(Numeric) && item.finite? }
+  return frame if frame["width"].positive? && frame["height"].positive?
+
+  native_splitter_line = platform == "macos" &&
+    element.values_at("role", "subrole", "identifier", "title") == ["AXSplitter", "", "", ""] &&
+    element["enabled"] == false && element["focused"] == false && Array(element["actions"]).empty? &&
+    frame.values_at("width", "height").count(&:zero?) == 1 &&
+    frame.values_at("width", "height").all? { |dimension| dimension >= 0 } &&
+    rect_contains?(viewport, frame)
+  native_scrollbar_primitive = platform == "macos" && element["role"] == "AXButton" &&
+    MAC_NATIVE_SCROLLBAR_SUBROLES.include?(element["subrole"]) &&
+    element.values_at("identifier", "title") == ["", ""] &&
+    element["enabled"] == true && element["focused"] == false && element["actions"] == ["AXPress"] &&
+    frame.values_at("width", "height").any?(&:zero?) &&
+    frame.values_at("width", "height").all? { |dimension| dimension >= 0 } &&
+    rect_contains?(viewport, frame)
+  fail_check("#{path} #{label} must have positive dimensions or be an exact native macOS splitter/scrollbar primitive") unless native_splitter_line || native_scrollbar_primitive
+
+  frame
 end
 
 def rect_contains?(outer, inner, tolerance: 0.5)
@@ -241,11 +289,11 @@ def ios_native_target_exception?(candidate, elements)
     frame["width"] + 0.5 >= 88 && frame["height"] + 0.5 >= 20
 end
 
-def host_geometry_findings!(proof_path, elements, viewport, platform, route, manifest, include_route_requirements: true)
+def host_geometry_findings!(proof_path, elements, viewport, platform, route, manifest, include_route_requirements: true, element_bounds: viewport)
   findings = []
   by_identifier = Hash.new { |hash, key| hash[key] = [] }
   elements.each_with_index do |element, index|
-    frame = observed_rect!(proof_path, element["frame"], "element #{index} frame")
+    frame = observed_element_rect!(proof_path, element, index, platform, element_bounds)
     by_identifier[element["identifier"]] << element unless element["identifier"].to_s.empty?
     findings << "element #{index} has an invalid frame" unless frame
   end
@@ -353,9 +401,12 @@ def validate_macos_pixel_accessibility_binding!(proof_path, evidence, capture_ph
   binding = evidence["pixelAccessibilityBinding"]
   expected_keys = %w[
     accessibilitySnapshotAfterSHA256 accessibilitySnapshotBeforeSHA256 applicationProcessIdentifier
-    capturePhase pixelSource schema screenshotSHA256 selectedScrollHierarchyIdentifier
-    selectedScrollHierarchySnapshotAfterSHA256 selectedScrollHierarchySnapshotBeforeSHA256 windowFrame windowID
+    capturePhase pixelSource schema screenshotSHA256 windowFrame windowID
   ]
+  expected_keys += %w[
+    selectedScrollHierarchyIdentifier selectedScrollHierarchySnapshotAfterSHA256
+    selectedScrollHierarchySnapshotBeforeSHA256
+  ] if capture_phase == "deepScroll"
   fail_check("#{proof_path} #{capture_phase} macOS pixelAccessibilityBinding fields must be exact") unless binding.is_a?(Hash) && binding.keys.sort == expected_keys.sort
   fail_check("#{proof_path} #{capture_phase} macOS pixel/AX binding schema mismatch") unless binding["schema"] == "macosPixelAccessibilityBindingV1"
   fail_check("#{proof_path} #{capture_phase} macOS pixel source mismatch") unless binding["pixelSource"] == "exactCGWindowID"
@@ -928,6 +979,12 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
     )
   else
     host_observation = validate_host_process_observation!(proof_path, proof["hostProcessObservation"])
+    validate_contrast_pixel_adjudication_diagnostics!(
+      proof_path,
+      proof["contrastPixelAdjudicationDiagnostics"],
+      proof["auditIssues"],
+      nil
+    )
     fail_check("#{proof_path} accessibility audit issues must be empty") unless proof["auditIssues"] == []
     validate_ios_audit_types!(proof_path, proof, "initial")
     content_size_category = proof["observedContentSizeCategory"]
@@ -965,6 +1022,34 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       proof["verifiedContrastFalsePositives"],
       expected_initial_screenshot_sha256,
       "initial"
+    )
+    fail_check("#{proof_path} stale offscreen contrast proof is deep-scroll-only") unless proof["verifiedStaleOffscreenContrastFalsePositives"] == []
+    validate_verified_system_chrome_contrast_false_positives!(
+      proof_path,
+      proof["verifiedSystemChromeContrastFalsePositives"],
+      "initial",
+      platform,
+      content_size_category,
+      elements,
+      proof.dig("pixelAccessibilityBinding", "windowFrame")
+    )
+    validate_verified_native_sidebar_selection_contrast_false_positives!(
+      proof_path,
+      proof.fetch("verifiedNativeSidebarSelectionContrastFalsePositives", []),
+      "initial",
+      platform,
+      content_size_category,
+      elements,
+      proof.dig("pixelAccessibilityBinding", "windowFrame"),
+      expected_initial_screenshot_sha256
+    )
+    validate_verified_text_clipped_false_positives!(
+      proof_path,
+      proof["verifiedTextClippedFalsePositives"],
+      "initial",
+      platform,
+      content_size_category,
+      elements
     )
     fail_check("#{proof_path} accessibility audit tool limitations are not release evidence") unless proof.fetch("toolLimitations", []) == []
   end
@@ -1035,14 +1120,38 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         expected_deep_screenshot_sha256,
         proof["pid"],
         proof["windowID"],
-        deep_viewport,
+        viewport,
         selected_scroll_identifier: selected_identifier
       )
-      deep_geometry_findings = host_geometry_findings!(proof_path, post_scroll_elements, deep_viewport, platform, route, manifest, include_route_requirements: false)
+      deep_geometry_findings = host_geometry_findings!(
+        proof_path,
+        post_scroll_elements,
+        deep_viewport,
+        platform,
+        route,
+        manifest,
+        include_route_requirements: false,
+        element_bounds: viewport
+      )
       fail_check("#{proof_path} host post-scroll geometry recomputation failed: #{deep_geometry_findings.join("; ")}") unless deep_geometry_findings.empty?
-      selected_geometry_findings = host_geometry_findings!(proof_path, selected_hierarchy, deep_viewport, platform, route, manifest, include_route_requirements: false)
+      selected_geometry_findings = host_geometry_findings!(
+        proof_path,
+        selected_hierarchy,
+        deep_viewport,
+        platform,
+        route,
+        manifest,
+        include_route_requirements: false,
+        element_bounds: viewport
+      )
       fail_check("#{proof_path} host selected-hierarchy geometry recomputation failed: #{selected_geometry_findings.join("; ")}") unless selected_geometry_findings.empty?
     else
+      validate_contrast_pixel_adjudication_diagnostics!(
+        proof_path,
+        deep_scroll["contrastPixelAdjudicationDiagnostics"],
+        deep_scroll["auditIssues"],
+        "deepScroll"
+      )
       fail_check("#{proof_path} compact deep-scroll accessibility audit issues must be empty") unless deep_scroll["auditIssues"] == []
       validate_ios_audit_types!(proof_path, deep_scroll, "deepScroll")
       swipe_count = deep_scroll["swipeCount"]
@@ -1087,6 +1196,8 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       fail_check("#{proof_path} initial and deep-scroll captures must have distinct capture IDs") unless initial_capture_identity["captureID"] != deep_capture_identity["captureID"]
       fail_check("#{proof_path} initial and deep-scroll captures must use the same app process") unless initial_capture_identity["applicationProcessIdentifier"] == deep_capture_identity["applicationProcessIdentifier"]
       selected_hierarchy = deep_scroll["selectedScrollHierarchyElements"]
+      deep_elements = deep_scroll["elements"]
+      fail_check("#{proof_path} deep-scroll elements must be non-empty") unless deep_elements.is_a?(Array) && !deep_elements.empty?
       fail_check("#{proof_path} selected scroll hierarchy must be spoonjoy.page-scroll") unless deep_scroll["selectedScrollHierarchyIdentifier"] == "spoonjoy.page-scroll"
       fail_check("#{proof_path} selected scroll hierarchy elements must be non-empty") unless selected_hierarchy.is_a?(Array) && !selected_hierarchy.empty?
       hierarchy_terminal_matches = selected_hierarchy.select { |element| element.is_a?(Hash) && element["identifier"] == expected_terminal }
@@ -1102,6 +1213,42 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         deep_scroll["verifiedContrastFalsePositives"],
         expected_deep_screenshot_sha256,
         "deepScroll"
+      )
+      validate_verified_stale_offscreen_contrast_false_positives!(
+        proof_path,
+        deep_scroll["verifiedStaleOffscreenContrastFalsePositives"],
+        elements,
+        deep_elements,
+        proof.dig("pixelAccessibilityBinding", "windowFrame"),
+        expected_initial_screenshot_sha256,
+        expected_deep_screenshot_sha256
+      )
+      validate_verified_system_chrome_contrast_false_positives!(
+        proof_path,
+        deep_scroll["verifiedSystemChromeContrastFalsePositives"],
+        "deepScroll",
+        platform,
+        proof["observedContentSizeCategory"],
+        deep_elements,
+        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame")
+      )
+      validate_verified_native_sidebar_selection_contrast_false_positives!(
+        proof_path,
+        deep_scroll.fetch("verifiedNativeSidebarSelectionContrastFalsePositives", []),
+        "deepScroll",
+        platform,
+        proof["observedContentSizeCategory"],
+        deep_elements,
+        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame"),
+        expected_deep_screenshot_sha256
+      )
+      validate_verified_text_clipped_false_positives!(
+        proof_path,
+        deep_scroll["verifiedTextClippedFalsePositives"],
+        "deepScroll",
+        platform,
+        proof["observedContentSizeCategory"],
+        deep_elements
       )
       fail_check("#{proof_path} compact deep-scroll tool limitations are not release evidence") unless deep_scroll.fetch("toolLimitations", []) == []
     end
@@ -1155,36 +1302,501 @@ def validate_verified_contrast_false_positives!(proof_path, entries, expected_sc
     frame = issue["elementFrame"]
     fail_check("#{proof_path} verified contrast issue must preserve a finite positive frame") unless frame.is_a?(Hash) && %w[x y width height].all? { |key| frame[key].is_a?(Numeric) && frame[key].finite? } && frame["width"].positive? && frame["height"].positive?
 
-    pixels = entry["pixelEvidence"]
-    fail_check("#{proof_path} verified contrast pixel evidence must be an object") unless pixels.is_a?(Hash)
-    fail_check("#{proof_path} verified contrast method mismatch") unless pixels["method"] == "screenshotPixelContrastV1"
-    fail_check("#{proof_path} verified contrast screenshot SHA-256 mismatch") unless pixels["screenshotSHA256"] == expected_screenshot_sha256
-    required_ratio = pixels["requiredContrastRatio"]
-    measured_ratio = pixels["contrastRatio"]
-    fail_check("#{proof_path} verified contrast threshold must be at least 4.5") unless required_ratio.is_a?(Numeric) && required_ratio.finite? && required_ratio >= 4.5
-    fail_check("#{proof_path} verified contrast ratio does not meet its threshold") unless measured_ratio.is_a?(Numeric) && measured_ratio.finite? && measured_ratio >= required_ratio
-    clusters = pixels["evaluatedForegroundClusterCount"]
-    fail_check("#{proof_path} verified contrast must evaluate foreground clusters") unless clusters.is_a?(Integer) && clusters.positive?
+    validate_contrast_pixel_evidence!(
+      proof_path,
+      entry["pixelEvidence"],
+      expected_screenshot_sha256,
+      "verified contrast"
+    )
+  end
+end
 
-    analyzed_count = pixels["analyzedPixelCount"]
-    background_count = pixels["backgroundPixelCount"]
-    foreground_count = pixels["foregroundPixelCount"]
-    background_coverage = pixels["backgroundCoverage"]
-    foreground_coverage = pixels["foregroundCoverage"]
-    fail_check("#{proof_path} verified contrast pixel counts are invalid") unless analyzed_count.is_a?(Integer) && analyzed_count.positive? && background_count.is_a?(Integer) && background_count.positive? && foreground_count.is_a?(Integer) && foreground_count.positive? && background_count + foreground_count <= analyzed_count
-    fail_check("#{proof_path} verified contrast background coverage is unstable") unless background_coverage.is_a?(Numeric) && background_coverage.finite? && background_coverage >= 0.6 && background_coverage <= 1
-    fail_check("#{proof_path} verified contrast foreground coverage is invalid") unless foreground_coverage.is_a?(Numeric) && foreground_coverage.finite? && foreground_coverage.positive? && foreground_coverage <= 0.4
-    fail_check("#{proof_path} verified contrast background count/coverage mismatch") unless (background_coverage - background_count.fdiv(analyzed_count)).abs <= 0.001
-    fail_check("#{proof_path} verified contrast foreground count/coverage mismatch") unless (foreground_coverage - foreground_count.fdiv(analyzed_count)).abs <= 0.001
+def validate_contrast_pixel_evidence!(proof_path, pixels, expected_screenshot_sha256, label)
+  expected_keys = %w[
+    analyzedPixelCount background backgroundCoverage backgroundPixelCount contrastRatio
+    evaluatedForegroundClusterCount foreground foregroundCoverage foregroundPixelCount
+    ignoredEdgeRulePixelCount ignoredEdgeRuleRowCount method requiredContrastRatio screenshotSHA256
+  ]
+  fail_check("#{proof_path} #{label} pixel evidence must be an object") unless pixels.is_a?(Hash)
+  fail_check("#{proof_path} #{label} pixel evidence fields must be exact") unless pixels.keys.sort == expected_keys.sort
+  fail_check("#{proof_path} #{label} method mismatch") unless pixels["method"] == "screenshotPixelContrastV2"
+  fail_check("#{proof_path} #{label} screenshot SHA-256 mismatch") unless pixels["screenshotSHA256"] == expected_screenshot_sha256
+  required_ratio = pixels["requiredContrastRatio"]
+  measured_ratio = pixels["contrastRatio"]
+  fail_check("#{proof_path} #{label} threshold must be at least 4.5") unless required_ratio.is_a?(Numeric) && required_ratio.finite? && required_ratio >= 4.5
+  fail_check("#{proof_path} #{label} ratio does not meet its threshold") unless measured_ratio.is_a?(Numeric) && measured_ratio.finite? && measured_ratio >= required_ratio
+  clusters = pixels["evaluatedForegroundClusterCount"]
+  fail_check("#{proof_path} #{label} must evaluate foreground clusters") unless clusters.is_a?(Integer) && clusters.positive?
 
-    %w[background foreground].each do |color_name|
-      color = pixels[color_name]
-      valid_color = color.is_a?(Hash) && %w[red green blue].all? do |component|
-        color[component].is_a?(Integer) && color[component].between?(0, 255)
+  analyzed_count = pixels["analyzedPixelCount"]
+  background_count = pixels["backgroundPixelCount"]
+  foreground_count = pixels["foregroundPixelCount"]
+  ignored_rule_pixel_count = pixels["ignoredEdgeRulePixelCount"]
+  ignored_rule_row_count = pixels["ignoredEdgeRuleRowCount"]
+  background_coverage = pixels["backgroundCoverage"]
+  foreground_coverage = pixels["foregroundCoverage"]
+  fail_check("#{proof_path} #{label} pixel counts are invalid") unless analyzed_count.is_a?(Integer) && analyzed_count.positive? && background_count.is_a?(Integer) && background_count.positive? && foreground_count.is_a?(Integer) && foreground_count.positive? && ignored_rule_pixel_count.is_a?(Integer) && ignored_rule_pixel_count >= 0 && ignored_rule_row_count.is_a?(Integer) && ignored_rule_row_count >= 0 && background_count + foreground_count + ignored_rule_pixel_count <= analyzed_count
+  fail_check("#{proof_path} #{label} ignored-rule counts disagree") unless (ignored_rule_pixel_count.zero? && ignored_rule_row_count.zero?) || (ignored_rule_pixel_count.positive? && ignored_rule_row_count.positive?)
+  fail_check("#{proof_path} #{label} background coverage is unstable") unless background_coverage.is_a?(Numeric) && background_coverage.finite? && background_coverage >= 0.6 && background_coverage <= 1
+  fail_check("#{proof_path} #{label} foreground coverage is invalid") unless foreground_coverage.is_a?(Numeric) && foreground_coverage.finite? && foreground_coverage.positive? && foreground_coverage <= 0.4
+  fail_check("#{proof_path} #{label} background count/coverage mismatch") unless (background_coverage - background_count.fdiv(analyzed_count)).abs <= 0.001
+  fail_check("#{proof_path} #{label} foreground count/coverage mismatch") unless (foreground_coverage - foreground_count.fdiv(analyzed_count)).abs <= 0.001
+
+  %w[background foreground].each do |color_name|
+    color = pixels[color_name]
+    valid_color = color.is_a?(Hash) && color.keys.sort == %w[blue green red] && %w[red green blue].all? do |component|
+      color[component].is_a?(Integer) && color[component].between?(0, 255)
+    end
+    fail_check("#{proof_path} #{label} #{color_name} color is invalid") unless valid_color
+  end
+end
+
+def validate_contrast_pixel_adjudication_diagnostics!(proof_path, entries, audit_issues, capture_phase)
+  fail_check("#{proof_path} contrast pixel diagnostics must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} audit issues must be an array before contrast diagnostics") unless audit_issues.is_a?(Array)
+  blocking_contrast = audit_issues.select do |issue|
+    issue.is_a?(Hash) && issue["category"] == "contrast" && issue["elementType"] == "staticText"
+  end
+  fail_check("#{proof_path} every blocking attributed contrast issue requires one diagnostic") unless entries.length == blocking_contrast.length
+
+  entries.zip(blocking_contrast).each do |entry, issue|
+    expected_keys = %w[
+      schema capturePhase issue matchingAttestedElementCount attestedFrame
+      screenshotBufferAvailable attempts
+    ]
+    fail_check("#{proof_path} contrast pixel diagnostic fields must be exact") unless entry.is_a?(Hash) && entry.keys.sort == expected_keys.sort
+    fail_check("#{proof_path} contrast pixel diagnostic schema mismatch") unless entry["schema"] == "iosContrastPixelAdjudicationFailureV1"
+    valid_phase = capture_phase ? entry["capturePhase"] == capture_phase : %w[initial deepScroll].include?(entry["capturePhase"])
+    fail_check("#{proof_path} contrast pixel diagnostic phase mismatch") unless valid_phase
+    fail_check("#{proof_path} contrast pixel diagnostic issue mismatch") unless entry["issue"] == issue
+    match_count = entry["matchingAttestedElementCount"]
+    fail_check("#{proof_path} contrast pixel diagnostic match count is invalid") unless match_count.is_a?(Integer) && match_count >= 0
+    if match_count == 1
+      observed_rect!(proof_path, entry["attestedFrame"], "contrast pixel diagnostic attested frame")
+    else
+      fail_check("#{proof_path} ambiguous contrast pixel attestation must not choose a frame") unless entry["attestedFrame"].nil?
+    end
+    fail_check("#{proof_path} contrast pixel screenshot-buffer state must be boolean") unless [true, false].include?(entry["screenshotBufferAvailable"])
+    attempts = entry["attempts"]
+    fail_check("#{proof_path} contrast pixel attempts must be an array") unless attempts.is_a?(Array)
+    attempts.each do |attempt|
+      attempt_keys = %w[source frame outcome cropWidth cropHeight]
+      fail_check("#{proof_path} contrast pixel attempt fields must be exact") unless attempt.is_a?(Hash) && attempt.keys.sort == attempt_keys.sort
+      fail_check("#{proof_path} contrast pixel attempt source is invalid") unless %w[attested audit].include?(attempt["source"])
+      observed_rect!(proof_path, attempt["frame"], "contrast pixel attempt frame")
+      outcome = attempt["outcome"]
+      fail_check("#{proof_path} successful contrast proof belongs in verified evidence") unless %w[screenshotBufferUnavailable cropUnavailable analyzerRejected].include?(outcome)
+      crop_dimensions = [attempt["cropWidth"], attempt["cropHeight"]]
+      if outcome == "analyzerRejected"
+        fail_check("#{proof_path} analyzer rejection requires positive crop dimensions") unless crop_dimensions.all? { |value| value.is_a?(Integer) && value.positive? }
+      else
+        fail_check("#{proof_path} unavailable contrast crop must encode null dimensions") unless crop_dimensions.all?(&:nil?)
       end
-      fail_check("#{proof_path} verified contrast #{color_name} color is invalid") unless valid_color
     end
   end
+end
+
+def validate_verified_stale_offscreen_contrast_false_positives!(
+  proof_path,
+  entries,
+  initial_elements,
+  deep_elements,
+  window_frame_value,
+  initial_screenshot_sha256,
+  deep_screenshot_sha256
+)
+  fail_check("#{proof_path} stale offscreen contrast evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} stale offscreen contrast evidence requires observed elements") unless initial_elements.is_a?(Array) && deep_elements.is_a?(Array)
+  window_frame = observed_rect!(proof_path, window_frame_value, "stale offscreen contrast window frame")
+  entries.each do |entry|
+    expected_keys = %w[
+      schema capturePhase reason issue priorElementFrame currentElementFrame
+      priorScreenshotSHA256 currentScreenshotSHA256 priorPixelEvidence
+    ]
+    fail_check("#{proof_path} stale offscreen contrast fields must be exact") unless entry.is_a?(Hash) && entry.keys.sort == expected_keys.sort
+    fail_check("#{proof_path} stale offscreen contrast schema mismatch") unless entry["schema"] == "iosStaleOffscreenContrastFalsePositiveV1"
+    fail_check("#{proof_path} stale offscreen contrast phase mismatch") unless entry["capturePhase"] == "deepScroll"
+    fail_check("#{proof_path} stale offscreen contrast reason mismatch") unless entry["reason"] == "priorHighContrastPixelsBoundToNowOffscreenAttestedElement"
+    issue = entry["issue"]
+    fail_check("#{proof_path} stale offscreen contrast issue must be attributed static text") unless issue.is_a?(Hash) && issue["category"] == "contrast" && issue["elementType"] == "staticText"
+    issue_frame = observed_rect!(proof_path, issue["elementFrame"], "stale offscreen contrast issue frame")
+    prior_frame = observed_rect!(proof_path, entry["priorElementFrame"], "stale offscreen contrast prior frame")
+    current_frame = observed_rect!(proof_path, entry["currentElementFrame"], "stale offscreen contrast current frame")
+    fail_check("#{proof_path} stale offscreen issue frame must remain inside the captured window") unless rect_contains?(window_frame, issue_frame)
+    fail_check("#{proof_path} stale offscreen prior frame must be visible") unless rect_contains?(window_frame, prior_frame)
+    fail_check("#{proof_path} stale offscreen current frame must be fully outside the window") if rect_intersection(window_frame, current_frame)
+    %w[x width height].each do |field|
+      fail_check("#{proof_path} stale offscreen element geometry changed outside the scroll axis") unless (prior_frame[field] - current_frame[field]).abs <= 0.75
+    end
+    fail_check("#{proof_path} stale offscreen element did not move by a real scroll distance") unless (prior_frame["y"] - current_frame["y"]).abs >= 44
+
+    matching = lambda do |candidate, frame|
+      candidate.is_a?(Hash) &&
+        candidate["exists"] == true &&
+        candidate["identifier"] == issue["elementIdentifier"] &&
+        candidate["label"] == issue["elementLabel"] &&
+        candidate["type"] == issue["elementType"] &&
+        rect_equal?(candidate["frame"], frame, tolerance: 0.01)
+    end
+    fail_check("#{proof_path} stale offscreen prior element must bind uniquely") unless initial_elements.count { |candidate| matching.call(candidate, prior_frame) } == 1
+    fail_check("#{proof_path} stale offscreen current element must bind uniquely") unless deep_elements.count { |candidate| matching.call(candidate, current_frame) } == 1
+    fail_check("#{proof_path} stale offscreen prior screenshot mismatch") unless entry["priorScreenshotSHA256"] == initial_screenshot_sha256
+    fail_check("#{proof_path} stale offscreen current screenshot mismatch") unless entry["currentScreenshotSHA256"] == deep_screenshot_sha256
+    validate_verified_contrast_false_positives!(
+      proof_path,
+      [{
+        "capturePhase" => "initial",
+        "issue" => issue.merge("elementFrame" => prior_frame),
+        "pixelEvidence" => entry["priorPixelEvidence"]
+      }],
+      initial_screenshot_sha256,
+      "initial"
+    )
+  end
+end
+
+def validate_verified_system_chrome_contrast_false_positives!(
+  proof_path,
+  entries,
+  capture_phase,
+  platform,
+  content_size_category,
+  elements,
+  window_frame_value
+)
+  fail_check("#{proof_path} verified system-chrome contrast evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} verified system-chrome contrast evidence requires observed elements") unless elements.is_a?(Array)
+  fail_check("#{proof_path} verified system-chrome contrast evidence must contain at most two issues per capture phase") if entries.length > 2
+
+  expected_issue_keys = %w[
+    category compactDescription detailedDescription diagnosticDescription diagnosticMirror
+    elementIdentifier elementLabel elementType type
+  ]
+  expected_reference_keys = %w[frame identifier label type]
+  window_frame = entries.empty? ? nil : observed_rect!(proof_path, window_frame_value, "verified system-chrome window frame")
+
+  entries.each do |entry|
+    fail_check("#{proof_path} verified system-chrome contrast entry must be an object") unless entry.is_a?(Hash)
+    compact_variant = entry["schema"] == "iosNativeCompactTabChromeContrastFalsePositiveV1"
+    bottom_variant = entry["schema"] == "iosNativeBottomTabChromeContrastFalsePositiveV2"
+    large_type_bottom_variant = entry["schema"] == "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3"
+    ordinary_label_only_bottom_variant = entry["schema"] == "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4"
+    fail_check("#{proof_path} verified system-chrome contrast schema mismatch") unless compact_variant || bottom_variant || large_type_bottom_variant || ordinary_label_only_bottom_variant
+    expected_entry_keys = %w[capturePhase contentSizeCategory destinations issue navigationBar reason schema]
+    expected_entry_keys << "tabBar" if bottom_variant || large_type_bottom_variant || ordinary_label_only_bottom_variant
+    fail_check("#{proof_path} verified system-chrome contrast fields must be exact") unless entry.keys.sort == expected_entry_keys.sort
+    if compact_variant
+      fail_check("#{proof_path} compact system-chrome evidence must contain at most one issue per capture phase") if entries.length > 1
+      fail_check("#{proof_path} compact system-chrome evidence is limited to large-type native iPad chrome") unless
+        platform == "ipad" && %w[extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
+      expected_reason = "anonymousContrastBoundToAttestedNativeCompactTabChrome"
+      expected_destinations = IOS_NATIVE_COMPACT_TAB_DESTINATIONS
+    elsif bottom_variant
+      fail_check("#{proof_path} bottom-tab system-chrome evidence is limited to shipped native iPhone content sizes") unless
+        platform == "ios" && %w[large extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
+      expected_reason = "anonymousContrastBoundToAttestedNativeBottomTabChrome"
+      expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
+    elsif large_type_bottom_variant
+      fail_check("#{proof_path} label-only bottom-tab evidence is limited to shipped large-type iPhone sizes") unless
+        platform == "ios" && %w[extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
+      expected_reason = "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
+      expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
+    else
+      fail_check("#{proof_path} ordinary label-only bottom-tab evidence is limited to initial shipped iPhone chrome") unless
+        platform == "ios" && content_size_category == "large" && capture_phase == "initial"
+      expected_reason = "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
+      expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
+    end
+    fail_check("#{proof_path} verified system-chrome contrast phase mismatch") unless entry["capturePhase"] == capture_phase
+    fail_check("#{proof_path} verified system-chrome contrast reason mismatch") unless entry["reason"] == expected_reason
+    fail_check("#{proof_path} verified system-chrome content-size mismatch") unless entry["contentSizeCategory"] == content_size_category
+
+    issue = entry["issue"]
+    fail_check("#{proof_path} verified system-chrome issue must be an object") unless issue.is_a?(Hash)
+    fail_check("#{proof_path} verified system-chrome issue fields must be exact") unless issue.keys.sort == expected_issue_keys.sort
+    fail_check("#{proof_path} verified system-chrome issue category mismatch") unless issue["category"] == "contrast"
+    fail_check("#{proof_path} verified system-chrome issue type mismatch") unless issue["type"] == "XCUIAccessibilityAuditType(rawValue: 1)"
+    fail_check("#{proof_path} verified system-chrome compact warning mismatch") unless issue["compactDescription"] == "Contrast failed"
+    fail_check("#{proof_path} verified system-chrome detailed warning mismatch") unless issue["detailedDescription"] == "Contrast failed for SwiftUI.AccessibilityNode"
+    diagnostic = issue["diagnosticDescription"]
+    fail_check("#{proof_path} verified system-chrome issue is not Apple's anonymous Element:(null) diagnostic") unless diagnostic.is_a?(String) && diagnostic.include?("Element:(null)")
+    fail_check("#{proof_path} verified system-chrome diagnostic mirror must be empty") unless issue["diagnosticMirror"] == ""
+    %w[elementIdentifier elementLabel elementType].each do |field|
+      fail_check("#{proof_path} verified system-chrome issue must remain unattributed") unless issue[field] == ""
+    end
+    fail_check("#{proof_path} verified system-chrome issue must not claim an element frame") if issue.key?("elementFrame")
+
+    navigation_bar = entry["navigationBar"]
+    fail_check("#{proof_path} verified system-chrome navigation bar must be an object") unless navigation_bar.is_a?(Hash)
+    fail_check("#{proof_path} verified system-chrome navigation fields must be exact") unless navigation_bar.keys.sort == expected_reference_keys.sort
+    fail_check("#{proof_path} verified system-chrome navigation type mismatch") unless navigation_bar["type"] == "navigationBar"
+    fail_check("#{proof_path} verified system-chrome navigation identifier missing") unless navigation_bar["identifier"].is_a?(String) && !navigation_bar["identifier"].empty?
+    fail_check("#{proof_path} verified system-chrome navigation label must be empty") unless navigation_bar["label"] == ""
+    navigation_frame = observed_rect!(proof_path, navigation_bar["frame"], "verified system-chrome navigation frame")
+    fail_check("#{proof_path} verified system-chrome navigation is not full-width") unless (navigation_frame["x"] - window_frame["x"]).abs <= 0.75 && ((navigation_frame["x"] + navigation_frame["width"]) - (window_frame["x"] + window_frame["width"])).abs <= 0.75
+    fail_check("#{proof_path} verified system-chrome navigation is not top chrome") unless navigation_frame["y"] >= window_frame["y"] - 0.75 && navigation_frame["y"] + navigation_frame["height"] <= window_frame["y"] + 120 && navigation_frame["height"].between?(44, 80)
+
+    unique_navigation_bars = elements.select do |element|
+      element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true && element["type"] == "navigationBar"
+    end.uniq
+    fail_check("#{proof_path} verified system-chrome requires exactly one live navigation bar") unless unique_navigation_bars.length == 1
+    navigation_matches = unique_navigation_bars.select do |element|
+      element["identifier"] == navigation_bar["identifier"] && element["label"] == navigation_bar["label"] && rect_equal?(element["frame"], navigation_frame)
+    end
+    fail_check("#{proof_path} verified system-chrome navigation must match the attested tree") unless navigation_matches.length == 1
+
+    destination_container = navigation_frame
+    if compact_variant
+      fail_check("#{proof_path} verified system-chrome compact tab state must not contain a tab bar") if elements.any? { |element| element.is_a?(Hash) && element["exists"] == true && element["type"] == "tabBar" }
+    else
+      tab_bar = entry["tabBar"]
+      fail_check("#{proof_path} verified system-chrome tab bar must be an object") unless tab_bar.is_a?(Hash)
+      fail_check("#{proof_path} verified system-chrome tab fields must be exact") unless tab_bar.keys.sort == expected_reference_keys.sort
+      fail_check("#{proof_path} verified system-chrome tab identity mismatch") unless tab_bar["identifier"] == "" && tab_bar["label"] == "Tab Bar" && tab_bar["type"] == "tabBar"
+      tab_frame = observed_rect!(proof_path, tab_bar["frame"], "verified system-chrome tab frame")
+      fail_check("#{proof_path} verified system-chrome tab bar is not full-width bottom chrome") unless
+        (tab_frame["x"] - window_frame["x"]).abs <= 0.75 &&
+        ((tab_frame["x"] + tab_frame["width"]) - (window_frame["x"] + window_frame["width"])).abs <= 0.75 &&
+        ((tab_frame["y"] + tab_frame["height"]) - (window_frame["y"] + window_frame["height"])).abs <= 0.75 &&
+        tab_frame["height"].between?(44, 120)
+      unique_tab_bars = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true &&
+          element["hittable"] == true && element["type"] == "tabBar"
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome requires exactly one live tab bar") unless unique_tab_bars.length == 1
+      fail_check("#{proof_path} verified system-chrome tab bar must match the attested tree") unless
+        unique_tab_bars.first["identifier"] == "" && unique_tab_bars.first["label"] == "Tab Bar" &&
+        rect_equal?(unique_tab_bars.first["frame"], tab_frame)
+      live_tab_buttons = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true &&
+          element["hittable"] == true && element["type"] == "button" &&
+          element["frame"].is_a?(Hash) && rect_contains?(tab_frame, element["frame"], tolerance: 0.75)
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome tab bar destination count mismatch") unless live_tab_buttons.length == expected_destinations.length
+      destination_container = tab_frame
+    end
+
+    destinations = entry["destinations"]
+    fail_check("#{proof_path} verified system-chrome destinations must be an array") unless destinations.is_a?(Array) && destinations.length == expected_destinations.length
+    destinations.zip(expected_destinations).each do |reference, expected|
+      fail_check("#{proof_path} verified system-chrome destination must be an object") unless reference.is_a?(Hash)
+      fail_check("#{proof_path} verified system-chrome destination fields must be exact") unless reference.keys.sort == expected_reference_keys.sort
+      expected_identifier = large_type_bottom_variant || ordinary_label_only_bottom_variant ? "" : expected["identifier"]
+      fail_check("#{proof_path} verified system-chrome destination identity mismatch") unless reference["identifier"] == expected_identifier && reference["label"] == expected["label"] && reference["type"] == "button"
+      destination_frame = observed_rect!(proof_path, reference["frame"], "verified system-chrome destination frame")
+      fail_check("#{proof_path} verified system-chrome destination is outside its native container") unless rect_contains?(destination_container, destination_frame, tolerance: 0.75)
+      matches = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true && element["hittable"] == true &&
+          element["identifier"] == reference["identifier"] && element["label"] == reference["label"] &&
+          element["type"] == reference["type"] && element["frame"].is_a?(Hash) && rect_equal?(element["frame"], destination_frame)
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome destination must match exactly one attested element") unless matches.length == 1
+      conflicting = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["identifier"] == reference["identifier"] &&
+          element["label"] == reference["label"] && element["type"] == reference["type"]
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome destination has conflicting geometry") unless conflicting.length == 1
+    end
+    if large_type_bottom_variant || ordinary_label_only_bottom_variant
+      ordered_destinations = destinations.sort_by { |reference| reference.dig("frame", "x") }
+      fail_check("#{proof_path} label-only native tab order mismatch") unless ordered_destinations.map { |reference| reference["label"] } == expected_destinations.map { |expected| expected["label"] }
+      live_label_only = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true && element["hittable"] == true &&
+          element["type"] == "button" && element["identifier"] == "" &&
+          expected_destinations.any? { |expected| expected["label"] == element["label"] }
+      end.uniq
+      fail_check("#{proof_path} label-only native tab identity must cover exactly five unique buttons") unless live_label_only.length == expected_destinations.length
+    end
+  end
+end
+
+def validate_verified_native_sidebar_selection_contrast_false_positives!(
+  proof_path,
+  entries,
+  capture_phase,
+  platform,
+  content_size_category,
+  elements,
+  window_frame_value,
+  screenshot_sha256
+)
+  fail_check("#{proof_path} verified native-sidebar contrast evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} verified native-sidebar contrast evidence requires observed elements") unless elements.is_a?(Array)
+  fail_check("#{proof_path} verified native-sidebar contrast evidence must contain at most two issues per capture phase") if entries.length > 2
+  unless entries.empty? || platform == "ipad" && content_size_category == "large"
+    fail_check("#{proof_path} verified native-sidebar contrast evidence is limited to ordinary-size native iPad split views")
+  end
+  return if entries.empty?
+
+  window_frame = observed_rect!(proof_path, window_frame_value, "verified native-sidebar window frame")
+  expected_entry_keys = %w[
+    capturePhase contentSizeCategory detailNavigationBar issue reason schema selectedCell
+    selectedCellInteriorFrame selectedCellPixelEvidence selectedLabel selectedSymbol
+    selectedSymbolPixelEvidence sidebarCollection sidebarNavigationBar visibleTextPixelEvidence
+  ]
+  expected_issue_keys = %w[
+    category compactDescription detailedDescription diagnosticDescription diagnosticMirror
+    elementIdentifier elementLabel elementType type
+  ]
+  expected_reference_keys = %w[frame identifier label type]
+  live_elements = elements.select do |element|
+    element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true
+  end.uniq
+  fail_check("#{proof_path} verified native-sidebar state must not contain a tab bar") if live_elements.any? { |element| element["type"] == "tabBar" }
+  navigation_bars = live_elements.select { |element| element["type"] == "navigationBar" }
+  fail_check("#{proof_path} verified native-sidebar state requires exactly two navigation bars") unless navigation_bars.length == 2
+
+  validate_reference = lambda do |reference, label|
+    fail_check("#{proof_path} #{label} must be an object") unless reference.is_a?(Hash)
+    fail_check("#{proof_path} #{label} fields must be exact") unless reference.keys.sort == expected_reference_keys.sort
+    observed_rect!(proof_path, reference["frame"], "#{label} frame")
+    matches = live_elements.select do |element|
+      element["identifier"] == reference["identifier"] &&
+        element["label"] == reference["label"] &&
+        element["type"] == reference["type"] &&
+        element["frame"].is_a?(Hash) && rect_equal?(element["frame"], reference["frame"], tolerance: 0.01)
+    end
+    fail_check("#{proof_path} #{label} must match exactly one attested element") unless matches.length == 1
+    reference
+  end
+
+  entries.each do |entry|
+    fail_check("#{proof_path} verified native-sidebar contrast entry must be an object") unless entry.is_a?(Hash)
+    fail_check("#{proof_path} verified native-sidebar contrast fields must be exact") unless entry.keys.sort == expected_entry_keys.sort
+    fail_check("#{proof_path} verified native-sidebar contrast schema mismatch") unless entry["schema"] == "iosNativeSidebarSelectionContrastFalsePositiveV1"
+    fail_check("#{proof_path} verified native-sidebar contrast phase mismatch") unless entry["capturePhase"] == capture_phase
+    fail_check("#{proof_path} verified native-sidebar contrast reason mismatch") unless entry["reason"] == "anonymousContrastBoundToAttestedNativeSidebarSelection"
+    fail_check("#{proof_path} verified native-sidebar content-size mismatch") unless entry["contentSizeCategory"] == content_size_category
+
+    issue = entry["issue"]
+    fail_check("#{proof_path} verified native-sidebar issue must be an object") unless issue.is_a?(Hash)
+    fail_check("#{proof_path} verified native-sidebar issue fields must be exact") unless issue.keys.sort == expected_issue_keys.sort
+    fail_check("#{proof_path} verified native-sidebar issue category mismatch") unless issue["category"] == "contrast"
+    fail_check("#{proof_path} verified native-sidebar issue type mismatch") unless issue["type"] == "XCUIAccessibilityAuditType(rawValue: 1)"
+    fail_check("#{proof_path} verified native-sidebar compact warning mismatch") unless issue["compactDescription"] == "Contrast failed"
+    fail_check("#{proof_path} verified native-sidebar detailed warning mismatch") unless issue["detailedDescription"] == "Contrast failed for SwiftUI.AccessibilityNode"
+    fail_check("#{proof_path} verified native-sidebar issue is not Apple's anonymous Element:(null) diagnostic") unless issue["diagnosticDescription"].is_a?(String) && issue["diagnosticDescription"].include?("Element:(null)")
+    fail_check("#{proof_path} verified native-sidebar diagnostic mirror must be empty") unless issue["diagnosticMirror"] == ""
+    %w[elementIdentifier elementLabel elementType].each do |field|
+      fail_check("#{proof_path} verified native-sidebar issue must remain unattributed") unless issue[field] == ""
+    end
+    fail_check("#{proof_path} verified native-sidebar issue must not claim an element frame") if issue.key?("elementFrame")
+
+    sidebar_navigation = validate_reference.call(entry["sidebarNavigationBar"], "verified native-sidebar navigation")
+    detail_navigation = validate_reference.call(entry["detailNavigationBar"], "verified native detail navigation")
+    sidebar_collection = validate_reference.call(entry["sidebarCollection"], "verified native sidebar collection")
+    selected_cell = validate_reference.call(entry["selectedCell"], "verified native selected cell")
+    selected_label = validate_reference.call(entry["selectedLabel"], "verified native selected label")
+    selected_symbol = validate_reference.call(entry["selectedSymbol"], "verified native selected symbol")
+
+    sidebar_navigation_frame = sidebar_navigation["frame"]
+    detail_navigation_frame = detail_navigation["frame"]
+    collection_frame = sidebar_collection["frame"]
+    selected_cell_frame = selected_cell["frame"]
+    selected_label_frame = selected_label["frame"]
+    selected_symbol_frame = selected_symbol["frame"]
+    fail_check("#{proof_path} verified native sidebar navigation identity mismatch") unless
+      sidebar_navigation["identifier"] == "Spoonjoy" && sidebar_navigation["label"] == "" && sidebar_navigation["type"] == "navigationBar" &&
+      sidebar_navigation_frame["width"].between?(280, 360) && sidebar_navigation_frame["height"].between?(44, 80) &&
+      sidebar_navigation_frame["x"] >= window_frame["x"] && sidebar_navigation_frame["x"] <= window_frame["x"] + 20
+    fail_check("#{proof_path} verified native detail navigation identity mismatch") unless
+      detail_navigation["identifier"] == "Kitchen" && detail_navigation["label"] == "" && detail_navigation["type"] == "navigationBar" &&
+      (detail_navigation_frame["x"] - window_frame["x"]).abs <= 0.75 &&
+      ((detail_navigation_frame["x"] + detail_navigation_frame["width"]) - (window_frame["x"] + window_frame["width"])).abs <= 0.75 &&
+      detail_navigation_frame["height"].between?(80, 120)
+    fail_check("#{proof_path} verified native sidebar collection identity mismatch") unless
+      sidebar_collection["identifier"] == "" && sidebar_collection["label"] == "Sidebar" && sidebar_collection["type"] == "collectionView" &&
+      (collection_frame["x"] - sidebar_navigation_frame["x"]).abs <= 0.75 &&
+      (collection_frame["width"] - sidebar_navigation_frame["width"]).abs <= 0.75 &&
+      rect_contains?(collection_frame, sidebar_navigation_frame)
+    fail_check("#{proof_path} verified native selected cell identity mismatch") unless
+      selected_cell["identifier"] == "" && selected_cell["label"] == "" && selected_cell["type"] == "cell" &&
+      rect_contains?(collection_frame, selected_cell_frame)
+    fail_check("#{proof_path} verified native selected label identity mismatch") unless
+      selected_label["identifier"] == "" && selected_label["label"] == "Kitchen" && selected_label["type"] == "staticText" &&
+      rect_equal?(selected_label_frame, selected_cell_frame, tolerance: 0.01) && selected_label_frame["width"] >= 200 && selected_label_frame["height"] >= 44
+    fail_check("#{proof_path} verified native selected symbol identity mismatch") unless
+      selected_symbol["identifier"] == "house" && selected_symbol["label"] == "Home" && selected_symbol["type"] == "image" &&
+      rect_contains?(selected_cell_frame, selected_symbol_frame)
+
+    interior_frame = observed_rect!(proof_path, entry["selectedCellInteriorFrame"], "verified native selected-cell interior frame")
+    expected_interior = {
+      "x" => selected_cell_frame["x"] + 12,
+      "y" => selected_cell_frame["y"] + 12,
+      "width" => selected_cell_frame["width"] - 24,
+      "height" => selected_cell_frame["height"] - 24
+    }
+    fail_check("#{proof_path} verified native selected-cell crop must be the exact 12-point interior") unless rect_equal?(interior_frame, expected_interior, tolerance: 0.01)
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedCellPixelEvidence"], screenshot_sha256, "verified native selected-cell")
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedSymbolPixelEvidence"], screenshot_sha256, "verified native selected-symbol")
+
+    visible_text = entry["visibleTextPixelEvidence"]
+    fail_check("#{proof_path} verified native visible-text evidence must contain at least 20 entries") unless visible_text.is_a?(Array) && visible_text.length >= 20
+    expected_visible_text = live_elements.select do |element|
+      element["type"] == "staticText" && !element["label"].to_s.empty? &&
+        element["frame"].is_a?(Hash) && rect_contains?(window_frame, element["frame"]) &&
+        !rect_equal?(element["frame"], selected_label_frame, tolerance: 0.75)
+    end.sort_by { |element| [element.dig("frame", "y"), element.dig("frame", "x")] }
+    fail_check("#{proof_path} verified native visible-text evidence count mismatch") unless visible_text.length == expected_visible_text.length
+    visible_text.zip(expected_visible_text).each_with_index do |(visible_entry, expected_element), index|
+      fail_check("#{proof_path} verified native visible-text entry #{index} must contain exact element and pixel evidence") unless
+        visible_entry.is_a?(Hash) && visible_entry.keys.sort == %w[element pixelEvidence]
+      reference = validate_reference.call(visible_entry["element"], "verified native visible text #{index}")
+      expected_reference = expected_element.slice("identifier", "label", "type", "frame")
+      fail_check("#{proof_path} verified native visible-text order or identity mismatch") unless reference == expected_reference
+      validate_contrast_pixel_evidence!(proof_path, visible_entry["pixelEvidence"], screenshot_sha256, "verified native visible text #{index}")
+    end
+  end
+end
+
+def validate_verified_text_clipped_false_positives!(proof_path, entries, capture_phase, platform, content_size_category, elements)
+  fail_check("#{proof_path} verified text-clipped evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} verified text-clipped evidence requires observed elements") unless elements.is_a?(Array)
+  unless entries.empty? || platform == "ipad" && content_size_category == "large"
+    fail_check("#{proof_path} verified text-clipped evidence is limited to ordinary-size native iPad sidebar rows")
+  end
+
+  expected_keys = %w[
+    capturePhase containerFrame containerLabel containerType detailedDescription elementFrame
+    elementIdentifier elementLabel elementType reason schema
+  ]
+  exact_warning = "Text of this SwiftUI.AccessibilityNode may be clipped at larger Dynamic Type sizes."
+  identities = []
+  entries.each do |entry|
+    fail_check("#{proof_path} verified text-clipped entry must be an object") unless entry.is_a?(Hash)
+    fail_check("#{proof_path} verified text-clipped fields must be exact") unless entry.keys.sort == expected_keys.sort
+    fail_check("#{proof_path} verified text-clipped schema mismatch") unless entry["schema"] == "iosNativeSidebarTextClippedFalsePositiveV1"
+    fail_check("#{proof_path} verified text-clipped phase mismatch") unless entry["capturePhase"] == capture_phase
+    fail_check("#{proof_path} verified text-clipped reason mismatch") unless entry["reason"] == "nativeSidebarRowExpandedWithinAttestedContainer"
+    fail_check("#{proof_path} verified text-clipped warning mismatch") unless entry["detailedDescription"] == exact_warning
+    fail_check("#{proof_path} verified text-clipped row type mismatch") unless entry["elementType"] == "staticText"
+    fail_check("#{proof_path} verified text-clipped row label is not a native sidebar destination") unless IOS_NATIVE_SIDEBAR_LABELS.include?(entry["elementLabel"])
+    fail_check("#{proof_path} verified text-clipped container type mismatch") unless entry["containerType"] == "collectionView"
+    fail_check("#{proof_path} verified text-clipped container label mismatch") unless entry["containerLabel"] == "Sidebar"
+
+    element_frame = observed_rect!(proof_path, entry["elementFrame"], "verified text-clipped element frame")
+    container_frame = observed_rect!(proof_path, entry["containerFrame"], "verified text-clipped container frame")
+    fail_check("#{proof_path} verified text-clipped row is outside the Sidebar container") unless rect_contains?(container_frame, element_frame)
+
+    matching_elements = elements.select do |element|
+      next false unless element.is_a?(Hash) && element["exists"] == true
+      identity_matches = if entry["elementIdentifier"].to_s.empty?
+                           element["label"] == entry["elementLabel"]
+                         else
+                           element["identifier"] == entry["elementIdentifier"] && element["label"] == entry["elementLabel"]
+                         end
+      identity_matches && element["type"] == entry["elementType"] && element["frame"].is_a?(Hash) && rect_equal?(element["frame"], element_frame)
+    end
+    fail_check("#{proof_path} verified text-clipped row must match exactly one attested element") unless matching_elements.length == 1
+    matching_containers = elements.select do |element|
+      element.is_a?(Hash) && element["exists"] == true &&
+        element["type"] == entry["containerType"] && element["label"] == entry["containerLabel"] &&
+        element["frame"].is_a?(Hash) && rect_equal?(element["frame"], container_frame)
+    end
+    fail_check("#{proof_path} verified text-clipped Sidebar must match exactly one attested container") unless matching_containers.length == 1
+    identities << [entry["capturePhase"], entry["elementIdentifier"], entry["elementLabel"], entry["elementFrame"]]
+  end
+  fail_check("#{proof_path} verified text-clipped evidence contains duplicates") unless identities.uniq.length == identities.length
 end
 
 path = Pathname.new(ARGV.fetch(0) { fail_check("usage: validate-design-review.rb <design-review.json>") })

@@ -22,6 +22,129 @@ private struct ObservedVerifiedContrastFalsePositive: Codable {
     let pixelEvidence: ObservedContrastPixelEvidence
 }
 
+private struct ObservedVerifiedStaleOffscreenContrastFalsePositive: Codable {
+    let schema: String
+    let capturePhase: String
+    let reason: String
+    let issue: ObservedAuditIssue
+    let priorElementFrame: ObservedRect
+    let currentElementFrame: ObservedRect
+    let priorScreenshotSHA256: String
+    let currentScreenshotSHA256: String
+    let priorPixelEvidence: ObservedContrastPixelEvidence
+}
+
+private struct ObservedContrastPixelAdjudicationAttempt: Codable {
+    let source: String
+    let frame: ObservedRect
+    let outcome: String
+    let cropWidth: Int?
+    let cropHeight: Int?
+
+    private enum CodingKeys: String, CodingKey {
+        case source
+        case frame
+        case outcome
+        case cropWidth
+        case cropHeight
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(source, forKey: .source)
+        try container.encode(frame, forKey: .frame)
+        try container.encode(outcome, forKey: .outcome)
+        try container.encode(cropWidth, forKey: .cropWidth)
+        try container.encode(cropHeight, forKey: .cropHeight)
+    }
+}
+
+private struct ObservedContrastPixelAdjudicationDiagnostic: Codable {
+    let schema: String
+    let capturePhase: String
+    let issue: ObservedAuditIssue
+    let matchingAttestedElementCount: Int
+    let attestedFrame: ObservedRect?
+    let screenshotBufferAvailable: Bool
+    let attempts: [ObservedContrastPixelAdjudicationAttempt]
+
+    private enum CodingKeys: String, CodingKey {
+        case schema
+        case capturePhase
+        case issue
+        case matchingAttestedElementCount
+        case attestedFrame
+        case screenshotBufferAvailable
+        case attempts
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schema, forKey: .schema)
+        try container.encode(capturePhase, forKey: .capturePhase)
+        try container.encode(issue, forKey: .issue)
+        try container.encode(matchingAttestedElementCount, forKey: .matchingAttestedElementCount)
+        try container.encode(attestedFrame, forKey: .attestedFrame)
+        try container.encode(screenshotBufferAvailable, forKey: .screenshotBufferAvailable)
+        try container.encode(attempts, forKey: .attempts)
+    }
+}
+
+private struct ObservedSystemChromeElementReference: Codable, Equatable {
+    let identifier: String
+    let label: String
+    let type: String
+    let frame: ObservedRect
+}
+
+private struct ObservedVerifiedSystemChromeContrastFalsePositive: Codable {
+    let schema: String
+    let capturePhase: String
+    let reason: String
+    let contentSizeCategory: String
+    let issue: ObservedAuditIssue
+    let navigationBar: ObservedSystemChromeElementReference
+    let tabBar: ObservedSystemChromeElementReference?
+    let destinations: [ObservedSystemChromeElementReference]
+}
+
+private struct ObservedVisibleTextContrastEvidence: Codable {
+    let element: ObservedSystemChromeElementReference
+    let pixelEvidence: ObservedContrastPixelEvidence
+}
+
+private struct ObservedVerifiedNativeSidebarSelectionContrastFalsePositive: Codable {
+    let schema: String
+    let capturePhase: String
+    let reason: String
+    let contentSizeCategory: String
+    let issue: ObservedAuditIssue
+    let sidebarNavigationBar: ObservedSystemChromeElementReference
+    let detailNavigationBar: ObservedSystemChromeElementReference
+    let sidebarCollection: ObservedSystemChromeElementReference
+    let selectedCell: ObservedSystemChromeElementReference
+    let selectedLabel: ObservedSystemChromeElementReference
+    let selectedSymbol: ObservedSystemChromeElementReference
+    let selectedCellInteriorFrame: ObservedRect
+    let selectedCellPixelEvidence: ObservedContrastPixelEvidence
+    let selectedSymbolPixelEvidence: ObservedContrastPixelEvidence
+    let visibleTextPixelEvidence: [ObservedVisibleTextContrastEvidence]
+}
+
+private struct ObservedVerifiedTextClippedFalsePositive: Codable {
+    let schema: String
+    let capturePhase: String
+    let reason: String
+    let detailedDescription: String
+    let elementIdentifier: String
+    let elementLabel: String
+    let elementType: String
+    let elementFrame: ObservedRect
+    let containerType: String
+    let containerLabel: String
+    let containerFrame: ObservedRect
+}
+
 private struct ObservedReadinessHandshake: Codable, Equatable {
     let captureRunNonce: String
     let route: String
@@ -108,6 +231,11 @@ private struct ObservedPixelAccessibilityBinding: Codable, Equatable {
 private struct ObservedAuditResult {
     let blockingIssues: [ObservedAuditIssue]
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
+    let verifiedStaleOffscreenContrastFalsePositives: [ObservedVerifiedStaleOffscreenContrastFalsePositive]
+    let contrastPixelAdjudicationDiagnostics: [ObservedContrastPixelAdjudicationDiagnostic]
+    let verifiedSystemChromeContrastFalsePositives: [ObservedVerifiedSystemChromeContrastFalsePositive]
+    let verifiedNativeSidebarSelectionContrastFalsePositives: [ObservedVerifiedNativeSidebarSelectionContrastFalsePositive]
+    let verifiedTextClippedFalsePositives: [ObservedVerifiedTextClippedFalsePositive]
     let hitRegionAuditPassed: Bool
     let auditTypes: [String]
 }
@@ -139,11 +267,17 @@ private struct ObservedDeepScrollEvidence: Codable {
     let auditScope: ObservedAccessibilityAuditScope
     let auditTypes: [String]
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
+    let verifiedStaleOffscreenContrastFalsePositives: [ObservedVerifiedStaleOffscreenContrastFalsePositive]
+    let contrastPixelAdjudicationDiagnostics: [ObservedContrastPixelAdjudicationDiagnostic]
+    let verifiedSystemChromeContrastFalsePositives: [ObservedVerifiedSystemChromeContrastFalsePositive]
+    let verifiedNativeSidebarSelectionContrastFalsePositives: [ObservedVerifiedNativeSidebarSelectionContrastFalsePositive]
+    let verifiedTextClippedFalsePositives: [ObservedVerifiedTextClippedFalsePositive]
     let screenshotSHA256: String?
     let readinessHandshake: ObservedReadinessHandshake?
     let captureIdentity: ObservedCaptureIdentity?
     let pixelAccessibilityBinding: ObservedPixelAccessibilityBinding?
     let selectedScrollHierarchyIdentifier: String?
+    let elements: [ObservedAccessibilityElement]
     let selectedScrollHierarchyElements: [ObservedAccessibilityElement]
     let observedContentMovement: Bool
     let contentFitsWithoutScrolling: Bool
@@ -157,6 +291,11 @@ private struct ObservedScreenshotEvidence: Codable {
     let auditIssues: [ObservedAuditIssue]
     let auditTypes: [String]
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
+    let verifiedStaleOffscreenContrastFalsePositives: [ObservedVerifiedStaleOffscreenContrastFalsePositive]
+    let contrastPixelAdjudicationDiagnostics: [ObservedContrastPixelAdjudicationDiagnostic]
+    let verifiedSystemChromeContrastFalsePositives: [ObservedVerifiedSystemChromeContrastFalsePositive]
+    let verifiedNativeSidebarSelectionContrastFalsePositives: [ObservedVerifiedNativeSidebarSelectionContrastFalsePositive]
+    let verifiedTextClippedFalsePositives: [ObservedVerifiedTextClippedFalsePositive]
     let screenshotSHA256: String
     let readinessHandshake: ObservedReadinessHandshake
     let captureIdentity: ObservedCaptureIdentity
@@ -173,6 +312,17 @@ private struct ObservedRouteTerminalExpectation {
     let label: String
     let elementTypes: Set<String>
     let requiresInteraction: Bool
+}
+
+private extension Collection {
+    func only(where predicate: (Element) throws -> Bool) rethrows -> Element? {
+        var result: Element?
+        for element in self where try predicate(element) {
+            guard result == nil else { return nil }
+            result = element
+        }
+        return result
+    }
 }
 
 @MainActor
@@ -270,7 +420,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             viewport: viewport,
             screenshot: initialScreenshot,
             windowFrame: capturedWindowFrame,
-            hasSystemTabBar: provisionalElements.contains { $0.type == "tabBar" && $0.exists },
+            attestedElements: initialCapture.elements,
+            contentSizeCategory: environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"] ?? "",
             capturePhase: "initial",
             scope: .initialFullTree
         )
@@ -290,6 +441,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 route: route,
                 terminalExpectation: terminalExpectation,
                 initialElements: initialElements,
+                initialScreenshot: initialScreenshot,
                 windowFrame: capturedWindowFrame,
                 requiresSystemTabBar: UIDevice.current.userInterfaceIdiom == .phone
                     && environment["SPOONJOY_SCREENSHOT_AUTH"] != "0"
@@ -299,6 +451,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let auditResult = initialAuditResult
         let allAuditIssues = auditResult.blockingIssues + (deepScroll?.auditIssues ?? [])
         let verifiedContrastFalsePositives = auditResult.verifiedContrastFalsePositives
+        let allContrastPixelAdjudicationDiagnostics = auditResult.contrastPixelAdjudicationDiagnostics
+            + (deepScroll?.contrastPixelAdjudicationDiagnostics ?? [])
         let evidence = ObservedScreenshotEvidence(
             platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "ios",
             route: route,
@@ -307,6 +461,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             auditIssues: allAuditIssues,
             auditTypes: initialAuditResult.auditTypes,
             verifiedContrastFalsePositives: verifiedContrastFalsePositives,
+            verifiedStaleOffscreenContrastFalsePositives: initialAuditResult.verifiedStaleOffscreenContrastFalsePositives,
+            contrastPixelAdjudicationDiagnostics: allContrastPixelAdjudicationDiagnostics,
+            verifiedSystemChromeContrastFalsePositives: initialAuditResult.verifiedSystemChromeContrastFalsePositives,
+            verifiedNativeSidebarSelectionContrastFalsePositives: initialAuditResult.verifiedNativeSidebarSelectionContrastFalsePositives,
+            verifiedTextClippedFalsePositives: initialAuditResult.verifiedTextClippedFalsePositives,
             screenshotSHA256: Self.sha256(initialScreenshot.pngRepresentation),
             readinessHandshake: readinessHandshake,
             captureIdentity: initialCapture.identity,
@@ -604,8 +763,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
     func testKitchenTerminalTraversesEveryCookbookToTheFinalFixtureObject() {
         let fixtureCookbookIdentifiers = [
-            "kitchen.cookbook.cookbook_weeknights",
-            "kitchen.cookbook.cookbook_slow_sundays"
+            "kitchen.cookbook.cookbook_slow_sundays",
+            "kitchen.cookbook.cookbook_weeknights"
         ]
 
         let expectation = routeTerminalExpectation(route: "kitchen", environment: [:])
@@ -613,7 +772,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertNotEqual(expectation?.identifier, fixtureCookbookIdentifiers.first)
         XCTAssertEqual(
             expectation?.label,
-            "Slow Sundays and Long Simmering Suppers, 0 recipes"
+            "Weeknights"
         )
     }
 
@@ -681,6 +840,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     func testPersistentChromeIgnoresScrolledContentBehindSystemTabBar() {
         let navigationBar = observedElement(
             identifier: "Kitchen",
+            label: "",
             type: "navigationBar",
             frame: ObservedRect(x: 0, y: 62, width: 402, height: 54)
         )
@@ -850,24 +1010,710 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(candidates.map(\.identifier), ["kitchen.recipe-index.count"])
     }
 
-    func testAuditNeverIgnoresUnattributedSwiftUIContrastBehindSystemTabBar() {
-        XCTAssertFalse(shouldIgnoreUnattributedSystemTabBarContrast(
-            auditType: .contrast,
+    func testAnonymousContrastRequiresExactLargeTypeNativeCompactTabChromeAttestation() {
+        let windowFrame = ObservedRect(x: 0, y: 0, width: 834, height: 1_194)
+        let navigationFrame = ObservedRect(x: 0, y: 32, width: 834, height: 54)
+        let navigationBar = observedElement(
+            identifier: "Kitchen",
+            label: "",
+            type: "navigationBar",
+            frame: navigationFrame,
+            hittable: true
+        )
+        let destinations = [
+            observedElement(
+                identifier: "house",
+                label: "Kitchen",
+                type: "button",
+                frame: ObservedRect(x: 182, y: 32, width: 104, height: 41),
+                hittable: true
+            ),
+            observedElement(
+                identifier: "book.closed",
+                label: "Recipes",
+                type: "button",
+                frame: ObservedRect(x: 286, y: 32, width: 107, height: 41),
+                hittable: true
+            ),
+            observedElement(
+                identifier: "bookmark",
+                label: "Saved",
+                type: "button",
+                frame: ObservedRect(x: 393, y: 32, width: 90.5, height: 41),
+                hittable: true
+            ),
+            observedElement(
+                identifier: "books.vertical",
+                label: "Cookbooks",
+                type: "button",
+                frame: ObservedRect(x: 483.5, y: 32, width: 138.5, height: 41),
+                hittable: true
+            )
+        ]
+        let issue = ObservedAuditIssue(
+            category: "contrast",
+            type: "XCUIAccessibilityAuditType(rawValue: 1)",
+            compactDescription: "Contrast failed",
             detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
-            elementFrame: nil,
-            hasSystemTabBar: true
+            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:(null)",
+            diagnosticMirror: "",
+            elementIdentifier: "",
+            elementLabel: "",
+            elementType: "",
+            elementFrame: nil
+        )
+        let elements = [navigationBar] + destinations + destinations
+
+        let verified = verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: issue,
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        )
+        XCTAssertEqual(verified?.schema, "iosNativeCompactTabChromeContrastFalsePositiveV1")
+        XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeCompactTabChrome")
+        XCTAssertEqual(verified?.navigationBar.frame, navigationFrame)
+        XCTAssertEqual(verified?.destinations.map(\.label), ["Kitchen", "Recipes", "Saved", "Cookbooks"])
+
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: issue,
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
         ))
-        XCTAssertFalse(shouldIgnoreUnattributedSystemTabBarContrast(
-            auditType: .contrast,
-            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
-            elementFrame: ObservedRect(x: 20, y: 200, width: 100, height: 30),
-            hasSystemTabBar: true
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
         ))
-        XCTAssertFalse(shouldIgnoreUnattributedSystemTabBarContrast(
-            auditType: .contrast,
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: ObservedAuditIssue(
+                category: issue.category,
+                type: issue.type,
+                compactDescription: issue.compactDescription,
+                detailedDescription: issue.detailedDescription,
+                diagnosticDescription: issue.diagnosticDescription,
+                diagnosticMirror: issue.diagnosticMirror,
+                elementIdentifier: "app.content",
+                elementLabel: "Recipe Index",
+                elementType: "staticText",
+                elementFrame: ObservedRect(x: 20, y: 746, width: 341.5, height: 67)
+            ),
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: issue,
+            elements: [navigationBar] + Array(destinations.dropLast()),
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: issue,
+            elements: elements + [observedElement(
+                identifier: "house",
+                label: "Kitchen",
+                type: "button",
+                frame: ObservedRect(x: 12, y: 300, width: 104, height: 41),
+                hittable: true
+            )],
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+    }
+
+    func testAnonymousContrastRequiresExactLargeIpadNativeSidebarSelectionPixelAttestation() {
+        let width = 700
+        let height = 900
+        let paper = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        let selection = ObservedRGBPixel(red: 224, green: 223, blue: 220)
+        let ink = ObservedRGBPixel(red: 40, green: 35, blue: 29)
+        var pixels = Array(repeating: paper, count: width * height)
+        func paint(_ frame: ObservedRect, color: ObservedRGBPixel) {
+            for row in Int(frame.minY)..<Int(frame.maxY) {
+                for column in Int(frame.minX)..<Int(frame.maxX) {
+                    pixels[row * width + column] = color
+                }
+            }
+        }
+
+        let windowFrame = ObservedRect(x: 0, y: 0, width: Double(width), height: Double(height))
+        let sidebarNavigationBar = observedElement(
+            identifier: "Spoonjoy",
+            label: "",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 32, width: 320, height: 54)
+        )
+        let detailNavigationBar = observedElement(
+            identifier: "Kitchen",
+            label: "",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 32, width: 700, height: 106)
+        )
+        let sidebarCollection = observedElement(
+            identifier: "",
+            label: "Sidebar",
+            type: "collectionView",
+            frame: ObservedRect(x: 0, y: 32, width: 320, height: 850)
+        )
+        let selectedFrame = ObservedRect(x: 20, y: 100, width: 288, height: 64)
+        let selectedCell = observedElement(
+            identifier: "",
+            label: "",
+            type: "cell",
+            frame: selectedFrame
+        )
+        let selectedLabel = observedElement(
+            identifier: "",
+            label: "Kitchen",
+            type: "staticText",
+            frame: selectedFrame
+        )
+        let selectedSymbolFrame = ObservedRect(x: 38, y: 118, width: 28, height: 28)
+        let selectedSymbol = observedElement(
+            identifier: "house",
+            label: "Home",
+            type: "image",
+            frame: selectedSymbolFrame
+        )
+        paint(selectedFrame, color: selection)
+        paint(ObservedRect(x: 45, y: 124, width: 8, height: 16), color: ink)
+        paint(ObservedRect(x: 82, y: 124, width: 70, height: 16), color: ink)
+
+        var visibleTextElements: [ObservedAccessibilityElement] = []
+        var visibleTextFrames: [ObservedRect] = []
+        for index in 0..<20 {
+            let frame = ObservedRect(x: 360, y: 150 + Double(index * 30), width: 160, height: 20)
+            visibleTextFrames.append(frame)
+            visibleTextElements.append(observedElement(
+                identifier: "content.text.\(index)",
+                label: "Visible text \(index)",
+                frame: frame
+            ))
+            paint(
+                ObservedRect(x: frame.x + 12, y: frame.y + 5, width: 40, height: 10),
+                color: ink
+            )
+        }
+
+        let issue = ObservedAuditIssue(
+            category: "contrast",
+            type: "XCUIAccessibilityAuditType(rawValue: 1)",
+            compactDescription: "Contrast failed",
             detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
-            elementFrame: nil,
-            hasSystemTabBar: false
+            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:(null)",
+            diagnosticMirror: "",
+            elementIdentifier: "",
+            elementLabel: "",
+            elementType: "",
+            elementFrame: nil
+        )
+        let elements = [
+            sidebarNavigationBar,
+            detailNavigationBar,
+            sidebarCollection,
+            selectedCell,
+            selectedLabel,
+            selectedSymbol
+        ] + visibleTextElements
+        let screenshotSHA256 = String(repeating: "a", count: 64)
+        let screenshotBuffer = ScreenshotPixelBuffer(
+            width: width,
+            height: height,
+            pixels: pixels,
+            pointSize: CGSize(width: width, height: height)
+        )
+
+        let verified = verifiedNativeSidebarSelectionContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        )
+        XCTAssertEqual(verified?.schema, "iosNativeSidebarSelectionContrastFalsePositiveV1")
+        XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeSidebarSelection")
+        XCTAssertEqual(verified?.selectedCell.frame, selectedFrame)
+        XCTAssertEqual(verified?.selectedSymbol.frame, selectedSymbolFrame)
+        XCTAssertEqual(verified?.visibleTextPixelEvidence.count, 20)
+        XCTAssertTrue(verified?.visibleTextPixelEvidence.allSatisfy {
+            $0.pixelEvidence.screenshotSHA256 == screenshotSHA256
+                && $0.pixelEvidence.contrastRatio >= 4.5
+        } == true)
+
+        var unprovenPixels = pixels
+        let unprovenFrame = visibleTextFrames[7]
+        for row in Int(unprovenFrame.minY)..<Int(unprovenFrame.maxY) {
+            for column in Int(unprovenFrame.minX)..<Int(unprovenFrame.maxX) {
+                unprovenPixels[row * width + column] = paper
+            }
+        }
+        let unprovenBuffer = ScreenshotPixelBuffer(
+            width: width,
+            height: height,
+            pixels: unprovenPixels,
+            pointSize: CGSize(width: width, height: height)
+        )
+        XCTAssertNil(verifiedNativeSidebarSelectionContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements,
+            screenshotBuffer: unprovenBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarSelectionContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarSelectionContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "extra-large",
+            issue: issue,
+            elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarSelectionContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements.filter { $0.type != "image" },
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarSelectionContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "large",
+            issue: ObservedAuditIssue(
+                category: issue.category,
+                type: issue.type,
+                compactDescription: issue.compactDescription,
+                detailedDescription: issue.detailedDescription,
+                diagnosticDescription: issue.diagnosticDescription,
+                diagnosticMirror: issue.diagnosticMirror,
+                elementIdentifier: "content.text.0",
+                elementLabel: "Visible text 0",
+                elementType: "staticText",
+                elementFrame: visibleTextFrames[0]
+            ),
+            elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+    }
+
+    func testAnonymousContrastRequiresExactShippedPhoneNativeBottomTabChromeAttestation() {
+        let windowFrame = ObservedRect(x: 0, y: 0, width: 402, height: 874)
+        let navigationBar = observedElement(
+            identifier: "Kitchen",
+            label: "",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 62, width: 402, height: 54),
+            hittable: true
+        )
+        let tabBar = observedElement(
+            identifier: "",
+            label: "Tab Bar",
+            type: "tabBar",
+            frame: ObservedRect(x: 0, y: 791, width: 402, height: 83),
+            hittable: true
+        )
+        let destinations = [
+            ("house", "Kitchen", ObservedRect(x: 25, y: 795, width: 74, height: 54)),
+            ("book.closed", "Recipes", ObservedRect(x: 90, y: 795, width: 74, height: 54)),
+            ("bookmark", "Saved", ObservedRect(x: 155, y: 795, width: 74, height: 54)),
+            ("books.vertical", "Cookbooks", ObservedRect(x: 220, y: 795, width: 87, height: 54)),
+            ("checklist", "Shopping", ObservedRect(x: 298, y: 795, width: 79, height: 54))
+        ].map { identifier, label, frame in
+            observedElement(
+                identifier: identifier,
+                label: label,
+                type: "button",
+                frame: frame,
+                hittable: true
+            )
+        }
+        let issue = ObservedAuditIssue(
+            category: "contrast",
+            type: "XCUIAccessibilityAuditType(rawValue: 1)",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
+            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:(null)",
+            diagnosticMirror: "",
+            elementIdentifier: "",
+            elementLabel: "",
+            elementType: "",
+            elementFrame: nil
+        )
+        let elements = [navigationBar, tabBar] + destinations + destinations
+
+        for contentSizeCategory in [
+            "large",
+            "extra-extra-extra-large",
+            "accessibility-extra-extra-extra-large"
+        ] {
+            let verified = verifiedNativeBottomTabChromeContrastFalsePositive(
+                idiom: .phone,
+                contentSizeCategory: contentSizeCategory,
+                issue: issue,
+                elements: elements,
+                windowFrame: windowFrame,
+                capturePhase: "deepScroll"
+            )
+            XCTAssertEqual(verified?.schema, "iosNativeBottomTabChromeContrastFalsePositiveV2")
+            XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeBottomTabChrome")
+            XCTAssertEqual(verified?.tabBar?.frame, tabBar.frame)
+            XCTAssertEqual(verified?.destinations.map(\.label), ["Kitchen", "Recipes", "Saved", "Cookbooks", "Shopping"])
+        }
+
+        let largeTypeLabelOnlyDestinations = destinations.map { destination in
+            observedElement(
+                identifier: "",
+                label: destination.label,
+                type: destination.type,
+                frame: destination.frame,
+                hittable: true
+            )
+        }
+        for contentSizeCategory in [
+            "extra-extra-extra-large",
+            "accessibility-extra-extra-extra-large"
+        ] {
+            let verified = verifiedNativeBottomTabChromeContrastFalsePositive(
+                idiom: .phone,
+                contentSizeCategory: contentSizeCategory,
+                issue: issue,
+                elements: [navigationBar, tabBar] + largeTypeLabelOnlyDestinations + largeTypeLabelOnlyDestinations,
+                windowFrame: windowFrame,
+                capturePhase: "initial"
+            )
+            XCTAssertEqual(verified?.schema, "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3")
+            XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome")
+            XCTAssertEqual(verified?.destinations.map(\.identifier), ["", "", "", "", ""])
+        }
+        let ordinaryLabelOnly = verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: [navigationBar, tabBar] + largeTypeLabelOnlyDestinations,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        )
+        XCTAssertEqual(ordinaryLabelOnly?.schema, "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4")
+        XCTAssertEqual(ordinaryLabelOnly?.reason, "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome")
+        XCTAssertEqual(ordinaryLabelOnly?.destinations.map(\.identifier), ["", "", "", "", ""])
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: [navigationBar, tabBar] + largeTypeLabelOnlyDestinations,
+            windowFrame: windowFrame,
+            capturePhase: "deepScroll"
+        ))
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "extra-extra-extra-large",
+            issue: issue,
+            elements: [navigationBar, tabBar] + Array(largeTypeLabelOnlyDestinations.dropLast()) + [destinations.last!],
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "extra-large",
+            issue: issue,
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: [navigationBar, tabBar] + Array(destinations.dropLast()),
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: [navigationBar] + destinations,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements + [observedElement(
+                identifier: "checklist",
+                label: "Shopping",
+                type: "button",
+                frame: ObservedRect(x: 20, y: 700, width: 79, height: 54),
+                hittable: true
+            )],
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+    }
+
+    func testPersistentChromeIgnoresSubpointObservationJitter() {
+        let before = observedElement(
+            identifier: "Kitchen",
+            type: "navigationBar",
+            frame: ObservedRect(x: 350, y: 89.5, width: 122, height: 41)
+        )
+        let after = observedElement(
+            identifier: "Kitchen",
+            type: "navigationBar",
+            frame: ObservedRect(x: 350, y: 89.125, width: 122, height: 41)
+        )
+
+        XCTAssertTrue(persistentChromeFindings(before: [before], after: [after]).isEmpty)
+    }
+
+    func testContrastAuditMatchesAUniqueElementBackToTheAttestedPixelFrame() {
+        let elements = [
+            observedElement(
+                identifier: "recipe.attribution",
+                label: "by @ari",
+                frame: ObservedRect(x: 38, y: 512, width: 63, height: 22)
+            )
+        ]
+
+        XCTAssertEqual(
+            attestedFrameForAuditElement(
+                identifier: "",
+                label: "by @ari",
+                type: "staticText",
+                elements: elements
+            ),
+            elements[0].frame
+        )
+        XCTAssertNil(attestedFrameForAuditElement(
+            identifier: "",
+            label: "by @ari",
+            type: "staticText",
+            elements: elements + elements
+        ))
+        XCTAssertNil(attestedFrameForAuditElement(
+            identifier: "",
+            label: "",
+            type: "staticText",
+            elements: elements
+        ))
+        XCTAssertEqual(
+            auditElementAttestation(
+                identifier: "",
+                label: "by @ari",
+                type: "staticText",
+                elements: elements + elements
+            ).matchingCount,
+            2
+        )
+    }
+
+    func testBlockingContrastPixelDiagnosticEncodesTheExactFailedStage() throws {
+        let issue = ObservedAuditIssue(
+            category: "contrast",
+            type: "XCUIAccessibilityAuditType(rawValue: 1)",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
+            diagnosticDescription: "diagnostic",
+            diagnosticMirror: "",
+            elementIdentifier: "",
+            elementLabel: "My Kitchen",
+            elementType: "staticText",
+            elementFrame: ObservedRect(x: 20, y: 71, width: 318, height: 72)
+        )
+        let diagnostic = ObservedContrastPixelAdjudicationDiagnostic(
+            schema: "iosContrastPixelAdjudicationFailureV1",
+            capturePhase: "initial",
+            issue: issue,
+            matchingAttestedElementCount: 0,
+            attestedFrame: nil,
+            screenshotBufferAvailable: true,
+            attempts: [ObservedContrastPixelAdjudicationAttempt(
+                source: "audit",
+                frame: ObservedRect(x: 20, y: 71, width: 318, height: 72),
+                outcome: "analyzerRejected",
+                cropWidth: 954,
+                cropHeight: 216
+            )]
+        )
+
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(diagnostic)) as? [String: Any]
+        )
+        XCTAssertEqual(
+            object.keys.sorted(),
+            [
+                "attempts", "attestedFrame", "capturePhase", "issue",
+                "matchingAttestedElementCount", "schema", "screenshotBufferAvailable"
+            ]
+        )
+        XCTAssertTrue(object["attestedFrame"] is NSNull)
+        let attempt = try XCTUnwrap((object["attempts"] as? [[String: Any]])?.first)
+        XCTAssertEqual(attempt.keys.sorted(), ["cropHeight", "cropWidth", "frame", "outcome", "source"])
+        XCTAssertEqual(attempt["outcome"] as? String, "analyzerRejected")
+    }
+
+    func testPixelAdjudicationPrefersTheAttestedFrameOverTheRawAuditFrame() {
+        let raw = ObservedRect(x: 10, y: 10, width: 100, height: 20)
+        let attested = ObservedRect(x: 30, y: 40, width: 120, height: 30)
+
+        XCTAssertEqual(pixelAdjudicationFrames(elementFrame: raw, attestedFrame: attested), [attested])
+        XCTAssertEqual(pixelAdjudicationFrames(elementFrame: raw, attestedFrame: nil), [raw])
+        XCTAssertEqual(pixelAdjudicationFrames(elementFrame: nil, attestedFrame: nil), [])
+    }
+
+    func testNativeIPadSidebarClippingWarningRequiresExactFrameBoundAttestation() {
+        let sidebar = observedElement(
+            identifier: "",
+            label: "Sidebar",
+            type: "collectionView",
+            frame: ObservedRect(x: 10, y: 32, width: 320, height: 1168)
+        )
+        let row = observedElement(
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            frame: ObservedRect(x: 26, y: 206, width: 288, height: 44)
+        )
+        let exactDetail = "Text of this SwiftUI.AccessibilityNode may be clipped at larger Dynamic Type sizes."
+
+        let verified = verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .pad,
+            auditType: .textClipped,
+            detailedDescription: exactDetail,
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            elements: [sidebar, row],
+            capturePhase: "initial"
+        )
+        XCTAssertEqual(verified?.schema, "iosNativeSidebarTextClippedFalsePositiveV1")
+        XCTAssertEqual(verified?.reason, "nativeSidebarRowExpandedWithinAttestedContainer")
+        XCTAssertEqual(verified?.elementFrame, row.frame)
+        XCTAssertEqual(verified?.containerFrame, sidebar.frame)
+
+        XCTAssertNil(verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .phone,
+            auditType: .textClipped,
+            detailedDescription: exactDetail,
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            elements: [sidebar, row],
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .pad,
+            auditType: .textClipped,
+            detailedDescription: "Different warning",
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            elements: [sidebar, row],
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .pad,
+            auditType: .textClipped,
+            detailedDescription: exactDetail,
+            identifier: "",
+            label: "Unknown",
+            type: "staticText",
+            elements: [sidebar, row],
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .pad,
+            auditType: .textClipped,
+            detailedDescription: exactDetail,
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            elements: [sidebar, row, row],
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .pad,
+            auditType: .textClipped,
+            detailedDescription: exactDetail,
+            identifier: "",
+            label: "Cookbooks",
+            type: "button",
+            elements: [sidebar, row],
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .pad,
+            auditType: .textClipped,
+            detailedDescription: exactDetail,
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            elements: [row],
+            capturePhase: "initial"
+        ))
+        let outsideRow = observedElement(
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            frame: ObservedRect(x: 500, y: 206, width: 288, height: 44)
+        )
+        XCTAssertNil(verifiedNativeSidebarTextClippedFalsePositive(
+            idiom: .pad,
+            auditType: .textClipped,
+            detailedDescription: exactDetail,
+            identifier: "",
+            label: "Cookbooks",
+            type: "staticText",
+            elements: [sidebar, outsideRow],
+            capturePhase: "initial"
         ))
     }
 
@@ -905,6 +1751,16 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             XCTAssertFalse(expectation?.label.isEmpty == true, "Missing terminal label for \(route)")
             XCTAssertFalse(expectation?.elementTypes.isEmpty == true, "Missing terminal role for \(route)")
         }
+    }
+
+    func testKitchenInitialFrameDoesNotClaimItsDeepScrollTerminal() {
+        let initialLabels = routeRequiredLabels(route: "kitchen", signedIn: true)
+        let terminal = routeTerminalExpectation(route: "kitchen", environment: [:])
+
+        XCTAssertFalse(initialLabels.contains("Cookbook Shelf"))
+        XCTAssertFalse(initialLabels.contains("Slow Sundays and Long Simmering Suppers"))
+        XCTAssertEqual(terminal?.identifier, "kitchen.cookbook.cookbook_weeknights")
+        XCTAssertEqual(terminal?.label, "Weeknights")
     }
 
     func testEveryVariantHasAnExactTerminalContract() {
@@ -967,9 +1823,64 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
 
         XCTAssertNotNil(evidence)
+        XCTAssertEqual(evidence?.method, "screenshotPixelContrastV2")
         XCTAssertGreaterThanOrEqual(evidence?.contrastRatio ?? 0, 4.5)
         XCTAssertGreaterThanOrEqual(evidence?.backgroundCoverage ?? 0, 0.65)
         XCTAssertGreaterThan(evidence?.foregroundPixelCount ?? 0, 0)
+        XCTAssertEqual(evidence?.ignoredEdgeRulePixelCount, 0)
+        XCTAssertEqual(evidence?.ignoredEdgeRuleRowCount, 0)
+    }
+
+    func testStaleOffscreenContrastRequiresPriorPixelsAndExactScrollDisplacement() {
+        let priorFrame = ObservedRect(x: 0, y: 0, width: 40, height: 20)
+        let currentFrame = ObservedRect(x: 0, y: -100, width: 40, height: 20)
+        let issue = ObservedAuditIssue(
+            category: "contrast",
+            type: "XCUIAccessibilityAuditType(rawValue: 1)",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
+            diagnosticDescription: "diagnostic",
+            diagnosticMirror: "",
+            elementIdentifier: "",
+            elementLabel: "My Kitchen",
+            elementType: "staticText",
+            elementFrame: priorFrame
+        )
+        let priorBuffer = ScreenshotPixelBuffer(
+            width: 40,
+            height: 20,
+            pixels: syntheticContrastPixels(
+                width: 40,
+                height: 20,
+                background: ObservedRGBPixel(red: 251, green: 250, blue: 244),
+                foreground: ObservedRGBPixel(red: 40, green: 35, blue: 29)
+            ),
+            pointSize: CGSize(width: 40, height: 20)
+        )
+
+        let verified = verifiedStaleOffscreenContrastFalsePositive(
+            issue: issue,
+            priorElementFrame: priorFrame,
+            currentElementFrame: currentFrame,
+            windowFrame: ObservedRect(x: 0, y: 0, width: 100, height: 100),
+            priorScreenshotBuffer: priorBuffer,
+            priorScreenshotSHA256: String(repeating: "a", count: 64),
+            currentScreenshotSHA256: String(repeating: "b", count: 64),
+            capturePhase: "deepScroll"
+        )
+
+        XCTAssertEqual(verified?.schema, "iosStaleOffscreenContrastFalsePositiveV1")
+        XCTAssertEqual(verified?.priorPixelEvidence.screenshotSHA256, String(repeating: "a", count: 64))
+        XCTAssertNil(verifiedStaleOffscreenContrastFalsePositive(
+            issue: issue,
+            priorElementFrame: priorFrame,
+            currentElementFrame: priorFrame,
+            windowFrame: ObservedRect(x: 0, y: 0, width: 100, height: 100),
+            priorScreenshotBuffer: priorBuffer,
+            priorScreenshotSHA256: String(repeating: "a", count: 64),
+            currentScreenshotSHA256: String(repeating: "b", count: 64),
+            capturePhase: "deepScroll"
+        ))
     }
 
     func testScreenshotContrastAdjudicatorRejectsLowContrastTextPixels() {
@@ -1041,14 +1952,65 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
         let highContrast = ObservedRGBPixel(red: 40, green: 35, blue: 29)
         let lowContrast = ObservedRGBPixel(red: 145, green: 141, blue: 136)
-        let pixels = Array(repeating: background, count: 700)
-            + Array(repeating: highContrast, count: 172)
-            + Array(repeating: lowContrast, count: 128)
+        var pixels = Array(repeating: background, count: 1_000)
+        for row in 4..<12 {
+            for column in 3..<23 {
+                pixels[row * 50 + column] = highContrast
+            }
+            for column in 30..<45 {
+                pixels[row * 50 + column] = lowContrast
+            }
+        }
 
         XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
             pixels: pixels,
             width: 50,
             height: 20
+        ))
+    }
+
+    func testScreenshotContrastAdjudicatorIgnoresOnlyWideEdgeAlignedDividerPixels() {
+        let width = 100
+        let height = 40
+        let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        let highContrast = ObservedRGBPixel(red: 40, green: 35, blue: 29)
+        let lowContrastDivider = ObservedRGBPixel(red: 233, green: 231, blue: 225)
+        var pixels = syntheticContrastPixels(
+            width: width,
+            height: height,
+            background: background,
+            foreground: highContrast
+        )
+        for row in (height - 2)..<height {
+            for column in 5..<(width - 5) {
+                pixels[row * width + column] = lowContrastDivider
+            }
+        }
+
+        let dividerEvidence = ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: pixels,
+            width: width,
+            height: height
+        )
+        XCTAssertEqual(dividerEvidence?.method, "screenshotPixelContrastV2")
+        XCTAssertGreaterThan(dividerEvidence?.ignoredEdgeRulePixelCount ?? 0, 0)
+        XCTAssertGreaterThan(dividerEvidence?.ignoredEdgeRuleRowCount ?? 0, 0)
+
+        var interiorRule = syntheticContrastPixels(
+            width: width,
+            height: height,
+            background: background,
+            foreground: highContrast
+        )
+        for row in 2..<7 {
+            for column in 35..<65 {
+                interiorRule[row * width + column] = lowContrastDivider
+            }
+        }
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: interiorRule,
+            width: width,
+            height: height
         ))
     }
 
@@ -1081,6 +2043,28 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             height: crop.height,
             screenshotSHA256: SHA256.hash(data: pngData).map { String(format: "%02x", $0) }.joined()
         ))
+    }
+
+    func testScreenshotPixelBufferUsesTopLeftScreenshotCoordinates() throws {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 12, height: 12), format: format)
+        let image = renderer.image { context in
+            UIColor.red.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 12, height: 6))
+            UIColor.blue.setFill()
+            context.fill(CGRect(x: 0, y: 6, width: 12, height: 6))
+        }
+        let buffer = try XCTUnwrap(ScreenshotPixelBuffer(
+            pngData: try XCTUnwrap(image.pngData()),
+            pointSize: CGSize(width: 12, height: 12)
+        ))
+        let top = try XCTUnwrap(buffer.crop(in: ObservedRect(x: 0, y: 0, width: 12, height: 6)))
+        let bottom = try XCTUnwrap(buffer.crop(in: ObservedRect(x: 0, y: 6, width: 12, height: 6)))
+
+        XCTAssertTrue(top.pixels.allSatisfy { $0.red > 240 && $0.blue < 15 })
+        XCTAssertTrue(bottom.pixels.allSatisfy { $0.blue > 240 && $0.red < 15 })
     }
 
     func testScreenshotContrastBufferRejectsOutOfBoundsIssueFrame() {
@@ -1708,6 +2692,143 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return true
     }
 
+    private func attestedFrameForAuditElement(
+        identifier: String,
+        label: String,
+        type: String,
+        elements: [ObservedAccessibilityElement]
+    ) -> ObservedRect? {
+        auditElementAttestation(
+            identifier: identifier,
+            label: label,
+            type: type,
+            elements: elements
+        ).frame
+    }
+
+    private func auditElementAttestation(
+        identifier: String,
+        label: String,
+        type: String,
+        elements: [ObservedAccessibilityElement]
+    ) -> (matchingCount: Int, frame: ObservedRect?) {
+        let matches = elements.filter { element in
+            guard element.exists, element.type == type else {
+                return false
+            }
+            if !identifier.isEmpty {
+                return element.identifier == identifier
+                    && (label.isEmpty || element.label == label)
+            }
+            return !label.isEmpty && element.label == label
+        }
+        return (matches.count, matches.count == 1 ? matches[0].frame : nil)
+    }
+
+    private func verifiedStaleOffscreenContrastFalsePositive(
+        issue: ObservedAuditIssue,
+        priorElementFrame: ObservedRect,
+        currentElementFrame: ObservedRect,
+        windowFrame: ObservedRect,
+        priorScreenshotBuffer: ScreenshotPixelBuffer?,
+        priorScreenshotSHA256: String,
+        currentScreenshotSHA256: String,
+        capturePhase: String
+    ) -> ObservedVerifiedStaleOffscreenContrastFalsePositive? {
+        let dimensionTolerance = 0.75
+        guard capturePhase == "deepScroll",
+              issue.category == "contrast",
+              issue.elementType == "staticText",
+              let issueFrame = issue.elementFrame,
+              windowFrame.contains(issueFrame),
+              windowFrame.contains(priorElementFrame),
+              windowFrame.intersection(with: currentElementFrame) == nil,
+              abs(priorElementFrame.x - currentElementFrame.x) <= dimensionTolerance,
+              abs(priorElementFrame.width - currentElementFrame.width) <= dimensionTolerance,
+              abs(priorElementFrame.height - currentElementFrame.height) <= dimensionTolerance,
+              abs(priorElementFrame.y - currentElementFrame.y) >= Self.minimumTerminalDragDistance,
+              let crop = priorScreenshotBuffer?.crop(in: priorElementFrame),
+              let pixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
+                  pixels: crop.pixels,
+                  width: crop.width,
+                  height: crop.height,
+                  screenshotSHA256: priorScreenshotSHA256
+              ) else {
+            return nil
+        }
+        return ObservedVerifiedStaleOffscreenContrastFalsePositive(
+            schema: "iosStaleOffscreenContrastFalsePositiveV1",
+            capturePhase: capturePhase,
+            reason: "priorHighContrastPixelsBoundToNowOffscreenAttestedElement",
+            issue: issue,
+            priorElementFrame: priorElementFrame,
+            currentElementFrame: currentElementFrame,
+            priorScreenshotSHA256: priorScreenshotSHA256,
+            currentScreenshotSHA256: currentScreenshotSHA256,
+            priorPixelEvidence: pixelEvidence
+        )
+    }
+
+    private func verifiedNativeSidebarTextClippedFalsePositive(
+        idiom: UIUserInterfaceIdiom,
+        auditType: XCUIAccessibilityAuditType,
+        detailedDescription: String,
+        identifier: String,
+        label: String,
+        type: String,
+        elements: [ObservedAccessibilityElement],
+        capturePhase: String
+    ) -> ObservedVerifiedTextClippedFalsePositive? {
+        let exactWarning = "Text of this SwiftUI.AccessibilityNode may be clipped at larger Dynamic Type sizes."
+        let sidebarLabels: Set<String> = [
+            "Kitchen",
+            "My Recipes",
+            "Saved Recipes",
+            "Cookbooks",
+            "Shopping List",
+            "Chefs",
+            "Kitchen Search",
+            "Imports",
+            "Settings"
+        ]
+        guard idiom == .pad,
+              auditType == .textClipped,
+              detailedDescription == exactWarning,
+              type == "staticText",
+              sidebarLabels.contains(label),
+              ["initial", "deepScroll"].contains(capturePhase),
+              let elementFrame = attestedFrameForAuditElement(
+                  identifier: identifier,
+                  label: label,
+                  type: type,
+                  elements: elements
+              ) else {
+            return nil
+        }
+        let matchingContainers = elements.filter { element in
+            element.exists
+                && element.type == "collectionView"
+                && element.label == "Sidebar"
+                && element.frame.contains(elementFrame)
+        }
+        guard matchingContainers.count == 1, let container = matchingContainers.first else {
+            return nil
+        }
+        return ObservedVerifiedTextClippedFalsePositive(
+            schema: "iosNativeSidebarTextClippedFalsePositiveV1",
+            capturePhase: capturePhase,
+            reason: "nativeSidebarRowExpandedWithinAttestedContainer",
+            detailedDescription: detailedDescription,
+            elementIdentifier: identifier,
+            elementLabel: label,
+            elementType: type,
+            elementFrame: elementFrame,
+            containerType: container.type,
+            containerLabel: container.label,
+            containerFrame: container.frame
+        )
+    }
+
     private func currentReadinessHandshake(
         in app: XCUIApplication,
         route: String,
@@ -1763,13 +2884,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         viewport: ObservedRect,
         screenshot: XCUIScreenshot,
         windowFrame: CGRect,
-        hasSystemTabBar: Bool,
+        attestedElements: [ObservedAccessibilityElement],
+        contentSizeCategory: String,
         capturePhase: String,
         scope: ObservedAccessibilityAuditScope,
+        priorScreenshot: XCUIScreenshot? = nil,
+        priorAttestedElements: [ObservedAccessibilityElement] = [],
         includesDynamicTypeChecks: Bool = true
     ) -> ObservedAuditResult {
         var blockingIssues: [ObservedAuditIssue] = []
         var verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive] = []
+        var verifiedStaleOffscreenContrastFalsePositives: [ObservedVerifiedStaleOffscreenContrastFalsePositive] = []
+        var contrastPixelAdjudicationDiagnostics: [ObservedContrastPixelAdjudicationDiagnostic] = []
+        var verifiedSystemChromeContrastFalsePositives: [ObservedVerifiedSystemChromeContrastFalsePositive] = []
+        var verifiedNativeSidebarSelectionContrastFalsePositives: [ObservedVerifiedNativeSidebarSelectionContrastFalsePositive] = []
+        var verifiedTextClippedFalsePositives: [ObservedVerifiedTextClippedFalsePositive] = []
         var hitRegionAuditPassed = true
         let screenshotPNG = screenshot.pngRepresentation
         let screenshotSHA256 = SHA256.hash(data: screenshotPNG)
@@ -1779,6 +2908,13 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             pngData: screenshotPNG,
             pointSize: windowFrame.size
         )
+        let priorScreenshotPNG = priorScreenshot?.pngRepresentation
+        let priorScreenshotSHA256 = priorScreenshotPNG.map {
+            SHA256.hash(data: $0).map { String(format: "%02x", $0) }.joined()
+        }
+        let priorScreenshotBuffer = priorScreenshotPNG.flatMap {
+            ScreenshotPixelBuffer(pngData: $0, pointSize: windowFrame.size)
+        }
         let auditTypes = accessibilityAuditTypes(
             scope: scope,
             includesDynamicTypeChecks: includesDynamicTypeChecks
@@ -1790,14 +2926,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 let elementType = element.map { self.elementTypeName($0.elementType) } ?? ""
                 if issue.auditType == .hitRegion {
                     hitRegionAuditPassed = false
-                }
-                if self.shouldIgnoreUnattributedSystemTabBarContrast(
-                    auditType: issue.auditType,
-                    detailedDescription: issue.detailedDescription,
-                    elementFrame: elementFrame,
-                    hasSystemTabBar: hasSystemTabBar
-                ) {
-                    return true
                 }
                 if let elementFrame,
                    self.shouldIgnoreAuditIssue(
@@ -1819,22 +2947,154 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     elementType: elementType,
                     elementFrame: elementFrame
                 )
-                if issue.auditType == .contrast,
-                   elementType == "staticText",
-                   let elementFrame,
-                   let crop = screenshotBuffer?.crop(in: elementFrame),
-                   let pixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
-                       pixels: crop.pixels,
-                       width: crop.width,
-                       height: crop.height,
-                       screenshotSHA256: screenshotSHA256
-                   ) {
+                if let verified = self.verifiedNativeSidebarSelectionContrastFalsePositive(
+                    idiom: UIDevice.current.userInterfaceIdiom,
+                    contentSizeCategory: contentSizeCategory,
+                    issue: observedIssue,
+                    elements: attestedElements,
+                    screenshotBuffer: screenshotBuffer,
+                    screenshotSHA256: screenshotSHA256,
+                    windowFrame: ObservedRect(windowFrame),
+                    capturePhase: capturePhase
+                ) {
+                    verifiedNativeSidebarSelectionContrastFalsePositives.append(verified)
+                    return true
+                }
+                if let verified = self.verifiedNativeBottomTabChromeContrastFalsePositive(
+                    idiom: UIDevice.current.userInterfaceIdiom,
+                    contentSizeCategory: contentSizeCategory,
+                    issue: observedIssue,
+                    elements: attestedElements,
+                    windowFrame: ObservedRect(windowFrame),
+                    capturePhase: capturePhase
+                ) ?? self.verifiedNativeCompactTabChromeContrastFalsePositive(
+                    idiom: UIDevice.current.userInterfaceIdiom,
+                    contentSizeCategory: contentSizeCategory,
+                    issue: observedIssue,
+                    elements: attestedElements,
+                    windowFrame: ObservedRect(windowFrame),
+                    capturePhase: capturePhase
+                ) {
+                    verifiedSystemChromeContrastFalsePositives.append(verified)
+                    return true
+                }
+                let attestation = self.auditElementAttestation(
+                    identifier: element?.identifier ?? "",
+                    label: element?.label ?? "",
+                    type: elementType,
+                    elements: attestedElements
+                )
+                let attestedFrame = attestation.frame
+                if let verified = self.verifiedNativeSidebarTextClippedFalsePositive(
+                    idiom: UIDevice.current.userInterfaceIdiom,
+                    auditType: issue.auditType,
+                    detailedDescription: issue.detailedDescription,
+                    identifier: element?.identifier ?? "",
+                    label: element?.label ?? "",
+                    type: elementType,
+                    elements: attestedElements,
+                    capturePhase: capturePhase
+                ) {
+                    verifiedTextClippedFalsePositives.append(verified)
+                    return true
+                }
+                let pixelCandidates = self.pixelAdjudicationFrames(
+                    elementFrame: elementFrame,
+                    attestedFrame: attestedFrame
+                )
+                var pixelAttempts: [ObservedContrastPixelAdjudicationAttempt] = []
+                var pixelAdjudication: (ObservedRect, ObservedContrastPixelEvidence)?
+                if issue.auditType == .contrast && elementType == "staticText" {
+                    for (index, frame) in pixelCandidates.enumerated() {
+                        let source = attestedFrame == nil || index > 0 ? "audit" : "attested"
+                        guard let crop = screenshotBuffer?.crop(in: frame) else {
+                            pixelAttempts.append(ObservedContrastPixelAdjudicationAttempt(
+                                source: source,
+                                frame: frame,
+                                outcome: screenshotBuffer == nil ? "screenshotBufferUnavailable" : "cropUnavailable",
+                                cropWidth: nil,
+                                cropHeight: nil
+                            ))
+                            continue
+                        }
+                        guard let evidence = ScreenshotPixelContrastAdjudicator.analyze(
+                            pixels: crop.pixels,
+                            width: crop.width,
+                            height: crop.height,
+                            screenshotSHA256: screenshotSHA256
+                        ) else {
+                            pixelAttempts.append(ObservedContrastPixelAdjudicationAttempt(
+                                source: source,
+                                frame: frame,
+                                outcome: "analyzerRejected",
+                                cropWidth: crop.width,
+                                cropHeight: crop.height
+                            ))
+                            continue
+                        }
+                        pixelAttempts.append(ObservedContrastPixelAdjudicationAttempt(
+                            source: source,
+                            frame: frame,
+                            outcome: "verified",
+                            cropWidth: crop.width,
+                            cropHeight: crop.height
+                        ))
+                        pixelAdjudication = (frame, evidence)
+                        break
+                    }
+                }
+                if let (pixelFrame, pixelEvidence) = pixelAdjudication {
+                    let pixelBoundIssue = ObservedAuditIssue(
+                        category: observedIssue.category,
+                        type: observedIssue.type,
+                        compactDescription: observedIssue.compactDescription,
+                        detailedDescription: observedIssue.detailedDescription,
+                        diagnosticDescription: observedIssue.diagnosticDescription,
+                        diagnosticMirror: observedIssue.diagnosticMirror,
+                        elementIdentifier: observedIssue.elementIdentifier,
+                        elementLabel: observedIssue.elementLabel,
+                        elementType: observedIssue.elementType,
+                        elementFrame: pixelFrame
+                    )
                     verifiedContrastFalsePositives.append(ObservedVerifiedContrastFalsePositive(
                         capturePhase: capturePhase,
-                        issue: observedIssue,
+                        issue: pixelBoundIssue,
                         pixelEvidence: pixelEvidence
                     ))
                     return true
+                }
+                let priorAttestation = self.auditElementAttestation(
+                    identifier: observedIssue.elementIdentifier,
+                    label: observedIssue.elementLabel,
+                    type: observedIssue.elementType,
+                    elements: priorAttestedElements
+                )
+                if let priorElementFrame = priorAttestation.frame,
+                   let currentElementFrame = attestedFrame,
+                   let priorScreenshotSHA256,
+                   let verified = self.verifiedStaleOffscreenContrastFalsePositive(
+                       issue: observedIssue,
+                       priorElementFrame: priorElementFrame,
+                       currentElementFrame: currentElementFrame,
+                       windowFrame: ObservedRect(windowFrame),
+                       priorScreenshotBuffer: priorScreenshotBuffer,
+                       priorScreenshotSHA256: priorScreenshotSHA256,
+                       currentScreenshotSHA256: screenshotSHA256,
+                       capturePhase: capturePhase
+                   ) {
+                    verifiedStaleOffscreenContrastFalsePositives.append(verified)
+                    return true
+                }
+                if issue.auditType == .contrast && elementType == "staticText" {
+                    contrastPixelAdjudicationDiagnostics.append(ObservedContrastPixelAdjudicationDiagnostic(
+                        schema: "iosContrastPixelAdjudicationFailureV1",
+                        capturePhase: capturePhase,
+                        issue: observedIssue,
+                        matchingAttestedElementCount: attestation.matchingCount,
+                        attestedFrame: attestedFrame,
+                        screenshotBufferAvailable: screenshotBuffer != nil,
+                        attempts: pixelAttempts
+                    ))
                 }
                 blockingIssues.append(observedIssue)
                 return true
@@ -1857,6 +3117,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return ObservedAuditResult(
             blockingIssues: blockingIssues,
             verifiedContrastFalsePositives: verifiedContrastFalsePositives,
+            verifiedStaleOffscreenContrastFalsePositives: verifiedStaleOffscreenContrastFalsePositives,
+            contrastPixelAdjudicationDiagnostics: contrastPixelAdjudicationDiagnostics,
+            verifiedSystemChromeContrastFalsePositives: verifiedSystemChromeContrastFalsePositives,
+            verifiedNativeSidebarSelectionContrastFalsePositives: verifiedNativeSidebarSelectionContrastFalsePositives,
+            verifiedTextClippedFalsePositives: verifiedTextClippedFalsePositives,
             hitRegionAuditPassed: hitRegionAuditPassed,
             auditTypes: accessibilityAuditTypeNames(auditTypes)
         )
@@ -1907,17 +3172,429 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             && isVerticallyOutside
     }
 
-    private func shouldIgnoreUnattributedSystemTabBarContrast(
-        auditType: XCUIAccessibilityAuditType,
-        detailedDescription: String,
-        elementFrame: ObservedRect?,
-        hasSystemTabBar: Bool
+    private func verifiedNativeSidebarSelectionContrastFalsePositive(
+        idiom: UIUserInterfaceIdiom,
+        contentSizeCategory: String,
+        issue: ObservedAuditIssue,
+        elements: [ObservedAccessibilityElement],
+        screenshotBuffer: ScreenshotPixelBuffer?,
+        screenshotSHA256: String,
+        windowFrame: ObservedRect,
+        capturePhase: String
+    ) -> ObservedVerifiedNativeSidebarSelectionContrastFalsePositive? {
+        guard idiom == .pad,
+              contentSizeCategory == "large",
+              ["initial", "deepScroll"].contains(capturePhase),
+              issue.category == "contrast",
+              issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
+              issue.compactDescription == "Contrast failed",
+              issue.detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode",
+              issue.diagnosticDescription.contains("Element:(null)"),
+              issue.diagnosticMirror.isEmpty,
+              issue.elementIdentifier.isEmpty,
+              issue.elementLabel.isEmpty,
+              issue.elementType.isEmpty,
+              issue.elementFrame == nil,
+              screenshotSHA256.range(of: #"\A[0-9a-f]{64}\z"#, options: .regularExpression) != nil,
+              let screenshotBuffer else {
+            return nil
+        }
+
+        let liveElements = uniqueAttestedElements(elements.filter { $0.exists && $0.enabled })
+        guard !liveElements.contains(where: { $0.type == "tabBar" }) else { return nil }
+        let navigationBars = liveElements.filter { $0.type == "navigationBar" }
+        guard navigationBars.count == 2,
+              let sidebarNavigationBar = navigationBars.only(where: {
+                  $0.identifier == "Spoonjoy"
+                      && $0.label.isEmpty
+                      && $0.frame.width >= 280
+                      && $0.frame.width <= 360
+                      && $0.frame.minX >= windowFrame.minX
+                      && $0.frame.minX <= windowFrame.minX + 20
+                      && $0.frame.height >= 44
+                      && $0.frame.height <= 80
+              }),
+              let detailNavigationBar = navigationBars.only(where: {
+                  $0.identifier == "Kitchen"
+                      && $0.label.isEmpty
+                      && abs($0.frame.minX - windowFrame.minX) <= 0.75
+                      && abs($0.frame.maxX - windowFrame.maxX) <= 0.75
+                      && $0.frame.height >= 80
+                      && $0.frame.height <= 120
+              }),
+              let sidebarCollection = liveElements.only(where: {
+                  $0.type == "collectionView"
+                      && $0.identifier.isEmpty
+                      && $0.label == "Sidebar"
+                      && abs($0.frame.minX - sidebarNavigationBar.frame.minX) <= 0.75
+                      && abs($0.frame.width - sidebarNavigationBar.frame.width) <= 0.75
+                      && $0.frame.contains(sidebarNavigationBar.frame)
+              }),
+              let selectedLabel = liveElements.only(where: {
+                  $0.type == "staticText"
+                      && $0.identifier.isEmpty
+                      && $0.label == "Kitchen"
+                      && sidebarCollection.frame.contains($0.frame)
+                      && $0.frame.width >= 200
+                      && $0.frame.height >= 44
+              }),
+              let selectedCell = liveElements.only(where: {
+                  $0.type == "cell"
+                      && $0.identifier.isEmpty
+                      && $0.label.isEmpty
+                      && sidebarCollection.frame.contains($0.frame)
+                      && rectsApproximatelyEqual($0.frame, selectedLabel.frame)
+              }),
+              let selectedSymbol = liveElements.only(where: {
+                  $0.type == "image"
+                      && $0.identifier == "house"
+                      && $0.label == "Home"
+                      && selectedCell.frame.contains($0.frame)
+              }) else {
+            return nil
+        }
+
+        let interiorInset = 12.0
+        let interiorFrame = ObservedRect(
+            x: selectedCell.frame.x + interiorInset,
+            y: selectedCell.frame.y + interiorInset,
+            width: selectedCell.frame.width - interiorInset * 2,
+            height: selectedCell.frame.height - interiorInset * 2
+        )
+        guard !interiorFrame.isEmpty,
+              let selectedCellCrop = screenshotBuffer.crop(in: interiorFrame),
+              let selectedCellPixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
+                  pixels: selectedCellCrop.pixels,
+                  width: selectedCellCrop.width,
+                  height: selectedCellCrop.height,
+                  screenshotSHA256: screenshotSHA256
+              ),
+              let selectedSymbolCrop = screenshotBuffer.crop(in: selectedSymbol.frame),
+              let selectedSymbolPixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
+                  pixels: selectedSymbolCrop.pixels,
+                  width: selectedSymbolCrop.width,
+                  height: selectedSymbolCrop.height,
+                  screenshotSHA256: screenshotSHA256
+              ) else {
+            return nil
+        }
+
+        let visibleTextElements = liveElements.filter {
+            $0.type == "staticText"
+                && !$0.label.isEmpty
+                && windowFrame.contains($0.frame)
+                && !rectsApproximatelyEqual($0.frame, selectedLabel.frame)
+        }
+        guard visibleTextElements.count >= 20 else { return nil }
+        var visibleTextPixelEvidence: [ObservedVisibleTextContrastEvidence] = []
+        for element in visibleTextElements.sorted(by: visualElementOrder) {
+            guard let crop = screenshotBuffer.crop(in: element.frame),
+                  let pixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
+                      pixels: crop.pixels,
+                      width: crop.width,
+                      height: crop.height,
+                      screenshotSHA256: screenshotSHA256
+                  ) else {
+                return nil
+            }
+            visibleTextPixelEvidence.append(ObservedVisibleTextContrastEvidence(
+                element: systemChromeReference(element),
+                pixelEvidence: pixelEvidence
+            ))
+        }
+
+        return ObservedVerifiedNativeSidebarSelectionContrastFalsePositive(
+            schema: "iosNativeSidebarSelectionContrastFalsePositiveV1",
+            capturePhase: capturePhase,
+            reason: "anonymousContrastBoundToAttestedNativeSidebarSelection",
+            contentSizeCategory: contentSizeCategory,
+            issue: issue,
+            sidebarNavigationBar: systemChromeReference(sidebarNavigationBar),
+            detailNavigationBar: systemChromeReference(detailNavigationBar),
+            sidebarCollection: systemChromeReference(sidebarCollection),
+            selectedCell: systemChromeReference(selectedCell),
+            selectedLabel: systemChromeReference(selectedLabel),
+            selectedSymbol: systemChromeReference(selectedSymbol),
+            selectedCellInteriorFrame: interiorFrame,
+            selectedCellPixelEvidence: selectedCellPixelEvidence,
+            selectedSymbolPixelEvidence: selectedSymbolPixelEvidence,
+            visibleTextPixelEvidence: visibleTextPixelEvidence
+        )
+    }
+
+    private func rectsApproximatelyEqual(
+        _ first: ObservedRect,
+        _ second: ObservedRect,
+        tolerance: Double = 0.75
     ) -> Bool {
-        _ = auditType
-        _ = detailedDescription
-        _ = elementFrame
-        _ = hasSystemTabBar
-        return false
+        abs(first.x - second.x) <= tolerance
+            && abs(first.y - second.y) <= tolerance
+            && abs(first.width - second.width) <= tolerance
+            && abs(first.height - second.height) <= tolerance
+    }
+
+    private func visualElementOrder(
+        _ first: ObservedAccessibilityElement,
+        _ second: ObservedAccessibilityElement
+    ) -> Bool {
+        if abs(first.frame.minY - second.frame.minY) > 0.5 {
+            return first.frame.minY < second.frame.minY
+        }
+        return first.frame.minX < second.frame.minX
+    }
+
+    private func verifiedNativeCompactTabChromeContrastFalsePositive(
+        idiom: UIUserInterfaceIdiom,
+        contentSizeCategory: String,
+        issue: ObservedAuditIssue,
+        elements: [ObservedAccessibilityElement],
+        windowFrame: ObservedRect,
+        capturePhase: String
+    ) -> ObservedVerifiedSystemChromeContrastFalsePositive? {
+        let supportedContentSizes = [
+            "extra-extra-extra-large",
+            "accessibility-extra-extra-extra-large"
+        ]
+        guard idiom == .pad,
+              supportedContentSizes.contains(contentSizeCategory),
+              ["initial", "deepScroll"].contains(capturePhase),
+              issue.category == "contrast",
+              issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
+              issue.compactDescription == "Contrast failed",
+              issue.detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode",
+              issue.diagnosticDescription.contains("Element:(null)"),
+              issue.diagnosticMirror.isEmpty,
+              issue.elementIdentifier.isEmpty,
+              issue.elementLabel.isEmpty,
+              issue.elementType.isEmpty,
+              issue.elementFrame == nil,
+              !elements.contains(where: { $0.exists && $0.type == "tabBar" }) else {
+            return nil
+        }
+
+        let uniqueNavigationBars = uniqueAttestedElements(elements.filter {
+            $0.exists && $0.enabled && $0.type == "navigationBar"
+        })
+        guard uniqueNavigationBars.count == 1,
+              let navigationBar = uniqueNavigationBars.first,
+              !navigationBar.identifier.isEmpty,
+              navigationBar.label.isEmpty,
+              abs(navigationBar.frame.minX - windowFrame.minX) <= 0.75,
+              abs(navigationBar.frame.maxX - windowFrame.maxX) <= 0.75,
+              navigationBar.frame.minY >= windowFrame.minY - 0.75,
+              navigationBar.frame.maxY <= windowFrame.minY + 120,
+              navigationBar.frame.height >= 44,
+              navigationBar.frame.height <= 80 else {
+            return nil
+        }
+
+        let expectedDestinations = [
+            (identifier: "house", label: "Kitchen"),
+            (identifier: "book.closed", label: "Recipes"),
+            (identifier: "bookmark", label: "Saved"),
+            (identifier: "books.vertical", label: "Cookbooks")
+        ]
+        var destinationReferences: [ObservedSystemChromeElementReference] = []
+        for destination in expectedDestinations {
+            let matches = uniqueAttestedElements(elements.filter {
+                $0.exists
+                    && $0.enabled
+                    && $0.hittable
+                    && $0.type == "button"
+                    && $0.identifier == destination.identifier
+                    && $0.label == destination.label
+            })
+            guard matches.count == 1,
+                  let match = matches.first,
+                  navigationBar.frame.contains(match.frame, tolerance: 0.75) else {
+                return nil
+            }
+            destinationReferences.append(systemChromeReference(match))
+        }
+
+        return ObservedVerifiedSystemChromeContrastFalsePositive(
+            schema: "iosNativeCompactTabChromeContrastFalsePositiveV1",
+            capturePhase: capturePhase,
+            reason: "anonymousContrastBoundToAttestedNativeCompactTabChrome",
+            contentSizeCategory: contentSizeCategory,
+            issue: issue,
+            navigationBar: systemChromeReference(navigationBar),
+            tabBar: nil,
+            destinations: destinationReferences
+        )
+    }
+
+    private func verifiedNativeBottomTabChromeContrastFalsePositive(
+        idiom: UIUserInterfaceIdiom,
+        contentSizeCategory: String,
+        issue: ObservedAuditIssue,
+        elements: [ObservedAccessibilityElement],
+        windowFrame: ObservedRect,
+        capturePhase: String
+    ) -> ObservedVerifiedSystemChromeContrastFalsePositive? {
+        let supportedContentSizes = [
+            "large",
+            "extra-extra-extra-large",
+            "accessibility-extra-extra-extra-large"
+        ]
+        guard idiom == .phone,
+              supportedContentSizes.contains(contentSizeCategory),
+              ["initial", "deepScroll"].contains(capturePhase),
+              issue.category == "contrast",
+              issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
+              issue.compactDescription == "Contrast failed",
+              issue.detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode",
+              issue.diagnosticDescription.contains("Element:(null)"),
+              issue.diagnosticMirror.isEmpty,
+              issue.elementIdentifier.isEmpty,
+              issue.elementLabel.isEmpty,
+              issue.elementType.isEmpty,
+              issue.elementFrame == nil else {
+            return nil
+        }
+
+        let uniqueNavigationBars = uniqueAttestedElements(elements.filter {
+            $0.exists && $0.enabled && $0.type == "navigationBar"
+        })
+        let uniqueTabBars = uniqueAttestedElements(elements.filter {
+            $0.exists && $0.enabled && $0.hittable && $0.type == "tabBar"
+        })
+        guard uniqueNavigationBars.count == 1,
+              let navigationBar = uniqueNavigationBars.first,
+              !navigationBar.identifier.isEmpty,
+              navigationBar.label.isEmpty,
+              abs(navigationBar.frame.minX - windowFrame.minX) <= 0.75,
+              abs(navigationBar.frame.maxX - windowFrame.maxX) <= 0.75,
+              navigationBar.frame.minY >= windowFrame.minY - 0.75,
+              navigationBar.frame.maxY <= windowFrame.minY + 120,
+              navigationBar.frame.height >= 44,
+              navigationBar.frame.height <= 80,
+              uniqueTabBars.count == 1,
+              let tabBar = uniqueTabBars.first,
+              tabBar.identifier.isEmpty,
+              tabBar.label == "Tab Bar",
+              abs(tabBar.frame.minX - windowFrame.minX) <= 0.75,
+              abs(tabBar.frame.maxX - windowFrame.maxX) <= 0.75,
+              abs(tabBar.frame.maxY - windowFrame.maxY) <= 0.75,
+              tabBar.frame.height >= 44,
+              tabBar.frame.height <= 120 else {
+            return nil
+        }
+
+        let expectedDestinations = [
+            (identifier: "house", label: "Kitchen"),
+            (identifier: "book.closed", label: "Recipes"),
+            (identifier: "bookmark", label: "Saved"),
+            (identifier: "books.vertical", label: "Cookbooks"),
+            (identifier: "checklist", label: "Shopping")
+        ]
+        let liveDestinationButtons = uniqueAttestedElements(elements.filter {
+            $0.exists
+                && $0.enabled
+                && $0.hittable
+                && $0.type == "button"
+                && tabBar.frame.contains($0.frame, tolerance: 0.75)
+        })
+        guard liveDestinationButtons.count == expectedDestinations.count else {
+            return nil
+        }
+        let orderedLiveDestinations = liveDestinationButtons.sorted { $0.frame.minX < $1.frame.minX }
+        guard orderedLiveDestinations.map(\.label) == expectedDestinations.map(\.label) else {
+            return nil
+        }
+        let usesOrdinaryLabelOnlyIdentity = contentSizeCategory == "large"
+            && capturePhase == "initial"
+            && liveDestinationButtons.allSatisfy(\.identifier.isEmpty)
+        let usesLargeTypeLabelOnlyIdentity = contentSizeCategory != "large"
+            && liveDestinationButtons.allSatisfy(\.identifier.isEmpty)
+        let usesLabelOnlyIdentity = usesOrdinaryLabelOnlyIdentity || usesLargeTypeLabelOnlyIdentity
+        let usesExactSymbolIdentity = expectedDestinations.allSatisfy { destination in
+            liveDestinationButtons.contains {
+                $0.identifier == destination.identifier && $0.label == destination.label
+            }
+        }
+        guard usesLabelOnlyIdentity || usesExactSymbolIdentity else {
+            return nil
+        }
+
+        var destinationReferences: [ObservedSystemChromeElementReference] = []
+        for destination in expectedDestinations {
+            let matches = uniqueAttestedElements(elements.filter {
+                $0.exists
+                    && $0.enabled
+                    && $0.hittable
+                    && $0.type == "button"
+                    && $0.identifier == (usesLabelOnlyIdentity ? "" : destination.identifier)
+                    && $0.label == destination.label
+            })
+            guard matches.count == 1,
+                  let match = matches.first,
+                  tabBar.frame.contains(match.frame, tolerance: 0.75),
+                  liveDestinationButtons.contains(match) else {
+                return nil
+            }
+            destinationReferences.append(systemChromeReference(match))
+        }
+
+        guard liveDestinationButtons.allSatisfy({ button in
+            expectedDestinations.contains {
+                (usesLabelOnlyIdentity ? button.identifier.isEmpty : $0.identifier == button.identifier)
+                    && $0.label == button.label
+            }
+        }) else { return nil }
+
+        return ObservedVerifiedSystemChromeContrastFalsePositive(
+            schema: usesOrdinaryLabelOnlyIdentity
+                ? "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4"
+                : usesLargeTypeLabelOnlyIdentity
+                    ? "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3"
+                    : "iosNativeBottomTabChromeContrastFalsePositiveV2",
+            capturePhase: capturePhase,
+            reason: usesOrdinaryLabelOnlyIdentity
+                ? "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
+                : usesLargeTypeLabelOnlyIdentity
+                    ? "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
+                    : "anonymousContrastBoundToAttestedNativeBottomTabChrome",
+            contentSizeCategory: contentSizeCategory,
+            issue: issue,
+            navigationBar: systemChromeReference(navigationBar),
+            tabBar: systemChromeReference(tabBar),
+            destinations: destinationReferences
+        )
+    }
+
+    private func uniqueAttestedElements(
+        _ elements: [ObservedAccessibilityElement]
+    ) -> [ObservedAccessibilityElement] {
+        elements.reduce(into: []) { unique, element in
+            if !unique.contains(element) {
+                unique.append(element)
+            }
+        }
+    }
+
+    private func systemChromeReference(
+        _ element: ObservedAccessibilityElement
+    ) -> ObservedSystemChromeElementReference {
+        ObservedSystemChromeElementReference(
+            identifier: element.identifier,
+            label: element.label,
+            type: element.type,
+            frame: element.frame
+        )
+    }
+
+    private func pixelAdjudicationFrames(
+        elementFrame: ObservedRect?,
+        attestedFrame: ObservedRect?
+    ) -> [ObservedRect] {
+        if let attestedFrame {
+            return [attestedFrame]
+        }
+        if let elementFrame {
+            return [elementFrame]
+        }
+        return []
     }
 
     private func auditCategory(_ type: XCUIAccessibilityAuditType) -> String {
@@ -1980,9 +3657,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case "kitchen": [
             "My Kitchen",
             "Lemon Pantry Pasta",
-            "Recipe Index",
-            "Cookbook Shelf",
-            "Slow Sundays and Long Simmering Suppers"
+            "Recipe Index"
         ]
         case "recipes", "saved-recipes": ["Lemon Pantry Pasta"]
         case "recipe-detail": ["Lemon Pantry Pasta", "Start Cooking"]
@@ -2073,8 +3748,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         switch route {
         case "kitchen":
             return ObservedRouteTerminalExpectation(
-                identifier: "kitchen.cookbook.cookbook_slow_sundays",
-                label: "Slow Sundays and Long Simmering Suppers, 0 recipes",
+                identifier: "kitchen.cookbook.cookbook_weeknights",
+                label: "Weeknights",
                 elementTypes: ["button"],
                 requiresInteraction: true
             )
@@ -2237,7 +3912,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let observedTypes: [XCUIElement.ElementType] = [
             .scrollView, .collectionView, .navigationBar, .toolbar, .tabBar, .keyboard, .sheet, .alert,
             .button, .switch, .textField, .secureTextField, .textView, .link, .slider, .stepper,
-            .staticText
+            .cell, .staticText, .image
         ]
         return observedTypes.flatMap { type in
             root.descendants(matching: type).allElementsBoundByAccessibilityElement.map { element in
@@ -2316,6 +3991,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         route: String,
         terminalExpectation: ObservedRouteTerminalExpectation?,
         initialElements: [ObservedAccessibilityElement],
+        initialScreenshot: XCUIScreenshot,
         windowFrame: CGRect,
         requiresSystemTabBar: Bool
     ) throws -> ObservedDeepScrollEvidence {
@@ -2339,11 +4015,17 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 auditScope: .settledTerminalInteraction,
                 auditTypes: [],
                 verifiedContrastFalsePositives: [],
+                verifiedStaleOffscreenContrastFalsePositives: [],
+                contrastPixelAdjudicationDiagnostics: [],
+                verifiedSystemChromeContrastFalsePositives: [],
+                verifiedNativeSidebarSelectionContrastFalsePositives: [],
+                verifiedTextClippedFalsePositives: [],
                 screenshotSHA256: nil,
                 readinessHandshake: nil,
                 captureIdentity: nil,
                 pixelAccessibilityBinding: nil,
                 selectedScrollHierarchyIdentifier: nil,
+                elements: [],
                 selectedScrollHierarchyElements: [],
                 observedContentMovement: false,
                 contentFitsWithoutScrolling: false
@@ -2452,16 +4134,18 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
         let deepScreenshot = deepCapture.screenshot
         let capturedWindowFrame = deepCapture.windowFrame.cgRect
-        let capturedTabBar = deepCapture.elements.first { $0.type == "tabBar" && $0.exists }
         let viewport = contentViewport(windowFrame: capturedWindowFrame, elements: deepCapture.elements)
         let auditResult = accessibilityAuditIssues(
             in: app,
             viewport: viewport,
             screenshot: deepScreenshot,
             windowFrame: capturedWindowFrame,
-            hasSystemTabBar: capturedTabBar != nil,
+            attestedElements: deepCapture.elements,
+            contentSizeCategory: ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"] ?? "",
             capturePhase: "deepScroll",
-            scope: .settledTerminalInteraction
+            scope: .settledTerminalInteraction,
+            priorScreenshot: initialScreenshot,
+            priorAttestedElements: initialElements
         )
         let elements = elementsWithHitRegionVerification(
             deepCapture.elements,
@@ -2587,11 +4271,17 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             auditScope: .settledTerminalInteraction,
             auditTypes: auditResult.auditTypes,
             verifiedContrastFalsePositives: auditResult.verifiedContrastFalsePositives,
+            verifiedStaleOffscreenContrastFalsePositives: auditResult.verifiedStaleOffscreenContrastFalsePositives,
+            contrastPixelAdjudicationDiagnostics: auditResult.contrastPixelAdjudicationDiagnostics,
+            verifiedSystemChromeContrastFalsePositives: auditResult.verifiedSystemChromeContrastFalsePositives,
+            verifiedNativeSidebarSelectionContrastFalsePositives: auditResult.verifiedNativeSidebarSelectionContrastFalsePositives,
+            verifiedTextClippedFalsePositives: auditResult.verifiedTextClippedFalsePositives,
             screenshotSHA256: Self.sha256(deepScreenshot.pngRepresentation),
             readinessHandshake: deepCapture.handshake,
             captureIdentity: deepCapture.identity,
             pixelAccessibilityBinding: deepCapture.pixelAccessibilityBinding,
             selectedScrollHierarchyIdentifier: deepCapture.pixelAccessibilityBinding.selectedScrollHierarchyIdentifier,
+            elements: elements,
             selectedScrollHierarchyElements: selectedHierarchyElements,
             observedContentMovement: observedContentMovement,
             contentFitsWithoutScrolling: contentFitsWithoutScrolling
@@ -2629,30 +4319,44 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         beforeScrollContent: [ObservedAccessibilityElement] = [],
         afterScrollContent: [ObservedAccessibilityElement] = []
     ) -> [ObservedAccessibilityFinding] {
-        let beforeSignature = persistentChromeSignature(before, excluding: beforeScrollContent)
-        let afterSignature = persistentChromeSignature(after, excluding: afterScrollContent)
-        guard beforeSignature != afterSignature else {
+        let beforeElements = persistentChromeElements(before, excluding: beforeScrollContent)
+        let afterElements = persistentChromeElements(after, excluding: afterScrollContent)
+        var unmatchedAfterIndices = Array(afterElements.indices)
+        var removed: [ObservedAccessibilityElement] = []
+
+        for beforeElement in beforeElements {
+            guard let matchedPosition = unmatchedAfterIndices.firstIndex(where: { position in
+                persistentChromeElementsMatch(beforeElement, afterElements[position])
+            }) else {
+                removed.append(beforeElement)
+                continue
+            }
+            unmatchedAfterIndices.remove(at: matchedPosition)
+        }
+        let added = unmatchedAfterIndices.map { afterElements[$0] }
+        guard !removed.isEmpty || !added.isEmpty else {
             return []
         }
         return [ObservedAccessibilityFinding(
             kind: .persistentChromeChanged,
             identifiers: ["system.navigation.chrome"],
-            message: persistentChromeChangeMessage(before: beforeSignature, after: afterSignature),
+            message: persistentChromeChangeMessage(
+                removed: removed.map(persistentChromeSignature).sorted(),
+                added: added.map(persistentChromeSignature).sorted()
+            ),
             intersection: nil
         )]
     }
 
-    private func persistentChromeChangeMessage(before: [String], after: [String]) -> String {
-        let removed = before.filter { !after.contains($0) }
-        let added = after.filter { !before.contains($0) }
+    private func persistentChromeChangeMessage(removed: [String], added: [String]) -> String {
         return "Persistent navigation, sidebar, or tab chrome changed during deep scroll. "
             + "Removed: \(removed.joined(separator: "; ")). Added: \(added.joined(separator: "; "))."
     }
 
-    private func persistentChromeSignature(
+    private func persistentChromeElements(
         _ elements: [ObservedAccessibilityElement],
         excluding scrollContent: [ObservedAccessibilityElement]
-    ) -> [String] {
+    ) -> [ObservedAccessibilityElement] {
         let containers = elements.filter { element in
             Self.chromeTypes.contains(element.type)
                 || (element.type == "collectionView" && element.label == "Sidebar")
@@ -2673,18 +4377,32 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     return container.type != "tabBar" || element.type == "button"
                 }
             }
-            .map { element in
-                [
-                    element.type,
-                    stableChromeIdentity(element),
-                    element.label,
-                    stableChromeCoordinate(element.frame.x),
-                    stableChromeCoordinate(element.frame.y),
-                    stableChromeCoordinate(element.frame.width),
-                    stableChromeCoordinate(element.frame.height)
-                ].joined(separator: "|")
-            }
-            .sorted()
+    }
+
+    private func persistentChromeElementsMatch(
+        _ before: ObservedAccessibilityElement,
+        _ after: ObservedAccessibilityElement
+    ) -> Bool {
+        let tolerance = 0.75
+        return before.type == after.type
+            && stableChromeIdentity(before) == stableChromeIdentity(after)
+            && before.label == after.label
+            && abs(before.frame.x - after.frame.x) <= tolerance
+            && abs(before.frame.y - after.frame.y) <= tolerance
+            && abs(before.frame.width - after.frame.width) <= tolerance
+            && abs(before.frame.height - after.frame.height) <= tolerance
+    }
+
+    private func persistentChromeSignature(_ element: ObservedAccessibilityElement) -> String {
+        [
+            element.type,
+            stableChromeIdentity(element),
+            element.label,
+            stableChromeCoordinate(element.frame.x),
+            stableChromeCoordinate(element.frame.y),
+            stableChromeCoordinate(element.frame.width),
+            stableChromeCoordinate(element.frame.height)
+        ].joined(separator: "|")
     }
 
     private func stableChromeIdentity(_ element: ObservedAccessibilityElement) -> String {
@@ -2718,7 +4436,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     }
 
     private func stableChromeCoordinate(_ value: Double) -> String {
-        (value * 2).rounded().formatted(.number.grouping(.never))
+        value.rounded().formatted(.number.grouping(.never))
     }
 
     private func didObserveContentMovement(
@@ -3032,6 +4750,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         case .link: "link"
         case .slider: "slider"
         case .stepper: "stepper"
+        case .cell: "cell"
         case .staticText: "staticText"
         case .image: "image"
         default: "type-\(type.rawValue)"

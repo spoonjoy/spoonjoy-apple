@@ -7,7 +7,6 @@ struct KitchenView: View {
     let recipes: [Recipe]
     let cookbooks: [Cookbook]
     let ownerUsername: String?
-    let openRoute: (AppRoute) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -57,13 +56,16 @@ struct KitchenView: View {
     }
 
     @ViewBuilder private var kitchenIndexStack: some View {
-        VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+        VStack(
+            alignment: .leading,
+            spacing: usesWideKitchenSpread ? KitchenTableTheme.pageSpacing : KitchenTableTheme.sectionSpacing
+        ) {
             if !indexedRecipes.isEmpty {
                 RecipeIndex(recipes: indexedRecipes)
             }
 
             if !cookbooks.isEmpty {
-                CookbookShelf(cookbooks: cookbooks, openRoute: openRoute)
+                CookbookShelf(cookbooks: cookbooks)
             }
         }
     }
@@ -106,6 +108,7 @@ private struct KitchenSpreadLayout: Layout {
     static let wideMinimumWidth: CGFloat = 928
 
     private let wideSpacing: CGFloat = 28
+    private let narrowSpacing: CGFloat = 16
     private let leadWidth: CGFloat = 540
     private let indexWidth: CGFloat = 360
 
@@ -130,7 +133,7 @@ private struct KitchenSpreadLayout: Layout {
         let indexSize = subviews[1].sizeThatFits(childProposal)
         return CGSize(
             width: availableWidth,
-            height: leadSize.height + KitchenTableTheme.pageSpacing + indexSize.height
+            height: leadSize.height + narrowSpacing + indexSize.height
         )
     }
 
@@ -162,7 +165,7 @@ private struct KitchenSpreadLayout: Layout {
         let leadSize = subviews[0].sizeThatFits(childProposal)
         subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: childProposal)
         subviews[1].place(
-            at: CGPoint(x: bounds.minX, y: bounds.minY + leadSize.height + KitchenTableTheme.pageSpacing),
+            at: CGPoint(x: bounds.minX, y: bounds.minY + leadSize.height + narrowSpacing),
             anchor: .topLeading,
             proposal: childProposal
         )
@@ -239,6 +242,7 @@ struct RecipeLead: View {
                 leadVisual
             }
             .buttonStyle(.plain)
+            .accessibilityIdentifier("kitchen.lead.\(recipe.id)")
             .accessibilityLabel(recipe.title)
             .accessibilityHint("By @\(recipe.chef.username). Opens recipe detail")
 
@@ -337,7 +341,7 @@ struct RecipeLead: View {
 
     private func leadText(foreground: Color, secondary: Color, label: Color) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Latest from the kitchen".uppercased())
+            Text("On the Counter".uppercased())
                 .font(.caption2.weight(.bold))
                 .foregroundStyle(label)
             Text(recipe.title)
@@ -370,8 +374,7 @@ struct RecipeIndex: View {
     var body: some View {
         KitchenTableSection(
             title: "Recipe Index",
-            subtitle: "\(recipes.count) saved \(recipes.count == 1 ? "recipe" : "recipes")",
-            accessibilitySubtitleIdentifier: "kitchen.recipe-index.count"
+            subtitle: nil
         ) {
             if recipes.isEmpty {
                 KitchenEmptySection(
@@ -400,7 +403,7 @@ struct KitchenRecipeIndexRow: View {
         NavigationLink(value: recipeRoute) {
             KitchenTableObjectRow(
                 title: recipe.title,
-                subtitle: rowSubtitle,
+                subtitle: nil,
                 showsLeading: recipe.displayCoverImageURL != nil
             ) {
                 RecipeCoverImage(
@@ -418,6 +421,7 @@ struct KitchenRecipeIndexRow: View {
                 }
             }
         }
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(rowAccessibilityLabel)
@@ -433,7 +437,7 @@ struct KitchenRecipeIndexRow: View {
         .recipeDetail(id: recipe.id, presentation: .detail)
     }
 
-    private var rowSubtitle: String {
+    private var accessibilityDetails: String {
         [
             recipe.description,
             recipe.displayCoverProvenanceLabel,
@@ -445,7 +449,7 @@ struct KitchenRecipeIndexRow: View {
     }
 
     private var rowAccessibilityLabel: String {
-        [recipe.title, rowSubtitle]
+        [recipe.title, accessibilityDetails]
             .filter { !$0.isEmpty }
             .joined(separator: ", ")
     }

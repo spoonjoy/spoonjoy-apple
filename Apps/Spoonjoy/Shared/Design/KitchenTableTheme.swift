@@ -378,6 +378,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
             }
         }
         .padding(.vertical, 10)
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(KitchenTableTheme.line.opacity(0.35))
@@ -425,7 +426,6 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                     .layoutPriority(1)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func objectThumbnail(size: CGFloat) -> some View {
@@ -515,7 +515,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
             .fixedSize(horizontal: false, vertical: true)
-            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 11)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 6)
             .padding(.horizontal, 14)
             .foregroundStyle(foreground)
             .background(background(configuration: configuration), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))

@@ -418,18 +418,16 @@ private struct CookbookCreateSheet: View {
 
 struct CookbookShelf: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     let rows: [CookbookSurfaceRowViewModel]
-    let openRoute: (AppRoute) -> Void
 
-    init(rows: [CookbookSurfaceRowViewModel], openRoute: @escaping (AppRoute) -> Void) {
+    init(rows: [CookbookSurfaceRowViewModel]) {
         self.rows = rows
-        self.openRoute = openRoute
     }
 
-    init(cookbooks: [Cookbook], openRoute: @escaping (AppRoute) -> Void) {
+    init(cookbooks: [Cookbook]) {
         rows = cookbooks.map { CookbookSurfaceRowViewModel(summary: CookbookSummary(cookbook: $0)) }
-        self.openRoute = openRoute
     }
 
     var body: some View {
@@ -441,19 +439,30 @@ struct CookbookShelf: View {
                     tint: KitchenTableTheme.brass
                 )
             } else {
-                if dynamicTypeSize.isAccessibilitySize {
-                    LazyVStack(alignment: .leading, spacing: 8) {
+                if horizontalSizeClass == .compact || dynamicTypeSize >= .xxLarge {
+                    LazyVStack(alignment: .leading, spacing: 0) {
                         ForEach(rows) { row in
-                            cookbookButton(row: row) {
-                                accessibleCookbookRow(row)
+                            cookbookLink(row: row) {
+                                KitchenTableObjectRow(
+                                    title: row.title,
+                                    subtitle: nil,
+                                    showsLeading: false
+                                ) {
+                                    EmptyView()
+                                } trailing: {
+                                    Image(systemName: "chevron.forward")
+                                        .font(KitchenTableTheme.uiLabel)
+                                        .foregroundStyle(KitchenTableTheme.brass)
+                                        .accessibilityHidden(true)
+                                }
                             }
                         }
                     }
                 } else {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(alignment: .top, spacing: 14) {
+                        HStack(alignment: .top, spacing: 20) {
                             ForEach(rows) { row in
-                                cookbookButton(row: row) {
+                                cookbookLink(row: row) {
                                     CookbookCoverArt(row: row)
                                         .frame(width: 144)
                                 }
@@ -466,34 +475,11 @@ struct CookbookShelf: View {
         }
     }
 
-    private func accessibleCookbookRow(_ row: CookbookSurfaceRowViewModel) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: "books.vertical")
-                .foregroundStyle(KitchenTableTheme.brass)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(row.title)
-                    .font(KitchenTableTheme.objectTitle)
-                Text(row.recipeCountLabel)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            Image(systemName: "chevron.forward")
-                .font(.body.weight(.semibold))
-                .accessibilityHidden(true)
-        }
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-    }
-
-    private func cookbookButton<Content: View>(
+    private func cookbookLink<Content: View>(
         row: CookbookSurfaceRowViewModel,
         @ViewBuilder label: () -> Content
     ) -> some View {
-        Button {
-            openRoute(row.openRoute)
-        } label: {
+        NavigationLink(value: row.openRoute) {
             label()
         }
         .buttonStyle(.plain)
@@ -505,7 +491,8 @@ struct CookbookShelf: View {
             }
         }
         .accessibilityIdentifier("kitchen.cookbook.\(row.id)")
-        .accessibilityLabel("\(row.title), \(row.recipeCountLabel)")
+        .accessibilityLabel(row.title)
+        .accessibilityValue(row.recipeCountLabel)
         .accessibilityHint("Opens cookbook")
     }
 }
@@ -533,20 +520,35 @@ private struct CookbookCoverArt: View {
     let title: String
     let recipeCountLabel: String
     let cover: CookbookCover
+    let hidesFromAccessibility: Bool
 
-    init(row: CookbookSurfaceRowViewModel) {
+    init(row: CookbookSurfaceRowViewModel, hidesFromAccessibility: Bool = true) {
         title = row.title
         recipeCountLabel = row.recipeCountLabel
         cover = row.cover
+        self.hidesFromAccessibility = hidesFromAccessibility
     }
 
-    init(cookbook: Cookbook) {
+    init(cookbook: Cookbook, hidesFromAccessibility: Bool = true) {
         title = cookbook.title
         recipeCountLabel = "\(cookbook.recipeCount) \(cookbook.recipeCount == 1 ? "recipe" : "recipes")"
         cover = cookbook.cover
+        self.hidesFromAccessibility = hidesFromAccessibility
     }
 
+    @ViewBuilder
     var body: some View {
+        if hidesFromAccessibility {
+            coverBody.accessibilityHidden(true)
+        } else {
+            coverBody
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(title)
+                .accessibilityValue(recipeCountLabel)
+        }
+    }
+
+    private var coverBody: some View {
         ZStack(alignment: .bottomLeading) {
             if cover.primaryImageURL == nil {
                 CookbookFallbackCover(title: title, recipeCountLabel: recipeCountLabel)
@@ -579,7 +581,6 @@ private struct CookbookCoverArt: View {
                 .strokeBorder(KitchenTableTheme.lineStrong.opacity(0.56), lineWidth: 1)
         }
         .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 10, y: 6)
-        .accessibilityHidden(true)
     }
 }
 

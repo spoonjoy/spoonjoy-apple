@@ -39,6 +39,8 @@ struct ObservedContrastPixelEvidence: Codable, Equatable, Sendable {
     let analyzedPixelCount: Int
     let backgroundPixelCount: Int
     let foregroundPixelCount: Int
+    let ignoredEdgeRulePixelCount: Int
+    let ignoredEdgeRuleRowCount: Int
     let background: ObservedRGBPixel
     let foreground: ObservedRGBPixel
 }
@@ -181,9 +183,27 @@ enum ScreenshotPixelContrastAdjudicator {
 
         let background = average(backgroundPixels)
         let backgroundLuminance = background.luminance
-        let foregroundCandidates = pixels.filter {
-            $0.distance(to: background) >= 16
-                && abs($0.luminance - backgroundLuminance) >= 0.03
+        let indexedForegroundCandidates = pixels.enumerated().filter {
+            $0.element.distance(to: background) >= 16
+                && abs($0.element.luminance - backgroundLuminance) >= 0.03
+        }
+        let edgeBandHeight = max(1, Int(ceil(Double(height) * 0.1)))
+        let minimumRuleWidth = max(1, Int(ceil(Double(width) * 0.6)))
+        let foregroundCountByRow = Dictionary(
+            grouping: indexedForegroundCandidates,
+            by: { $0.offset / width }
+        ).mapValues(\.count)
+        let ignoredEdgeRuleRows = Set(foregroundCountByRow.compactMap { row, count in
+            let isAtEdge = row < edgeBandHeight || row >= height - edgeBandHeight
+            return isAtEdge && count >= minimumRuleWidth ? row : nil
+        })
+        let ignoredEdgeRulePixelCount = indexedForegroundCandidates.reduce(into: 0) { count, candidate in
+            if ignoredEdgeRuleRows.contains(candidate.offset / width) {
+                count += 1
+            }
+        }
+        let foregroundCandidates = indexedForegroundCandidates.compactMap { candidate in
+            ignoredEdgeRuleRows.contains(candidate.offset / width) ? nil : candidate.element
         }
         let minimumForegroundPixels = max(8, pixels.count / 200)
         let candidateCoverage = Double(foregroundCandidates.count) / Double(pixels.count)
@@ -216,7 +236,7 @@ enum ScreenshotPixelContrastAdjudicator {
         let foregroundCoverage = Double(foregroundPixelCount) / Double(pixels.count)
 
         return ObservedContrastPixelEvidence(
-            method: "screenshotPixelContrastV1",
+            method: "screenshotPixelContrastV2",
             screenshotSHA256: screenshotSHA256,
             contrastRatio: contrastRatio,
             requiredContrastRatio: requiredContrastRatio,
@@ -226,6 +246,8 @@ enum ScreenshotPixelContrastAdjudicator {
             analyzedPixelCount: pixels.count,
             backgroundPixelCount: backgroundPixels.count,
             foregroundPixelCount: foregroundPixelCount,
+            ignoredEdgeRulePixelCount: ignoredEdgeRulePixelCount,
+            ignoredEdgeRuleRowCount: ignoredEdgeRuleRows.count,
             background: background,
             foreground: foreground
         )

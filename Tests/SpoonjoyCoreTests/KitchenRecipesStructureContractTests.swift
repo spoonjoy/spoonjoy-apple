@@ -21,22 +21,25 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeIndex",
                 "CookbookShelf",
                 "My Kitchen",
-                "Latest from the kitchen",
+                "On the Counter",
                 "private var indexedRecipes",
                 "recipe.id != leadRecipe.id",
                 "RecipeIndex(recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
-                "openRoute: openRoute",
+                "private let narrowSpacing: CGFloat = 16",
                 "countLabel(kitchen.counts.recipes",
                 "countLabel(kitchen.counts.cookbooks",
+                ".accessibilityIdentifier(\"kitchen.lead.\\(recipe.id)\")",
                 "aspectRatio(16 / 10, contentMode: .fit)",
                 ".clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))"
             ],
             forbids: [
+                "let openRoute: (AppRoute) -> Void",
+                "CookbookShelf(cookbooks: cookbooks, openRoute:",
                 "coverlessNoPhotoBadge",
                 "Text(\"Photo not added\")",
                 "From your kitchen",
-                "On the Counter",
+                "Latest from the kitchen",
                 "recipe.attribution.creditText",
                 "case .ready:\n            \"Ready\"",
                 "recipes.first?.chef.username",
@@ -50,7 +53,9 @@ struct KitchenRecipesStructureContractTests {
             in: cookbooksPath,
             contains: [
                 "CookbookCoverArt(row: row)",
-                "ScrollView(.horizontal, showsIndicators: false)"
+                "ScrollView(.horizontal, showsIndicators: false)",
+                "if horizontalSizeClass == .compact || dynamicTypeSize >= .xxLarge",
+                "KitchenTableObjectRow("
             ]
         )
         expectContent(
@@ -58,7 +63,7 @@ struct KitchenRecipesStructureContractTests {
             in: navigationPath,
             contains: [
                 "ownerUsername: currentKitchenOwnerUsername",
-                "openRoute: openRoute",
+                ".fixedSize(horizontal: false, vertical: true)",
                 "contentState.cachedProfiles.first(where: { $0.profile.id == currentChefID })?.profile.username"
             ],
             forbids: ["recipes.first?.chef.username"]
@@ -78,14 +83,20 @@ struct KitchenRecipesStructureContractTests {
             contains: [
                 "NavigationLink(value: recipeRoute)",
                 ".contextMenu",
+                "subtitle: nil",
+                "private var accessibilityDetails",
+                "usesWideKitchenSpread ? KitchenTableTheme.pageSpacing : KitchenTableTheme.sectionSpacing",
                 "recipe.description",
                 "recipe.servings",
                 "recipe.displayCoverProvenanceLabel",
+                ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)",
                 "shareRecipe",
                 ".accessibilityHint(\"Opens recipe detail\")"
             ],
             forbids: [
                 "subtitle: recipe.chef.username",
+                "subtitle: rowSubtitle",
+                "accessibilitySubtitleIdentifier: \"kitchen.recipe-index.count\"",
                 "Text(\"Open\")",
                 "Label(\"Open\"",
                 "ordinalLabel",

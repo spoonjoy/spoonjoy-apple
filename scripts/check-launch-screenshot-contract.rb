@@ -42,7 +42,7 @@ DEEP_SCROLL_ROUTES = %w[
 ].freeze
 REQUIRED_AUDIT_TYPES = %w[contrast dynamicType textClipped hitRegion trait].freeze
 DEEP_SCROLL_TERMINALS = {
-  "kitchen" => ["kitchen.cookbook.cookbook_slow_sundays", "Slow Sundays and Long Simmering Suppers, 0 recipes"],
+  "kitchen" => ["kitchen.cookbook.cookbook_weeknights", "Weeknights"],
   "recipes" => ["recipes.terminal", "Start your recipe box with the dishes you actually cook."],
   "saved-recipes" => ["saved-recipes.terminal", "Recipes you save to your cookbooks will appear here."],
   "recipe-detail" => ["recipe-detail.terminal", "No cooks logged yet"],
@@ -836,10 +836,7 @@ def add_accessibility_proofs!(root, manifest, stem)
           "accessibilitySnapshotAfterSHA256" => "c" * 64,
           "applicationProcessIdentifier" => 42,
           "windowID" => 84,
-          "windowFrame" => { "x" => 0, "y" => 0, "width" => 200, "height" => 120 },
-          "selectedScrollHierarchyIdentifier" => nil,
-          "selectedScrollHierarchySnapshotBeforeSHA256" => nil,
-          "selectedScrollHierarchySnapshotAfterSHA256" => nil
+          "windowFrame" => { "x" => 0, "y" => 0, "width" => 200, "height" => 120 }
         }
       }
       if DEEP_SCROLL_ROUTES.include?(route)
@@ -917,6 +914,10 @@ def add_accessibility_proofs!(root, manifest, stem)
         "auditIssues" => [],
         "auditTypes" => REQUIRED_AUDIT_TYPES,
         "verifiedContrastFalsePositives" => [],
+        "verifiedStaleOffscreenContrastFalsePositives" => [],
+        "contrastPixelAdjudicationDiagnostics" => [],
+        "verifiedSystemChromeContrastFalsePositives" => [],
+        "verifiedTextClippedFalsePositives" => [],
         "screenshotSHA256" => manifest.dig("screenshotArtifacts", platform == "ipad" ? (content_size_category == "accessibility-extra-extra-extra-large" ? "iosTabletAccessibility" : content_size_category == "extra-extra-extra-large" ? "iosTabletXXXL" : "iosTablet") : (content_size_category == "accessibility-extra-extra-extra-large" ? "iosAccessibility" : content_size_category == "extra-extra-extra-large" ? "iosXXXL" : "iosMobile"), "sha256"),
         "geometryFindings" => [],
         "observedContentSizeCategory" => content_size_category,
@@ -970,6 +971,11 @@ def add_accessibility_proofs!(root, manifest, stem)
           "auditIssues" => [],
           "auditTypes" => REQUIRED_AUDIT_TYPES,
           "verifiedContrastFalsePositives" => [],
+          "verifiedStaleOffscreenContrastFalsePositives" => [],
+          "contrastPixelAdjudicationDiagnostics" => [],
+          "verifiedSystemChromeContrastFalsePositives" => [],
+          "verifiedTextClippedFalsePositives" => [],
+          "elements" => [terminal],
           "screenshotSHA256" => manifest.dig("deepScrollScreenshotArtifacts", platform == "ipad" ? (content_size_category == "accessibility-extra-extra-extra-large" ? "iosTabletAccessibility" : content_size_category == "extra-extra-extra-large" ? "iosTabletXXXL" : "iosTablet") : (content_size_category == "accessibility-extra-extra-extra-large" ? "iosAccessibility" : content_size_category == "extra-extra-extra-large" ? "iosXXXL" : "iosMobile"), "sha256"),
           "observedContentMovement" => true,
           "contentFitsWithoutScrolling" => false,
@@ -2079,7 +2085,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         Path(transient_failure_marker).write_text("failed once\n")
         raise SystemExit(65)
     terminal_map = {
-        "kitchen": ("kitchen.cookbook.cookbook_slow_sundays", "Slow Sundays and Long Simmering Suppers, 0 recipes"),
+        "kitchen": ("kitchen.cookbook.cookbook_weeknights", "Weeknights"),
         "recipes": ("recipes.terminal", "Start your recipe box with the dishes you actually cook."),
         "saved-recipes": ("saved-recipes.terminal", "Recipes you save to your cookbooks will appear here."),
         "recipe-detail": ("recipe-detail.terminal", "No cooks logged yet"),
@@ -2257,7 +2263,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     def pixel_accessibility_binding(capture_identity, phase, deep=False):
         return {"schema":"iosPixelAccessibilityBindingV1","captureID":capture_identity["captureID"],"capturePhase":phase,"pixelSource":"mainScreen","screenshotSHA256":screenshot_sha256,"accessibilitySnapshotBeforeSHA256":"a"*64,"accessibilitySnapshotAfterSHA256":"a"*64,"windowFrame":{"x":0,"y":0,"width":100,"height":100},"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll" if deep else None,"selectedScrollHierarchySnapshotBeforeSHA256":"b"*64 if deep else None,"selectedScrollHierarchySnapshotAfterSHA256":"b"*64 if deep else None}
     audit_types = ["contrast", "dynamicType", "textClipped", "hitRegion", "trait"]
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(initial_capture_identity, "initial"),"hostProcessObservation":host_process_observation,"geometryFindings":[product_finding] if product_finding else [],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[]}
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(initial_capture_identity, "initial"),"hostProcessObservation":host_process_observation,"geometryFindings":[product_finding] if product_finding else [],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[]}
     if args.route in {"kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs", "profile", "profile-graph", "search", "capture", "settings"}:
         deep_proof = dict(proof)
         deep_proof["visualReadiness"] = dict(proof["visualReadiness"])
@@ -2267,7 +2273,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         deep_filename = f"{proof_path.stem}.generation-2{proof_path.suffix or '.json'}"
         deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"applicationProcessIdentifier":application_process_identifier,"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
         deep_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"19dc51d4-5113-4268-80a5-c85cc05e8d0b","captureRunNonce":proof["captureRunNonce"],"capturePhase":"deepScroll","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
-        evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(deep_capture_identity, "deepScroll", True),"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll","selectedScrollHierarchyElements":[terminal],"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}
+        evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"elements":[terminal],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(deep_capture_identity, "deepScroll", True),"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll","selectedScrollHierarchyElements":[terminal],"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}
         deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
         deep_output.write_bytes(deep_proof_bytes)
     output = Path(args.output)
@@ -2865,7 +2871,7 @@ PY
       output, route, identifiers, pid, capture_run_nonce, readiness_proof_path, screenshot_path, deep_scroll_screenshot_path, window_id, bundle_id, bundle_path, executable_path = ARGV
       elements = JSON.parse(identifiers).map.with_index { |identifier, index| {identifier: identifier, role: "AXStaticText", subrole: "", title: identifier, frame: {x: 10, y: 10 + index * 45, width: 120, height: 44}, enabled: true, focused: false, actions: []} }
       terminals = {
-        "kitchen" => ["kitchen.cookbook.cookbook_slow_sundays", "Slow Sundays and Long Simmering Suppers, 0 recipes"],
+        "kitchen" => ["kitchen.cookbook.cookbook_weeknights", "Weeknights"],
         "recipes" => ["recipes.terminal", "Start your recipe box with the dishes you actually cook."],
         "saved-recipes" => ["saved-recipes.terminal", "Recipes you save to your cookbooks will appear here."],
         "recipe-detail" => ["recipe-detail.terminal", "No cooks logged yet"],
@@ -2900,15 +2906,20 @@ PY
       initial_screenshot_sha256 = Digest::SHA256.file(screenshot_path).hexdigest
       deep_screenshot_sha256 = Digest::SHA256.file(deep_scroll_screenshot_path).hexdigest
       pixel_binding = lambda do |phase, digest, selected_identifier = nil|
-        {
+        binding = {
           schema: "macosPixelAccessibilityBindingV1", capturePhase: phase, pixelSource: "exactCGWindowID",
           screenshotSHA256: digest, accessibilitySnapshotBeforeSHA256: "c" * 64,
           accessibilitySnapshotAfterSHA256: "c" * 64, applicationProcessIdentifier: Integer(pid),
-          windowID: Integer(window_id), windowFrame: root_frame,
-          selectedScrollHierarchyIdentifier: selected_identifier,
-          selectedScrollHierarchySnapshotBeforeSHA256: selected_identifier ? "d" * 64 : nil,
-          selectedScrollHierarchySnapshotAfterSHA256: selected_identifier ? "d" * 64 : nil
+          windowID: Integer(window_id), windowFrame: root_frame
         }
+        if selected_identifier
+          binding.merge!(
+            selectedScrollHierarchyIdentifier: selected_identifier,
+            selectedScrollHierarchySnapshotBeforeSHA256: "d" * 64,
+            selectedScrollHierarchySnapshotAfterSHA256: "d" * 64
+          )
+        end
+        binding
       end
       evidence = {
         platform: "macos", route: route, captureRunNonce: capture_run_nonce,
@@ -3731,7 +3742,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     parser.add_argument("--environment-json")
     args = parser.parse_args()
     terminal_map = {
-        "kitchen": ("kitchen.cookbook.cookbook_slow_sundays", "Slow Sundays and Long Simmering Suppers, 0 recipes"),
+        "kitchen": ("kitchen.cookbook.cookbook_weeknights", "Weeknights"),
         "recipes": ("recipes.terminal", "Start your recipe box with the dishes you actually cook."),
         "saved-recipes": ("saved-recipes.terminal", "Recipes you save to your cookbooks will appear here."),
         "recipe-detail": ("recipe-detail.terminal", "No cooks logged yet"),
@@ -3849,7 +3860,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     initial_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"7616b756-9527-4fd6-982a-8f3cb9f9c4dc","captureRunNonce":proof["captureRunNonce"],"capturePhase":"initial","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
     deep_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"19dc51d4-5113-4268-80a5-c85cc05e8d0b","captureRunNonce":proof["captureRunNonce"],"capturePhase":"deepScroll","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
     audit_types = ["contrast", "dynamicType", "textClipped", "hitRegion", "trait"]
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}}
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"elements":[terminal],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}}
     deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
     deep_output.write_bytes(deep_proof_bytes)
     output = Path(args.output)
@@ -3925,7 +3936,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     ruby -rjson -rdigest -e '
       output, route, pid, capture_run_nonce, readiness_proof_path, screenshot_path, deep_scroll_screenshot_path, window_id, bundle_id, bundle_path, executable_path = ARGV
       terminals = {
-        "kitchen" => ["kitchen.cookbook.cookbook_slow_sundays", "Slow Sundays and Long Simmering Suppers, 0 recipes"],
+        "kitchen" => ["kitchen.cookbook.cookbook_weeknights", "Weeknights"],
         "recipes" => ["recipes.terminal", "Start your recipe box with the dishes you actually cook."],
         "saved-recipes" => ["saved-recipes.terminal", "Recipes you save to your cookbooks will appear here."],
         "recipe-detail" => ["recipe-detail.terminal", "No cooks logged yet"],

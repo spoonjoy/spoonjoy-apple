@@ -70,6 +70,13 @@ struct AXObservedFinding: Codable {
     let intersection: AXObservedRect?
 }
 
+func findingSummary(_ findings: [AXObservedFinding]) -> String {
+    findings.map { finding in
+        let identifiers = finding.identifiers.joined(separator: ",")
+        return "\(finding.kind.rawValue)[\(identifiers)]: \(finding.message)"
+    }.joined(separator: "; ")
+}
+
 struct AXObservedPixelAccessibilityBinding: Codable {
     let schema: String
     let capturePhase: String
@@ -457,8 +464,8 @@ func terminalExpectation(for options: Options) -> AXRouteTerminalExpectation? {
     case "kitchen":
         AXRouteTerminalExpectation(
             scrollIdentifier: "spoonjoy.page-scroll",
-            terminalIdentifier: "kitchen.cookbook.cookbook_slow_sundays",
-            terminalTitle: "Slow Sundays and Long Simmering Suppers, 0 recipes",
+            terminalIdentifier: "kitchen.cookbook.cookbook_weeknights",
+            terminalTitle: "Weeknights",
             role: kAXButtonRole as String,
             requiredAction: kAXPressAction as String
         )
@@ -935,15 +942,19 @@ func observeDeepScroll(
     )
 }
 
+func screenshotTemporaryURL(for outputURL: URL, nonce: UUID = UUID()) -> URL {
+    outputURL.deletingLastPathComponent().appendingPathComponent(
+        "\(outputURL.lastPathComponent).\(nonce.uuidString).capture.png"
+    )
+}
+
 func capturePostScrollScreenshot(path: String, windowID: CGWindowID) -> CapturedPostScrollScreenshot {
     let outputURL = URL(fileURLWithPath: path)
     try? FileManager.default.createDirectory(
         at: outputURL.deletingLastPathComponent(),
         withIntermediateDirectories: true
     )
-    let temporaryURL = outputURL.deletingLastPathComponent().appendingPathComponent(
-        ".\(outputURL.lastPathComponent).\(UUID().uuidString).capture.png"
-    )
+    let temporaryURL = screenshotTemporaryURL(for: outputURL)
     try? FileManager.default.removeItem(at: temporaryURL)
     failureCleanupURLs.append(temporaryURL)
     let process = Process()
@@ -999,8 +1010,45 @@ func publishPostScrollScreenshot(_ capture: CapturedPostScrollScreenshot, path: 
 }
 
 func failCapture(_ capture: CapturedPostScrollScreenshot, _ message: String) -> Never {
-    try? FileManager.default.removeItem(at: capture.temporaryURL)
+    discardCapture(capture)
     fail(message)
+}
+
+func discardCapture(_ capture: CapturedPostScrollScreenshot) {
+    try? FileManager.default.removeItem(at: capture.temporaryURL)
+    failureCleanupURLs.removeAll { $0 == capture.temporaryURL }
+}
+
+func publishFailureDiagnostic(
+    _ evidence: AXObservedEvidence,
+    options: Options,
+    message: String
+) -> Never {
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+    let outputURL = URL(fileURLWithPath: options.outputPath)
+    let temporaryOutputURL = outputURL.deletingLastPathComponent().appendingPathComponent(
+        ".\(outputURL.lastPathComponent).\(UUID().uuidString).diagnostic.json"
+    )
+    failureCleanupURLs.append(temporaryOutputURL)
+    do {
+        try FileManager.default.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try encoder.encode(evidence).write(to: temporaryOutputURL)
+    } catch {
+        fail("macOS diagnostic evidence publication failed: \(error)")
+    }
+    syncFile(at: temporaryOutputURL, label: "macOS diagnostic evidence")
+    atomicallyPublish(temporaryOutputURL, to: outputURL, label: "macOS diagnostic evidence")
+    failureCleanupURLs.removeAll {
+        $0 == outputURL || $0.path == options.screenshotPath
+    }
+    FileHandle.standardError.write(Data(
+        "FAIL: \(message); diagnostic evidence: \(outputURL.path)\n".utf8
+    ))
+    exit(1)
 }
 
 func findings(
@@ -1268,6 +1316,36 @@ func observationDigest(_ elements: [AXObservedElement]) -> String {
     return sha256Hex(data)
 }
 
+func observationDifferenceSummary(
+    before: [AXObservedElement],
+    after: [AXObservedElement]
+) -> String {
+    func fingerprint(_ element: AXObservedElement) -> String {
+        let title = element.title.replacingOccurrences(of: "\n", with: " ")
+        return [
+            element.identifier,
+            element.role,
+            element.subrole,
+            title,
+            "\(element.frame.x),\(element.frame.y),\(element.frame.width),\(element.frame.height)",
+            "enabled=\(element.enabled)",
+            "focused=\(element.focused)",
+            element.actions.sorted().joined(separator: ",")
+        ].joined(separator: "|")
+    }
+
+    let beforeFingerprints = Set(before.map(fingerprint))
+    let afterFingerprints = Set(after.map(fingerprint))
+    let removed = beforeFingerprints.subtracting(afterFingerprints).sorted().prefix(3)
+    let added = afterFingerprints.subtracting(beforeFingerprints).sorted().prefix(3)
+    return [
+        "before=\(observationDigest(before))",
+        "after=\(observationDigest(after))",
+        "removed=\(Array(removed))",
+        "added=\(Array(added))"
+    ].joined(separator: " ")
+}
+
 func exactSelectedScrollArea(
     rootWindowElement: AXUIElement,
     expectation: AXRouteTerminalExpectation
@@ -1283,86 +1361,127 @@ func exactSelectedScrollArea(
     return scrollArea
 }
 
+func waitForRequiredRouteTitles(options: Options) {
+    let expectedTitles = requiredTitles(for: options)
+    let maximumReadinessAttempts = 24
+    var lastMissingTitles = expectedTitles.sorted()
+
+    for attempt in 1...maximumReadinessAttempts {
+        _ = validateRunningApplication(options)
+        let window = boundRootWindow(options: options)
+        let observedTitles = Set(observeTree(root: window.element).map(\.observation.title))
+        lastMissingTitles = expectedTitles.subtracting(observedTitles).sorted()
+        if lastMissingTitles.isEmpty {
+            return
+        }
+        if attempt < maximumReadinessAttempts {
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+    }
+
+    fail(
+        "route content did not become accessibility-ready after \(maximumReadinessAttempts) attempts; "
+            + "missing titles: \(lastMissingTitles)"
+    )
+}
+
 func captureBoundObservation(
     options: Options,
     screenshotPath: String,
     capturePhase: String,
     expectation: AXRouteTerminalExpectation?
 ) -> AXPostScrollObservation {
-    _ = validateRunningApplication(options)
-    let firstWindow = boundRootWindow(options: options)
-    let firstElements = observeTree(root: firstWindow.element).map(\.observation)
-    let firstSelectedScrollArea = expectation.map {
-        exactSelectedScrollArea(rootWindowElement: firstWindow.element, expectation: $0)
-    }
-    let firstSelectedElements = firstSelectedScrollArea.map {
-        observeTree(root: $0).map(\.observation)
-    } ?? []
-    if let expectation, let firstSelectedScrollArea {
-        let matches = firstSelectedElements.filter { $0.identifier == expectation.terminalIdentifier }
-        guard matches.count == 1,
-              terminalMatches(matches.first, viewport: frame(of: firstSelectedScrollArea), expectation: expectation) else {
-            fail("terminal semantics were not exact inside the selected scroll hierarchy before capture")
+    let maximumCaptureBindingAttempts = 4
+    var lastInstability = "no observation was captured"
+
+    for attempt in 1...maximumCaptureBindingAttempts {
+        _ = validateRunningApplication(options)
+        let firstWindow = boundRootWindow(options: options)
+        let firstElements = observeTree(root: firstWindow.element).map(\.observation)
+        let firstSelectedScrollArea = expectation.map {
+            exactSelectedScrollArea(rootWindowElement: firstWindow.element, expectation: $0)
         }
+        let firstSelectedElements = firstSelectedScrollArea.map {
+            observeTree(root: $0).map(\.observation)
+        } ?? []
+        if let expectation, let firstSelectedScrollArea {
+            let matches = firstSelectedElements.filter { $0.identifier == expectation.terminalIdentifier }
+            guard matches.count == 1,
+                  terminalMatches(matches.first, viewport: frame(of: firstSelectedScrollArea), expectation: expectation) else {
+                fail("terminal semantics were not exact inside the selected scroll hierarchy before capture")
+            }
+        }
+
+        let screenshot = capturePostScrollScreenshot(path: screenshotPath, windowID: options.windowID)
+        _ = validateRunningApplication(options)
+        let secondWindow = boundRootWindow(options: options)
+        let secondElements = observeTree(root: secondWindow.element).map(\.observation)
+        let secondSelectedScrollArea = expectation.map {
+            exactSelectedScrollArea(rootWindowElement: secondWindow.element, expectation: $0)
+        }
+        let secondSelectedElements = secondSelectedScrollArea.map {
+            observeTree(root: $0).map(\.observation)
+        } ?? []
+        let firstSelectedDigest = expectation.map { _ in observationDigest(firstSelectedElements) }
+        let secondSelectedDigest = expectation.map { _ in observationDigest(secondSelectedElements) }
+        let rootIsStable = framesMatch(firstWindow.frame, secondWindow.frame, tolerance: 0.5)
+            && observationDigest(firstElements) == observationDigest(secondElements)
+        let selectedHierarchyIsStable = firstSelectedDigest == secondSelectedDigest
+        guard rootIsStable, selectedHierarchyIsStable else {
+            lastInstability = observationDifferenceSummary(before: firstElements, after: secondElements)
+                + " selectedBefore=\(firstSelectedDigest ?? "none") selectedAfter=\(secondSelectedDigest ?? "none")"
+            discardCapture(screenshot)
+            if attempt < maximumCaptureBindingAttempts {
+                Thread.sleep(forTimeInterval: 0.25)
+                continue
+            }
+            fail(
+                "accessibility tree was not stable across the exact-window screenshot after "
+                    + "\(maximumCaptureBindingAttempts) attempts; \(lastInstability)"
+            )
+        }
+        var terminal: AXObservedElement?
+        if let expectation, let secondSelectedScrollArea {
+            let matches = secondSelectedElements.filter { $0.identifier == expectation.terminalIdentifier }
+            guard matches.count == 1,
+                  terminalMatches(matches.first, viewport: frame(of: secondSelectedScrollArea), expectation: expectation) else {
+                failCapture(screenshot, "terminal semantics changed inside the selected scroll hierarchy across capture")
+            }
+            terminal = matches.first
+        }
+        let rootBeforeDigest = observationDigest(firstElements)
+        let rootAfterDigest = observationDigest(secondElements)
+        return AXPostScrollObservation(
+            window: secondWindow,
+            elements: secondElements,
+            selectedScrollHierarchyIdentifier: expectation?.scrollIdentifier,
+            selectedScrollHierarchyFrame: secondSelectedScrollArea.map(frame),
+            selectedScrollHierarchyElements: secondSelectedElements,
+            terminal: terminal,
+            screenshot: screenshot,
+            pixelAccessibilityBinding: AXObservedPixelAccessibilityBinding(
+                schema: "macosPixelAccessibilityBindingV1",
+                capturePhase: capturePhase,
+                pixelSource: "exactCGWindowID",
+                screenshotSHA256: sha256Hex(screenshot.data),
+                accessibilitySnapshotBeforeSHA256: rootBeforeDigest,
+                accessibilitySnapshotAfterSHA256: rootAfterDigest,
+                applicationProcessIdentifier: options.pid,
+                windowID: options.windowID,
+                windowFrame: secondWindow.frame,
+                selectedScrollHierarchyIdentifier: expectation?.scrollIdentifier,
+                selectedScrollHierarchySnapshotBeforeSHA256: firstSelectedDigest,
+                selectedScrollHierarchySnapshotAfterSHA256: secondSelectedDigest
+            )
+        )
     }
 
-    let screenshot = capturePostScrollScreenshot(path: screenshotPath, windowID: options.windowID)
-    _ = validateRunningApplication(options)
-    let secondWindow = boundRootWindow(options: options)
-    let secondElements = observeTree(root: secondWindow.element).map(\.observation)
-    let secondSelectedScrollArea = expectation.map {
-        exactSelectedScrollArea(rootWindowElement: secondWindow.element, expectation: $0)
-    }
-    let secondSelectedElements = secondSelectedScrollArea.map {
-        observeTree(root: $0).map(\.observation)
-    } ?? []
-    guard framesMatch(firstWindow.frame, secondWindow.frame, tolerance: 0.5),
-          observationDigest(firstElements) == observationDigest(secondElements) else {
-        failCapture(screenshot, "accessibility tree was not stable across the exact-window screenshot")
-    }
-    let firstSelectedDigest = expectation.map { _ in observationDigest(firstSelectedElements) }
-    let secondSelectedDigest = expectation.map { _ in observationDigest(secondSelectedElements) }
-    guard firstSelectedDigest == secondSelectedDigest else {
-        failCapture(screenshot, "selected scroll hierarchy changed across the exact-window screenshot")
-    }
-    var terminal: AXObservedElement?
-    if let expectation, let secondSelectedScrollArea {
-        let matches = secondSelectedElements.filter { $0.identifier == expectation.terminalIdentifier }
-        guard matches.count == 1,
-              terminalMatches(matches.first, viewport: frame(of: secondSelectedScrollArea), expectation: expectation) else {
-            failCapture(screenshot, "terminal semantics changed inside the selected scroll hierarchy across capture")
-        }
-        terminal = matches.first
-    }
-    let rootBeforeDigest = observationDigest(firstElements)
-    let rootAfterDigest = observationDigest(secondElements)
-    return AXPostScrollObservation(
-        window: secondWindow,
-        elements: secondElements,
-        selectedScrollHierarchyIdentifier: expectation?.scrollIdentifier,
-        selectedScrollHierarchyFrame: secondSelectedScrollArea.map(frame),
-        selectedScrollHierarchyElements: secondSelectedElements,
-        terminal: terminal,
-        screenshot: screenshot,
-        pixelAccessibilityBinding: AXObservedPixelAccessibilityBinding(
-            schema: "macosPixelAccessibilityBindingV1",
-            capturePhase: capturePhase,
-            pixelSource: "exactCGWindowID",
-            screenshotSHA256: sha256Hex(screenshot.data),
-            accessibilitySnapshotBeforeSHA256: rootBeforeDigest,
-            accessibilitySnapshotAfterSHA256: rootAfterDigest,
-            applicationProcessIdentifier: options.pid,
-            windowID: options.windowID,
-            windowFrame: secondWindow.frame,
-            selectedScrollHierarchyIdentifier: expectation?.scrollIdentifier,
-            selectedScrollHierarchySnapshotBeforeSHA256: firstSelectedDigest,
-            selectedScrollHierarchySnapshotAfterSHA256: secondSelectedDigest
-        )
-    )
+    fail("accessibility tree binding exited unexpectedly: \(lastInstability)")
 }
 
 func stableInitialObservation(options: Options) -> AXPostScrollObservation {
-    captureBoundObservation(
+    waitForRequiredRouteTitles(options: options)
+    return captureBoundObservation(
         options: options,
         screenshotPath: options.screenshotPath,
         capturePhase: "initial",
@@ -1391,6 +1510,19 @@ if CommandLine.arguments.dropFirst() == ["--self-test-non-finite-frame"] {
     exit(0)
 }
 
+if CommandLine.arguments.dropFirst() == ["--self-test-screenshot-temporary-name"] {
+    let outputURL = URL(fileURLWithPath: "/tmp/spoonjoy-screenshots/macos-desktop.png")
+    let nonce = UUID(uuidString: "00000000-0000-4000-8000-000000000001")!
+    let temporaryURL = screenshotTemporaryURL(for: outputURL, nonce: nonce)
+    guard temporaryURL.deletingLastPathComponent() == outputURL.deletingLastPathComponent(),
+          !temporaryURL.lastPathComponent.hasPrefix("."),
+          temporaryURL.lastPathComponent == "macos-desktop.png.00000000-0000-4000-8000-000000000001.capture.png" else {
+        fail("macOS screenshot temporary name must be a visible sibling accepted by screencapture")
+    }
+    print("macOS screenshot temporary-name ok")
+    exit(0)
+}
+
 let options = parseOptions()
 _ = validateRunningApplication(options)
 let readinessProofData = requiredFileData(at: options.readinessProofPath, label: "readiness proof")
@@ -1412,7 +1544,7 @@ let viewport = initialBoundWindow.frame
 let elements = initialObservation.elements
 let observedFindings = findings(elements: elements, viewport: viewport, options: options)
 guard observedFindings.isEmpty else {
-    failCapture(initialObservation.screenshot, "macOS initial accessibility audit found \(observedFindings.count) issue(s)")
+    failCapture(initialObservation.screenshot, "macOS initial accessibility audit found \(findingSummary(observedFindings))")
 }
 publishPostScrollScreenshot(initialObservation.screenshot, path: options.screenshotPath)
 let screenshotData = requiredFileData(at: options.screenshotPath, label: "published macOS screenshot")
@@ -1423,7 +1555,34 @@ let deepScroll = terminalExpectation(for: options).map { expectation in
         expectation: expectation
     )
     guard scrollEvidence.reachedTerminal, scrollEvidence.findings.isEmpty else {
-        fail("macOS deep scroll did not reach its exact terminal before capture")
+        let diagnostic = AXObservedEvidence(
+            platform: "macos",
+            route: options.route,
+            captureRunNonce: options.captureRunNonce,
+            readinessProofSHA256: sha256Hex(readinessProofData),
+            screenshotSHA256: sha256Hex(screenshotData),
+            pid: options.pid,
+            windowID: options.windowID,
+            bundleIdentifier: options.expectedBundleIdentifier,
+            bundlePath: options.expectedBundlePath,
+            executablePath: options.expectedExecutablePath,
+            executableSHA256: sha256Hex(executableData),
+            windowFrames: windowFrames,
+            elements: elements,
+            findings: observedFindings + scrollEvidence.findings,
+            pixelAccessibilityBinding: initialObservation.pixelAccessibilityBinding,
+            deepScroll: scrollEvidence,
+            recordedAt: ISO8601DateFormatter().string(from: Date())
+        )
+        let initialValue = scrollEvidence.initialScrollValue.map { String($0) } ?? "nil"
+        let finalValue = scrollEvidence.finalScrollValue.map { String($0) } ?? "nil"
+        let values = "initial=\(initialValue) final=\(finalValue)"
+        publishFailureDiagnostic(
+            diagnostic,
+            options: options,
+            message: "macOS deep scroll did not reach its exact terminal before capture "
+                + "(\(values)): \(findingSummary(scrollEvidence.findings))"
+        )
     }
     let postScrollObservation = stablePostScrollObservation(
         options: options,
@@ -1502,7 +1661,7 @@ let deepScroll = terminalExpectation(for: options).map { expectation in
 let deepScrollFindings = deepScroll?.findings ?? []
 let postScrollAuditFindings = deepScroll?.postScrollAuditFindings ?? []
 if !observedFindings.isEmpty || !deepScrollFindings.isEmpty || !postScrollAuditFindings.isEmpty {
-    fail("observed macOS accessibility geometry has \(observedFindings.count + deepScrollFindings.count + postScrollAuditFindings.count) finding(s)")
+    fail("observed macOS accessibility geometry has \(findingSummary(observedFindings + deepScrollFindings + postScrollAuditFindings))")
 }
 _ = validateRunningApplication(options)
 let finalBoundWindow = boundRootWindow(options: options)
