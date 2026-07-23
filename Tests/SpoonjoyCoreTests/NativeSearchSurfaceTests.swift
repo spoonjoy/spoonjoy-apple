@@ -70,6 +70,61 @@ struct NativeSearchSurfaceTests {
             shellIdentity: "preview|chef_ari|informational",
             shellRecipe: bootstrapRecipe
         ))
+
+        let noShellRecipe = RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nil
+        )
+        #expect(noShellRecipe == RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nil
+        ))
+
+        let nonJSONRecipe = Self.copy(
+            bootstrapRecipe,
+            title: bootstrapRecipe.title,
+            updatedAt: bootstrapRecipe.updatedAt,
+            steps: [
+                RecipeStep(
+                    id: "step_non_json_quantity",
+                    stepNum: 1,
+                    stepTitle: "Measure",
+                    description: "Measure a non-finite fixture quantity.",
+                    duration: nil,
+                    ingredients: [
+                        RecipeIngredient(
+                            id: "ingredient_non_json_quantity",
+                            name: "coverage fixture",
+                            quantity: .nan,
+                            unit: nil
+                        )
+                    ]
+                )
+            ]
+        )
+        let fallbackIdentity = RecipeDetailLoadIdentity(
+            recipeID: nonJSONRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nonJSONRecipe
+        )
+        #expect(fallbackIdentity == RecipeDetailLoadIdentity(
+            recipeID: nonJSONRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nonJSONRecipe
+        ))
+        #expect(fallbackIdentity != noShellRecipe)
+        #expect(fallbackIdentity != RecipeDetailLoadIdentity(
+            recipeID: nonJSONRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: Self.copy(
+                nonJSONRecipe,
+                title: "Changed non-JSON recipe",
+                updatedAt: nonJSONRecipe.updatedAt,
+                steps: nonJSONRecipe.steps
+            )
+        ))
     }
 
     @MainActor
@@ -116,7 +171,12 @@ struct NativeSearchSurfaceTests {
         #expect(state.presentation == .missing("We couldn't find this recipe."))
     }
 
-    private static func copy(_ recipe: Recipe, title: String, updatedAt: String) -> Recipe {
+    private static func copy(
+        _ recipe: Recipe,
+        title: String,
+        updatedAt: String,
+        steps: [RecipeStep]? = nil
+    ) -> Recipe {
         Recipe(
             id: recipe.id,
             title: title,
@@ -132,7 +192,7 @@ struct NativeSearchSurfaceTests {
             attribution: recipe.attribution,
             createdAt: recipe.createdAt,
             updatedAt: updatedAt,
-            steps: recipe.steps,
+            steps: steps ?? recipe.steps,
             cookbooks: recipe.cookbooks,
             recentSpoons: recipe.recentSpoons
         )

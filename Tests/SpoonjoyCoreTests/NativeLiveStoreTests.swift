@@ -6,6 +6,93 @@ import Testing
 struct NativeLiveStoreTests {
     private static let now = Date(timeIntervalSince1970: 1_780_010_000)
 
+    @Test("owned async load primitives reject stale leases and preserve exact terminal ownership")
+    func ownedAsyncLoadPrimitivesRejectStaleLeasesAndPreserveExactTerminalOwnership() {
+        var owner = NativeAsyncOperationOwner<String>()
+        let staleOwnerLease = owner.begin(context: "recipe-a")
+        let activeOwnerLease = owner.begin(context: "recipe-b")
+
+        let cancelledStaleOwner = owner.cancel(staleOwnerLease)
+        let cancelledActiveOwner = owner.cancel(activeOwnerLease)
+        #expect(!cancelledStaleOwner)
+        #expect(cancelledActiveOwner)
+        #expect(!owner.owns(activeOwnerLease, currentContext: "recipe-b"))
+
+        var state = NativeOwnedLoadState<String, String>(
+            identity: "recipe-a",
+            initialValue: nil,
+            loadingTitle: "Recipe A"
+        )
+        #expect(state.presentation == .loading(snapshotTitle: "Recipe A"))
+        let transitionedToSameIdentity = state.transition(
+            identity: "recipe-a",
+            snapshot: "stale",
+            loadingTitle: nil
+        )
+        #expect(!transitionedToSameIdentity)
+        #expect(state.presentation == .loading(snapshotTitle: "Recipe A"))
+
+        let staleLoadLease = state.begin(
+            identity: "recipe-a",
+            snapshot: nil,
+            loadingTitle: "Recipe A"
+        )
+        let transitionedToRecipeB = state.transition(
+            identity: "recipe-b",
+            snapshot: nil,
+            loadingTitle: "Recipe B"
+        )
+        #expect(transitionedToRecipeB)
+        #expect(state.presentation == .loading(snapshotTitle: "Recipe B"))
+        let staleMissingPublished = state.markMissing(
+            "Stale missing",
+            lease: staleLoadLease,
+            currentIdentity: "recipe-b"
+        )
+        let staleFailurePublished = state.markFailed(
+            "Stale failure",
+            lease: staleLoadLease,
+            currentIdentity: "recipe-b"
+        )
+        #expect(!staleMissingPublished)
+        #expect(!staleFailurePublished)
+        #expect(state.presentation == .loading(snapshotTitle: "Recipe B"))
+
+        let missingLease = state.begin(
+            identity: "recipe-b",
+            snapshot: nil,
+            loadingTitle: "Recipe B"
+        )
+        let missingPublished = state.markMissing(
+            "Recipe is unavailable.",
+            lease: missingLease,
+            currentIdentity: "recipe-b"
+        )
+        #expect(missingPublished)
+        #expect(state.presentation == .missing("Recipe is unavailable."))
+
+        let failedLease = state.begin(
+            identity: "recipe-c",
+            snapshot: nil,
+            loadingTitle: "Recipe C"
+        )
+        let failurePublished = state.markFailed(
+            "Could not load recipe.",
+            lease: failedLease,
+            currentIdentity: "recipe-c"
+        )
+        #expect(failurePublished)
+        #expect(state.presentation == .failed("Could not load recipe."))
+        state.cancel()
+        let lateRecipePublished = state.publish(
+            "Late recipe",
+            lease: failedLease,
+            currentIdentity: "recipe-c"
+        )
+        #expect(!lateRecipePublished)
+        #expect(state.presentation == .failed("Could not load recipe."))
+    }
+
     @MainActor
     @Test("live store reports privacy-safe search telemetry with bound app metadata")
     func liveStoreReportsPrivacySafeSearchTelemetryWithBoundAppMetadata() async throws {
@@ -107,6 +194,89 @@ struct NativeLiveStoreTests {
 
             let configurations = await telemetryRecorder.recordedConfigurations()
             #expect(configurations.suffix(2).map(\.bearerToken) == ["sj_access_refreshed", "sj_access_refreshed"])
+        }
+    }
+
+    @MainActor
+    @Test("overlapping same-account refresh accepts the configuration already installed by newer work")
+    func overlappingSameAccountRefreshAcceptsConfigurationAlreadyInstalledByNewerWork() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_overlapping_refresh"
+            let initialSession = try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_overlapping_initial",
+                refreshToken: "sj_refresh_overlapping_initial",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: accountID
+            )
+            let refreshedSession = try AuthSession(
+                clientID: initialSession.clientID,
+                accessToken: "sj_access_overlapping_refreshed",
+                refreshToken: "sj_refresh_overlapping_refreshed",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(1_200),
+                scope: initialSession.scope,
+                accountID: accountID
+            )
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID(initialSession.clientID)
+            try await vault.saveSession(initialSession)
+            let firstRequestGate = NativeLiveStoreSuspensionGate()
+            let probe = OverlappingRefreshProbe()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: accountID,
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: NativeMutationQueue()
+                ),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                recipeEditorAPITransport: { refresher in
+                    OverlappingRefreshAPITransport(
+                        refresher: refresher,
+                        firstRequestGate: firstRequestGate,
+                        probe: probe
+                    )
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+            await liveStore.bootstrap()
+            let firstRequest = try RecipeWriteRequests.updateRecipe(
+                id: "recipe_overlapping_refresh",
+                clientMutationID: "cm-overlapping-refresh-first",
+                title: "First edit",
+                description: nil,
+                servings: nil
+            )
+            let secondRequest = try RecipeWriteRequests.updateRecipe(
+                id: "recipe_overlapping_refresh",
+                clientMutationID: "cm-overlapping-refresh-second",
+                title: "Second edit",
+                description: nil,
+                servings: nil
+            )
+
+            let suspendedFirstRequest = Task {
+                try await liveStore.executeRecipeEditorRequest(firstRequest)
+            }
+            await firstRequestGate.waitUntilSuspended()
+
+            try await vault.saveSession(refreshedSession)
+            let newerResponse = try await liveStore.executeCaptureImportRequest(secondRequest)
+            await firstRequestGate.release()
+            try await suspendedFirstRequest.value
+
+            #expect(newerResponse.recipe == nil)
+            #expect(await probe.requestBearerTokens() == [
+                initialSession.accessToken,
+                refreshedSession.accessToken
+            ])
+            #expect(await probe.refreshedBearerTokens() == [refreshedSession.accessToken])
+            #expect(liveStore.bootstrapState.contentState.configuration.bearerToken == refreshedSession.accessToken)
         }
     }
 
@@ -362,6 +532,56 @@ struct NativeLiveStoreTests {
             #expect(rejected)
             #expect(await probe.requestConfigurations().map(\.bearerToken) == [accountA.accessToken])
             #expect(await probe.refreshedConfigurations().isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("authenticated requests reject a returned session owned by another account")
+    func authenticatedRequestsRejectReturnedSessionOwnedByAnotherAccount() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountA = try Self.sampleSession(accountID: "chef_request_a")
+            let accountB = try Self.sampleSession(accountID: "chef_request_b")
+            let vault = BootstrapControlledTokenVault(outcomes: [
+                .session(accountA),
+                .session(accountB)
+            ])
+            let requestProbe = AuthenticatedRequestProbe()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: accountA.accountID,
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: NativeMutationQueue()
+                ),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                recipeEditorAPITransport: { _ in
+                    RecordingJSONAPITransport(probe: requestProbe)
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+            await liveStore.bootstrap()
+            let request = try RecipeWriteRequests.updateRecipe(
+                id: "recipe_request_a",
+                clientMutationID: "cm-request-a",
+                title: "Account A recipe",
+                description: nil,
+                servings: nil
+            )
+
+            var rejected = false
+            do {
+                try await liveStore.executeRecipeEditorRequest(request)
+            } catch is CancellationError {
+                rejected = true
+            } catch {
+                Issue.record("Expected returned-session ownership cancellation, got \(error)")
+            }
+
+            #expect(rejected)
+            #expect(await requestProbe.requestConfigurations().isEmpty)
+            #expect(liveStore.bootstrapState.contentState.authSessionState == .authenticated(accountA))
         }
     }
 
@@ -1320,6 +1540,99 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("signed-out mutation entry points fail closed without touching queued work")
+    func signedOutMutationEntryPointsFailClosedWithoutTouchingQueuedWork() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let queuedMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_signed_out",
+                clientMutationID: "cm-signed-out",
+                title: "Signed-out edit",
+                description: nil,
+                servings: nil,
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [queuedMutation])
+            )
+            let requestProbe = AuthenticatedRequestProbe()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                recipeEditorAPITransport: { _ in
+                    RecordingJSONAPITransport(probe: requestProbe)
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+            await liveStore.bootstrap()
+
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm-signed-out")
+            #expect((try await syncStore.loadQueue()).mutations == [queuedMutation])
+
+            let request = try RecipeWriteRequests.updateRecipe(
+                id: "recipe_signed_out",
+                clientMutationID: "cm-signed-out-request",
+                title: "Rejected edit",
+                description: nil,
+                servings: nil
+            )
+            var rejected = false
+            do {
+                try await liveStore.executeRecipeEditorRequest(request)
+            } catch is CancellationError {
+                rejected = true
+            } catch {
+                Issue.record("Expected signed-out mutation cancellation, got \(error)")
+            }
+
+            #expect(rejected)
+            #expect(await requestProbe.requestConfigurations().isEmpty)
+            #expect((try await syncStore.loadQueue()).mutations == [queuedMutation])
+        }
+    }
+
+    @MainActor
+    @Test("discard refuses queued work persisted for another account scope")
+    func discardRefusesQueuedWorkPersistedForAnotherAccountScope() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountA = try Self.sampleSession(accountID: "chef_discard_scope_a")
+            let accountBMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_discard_scope_b",
+                clientMutationID: "cm-discard-scope-b",
+                title: "Account B edit",
+                description: nil,
+                servings: nil,
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_discard_scope_b",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [accountBMutation])
+            )
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID(accountA.clientID)
+            try await vault.saveSession(accountA)
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                bootstrapMode: .restoreCacheOnly
+            )
+            await liveStore.bootstrap()
+
+            try await liveStore.discardQueuedMutation(clientMutationID: accountBMutation.clientMutationID)
+
+            #expect((try await syncStore.loadQueue()).mutations == [accountBMutation])
+            #expect(liveStore.bootstrapState.contentState.authSessionState == .authenticated(accountA))
+            #expect(liveStore.bootstrapState.contentState.queuedMutations.isEmpty)
+        }
+    }
+
+    @MainActor
     @Test("live store discard keeps independent conflicts and removes dependent queued recipe work")
     func liveStoreDiscardKeepsIndependentConflictsAndRemovesDependentQueuedRecipeWork() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -1622,6 +1935,78 @@ struct NativeLiveStoreTests {
 
             #expect(rejected)
             #expect(liveStore.bootstrapState.contentState.authSessionState == .authenticated(accountB))
+            #expect(liveStore.bootstrapState.contentState.syncConflicts.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("environment transition cancels a suspended discard before old-scope state can apply")
+    func environmentTransitionCancelsSuspendedDiscardBeforeOldScopeStateCanApply() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let account = try Self.sampleSession(accountID: "chef_discard_environment")
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID(account.clientID)
+            try await vault.saveSession(account)
+            let saveGate = NativeBlockingCallGate()
+            let syncStore = BlockingSaveNativeSyncStore(
+                accountID: account.accountID,
+                environment: .production,
+                saveGate: saveGate
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                bootstrapMode: .restoreCacheOnly
+            )
+            await liveStore.bootstrap()
+            let mutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_discard_environment",
+                clientMutationID: "cm-discard-environment",
+                title: "Production edit",
+                description: nil,
+                servings: nil,
+                createdAt: Self.isoString(Self.now)
+            )
+            try await syncStore.saveQueue(
+                try NativeMutationQueue(mutations: [mutation]),
+                accountID: account.accountID,
+                environment: .production
+            )
+            saveGate.armNextCall()
+
+            let staleDiscard = Task {
+                try await liveStore.discardQueuedMutation(clientMutationID: mutation.clientMutationID)
+            }
+            #expect(await saveGate.waitUntilBlocked())
+
+            let environmentTransition = Task { @MainActor in
+                await liveStore.switchEnvironment(.local)
+            }
+            var observedLocalEnvironment = false
+            for _ in 0..<200 {
+                if liveStore.bootstrapState.contentState.environment == .local {
+                    observedLocalEnvironment = true
+                    break
+                }
+                await Task.yield()
+            }
+            #expect(observedLocalEnvironment)
+            saveGate.releaseBlockedCall()
+
+            var rejected = false
+            do {
+                try await staleDiscard.value
+            } catch is CancellationError {
+                rejected = true
+            } catch {
+                Issue.record("Expected stale environment discard cancellation, got \(error)")
+            }
+            await environmentTransition.value
+
+            #expect(rejected)
+            #expect(liveStore.bootstrapState.contentState.environment == .local)
             #expect(liveStore.bootstrapState.contentState.syncConflicts.isEmpty)
         }
     }
@@ -7406,6 +7791,57 @@ private struct RefreshSubstitutionJSONAPITransport: SpoonjoyAPITransport {
             throw NativeLiveStoreTestError.unexpectedEnvelopeType
         }
         return APIEnvelope(requestID: "unbound-substitution-ok", data: data)
+    }
+}
+
+private actor OverlappingRefreshProbe {
+    private var requestTokens: [String?] = []
+    private var refreshedTokens: [String?] = []
+
+    func beginRequest(configuration: APIClientConfiguration) -> Int {
+        requestTokens.append(configuration.bearerToken)
+        return requestTokens.count
+    }
+
+    func recordRefreshedConfiguration(_ configuration: APIClientConfiguration) {
+        refreshedTokens.append(configuration.bearerToken)
+    }
+
+    func requestBearerTokens() -> [String?] {
+        requestTokens
+    }
+
+    func refreshedBearerTokens() -> [String?] {
+        refreshedTokens
+    }
+}
+
+private struct OverlappingRefreshAPITransport: SpoonjoyAPITransport {
+    let refresher: any APIAuthenticationRefresher
+    let firstRequestGate: NativeLiveStoreSuspensionGate
+    let probe: OverlappingRefreshProbe
+
+    func send<Value: Decodable & Equatable>(
+        _: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let requestNumber = await probe.beginRequest(configuration: configuration)
+        if requestNumber == 1 {
+            await firstRequestGate.suspend()
+            let refreshedConfiguration = try await refresher.refreshedConfiguration(
+                after: APIError(
+                    requestID: "overlapping-refresh",
+                    code: "invalid_token",
+                    message: "Refresh auth.",
+                    status: 401
+                ),
+                configuration: configuration
+            )
+            await probe.recordRefreshedConfiguration(refreshedConfiguration)
+        }
+        let data = try JSONDecoder().decode(Value.self, from: Data("{}".utf8))
+        return APIEnvelope(requestID: "overlapping-refresh-ok", data: data)
     }
 }
 
