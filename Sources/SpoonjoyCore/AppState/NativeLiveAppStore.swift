@@ -138,6 +138,11 @@ public struct NativeRecipeCookbookEntityIndexPurgeRequest: Equatable, Sendable {
 public typealias NativeRecipeCookbookEntityIndexPurgeOperation = @Sendable (_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
 public typealias NativeTelemetryReportOperation = @Sendable (_ event: NativeTelemetryEvent, _ configuration: APIClientConfiguration) async -> Void
 
+private enum NativeLiveAuthIdentity: Equatable, Sendable {
+    case signedOut
+    case session(clientID: String, accountID: String?)
+}
+
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
     case restoreCacheOnly
@@ -1763,6 +1768,7 @@ public final class NativeLiveAppStore: ObservableObject {
     private var bootstrapTask: Task<Void, Never>?
     private var hasResolvedAuthScope = false
     private var pendingOpenedRoute: AppRoute?
+    private var authGeneration: UInt64 = 0
 
     private var isBootstrapping: Bool {
         bootstrapTask != nil
@@ -1815,6 +1821,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func performBootstrap() async {
+        advanceAuthGeneration(clearCredentials: true)
         hasResolvedAuthScope = false
         var resolvedAuthState: NativeAuthSessionState?
         do {
@@ -2264,6 +2271,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
+        advanceAuthGeneration(clearCredentials: true)
         switch operation {
         case .logout, .revokeAndLogout:
             let currentAccountID = accountID
@@ -3247,13 +3255,30 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func makeAPIRefresher() -> NativeLiveAppStoreAPIRefresher {
-        NativeLiveAppStoreAPIRefresher(
+        let expectedGeneration = authGeneration
+        let expectedConfiguration = configuration
+        let expectedIdentity: NativeLiveAuthIdentity? = switch currentContentState.authSessionState {
+        case .signedOut where configuration.bearerToken != nil:
+            nil
+        default:
+            authIdentity(for: currentContentState.authSessionState)
+        }
+        return NativeLiveAppStoreAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL,
-            didRefresh: { [weak self] refreshedConfiguration in
-                await MainActor.run {
-                    self?.configuration = refreshedConfiguration
+            didRefresh: { [weak self] session, refreshedConfiguration in
+                guard let self,
+                      self.authGeneration == expectedGeneration,
+                      self.configuration == expectedConfiguration || self.configuration == refreshedConfiguration else {
+                    throw CancellationError()
                 }
+                if let expectedIdentity {
+                    guard self.authIdentity(for: self.currentContentState.authSessionState) == expectedIdentity,
+                          self.authIdentity(for: session) == expectedIdentity else {
+                        throw CancellationError()
+                    }
+                }
+                self.configuration = refreshedConfiguration
             }
         )
     }
@@ -3351,8 +3376,31 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func apply(_ state: NativeAppBootstrapState) {
+        if authIdentity(for: currentContentState.authSessionState) != authIdentity(for: state.contentState.authSessionState) {
+            advanceAuthGeneration(clearCredentials: state.contentState.authSessionState == .signedOut)
+        }
         currentContentState = state.contentState
         bootstrapState = state
+    }
+
+    private func advanceAuthGeneration(clearCredentials: Bool) {
+        authGeneration &+= 1
+        if clearCredentials {
+            configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
+        }
+    }
+
+    private func authIdentity(for authSessionState: NativeAuthSessionState) -> NativeLiveAuthIdentity {
+        switch authSessionState {
+        case .signedOut:
+            .signedOut
+        case .authenticated(let session), .refreshRequired(let session):
+            authIdentity(for: session)
+        }
+    }
+
+    private func authIdentity(for session: AuthSession) -> NativeLiveAuthIdentity {
+        .session(clientID: session.clientID, accountID: session.accountID)
     }
 
     private func stateMatchingCurrentSeverity(with content: NativeShellContentState) -> NativeAppBootstrapState {
@@ -3467,6 +3515,9 @@ public final class NativeLiveAppStore: ObservableObject {
         }
 
         let boundSession = try await dependencies.authSessionRepository.bindAccountID(accountID)
+        if authIdentity(for: currentContentState.authSessionState) != authIdentity(for: boundSession) {
+            advanceAuthGeneration(clearCredentials: true)
+        }
         configuration = APIClientConfiguration(
             baseURL: dependencies.configuration.baseURL,
             bearerToken: boundSession.accessToken
@@ -3698,7 +3749,7 @@ private enum NativeLiveAppStoreTelemetry {
 private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {
     let authSessionRepository: NativeAuthSessionRepository
     let baseURL: URL
-    let didRefresh: @Sendable (APIClientConfiguration) async -> Void
+    let didRefresh: @MainActor @Sendable (AuthSession, APIClientConfiguration) throws -> Void
 
     func refreshedConfiguration(
         after _: APIError,
@@ -3706,7 +3757,7 @@ private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {
     ) async throws -> APIClientConfiguration {
         let session = try await authSessionRepository.validSession()
         let configuration = APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
-        await didRefresh(configuration)
+        try await didRefresh(session, configuration)
         return configuration
     }
 }

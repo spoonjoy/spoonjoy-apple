@@ -110,6 +110,150 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("account transition rejects a stale auth refresh before retry or telemetry credential install")
+    func accountTransitionRejectsStaleAuthRefresh() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountA = try Self.sampleSession(accountID: "chef_refresh_a")
+            let accountB = try Self.sampleSession(accountID: "chef_refresh_b")
+            let vault = BootstrapControlledTokenVault(outcomes: [
+                .session(accountA),
+                .session(accountA),
+                .gatedSession(accountA),
+                .session(accountB),
+                .session(accountB)
+            ])
+            let refreshRetryRecorder = RefreshRetryRecorder()
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                recipeEditorAPITransport: { refresher in
+                    RecordingRefreshSearchAPITransport(
+                        refresher: refresher,
+                        recorder: refreshRetryRecorder
+                    )
+                },
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                }
+            )
+
+            await liveStore.bootstrap()
+            let repository = liveStore.searchSurfaceRepository(context: SearchSurfaceContext(
+                isAuthenticated: true,
+                canReadShoppingList: true
+            ))
+            let staleSearch = Task {
+                try await repository.search(request: SearchSurfaceRequest(
+                    query: "lemons",
+                    scope: .shoppingList,
+                    limit: 10
+                ))
+            }
+            await vault.waitForLoadCallCount(3)
+
+            await liveStore.bootstrap()
+            guard case .liveSynced(let accountBContent) = liveStore.bootstrapState else {
+                Issue.record("Expected account B to finish live bootstrap; got \(liveStore.bootstrapState)")
+                await vault.releaseAll()
+                _ = try? await staleSearch.value
+                return
+            }
+            #expect(accountBContent.authSessionState == .authenticated(accountB))
+
+            await vault.releaseAll()
+            var staleSearchWasRejected = false
+            do {
+                _ = try await staleSearch.value
+            } catch {
+                staleSearchWasRejected = true
+            }
+            #expect(staleSearchWasRejected)
+            #expect(await refreshRetryRecorder.configurations().isEmpty)
+
+            await liveStore.recordSearchTelemetry(.started(
+                state: SearchState(query: "lemons", scope: .shoppingList),
+                correlationID: "account-transition-refresh",
+                hasCachedResults: false
+            ))
+            #expect(await telemetryRecorder.recordedConfigurations().map(\.bearerToken) == [accountB.accessToken])
+        }
+    }
+
+    @MainActor
+    @Test("logout rejects a stale auth refresh before retry and leaves telemetry unauthenticated")
+    func logoutRejectsStaleAuthRefresh() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountA = try Self.sampleSession(accountID: "chef_refresh_logout")
+            let vault = BootstrapControlledTokenVault(outcomes: [
+                .session(accountA),
+                .session(accountA),
+                .gatedSession(accountA),
+                .session(accountA),
+                .session(nil)
+            ])
+            let refreshRetryRecorder = RefreshRetryRecorder()
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                recipeEditorAPITransport: { refresher in
+                    RecordingRefreshSearchAPITransport(
+                        refresher: refresher,
+                        recorder: refreshRetryRecorder
+                    )
+                },
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                }
+            )
+
+            await liveStore.bootstrap()
+            let repository = liveStore.searchSurfaceRepository(context: SearchSurfaceContext(
+                isAuthenticated: true,
+                canReadShoppingList: true
+            ))
+            let staleSearch = Task {
+                try await repository.search(request: SearchSurfaceRequest(
+                    query: "lemons",
+                    scope: .shoppingList,
+                    limit: 10
+                ))
+            }
+            await vault.waitForLoadCallCount(3)
+
+            try await liveStore.performSettingsSessionOperation(.logout)
+            guard case .signedOut = liveStore.bootstrapState else {
+                Issue.record("Expected logout to finish signed out; got \(liveStore.bootstrapState)")
+                await vault.releaseAll()
+                _ = try? await staleSearch.value
+                return
+            }
+
+            await vault.releaseAll()
+            var staleSearchWasRejected = false
+            do {
+                _ = try await staleSearch.value
+            } catch {
+                staleSearchWasRejected = true
+            }
+            #expect(staleSearchWasRejected)
+            #expect(await refreshRetryRecorder.configurations().isEmpty)
+
+            await liveStore.recordSearchTelemetry(.started(
+                state: SearchState(query: "lemons", scope: .shoppingList),
+                correlationID: "logout-refresh",
+                hasCachedResults: false
+            ))
+            #expect(await telemetryRecorder.recordedConfigurations().map(\.bearerToken) == [nil])
+        }
+    }
+
+    @MainActor
     @Test("live store refreshes auth before sync and hydrates applied sync cache")
     func liveStoreRefreshesAuthBeforeSyncAndHydratesAppliedSyncCache() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6957,6 +7101,53 @@ private struct RefreshingSearchAPITransport: SpoonjoyAPITransport {
             throw NativeLiveStoreTestError.unexpectedEnvelopeType
         }
         return APIEnvelope(requestID: "search-refreshed", data: data)
+    }
+}
+
+private actor RefreshRetryRecorder {
+    private var recordedConfigurations: [APIClientConfiguration] = []
+
+    func record(_ configuration: APIClientConfiguration) {
+        recordedConfigurations.append(configuration)
+    }
+
+    func configurations() -> [APIClientConfiguration] {
+        recordedConfigurations
+    }
+}
+
+private struct RecordingRefreshSearchAPITransport: SpoonjoyAPITransport {
+    let refresher: any APIAuthenticationRefresher
+    let recorder: RefreshRetryRecorder
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        guard request.pathComponents == ["api", "v1", "search"] else {
+            throw NativeLiveStoreTestError.unexpectedRequest
+        }
+        let refreshed = try await refresher.refreshedConfiguration(
+            after: APIError(
+                requestID: "generation-bound-refresh",
+                code: "invalid_token",
+                message: "Refresh auth.",
+                status: 401
+            ),
+            configuration: configuration
+        )
+        await recorder.record(refreshed)
+        guard let data = SearchSurfaceData(
+            query: "lemons",
+            scope: .shoppingList,
+            limit: 10,
+            isAuthenticated: true,
+            results: []
+        ) as? Value else {
+            throw NativeLiveStoreTestError.unexpectedEnvelopeType
+        }
+        return APIEnvelope(requestID: "generation-bound-refresh-ok", data: data)
     }
 }
 
