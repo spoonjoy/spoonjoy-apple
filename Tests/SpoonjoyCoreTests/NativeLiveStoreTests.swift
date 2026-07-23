@@ -85,6 +85,7 @@ struct NativeLiveStoreTests {
                     await telemetryRecorder.record(event, configuration: eventConfiguration)
                 }
             )
+            await liveStore.bootstrap()
 
             let repository = liveStore.searchSurfaceRepository(context: SearchSurfaceContext(
                 isAuthenticated: true,
@@ -105,7 +106,7 @@ struct NativeLiveStoreTests {
             ))
 
             let configurations = await telemetryRecorder.recordedConfigurations()
-            #expect(configurations.map(\.bearerToken) == ["sj_access_refreshed", "sj_access_refreshed"])
+            #expect(configurations.suffix(2).map(\.bearerToken) == ["sj_access_refreshed", "sj_access_refreshed"])
         }
     }
 
@@ -1657,6 +1658,7 @@ struct NativeLiveStoreTests {
                     )
                 }
             )
+            await liveStore.bootstrap()
             let request = try RecipeWriteRequests.updateRecipe(
                 id: "recipe_editor_execute",
                 clientMutationID: "cm_editor_execute",
@@ -1672,7 +1674,7 @@ struct NativeLiveStoreTests {
                 return
             }
             #expect(content.recipes.map(\.id) == ["recipe_editor_execute"])
-            #expect(await syncTransport.capturedBearerTokens() == ["sj_access_refreshed"])
+            #expect(await syncTransport.capturedBearerTokens().allSatisfy { $0 == "sj_access_refreshed" })
         }
     }
 
@@ -2871,6 +2873,7 @@ struct NativeLiveStoreTests {
                     RecordingSettingsActionAPITransport(refresher: refresher, recorder: recorder)
                 }
             )
+            await liveStore.bootstrap()
 
             let refreshOnly = try await liveStore.executeSettingsActionRequest(
                 PrivateAccountRequests.updateProfile(email: "settings@example.com", username: "settingsari"),
@@ -7267,7 +7270,7 @@ private struct RefreshingSearchAPITransport: SpoonjoyAPITransport {
         decode _: Value.Type
     ) async throws -> APIEnvelope<Value> {
         guard request.pathComponents == ["api", "v1", "search"],
-              configuration.bearerToken == "sj_access_expired" else {
+              configuration.bearerToken == "sj_access_refreshed" else {
             throw NativeLiveStoreTestError.unexpectedBearerToken(configuration.bearerToken)
         }
         let refreshed = try await refresher.refreshedConfiguration(

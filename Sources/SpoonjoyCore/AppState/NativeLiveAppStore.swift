@@ -138,9 +138,164 @@ public struct NativeRecipeCookbookEntityIndexPurgeRequest: Equatable, Sendable {
 public typealias NativeRecipeCookbookEntityIndexPurgeOperation = @Sendable (_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
 public typealias NativeTelemetryReportOperation = @Sendable (_ event: NativeTelemetryEvent, _ configuration: APIClientConfiguration) async -> Void
 
+public struct NativeAsyncOperationLease<Context: Equatable & Sendable>: Equatable, Sendable {
+    fileprivate let id: UUID
+    public let context: Context
+}
+
+public struct NativeAsyncOperationOwner<Context: Equatable & Sendable>: Sendable {
+    private var activeLease: NativeAsyncOperationLease<Context>?
+
+    public init() {}
+
+    @discardableResult
+    public mutating func begin(context: Context) -> NativeAsyncOperationLease<Context> {
+        let lease = NativeAsyncOperationLease(id: UUID(), context: context)
+        activeLease = lease
+        return lease
+    }
+
+    public func owns(
+        _ lease: NativeAsyncOperationLease<Context>,
+        currentContext: Context
+    ) -> Bool {
+        activeLease == lease && lease.context == currentContext
+    }
+
+    @discardableResult
+    public mutating func finish(
+        _ lease: NativeAsyncOperationLease<Context>,
+        currentContext: Context
+    ) -> Bool {
+        guard owns(lease, currentContext: currentContext) else {
+            return false
+        }
+        activeLease = nil
+        return true
+    }
+
+    public mutating func cancel() {
+        activeLease = nil
+    }
+
+    @discardableResult
+    public mutating func cancel(_ lease: NativeAsyncOperationLease<Context>) -> Bool {
+        guard activeLease == lease else {
+            return false
+        }
+        activeLease = nil
+        return true
+    }
+}
+
+public enum NativeOwnedLoadPresentation<Value: Equatable & Sendable>: Equatable, Sendable {
+    case loading(snapshotTitle: String?)
+    case loaded(Value)
+    case missing(String)
+    case failed(String)
+}
+
+public struct NativeOwnedLoadState<Identity: Equatable & Sendable, Value: Equatable & Sendable>: Sendable {
+    private var owner = NativeAsyncOperationOwner<Identity>()
+    public private(set) var currentIdentity: Identity
+    public private(set) var presentation: NativeOwnedLoadPresentation<Value>
+
+    public init(identity: Identity, initialValue: Value?, loadingTitle: String?) {
+        currentIdentity = identity
+        presentation = initialValue.map(NativeOwnedLoadPresentation.loaded)
+            ?? .loading(snapshotTitle: loadingTitle)
+        owner.begin(context: identity)
+    }
+
+    @discardableResult
+    public mutating func begin(
+        identity: Identity,
+        snapshot: Value?,
+        loadingTitle: String?
+    ) -> NativeAsyncOperationLease<Identity> {
+        let lease = owner.begin(context: identity)
+        currentIdentity = identity
+        presentation = snapshot.map(NativeOwnedLoadPresentation.loaded)
+            ?? .loading(snapshotTitle: loadingTitle)
+        return lease
+    }
+
+    @discardableResult
+    public mutating func transition(
+        identity: Identity,
+        snapshot: Value?,
+        loadingTitle: String?
+    ) -> Bool {
+        guard identity != currentIdentity else {
+            return false
+        }
+        owner.begin(context: identity)
+        currentIdentity = identity
+        presentation = snapshot.map(NativeOwnedLoadPresentation.loaded)
+            ?? .loading(snapshotTitle: loadingTitle)
+        return true
+    }
+
+    @discardableResult
+    public mutating func publish(
+        _ value: Value,
+        lease: NativeAsyncOperationLease<Identity>,
+        currentIdentity: Identity
+    ) -> Bool {
+        guard owner.owns(lease, currentContext: currentIdentity) else {
+            return false
+        }
+        presentation = .loaded(value)
+        return true
+    }
+
+    @discardableResult
+    public mutating func markMissing(
+        _ message: String,
+        lease: NativeAsyncOperationLease<Identity>,
+        currentIdentity: Identity
+    ) -> Bool {
+        guard owner.owns(lease, currentContext: currentIdentity) else {
+            return false
+        }
+        presentation = .missing(message)
+        return true
+    }
+
+    @discardableResult
+    public mutating func markFailed(
+        _ message: String,
+        lease: NativeAsyncOperationLease<Identity>,
+        currentIdentity: Identity
+    ) -> Bool {
+        guard owner.owns(lease, currentContext: currentIdentity) else {
+            return false
+        }
+        presentation = .failed(message)
+        return true
+    }
+
+    public mutating func cancel() {
+        owner.cancel()
+    }
+}
+
 private enum NativeLiveAuthIdentity: Equatable, Sendable {
     case signedOut
-    case session(clientID: String, accountID: String?)
+    case boundSession(clientID: String, accountID: String)
+    case unboundSession(clientID: String, refreshToken: String)
+}
+
+private struct NativeLiveAuthOperationContext: Equatable, Sendable {
+    let generation: UInt64
+    let identity: NativeLiveAuthIdentity
+}
+
+private struct NativeLiveMutationScope: Equatable, Sendable {
+    let authContext: NativeLiveAuthOperationContext
+    let authSessionState: NativeAuthSessionState
+    let accountID: String
+    let environment: NativeCacheEnvironment
 }
 
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
@@ -2164,8 +2319,13 @@ public final class NativeLiveAppStore: ObservableObject {
         guard !trimmedClientMutationID.isEmpty else {
             return
         }
+        guard let scope = currentMutationScope() else {
+            return
+        }
+        try ensureCurrentMutationScope(scope)
 
-        let scopedQueue = try await queueForCurrentScope()
+        let scopedQueue = try await queue(for: scope)
+        try ensureCurrentMutationScope(scope)
         guard scopedQueue.queue.mutations.contains(where: { $0.clientMutationID == trimmedClientMutationID }) else {
             return
         }
@@ -2181,8 +2341,10 @@ public final class NativeLiveAppStore: ObservableObject {
             accountID: scopedQueue.accountID,
             environment: scopedQueue.environment
         )
+        try ensureCurrentMutationScope(scope)
 
-        let restoredContent = try await restoreFromCache(authSessionState: currentContentState.authSessionState)
+        let restoredContent = try await restoreFromCache(authSessionState: scope.authSessionState)
+        try ensureCurrentMutationScope(scope)
         let remainingConflicts = existingConflicts.filter { !clientMutationIDsToDiscard.contains($0.clientMutationID) }
         let content = restoredContent.copy(syncConflicts: remainingConflicts)
         if let conflict = remainingConflicts.first {
@@ -2202,18 +2364,19 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func executeRecipeEditorRequest(_ request: APIRequestBuilder) async throws {
-        let session = try await dependencies.authSessionRepository.validSession()
-        configuration = APIClientConfiguration(
-            baseURL: dependencies.configuration.baseURL,
-            bearerToken: session.accessToken
+        let authContext = try beginAuthenticatedOperation()
+        let requestConfiguration = try await authenticatedConfiguration(for: authContext)
+        let refresher = makeAPIRefresher(
+            authContext: authContext,
+            expectedConfiguration: requestConfiguration
         )
-        let refresher = makeAPIRefresher()
         let transport = dependencies.recipeEditorAPITransport(refresher)
         _ = try await transport.send(
             request,
-            configuration: configuration,
+            configuration: requestConfiguration,
             decode: JSONValue.self
         )
+        try ensureCurrentAuthOperation(authContext)
         await bootstrap()
     }
 
@@ -2221,47 +2384,50 @@ public final class NativeLiveAppStore: ObservableObject {
         _ request: APIRequestBuilder,
         responseHandling: SettingsActionResponseHandling
     ) async throws -> SettingsActionOutcome? {
-        let session = try await dependencies.authSessionRepository.validSession()
-        configuration = APIClientConfiguration(
-            baseURL: dependencies.configuration.baseURL,
-            bearerToken: session.accessToken
+        let authContext = try beginAuthenticatedOperation()
+        let requestConfiguration = try await authenticatedConfiguration(for: authContext)
+        let refresher = makeAPIRefresher(
+            authContext: authContext,
+            expectedConfiguration: requestConfiguration
         )
-        let refresher = makeAPIRefresher()
         let transport = dependencies.recipeEditorAPITransport(refresher)
 
         switch responseHandling {
         case .refreshOnly:
             _ = try await transport.send(
                 request,
-                configuration: configuration,
+                configuration: requestConfiguration,
                 decode: JSONValue.self
             )
+            try ensureCurrentAuthOperation(authContext)
             await bootstrap()
             return nil
         case .captureCreatedAPIToken:
             let envelope = try await transport.send(
                 request,
-                configuration: configuration,
+                configuration: requestConfiguration,
                 decode: SettingsCreatedAPIToken.self
             )
+            try ensureCurrentAuthOperation(authContext)
             await bootstrap()
             return .createdAPIToken(envelope.data)
         }
     }
 
     public func executeCaptureImportRequest(_ request: APIRequestBuilder) async throws -> RecipeImportResponse {
-        let session = try await dependencies.authSessionRepository.validSession()
-        configuration = APIClientConfiguration(
-            baseURL: dependencies.configuration.baseURL,
-            bearerToken: session.accessToken
+        let authContext = try beginAuthenticatedOperation()
+        let requestConfiguration = try await authenticatedConfiguration(for: authContext)
+        let refresher = makeAPIRefresher(
+            authContext: authContext,
+            expectedConfiguration: requestConfiguration
         )
-        let refresher = makeAPIRefresher()
         let transport = dependencies.recipeEditorAPITransport(refresher)
         let envelope = try await transport.send(
             request,
-            configuration: configuration,
+            configuration: requestConfiguration,
             decode: RecipeImportResponse.self
         )
+        try ensureCurrentAuthOperation(authContext)
         if let recipe = envelope.data.recipe {
             var recipes = currentContentState.recipes.filter { $0.id != recipe.id }
             recipes.insert(recipe, at: 0)
@@ -2505,6 +2671,20 @@ public final class NativeLiveAppStore: ObservableObject {
             return (NativeMutationQueue(), expectedAccountID, cacheEnvironment)
         }
         return (try await dependencies.syncStore.loadQueue(), expectedAccountID, cacheEnvironment)
+    }
+
+    private func queue(
+        for scope: NativeLiveMutationScope
+    ) async throws -> (queue: NativeMutationQueue, accountID: String, environment: NativeCacheEnvironment) {
+        let snapshot = try await dependencies.syncStore.loadSnapshot()
+        try ensureCurrentMutationScope(scope)
+        guard snapshot.accountID == scope.accountID,
+              snapshot.environment == scope.environment else {
+            return (NativeMutationQueue(), scope.accountID, scope.environment)
+        }
+        let queue = try await dependencies.syncStore.loadQueue()
+        try ensureCurrentMutationScope(scope)
+        return (queue, scope.accountID, scope.environment)
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {
@@ -3254,33 +3434,89 @@ public final class NativeLiveAppStore: ObservableObject {
         )
     }
 
-    private func makeAPIRefresher() -> NativeLiveAppStoreAPIRefresher {
-        let expectedGeneration = authGeneration
-        let expectedConfiguration = configuration
-        let expectedIdentity: NativeLiveAuthIdentity? = switch currentContentState.authSessionState {
-        case .signedOut where configuration.bearerToken != nil:
-            nil
-        default:
-            authIdentity(for: currentContentState.authSessionState)
-        }
+    private func makeAPIRefresher(
+        authContext: NativeLiveAuthOperationContext? = nil,
+        expectedConfiguration: APIClientConfiguration? = nil
+    ) -> NativeLiveAppStoreAPIRefresher {
+        let authContext = authContext ?? NativeLiveAuthOperationContext(
+            generation: authGeneration,
+            identity: authIdentity(for: currentContentState.authSessionState)
+        )
+        let expectedConfiguration = expectedConfiguration ?? configuration
         return NativeLiveAppStoreAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL,
             didRefresh: { [weak self] session, refreshedConfiguration in
                 guard let self,
-                      self.authGeneration == expectedGeneration,
+                      self.authGeneration == authContext.generation,
+                      self.authIdentity(for: self.currentContentState.authSessionState) == authContext.identity,
+                      self.authIdentity(for: session) == authContext.identity,
                       self.configuration == expectedConfiguration || self.configuration == refreshedConfiguration else {
                     throw CancellationError()
-                }
-                if let expectedIdentity {
-                    guard self.authIdentity(for: self.currentContentState.authSessionState) == expectedIdentity,
-                          self.authIdentity(for: session) == expectedIdentity else {
-                        throw CancellationError()
-                    }
                 }
                 self.configuration = refreshedConfiguration
             }
         )
+    }
+
+    private func beginAuthenticatedOperation() throws -> NativeLiveAuthOperationContext {
+        try Task.checkCancellation()
+        let identity = authIdentity(for: currentContentState.authSessionState)
+        guard identity != .signedOut else {
+            throw CancellationError()
+        }
+        return NativeLiveAuthOperationContext(generation: authGeneration, identity: identity)
+    }
+
+    private func authenticatedConfiguration(
+        for context: NativeLiveAuthOperationContext
+    ) async throws -> APIClientConfiguration {
+        try ensureCurrentAuthOperation(context)
+        let session = try await dependencies.authSessionRepository.validSession()
+        try ensureCurrentAuthOperation(context, session: session)
+        let authenticatedConfiguration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        configuration = authenticatedConfiguration
+        return authenticatedConfiguration
+    }
+
+    private func ensureCurrentAuthOperation(
+        _ context: NativeLiveAuthOperationContext,
+        session: AuthSession? = nil
+    ) throws {
+        try Task.checkCancellation()
+        guard authGeneration == context.generation,
+              authIdentity(for: currentContentState.authSessionState) == context.identity else {
+            throw CancellationError()
+        }
+        if let session, authIdentity(for: session) != context.identity {
+            throw CancellationError()
+        }
+    }
+
+    private func currentMutationScope() -> NativeLiveMutationScope? {
+        guard let accountID = trustedAccountID(for: currentContentState.authSessionState) else {
+            return nil
+        }
+        return NativeLiveMutationScope(
+            authContext: NativeLiveAuthOperationContext(
+                generation: authGeneration,
+                identity: authIdentity(for: currentContentState.authSessionState)
+            ),
+            authSessionState: currentContentState.authSessionState,
+            accountID: accountID,
+            environment: cacheEnvironment
+        )
+    }
+
+    private func ensureCurrentMutationScope(_ scope: NativeLiveMutationScope) throws {
+        try ensureCurrentAuthOperation(scope.authContext)
+        guard trustedAccountID(for: currentContentState.authSessionState) == scope.accountID,
+              cacheEnvironment == scope.environment else {
+            throw CancellationError()
+        }
     }
 
     private func reportNativeTelemetry(
@@ -3400,7 +3636,10 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func authIdentity(for session: AuthSession) -> NativeLiveAuthIdentity {
-        .session(clientID: session.clientID, accountID: session.accountID)
+        if let accountID = session.accountID {
+            return .boundSession(clientID: session.clientID, accountID: accountID)
+        }
+        return .unboundSession(clientID: session.clientID, refreshToken: session.refreshToken)
     }
 
     private func stateMatchingCurrentSeverity(with content: NativeShellContentState) -> NativeAppBootstrapState {

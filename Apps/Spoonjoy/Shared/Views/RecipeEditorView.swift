@@ -44,6 +44,11 @@ private struct RecipeEditorToolbarFingerprint: Equatable {
     let isSubmitting: Bool
 }
 
+private struct RecipeConflictDiscardContext: Equatable, Sendable {
+    let routeIdentifier: String
+    let conflict: RecipeEditorConflict
+}
+
 private struct RecipeEditorPlatformScroller: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
@@ -75,7 +80,7 @@ struct RecipeEditorView: View {
     @State private var submissionTask: Task<Void, Never>?
     @State private var activeSubmissionID: UUID?
     @State private var conflictDiscardTask: Task<Void, Never>?
-    @State private var activeConflictDiscardID: UUID?
+    @State private var conflictDiscardOwner = NativeAsyncOperationOwner<RecipeConflictDiscardContext>()
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
@@ -319,6 +324,12 @@ struct RecipeEditorView: View {
         }
         .onChange(of: editorRouteIdentifier) { previousRouteIdentifier, routeIdentifier in
             guard previousRouteIdentifier != routeIdentifier else {
+                return
+            }
+            cancelConflictDiscard()
+        }
+        .onChange(of: conflictDiscardContext) { previousContext, context in
+            guard previousContext != context else {
                 return
             }
             cancelConflictDiscard()
@@ -894,61 +905,79 @@ struct RecipeEditorView: View {
 
     @MainActor private func startConflictDiscard() {
         guard conflictDiscardTask == nil,
-              let conflict = activeViewModel.conflict else {
+              let context = conflictDiscardContext else {
             return
         }
 
-        let operationID = UUID()
-        let routeIdentifier = editorRouteIdentifier
-        activeConflictDiscardID = operationID
+        let lease = conflictDiscardOwner.begin(context: context)
         conflictDiscardTask = Task { @MainActor in
-            await discardLocalChange(conflict, operationID: operationID, routeIdentifier: routeIdentifier)
-            guard activeConflictDiscardID == operationID else {
-                return
-            }
-            activeConflictDiscardID = nil
-            conflictDiscardTask = nil
+            await discardLocalChange(context, lease: lease)
         }
     }
 
     @MainActor private func cancelConflictDiscard() {
-        activeConflictDiscardID = nil
+        conflictDiscardOwner.cancel()
         conflictDiscardTask?.cancel()
         conflictDiscardTask = nil
     }
 
     @MainActor private func discardLocalChange(
-        _ conflict: RecipeEditorConflict,
-        operationID: UUID,
-        routeIdentifier: String
+        _ context: RecipeConflictDiscardContext,
+        lease: NativeAsyncOperationLease<RecipeConflictDiscardContext>
     ) async {
-        guard ownsConflictDiscard(operationID, routeIdentifier: routeIdentifier) else {
+        guard ownsConflictDiscard(lease) else {
+            abandonConflictDiscard(lease)
             return
         }
 
         do {
-            try await conflictDidDiscardLocalChange(conflict)
-            guard ownsConflictDiscard(operationID, routeIdentifier: routeIdentifier) else {
+            try await conflictDidDiscardLocalChange(context.conflict)
+            guard ownsConflictDiscard(lease),
+                  conflictDiscardOwner.finish(lease, currentContext: context) else {
+                abandonConflictDiscard(lease)
                 return
             }
+            conflictDiscardTask = nil
             conflictOverride = true
             runtimeConflict = nil
             blockedMessage = nil
             offlineDisplayOverride = nil
-            close(routeAfterConflictExit(conflict))
+            close(routeAfterConflictExit(context.conflict))
         } catch {
-            guard ownsConflictDiscard(operationID, routeIdentifier: routeIdentifier) else {
+            guard ownsConflictDiscard(lease),
+                  conflictDiscardOwner.finish(lease, currentContext: context) else {
+                abandonConflictDiscard(lease)
                 return
             }
+            conflictDiscardTask = nil
             blockedMessage = message(for: error, action: nil)
             offlineDisplayOverride = .syncFailure(errorID: "recipe-editor-conflict", retryAfter: nil)
         }
     }
 
-    @MainActor private func ownsConflictDiscard(_ operationID: UUID, routeIdentifier: String) -> Bool {
-        activeConflictDiscardID == operationID
-            && editorRouteIdentifier == routeIdentifier
-            && !Task.isCancelled
+    private var conflictDiscardContext: RecipeConflictDiscardContext? {
+        activeViewModel.conflict.map {
+            RecipeConflictDiscardContext(routeIdentifier: editorRouteIdentifier, conflict: $0)
+        }
+    }
+
+    @MainActor private func ownsConflictDiscard(
+        _ lease: NativeAsyncOperationLease<RecipeConflictDiscardContext>
+    ) -> Bool {
+        guard let conflictDiscardContext else {
+            return false
+        }
+        return !Task.isCancelled
+            && conflictDiscardOwner.owns(lease, currentContext: conflictDiscardContext)
+    }
+
+    @MainActor private func abandonConflictDiscard(
+        _ lease: NativeAsyncOperationLease<RecipeConflictDiscardContext>
+    ) {
+        guard conflictDiscardOwner.cancel(lease) else {
+            return
+        }
+        conflictDiscardTask = nil
     }
 
     private func routeAfterConflictExit(_ conflict: RecipeEditorConflict) -> AppRoute {

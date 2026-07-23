@@ -2,13 +2,6 @@ import Foundation
 import SpoonjoyCore
 import SwiftUI
 
-private enum RecipeDetailRouteState {
-    case loading(snapshotTitle: String?)
-    case loaded(RecipeDetailScreenViewModel)
-    case missing(message: String)
-    case failed(message: String)
-}
-
 struct RecipeDetailRouteLoadContext: Equatable, Sendable {
     let taskIdentity: RecipeDetailLoadIdentity
     let shellRecipe: Recipe?
@@ -37,8 +30,7 @@ struct RecipeDetailRouteView: View {
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
-    @State private var routeState: RecipeDetailRouteState
-    @State private var errorMessage: String?
+    @State private var routeState: NativeOwnedLoadState<RecipeDetailLoadIdentity, RecipeDetailScreenViewModel>
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
@@ -85,12 +77,16 @@ struct RecipeDetailRouteView: View {
         self.discardSpoonCookLogConflict = discardSpoonCookLogConflict
         self.performShoppingAction = performShoppingAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
-        _routeState = State(initialValue: initialViewModel.map(RecipeDetailRouteState.loaded) ?? .loading(snapshotTitle: loadingTitle))
+        _routeState = State(initialValue: NativeOwnedLoadState(
+            identity: loadContext.taskIdentity,
+            initialValue: initialViewModel,
+            loadingTitle: loadingTitle
+        ))
     }
 
     var body: some View {
         Group {
-            switch routeState {
+            switch routeState.presentation {
             case .loaded(let viewModel):
                 RecipeDetailView(
                     viewModel: viewModel,
@@ -121,22 +117,21 @@ struct RecipeDetailRouteView: View {
         .task(id: loadContext.taskIdentity) {
             await loadRecipe(context: loadContext)
         }
-        .onChange(of: snapshotViewModel) { _, nextViewModel in
-            guard let nextViewModel, nextViewModel != routeState.currentViewModel else {
-                return
-            }
-            routeState = .loaded(nextViewModel)
+        .onChange(of: loadContext.taskIdentity) { _, identity in
+            routeState.transition(
+                identity: identity,
+                snapshot: snapshotViewModel,
+                loadingTitle: loadingTitle
+            )
         }
     }
 
     @MainActor private func loadRecipe(context loadContext: RecipeDetailRouteLoadContext) async {
-        errorMessage = nil
-        if routeState.currentViewModel?.id != recipeID {
-            routeState = .loading(snapshotTitle: loadingTitle)
-        }
-        let onRecipeLoaded: @MainActor @Sendable (Recipe) -> Void = { recipe in
-            self.onRecipeLoaded(recipe, loadContext)
-        }
+        let lease = routeState.begin(
+            identity: loadContext.taskIdentity,
+            snapshot: snapshotViewModel,
+            loadingTitle: loadingTitle
+        )
         do {
             let loader = RecipeDetailProgressiveLoader(
                 recipeRepository: repository,
@@ -144,47 +139,53 @@ struct RecipeDetailRouteView: View {
                 reportTelemetry: reportTelemetry
             )
             try await loader.load(recipeID: recipeID) { result in
-                publishLoadedRecipe(result)
-                onRecipeLoaded(result.recipe)
+                guard !Task.isCancelled,
+                      publishLoadedRecipe(result, lease: lease, loadContext: loadContext) else {
+                    return
+                }
+                onRecipeLoaded(result.recipe, loadContext)
             }
-            errorMessage = nil
         } catch is CancellationError {
             return
         } catch let error as APITransportError where error.isCancelled {
             return
         } catch RecipeCatalogRepositoryError.recipeNotFound {
-            guard routeState.currentViewModel?.id != recipeID else {
-                return
-            }
-            errorMessage = "We couldn't find this recipe."
-            routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
+            routeState.markMissing(
+                "We couldn't find this recipe.",
+                lease: lease,
+                currentIdentity: self.loadContext.taskIdentity
+            )
         } catch {
-            guard routeState.currentViewModel?.id != recipeID else {
-                return
-            }
-            errorMessage = "We couldn't load this recipe."
-            routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
+            routeState.markFailed(
+                "We couldn't load this recipe.",
+                lease: lease,
+                currentIdentity: self.loadContext.taskIdentity
+            )
         }
     }
 
     @MainActor
-    private func publishLoadedRecipe(_ result: RecipeCatalogDetailResult) {
+    private func publishLoadedRecipe(
+        _ result: RecipeCatalogDetailResult,
+        lease: NativeAsyncOperationLease<RecipeDetailLoadIdentity>,
+        loadContext: RecipeDetailRouteLoadContext
+    ) -> Bool {
+        let viewModel = RecipeDetailScreenViewModel(result: result, context: context(result.recipe))
+        guard routeState.currentIdentity == self.loadContext.taskIdentity,
+              loadContext.taskIdentity == self.loadContext.taskIdentity else {
+            return false
+        }
+        var accepted = false
         withAnimation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.20)) {
-            routeState = .loaded(RecipeDetailScreenViewModel(result: result, context: context(result.recipe)))
+            accepted = routeState.publish(
+                viewModel,
+                lease: lease,
+                currentIdentity: self.loadContext.taskIdentity
+            )
         }
+        return accepted
     }
 
-}
-
-private extension RecipeDetailRouteState {
-    var currentViewModel: RecipeDetailScreenViewModel? {
-        switch self {
-        case .loaded(let viewModel):
-            viewModel
-        case .loading, .missing, .failed:
-            nil
-        }
-    }
 }
 
 struct RecipeDetailView: View {
