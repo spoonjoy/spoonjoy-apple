@@ -401,6 +401,8 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "encodeNil(forKey: .selectedScrollHierarchySnapshotBeforeSHA256)",
   "encodeNil(forKey: .selectedScrollHierarchySnapshotAfterSHA256)",
   "isStructurallyObservedScrollContent",
+  "stableChromeIdentity",
+  "testPersistentChromeUsesStableLabelsWhenXCTestAddsSymbolIdentifiersAfterScroll",
   "testPersistentChromeRejectsChangedStructurallyNestedTabControl",
   "namedTerminalIsVisible(",
   "terminalScrollSignature(",

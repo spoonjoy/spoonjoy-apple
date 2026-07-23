@@ -804,6 +804,32 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
     }
 
+    func testPersistentChromeUsesStableLabelsWhenXCTestAddsSymbolIdentifiersAfterScroll() {
+        let tabBar = observedElement(
+            identifier: "tabs",
+            label: "Tab Bar",
+            type: "tabBar",
+            frame: ObservedRect(x: 0, y: 791, width: 402, height: 83)
+        )
+        let kitchenBefore = observedElement(
+            identifier: "",
+            label: "Kitchen",
+            type: "button",
+            frame: ObservedRect(x: 25, y: 795, width: 74, height: 54)
+        )
+        let kitchenAfter = observedElement(
+            identifier: "house",
+            label: "Kitchen",
+            type: "button",
+            frame: ObservedRect(x: 25, y: 795, width: 74, height: 54)
+        )
+
+        XCTAssertTrue(persistentChromeFindings(
+            before: [tabBar, kitchenBefore],
+            after: [tabBar, kitchenAfter]
+        ).isEmpty)
+    }
+
     func testMovementCandidatesIncludeUniqueOffscreenContentButExcludeChrome() {
         let viewport = ObservedRect(x: 0, y: 0, width: 402, height: 874)
         let candidates = uniqueMovementCandidates(
@@ -2650,7 +2676,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             .map { element in
                 [
                     element.type,
-                    element.identifier,
+                    stableChromeIdentity(element),
                     element.label,
                     stableChromeCoordinate(element.frame.x),
                     stableChromeCoordinate(element.frame.y),
@@ -2659,6 +2685,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 ].joined(separator: "|")
             }
             .sorted()
+    }
+
+    private func stableChromeIdentity(_ element: ObservedAccessibilityElement) -> String {
+        element.label.isEmpty ? element.identifier : ""
     }
 
     private func isStructurallyObservedScrollContent(
