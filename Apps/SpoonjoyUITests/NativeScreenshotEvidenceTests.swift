@@ -44,7 +44,7 @@ private struct ObservedCaptureIdentity: Codable, Equatable {
     let screenshotSHA256: String
 }
 
-private struct ObservedPixelAccessibilityBinding: Encodable, Equatable {
+private struct ObservedPixelAccessibilityBinding: Codable, Equatable {
     let schema: String
     let captureID: String
     let capturePhase: String
