@@ -46,6 +46,8 @@ macos_screenshot_diagnostic="$artifact_root/screenshots/macos-desktop-diagnostic
 ios_app="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
 ios_ui_test_runner="${SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH:-}"
 ios_xctestrun="${SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH:-}"
+allow_attested_ios_products="${SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS:-0}"
+ios_provenance_manifest="${SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST:-}"
 macos_app="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-$artifact_root/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app}"
 design_review="$artifact_root/design-review.json"
 design_review_blocked="$artifact_root/design-review-blocked.json"
@@ -2138,11 +2140,38 @@ prepare_ios_observer_products() {
   [[ -n "$ios_app" ]] && configured_count=$((configured_count + 1))
   [[ -n "$ios_ui_test_runner" ]] && configured_count=$((configured_count + 1))
   [[ -n "$ios_xctestrun" ]] && configured_count=$((configured_count + 1))
-  if [[ "$configured_count" -ne 0 && "$configured_count" -ne 3 ]]; then
-    printf 'iOS screenshot observer requires app, UI-test runner, and xctestrun paths together\n' >> "$capture_log"
-    return 1
-  fi
-  if [[ "$configured_count" -eq 0 ]]; then
+  if [[ "$configured_count" -gt 0 ]]; then
+    if [[ "$allow_attested_ios_products" != "1" ]]; then
+      printf 'refusing unattested inherited iOS observer products; direct captures must build inside the current artifact root\n' >> "$capture_log"
+      return 1
+    fi
+    if [[ "$configured_count" -ne 3 ]]; then
+      printf 'attested iOS screenshot products require app, UI-test runner, and xctestrun paths together\n' >> "$capture_log"
+      return 1
+    fi
+    if [[ -z "$ios_provenance_manifest" || ! -f "$ios_provenance_manifest" ]]; then
+      printf 'attested iOS screenshot products require a provenance manifest\n' >> "$capture_log"
+      return 1
+    fi
+    if ! ruby -rjson -e '
+      manifest_path, app_path, runner_path, xctestrun_path = ARGV
+      manifest = JSON.parse(File.read(manifest_path))
+      expected = manifest.fetch("builds").fetch("ios").values_at(
+        "captureAppPath",
+        "captureUITestRunnerPath",
+        "captureXctestrunPath"
+      )
+      actual = [app_path, runner_path, xctestrun_path].map { |path| File.realpath(path) }
+      expected = expected.map { |path| File.realpath(path) }
+      abort("attested iOS screenshot product paths do not match the provenance manifest") unless actual == expected
+    ' "$ios_provenance_manifest" "$ios_app" "$ios_ui_test_runner" "$ios_xctestrun" >> "$capture_log" 2>&1; then
+      return 1
+    fi
+  else
+    if [[ "$allow_attested_ios_products" == "1" ]]; then
+      printf 'attested iOS screenshot product mode requires explicit product paths\n' >> "$capture_log"
+      return 1
+    fi
     local observer_derived_data="$artifact_root/DerivedData-iOS-Observer"
     if ! run_with_timeout "iOS screenshot observer build timeout" "$ios_observer_timeout_seconds" "$capture_log" \
       xcodebuild \

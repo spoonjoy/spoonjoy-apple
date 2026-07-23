@@ -213,6 +213,7 @@ prepare_shared_builds() {
   export SPOONJOY_SCREENSHOT_IOS_APP_PATH="$shared_ios_app_path"
   export SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH="$shared_ios_ui_test_runner_path"
   export SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH="$shared_ios_xctestrun_path"
+  export SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS=1
   export SPOONJOY_SCREENSHOT_MACOS_APP_PATH="$shared_macos_app_path"
   export SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP="${SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP:-1}"
   export SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER="$configured_ios_install_marker"

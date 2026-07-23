@@ -305,6 +305,81 @@ class ScreenshotAttachmentTests(unittest.TestCase):
             "selectedScrollHierarchySnapshotAfterSHA256": "b" * 64 if deep else None,
         }
 
+    def capture_identity(
+        self,
+        capture_id: str = "4bd46f3c-5d3d-4c9f-9dd2-16dd476f4355",
+        screenshot_sha256: str = "c" * 64,
+        capture_phase: str = "initial",
+    ) -> dict:
+        return {
+            "captureID": capture_id,
+            "capturePhase": capture_phase,
+            "screenshotSHA256": screenshot_sha256,
+        }
+
+    def test_pixel_accessibility_binding_rejects_every_missing_or_extra_schema_field(self):
+        identity = self.capture_identity()
+        binding = self.pixel_accessibility_binding(
+            identity["captureID"], identity["screenshotSHA256"]
+        )
+
+        for field in tuple(binding):
+            malformed = dict(binding)
+            malformed.pop(field)
+            with self.subTest(missing=field):
+                with self.assertRaisesRegex(SystemExit, "missing or malformed"):
+                    MODULE.attest_pixel_accessibility_binding(
+                        {"pixelAccessibilityBinding": malformed}, identity, "initial"
+                    )
+
+        with self.assertRaisesRegex(SystemExit, "missing or malformed"):
+            MODULE.attest_pixel_accessibility_binding(
+                {"pixelAccessibilityBinding": {**binding, "unexpected": True}},
+                identity,
+                "initial",
+            )
+
+    def test_pixel_accessibility_binding_rejects_malformed_initial_and_deep_hierarchy_fields(self):
+        initial_identity = self.capture_identity()
+        initial_binding = self.pixel_accessibility_binding(
+            initial_identity["captureID"], initial_identity["screenshotSHA256"]
+        )
+        for field in (
+            "selectedScrollHierarchyIdentifier",
+            "selectedScrollHierarchySnapshotBeforeSHA256",
+            "selectedScrollHierarchySnapshotAfterSHA256",
+        ):
+            malformed = dict(initial_binding)
+            malformed[field] = "forged"
+            with self.subTest(initial_field=field):
+                with self.assertRaisesRegex(SystemExit, "must not claim"):
+                    MODULE.attest_pixel_accessibility_binding(
+                        {"pixelAccessibilityBinding": malformed},
+                        initial_identity,
+                        "initial",
+                    )
+
+        deep_identity = self.capture_identity(capture_phase="deepScroll")
+        deep_binding = self.pixel_accessibility_binding(
+            deep_identity["captureID"],
+            deep_identity["screenshotSHA256"],
+            capture_phase="deepScroll",
+        )
+        for field in (
+            "selectedScrollHierarchyIdentifier",
+            "selectedScrollHierarchySnapshotBeforeSHA256",
+            "selectedScrollHierarchySnapshotAfterSHA256",
+        ):
+            malformed = dict(deep_binding)
+            malformed[field] = None
+            with self.subTest(deep_field=field):
+                with self.assertRaisesRegex(SystemExit, "selected hierarchy"):
+                    MODULE.attest_pixel_accessibility_binding(
+                        {"pixelAccessibilityBinding": malformed},
+                        deep_identity,
+                        "deepScroll",
+                    )
+
     def write_attachments(self, root: Path, names: list[str]) -> None:
         attachments = []
         for index, name in enumerate(names):

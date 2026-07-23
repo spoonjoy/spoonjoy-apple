@@ -504,6 +504,19 @@ def write_executable(path, content)
   FileUtils.chmod("+x", path.to_s)
 end
 
+def write_ios_observer_provenance_manifest(path, app, runner, xctestrun)
+  path.write(JSON.generate(
+    "builds" => {
+      "ios" => {
+        "captureAppPath" => app.realpath.to_s,
+        "captureUITestRunnerPath" => runner.realpath.to_s,
+        "captureXctestrunPath" => xctestrun.realpath.to_s
+      }
+    }
+  ) + "\n")
+  path
+end
+
 def assert_file(path, label)
   record_failure("#{label} expected #{path} to exist") unless path.file?
 end
@@ -2034,12 +2047,22 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     <?xml version="1.0" encoding="UTF-8"?>
     <plist version="1.0"><dict><key>CFBundleExecutable</key><string>Spoonjoy</string></dict></plist>
   PLIST
-  observer_product_env = {
+  observer_product_paths_env = {
     "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => observer_app.to_s,
     "SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH" => observer_runner.to_s,
     "SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH" => observer_xctestrun.to_s,
     "SPOONJOY_SCREENSHOT_MACOS_APP_PATH" => observer_macos_app.to_s
   }
+  observer_provenance_manifest = write_ios_observer_provenance_manifest(
+    observer_products.join("screenshot-provenance.json"),
+    observer_app,
+    observer_runner,
+    observer_xctestrun
+  )
+  observer_product_env = observer_product_paths_env.merge(
+    "SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS" => "1",
+    "SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST" => observer_provenance_manifest.to_s
+  )
   write_executable(scripts_dir.join("run-ios-screenshot-observer.py"), <<~'PY')
     #!/usr/bin/env python3
     import argparse, hashlib, json, os, struct, sys, zlib
@@ -2925,6 +2948,100 @@ PY
     /bin/cp "$PWD/Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png" "$out"
   SH
 
+  stale_override_root = temp_root.join("stale-observer-product-override")
+  stale_override_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      stale_override_root,
+      "--unit-slug",
+      "unit-contract-stale-observer-products",
+      "--route",
+      "kitchen"
+    ],
+    "direct screenshot capture rejects unattested inherited observer products",
+    env: observer_product_paths_env.merge(
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}"
+    ),
+    chdir: script_root
+  )
+  assert_json(
+    stale_override_root.join("design-review-blocked.json"),
+    "unattested inherited observer products blocked review"
+  )
+  assert_missing(stale_override_root.join("design-review.json"), "unattested inherited observer products")
+
+  missing_manifest_root = temp_root.join("missing-observer-product-manifest")
+  missing_manifest_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      missing_manifest_root,
+      "--unit-slug",
+      "unit-contract-missing-observer-manifest",
+      "--route",
+      "kitchen"
+    ],
+    "attested screenshot products require a provenance manifest",
+    env: observer_product_paths_env.merge(
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS" => "1"
+    ),
+    chdir: script_root
+  )
+  assert_json(
+    missing_manifest_root.join("design-review-blocked.json"),
+    "missing observer product manifest blocked review"
+  )
+  assert_missing(missing_manifest_root.join("design-review.json"), "missing observer product manifest")
+
+  mismatched_manifest = observer_products.join("mismatched-screenshot-provenance.json")
+  mismatched_manifest.write(JSON.generate(
+    "builds" => {
+      "ios" => {
+        "captureAppPath" => observer_app.realpath.to_s,
+        "captureUITestRunnerPath" => observer_runner.realpath.to_s,
+        "captureXctestrunPath" => script_root.join("wrong.xctestrun").to_s
+      }
+    }
+  ) + "\n")
+  mismatched_manifest_root = temp_root.join("mismatched-observer-product-manifest")
+  mismatched_manifest_root.mkpath
+  assert_status(
+    true,
+    [
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      mismatched_manifest_root,
+      "--unit-slug",
+      "unit-contract-mismatched-observer-manifest",
+      "--route",
+      "kitchen"
+    ],
+    "attested screenshot products must match their provenance manifest",
+    env: observer_product_paths_env.merge(
+      "HOME" => script_root.join("home").to_s,
+      "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
+      "SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST" => mismatched_manifest.to_s
+    ),
+    chdir: script_root
+  )
+  assert_json(
+    mismatched_manifest_root.join("design-review-blocked.json"),
+    "mismatched observer product manifest blocked review"
+  )
+  assert_missing(mismatched_manifest_root.join("design-review.json"), "mismatched observer product manifest")
+
   fixture_runtime_env = observer_product_env.merge(
     "HOME" => script_root.join("home").to_s,
     "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
@@ -3463,6 +3580,12 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
   observer_app.mkpath
   observer_runner.mkpath
   observer_xctestrun.write("fixture\n")
+  observer_provenance_manifest = write_ios_observer_provenance_manifest(
+    script_root.join("observer/screenshot-provenance.json"),
+    observer_app,
+    observer_runner,
+    observer_xctestrun
+  )
 
   write_executable(scripts_dir.join("smoke-ios-simulator.sh"), <<~'SH')
     #!/usr/bin/env bash
@@ -3541,7 +3664,9 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
       "SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS" => "0.01",
       "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => observer_app.to_s,
       "SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH" => observer_runner.to_s,
-      "SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH" => observer_xctestrun.to_s
+      "SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH" => observer_xctestrun.to_s,
+      "SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST" => observer_provenance_manifest.to_s
     },
     chdir: script_root
   )
@@ -3586,6 +3711,12 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
   observer_app.mkpath
   observer_runner.mkpath
   observer_xctestrun.write("fixture\n")
+  observer_provenance_manifest = write_ios_observer_provenance_manifest(
+    script_root.join("observer/screenshot-provenance.json"),
+    observer_app,
+    observer_runner,
+    observer_xctestrun
+  )
   observer_macos_app.join("Contents/MacOS").mkpath
   observer_macos_app.join("Contents/MacOS/Spoonjoy").write("fixture\n")
   observer_macos_app.join("Contents/Info.plist").write("<plist version=\"1.0\"><dict><key>CFBundleExecutable</key><string>Spoonjoy</string></dict></plist>\n")
@@ -4007,6 +4138,8 @@ PY
       "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => observer_app.to_s,
       "SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH" => observer_runner.to_s,
       "SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH" => observer_xctestrun.to_s,
+      "SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS" => "1",
+      "SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST" => observer_provenance_manifest.to_s,
       "SPOONJOY_SCREENSHOT_MACOS_APP_PATH" => observer_macos_app.to_s
     },
     chdir: script_root

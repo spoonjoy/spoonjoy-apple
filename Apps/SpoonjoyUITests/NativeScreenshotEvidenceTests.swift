@@ -44,7 +44,7 @@ private struct ObservedCaptureIdentity: Codable, Equatable {
     let screenshotSHA256: String
 }
 
-private struct ObservedPixelAccessibilityBinding: Codable, Equatable {
+private struct ObservedPixelAccessibilityBinding: Encodable, Equatable {
     let schema: String
     let captureID: String
     let capturePhase: String
@@ -56,6 +56,53 @@ private struct ObservedPixelAccessibilityBinding: Codable, Equatable {
     let selectedScrollHierarchyIdentifier: String?
     let selectedScrollHierarchySnapshotBeforeSHA256: String?
     let selectedScrollHierarchySnapshotAfterSHA256: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case schema
+        case captureID
+        case capturePhase
+        case pixelSource
+        case screenshotSHA256
+        case accessibilitySnapshotBeforeSHA256
+        case accessibilitySnapshotAfterSHA256
+        case windowFrame
+        case selectedScrollHierarchyIdentifier
+        case selectedScrollHierarchySnapshotBeforeSHA256
+        case selectedScrollHierarchySnapshotAfterSHA256
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schema, forKey: .schema)
+        try container.encode(captureID, forKey: .captureID)
+        try container.encode(capturePhase, forKey: .capturePhase)
+        try container.encode(pixelSource, forKey: .pixelSource)
+        try container.encode(screenshotSHA256, forKey: .screenshotSHA256)
+        try container.encode(accessibilitySnapshotBeforeSHA256, forKey: .accessibilitySnapshotBeforeSHA256)
+        try container.encode(accessibilitySnapshotAfterSHA256, forKey: .accessibilitySnapshotAfterSHA256)
+        try container.encode(windowFrame, forKey: .windowFrame)
+        if let selectedScrollHierarchyIdentifier {
+            try container.encode(selectedScrollHierarchyIdentifier, forKey: .selectedScrollHierarchyIdentifier)
+        } else {
+            try container.encodeNil(forKey: .selectedScrollHierarchyIdentifier)
+        }
+        if let selectedScrollHierarchySnapshotBeforeSHA256 {
+            try container.encode(
+                selectedScrollHierarchySnapshotBeforeSHA256,
+                forKey: .selectedScrollHierarchySnapshotBeforeSHA256
+            )
+        } else {
+            try container.encodeNil(forKey: .selectedScrollHierarchySnapshotBeforeSHA256)
+        }
+        if let selectedScrollHierarchySnapshotAfterSHA256 {
+            try container.encode(
+                selectedScrollHierarchySnapshotAfterSHA256,
+                forKey: .selectedScrollHierarchySnapshotAfterSHA256
+            )
+        } else {
+            try container.encodeNil(forKey: .selectedScrollHierarchySnapshotAfterSHA256)
+        }
+    }
 }
 
 private struct ObservedAuditResult {
@@ -302,6 +349,64 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             requirements: requirements(required: ["missing"])
         )
         XCTAssertEqual(findings.map(\.kind), [.requiredIdentifierMissing])
+    }
+
+    func testInitialPixelAccessibilityBindingEncodesExactSchemaWithExplicitNullHierarchyFields() throws {
+        let binding = ObservedPixelAccessibilityBinding(
+            schema: "iosPixelAccessibilityBindingV1",
+            captureID: "54857779-8c44-4b92-8184-ab76e45284cc",
+            capturePhase: "initial",
+            pixelSource: "mainScreen",
+            screenshotSHA256: String(repeating: "a", count: 64),
+            accessibilitySnapshotBeforeSHA256: String(repeating: "b", count: 64),
+            accessibilitySnapshotAfterSHA256: String(repeating: "b", count: 64),
+            windowFrame: ObservedRect(x: 0, y: 0, width: 402, height: 874),
+            selectedScrollHierarchyIdentifier: nil,
+            selectedScrollHierarchySnapshotBeforeSHA256: nil,
+            selectedScrollHierarchySnapshotAfterSHA256: nil
+        )
+
+        let data = try JSONEncoder.observedEvidence.encode(binding)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(Set(object.keys), [
+            "schema",
+            "captureID",
+            "capturePhase",
+            "pixelSource",
+            "screenshotSHA256",
+            "accessibilitySnapshotBeforeSHA256",
+            "accessibilitySnapshotAfterSHA256",
+            "windowFrame",
+            "selectedScrollHierarchyIdentifier",
+            "selectedScrollHierarchySnapshotBeforeSHA256",
+            "selectedScrollHierarchySnapshotAfterSHA256"
+        ])
+        XCTAssertTrue(object["selectedScrollHierarchyIdentifier"] is NSNull)
+        XCTAssertTrue(object["selectedScrollHierarchySnapshotBeforeSHA256"] is NSNull)
+        XCTAssertTrue(object["selectedScrollHierarchySnapshotAfterSHA256"] is NSNull)
+    }
+
+    func testDeepPixelAccessibilityBindingEncodesSelectedHierarchyValues() throws {
+        let hierarchyDigest = String(repeating: "c", count: 64)
+        let binding = ObservedPixelAccessibilityBinding(
+            schema: "iosPixelAccessibilityBindingV1",
+            captureID: "ae0e5a06-2728-47d3-a8bb-a97576a17c49",
+            capturePhase: "deepScroll",
+            pixelSource: "mainScreen",
+            screenshotSHA256: String(repeating: "d", count: 64),
+            accessibilitySnapshotBeforeSHA256: String(repeating: "e", count: 64),
+            accessibilitySnapshotAfterSHA256: String(repeating: "e", count: 64),
+            windowFrame: ObservedRect(x: 0, y: 0, width: 402, height: 874),
+            selectedScrollHierarchyIdentifier: "spoonjoy.page-scroll",
+            selectedScrollHierarchySnapshotBeforeSHA256: hierarchyDigest,
+            selectedScrollHierarchySnapshotAfterSHA256: hierarchyDigest
+        )
+
+        let data = try JSONEncoder.observedEvidence.encode(binding)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["selectedScrollHierarchyIdentifier"] as? String, "spoonjoy.page-scroll")
+        XCTAssertEqual(object["selectedScrollHierarchySnapshotBeforeSHA256"] as? String, hierarchyDigest)
+        XCTAssertEqual(object["selectedScrollHierarchySnapshotAfterSHA256"] as? String, hierarchyDigest)
     }
 
     func testGeometryRejectsClippedOrOffscreenRequiredElement() {
@@ -602,6 +707,101 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             before: [navigationBar, tabBar, tabButton, obscuredContent],
             after: [navigationBar, tabBar, tabButton]
         ).isEmpty)
+    }
+
+    func testPersistentChromeIgnoresObservedScrollContentBehindNavigationBar() {
+        let navigationBar = observedElement(
+            identifier: "Kitchen",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 62, width: 402, height: 54)
+        )
+        let headingBefore = observedElement(
+            identifier: "",
+            label: "LATEST FROM THE KITCHEN",
+            type: "staticText",
+            frame: ObservedRect(x: 38, y: 321, width: 159, height: 14)
+        )
+        let headingAfter = observedElement(
+            identifier: "",
+            label: "LATEST FROM THE KITCHEN",
+            type: "staticText",
+            frame: ObservedRect(x: 38, y: 99.5, width: 159, height: 14)
+        )
+        let structurallyObservedHeadingAfter = observedElement(
+            identifier: "",
+            label: "LATEST FROM THE KITCHEN",
+            type: "staticText",
+            frame: ObservedRect(x: 38.17, y: 99.63, width: 158.67, height: 13.33)
+        )
+
+        XCTAssertTrue(persistentChromeFindings(
+            before: [navigationBar, headingBefore],
+            after: [navigationBar, headingAfter],
+            beforeScrollContent: [headingBefore],
+            afterScrollContent: [structurallyObservedHeadingAfter]
+        ).isEmpty)
+    }
+
+    func testPersistentChromeStillRejectsMovedNavigationTitleBesideObservedScrollContent() {
+        let navigationBar = observedElement(
+            identifier: "Kitchen",
+            type: "navigationBar",
+            frame: ObservedRect(x: 0, y: 62, width: 402, height: 54)
+        )
+        let titleBefore = observedElement(
+            identifier: "spoonjoy.navigation-title",
+            label: "Kitchen",
+            type: "staticText",
+            frame: ObservedRect(x: 170, y: 74, width: 61, height: 21)
+        )
+        let titleAfter = observedElement(
+            identifier: "spoonjoy.navigation-title",
+            label: "Kitchen",
+            type: "staticText",
+            frame: ObservedRect(x: 154, y: 74, width: 61, height: 21)
+        )
+        let headingAfter = observedElement(
+            identifier: "",
+            label: "LATEST FROM THE KITCHEN",
+            type: "staticText",
+            frame: ObservedRect(x: 38, y: 99.5, width: 159, height: 14)
+        )
+
+        XCTAssertEqual(persistentChromeFindings(
+            before: [navigationBar, titleBefore],
+            after: [navigationBar, titleAfter, headingAfter],
+            beforeScrollContent: [],
+            afterScrollContent: [headingAfter]
+        ).map(\.kind), [.persistentChromeChanged])
+    }
+
+    func testPersistentChromeRejectsChangedStructurallyNestedTabControl() {
+        let tabBar = observedElement(
+            identifier: "tabs",
+            label: "Tab Bar",
+            type: "tabBar",
+            frame: ObservedRect(x: 0, y: 791, width: 402, height: 83)
+        )
+        let kitchenTab = observedElement(
+            identifier: "house.fill",
+            label: "Kitchen",
+            type: "button",
+            frame: ObservedRect(x: 25, y: 795, width: 74, height: 54)
+        )
+        let recipesTab = observedElement(
+            identifier: "book.closed",
+            label: "Recipes",
+            type: "button",
+            frame: ObservedRect(x: 25, y: 795, width: 74, height: 54)
+        )
+
+        XCTAssertEqual(
+            persistentChromeFindings(
+                before: [tabBar, kitchenTab],
+                after: [tabBar, recipesTab]
+            ).map(\.kind),
+            [.persistentChromeChanged]
+        )
     }
 
     func testMovementCandidatesIncludeUniqueOffscreenContentButExcludeChrome() {
@@ -2257,7 +2457,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let contentFitsWithoutScrolling = terminalWasFullyVisibleInitially
             && !observedContentMovement
         var findings: [ObservedAccessibilityFinding] = []
-        findings.append(contentsOf: persistentChromeFindings(before: initialElements, after: elements))
+        findings.append(contentsOf: persistentChromeFindings(
+            before: initialElements,
+            after: elements,
+            beforeScrollContent: initialPrimaryElements,
+            afterScrollContent: selectedHierarchyElements
+        ))
         findings.append(contentsOf: ScreenshotEvidenceGeometry.validate(
             elements: elements,
             requirements: ObservedGeometryRequirements(
@@ -2394,10 +2599,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
     private func persistentChromeFindings(
         before: [ObservedAccessibilityElement],
-        after: [ObservedAccessibilityElement]
+        after: [ObservedAccessibilityElement],
+        beforeScrollContent: [ObservedAccessibilityElement] = [],
+        afterScrollContent: [ObservedAccessibilityElement] = []
     ) -> [ObservedAccessibilityFinding] {
-        let beforeSignature = persistentChromeSignature(before)
-        let afterSignature = persistentChromeSignature(after)
+        let beforeSignature = persistentChromeSignature(before, excluding: beforeScrollContent)
+        let afterSignature = persistentChromeSignature(after, excluding: afterScrollContent)
         guard beforeSignature != afterSignature else {
             return []
         }
@@ -2416,7 +2623,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             + "Removed: \(removed.joined(separator: "; ")). Added: \(added.joined(separator: "; "))."
     }
 
-    private func persistentChromeSignature(_ elements: [ObservedAccessibilityElement]) -> [String] {
+    private func persistentChromeSignature(
+        _ elements: [ObservedAccessibilityElement],
+        excluding scrollContent: [ObservedAccessibilityElement]
+    ) -> [String] {
         let containers = elements.filter { element in
             Self.chromeTypes.contains(element.type)
                 || (element.type == "collectionView" && element.label == "Sidebar")
@@ -2425,6 +2635,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             .filter { element in
                 guard element.exists else { return false }
                 if containers.contains(element) { return true }
+                if isStructurallyObservedScrollContent(element, in: scrollContent) { return false }
                 guard ["button", "staticText"].contains(element.type),
                       !element.identifier.isEmpty || !element.label.isEmpty else {
                     return false
@@ -2448,6 +2659,32 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 ].joined(separator: "|")
             }
             .sorted()
+    }
+
+    private func isStructurallyObservedScrollContent(
+        _ element: ObservedAccessibilityElement,
+        in scrollContent: [ObservedAccessibilityElement]
+    ) -> Bool {
+        scrollContent.contains { candidate in
+            guard candidate.exists, candidate.type == element.type else {
+                return false
+            }
+            let identityMatches: Bool
+            if !element.identifier.isEmpty || !candidate.identifier.isEmpty {
+                identityMatches = !element.identifier.isEmpty
+                    && element.identifier == candidate.identifier
+            } else {
+                identityMatches = !element.label.isEmpty && element.label == candidate.label
+            }
+            guard identityMatches else {
+                return false
+            }
+            let tolerance = 2.5
+            return abs(element.frame.x - candidate.frame.x) <= tolerance
+                && abs(element.frame.y - candidate.frame.y) <= tolerance
+                && abs(element.frame.width - candidate.frame.width) <= tolerance
+                && abs(element.frame.height - candidate.frame.height) <= tolerance
+        }
     }
 
     private func stableChromeCoordinate(_ value: Double) -> String {
