@@ -6228,6 +6228,53 @@ struct NativeLiveStoreTests {
         )
     }
 
+    @Test("recipe editor owns and cancels conflict discard work")
+    func recipeEditorOwnsAndCancelsConflictDiscardWork() throws {
+        let relativePath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let editor = uncommentedSwift(try readRepoFile(relativePath))
+
+        expectContent(
+            editor,
+            in: relativePath,
+            contains: [
+                "@State private var conflictDiscardTask: Task<Void, Never>?",
+                "@State private var activeConflictDiscardID: UUID?",
+                "startConflictDiscard()",
+                "cancelConflictDiscard()",
+                "conflictDiscardTask?.cancel()"
+            ],
+            forbids: [
+                "Task {\n                                await discardLocalChange()"
+            ]
+        )
+    }
+
+    @Test("recipe editor scopes conflict discard completion to its route identity")
+    func recipeEditorScopesConflictDiscardCompletionToItsRouteIdentity() throws {
+        let relativePath = "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift"
+        let editor = uncommentedSwift(try readRepoFile(relativePath))
+
+        expectContent(
+            editor,
+            in: relativePath,
+            contains: [
+                "let routeIdentifier = editorRouteIdentifier",
+                "discardLocalChange(conflict, operationID: operationID, routeIdentifier: routeIdentifier)",
+                "activeConflictDiscardID == operationID",
+                "editorRouteIdentifier == routeIdentifier",
+                "!Task.isCancelled",
+                ".onChange(of: editorRouteIdentifier)",
+                "close(routeAfterConflictExit(conflict))"
+            ]
+        )
+
+        let awaitRange = try #require(editor.range(of: "try await conflictDidDiscardLocalChange(conflict)"))
+        let completion = editor[awaitRange.upperBound...]
+        let ownershipGuard = try #require(completion.range(of: "guard ownsConflictDiscard(operationID, routeIdentifier: routeIdentifier)"))
+        let close = try #require(completion.range(of: "close(routeAfterConflictExit(conflict))"))
+        #expect(ownershipGuard.lowerBound < close.lowerBound)
+    }
+
     @Test("live store contract covers global search scopes and environment rebinding")
     func liveStoreContractCoversGlobalSearchScopesAndEnvironmentRebinding() throws {
         let relativePath = "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift"

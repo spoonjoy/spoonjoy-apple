@@ -74,6 +74,8 @@ struct RecipeEditorView: View {
     @State private var isSubmitting = false
     @State private var submissionTask: Task<Void, Never>?
     @State private var activeSubmissionID: UUID?
+    @State private var conflictDiscardTask: Task<Void, Never>?
+    @State private var activeConflictDiscardID: UUID?
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
@@ -121,10 +123,9 @@ struct RecipeEditorView: View {
                             reviewConflict()
                         }
                         Button(conflictBanner.discardActionTitle) {
-                            Task {
-                                await discardLocalChange()
-                            }
+                            startConflictDiscard()
                         }
+                        .disabled(conflictDiscardTask != nil)
                     }
                 }
             }
@@ -316,8 +317,15 @@ struct RecipeEditorView: View {
         .onChange(of: toolbarFingerprint) { _, _ in
             synchronizeToolbarCoordinator()
         }
+        .onChange(of: editorRouteIdentifier) { previousRouteIdentifier, routeIdentifier in
+            guard previousRouteIdentifier != routeIdentifier else {
+                return
+            }
+            cancelConflictDiscard()
+        }
         .onDisappear {
             cancelSubmission()
+            cancelConflictDiscard()
             toolbarCoordinator?.reset(ifMatching: editorRouteIdentifier)
         }
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
@@ -884,22 +892,63 @@ struct RecipeEditorView: View {
         close(routeAfterConflictExit(conflict))
     }
 
-    @MainActor private func discardLocalChange() async {
-        guard let conflict = activeViewModel.conflict else {
+    @MainActor private func startConflictDiscard() {
+        guard conflictDiscardTask == nil,
+              let conflict = activeViewModel.conflict else {
+            return
+        }
+
+        let operationID = UUID()
+        let routeIdentifier = editorRouteIdentifier
+        activeConflictDiscardID = operationID
+        conflictDiscardTask = Task { @MainActor in
+            await discardLocalChange(conflict, operationID: operationID, routeIdentifier: routeIdentifier)
+            guard activeConflictDiscardID == operationID else {
+                return
+            }
+            activeConflictDiscardID = nil
+            conflictDiscardTask = nil
+        }
+    }
+
+    @MainActor private func cancelConflictDiscard() {
+        activeConflictDiscardID = nil
+        conflictDiscardTask?.cancel()
+        conflictDiscardTask = nil
+    }
+
+    @MainActor private func discardLocalChange(
+        _ conflict: RecipeEditorConflict,
+        operationID: UUID,
+        routeIdentifier: String
+    ) async {
+        guard ownsConflictDiscard(operationID, routeIdentifier: routeIdentifier) else {
             return
         }
 
         do {
             try await conflictDidDiscardLocalChange(conflict)
+            guard ownsConflictDiscard(operationID, routeIdentifier: routeIdentifier) else {
+                return
+            }
             conflictOverride = true
             runtimeConflict = nil
             blockedMessage = nil
             offlineDisplayOverride = nil
             close(routeAfterConflictExit(conflict))
         } catch {
+            guard ownsConflictDiscard(operationID, routeIdentifier: routeIdentifier) else {
+                return
+            }
             blockedMessage = message(for: error, action: nil)
             offlineDisplayOverride = .syncFailure(errorID: "recipe-editor-conflict", retryAfter: nil)
         }
+    }
+
+    @MainActor private func ownsConflictDiscard(_ operationID: UUID, routeIdentifier: String) -> Bool {
+        activeConflictDiscardID == operationID
+            && editorRouteIdentifier == routeIdentifier
+            && !Task.isCancelled
     }
 
     private func routeAfterConflictExit(_ conflict: RecipeEditorConflict) -> AppRoute {
