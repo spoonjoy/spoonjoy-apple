@@ -72,21 +72,48 @@ struct NativeSearchSurfaceTests {
         ))
     }
 
-    @Test("recipe detail route binds cache ownership, task restart, and snapshot updates")
-    func recipeDetailRouteBindsCacheOwnershipTaskRestartAndSnapshotUpdates() throws {
-        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
-        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
-        let detail = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"))
+    @MainActor
+    @Test("superseded recipe detail work cannot preserve or publish the previous owner's recipe")
+    func supersededRecipeDetailWorkCannotPublishPreviousOwnerRecipe() async {
+        let gate = NativeSearchSuspensionGate()
+        let state = NativeOwnedLoadStateHarness(
+            identity: "production|chef_ari",
+            initialValue: "Ari's private recipe"
+        )
+        let staleLease = state.begin(
+            identity: "production|chef_ari",
+            snapshot: "Ari's private recipe"
+        )
+        let staleCompletion = Task { @MainActor in
+            await gate.suspend()
+            return state.publish(
+                "Ari's late recipe",
+                lease: staleLease,
+                currentIdentity: "production|chef_jules"
+            )
+        }
+        await gate.waitUntilSuspended()
 
-        #expect(navigation.contains("loadedRecipesByID.recipe("))
-        #expect(navigation.contains("shellIdentity: shellIdentity"))
-        #expect(navigation.contains("shellIdentity: loadContext.taskIdentity.shellIdentity"))
-        #expect(navigation.contains("RecipeDetailLoadIdentity("))
-        #expect(detail.contains(".task(id: loadContext.taskIdentity)"))
-        #expect(detail.contains("await loadRecipe(context: loadContext)"))
-        #expect(detail.contains("self.onRecipeLoaded(recipe, loadContext)"))
-        #expect(detail.contains("onRecipeLoaded(result.recipe)"))
-        #expect(detail.contains(".onChange(of: snapshotViewModel)"))
+        let currentLease = state.begin(identity: "production|chef_jules", snapshot: nil)
+        #expect(state.presentation == .loading(snapshotTitle: nil))
+
+        await gate.release()
+        #expect(await staleCompletion.value == false)
+        #expect(state.presentation == .loading(snapshotTitle: nil))
+        #expect(state.publish(
+            "Jules's recipe",
+            lease: currentLease,
+            currentIdentity: "production|chef_jules"
+        ))
+        #expect(state.presentation == .loaded("Jules's recipe"))
+
+        let failedLease = state.begin(identity: "production|chef_no_recipe", snapshot: nil)
+        #expect(state.markMissing(
+            "We couldn't find this recipe.",
+            lease: failedLease,
+            currentIdentity: "production|chef_no_recipe"
+        ))
+        #expect(state.presentation == .missing("We couldn't find this recipe."))
     }
 
     private static func copy(_ recipe: Recipe, title: String, updatedAt: String) -> Recipe {
@@ -1835,6 +1862,70 @@ private actor DelayedSearchTelemetryRecorder {
 
     func requestIDs() -> [String?] {
         descriptors.map(\.requestID)
+    }
+}
+
+@MainActor
+private final class NativeOwnedLoadStateHarness {
+    private var state: NativeOwnedLoadState<String, String>
+
+    init(identity: String, initialValue: String?) {
+        state = NativeOwnedLoadState(
+            identity: identity,
+            initialValue: initialValue,
+            loadingTitle: nil
+        )
+    }
+
+    var presentation: NativeOwnedLoadPresentation<String> {
+        state.presentation
+    }
+
+    func begin(identity: String, snapshot: String?) -> NativeAsyncOperationLease<String> {
+        state.begin(identity: identity, snapshot: snapshot, loadingTitle: nil)
+    }
+
+    func publish(
+        _ value: String,
+        lease: NativeAsyncOperationLease<String>,
+        currentIdentity: String
+    ) -> Bool {
+        state.publish(value, lease: lease, currentIdentity: currentIdentity)
+    }
+
+    func markMissing(
+        _ message: String,
+        lease: NativeAsyncOperationLease<String>,
+        currentIdentity: String
+    ) -> Bool {
+        state.markMissing(message, lease: lease, currentIdentity: currentIdentity)
+    }
+}
+
+private actor NativeSearchSuspensionGate {
+    private var suspensionContinuation: CheckedContinuation<Void, Never>?
+    private var waiterContinuations: [CheckedContinuation<Void, Never>] = []
+
+    func suspend() async {
+        waiterContinuations.forEach { $0.resume() }
+        waiterContinuations.removeAll()
+        await withCheckedContinuation { continuation in
+            suspensionContinuation = continuation
+        }
+    }
+
+    func waitUntilSuspended() async {
+        if suspensionContinuation != nil {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiterContinuations.append(continuation)
+        }
+    }
+
+    func release() {
+        suspensionContinuation?.resume()
+        suspensionContinuation = nil
     }
 }
 
