@@ -13,8 +13,12 @@ DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
   "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
   "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
-  "iosTablet" => "screenshots/ios-tablet-deep-scroll.png"
+  "iosTablet" => "screenshots/ios-tablet-deep-scroll.png",
+  "iosTabletXXXL" => "screenshots/ios-tablet-xxxl-deep-scroll.png",
+  "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility-deep-scroll.png",
+  "macosDesktop" => "screenshots/macos-desktop-deep-scroll.png"
 }.freeze
+REQUIRED_AUDIT_TYPES = %w[contrast dynamicType textClipped hitRegion trait].freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -33,6 +37,8 @@ CAPTURE_RUN_NONCES = {
   ["ios", "xxxLarge"] => "43afb485-26a1-4d2a-a205-4317fa1c4210",
   ["ios", "accessibility5"] => "f62de99c-0067-4c71-9fc5-f7ba5cc27e6c",
   ["ipad", "large"] => "817a858d-c004-4036-9c1d-d816b97f5d99",
+  ["ipad", "xxxLarge"] => "f79d818b-1766-4fa8-b1db-61613faefcb8",
+  ["ipad", "accessibility5"] => "35a4ef74-45d5-49d1-ac8e-f9f40fd6852d",
   ["macos", "large"] => "bf3d228e-0f1f-4450-b8dc-e48db62686b6"
 }.freeze
 READINESS_GENERATIONS = {
@@ -40,6 +46,8 @@ READINESS_GENERATIONS = {
   ["ios", "xxxLarge"] => 15,
   ["ios", "accessibility5"] => 20,
   ["ipad", "large"] => 30,
+  ["ipad", "xxxLarge"] => 32,
+  ["ipad", "accessibility5"] => 34,
   ["macos", "large"] => 40
 }.freeze
 
@@ -114,15 +122,52 @@ def ios_element(identifier, type: "staticText", frame: rect(x: 10, y: 10, width:
     "exists" => true,
     "hittable" => type == "button",
     "enabled" => true,
+    "hitRegionAuditVerified" => true,
     "focused" => nil
+  }
+end
+
+def ios_pixel_accessibility_binding(capture_id, screenshot_sha256, phase)
+  deep = phase == "deepScroll"
+  {
+    "schema" => "iosPixelAccessibilityBindingV1",
+    "captureID" => capture_id,
+    "capturePhase" => phase,
+    "pixelSource" => "mainScreen",
+    "screenshotSHA256" => screenshot_sha256,
+    "accessibilitySnapshotBeforeSHA256" => "a" * 64,
+    "accessibilitySnapshotAfterSHA256" => "a" * 64,
+    "windowFrame" => rect(x: 0, y: 0, width: 100, height: 100),
+    "selectedScrollHierarchyIdentifier" => deep ? "spoonjoy.page-scroll" : nil,
+    "selectedScrollHierarchySnapshotBeforeSHA256" => deep ? "b" * 64 : nil,
+    "selectedScrollHierarchySnapshotAfterSHA256" => deep ? "b" * 64 : nil
+  }
+end
+
+def macos_pixel_accessibility_binding(screenshot_sha256, phase)
+  deep = phase == "deepScroll"
+  {
+    "schema" => "macosPixelAccessibilityBindingV1",
+    "capturePhase" => phase,
+    "pixelSource" => "exactCGWindowID",
+    "screenshotSHA256" => screenshot_sha256,
+    "accessibilitySnapshotBeforeSHA256" => "c" * 64,
+    "accessibilitySnapshotAfterSHA256" => "c" * 64,
+    "applicationProcessIdentifier" => 123,
+    "windowID" => 456,
+    "windowFrame" => rect,
+    "selectedScrollHierarchyIdentifier" => deep ? "spoonjoy.page-scroll" : nil,
+    "selectedScrollHierarchySnapshotBeforeSHA256" => deep ? "d" * 64 : nil,
+    "selectedScrollHierarchySnapshotAfterSHA256" => deep ? "d" * 64 : nil
   }
 end
 
 def fixture_screenshot_sha256(platform, dynamic_type:, capture_phase:)
   name = if platform == "ipad"
-           "ios-tablet#{capture_phase == "deepScroll" ? "-deep-scroll" : ""}.png"
+           size = dynamic_type == "accessibility5" ? "-accessibility" : dynamic_type == "xxxLarge" ? "-xxxl" : ""
+           "ios-tablet#{size}#{capture_phase == "deepScroll" ? "-deep-scroll" : ""}.png"
          elsif platform == "macos"
-           "macos-desktop.png"
+           "macos-desktop#{capture_phase == "deepScroll" ? "-deep-scroll" : ""}.png"
          elsif dynamic_type == "accessibility5"
            "ios-mobile-accessibility#{capture_phase == "deepScroll" ? "-deep-scroll" : ""}.png"
          elsif dynamic_type == "xxxLarge"
@@ -138,11 +183,12 @@ def observed_proof(platform, dynamic_type: "large")
     terminal = {
       "identifier" => "kitchen.cookbook.cookbook_slow_sundays",
       "role" => "AXButton",
+      "subrole" => "",
       "title" => "Slow Sundays and Long Simmering Suppers, 0 recipes",
       "frame" => rect(x: 10, y: 10, width: 44, height: 44),
       "enabled" => true,
       "focused" => false,
-      "actions" => []
+      "actions" => ["AXPress"]
     }
     proof = {
       "platform" => platform,
@@ -150,7 +196,12 @@ def observed_proof(platform, dynamic_type: "large")
       "captureRunNonce" => CAPTURE_RUN_NONCES.fetch([platform, dynamic_type]),
       "readinessProofSHA256" => Digest::SHA256.hexdigest(readiness_proof_bytes(platform, dynamic_type: dynamic_type)),
       "screenshotSHA256" => fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "initial"),
+      "pixelAccessibilityBinding" => macos_pixel_accessibility_binding(
+        fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "initial"),
+        "initial"
+      ),
       "pid" => 123,
+      "windowID" => 456,
       "bundleIdentifier" => "app.spoonjoy.mac",
       "bundlePath" => "/Applications/Spoonjoy.app",
       "executablePath" => "/Applications/Spoonjoy.app/Contents/MacOS/Spoonjoy",
@@ -166,13 +217,25 @@ def observed_proof(platform, dynamic_type: "large")
         "findings" => [],
         "scrollAreaIdentifier" => "spoonjoy.page-scroll",
         "initialScrollValue" => 0,
-        "finalScrollValue" => 1
+        "finalScrollValue" => 1,
+        "postScrollScreenshotSHA256" => fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "deepScroll"),
+        "applicationProcessIdentifier" => 123,
+        "windowID" => 456,
+        "postScrollElements" => [terminal],
+        "postScrollAuditFindings" => [],
+        "pixelAccessibilityBinding" => macos_pixel_accessibility_binding(
+          fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "deepScroll"),
+          "deepScroll"
+        ),
+        "selectedScrollHierarchyIdentifier" => "spoonjoy.page-scroll",
+        "selectedScrollHierarchyElements" => [terminal]
       }
     }
   else
     terminal = ios_element(
       "kitchen.cookbook.cookbook_slow_sundays",
-      frame: rect(x: 10, y: 40, width: 44, height: 40)
+      type: "button",
+      frame: rect(x: 10, y: 20, width: 44, height: 44)
     )
     terminal["label"] = "Slow Sundays and Long Simmering Suppers, 0 recipes"
     initial_screenshot_sha256 = fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "initial")
@@ -185,6 +248,7 @@ def observed_proof(platform, dynamic_type: "large")
       "viewport" => rect(x: 0, y: 0, width: 100, height: 80),
       "elements" => [terminal, ios_element("system.tabBar", type: "tabBar", frame: rect(x: 0, y: 80, width: 100, height: 20))],
       "auditIssues" => [],
+      "auditTypes" => REQUIRED_AUDIT_TYPES,
       "verifiedContrastFalsePositives" => [],
       "screenshotSHA256" => initial_screenshot_sha256,
       "captureIdentity" => {
@@ -197,6 +261,13 @@ def observed_proof(platform, dynamic_type: "large")
         "foregroundBeforeCapture" => true,
         "foregroundAfterCapture" => true,
         "screenshotSHA256" => initial_screenshot_sha256
+      },
+      "hostProcessObservation" => {
+        "schema" => "iosHostProcessObservationV1",
+        "applicationBundleIdentifier" => "app.spoonjoy",
+        "applicationProcessIdentifier" => initial_handshake.fetch("applicationProcessIdentifier"),
+        "launchctlLabel" => "UIKitApplication:app.spoonjoy[fixture]",
+        "sampleCount" => 8
       },
       "geometryFindings" => [],
       "observedContentSizeCategory" => "large",
@@ -211,6 +282,7 @@ def observed_proof(platform, dynamic_type: "large")
         "terminalElement" => terminal,
         "findings" => [],
         "auditIssues" => [],
+        "auditTypes" => REQUIRED_AUDIT_TYPES,
         "verifiedContrastFalsePositives" => [],
         "screenshotSHA256" => deep_screenshot_sha256,
         "readinessHandshake" => deep_handshake,
@@ -225,11 +297,23 @@ def observed_proof(platform, dynamic_type: "large")
           "foregroundAfterCapture" => true,
           "screenshotSHA256" => deep_screenshot_sha256
         },
+        "selectedScrollHierarchyIdentifier" => "spoonjoy.page-scroll",
+        "selectedScrollHierarchyElements" => [terminal],
         "observedContentMovement" => true,
         "contentFitsWithoutScrolling" => false,
         "toolLimitations" => []
       }
     }
+    proof["pixelAccessibilityBinding"] = ios_pixel_accessibility_binding(
+      proof.fetch("captureIdentity").fetch("captureID"),
+      initial_screenshot_sha256,
+      "initial"
+    )
+    proof.fetch("deepScroll")["pixelAccessibilityBinding"] = ios_pixel_accessibility_binding(
+      proof.dig("deepScroll", "captureIdentity", "captureID"),
+      deep_screenshot_sha256,
+      "deepScroll"
+    )
     proof["readinessHandshake"] = initial_handshake
     proof
   end
@@ -284,6 +368,8 @@ def manifest(root)
       "iosXXXL" => screenshot_artifact(root, "screenshots/ios-mobile-xxxl.png"),
       "iosAccessibility" => screenshot_artifact(root, "screenshots/ios-mobile-accessibility.png"),
       "iosTablet" => screenshot_artifact(root, "screenshots/ios-tablet.png"),
+      "iosTabletXXXL" => screenshot_artifact(root, "screenshots/ios-tablet-xxxl.png"),
+      "iosTabletAccessibility" => screenshot_artifact(root, "screenshots/ios-tablet-accessibility.png"),
       "macosDesktop" => screenshot_artifact(root, "screenshots/macos-desktop.png")
     },
     "deepScrollScreenshotArtifacts" => DEEP_SCROLL_SCREENSHOT_ARTIFACTS.to_h do |name, relative_path|
@@ -296,19 +382,25 @@ def manifest(root)
       "apple/readiness-ios-xxxl.json",
       "apple/readiness-ios-ax.json",
       "apple/readiness-ipad.json",
+      "apple/readiness-ipad-xxxl.json",
+      "apple/readiness-ipad-ax.json",
       "apple/readiness-macos.json"
     ],
     "deepScrollAccessibilityProofArtifacts" => [
       "apple/readiness-ios-deep-scroll.json",
       "apple/readiness-ios-xxxl-deep-scroll.json",
       "apple/readiness-ios-ax-deep-scroll.json",
-      "apple/readiness-ipad-deep-scroll.json"
+      "apple/readiness-ipad-deep-scroll.json",
+      "apple/readiness-ipad-xxxl-deep-scroll.json",
+      "apple/readiness-ipad-ax-deep-scroll.json"
     ],
     "observedAccessibilityEvidenceArtifacts" => [
       "apple/observed-ios.json",
       "apple/observed-ios-xxxl.json",
       "apple/observed-ios-ax.json",
       "apple/observed-ipad.json",
+      "apple/observed-ipad-xxxl.json",
+      "apple/observed-ipad-ax.json",
       "apple/observed-macos.json"
     ],
     "accessibilityContentSizeScreenshot" => "screenshots/ios-mobile-accessibility.png",
@@ -339,13 +431,13 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   root = Pathname.new(directory)
   root.join("apple").mkpath
   root.join("screenshots").mkpath
-  %w[ios-mobile.png ios-mobile-xxxl.png ios-mobile-accessibility.png ios-tablet.png macos-desktop.png].each do |name|
+  %w[ios-mobile.png ios-mobile-xxxl.png ios-mobile-accessibility.png ios-tablet.png ios-tablet-xxxl.png ios-tablet-accessibility.png macos-desktop.png].each do |name|
     root.join("screenshots", name).write("png:#{name}")
   end
   DEEP_SCROLL_SCREENSHOT_ARTIFACTS.each_value do |relative_path|
     root.join(relative_path).write("png:#{Pathname.new(relative_path).basename}")
   end
-  [["ios", "large", "ios"], ["ios", "xxxLarge", "ios-xxxl"], ["ios", "accessibility5", "ios-ax"], ["ipad", "large", "ipad"], ["macos", "large", "macos"]].each do |platform, dynamic_type, suffix|
+  [["ios", "large", "ios"], ["ios", "xxxLarge", "ios-xxxl"], ["ios", "accessibility5", "ios-ax"], ["ipad", "large", "ipad"], ["ipad", "xxxLarge", "ipad-xxxl"], ["ipad", "accessibility5", "ipad-ax"], ["macos", "large", "macos"]].each do |platform, dynamic_type, suffix|
     root.join("apple/readiness-#{suffix}.json").write(readiness_proof_bytes(platform, dynamic_type: dynamic_type))
     if platform != "macos"
       root.join("apple/readiness-#{suffix}-deep-scroll.json").write(
@@ -364,6 +456,18 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   ) + "\n")
   root.join("apple/observed-ios-xxxl.json").write(JSON.pretty_generate(
     observed_proof("ios", dynamic_type: "xxxLarge").merge(
+      "observedContentSizeCategory" => "extra-extra-extra-large",
+      "observedDynamicTypeSize" => "xxxLarge"
+    )
+  ) + "\n")
+  root.join("apple/observed-ipad-ax.json").write(JSON.pretty_generate(
+    observed_proof("ipad", dynamic_type: "accessibility5").merge(
+      "observedContentSizeCategory" => "accessibility-extra-extra-extra-large",
+      "observedDynamicTypeSize" => "accessibility5"
+    )
+  ) + "\n")
+  root.join("apple/observed-ipad-xxxl.json").write(JSON.pretty_generate(
+    observed_proof("ipad", dynamic_type: "xxxLarge").merge(
       "observedContentSizeCategory" => "extra-extra-extra-large",
       "observedDynamicTypeSize" => "xxxLarge"
     )
@@ -429,6 +533,47 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   )
   root.join("apple/observed-ios.json").write(JSON.pretty_generate(failed_geometry) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "observed peer overlap rejection")
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(observed_proof("ios")) + "\n")
+
+  coherently_substituted_pid = observed_proof("ios")
+  coherently_substituted_pid["readinessHandshake"]["applicationProcessIdentifier"] = 43_999
+  coherently_substituted_pid["captureIdentity"]["applicationProcessIdentifier"] = 43_999
+  coherently_substituted_pid["deepScroll"]["readinessHandshake"]["applicationProcessIdentifier"] = 43_999
+  coherently_substituted_pid["deepScroll"]["captureIdentity"]["applicationProcessIdentifier"] = 43_999
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(coherently_substituted_pid) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "coherently substituted positive iOS PID rejection")
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(observed_proof("ios")) + "\n")
+
+  missing_initial_pixel_ax_binding = observed_proof("ios")
+  missing_initial_pixel_ax_binding.delete("pixelAccessibilityBinding")
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(missing_initial_pixel_ax_binding) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing initial iOS pixel/AX binding rejection")
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(observed_proof("ios")) + "\n")
+
+  coherent_text_overlap = observed_proof("ios")
+  coherent_text_overlap["elements"] += [
+    ios_element("overlap.first", frame: rect(x: 10, y: 10, width: 60, height: 30)),
+    ios_element("overlap.second", frame: rect(x: 20, y: 20, width: 60, height: 30))
+  ]
+  coherent_text_overlap["geometryFindings"] = []
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(coherent_text_overlap) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "coherently falsified text overlap rejection")
+
+  coherent_small_target = observed_proof("ios")
+  coherent_small_target["elements"] << ios_element(
+    "small.action",
+    type: "button",
+    frame: rect(x: 10, y: 10, width: 20, height: 20)
+  )
+  coherent_small_target["geometryFindings"] = []
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(coherent_small_target) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "coherently falsified target-size rejection")
+
+  coherent_terminal_occlusion = observed_proof("ios")
+  coherent_terminal_occlusion["deepScroll"]["terminalElement"]["frame"] = rect(x: 10, y: 70, width: 44, height: 20)
+  coherent_terminal_occlusion["deepScroll"]["findings"] = []
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(coherent_terminal_occlusion) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "coherently falsified terminal occlusion rejection")
   root.join("apple/observed-ios.json").write(JSON.pretty_generate(observed_proof("ios")) + "\n")
 
   failed_audit = observed_proof("ipad").merge(
@@ -574,6 +719,62 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   missing_terminal = observed_proof("ios").merge("deepScroll" => nil)
   root.join("apple/observed-ios.json").write(JSON.pretty_generate(missing_terminal) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing compact deep-scroll evidence rejection")
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(observed_proof("ios")) + "\n")
+
+  ipad_xxxl_path = root.join("apple/observed-ipad-xxxl.json")
+  incomplete_xxxl_audit = observed_proof("ipad", dynamic_type: "xxxLarge").merge(
+    "observedContentSizeCategory" => "extra-extra-extra-large",
+    "observedDynamicTypeSize" => "xxxLarge",
+    "auditTypes" => REQUIRED_AUDIT_TYPES - ["dynamicType"]
+  )
+  ipad_xxxl_path.write(JSON.pretty_generate(incomplete_xxxl_audit) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "iPad XXXL missing Dynamic Type audit rejection")
+  ipad_xxxl_path.write(JSON.pretty_generate(
+    observed_proof("ipad", dynamic_type: "xxxLarge").merge(
+      "observedContentSizeCategory" => "extra-extra-extra-large",
+      "observedDynamicTypeSize" => "xxxLarge"
+    )
+  ) + "\n")
+
+  incomplete_deep_audit = observed_proof("ipad")
+  incomplete_deep_audit.fetch("deepScroll")["auditTypes"] = REQUIRED_AUDIT_TYPES - ["textClipped"]
+  ipad_path.write(JSON.pretty_generate(incomplete_deep_audit) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "deep-scroll missing text clipping audit rejection")
+  ipad_path.write(JSON.pretty_generate(observed_proof("ipad")) + "\n")
+
+  macos_path = root.join("apple/observed-macos.json")
+  substituted_post_scroll = observed_proof("macos")
+  substituted_post_scroll.fetch("deepScroll")["postScrollScreenshotSHA256"] = "0" * 64
+  macos_path.write(JSON.pretty_generate(substituted_post_scroll) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS post-scroll screenshot substitution rejection")
+
+  missing_macos_initial_pixel_ax_binding = observed_proof("macos")
+  missing_macos_initial_pixel_ax_binding.delete("pixelAccessibilityBinding")
+  macos_path.write(JSON.pretty_generate(missing_macos_initial_pixel_ax_binding) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing initial macOS pixel/AX binding rejection")
+
+  failed_post_scroll_audit = observed_proof("macos")
+  failed_post_scroll_audit.fetch("deepScroll")["postScrollAuditFindings"] = [
+    { "kind" => "textClipped", "message" => "terminal title clipped" }
+  ]
+  macos_path.write(JSON.pretty_generate(failed_post_scroll_audit) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS post-scroll audit finding rejection")
+
+  substituted_post_scroll_pid = observed_proof("macos")
+  substituted_post_scroll_pid.fetch("deepScroll")["applicationProcessIdentifier"] += 1
+  macos_path.write(JSON.pretty_generate(substituted_post_scroll_pid) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS post-scroll PID substitution rejection")
+
+  substituted_post_scroll_window = observed_proof("macos")
+  substituted_post_scroll_window.fetch("deepScroll")["windowID"] += 1
+  macos_path.write(JSON.pretty_generate(substituted_post_scroll_window) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS post-scroll window substitution rejection")
+
+  missing_post_scroll_terminal = observed_proof("macos")
+  missing_post_scroll_terminal.fetch("deepScroll")["postScrollElements"] = []
+  macos_path.write(JSON.pretty_generate(missing_post_scroll_terminal) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS post-scroll terminal re-observation rejection")
+  macos_path.write(JSON.pretty_generate(observed_proof("macos")) + "\n")
 end
 
 puts "design accessibility contract ok"

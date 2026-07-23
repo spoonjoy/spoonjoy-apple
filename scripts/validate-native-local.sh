@@ -215,20 +215,39 @@ write_xcode_screenshot_blocker() {
       "sourceBlockerPath" => screenshot_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-mobile-xxxl.png",
         "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
+        "screenshots/ios-tablet-xxxl.png",
+        "screenshots/ios-tablet-accessibility.png",
         "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-xxxl-deep-scroll.png",
         "screenshots/ios-mobile-accessibility-deep-scroll.png",
         "screenshots/ios-tablet-deep-scroll.png",
+        "screenshots/ios-tablet-xxxl-deep-scroll.png",
+        "screenshots/ios-tablet-accessibility-deep-scroll.png",
         "screenshots/macos-desktop.png",
+        "screenshots/macos-desktop-deep-scroll.png",
         "design-review.json",
         "apple/matrix-accessibility-proof-ios.json",
+        "apple/matrix-accessibility-proof-ios-xxxl.json",
         "apple/matrix-accessibility-proof-ios-ax.json",
         "apple/matrix-accessibility-proof-ipad.json",
+        "apple/matrix-accessibility-proof-ipad-xxxl.json",
+        "apple/matrix-accessibility-proof-ipad-ax.json",
         "apple/matrix-accessibility-proof-macos.json",
+        "apple/matrix-accessibility-proof-ios-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ios-xxxl-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ios-ax-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ipad-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ipad-xxxl-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ipad-ax-deep-scroll.json",
         "apple/matrix-observed-accessibility-ios.json",
+        "apple/matrix-observed-accessibility-ios-xxxl.json",
         "apple/matrix-observed-accessibility-ios-ax.json",
         "apple/matrix-observed-accessibility-ipad.json",
+        "apple/matrix-observed-accessibility-ipad-xxxl.json",
+        "apple/matrix-observed-accessibility-ipad-ax.json",
         "apple/matrix-observed-accessibility-macos.json"
       ],
       "reason" => screenshot_blocker.fetch("reason"),
@@ -237,9 +256,9 @@ write_xcode_screenshot_blocker() {
     File.write(design_review_blocked_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$source_blocker" "$screenshot_blocker" "$design_review_blocked"
   rm -f "$artifact_root/design-review.json"
-  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/ios-mobile-accessibility.png" "$artifact_root/screenshots/ios-tablet.png" "$artifact_root/screenshots/ios-mobile-deep-scroll.png" "$artifact_root/screenshots/ios-mobile-accessibility-deep-scroll.png" "$artifact_root/screenshots/ios-tablet-deep-scroll.png" "$artifact_root/screenshots/macos-desktop.png"
-  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-ios-ax.json" "$artifact_root/apple/matrix-accessibility-proof-ipad.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
-  rm -f "$artifact_root/apple/matrix-observed-accessibility-ios.json" "$artifact_root/apple/matrix-observed-accessibility-ios-ax.json" "$artifact_root/apple/matrix-observed-accessibility-ipad.json" "$artifact_root/apple/matrix-observed-accessibility-macos.json"
+  rm -f "$artifact_root"/screenshots/*.png
+  rm -f "$artifact_root"/apple/matrix-accessibility-proof-*.json
+  rm -f "$artifact_root"/apple/matrix-observed-accessibility-*.json
 }
 
 run_required() {
@@ -496,7 +515,7 @@ ruby -rjson -rtime -e '
   passed_steps = steps.select { |step| step["status"] == "pass" }
   failed_steps = steps.select { |step| step["status"] == "fail" }
   blocked_steps = steps.select { |step| step["status"] == "blocked" }
-  ok = failed_steps.empty? && blocker_failures.empty?
+  ok = failed_steps.empty? && blocked_steps.empty? && blockers.empty? && blocker_failures.empty?
   fully_validated = ok && blocked_steps.empty? && blockers.empty?
   result = if fully_validated
     "pass"
@@ -522,7 +541,7 @@ ruby -rjson -rtime -e '
     blockerFailures: blocker_failures,
     externalValidationLog: File.join(artifact_root, "apple/unit-26b-native-full-validation-validate-native-local.log")
   }) + "\n")
-  exit(ok ? 0 : 1)
+  exit(fully_validated ? 0 : 1)
 ' "$results_path" "$matrix_path" "$artifact_root" || overall_status=1
 
 printf 'external validation log expected: %s\n' "$apple_dir/$unit_26b_validate_log_name"

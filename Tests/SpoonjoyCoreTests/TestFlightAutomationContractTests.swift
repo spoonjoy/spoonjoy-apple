@@ -977,17 +977,35 @@ private func makeVisualEvidenceFixture(
     var manifestRoutes: [[String: Any]] = []
     let screenshotNames = [
         "iosMobile": "ios-mobile.png",
+        "iosXXXL": "ios-mobile-xxxl.png",
         "iosAccessibility": "ios-mobile-accessibility.png",
         "iosTablet": "ios-tablet.png",
+        "iosTabletXXXL": "ios-tablet-xxxl.png",
+        "iosTabletAccessibility": "ios-tablet-accessibility.png",
         "macosDesktop": "macos-desktop.png"
     ]
     let deepScrollScreenshotNames = [
         "iosMobile": "ios-mobile-deep-scroll.png",
+        "iosXXXL": "ios-mobile-xxxl-deep-scroll.png",
         "iosAccessibility": "ios-mobile-accessibility-deep-scroll.png",
-        "iosTablet": "ios-tablet-deep-scroll.png"
+        "iosTablet": "ios-tablet-deep-scroll.png",
+        "iosTabletXXXL": "ios-tablet-xxxl-deep-scroll.png",
+        "iosTabletAccessibility": "ios-tablet-accessibility-deep-scroll.png",
+        "macosDesktop": "macos-desktop-deep-scroll.png"
     ]
-    let accessibilityProofs = ["accessibility-ios.json", "accessibility-ipad.json", "accessibility-macos.json"]
-    let observedProofs = ["observed-ios.json", "observed-ios-ax.json", "observed-ipad.json", "observed-macos.json"]
+    let accessibilityProofs = [
+        "accessibility-ios.json", "accessibility-ios-xxxl.json", "accessibility-ios-ax.json",
+        "accessibility-ipad.json", "accessibility-ipad-xxxl.json", "accessibility-ipad-ax.json",
+        "accessibility-macos.json"
+    ]
+    let deepAccessibilityProofs = accessibilityProofs
+        .filter { !$0.contains("macos") }
+        .map { $0.replacingOccurrences(of: ".json", with: "-deep-scroll.json") }
+    let observedProofs = [
+        "observed-ios.json", "observed-ios-xxxl.json", "observed-ios-ax.json",
+        "observed-ipad.json", "observed-ipad-xxxl.json", "observed-ipad-ax.json",
+        "observed-macos.json"
+    ]
 
     for route in testFlightVisualRoutes {
         let captureRoute = testFlightCaptureRoute(for: route)
@@ -1034,7 +1052,7 @@ private func makeVisualEvidenceFixture(
             }
         }
 
-        let proofNames = accessibilityProofs + observedProofs
+        let proofNames = accessibilityProofs + (requiresDeepScroll ? deepAccessibilityProofs : []) + observedProofs
         for name in proofNames {
             let url = proofsDirectory.appendingPathComponent(name)
             try writeJSON(["route": route, "blocked": false, "proof": name], to: url)
@@ -1049,6 +1067,9 @@ private func makeVisualEvidenceFixture(
         ]
         if requiresDeepScroll && omitDeepScrollForRoute != route {
             designReviewPayload["deepScrollScreenshotArtifacts"] = deepScrollScreenshotRecords
+        }
+        if requiresDeepScroll {
+            designReviewPayload["deepScrollAccessibilityProofArtifacts"] = deepAccessibilityProofs.map { "proofs/\($0)" }
         }
         if captureRoute == "recipe-covers" {
             designReviewPayload["recipeCoverControlsFixture"] = "action-states"

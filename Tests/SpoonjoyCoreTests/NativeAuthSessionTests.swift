@@ -860,7 +860,8 @@ struct NativeAuthSessionTests {
             }
             """.write(to: staleBlocker, atomically: true, encoding: .utf8)
         }
-        #expect(blocker.result.status == 0, Comment(rawValue: blocker.result.output))
+        #expect(blocker.result.status != 0, Comment(rawValue: blocker.result.output))
+        #expect(blocker.result.output.contains("external validation log expected:"))
         #expect(blocker.matrix.contains("\"capability\": \"XcodePlatform\""))
         #expect(blocker.matrix.contains("\"status\": \"blocked\""))
         #expect(!blocker.matrix.contains("BogusStale"))

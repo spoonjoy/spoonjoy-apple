@@ -35,10 +35,16 @@ struct NativeMobileDesignContractTests {
             contains: [
                 #"ios_simulator_spawn_arch="${SPOONJOY_SCREENSHOT_SIMULATOR_ARCH:-$(uname -m)}""#,
                 #"xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" launchctl list"#,
+                #"python3 scripts/run-ios-screenshot-observer.py"#,
+                #"--xctestrun "$ios_xctestrun""#,
+                #"--runner "$ios_ui_test_runner""#,
+                #"--simulator-arch "$ios_simulator_spawn_arch""#
+            ],
+            forbids: [
+                #"xcrun simctl spawn "$udid" /bin/sh"#,
                 #"xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" log emit"#,
                 #"xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" log stream"#
-            ],
-            forbids: [#"xcrun simctl spawn "$udid" /bin/sh"#]
+            ]
         )
     }
 
@@ -321,7 +327,8 @@ struct NativeMobileDesignContractTests {
                 "XCUIApplication()",
                 "throw XCTSkip(\"The external screenshot observer only runs for an explicit capture route.\")",
                 "performAccessibilityAudit",
-                "observedElements(in: app, windowFrame: window.frame)",
+                "observedElements(in: primarySurface, windowFrame: windowFrame)",
+                "root.descendants(matching: type).allElementsBoundByAccessibilityElement",
                 "allElementsBoundByAccessibilityElement",
                 "geometryFindings",
                 "let initialCapture = try captureAttestedScreenshot(",
@@ -331,7 +338,8 @@ struct NativeMobileDesignContractTests {
                 "drag(primarySurface, contentOffset: correction)",
                 "terminalScrollSignature(",
                 "app.scrollViews[\"spoonjoy.page-scroll\"]",
-                "case \"kitchen\": \"kitchen.cookbook.cookbook_slow_sundays\"",
+                "case \"kitchen\":",
+                "identifier: \"kitchen.cookbook.cookbook_slow_sundays\"",
                 "waitForScrollToSettle()",
                 "observedContentMovement",
                 "contentFitsWithoutScrolling",
@@ -370,17 +378,14 @@ struct NativeMobileDesignContractTests {
                 "SPOONJOY_SCREENSHOT_IPHONE_SIMULATOR_UDID",
                 "SPOONJOY_SCREENSHOT_IPAD_SIMULATOR_UDID",
                 "simulator boot readiness timeout",
-                "log stream",
-                "latest_front_display_event",
-                "start_ios_foreground_stream",
-                "stop_ios_foreground_stream",
+                "scripts/run-ios-screenshot-observer.py",
+                "capture_ios_observed_accessibility",
+                "--runner",
+                "--xctestrun",
                 "transition_ios_capture_device",
                 "open -a Simulator --args -CurrentDeviceUDID",
                 "SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS",
                 "Simulator host foreground readiness",
-                "Spoonjoy stopped being the front display before screenshot capture",
-                "Spoonjoy stopped being the front display during screenshot capture",
-                "Front display did change",
                 "distinct_color_buckets",
                 "edge_ratio",
                 "open -n -F \"$macos_app\"",
@@ -399,7 +404,12 @@ struct NativeMobileDesignContractTests {
                 "continuing to foreground/proof checks",
                 "date -u '+%Y-%m-%d %H:%M:%S'",
                 "--start \"$launched_at\"",
-                "log show"
+                "log show",
+                "latest_front_display_event",
+                "start_ios_foreground_stream",
+                "stop_ios_foreground_stream",
+                "Front display did change",
+                "SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS"
             ]
         )
         let root = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"))
@@ -583,7 +593,7 @@ struct NativeMobileDesignContractTests {
                 "recipe-editor.save",
                 "recipe-editor.delete",
                 "recipe-covers.photo-picker",
-                "recipe-covers.archive.cover_primary",
+                "recipe-covers.terminal",
                 "profile.header",
                 "profile.graph.kitchen-visitors",
                 "profile-graph.row.chef_jules",
@@ -1226,7 +1236,9 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableLoadingStateView(",
                 "title: loadingTitle ?? \"Loading recipe\"",
                 "KitchenTableRouteErrorView(message: errorMessage",
-                "errorMessage = \"We couldn't load this recipe.\"",
+                "routeState.markFailed(",
+                "\"We couldn't load this recipe.\"",
+                "currentIdentity: self.loadContext.taskIdentity",
                 "ownerToolsMenu"
             ],
             forbids: [
@@ -1477,13 +1489,16 @@ struct NativeMobileDesignContractTests {
             detail,
             in: detailPath,
             contains: [
-                "private enum RecipeDetailRouteState",
-                "case loading(snapshotTitle: String?)",
-                "case loaded(RecipeDetailScreenViewModel)",
-                "case missing(message: String)",
-                "case failed(message: String)",
-                "@State private var routeState: RecipeDetailRouteState",
-                "guard routeState.currentViewModel?.id != recipeID else",
+                "@State private var routeState: NativeOwnedLoadState<RecipeDetailLoadIdentity, RecipeDetailScreenViewModel>",
+                "switch routeState.presentation",
+                "case .loading(let snapshotTitle)",
+                "case .loaded(let viewModel)",
+                "case .missing(let errorMessage), .failed(let errorMessage)",
+                "let lease = routeState.begin(",
+                "routeState.markMissing(",
+                "routeState.markFailed(",
+                "guard routeState.currentIdentity == self.loadContext.taskIdentity",
+                "accepted = routeState.publish(",
                 "catch is CancellationError",
                 "private var recipeMasthead",
                 "private var recipeHeroMedia",
@@ -1504,14 +1519,19 @@ struct NativeMobileDesignContractTests {
                 "subtitle: viewModel.cover.noPhotoLabel",
                 "showsFallbackLabel: true",
                 "private var recipeNoPhotoHeight",
-                "let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID"
+                "let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID",
+                "private enum RecipeDetailRouteState",
+                "@State private var routeState: RecipeDetailRouteState"
             ]
         )
 
-        let liveStateGuard = "guard routeState.currentViewModel?.id != recipeID else"
         #expect(
-            detail.components(separatedBy: liveStateGuard).count - 1 == 2,
-            "Both missing and generic failures must re-check live route state after progressive publication."
+            detail.components(separatedBy: "routeState.markMissing(").count - 1 == 1,
+            "Missing recipe state must publish through the owned route-state primitive exactly once."
+        )
+        #expect(
+            detail.components(separatedBy: "routeState.markFailed(").count - 1 == 1,
+            "Generic recipe failure state must publish through the owned route-state primitive exactly once."
         )
     }
 
@@ -1846,7 +1866,7 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "app.descendants(matching: type).allElementsBoundByAccessibilityElement",
+                "root.descendants(matching: type).allElementsBoundByAccessibilityElement",
                 "performAccessibilityAudit",
                 "actionableTypes",
                 "shopping-list"
@@ -1954,7 +1974,7 @@ struct NativeMobileDesignContractTests {
             proof,
             in: proofPath,
             contains: [
-                "app.descendants(matching: type).allElementsBoundByAccessibilityElement",
+                "root.descendants(matching: type).allElementsBoundByAccessibilityElement",
                 "performAccessibilityAudit",
                 "geometryFindings",
                 "shopping-list"
@@ -2251,7 +2271,9 @@ struct NativeMobileDesignContractTests {
                 ".frame(width: detailHeaderWidth, alignment: .leading)",
                 "private var detailCoverWidth",
                 "ForEach(Array(viewModel.recipes.enumerated()), id: \\.element.id)",
-                "CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1",
+                "CookbookRecipeIndexRow(",
+                "ordinal: index + 1,",
+                "isTerminal: index == viewModel.recipes.indices.last",
                 "private struct CookbookRecipeIndexRow",
                 "if recipe.coverImageURL != nil",
                 "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)",

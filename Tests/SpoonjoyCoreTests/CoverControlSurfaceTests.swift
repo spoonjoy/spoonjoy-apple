@@ -1378,7 +1378,7 @@ struct CoverControlSurfaceTests {
             #".accessibilityIdentifier("recipe-covers.cover-actions.\(cover.id)")"#,
             #".accessibilityIdentifier("recipe-covers.regenerate.\(cover.id)")"#,
             #".accessibilityIdentifier("recipe-covers.archive-replace.\(cover.id)")"#,
-            #".accessibilityIdentifier("recipe-covers.archive.\(cover.id)")"#
+            #"cover.id == data.covers.last?.id ? "recipe-covers.terminal" : "recipe-covers.archive.\(cover.id)""#
         ] {
             #expect(coverRowSource.contains(token), "Adaptive cover mutation controls missing token \(token)")
         }
@@ -1419,7 +1419,7 @@ struct CoverControlSurfaceTests {
             #expect(capture.contains(token), "Photo Studio screenshot capture missing token \(token)")
         }
         for token in [
-            #""recipe-covers" => "recipe-covers.archive.cover_primary""#,
+            #""recipe-covers" => "recipe-covers.terminal""#,
             #"launch_proof["screenshotRecipeCoversFixture"] == "action-states""#,
             #"manifest["recipeCoverControlsFixture"] == "action-states""#
         ] {

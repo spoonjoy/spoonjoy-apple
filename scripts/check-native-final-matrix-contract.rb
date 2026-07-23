@@ -70,7 +70,13 @@ REQUIRED_SOURCE_TOKENS = [
   "human-credential-blocker-",
   "aasa-production-blocker.json",
   "rm -f \"$apple_dir/matrix-warning-scan.log\"",
-  "--timeout-seconds 180"
+  "screenshots/ios-tablet-accessibility-deep-scroll.png",
+  "apple/matrix-accessibility-proof-ipad-ax-deep-scroll.json",
+  "apple/matrix-observed-accessibility-ipad-ax.json",
+  "screenshots/macos-desktop-deep-scroll.png",
+  "--timeout-seconds 180",
+  "ok = failed_steps.empty? && blocked_steps.empty? && blockers.empty? && blocker_failures.empty?",
+  "exit(fully_validated ? 0 : 1)"
 ].freeze
 
 def fail_check(message)

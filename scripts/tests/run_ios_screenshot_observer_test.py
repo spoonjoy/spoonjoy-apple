@@ -22,6 +22,20 @@ SPEC.loader.exec_module(MODULE)
 
 
 class DynamicTypeObservationTests(unittest.TestCase):
+    def test_attests_full_initial_and_deep_scroll_visual_audits(self):
+        evidence = {"auditTypes": sorted(MODULE.REQUIRED_AUDIT_TYPES)}
+
+        MODULE.attest_audit_types(evidence, "initial")
+        MODULE.attest_audit_types(evidence, "deepScroll")
+
+    def test_rejects_deep_scroll_without_text_clipping_audit(self):
+        evidence = {
+            "auditTypes": sorted(MODULE.REQUIRED_AUDIT_TYPES - {"textClipped"})
+        }
+
+        with self.assertRaisesRegex(SystemExit, "deepScroll accessibility audit"):
+            MODULE.attest_audit_types(evidence, "deepScroll")
+
     def write_proof(self, root: Path, observed: str) -> Path:
         path = root / "native-accessibility-proof.json"
         path.write_text(
@@ -261,6 +275,36 @@ class DynamicTypeObservationTests(unittest.TestCase):
 
 
 class ScreenshotAttachmentTests(unittest.TestCase):
+    def host_process_observation(self, process_identifier: int = 4312) -> dict:
+        return {
+            "schema": "iosHostProcessObservationV1",
+            "applicationBundleIdentifier": "app.spoonjoy",
+            "applicationProcessIdentifier": process_identifier,
+            "launchctlLabel": "UIKitApplication:app.spoonjoy[fixture]",
+            "sampleCount": 8,
+        }
+
+    def pixel_accessibility_binding(
+        self,
+        capture_id: str,
+        screenshot_sha256: str,
+        capture_phase: str = "initial",
+    ) -> dict:
+        deep = capture_phase == "deepScroll"
+        return {
+            "schema": "iosPixelAccessibilityBindingV1",
+            "captureID": capture_id,
+            "capturePhase": capture_phase,
+            "pixelSource": "mainScreen",
+            "screenshotSHA256": screenshot_sha256,
+            "accessibilitySnapshotBeforeSHA256": "a" * 64,
+            "accessibilitySnapshotAfterSHA256": "a" * 64,
+            "windowFrame": {"x": 0, "y": 0, "width": 390, "height": 844},
+            "selectedScrollHierarchyIdentifier": "spoonjoy.page-scroll" if deep else None,
+            "selectedScrollHierarchySnapshotBeforeSHA256": "b" * 64 if deep else None,
+            "selectedScrollHierarchySnapshotAfterSHA256": "b" * 64 if deep else None,
+        }
+
     def write_attachments(self, root: Path, names: list[str]) -> None:
         attachments = []
         for index, name in enumerate(names):
@@ -353,12 +397,16 @@ class ScreenshotAttachmentTests(unittest.TestCase):
                     "screenshotSHA256": digest,
                 },
             }
+            evidence["pixelAccessibilityBinding"] = self.pixel_accessibility_binding(
+                evidence["captureIdentity"]["captureID"], digest
+            )
 
             identity = MODULE.attest_capture_identity(
                 evidence,
                 screenshot,
                 expected_run_nonce="7238f644-ff7a-4c1a-a9aa-60dd478c1c1d",
                 expected_phase="initial",
+                host_process_observation=self.host_process_observation(),
             )
 
             self.assertEqual(identity["applicationProcessIdentifier"], 4312)
@@ -394,10 +442,17 @@ class ScreenshotAttachmentTests(unittest.TestCase):
                 with self.subTest(identity=identity):
                     with self.assertRaises(SystemExit):
                         MODULE.attest_capture_identity(
-                            {"screenshotSHA256": digest, "captureIdentity": identity},
+                            {
+                                "screenshotSHA256": digest,
+                                "captureIdentity": identity,
+                                "pixelAccessibilityBinding": self.pixel_accessibility_binding(
+                                    identity["captureID"], identity["screenshotSHA256"]
+                                ),
+                            },
                             screenshot,
                             expected_run_nonce=base_identity["captureRunNonce"],
                             expected_phase="initial",
+                            host_process_observation=self.host_process_observation(),
                         )
 
     def test_publishes_only_attested_bytes_atomically(self):
@@ -421,6 +476,9 @@ class ScreenshotAttachmentTests(unittest.TestCase):
                     "screenshotSHA256": digest,
                 },
             }
+            evidence["pixelAccessibilityBinding"] = self.pixel_accessibility_binding(
+                evidence["captureIdentity"]["captureID"], digest
+            )
 
             MODULE.publish_attested_screenshot(
                 evidence,
@@ -428,10 +486,59 @@ class ScreenshotAttachmentTests(unittest.TestCase):
                 destination,
                 expected_run_nonce="7238f644-ff7a-4c1a-a9aa-60dd478c1c1d",
                 expected_phase="initial",
+                host_process_observation=self.host_process_observation(),
             )
 
             self.assertEqual(destination.read_bytes(), source.read_bytes())
             self.assertEqual(list(destination.parent.glob(".*.tmp-*")), [])
+
+
+class TargetProcessObservationTests(unittest.TestCase):
+    def test_parses_only_the_exact_spoonjoy_uikit_application_label(self):
+        output = "\n".join(
+            [
+                "4311\t0\tUIKitApplication:app.spoonjoy.preview[fixture]",
+                "4312\t0\tUIKitApplication:app.spoonjoy[fixture]",
+                "4313\t0\tUIKitApplication:app.spoonjoy.widget[fixture]",
+            ]
+        )
+
+        self.assertEqual(
+            MODULE.parse_exact_simulator_application_processes(output, "app.spoonjoy"),
+            {(4312, "UIKitApplication:app.spoonjoy[fixture]")},
+        )
+
+    def test_rejects_ambiguous_exact_spoonjoy_processes(self):
+        output = "\n".join(
+            [
+                "4312\t0\tUIKitApplication:app.spoonjoy[first]",
+                "4314\t0\tUIKitApplication:app.spoonjoy[second]",
+            ]
+        )
+
+        with self.assertRaisesRegex(SystemExit, "multiple exact app.spoonjoy"):
+            MODULE.require_single_host_process_observation(
+                MODULE.parse_exact_simulator_application_processes(output, "app.spoonjoy")
+            )
+
+    def test_rejects_coherently_substituted_positive_self_attested_pid(self):
+        host_observation = {
+            "schema": "iosHostProcessObservationV1",
+            "applicationBundleIdentifier": "app.spoonjoy",
+            "applicationProcessIdentifier": 4312,
+            "launchctlLabel": "UIKitApplication:app.spoonjoy[fixture]",
+            "sampleCount": 8,
+        }
+
+        with self.assertRaisesRegex(SystemExit, "host-observed target process"):
+            MODULE.attest_host_process_binding(
+                {
+                    "applicationBundleIdentifier": "app.spoonjoy",
+                    "applicationProcessIdentifier": 9999,
+                },
+                host_observation,
+                "initial",
+            )
 
 
 class SimulatorLifecycleTests(unittest.TestCase):

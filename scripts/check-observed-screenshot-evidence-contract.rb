@@ -78,7 +78,7 @@ ios_observer = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
 require_tokens(ios_observer, [
   "XCUIApplication()",
   "let observedTypes: [XCUIElement.ElementType]",
-  "app.descendants(matching: type).allElementsBoundByAccessibilityElement",
+  "root.descendants(matching: type).allElementsBoundByAccessibilityElement",
   "elementLabel",
   "elementType",
   "elementFrame",
@@ -108,6 +108,9 @@ require_tokens(ios_observer, [
   "before.applicationProcessIdentifier",
   "captureIdentity: initialCapture.identity",
   "captureIdentity: deepCapture.identity",
+  "auditTypes: auditResult.auditTypes",
+  "testSettledTerminalAuditCoversVisualTypographyAndInteractionFailures",
+  "testEveryDeepScrollRouteHasAnExactSourceGroundedTerminal",
   "applicationProcessIdentifier",
   "foregroundBeforeCapture",
   "foregroundAfterCapture",
@@ -128,7 +131,8 @@ require_tokens(ios_observer, [
   "case \"recipe-editor\": \"Recipe\"",
   "case \"recipe-covers\": \"Photo Studio\"",
   "case \"cook-mode\": \"Current cooking step 1, Boil pasta\"",
-  "app.collectionViews.allElementsBoundByAccessibilityElement",
+  "selectedScrollHierarchy: primarySurface",
+  "deepCapture.selectedScrollHierarchyElements",
   ".collectionView",
   "requiredVisibleIdentifiers.subtract(routeRequiredChromeIdentifiers(route: route))",
   "testRouteToolbarIdentifiersAreRequiredButNotConstrainedToTheContentViewport"
@@ -171,7 +175,28 @@ require_tokens("scripts/run-ios-screenshot-observer.py", [
   "observedDynamicTypeSize",
   "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
   "\"extra-extra-extra-large\": \"xxxLarge\"",
-  "Dynamic Type mismatch"
+  "Dynamic Type mismatch",
+  "REQUIRED_AUDIT_TYPES",
+  'attest_audit_types(deep_scroll, "deepScroll")',
+  "parse_exact_simulator_application_processes",
+  "attest_host_process_binding",
+  "iosHostProcessObservationV1"
+])
+
+capture_script = "scripts/capture-native-screenshots.sh"
+require_tokens(capture_script, [
+  "ios_tablet_xxxl_screenshot",
+  "ios_tablet_accessibility_screenshot",
+  "ios_tablet_xxxl_deep_scroll_screenshot",
+  "ios_tablet_accessibility_deep_scroll_screenshot",
+  "accessibility_proof_ipad_xxxl",
+  "accessibility_proof_ipad_ax",
+  "observed_accessibility_ipad_xxxl",
+  "observed_accessibility_ipad_ax",
+  "macos_deep_scroll_screenshot",
+  '"iosTabletXXXL" => "screenshots/ios-tablet-xxxl.png"',
+  '"iosTabletAccessibility" => "screenshots/ios-tablet-accessibility.png"',
+  '"macosDesktop" => "screenshots/macos-desktop-deep-scroll.png"'
 ])
 
 mac_observer = "scripts/observe-macos-screenshot-evidence.swift"
@@ -224,8 +249,44 @@ require_tokens(mac_observer, [
   "kitchen.cookbook.cookbook_slow_sundays",
   "Slow Sundays and Long Simmering Suppers, 0 recipes",
   "recipe-editor.delete",
-  "recipe-covers.archive.cover_primary",
-  "profile.graph.kitchen-visitors"
+  "recipe-covers.terminal",
+  "profile.graph.kitchen-visitors",
+  "--deep-scroll-screenshot-path",
+  "--window-id",
+  "postScrollScreenshotSHA256",
+  "postScrollElements",
+  "postScrollAuditFindings",
+  "applicationProcessIdentifier",
+  "windowID",
+  "capturePostScrollScreenshot",
+  "publishPostScrollScreenshot",
+  "failureCleanupURLs",
+  "validateRunningApplication",
+  "boundRootWindow",
+  "CGWindowListCopyWindowInfo",
+  "kCGWindowOwnerPID",
+  "kCGWindowBounds",
+  "stablePostScrollObservation",
+  "stableInitialObservation",
+  "pixelAccessibilityBinding",
+  "observationDigest",
+  "guard scrollEvidence.reachedTerminal, scrollEvidence.findings.isEmpty",
+  'failureCleanupURLs.append(outputURL)',
+  'post-scroll accessibility tree changed before evidence publication',
+  'published macOS post-scroll screenshot changed before evidence publication',
+  'post-scroll evidence process or window binding changed before evidence publication',
+  'macOS observed screenshot evidence publication failed'
+])
+
+require_tokens(ios_observer, [
+  "pixelAccessibilityBinding",
+  "accessibilitySnapshotBeforeSHA256",
+  "accessibilitySnapshotAfterSHA256",
+  "in: primarySurface",
+  "Deep-scroll proof was not bound to the exact selected scroll hierarchy."
+])
+forbid_tokens(ios_observer, [
+  "app.collectionViews.allElementsBoundByAccessibilityElement"
 ])
 mac_observer_source = source(mac_observer)
 deep_scroll_start = mac_observer_source.index("func observeDeepScroll")
@@ -236,6 +297,32 @@ named_scroll_anchor = deep_scroll_source.index("$0.observation.identifier == exp
 terminal_anchor = deep_scroll_source.index("$0.observation.identifier == expectation.terminalIdentifier")
 unless named_scroll_anchor && terminal_anchor && named_scroll_anchor < terminal_anchor
   fail_check("#{mac_observer} must prefer the exact named scroll area before a nested terminal scroll ancestor")
+end
+capture_bound_start = mac_observer_source.index("func captureBoundObservation(")
+capture_bound_end = mac_observer_source.index("func stableInitialObservation", capture_bound_start)
+fail_check("#{mac_observer} missing point-in-time capture binding") unless capture_bound_start && capture_bound_end
+capture_bound_source = mac_observer_source[capture_bound_start...capture_bound_end]
+before_ax_anchor = capture_bound_source.index("let firstElements = observeTree")
+temporary_capture_anchor = capture_bound_source.index("let screenshot = capturePostScrollScreenshot(")
+after_ax_anchor = capture_bound_source.index("let secondElements = observeTree")
+binding_anchor = capture_bound_source.index("AXObservedPixelAccessibilityBinding(")
+unless before_ax_anchor && temporary_capture_anchor && after_ax_anchor && binding_anchor &&
+       before_ax_anchor < temporary_capture_anchor && temporary_capture_anchor < after_ax_anchor && after_ax_anchor < binding_anchor
+  fail_check("#{mac_observer} must bind each exact-window screenshot between stable before/after AX observations")
+end
+initial_observation_anchor = mac_observer_source.index("let initialObservation = stableInitialObservation(")
+publish_initial_anchor = mac_observer_source.index("publishPostScrollScreenshot(initialObservation.screenshot")
+stable_observation_anchor = mac_observer_source.index("let postScrollObservation = stablePostScrollObservation(")
+publish_screenshot_anchor = mac_observer_source.index("publishPostScrollScreenshot(postScrollObservation.screenshot")
+final_tree_revalidation_anchor = mac_observer_source.rindex("post-scroll accessibility tree changed before evidence publication")
+publish_evidence_anchor = mac_observer_source.rindex("atomicallyPublish(temporaryOutputURL, to: outputURL")
+unless initial_observation_anchor && publish_initial_anchor && stable_observation_anchor && publish_screenshot_anchor && final_tree_revalidation_anchor && publish_evidence_anchor &&
+       initial_observation_anchor < publish_initial_anchor &&
+       publish_initial_anchor < stable_observation_anchor &&
+       stable_observation_anchor < publish_screenshot_anchor &&
+       publish_screenshot_anchor < final_tree_revalidation_anchor &&
+       final_tree_revalidation_anchor < publish_evidence_anchor
+  fail_check("#{mac_observer} must capture to temp, stably re-observe, publish the rollback-owned PNG, revalidate, then publish evidence last")
 end
 
 unless system("swift", mac_observer, "--self-test-non-finite-frame", chdir: ROOT.to_s)
@@ -285,6 +372,18 @@ require_tokens("scripts/capture-native-screenshots.sh", [
   "cp \"$observed_accessibility_macos_abs\" \"$observed_accessibility_macos_diagnostic\"",
   "cp \"$macos_screenshot\" \"$macos_screenshot_diagnostic\""
 ])
+require_tokens("scripts/capture-native-screenshots.sh", [
+  'rm -f "$macos_screenshot"',
+  '"The external macOS observer produced no point-in-time AX/pixel-bound screenshot."',
+  'evidence.fetch("windowID") == Integer(expected_window_id, 10)',
+  'deep.fetch("reachedTerminal") == true',
+  'deep.fetch("applicationProcessIdentifier") == Integer(expected_pid, 10)',
+  'deep.fetch("postScrollScreenshotSHA256") == Digest::SHA256.file(deep_screenshot_path).hexdigest'
+])
+forbid_tokens("scripts/capture-native-screenshots.sh", [
+  'local temporary_screenshot="${macos_screenshot}.capture-${screenshot_run_nonce}.tmp.png"',
+  'mv "$temporary_screenshot" "$macos_screenshot"'
+])
 require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "app.buttons.matching(identifier: \"recipe-editor.save\").count",
   "Recipe editor must have exactly one toolbar Save owner",
@@ -301,7 +400,9 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "observedContentMovement",
   "scrollActionCount > 0",
   "persistentChromeFindings(before: initialElements, after: elements)",
-  "terminalIdentifier == nil,",
+  "guard let terminalExpectation else",
+  "consecutiveTerminalMatches >= 2",
+  "terminalElementMatches(terminalElement, expectation: terminalExpectation, viewport: viewport)",
   "reachedStableTerminal = true",
   "let initialCapture = try captureAttestedScreenshot(",
   "let initialScreenshot = initialCapture.screenshot",

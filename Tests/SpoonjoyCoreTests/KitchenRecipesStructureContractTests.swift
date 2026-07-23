@@ -228,7 +228,7 @@ struct KitchenRecipesStructureContractTests {
             observer,
             in: observerPath,
             contains: [
-                "app.descendants(matching: type).allElementsBoundByAccessibilityElement",
+                "root.descendants(matching: type).allElementsBoundByAccessibilityElement",
                 "performAccessibilityAudit",
                 "scrollPrimarySurfaceToTerminal",
                 "recipe-detail",

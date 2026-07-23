@@ -44,10 +44,25 @@ private struct ObservedCaptureIdentity: Codable, Equatable {
     let screenshotSHA256: String
 }
 
+private struct ObservedPixelAccessibilityBinding: Codable, Equatable {
+    let schema: String
+    let captureID: String
+    let capturePhase: String
+    let pixelSource: String
+    let screenshotSHA256: String
+    let accessibilitySnapshotBeforeSHA256: String
+    let accessibilitySnapshotAfterSHA256: String
+    let windowFrame: ObservedRect
+    let selectedScrollHierarchyIdentifier: String?
+    let selectedScrollHierarchySnapshotBeforeSHA256: String?
+    let selectedScrollHierarchySnapshotAfterSHA256: String?
+}
+
 private struct ObservedAuditResult {
     let blockingIssues: [ObservedAuditIssue]
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
     let hitRegionAuditPassed: Bool
+    let auditTypes: [String]
 }
 
 private enum ObservedAccessibilityAuditScope: String, Codable {
@@ -59,6 +74,10 @@ private struct AttestedScreenshot {
     let screenshot: XCUIScreenshot
     let handshake: ObservedReadinessHandshake
     let identity: ObservedCaptureIdentity
+    let pixelAccessibilityBinding: ObservedPixelAccessibilityBinding
+    let windowFrame: ObservedRect
+    let elements: [ObservedAccessibilityElement]
+    let selectedScrollHierarchyElements: [ObservedAccessibilityElement]
 }
 
 private struct ObservedDeepScrollEvidence: Codable {
@@ -71,10 +90,14 @@ private struct ObservedDeepScrollEvidence: Codable {
     let findings: [ObservedAccessibilityFinding]
     let auditIssues: [ObservedAuditIssue]
     let auditScope: ObservedAccessibilityAuditScope
+    let auditTypes: [String]
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
     let screenshotSHA256: String?
     let readinessHandshake: ObservedReadinessHandshake?
     let captureIdentity: ObservedCaptureIdentity?
+    let pixelAccessibilityBinding: ObservedPixelAccessibilityBinding?
+    let selectedScrollHierarchyIdentifier: String?
+    let selectedScrollHierarchyElements: [ObservedAccessibilityElement]
     let observedContentMovement: Bool
     let contentFitsWithoutScrolling: Bool
 }
@@ -85,15 +108,24 @@ private struct ObservedScreenshotEvidence: Codable {
     let viewport: ObservedRect
     let elements: [ObservedAccessibilityElement]
     let auditIssues: [ObservedAuditIssue]
+    let auditTypes: [String]
     let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
     let screenshotSHA256: String
     let readinessHandshake: ObservedReadinessHandshake
     let captureIdentity: ObservedCaptureIdentity
+    let pixelAccessibilityBinding: ObservedPixelAccessibilityBinding
     let geometryFindings: [ObservedAccessibilityFinding]
     let deepScroll: ObservedDeepScrollEvidence?
     let operatingSystemVersion: String
     let observedContentSizeCategory: String
     let recordedAt: String
+}
+
+private struct ObservedRouteTerminalExpectation {
+    let identifier: String
+    let label: String
+    let elementTypes: Set<String>
+    let requiresInteraction: Bool
 }
 
 @MainActor
@@ -141,8 +173,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             )
         }
 
-        let provisionalElements = observedElements(in: app, windowFrame: window.frame)
-        let viewport = contentViewport(windowFrame: window.frame, elements: provisionalElements)
+        let initialCapture = try captureAttestedScreenshot(
+            in: app,
+            route: route,
+            captureRunNonce: environment["SPOONJOY_SCREENSHOT_RUN_NONCE"],
+            capturePhase: "initial"
+        )
+        let capturedWindowFrame = initialCapture.windowFrame.cgRect
+        let provisionalElements = initialCapture.elements
+        let viewport = contentViewport(windowFrame: capturedWindowFrame, elements: provisionalElements)
         let apnsMode = environment["SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"] == "notifications"
         var requiredIdentifiers = csvSet(environment[Self.requiredIdentifiersEnvironmentKey])
         requiredIdentifiers.formUnion(routeRequiredIdentifiers(route: route))
@@ -177,40 +216,34 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             apnsThisDeviceIdentifier: apnsMode ? Self.thisDeviceIdentifier : nil,
             apnsPushDeliveryIdentifier: apnsMode ? Self.pushDeliveryIdentifier : nil
         )
-        let initialCapture = try captureAttestedScreenshot(
-            in: app,
-            route: route,
-            captureRunNonce: environment["SPOONJOY_SCREENSHOT_RUN_NONCE"],
-            capturePhase: "initial"
-        )
         let initialScreenshot = initialCapture.screenshot
         let readinessHandshake = initialCapture.handshake
         let initialAuditResult = accessibilityAuditIssues(
             in: app,
             viewport: viewport,
             screenshot: initialScreenshot,
-            windowFrame: window.frame,
+            windowFrame: capturedWindowFrame,
             hasSystemTabBar: provisionalElements.contains { $0.type == "tabBar" && $0.exists },
             capturePhase: "initial",
             scope: .initialFullTree
         )
-        let initialElements = observedElements(
-            in: app,
-            windowFrame: window.frame,
+        let initialElements = elementsWithHitRegionVerification(
+            initialCapture.elements,
+            windowFrame: capturedWindowFrame,
             hitRegionAuditVerified: initialAuditResult.hitRegionAuditPassed
         )
         let geometryFindings = ScreenshotEvidenceGeometry.validate(
             elements: initialElements,
             requirements: requirements
         )
+        let terminalExpectation = routeTerminalExpectation(route: route, environment: environment)
         let deepScroll = Self.deepScrollRoutes.contains(route)
             ? try scrollPrimarySurfaceToTerminal(
                 in: app,
                 route: route,
-                terminalIdentifier: routeTerminalIdentifier(route: route),
-                terminalLabel: routeTerminalLabel(route: route),
+                terminalExpectation: terminalExpectation,
                 initialElements: initialElements,
-                windowFrame: window.frame,
+                windowFrame: capturedWindowFrame,
                 requiresSystemTabBar: UIDevice.current.userInterfaceIdiom == .phone
                     && environment["SPOONJOY_SCREENSHOT_AUTH"] != "0"
                     && routeUsesSystemTabBar(route)
@@ -225,10 +258,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             viewport: viewport,
             elements: initialElements,
             auditIssues: allAuditIssues,
+            auditTypes: initialAuditResult.auditTypes,
             verifiedContrastFalsePositives: verifiedContrastFalsePositives,
             screenshotSHA256: Self.sha256(initialScreenshot.pngRepresentation),
             readinessHandshake: readinessHandshake,
             captureIdentity: initialCapture.identity,
+            pixelAccessibilityBinding: initialCapture.pixelAccessibilityBinding,
             geometryFindings: geometryFindings,
             deepScroll: deepScroll,
             operatingSystemVersion: UIDevice.current.systemVersion,
@@ -237,7 +272,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
 
         let data = try JSONEncoder.observedEvidence.encode(evidence)
-        writeEvidence(data, configuredPath: environment[Self.evidencePathEnvironmentKey])
+        try writeEvidence(data, configuredPath: environment[Self.evidencePathEnvironmentKey])
         attachJSON(data, name: "observed-accessibility-evidence")
         attachScreenshot(initialScreenshot, name: "observed-accessibility-screenshot")
 
@@ -468,10 +503,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             "kitchen.cookbook.cookbook_slow_sundays"
         ]
 
-        XCTAssertEqual(routeTerminalIdentifier(route: "kitchen"), fixtureCookbookIdentifiers.last)
-        XCTAssertNotEqual(routeTerminalIdentifier(route: "kitchen"), fixtureCookbookIdentifiers.first)
+        let expectation = routeTerminalExpectation(route: "kitchen", environment: [:])
+        XCTAssertEqual(expectation?.identifier, fixtureCookbookIdentifiers.last)
+        XCTAssertNotEqual(expectation?.identifier, fixtureCookbookIdentifiers.first)
         XCTAssertEqual(
-            routeTerminalLabel(route: "kitchen"),
+            expectation?.label,
             "Slow Sundays and Long Simmering Suppers, 0 recipes"
         )
     }
@@ -622,17 +658,58 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(auditTypes.contains(.trait))
     }
 
-    func testSettledTerminalAuditAvoidsStaleSwiftUIVisualNodesWhileRetainingInteractionChecks() {
+    func testSettledTerminalAuditCoversVisualTypographyAndInteractionFailures() {
         let auditTypes = accessibilityAuditTypes(
             scope: .settledTerminalInteraction,
             includesDynamicTypeChecks: true
         )
 
-        XCTAssertFalse(auditTypes.contains(.contrast))
-        XCTAssertFalse(auditTypes.contains(.dynamicType))
-        XCTAssertFalse(auditTypes.contains(.textClipped))
+        XCTAssertTrue(auditTypes.contains(.contrast))
+        XCTAssertTrue(auditTypes.contains(.dynamicType))
+        XCTAssertTrue(auditTypes.contains(.textClipped))
         XCTAssertTrue(auditTypes.contains(.hitRegion))
         XCTAssertTrue(auditTypes.contains(.trait))
+    }
+
+    func testEveryDeepScrollRouteHasAnExactSourceGroundedTerminal() {
+        for route in Self.deepScrollRoutes {
+            let expectation = routeTerminalExpectation(route: route, environment: [:])
+            XCTAssertNotNil(expectation, "Missing terminal expectation for \(route)")
+            XCTAssertFalse(expectation?.identifier.isEmpty == true, "Missing terminal identifier for \(route)")
+            XCTAssertFalse(expectation?.label.isEmpty == true, "Missing terminal label for \(route)")
+            XCTAssertFalse(expectation?.elementTypes.isEmpty == true, "Missing terminal role for \(route)")
+        }
+    }
+
+    func testEveryVariantHasAnExactTerminalContract() {
+        let cases: [(String, [String: String], String, String, Set<String>, Bool)] = [
+            ("shopping-list", ["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT": "normal"], "shopping-list.terminal", "parmesan, 0.5 cup, Dairy", ["button", "switch"], true),
+            ("shopping-list", ["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT": "empty"], "shopping-list.terminal", "Add from recipe", ["button", "switch"], true),
+            ("shopping-list", ["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT": "all-complete"], "shopping-list.terminal", "Add from recipe", ["button", "switch"], true),
+            ("shopping-list", ["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT": "duplicate"], "shopping-list.terminal", "parmesan, 0.5 cup, Dairy", ["button", "switch"], true),
+            ("shopping-list", ["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT": "conflict"], "shopping-list.terminal", "parmesan, 0.5 cup, Dairy", ["button", "switch"], true),
+            ("shopping-list", ["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT": "offline-queued"], "shopping-list.terminal", "parmesan, 0.5 cup, Dairy", ["button", "switch"], true),
+            ("search", ["SPOONJOY_SCREENSHOT_SEARCH_VARIANT": "blank"], "search.terminal", "Shopping item, parmesan, 0.5 cup", ["button"], true),
+            ("search", ["SPOONJOY_SCREENSHOT_SEARCH_VARIANT": "typed-results"], "search.terminal", "Shopping item, lemons, 2 each", ["button"], true),
+            ("search", ["SPOONJOY_SCREENSHOT_SEARCH_VARIANT": "scoped-shopping"], "search.terminal", "Shopping item, lemons, 2 each", ["button"], true),
+            ("search", ["SPOONJOY_SCREENSHOT_SEARCH_VARIANT": "scoped-recipes"], "search.terminal", "Recipe, Lemon Pantry Pasta, Bright pantry pasta with lemon, garlic, and parmesan.", ["button"], true),
+            ("search", ["SPOONJOY_SCREENSHOT_SEARCH_VARIANT": "scoped-cookbooks"], "search.terminal", "Cookbook, Weeknights, 2 recipes", ["button"], true),
+            ("search", ["SPOONJOY_SCREENSHOT_SEARCH_VARIANT": "scoped-chefs"], "search.terminal", "Chef, ari, Chef", ["button"], true),
+            ("search", ["SPOONJOY_SCREENSHOT_SEARCH_VARIANT": "no-results"], "search.terminal", "No Spoonjoy results match \"kumquat\".", ["staticText"], false),
+            ("capture", ["SPOONJOY_SCREENSHOT_CAPTURE_VARIANT": "empty", "SPOONJOY_SCREENSHOT_AUTH": "1"], "capture.terminal", "New recipes from your Spoonjoy agent will appear here.", ["staticText"], false),
+            ("capture", ["SPOONJOY_SCREENSHOT_CAPTURE_VARIANT": "draft", "SPOONJOY_SCREENSHOT_AUTH": "1"], "capture.terminal", "Import actions", ["button"], true),
+            ("capture", ["SPOONJOY_SCREENSHOT_CAPTURE_VARIANT": "offline-retry", "SPOONJOY_SCREENSHOT_AUTH": "1"], "capture.terminal", "Import actions", ["button"], true),
+            ("capture", ["SPOONJOY_SCREENSHOT_CAPTURE_VARIANT": "provider-blocked", "SPOONJOY_SCREENSHOT_AUTH": "1"], "capture.terminal", "Import actions", ["button"], true),
+            ("capture", ["SPOONJOY_SCREENSHOT_CAPTURE_VARIANT": "signed-out", "SPOONJOY_SCREENSHOT_AUTH": "0"], "native sign-in settings", "Settings", ["button"], true)
+        ]
+
+        for (route, environment, identifier, label, elementTypes, requiresInteraction) in cases {
+            let expectation = routeTerminalExpectation(route: route, environment: environment)
+            XCTAssertEqual(expectation?.identifier, identifier, "terminal identifier mismatch for \(route) \(environment)")
+            XCTAssertEqual(expectation?.label, label, "terminal label mismatch for \(route) \(environment)")
+            XCTAssertEqual(expectation?.elementTypes, elementTypes, "terminal role mismatch for \(route) \(environment)")
+            XCTAssertEqual(expectation?.requiresInteraction, requiresInteraction, "terminal interaction mismatch for \(route) \(environment)")
+        }
     }
 
     func testReadinessHandshakeRequiresGenerationBoundProofArchive() {
@@ -1269,7 +1346,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         in app: XCUIApplication,
         route: String,
         captureRunNonce: String?,
-        capturePhase: String
+        capturePhase: String,
+        selectedScrollHierarchy: XCUIElement? = nil
     ) throws -> AttestedScreenshot {
         let nonce = try XCTUnwrap(
             captureRunNonce?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -1290,22 +1368,46 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             )
             let applicationProcessIdentifier = before.applicationProcessIdentifier
             let foregroundBeforeCapture = app.state == .runningForeground
-            guard applicationProcessIdentifier > 0, foregroundBeforeCapture else {
+            let beforeWindow = app.windows.firstMatch
+            guard applicationProcessIdentifier > 0,
+                  foregroundBeforeCapture,
+                  beforeWindow.exists else {
                 throw NSError(
                     domain: "app.spoonjoy.screenshot-capture",
                     code: 2,
                     userInfo: [NSLocalizedDescriptionKey: "Spoonjoy was not the foreground application before capture."]
                 )
             }
+            let beforeWindowFrame = beforeWindow.frame
+            let beforeElements = observedElements(in: app, windowFrame: beforeWindowFrame)
+            let beforeSnapshotSHA256 = try observationDigest(beforeElements)
+            let selectedHierarchyIdentifier = selectedScrollHierarchy?.identifier
+            let selectedBeforeElements = selectedScrollHierarchy.map {
+                observedElements(in: $0, windowFrame: beforeWindowFrame)
+            } ?? []
+            let selectedBeforeSnapshotSHA256 = try selectedScrollHierarchy.map { _ in
+                try observationDigest(selectedBeforeElements)
+            }
+            let captureID = UUID().uuidString.lowercased()
             let screenshot = XCUIScreen.main.screenshot()
             let screenshotSHA256 = Self.sha256(screenshot.pngRepresentation)
             let foregroundAfterCapture = app.state == .runningForeground
-            guard foregroundAfterCapture else {
+            let afterWindow = app.windows.firstMatch
+            guard foregroundAfterCapture, afterWindow.exists else {
                 throw NSError(
                     domain: "app.spoonjoy.screenshot-capture",
                     code: 3,
                     userInfo: [NSLocalizedDescriptionKey: "Spoonjoy foreground process changed during capture."]
                 )
+            }
+            let afterWindowFrame = afterWindow.frame
+            let afterElements = observedElements(in: app, windowFrame: afterWindowFrame)
+            let afterSnapshotSHA256 = try observationDigest(afterElements)
+            let selectedAfterElements = selectedScrollHierarchy.map {
+                observedElements(in: $0, windowFrame: afterWindowFrame)
+            } ?? []
+            let selectedAfterSnapshotSHA256 = try selectedScrollHierarchy.map { _ in
+                try observationDigest(selectedAfterElements)
             }
             guard readinessHandshakeRemainsStable(
                 in: app,
@@ -1315,20 +1417,42 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ) else {
                 continue
             }
+            guard beforeWindowFrame.equalTo(afterWindowFrame),
+                  beforeSnapshotSHA256 == afterSnapshotSHA256,
+                  selectedBeforeSnapshotSHA256 == selectedAfterSnapshotSHA256 else {
+                continue
+            }
+            let identity = ObservedCaptureIdentity(
+                schema: "iosObservedCaptureV1",
+                captureID: captureID,
+                captureRunNonce: nonce,
+                capturePhase: capturePhase,
+                applicationBundleIdentifier: "app.spoonjoy",
+                applicationProcessIdentifier: applicationProcessIdentifier,
+                foregroundBeforeCapture: foregroundBeforeCapture,
+                foregroundAfterCapture: foregroundAfterCapture,
+                screenshotSHA256: screenshotSHA256
+            )
             return AttestedScreenshot(
                 screenshot: screenshot,
                 handshake: before,
-                identity: ObservedCaptureIdentity(
-                    schema: "iosObservedCaptureV1",
-                    captureID: UUID().uuidString.lowercased(),
-                    captureRunNonce: nonce,
+                identity: identity,
+                pixelAccessibilityBinding: ObservedPixelAccessibilityBinding(
+                    schema: "iosPixelAccessibilityBindingV1",
+                    captureID: captureID,
                     capturePhase: capturePhase,
-                    applicationBundleIdentifier: "app.spoonjoy",
-                    applicationProcessIdentifier: applicationProcessIdentifier,
-                    foregroundBeforeCapture: foregroundBeforeCapture,
-                    foregroundAfterCapture: foregroundAfterCapture,
-                    screenshotSHA256: screenshotSHA256
-                )
+                    pixelSource: "mainScreen",
+                    screenshotSHA256: screenshotSHA256,
+                    accessibilitySnapshotBeforeSHA256: beforeSnapshotSHA256,
+                    accessibilitySnapshotAfterSHA256: afterSnapshotSHA256,
+                    windowFrame: ObservedRect(afterWindowFrame),
+                    selectedScrollHierarchyIdentifier: selectedHierarchyIdentifier,
+                    selectedScrollHierarchySnapshotBeforeSHA256: selectedBeforeSnapshotSHA256,
+                    selectedScrollHierarchySnapshotAfterSHA256: selectedAfterSnapshotSHA256
+                ),
+                windowFrame: ObservedRect(afterWindowFrame),
+                elements: afterElements,
+                selectedScrollHierarchyElements: selectedAfterElements
             )
         }
         throw NSError(
@@ -1432,7 +1556,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let auditTypes = accessibilityAuditTypes(
             scope: scope,
             includesDynamicTypeChecks: includesDynamicTypeChecks
-                && ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"]?.hasPrefix("accessibility") == true
         )
         do {
             try app.performAccessibilityAudit(for: auditTypes) { issue in
@@ -1508,7 +1631,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return ObservedAuditResult(
             blockingIssues: blockingIssues,
             verifiedContrastFalsePositives: verifiedContrastFalsePositives,
-            hitRegionAuditPassed: hitRegionAuditPassed
+            hitRegionAuditPassed: hitRegionAuditPassed,
+            auditTypes: accessibilityAuditTypeNames(auditTypes)
         )
     }
 
@@ -1517,16 +1641,24 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         includesDynamicTypeChecks: Bool
     ) -> XCUIAccessibilityAuditType {
         var auditTypes = XCUIAccessibilityAuditType.hitRegion.union(.trait)
-        guard scope == .initialFullTree else {
-            return auditTypes
-        }
-
         auditTypes.formUnion(.contrast)
         if includesDynamicTypeChecks {
             auditTypes.formUnion(.dynamicType)
             auditTypes.formUnion(.textClipped)
         }
         return auditTypes
+    }
+
+    private func accessibilityAuditTypeNames(_ auditTypes: XCUIAccessibilityAuditType) -> [String] {
+        [
+            (.contrast, "contrast"),
+            (.dynamicType, "dynamicType"),
+            (.textClipped, "textClipped"),
+            (.hitRegion, "hitRegion"),
+            (.trait, "trait")
+        ].compactMap { type, name in
+            auditTypes.contains(type) ? name : nil
+        }
     }
 
     private func shouldIgnoreAuditIssue(
@@ -1699,20 +1831,171 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
     }
 
-    private func routeTerminalIdentifier(route: String) -> String? {
+    private func routeTerminalExpectation(
+        route: String,
+        environment: [String: String]
+    ) -> ObservedRouteTerminalExpectation? {
+        let shoppingVariant = environment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"]
+            ?? environment["SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT"]
+            ?? "normal"
+        let searchVariant = environment["SPOONJOY_SCREENSHOT_SEARCH_VARIANT"] ?? "blank"
+        let captureVariant = environment["SPOONJOY_SCREENSHOT_CAPTURE_VARIANT"]
+            ?? environment["SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT"]
+            ?? "empty"
+        let signedIn = environment["SPOONJOY_SCREENSHOT_AUTH"] != "0"
+
         switch route {
-        case "kitchen": "kitchen.cookbook.cookbook_slow_sundays"
-        case "recipe-editor": "recipe-editor.delete"
-        case "recipe-covers": "recipe-covers.archive.cover_primary"
-        case "profile": "profile.graph.kitchen-visitors"
-        default: nil
+        case "kitchen":
+            return ObservedRouteTerminalExpectation(
+                identifier: "kitchen.cookbook.cookbook_slow_sundays",
+                label: "Slow Sundays and Long Simmering Suppers, 0 recipes",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "recipes":
+            return ObservedRouteTerminalExpectation(
+                identifier: "recipes.terminal",
+                label: "Start your recipe box with the dishes you actually cook.",
+                elementTypes: ["staticText"],
+                requiresInteraction: false
+            )
+        case "saved-recipes":
+            return ObservedRouteTerminalExpectation(
+                identifier: "saved-recipes.terminal",
+                label: "Recipes you save to your cookbooks will appear here.",
+                elementTypes: ["staticText"],
+                requiresInteraction: false
+            )
+        case "recipe-detail":
+            return ObservedRouteTerminalExpectation(
+                identifier: "recipe-detail.terminal",
+                label: "No cooks logged yet",
+                elementTypes: ["staticText"],
+                requiresInteraction: false
+            )
+        case "recipe-editor":
+            return ObservedRouteTerminalExpectation(
+                identifier: "recipe-editor.delete",
+                label: "Delete Recipe",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "recipe-covers":
+            return ObservedRouteTerminalExpectation(
+                identifier: "recipe-covers.terminal",
+                label: "Archive",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "cook-mode":
+            return ObservedRouteTerminalExpectation(
+                identifier: "cook-mode.terminal",
+                label: "spaghetti, 12 oz",
+                elementTypes: ["switch"],
+                requiresInteraction: true
+            )
+        case "cook-log":
+            return ObservedRouteTerminalExpectation(
+                identifier: "cook-log.terminal",
+                label: "No cooks logged yet",
+                elementTypes: ["staticText"],
+                requiresInteraction: false
+            )
+        case "cookbooks":
+            return ObservedRouteTerminalExpectation(
+                identifier: "cookbooks.terminal",
+                label: "Slow Sundays and Long Simmering Suppers, 0 recipes",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "cookbook-detail":
+            return ObservedRouteTerminalExpectation(
+                identifier: "cookbook-detail.terminal",
+                label: "2. Tomato Toast",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "shopping-list":
+            return ObservedRouteTerminalExpectation(
+                identifier: "shopping-list.terminal",
+                label: ["empty", "all-complete"].contains(shoppingVariant)
+                    ? "Add from recipe"
+                    : "parmesan, 0.5 cup, Dairy",
+                elementTypes: ["button", "switch"],
+                requiresInteraction: true
+            )
+        case "chefs":
+            return ObservedRouteTerminalExpectation(
+                identifier: "chefs.terminal",
+                label: "ari, Open kitchen profile",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "profile":
+            return ObservedRouteTerminalExpectation(
+                identifier: "profile.graph.kitchen-visitors",
+                label: "1 Kitchen visitors",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "profile-graph":
+            return ObservedRouteTerminalExpectation(
+                identifier: "profile-graph.row.chef_jules",
+                label: "jules, 1 spoon",
+                elementTypes: ["button"],
+                requiresInteraction: true
+            )
+        case "search":
+            return ObservedRouteTerminalExpectation(
+                identifier: "search.terminal",
+                label: searchTerminalLabel(variant: searchVariant),
+                elementTypes: searchVariant == "no-results" ? ["staticText"] : ["button"],
+                requiresInteraction: searchVariant != "no-results"
+            )
+        case "capture":
+            if !signedIn || captureVariant == "signed-out" {
+                return ObservedRouteTerminalExpectation(
+                    identifier: "native sign-in settings",
+                    label: "Settings",
+                    elementTypes: ["button"],
+                    requiresInteraction: true
+                )
+            } else {
+                return ObservedRouteTerminalExpectation(
+                    identifier: "capture.terminal",
+                    label: captureVariant == "empty"
+                        ? "New recipes from your Spoonjoy agent will appear here."
+                        : "Import actions",
+                    elementTypes: captureVariant == "empty" ? ["staticText"] : ["button"],
+                    requiresInteraction: captureVariant != "empty"
+                )
+            }
+        case "settings":
+            return ObservedRouteTerminalExpectation(
+                identifier: "settings.terminal",
+                label: "Offline",
+                elementTypes: ["other"],
+                requiresInteraction: false
+            )
+        default:
+            return nil
         }
     }
 
-    private func routeTerminalLabel(route: String) -> String? {
-        switch route {
-        case "kitchen": "Slow Sundays and Long Simmering Suppers, 0 recipes"
-        default: nil
+    private func searchTerminalLabel(variant: String) -> String {
+        switch variant {
+        case "typed-results", "scoped-shopping":
+            "Shopping item, lemons, 2 each"
+        case "scoped-recipes":
+            "Recipe, Lemon Pantry Pasta, Bright pantry pasta with lemon, garlic, and parmesan."
+        case "scoped-cookbooks":
+            "Cookbook, Weeknights, 2 recipes"
+        case "scoped-chefs":
+            "Chef, ari, Chef"
+        case "no-results":
+            "No Spoonjoy results match \"kumquat\"."
+        default:
+            "Shopping item, parmesan, 0.5 cup"
         }
     }
 
@@ -1721,7 +2004,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     }
 
     private func observedElements(
-        in app: XCUIApplication,
+        in root: XCUIElement,
         windowFrame: CGRect,
         hitRegionAuditVerified: Bool = false
     ) -> [ObservedAccessibilityElement] {
@@ -1731,7 +2014,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             .staticText
         ]
         return observedTypes.flatMap { type in
-            app.descendants(matching: type).allElementsBoundByAccessibilityElement.map { element in
+            root.descendants(matching: type).allElementsBoundByAccessibilityElement.map { element in
                 let typeName = elementTypeName(type)
                 let frame = element.frame
                 let hasUsableFrame = !frame.isNull
@@ -1759,24 +2042,59 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
     }
 
+    private func elementsWithHitRegionVerification(
+        _ elements: [ObservedAccessibilityElement],
+        windowFrame: CGRect,
+        hitRegionAuditVerified: Bool
+    ) -> [ObservedAccessibilityElement] {
+        elements.map { element in
+            ObservedAccessibilityElement(
+                identifier: element.identifier,
+                label: element.label,
+                type: element.type,
+                frame: element.frame,
+                exists: element.exists,
+                hittable: element.hittable,
+                enabled: element.enabled,
+                hitRegionAuditVerified: hitRegionAuditVerified
+                    && element.frame.cgRect.intersects(windowFrame),
+                focused: element.focused
+            )
+        }
+    }
+
+    private func observationDigest(_ elements: [ObservedAccessibilityElement]) throws -> String {
+        let ordered = elements.sorted { first, second in
+            let firstKey = [
+                first.identifier, first.label, first.type,
+                String(first.frame.x), String(first.frame.y),
+                String(first.frame.width), String(first.frame.height),
+                String(first.exists), String(first.hittable), String(first.enabled)
+            ].joined(separator: "|")
+            let secondKey = [
+                second.identifier, second.label, second.type,
+                String(second.frame.x), String(second.frame.y),
+                String(second.frame.width), String(second.frame.height),
+                String(second.exists), String(second.hittable), String(second.enabled)
+            ].joined(separator: "|")
+            return firstKey < secondKey
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(ordered)
+        return Self.sha256(data)
+    }
+
     private func scrollPrimarySurfaceToTerminal(
         in app: XCUIApplication,
         route: String,
-        terminalIdentifier: String?,
-        terminalLabel: String?,
+        terminalExpectation: ObservedRouteTerminalExpectation?,
         initialElements: [ObservedAccessibilityElement],
         windowFrame: CGRect,
         requiresSystemTabBar: Bool
     ) throws -> ObservedDeepScrollEvidence {
         let identifiedPageSurface = app.scrollViews["spoonjoy.page-scroll"]
-        let scrollViews = (
-            app.scrollViews.allElementsBoundByAccessibilityElement
-                + app.collectionViews.allElementsBoundByAccessibilityElement
-        ).filter(\.exists)
-        let primarySurface = identifiedPageSurface.exists
-            ? identifiedPageSurface
-            : scrollViews.max(by: { frameArea($0.frame) < frameArea($1.frame) })
-        guard let primarySurface else {
+        guard identifiedPageSurface.exists else {
             let finding = ObservedAccessibilityFinding(
                 kind: .terminalNotReached,
                 identifiers: [route],
@@ -1793,41 +2111,74 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 findings: [finding],
                 auditIssues: [],
                 auditScope: .settledTerminalInteraction,
+                auditTypes: [],
                 verifiedContrastFalsePositives: [],
                 screenshotSHA256: nil,
                 readinessHandshake: nil,
                 captureIdentity: nil,
+                pixelAccessibilityBinding: nil,
+                selectedScrollHierarchyIdentifier: nil,
+                selectedScrollHierarchyElements: [],
                 observedContentMovement: false,
                 contentFitsWithoutScrolling: false
             )
         }
+        let primarySurface = identifiedPageSurface
 
         let maxScrollActions = 12
         let initialViewport = contentViewport(windowFrame: windowFrame, elements: initialElements)
         let movementViewport = ObservedRect(windowFrame)
-        let initialNamedTerminal = terminalIdentifier.flatMap {
-            observedElement(in: app, identifier: $0, windowFrame: windowFrame)
+        guard let terminalExpectation else {
+            XCTFail("Every deep-scroll route must define an exact terminal expectation: \(route)")
+            throw NSError(domain: "NativeScreenshotEvidence", code: 2)
         }
-        let terminalWasFullyVisibleInitially = initialNamedTerminal.map {
-            initialViewport.contains($0.frame)
-        } == true
-        var reachedStableTerminal = terminalWasFullyVisibleInitially
+        let terminalIdentifier = terminalExpectation.identifier
+        let initialPrimaryElements = observedElements(in: primarySurface, windowFrame: windowFrame)
+        let initialNamedTerminal = observedElement(
+            in: primarySurface,
+            identifier: terminalIdentifier,
+            windowFrame: windowFrame
+        )
+        let terminalWasFullyVisibleInitially = terminalElementMatches(
+            initialNamedTerminal,
+            expectation: terminalExpectation,
+            viewport: initialViewport
+        )
+        var reachedStableTerminal = false
         var observedContentMovement = false
         var scrollActionCount = 0
+        var consecutiveTerminalMatches = 0
+        var priorTerminalSignature: String?
         let movementCandidates = uniqueMovementCandidates(
-            elements: initialElements,
+            elements: initialPrimaryElements,
             viewport: movementViewport
         )
         while !reachedStableTerminal && scrollActionCount < maxScrollActions {
-            let namedTerminal = terminalIdentifier.flatMap {
-                observedElement(in: app, identifier: $0, windowFrame: windowFrame)
+            let namedTerminal = observedElement(
+                in: primarySurface,
+                identifier: terminalIdentifier,
+                windowFrame: windowFrame
+            )
+            if terminalElementMatches(namedTerminal, expectation: terminalExpectation, viewport: initialViewport),
+               let namedTerminal,
+               let signature = terminalScrollSignature(
+                   elements: [namedTerminal],
+                   terminalIdentifier: terminalIdentifier,
+                   viewport: initialViewport
+               ) {
+                consecutiveTerminalMatches = signature == priorTerminalSignature
+                    ? consecutiveTerminalMatches + 1
+                    : 1
+                priorTerminalSignature = signature
+                if consecutiveTerminalMatches >= 2 {
+                    reachedStableTerminal = true
+                    break
+                }
+                waitForScrollToSettle()
+                continue
             }
-            if scrollActionCount > 0,
-               observedContentMovement || terminalWasFullyVisibleInitially,
-               namedTerminal.map({ initialViewport.contains($0.frame) }) == true {
-                reachedStableTerminal = true
-                break
-            }
+            consecutiveTerminalMatches = 0
+            priorTerminalSignature = nil
             if let correction = terminalScrollCorrection(
                 terminalFrame: namedTerminal?.frame,
                 viewport: initialViewport
@@ -1839,9 +2190,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             scrollActionCount += 1
             waitForScrollToSettle()
             if !observedContentMovement {
-                let currentNamedTerminal = terminalIdentifier.flatMap {
-                    observedElement(in: app, identifier: $0, windowFrame: windowFrame)
-                }
+                let currentNamedTerminal = observedElement(
+                    in: primarySurface,
+                    identifier: terminalIdentifier,
+                    windowFrame: windowFrame
+                )
                 let namedTerminalMoved: Bool
                 if let initialNamedTerminal, let currentNamedTerminal {
                     namedTerminalMoved = didObserveIdentifiedMovement(
@@ -1853,7 +2206,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 }
                 observedContentMovement = namedTerminalMoved || movementCandidates.contains { before in
                     guard let after = observedElement(
-                        in: app,
+                        in: primarySurface,
                         identifier: before.identifier,
                         windowFrame: windowFrame
                     ) else {
@@ -1862,49 +2215,45 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     return didObserveIdentifiedMovement(before: before, after: after)
                 }
             }
-            if terminalIdentifier == nil, scrollActionCount >= 4 {
-                break
-            }
         }
 
-        let terminalProbeElements = observedElements(in: app, windowFrame: windowFrame)
-        let terminalProbeViewport = contentViewport(
-            windowFrame: windowFrame,
-            elements: terminalProbeElements
+        let deepCapture = try captureAttestedScreenshot(
+            in: app,
+            route: route,
+            captureRunNonce: ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"],
+            capturePhase: "deepScroll",
+            selectedScrollHierarchy: primarySurface
         )
-        let terminalProbeElement = terminalIdentifier.flatMap { identifier in
-            terminalProbeElements.first { $0.identifier == identifier && $0.exists }
-        } ?? terminalContentElement(elements: terminalProbeElements, viewport: terminalProbeViewport)
-        if terminalIdentifier == nil,
-           observedContentMovement,
-           let terminalProbeElement,
-           !terminalProbeElement.identifier.isEmpty,
-           let signature = terminalScrollSignature(
-               elements: [terminalProbeElement],
-               terminalIdentifier: terminalProbeElement.identifier,
-               viewport: terminalProbeViewport
-           ) {
-            primarySurface.swipeUp(velocity: .fast)
-            scrollActionCount += 1
-            waitForScrollToSettle()
-            if let probe = observedElement(
-                in: app,
-                identifier: terminalProbeElement.identifier,
-                windowFrame: windowFrame
-            ) {
-                reachedStableTerminal = terminalScrollSignature(
-                    elements: [probe],
-                    terminalIdentifier: terminalProbeElement.identifier,
-                    viewport: terminalProbeViewport
-                ) == signature
-            }
+        let deepScreenshot = deepCapture.screenshot
+        let capturedWindowFrame = deepCapture.windowFrame.cgRect
+        let capturedTabBar = deepCapture.elements.first { $0.type == "tabBar" && $0.exists }
+        let viewport = contentViewport(windowFrame: capturedWindowFrame, elements: deepCapture.elements)
+        let auditResult = accessibilityAuditIssues(
+            in: app,
+            viewport: viewport,
+            screenshot: deepScreenshot,
+            windowFrame: capturedWindowFrame,
+            hasSystemTabBar: capturedTabBar != nil,
+            capturePhase: "deepScroll",
+            scope: .settledTerminalInteraction
+        )
+        let elements = elementsWithHitRegionVerification(
+            deepCapture.elements,
+            windowFrame: capturedWindowFrame,
+            hitRegionAuditVerified: auditResult.hitRegionAuditPassed
+        )
+        let selectedHierarchyElements = elementsWithHitRegionVerification(
+            deepCapture.selectedScrollHierarchyElements,
+            windowFrame: capturedWindowFrame,
+            hitRegionAuditVerified: auditResult.hitRegionAuditPassed
+        )
+        let terminalMatchesInSelectedHierarchy = selectedHierarchyElements.filter {
+            $0.identifier == terminalIdentifier && $0.exists
         }
-        let elements = observedElements(in: app, windowFrame: windowFrame)
+        let terminalElement = terminalMatchesInSelectedHierarchy.count == 1
+            ? terminalMatchesInSelectedHierarchy.first
+            : nil
         let tabBar = elements.first { $0.type == "tabBar" && $0.exists }
-        let viewport = contentViewport(windowFrame: windowFrame, elements: elements)
-        let terminalElement = terminalIdentifier.flatMap { identifier in
-            observedElement(in: app, identifier: identifier, windowFrame: windowFrame)
-        } ?? terminalContentElement(elements: elements, viewport: viewport)
         let contentFitsWithoutScrolling = terminalWasFullyVisibleInitially
             && !observedContentMovement
         var findings: [ObservedAccessibilityFinding] = []
@@ -1924,6 +2273,14 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 apnsPushDeliveryIdentifier: nil
             )
         ))
+        if deepCapture.pixelAccessibilityBinding.selectedScrollHierarchyIdentifier != "spoonjoy.page-scroll" {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: ["spoonjoy.page-scroll"],
+                message: "Deep-scroll proof was not bound to the exact selected scroll hierarchy.",
+                intersection: nil
+            ))
+        }
         if !reachedStableTerminal {
             findings.append(ObservedAccessibilityFinding(
                 kind: .terminalNotReached,
@@ -1940,7 +2297,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 intersection: nil
             ))
         }
-        if let terminalIdentifier, terminalElement?.identifier != terminalIdentifier {
+        if terminalElement?.identifier != terminalIdentifier {
             findings.append(ObservedAccessibilityFinding(
                 kind: .requiredIdentifierMissing,
                 identifiers: [terminalIdentifier],
@@ -1948,11 +2305,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 intersection: nil
             ))
         }
-        if let terminalLabel, terminalElement?.label != terminalLabel {
+        if terminalElement?.label != terminalExpectation.label {
             findings.append(ObservedAccessibilityFinding(
                 kind: .requiredIdentifierMissing,
-                identifiers: ["label:\(terminalLabel)"],
+                identifiers: ["label:\(terminalExpectation.label)"],
                 message: "Deep-scroll proof did not reach the route terminal object label.",
+                intersection: nil
+            ))
+        }
+        if let terminalElement,
+           !terminalExpectation.elementTypes.contains(terminalElement.type)
+                || terminalExpectation.requiresInteraction && (!terminalElement.hittable || !terminalElement.enabled) {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .requiredIdentifierMissing,
+                identifiers: [terminalIdentifier],
+                message: "Deep-scroll proof terminal role or interaction semantics did not match the route contract.",
                 intersection: nil
             ))
         }
@@ -1971,22 +2338,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             ))
         }
 
-        let deepCapture = try captureAttestedScreenshot(
-            in: app,
-            route: route,
-            captureRunNonce: ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"],
-            capturePhase: "deepScroll"
-        )
-        let deepScreenshot = deepCapture.screenshot
-        let auditResult = accessibilityAuditIssues(
-            in: app,
-            viewport: viewport,
-            screenshot: deepScreenshot,
-            windowFrame: windowFrame,
-            hasSystemTabBar: tabBar != nil,
-            capturePhase: "deepScroll",
-            scope: .settledTerminalInteraction
-        )
         let evidence = ObservedDeepScrollEvidence(
             route: route,
             reachedTerminal: terminalProofIsValid(
@@ -1995,7 +2346,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 contentFitsWithoutScrolling: contentFitsWithoutScrolling,
                 scrollActionCount: scrollActionCount
             )
-                && (terminalIdentifier == nil || terminalElement?.identifier == terminalIdentifier),
+                && terminalElementMatches(terminalElement, expectation: terminalExpectation, viewport: viewport),
             swipeCount: scrollActionCount,
             contentViewport: viewport,
             tabBarFrame: tabBar?.frame,
@@ -2003,21 +2354,28 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             findings: findings,
             auditIssues: auditResult.blockingIssues,
             auditScope: .settledTerminalInteraction,
+            auditTypes: auditResult.auditTypes,
             verifiedContrastFalsePositives: auditResult.verifiedContrastFalsePositives,
             screenshotSHA256: Self.sha256(deepScreenshot.pngRepresentation),
             readinessHandshake: deepCapture.handshake,
             captureIdentity: deepCapture.identity,
+            pixelAccessibilityBinding: deepCapture.pixelAccessibilityBinding,
+            selectedScrollHierarchyIdentifier: deepCapture.pixelAccessibilityBinding.selectedScrollHierarchyIdentifier,
+            selectedScrollHierarchyElements: selectedHierarchyElements,
             observedContentMovement: observedContentMovement,
             contentFitsWithoutScrolling: contentFitsWithoutScrolling
         )
-        if let data = try? JSONEncoder.observedEvidence.encode(evidence) {
-            attachJSON(data, name: "deep-scroll-evidence")
-            if let configuredPath = ProcessInfo.processInfo.environment[Self.evidencePathEnvironmentKey] {
-                let output = URL(fileURLWithPath: configuredPath)
-                    .deletingPathExtension()
-                    .appendingPathExtension("deep-scroll.json")
-                try? data.write(to: output, options: Data.WritingOptions.atomic)
-            }
+        let data = try JSONEncoder.observedEvidence.encode(evidence)
+        attachJSON(data, name: "deep-scroll-evidence")
+        if let configuredPath = ProcessInfo.processInfo.environment[Self.evidencePathEnvironmentKey] {
+            let output = URL(fileURLWithPath: configuredPath)
+                .deletingPathExtension()
+                .appendingPathExtension("deep-scroll.json")
+            try FileManager.default.createDirectory(
+                at: output.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try data.write(to: output, options: Data.WritingOptions.atomic)
         }
         attachScreenshot(deepScreenshot, name: "deep-scroll-screenshot")
         return evidence
@@ -2159,11 +2517,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     }
 
     private func observedElement(
-        in app: XCUIApplication,
+        in root: XCUIElement,
         identifier: String,
         windowFrame: CGRect
     ) -> ObservedAccessibilityElement? {
-        let matches = app.descendants(matching: .any)
+        let matches = root.descendants(matching: .any)
             .matching(identifier: identifier)
             .allElementsBoundByAccessibilityElement
         guard matches.count == 1, let element = matches.first else {
@@ -2247,9 +2605,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         terminalIdentifier: String?,
         viewport: ObservedRect
     ) -> String? {
-        let terminal = terminalIdentifier.flatMap { identifier in
-            elements.first { $0.identifier == identifier && $0.exists }
-        } ?? terminalContentElement(elements: elements, viewport: viewport)
+        guard let terminalIdentifier else { return nil }
+        let terminal = elements.first { $0.identifier == terminalIdentifier && $0.exists }
         guard let terminal, viewport.contains(terminal.frame) else {
             return nil
         }
@@ -2264,26 +2621,19 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ].joined(separator: "|")
     }
 
-    private func terminalContentElement(
-        elements: [ObservedAccessibilityElement],
+    private func terminalElementMatches(
+        _ element: ObservedAccessibilityElement?,
+        expectation: ObservedRouteTerminalExpectation,
         viewport: ObservedRect
-    ) -> ObservedAccessibilityElement? {
-        let excludedTypes = Self.chromeTypes.union(["application", "window", "scrollView", "collectionView"])
-        let eligible = elements.filter { element in
-                element.exists
-                    && !excludedTypes.contains(element.type)
-                    && (!element.identifier.isEmpty || !element.label.isEmpty)
-                    && element.frame.intersection(with: viewport) != nil
-                    && element.frame.height <= viewport.height * 1.25
-            }
-        let identified = eligible.filter { !$0.identifier.isEmpty }
-        return (identified.isEmpty ? eligible : identified)
-            .max { first, second in
-                if first.frame.maxY == second.frame.maxY {
-                    return first.frame.minY < second.frame.minY
-                }
-                return first.frame.maxY < second.frame.maxY
-            }
+    ) -> Bool {
+        guard let element else { return false }
+        return element.exists
+            && element.identifier == expectation.identifier
+            && element.label == expectation.label
+            && expectation.elementTypes.contains(element.type)
+            && element.enabled
+            && (!expectation.requiresInteraction || element.hittable)
+            && viewport.contains(element.frame)
     }
 
     private func contentViewport(
@@ -2421,11 +2771,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
     }
 
-    private func writeEvidence(_ data: Data, configuredPath: String?) {
+    private func writeEvidence(_ data: Data, configuredPath: String?) throws {
         guard let configuredPath, !configuredPath.isEmpty else { return }
         let output = URL(fileURLWithPath: configuredPath)
-        try? FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: output, options: .atomic)
+        try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: output, options: .atomic)
     }
 
     private func attachJSON(_ data: Data, name: String) {

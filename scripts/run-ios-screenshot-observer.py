@@ -10,8 +10,17 @@ import signal
 import shutil
 import subprocess
 import sys
+import time
 import uuid
 from pathlib import Path
+
+REQUIRED_AUDIT_TYPES = {
+    "contrast",
+    "dynamicType",
+    "textClipped",
+    "hitRegion",
+    "trait",
+}
 
 
 def fail(message: str) -> None:
@@ -101,6 +110,231 @@ def run(command: list[str], log: Path, timeout: int, allow_failure: bool = False
     return return_code
 
 
+def parse_exact_simulator_application_processes(
+    output: str,
+    bundle_identifier: str,
+) -> set[tuple[int, str]]:
+    exact_label = re.compile(
+        rf"\AUIKitApplication:{re.escape(bundle_identifier)}(?:\[[^\]\r\n]+\])*\Z"
+    )
+    matches: set[tuple[int, str]] = set()
+    for line in output.splitlines():
+        fields = line.split("\t")
+        if len(fields) < 3:
+            continue
+        pid_text, label = fields[0].strip(), fields[-1].strip()
+        if not exact_label.fullmatch(label) or not pid_text.isdecimal():
+            continue
+        pid = int(pid_text)
+        if pid > 0:
+            matches.add((pid, label))
+    return matches
+
+
+def require_single_host_process_observation(
+    observations: set[tuple[int, str]],
+) -> tuple[int, str]:
+    process_identifiers = {pid for pid, _ in observations}
+    if not process_identifiers:
+        fail("no exact app.spoonjoy target process was independently observed")
+    if len(process_identifiers) != 1:
+        fail("multiple exact app.spoonjoy target processes were independently observed")
+    process_identifier = next(iter(process_identifiers))
+    labels = sorted(label for pid, label in observations if pid == process_identifier)
+    if len(set(labels)) != 1:
+        fail("the exact app.spoonjoy launchctl label changed during capture")
+    return process_identifier, labels[0]
+
+
+def run_test_with_target_process_observation(
+    command: list[str],
+    log: Path,
+    timeout: int,
+    *,
+    destination_udid: str,
+    simulator_arch: str,
+) -> tuple[int, dict]:
+    log.parent.mkdir(parents=True, exist_ok=True)
+    observations: set[tuple[int, str]] = set()
+    sample_count = 0
+    deadline = time.monotonic() + timeout
+    with log.open("ab") as output:
+        output.write(("running: " + " ".join(command) + "\n").encode())
+        output.write(
+            (
+                "observing: xcrun simctl spawn -a "
+                f"{simulator_arch} {destination_udid} launchctl list\n"
+            ).encode()
+        )
+        process = subprocess.Popen(
+            command,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            while process.poll() is None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                try:
+                    probe = subprocess.run(
+                        [
+                            "xcrun",
+                            "simctl",
+                            "spawn",
+                            "-a",
+                            simulator_arch,
+                            destination_udid,
+                            "launchctl",
+                            "list",
+                        ],
+                        capture_output=True,
+                        text=True,
+                        timeout=min(2.0, remaining),
+                        check=False,
+                    )
+                except subprocess.TimeoutExpired:
+                    probe = None
+                if probe is not None and probe.returncode == 0:
+                    exact = parse_exact_simulator_application_processes(
+                        probe.stdout,
+                        "app.spoonjoy",
+                    )
+                    if exact:
+                        sample_count += 1
+                        observations.update(exact)
+                time.sleep(0.05)
+            return_code = process.wait()
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+                process.wait(timeout=1)
+            except (ProcessLookupError, PermissionError, subprocess.TimeoutExpired):
+                pass
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            if process.poll() is None:
+                process.wait()
+            fail(f"command timed out after {timeout} seconds; see {log}")
+
+    process_identifier, launchctl_label = require_single_host_process_observation(
+        observations
+    )
+    if sample_count < 2:
+        fail("exact app.spoonjoy target process was not independently observed twice")
+    return return_code, {
+        "schema": "iosHostProcessObservationV1",
+        "applicationBundleIdentifier": "app.spoonjoy",
+        "applicationProcessIdentifier": process_identifier,
+        "launchctlLabel": launchctl_label,
+        "sampleCount": sample_count,
+    }
+
+
+def attest_host_process_binding(
+    identity: dict,
+    host_observation: dict,
+    capture_phase: str,
+) -> None:
+    expected_fields = {
+        "schema",
+        "applicationBundleIdentifier",
+        "applicationProcessIdentifier",
+        "launchctlLabel",
+        "sampleCount",
+    }
+    if not isinstance(host_observation, dict) or set(host_observation) != expected_fields:
+        fail("host-observed target process evidence is missing or malformed")
+    if host_observation.get("schema") != "iosHostProcessObservationV1":
+        fail("host-observed target process schema mismatch")
+    if host_observation.get("applicationBundleIdentifier") != "app.spoonjoy":
+        fail("host-observed target process bundle mismatch")
+    label = host_observation.get("launchctlLabel")
+    if not isinstance(label, str) or not re.fullmatch(
+        r"UIKitApplication:app\.spoonjoy(?:\[[^\]\r\n]+\])*",
+        label,
+    ):
+        fail("host-observed target process launchctl label mismatch")
+    process_identifier = host_observation.get("applicationProcessIdentifier")
+    if isinstance(process_identifier, bool) or not isinstance(process_identifier, int) or process_identifier <= 0:
+        fail("host-observed target process identity is invalid")
+    sample_count = host_observation.get("sampleCount")
+    if isinstance(sample_count, bool) or not isinstance(sample_count, int) or sample_count < 2:
+        fail("host-observed target process needs at least two independent samples")
+    if identity.get("applicationBundleIdentifier") != host_observation["applicationBundleIdentifier"]:
+        fail(f"{capture_phase} capture does not match the host-observed target process bundle")
+    if identity.get("applicationProcessIdentifier") != process_identifier:
+        fail(f"{capture_phase} capture does not match the host-observed target process")
+
+
+def attest_pixel_accessibility_binding(
+    evidence: dict,
+    identity: dict,
+    capture_phase: str,
+) -> None:
+    binding = evidence.get("pixelAccessibilityBinding")
+    expected_fields = {
+        "schema",
+        "captureID",
+        "capturePhase",
+        "pixelSource",
+        "screenshotSHA256",
+        "accessibilitySnapshotBeforeSHA256",
+        "accessibilitySnapshotAfterSHA256",
+        "windowFrame",
+        "selectedScrollHierarchyIdentifier",
+        "selectedScrollHierarchySnapshotBeforeSHA256",
+        "selectedScrollHierarchySnapshotAfterSHA256",
+    }
+    if not isinstance(binding, dict) or set(binding) != expected_fields:
+        fail(f"{capture_phase} pixel/accessibility binding is missing or malformed")
+    if binding.get("schema") != "iosPixelAccessibilityBindingV1":
+        fail(f"{capture_phase} pixel/accessibility binding schema mismatch")
+    if binding.get("captureID") != identity.get("captureID"):
+        fail(f"{capture_phase} pixel/accessibility binding capture ID mismatch")
+    if binding.get("capturePhase") != capture_phase:
+        fail(f"{capture_phase} pixel/accessibility binding phase mismatch")
+    if binding.get("pixelSource") != "mainScreen":
+        fail(f"{capture_phase} pixel/accessibility binding source mismatch")
+    if binding.get("screenshotSHA256") != identity.get("screenshotSHA256"):
+        fail(f"{capture_phase} pixel/accessibility binding screenshot mismatch")
+    before_digest = binding.get("accessibilitySnapshotBeforeSHA256")
+    after_digest = binding.get("accessibilitySnapshotAfterSHA256")
+    if (
+        not isinstance(before_digest, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", before_digest)
+        or before_digest != after_digest
+    ):
+        fail(f"{capture_phase} accessibility tree was not stable across pixel capture")
+    frame = binding.get("windowFrame")
+    if not isinstance(frame, dict) or set(frame) != {"x", "y", "width", "height"}:
+        fail(f"{capture_phase} pixel/accessibility binding window frame is malformed")
+    values = list(frame.values())
+    if (
+        any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in values)
+        or not all(float(value) == float(value) and abs(float(value)) != float("inf") for value in values)
+        or frame["width"] <= 0
+        or frame["height"] <= 0
+    ):
+        fail(f"{capture_phase} pixel/accessibility binding window frame is invalid")
+    hierarchy_identifier = binding.get("selectedScrollHierarchyIdentifier")
+    hierarchy_before = binding.get("selectedScrollHierarchySnapshotBeforeSHA256")
+    hierarchy_after = binding.get("selectedScrollHierarchySnapshotAfterSHA256")
+    if capture_phase == "initial":
+        if hierarchy_identifier is not None or hierarchy_before is not None or hierarchy_after is not None:
+            fail("initial capture must not claim a selected scroll hierarchy")
+    elif (
+        hierarchy_identifier != "spoonjoy.page-scroll"
+        or not isinstance(hierarchy_before, str)
+        or not re.fullmatch(r"[0-9a-f]{64}", hierarchy_before)
+        or hierarchy_before != hierarchy_after
+    ):
+        fail("deepScroll selected hierarchy was not stable across pixel capture")
+
+
 def observed_evidence_files(root: Path, platform: str, route: str) -> list[Path]:
     matches: list[Path] = []
     for candidate in root.rglob("*"):
@@ -159,12 +393,22 @@ def attest_exported_screenshot(evidence: dict, screenshot_path: Path, field: str
         fail(f"observed screenshot attachment SHA-256 mismatch for {field}")
 
 
+def attest_audit_types(evidence: dict, phase: str) -> None:
+    audit_types = evidence.get("auditTypes")
+    if not isinstance(audit_types, list) or set(audit_types) != REQUIRED_AUDIT_TYPES:
+        fail(
+            f"{phase} accessibility audit must include contrast, dynamicType, "
+            "textClipped, hitRegion, and trait"
+        )
+
+
 def attest_capture_identity(
     evidence: dict,
     screenshot_path: Path,
     *,
     expected_run_nonce: str,
     expected_phase: str,
+    host_process_observation=None,
 ) -> dict:
     identity = evidence.get("captureIdentity")
     expected_fields = {
@@ -206,6 +450,10 @@ def attest_capture_identity(
     if evidence.get("screenshotSHA256") != expected_digest:
         fail("observed screenshot evidence and capture identity SHA-256 mismatch")
     attest_exported_screenshot(identity, screenshot_path, "screenshotSHA256")
+    attest_pixel_accessibility_binding(evidence, identity, expected_phase)
+    if host_process_observation is None:
+        fail("observed screenshot capture is missing independent host process evidence")
+    attest_host_process_binding(identity, host_process_observation, expected_phase)
     return identity
 
 
@@ -216,12 +464,14 @@ def publish_attested_screenshot(
     *,
     expected_run_nonce: str,
     expected_phase: str,
+    host_process_observation: dict,
 ) -> None:
     attest_capture_identity(
         evidence,
         source,
         expected_run_nonce=expected_run_nonce,
         expected_phase=expected_phase,
+        host_process_observation=host_process_observation,
     )
     destination.parent.mkdir(parents=True, exist_ok=True)
     temporary = destination.with_name(f".{destination.name}.tmp-{uuid.uuid4()}")
@@ -232,6 +482,7 @@ def publish_attested_screenshot(
             temporary,
             expected_run_nonce=expected_run_nonce,
             expected_phase=expected_phase,
+            host_process_observation=host_process_observation,
         )
         os.replace(temporary, destination)
         attest_capture_identity(
@@ -239,6 +490,7 @@ def publish_attested_screenshot(
             destination,
             expected_run_nonce=expected_run_nonce,
             expected_phase=expected_phase,
+            host_process_observation=host_process_observation,
         )
     finally:
         temporary.unlink(missing_ok=True)
@@ -439,6 +691,7 @@ def main() -> None:
     parser.add_argument("--work-root", required=True, type=Path)
     parser.add_argument("--log", required=True, type=Path)
     parser.add_argument("--timeout-seconds", type=int, default=300)
+    parser.add_argument("--simulator-arch", required=True)
     parser.add_argument("--environment", action="append", default=[])
     parser.add_argument("--environment-json", type=Path)
     arguments = parser.parse_args()
@@ -470,7 +723,7 @@ def main() -> None:
     attachments = work_root / "attachments"
     configure_xctestrun(source_xctestrun, configured_xctestrun, app, runner, environment)
 
-    test_status = run(
+    test_status, host_process_observation = run_test_with_target_process_observation(
         [
             "xcodebuild",
             "test-without-building",
@@ -484,7 +737,8 @@ def main() -> None:
         ],
         arguments.log,
         arguments.timeout_seconds,
-        allow_failure=True,
+        destination_udid=arguments.destination_udid,
+        simulator_arch=arguments.simulator_arch,
     )
     run(
         [
@@ -508,6 +762,9 @@ def main() -> None:
             f"found {len(matches)}; see {attachments}"
         )
     evidence = json.loads(matches[0].read_text())
+    if "hostProcessObservation" in evidence:
+        fail("UI-test evidence must not self-publish host process observation")
+    evidence["hostProcessObservation"] = host_process_observation
     app_proof_value = environment.get("SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH")
     requested_content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY")
     capture_run_nonce = environment.get("SPOONJOY_SCREENSHOT_RUN_NONCE")
@@ -540,6 +797,7 @@ def main() -> None:
         expected_platform=arguments.platform,
     )
     attest_observed_dynamic_type(evidence, app_proof_path, requested_content_size)
+    attest_audit_types(evidence, "initial")
     screenshots = observed_screenshot_files(attachments)
     if len(screenshots) != 1:
         fail(f"expected one initial observed screenshot, found {len(screenshots)}; see {attachments}")
@@ -548,10 +806,12 @@ def main() -> None:
         screenshots[0],
         expected_run_nonce=capture_run_nonce,
         expected_phase="initial",
+        host_process_observation=host_process_observation,
     )
     deep_scroll = evidence.get("deepScroll")
     deep_screenshots: list[Path] = []
     if isinstance(deep_scroll, dict):
+        attest_audit_types(deep_scroll, "deepScroll")
         deep_app_proof_path = readiness_proof_path(
             canonical_app_proof_path,
             deep_scroll.get("readinessHandshake"),
@@ -571,6 +831,7 @@ def main() -> None:
             deep_screenshots[0],
             expected_run_nonce=capture_run_nonce,
             expected_phase="deepScroll",
+            host_process_observation=host_process_observation,
         )
         if (
             deep_capture_identity["applicationProcessIdentifier"]
@@ -593,6 +854,7 @@ def main() -> None:
             arguments.screenshot_output,
             expected_run_nonce=capture_run_nonce,
             expected_phase="initial",
+            host_process_observation=host_process_observation,
         )
     if isinstance(deep_scroll, dict):
         if not arguments.deep_scroll_screenshot_output:
@@ -603,6 +865,7 @@ def main() -> None:
             arguments.deep_scroll_screenshot_output,
             expected_run_nonce=capture_run_nonce,
             expected_phase="deepScroll",
+            host_process_observation=host_process_observation,
         )
     elif arguments.deep_scroll_screenshot_output:
         fail("deep-scroll screenshot output was requested without deep-scroll evidence")
