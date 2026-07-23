@@ -11,13 +11,104 @@ struct NativeSearchSurfaceTests {
         bearerToken: "sj_private_token"
     )
 
-    @Test("freshly loaded recipes take precedence over bootstrap snapshots")
-    func freshlyLoadedRecipesTakePrecedenceOverBootstrapSnapshots() throws {
+    @Test("loaded recipe details remain scoped to the shell snapshot they overlaid")
+    func loadedRecipeDetailsRemainScopedToTheirShellSnapshot() throws {
+        let bootstrapRecipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipes.first)
+        let loadedRecipe = Self.copy(
+            bootstrapRecipe,
+            title: "Live detail",
+            updatedAt: "2026-07-22T23:00:00.000Z"
+        )
+        let editedRecipe = Self.copy(
+            bootstrapRecipe,
+            title: "Edited under the same shell identity",
+            updatedAt: bootstrapRecipe.updatedAt
+        )
+        var cache = RecipeDetailSnapshotCache()
+        let shellIdentity = "production|chef_ari|informational"
+
+        cache.recordLoadedRecipe(loadedRecipe, shellRecipe: bootstrapRecipe, shellIdentity: shellIdentity)
+
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: bootstrapRecipe, shellIdentity: shellIdentity) == loadedRecipe)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: bootstrapRecipe, shellIdentity: "production|chef_jules|informational") == bootstrapRecipe)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: editedRecipe, shellIdentity: shellIdentity) == editedRecipe)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: nil, shellIdentity: shellIdentity) == nil)
+
+        cache.recordLoadedRecipe(loadedRecipe, shellRecipe: nil, shellIdentity: shellIdentity)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: nil, shellIdentity: shellIdentity) == loadedRecipe)
+
+        cache.removeAll()
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: bootstrapRecipe, shellIdentity: shellIdentity) == bootstrapRecipe)
+    }
+
+    @Test("recipe detail load identity tracks exact shell content and owning session")
+    func recipeDetailLoadIdentityTracksExactShellContentAndOwningSession() throws {
+        let bootstrapRecipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipes.first)
+        let sameTimestampEdit = Self.copy(
+            bootstrapRecipe,
+            title: "Changed without a timestamp bump",
+            updatedAt: bootstrapRecipe.updatedAt
+        )
+        let baseline = RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: bootstrapRecipe
+        )
+
+        #expect(baseline == RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: bootstrapRecipe
+        ))
+        #expect(baseline != RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: sameTimestampEdit
+        ))
+        #expect(baseline != RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "preview|chef_ari|informational",
+            shellRecipe: bootstrapRecipe
+        ))
+    }
+
+    @Test("recipe detail route binds cache ownership, task restart, and snapshot updates")
+    func recipeDetailRouteBindsCacheOwnershipTaskRestartAndSnapshotUpdates() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
         let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+        let detail = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"))
 
-        #expect(navigation.contains("loadedRecipesByID[id] ?? contentState.recipes.first { $0.id == id }"))
-        #expect(!navigation.contains("contentState.recipes.first { $0.id == id } ?? loadedRecipesByID[id]"))
+        #expect(navigation.contains("loadedRecipesByID.recipe("))
+        #expect(navigation.contains("shellIdentity: shellIdentity"))
+        #expect(navigation.contains("shellIdentity: loadContext.taskIdentity.shellIdentity"))
+        #expect(navigation.contains("RecipeDetailLoadIdentity("))
+        #expect(detail.contains(".task(id: loadContext.taskIdentity)"))
+        #expect(detail.contains("await loadRecipe(context: loadContext)"))
+        #expect(detail.contains("self.onRecipeLoaded(recipe, loadContext)"))
+        #expect(detail.contains("onRecipeLoaded(result.recipe)"))
+        #expect(detail.contains(".onChange(of: snapshotViewModel)"))
+    }
+
+    private static func copy(_ recipe: Recipe, title: String, updatedAt: String) -> Recipe {
+        Recipe(
+            id: recipe.id,
+            title: title,
+            description: recipe.description,
+            servings: recipe.servings,
+            chef: recipe.chef,
+            coverImageURL: recipe.coverImageURL,
+            coverProvenanceLabel: recipe.coverProvenanceLabel,
+            coverSourceType: recipe.coverSourceType,
+            coverVariant: recipe.coverVariant,
+            href: recipe.href,
+            canonicalURL: recipe.canonicalURL,
+            attribution: recipe.attribution,
+            createdAt: recipe.createdAt,
+            updatedAt: updatedAt,
+            steps: recipe.steps,
+            cookbooks: recipe.cookbooks,
+            recentSpoons: recipe.recentSpoons
+        )
     }
 
     @Test("search surface exists as a first-class native feature")

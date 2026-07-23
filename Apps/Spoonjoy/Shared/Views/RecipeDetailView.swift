@@ -9,13 +9,19 @@ private enum RecipeDetailRouteState {
     case failed(message: String)
 }
 
+struct RecipeDetailRouteLoadContext: Equatable, Sendable {
+    let taskIdentity: RecipeDetailLoadIdentity
+    let shellRecipe: Recipe?
+}
+
 struct RecipeDetailRouteView: View {
     let recipeID: String
+    let loadContext: RecipeDetailRouteLoadContext
     let repository: any RecipeCatalogRepository
     let spoonRepository: any SpoonCookLogRepository
     let snapshotViewModel: RecipeDetailScreenViewModel?
     let loadingTitle: String?
-    let onRecipeLoaded: @MainActor @Sendable (Recipe) -> Void
+    let onRecipeLoaded: @MainActor @Sendable (Recipe, RecipeDetailRouteLoadContext) -> Void
     let reportTelemetry: NativeRecipeDetailTelemetryReportOperation
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
@@ -37,11 +43,12 @@ struct RecipeDetailRouteView: View {
 
     init(
         recipeID: String,
+        loadContext: RecipeDetailRouteLoadContext,
         repository: any RecipeCatalogRepository,
         spoonRepository: any SpoonCookLogRepository,
         initialViewModel: RecipeDetailScreenViewModel?,
         loadingTitle: String? = nil,
-        onRecipeLoaded: @escaping @MainActor @Sendable (Recipe) -> Void = { _ in },
+        onRecipeLoaded: @escaping @MainActor @Sendable (Recipe, RecipeDetailRouteLoadContext) -> Void = { _, _ in },
         reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation = { _ in },
         actionConnectivity: RecipeActionConnectivity,
         shoppingViewModel: ShoppingSurfaceViewModel,
@@ -58,6 +65,7 @@ struct RecipeDetailRouteView: View {
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.recipeID = recipeID
+        self.loadContext = loadContext
         self.repository = repository
         self.spoonRepository = spoonRepository
         snapshotViewModel = initialViewModel
@@ -110,8 +118,8 @@ struct RecipeDetailRouteView: View {
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
             }
         }
-        .task(id: recipeID) {
-            await loadRecipe()
+        .task(id: loadContext.taskIdentity) {
+            await loadRecipe(context: loadContext)
         }
         .onChange(of: snapshotViewModel) { _, nextViewModel in
             guard let nextViewModel, nextViewModel != routeState.currentViewModel else {
@@ -121,10 +129,13 @@ struct RecipeDetailRouteView: View {
         }
     }
 
-    @MainActor private func loadRecipe() async {
+    @MainActor private func loadRecipe(context loadContext: RecipeDetailRouteLoadContext) async {
         errorMessage = nil
         if routeState.currentViewModel?.id != recipeID {
             routeState = .loading(snapshotTitle: loadingTitle)
+        }
+        let onRecipeLoaded: @MainActor @Sendable (Recipe) -> Void = { recipe in
+            self.onRecipeLoaded(recipe, loadContext)
         }
         do {
             let loader = RecipeDetailProgressiveLoader(

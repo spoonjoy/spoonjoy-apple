@@ -570,6 +570,60 @@ private struct NativeRecipeDetailTelemetryDispatcher: Sendable {
     }
 }
 
+public struct RecipeDetailLoadIdentity: Hashable, Sendable {
+    public let recipeID: String
+    public let shellIdentity: String
+    private let encodedShellRecipe: Data?
+
+    public init(recipeID: String, shellIdentity: String, shellRecipe: Recipe?) {
+        self.recipeID = recipeID
+        self.shellIdentity = shellIdentity
+        encodedShellRecipe = Self.encode(shellRecipe)
+    }
+
+    private static func encode(_ recipe: Recipe?) -> Data? {
+        guard let recipe else {
+            return nil
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return (try? encoder.encode(recipe)) ?? Data(String(reflecting: recipe).utf8)
+    }
+}
+
+public struct RecipeDetailSnapshotCache: Equatable, Sendable {
+    private struct Entry: Equatable, Sendable {
+        let loadedRecipe: Recipe
+        let shellRecipe: Recipe?
+        let shellIdentity: String
+    }
+
+    private var entriesByRecipeID: [String: Entry] = [:]
+
+    public init() {}
+
+    public func recipe(id: String, shellRecipe: Recipe?, shellIdentity: String) -> Recipe? {
+        guard let entry = entriesByRecipeID[id],
+              entry.shellRecipe == shellRecipe,
+              entry.shellIdentity == shellIdentity else {
+            return shellRecipe
+        }
+        return entry.loadedRecipe
+    }
+
+    public mutating func recordLoadedRecipe(_ recipe: Recipe, shellRecipe: Recipe?, shellIdentity: String) {
+        entriesByRecipeID[recipe.id] = Entry(
+            loadedRecipe: recipe,
+            shellRecipe: shellRecipe,
+            shellIdentity: shellIdentity
+        )
+    }
+
+    public mutating func removeAll() {
+        entriesByRecipeID.removeAll()
+    }
+}
+
 public struct RecipeDetailProgressiveLoader: Sendable {
     private let recipeRepository: any RecipeCatalogRepository
     private let spoonRepository: any SpoonCookLogRepository

@@ -20,7 +20,7 @@ struct PlatformNavigationView: View {
     @State private var isSearchPresented = false
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
-    @State private var loadedRecipesByID: [String: Recipe] = [:]
+    @State private var loadedRecipesByID = RecipeDetailSnapshotCache()
     @StateObject private var recipeEditorToolbarCoordinator = RecipeEditorToolbarCoordinator()
 
     private let contentState: NativeShellContentState
@@ -540,13 +540,34 @@ struct PlatformNavigationView: View {
         case .savedRecipes:
             SavedRecipesView(viewModel: savedRecipesCatalogViewModel)
         case .recipeDetail(let id, .detail):
+            let shellRecipe = shellRecipe(id: id)
+            let shellIdentity = contentState.searchSurfaceIdentity
+            let loadContext = RecipeDetailRouteLoadContext(
+                taskIdentity: RecipeDetailLoadIdentity(
+                    recipeID: id,
+                    shellIdentity: shellIdentity,
+                    shellRecipe: shellRecipe
+                ),
+                shellRecipe: shellRecipe
+            )
             RecipeDetailRouteView(
                 recipeID: id,
+                loadContext: loadContext,
                 repository: recipeCatalogRepository,
                 spoonRepository: spoonCookLogRepository,
-                initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
+                initialViewModel: loadedRecipesByID.recipe(
+                    id: id,
+                    shellRecipe: shellRecipe,
+                    shellIdentity: shellIdentity
+                ).map(recipeDetailScreenViewModel(for:)),
                 loadingTitle: recipeLoadingTitle(id: id),
-                onRecipeLoaded: recordLoadedRecipe,
+                onRecipeLoaded: { recipe, loadContext in
+                    recordLoadedRecipe(
+                        recipe,
+                        shellRecipe: loadContext.shellRecipe,
+                        shellIdentity: loadContext.taskIdentity.shellIdentity
+                    )
+                },
                 reportTelemetry: recordRecipeDetailTelemetryHandler,
                 actionConnectivity: recipeActionConnectivity,
                 shoppingViewModel: shoppingViewModel,
@@ -979,11 +1000,24 @@ struct PlatformNavigationView: View {
     }
 
     private func recipe(id: String) -> Recipe? {
-        loadedRecipesByID[id] ?? contentState.recipes.first { $0.id == id }
+        let shellRecipe = shellRecipe(id: id)
+        return loadedRecipesByID.recipe(
+            id: id,
+            shellRecipe: shellRecipe,
+            shellIdentity: contentState.searchSurfaceIdentity
+        )
     }
 
-    private func recordLoadedRecipe(_ recipe: Recipe) {
-        loadedRecipesByID[recipe.id] = recipe
+    private func shellRecipe(id: String) -> Recipe? {
+        contentState.recipes.first { $0.id == id }
+    }
+
+    private func recordLoadedRecipe(_ recipe: Recipe, shellRecipe: Recipe?, shellIdentity: String) {
+        loadedRecipesByID.recordLoadedRecipe(
+            recipe,
+            shellRecipe: shellRecipe,
+            shellIdentity: shellIdentity
+        )
     }
 
     private func recipeLoadingTitle(id: String) -> String? {
