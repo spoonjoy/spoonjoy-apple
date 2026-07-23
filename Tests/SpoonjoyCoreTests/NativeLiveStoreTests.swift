@@ -1907,7 +1907,7 @@ struct NativeLiveStoreTests {
             let staleDiscard = Task {
                 try await liveStore.discardQueuedMutation(clientMutationID: "cm-discard-a")
             }
-            #expect(await saveGate.waitUntilBlocked())
+            await saveGate.waitUntilBlocked()
 
             let accountTransition = Task { @MainActor in
                 await liveStore.bootstrap()
@@ -1979,7 +1979,7 @@ struct NativeLiveStoreTests {
             let staleDiscard = Task {
                 try await liveStore.discardQueuedMutation(clientMutationID: mutation.clientMutationID)
             }
-            #expect(await saveGate.waitUntilBlocked())
+            await saveGate.waitUntilBlocked()
 
             let environmentTransition = Task { @MainActor in
                 await liveStore.switchEnvironment(.local)
@@ -7906,9 +7906,10 @@ private actor NativeLiveStoreSuspensionGate {
 
 private final class NativeBlockingCallGate: @unchecked Sendable {
     private let lock = NSLock()
-    private let entered = DispatchSemaphore(value: 0)
     private let release = DispatchSemaphore(value: 0)
     private var shouldBlockNextCall = false
+    private var isBlocked = false
+    private var blockedWaiters: [CheckedContinuation<Void, Never>] = []
 
     func armNextCall() {
         lock.withLock {
@@ -7917,24 +7918,37 @@ private final class NativeBlockingCallGate: @unchecked Sendable {
     }
 
     func blockIfArmed() {
-        let shouldBlock = lock.withLock {
+        let waiters: [CheckedContinuation<Void, Never>]? = lock.withLock {
             guard shouldBlockNextCall else {
-                return false
+                return nil
             }
             shouldBlockNextCall = false
-            return true
+            isBlocked = true
+            let waiters = blockedWaiters
+            blockedWaiters.removeAll()
+            return waiters
         }
-        guard shouldBlock else {
+        guard let waiters else {
             return
         }
-        entered.signal()
+        waiters.forEach { $0.resume() }
         release.wait()
+        lock.withLock {
+            isBlocked = false
+        }
     }
 
-    func waitUntilBlocked() async -> Bool {
+    func waitUntilBlocked() async {
         await withCheckedContinuation { continuation in
-            DispatchQueue.global().async { [self] in
-                continuation.resume(returning: entered.wait(timeout: .now() + 5) == .success)
+            let resumeImmediately = lock.withLock {
+                guard !isBlocked else {
+                    return true
+                }
+                blockedWaiters.append(continuation)
+                return false
+            }
+            if resumeImmediately {
+                continuation.resume()
             }
         }
     }
