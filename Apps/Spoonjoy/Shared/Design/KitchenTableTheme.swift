@@ -339,6 +339,8 @@ struct KitchenTableSection<Content: View>: View {
 }
 
 struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let title: String
     let subtitle: String?
     let showsLeading: Bool
@@ -360,10 +362,20 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            objectIdentity
-            Spacer(minLength: 8)
-            trailing()
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    objectIdentity
+                    trailing()
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                HStack(alignment: .center, spacing: 12) {
+                    objectIdentity
+                    Spacer(minLength: 8)
+                    trailing()
+                }
+            }
         }
         .padding(.vertical, 10)
         .overlay(alignment: .bottom) {
@@ -376,28 +388,51 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     }
 
     private var objectIdentity: some View {
-        HStack(alignment: .top, spacing: 12) {
-            if showsLeading {
-                leading()
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                    .accessibilityHidden(true)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(KitchenTableTheme.objectTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
-                        .fixedSize(horizontal: false, vertical: true)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    if showsLeading {
+                        objectThumbnail(size: 72)
+                    }
+                    objectText
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    if showsLeading {
+                        objectThumbnail(size: 56)
+                    }
+                    objectText
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var objectText: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.headline.weight(.semibold))
+                .fontDesign(.rounded)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .layoutPriority(1)
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .layoutPriority(1)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func objectThumbnail(size: CGFloat) -> some View {
+        leading()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            .accessibilityHidden(true)
     }
 }
 

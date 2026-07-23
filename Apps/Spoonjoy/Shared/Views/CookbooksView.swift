@@ -659,9 +659,10 @@ private struct CookbookFallbackCover: View {
                 Spacer(minLength: 16)
 
                 Text(title)
-                    .font(.system(.title3, design: .serif).weight(.bold))
+                    .font(.headline.weight(.bold))
+                    .fontDesign(.serif)
                     .foregroundStyle(KitchenTableTheme.charcoal)
-                    .lineLimit(3)
+                    .lineLimit(4)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 14)
 

@@ -738,13 +738,27 @@ struct NativeMobileDesignContractTests {
             row,
             in: themePath,
             contains: [
+                "@Environment(\\.dynamicTypeSize) private var dynamicTypeSize",
+                "if dynamicTypeSize.isAccessibilitySize",
+                "VStack(alignment: .leading, spacing: 8)",
                 "HStack(alignment: .center, spacing: 12)",
                 "objectIdentity",
-                "trailing()"
+                "trailing()",
+                "private var objectText",
+                ".font(.headline.weight(.semibold))",
+                ".fontDesign(.rounded)",
+                ".font(.subheadline)",
+                ".lineLimit(nil)",
+                ".multilineTextAlignment(.leading)",
+                ".layoutPriority(1)"
             ],
             forbids: [
-                "if dynamicTypeSize.isAccessibilitySize",
-                "VStack(alignment: .leading, spacing: 12)"
+                "VStack(alignment: .leading, spacing: 12)",
+                ".font(KitchenTableTheme.objectTitle)",
+                ".font(KitchenTableTheme.uiLabel)",
+                ".font(.system(size:",
+                ".dynamicTypeSize(",
+                ".fixedSize(horizontal: false, vertical: true)"
             ]
         )
     }
@@ -1154,6 +1168,11 @@ struct NativeMobileDesignContractTests {
     func kitchenRecipeIndexIsScrollFriendlyObjectLayout() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
         let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+        let recipeIndexRow = try mobileDesignSourceSlice(
+            kitchen,
+            from: "struct KitchenRecipeIndexRow",
+            to: "struct KitchenEmptySection"
+        )
 
         expectContent(
             kitchen,
@@ -1167,12 +1186,28 @@ struct NativeMobileDesignContractTests {
                 "showsLeading: recipe.displayCoverImageURL != nil",
                 ".aspectRatio(1, contentMode: .fill)",
                 "Image(systemName: \"chevron.forward\")",
-                ".accessibilityLabel(recipe.title)"
+                "private var rowAccessibilityLabel",
+                ".joined(separator: \", \")",
+                "@Environment(\\.dynamicTypeSize) private var dynamicTypeSize",
+                "if !dynamicTypeSize.isAccessibilitySize",
+                ".accessibilityElement(children: .ignore)",
+                ".accessibilityLabel(rowAccessibilityLabel)"
             ],
             forbids: [
                 "List(recipes",
                 ".frame(minHeight: 160)",
                 "Text(\"Open\")"
+            ]
+        )
+        expectContent(
+            recipeIndexRow,
+            in: kitchenPath,
+            contains: [
+                ".accessibilityElement(children: .ignore)",
+                ".accessibilityLabel(rowAccessibilityLabel)"
+            ],
+            forbids: [
+                ".accessibilityLabel(recipe.title)"
             ]
         )
     }

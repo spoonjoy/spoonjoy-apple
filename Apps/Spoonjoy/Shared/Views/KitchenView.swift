@@ -392,6 +392,8 @@ struct RecipeIndex: View {
 }
 
 struct KitchenRecipeIndexRow: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let recipe: Recipe
 
     var body: some View {
@@ -408,14 +410,17 @@ struct KitchenRecipeIndexRow: View {
                 )
                 .aspectRatio(1, contentMode: .fill)
             } trailing: {
-                Image(systemName: "chevron.forward")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .accessibilityHidden(true)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: "chevron.forward")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .accessibilityHidden(true)
+                }
             }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(recipe.title)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(rowAccessibilityLabel)
         .accessibilityHint("Opens recipe detail")
         .contextMenu {
             ShareLink(item: shareRecipe) {
@@ -437,6 +442,12 @@ struct KitchenRecipeIndexRow: View {
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
         .joined(separator: "\n")
+    }
+
+    private var rowAccessibilityLabel: String {
+        [recipe.title, rowSubtitle]
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
     }
 
     private var shareRecipe: URL {
