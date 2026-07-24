@@ -212,7 +212,6 @@ require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", 
   "ignoredEdgeRuleRows"
 ])
 require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", [
-  "minimumForegroundClusterShare = 0.2",
   "foregroundCandidates.count"
 ])
 forbid_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", [
@@ -232,6 +231,12 @@ require_tokens("scripts/run-ios-screenshot-observer.py", [
   "iosHostProcessObservationV1"
 ])
 require_tokens("scripts/validate-design-review.rb", [
+  "validate_macos_screenshot_contrast_evidence!",
+  "macosScreenshotContrastEvidenceV1",
+  "macOS screenshot contrast evidence fields must be exact",
+  "macOS screenshot contrast coverage mismatch",
+  "macOS screenshot contrast ratio does not meet its threshold",
+  "ios_actionable_composite_pair?",
   "validate_verified_text_clipped_false_positives!",
   "iosNativeSidebarTextClippedFalsePositiveV1",
   "nativeSidebarRowExpandedWithinAttestedContainer",
@@ -258,6 +263,7 @@ require_tokens(capture_script, [
 mac_observer = "scripts/observe-macos-screenshot-evidence.swift"
 require_tokens(mac_observer, [
   "--self-test-non-finite-frame",
+  "--self-test-screenshot-contrast",
   "--self-test-screenshot-temporary-name",
   "screenshotTemporaryURL",
   "normalizedObservedRect",
@@ -317,6 +323,7 @@ require_tokens(mac_observer, [
   "applicationProcessIdentifier",
   "windowID",
   "capturePostScrollScreenshot",
+  "process.arguments = [\"-x\", \"-o\", \"-l\"",
   "publishPostScrollScreenshot",
   "publishFailureDiagnostic",
   "macOS diagnostic evidence",
@@ -330,6 +337,18 @@ require_tokens(mac_observer, [
   "kCGWindowBounds",
   "stablePostScrollObservation",
   "stableInitialObservation",
+  "AXObservedScreenshotContrastEvidence",
+  "macosScreenshotContrastEvidenceV1",
+  "screenshotContrastEvidence",
+  "contrastEvidenceCandidates",
+  "ScreenshotPixelContrastAnalyzer",
+  "let requiredContrastRatio = candidate.kind == \"text\" ? 4.5 : 3.0",
+  "capturePhase: capturePhase",
+  "screenshotSHA256: sha256Hex(screenshot.data)",
+  "windowFrame: secondWindow.frame",
+  "postScrollElements: postScrollObservation.elements",
+  "screenshotContrastEvidence: initialObservation.screenshotContrastEvidence",
+  "screenshotContrastEvidence: postScrollObservation.screenshotContrastEvidence",
   "pixelAccessibilityBinding",
   "observationDigest",
   "observationDifferenceSummary",
@@ -378,9 +397,11 @@ capture_bound_source = mac_observer_source[capture_bound_start...capture_bound_e
 before_ax_anchor = capture_bound_source.index("let firstElements = observeTree")
 temporary_capture_anchor = capture_bound_source.index("let screenshot = capturePostScrollScreenshot(")
 after_ax_anchor = capture_bound_source.index("let secondElements = observeTree")
+contrast_anchor = capture_bound_source.index("let contrastEvidence = screenshotContrastEvidence(")
 binding_anchor = capture_bound_source.index("AXObservedPixelAccessibilityBinding(")
-unless before_ax_anchor && temporary_capture_anchor && after_ax_anchor && binding_anchor &&
-       before_ax_anchor < temporary_capture_anchor && temporary_capture_anchor < after_ax_anchor && after_ax_anchor < binding_anchor
+unless before_ax_anchor && temporary_capture_anchor && after_ax_anchor && contrast_anchor && binding_anchor &&
+       before_ax_anchor < temporary_capture_anchor && temporary_capture_anchor < after_ax_anchor &&
+       after_ax_anchor < contrast_anchor && contrast_anchor < binding_anchor
   fail_check("#{mac_observer} must bind each exact-window screenshot between stable before/after AX observations")
 end
 initial_observation_anchor = mac_observer_source.index("let initialObservation = stableInitialObservation(")
@@ -404,6 +425,10 @@ end
 
 unless system("swift", mac_observer, "--self-test-screenshot-temporary-name", chdir: ROOT.to_s)
   fail_check("#{mac_observer} screenshot temporary-name self-test failed")
+end
+
+unless system("swift", mac_observer, "--self-test-screenshot-contrast", chdir: ROOT.to_s)
+  fail_check("#{mac_observer} screenshot contrast self-test failed")
 end
 
 require_tokens("Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift", [
@@ -465,7 +490,7 @@ require_tokens("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift", [
   "app.buttons.matching(identifier: \"recipe-editor.save\").count",
   "Recipe editor must have exactly one toolbar Save owner",
   "terminalScrollCorrection(",
-  "drag(primarySurface, contentOffset: correction)",
+  "drag(primarySurface, contentOffset: requestedContentOffset)",
   "hittable: element.isHittable",
   "allElementsBoundByAccessibilityElement",
   "enabled: element.isEnabled",

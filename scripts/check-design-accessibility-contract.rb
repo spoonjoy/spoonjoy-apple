@@ -19,6 +19,7 @@ DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
   "macosDesktop" => "screenshots/macos-desktop-deep-scroll.png"
 }.freeze
 REQUIRED_AUDIT_TYPES = %w[contrast dynamicType textClipped hitRegion trait].freeze
+MACOS_ACTIONABLE_ROLES = %w[AXButton AXCheckBox AXPopUpButton AXRadioButton AXTextField].freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -165,6 +166,51 @@ def macos_pixel_accessibility_binding(screenshot_sha256, phase)
   binding
 end
 
+def macos_contrast_pixel_evidence(screenshot_sha256, required_ratio)
+  {
+    "method" => "screenshotPixelContrastV2",
+    "screenshotSHA256" => screenshot_sha256,
+    "contrastRatio" => 7.1,
+    "requiredContrastRatio" => required_ratio,
+    "evaluatedForegroundClusterCount" => 1,
+    "backgroundCoverage" => 0.7,
+    "foregroundCoverage" => 0.2,
+    "analyzedPixelCount" => 1_000,
+    "backgroundPixelCount" => 700,
+    "foregroundPixelCount" => 200,
+    "ignoredEdgeRulePixelCount" => 0,
+    "ignoredEdgeRuleRowCount" => 0,
+    "background" => { "red" => 250, "green" => 249, "blue" => 243 },
+    "foreground" => { "red" => 40, "green" => 35, "blue" => 29 }
+  }
+end
+
+def macos_screenshot_contrast_evidence(elements, screenshot_sha256, phase)
+  entries = elements.each_with_index.each_with_object([]) do |(element, index), result|
+    kind = if element["role"] == "AXStaticText" && !element["title"].to_s.empty?
+             "text"
+           elsif element["enabled"] == true &&
+                 (!Array(element["actions"]).empty? || MACOS_ACTIONABLE_ROLES.include?(element["role"]))
+             "control"
+           end
+    next unless kind
+
+    result << {
+      "elementIndex" => index,
+      "kind" => kind,
+      "element" => element.slice("identifier", "role", "subrole", "title").merge("frame" => element.fetch("frame").dup),
+      "pixelEvidence" => macos_contrast_pixel_evidence(screenshot_sha256, kind == "text" ? 4.5 : 3.0)
+    }
+  end
+  {
+    "schema" => "macosScreenshotContrastEvidenceV1",
+    "capturePhase" => phase,
+    "screenshotSHA256" => screenshot_sha256,
+    "windowFrame" => rect,
+    "entries" => entries
+  }
+end
+
 def fixture_screenshot_sha256(platform, dynamic_type:, capture_phase:)
   name = if platform == "ipad"
            size = dynamic_type == "accessibility5" ? "-accessibility" : dynamic_type == "xxxLarge" ? "-xxxl" : ""
@@ -199,6 +245,11 @@ def observed_proof(platform, dynamic_type: "large")
       "captureRunNonce" => CAPTURE_RUN_NONCES.fetch([platform, dynamic_type]),
       "readinessProofSHA256" => Digest::SHA256.hexdigest(readiness_proof_bytes(platform, dynamic_type: dynamic_type)),
       "screenshotSHA256" => fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "initial"),
+      "screenshotContrastEvidence" => macos_screenshot_contrast_evidence(
+        [terminal],
+        fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "initial"),
+        "initial"
+      ),
       "pixelAccessibilityBinding" => macos_pixel_accessibility_binding(
         fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "initial"),
         "initial"
@@ -222,6 +273,11 @@ def observed_proof(platform, dynamic_type: "large")
         "initialScrollValue" => 0,
         "finalScrollValue" => 1,
         "postScrollScreenshotSHA256" => fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "deepScroll"),
+        "screenshotContrastEvidence" => macos_screenshot_contrast_evidence(
+          [terminal],
+          fixture_screenshot_sha256(platform, dynamic_type: dynamic_type, capture_phase: "deepScroll"),
+          "deepScroll"
+        ),
         "applicationProcessIdentifier" => 123,
         "windowID" => 456,
         "postScrollElements" => [terminal],
@@ -1151,6 +1207,46 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   root.join("apple/observed-ios.json").write(JSON.pretty_generate(coherent_small_target) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "coherently falsified target-size rejection")
 
+  proven_stepper_composite = observed_proof("ios")
+  proven_stepper_composite["viewport"] = rect(x: 0, y: 0, width: 120, height: 160)
+  proven_stepper_composite.dig("pixelAccessibilityBinding", "windowFrame")["height"] = 160
+  proven_stepper_terminal = proven_stepper_composite.fetch("elements").find do |element|
+    element["identifier"] == "kitchen.cookbook.cookbook_weeknights"
+  end
+  proven_stepper_terminal["frame"] = rect(x: 0, y: 0, width: 44, height: 44)
+  proven_stepper_composite["elements"] += [
+    ios_element("servings", type: "stepper", frame: rect(x: 0, y: 70, width: 100, height: 44)).merge(
+      "label" => "Servings",
+      "hittable" => true
+    ),
+    ios_element("Decrement", type: "button", frame: rect(x: 0, y: 70, width: 44, height: 44)).merge(
+      "label" => "Servings, Decrement"
+    ),
+    ios_element("Increment", type: "button", frame: rect(x: 56, y: 70, width: 44, height: 44)).merge(
+      "label" => "Servings, Increment"
+    )
+  ]
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(proven_stepper_composite) + "\n")
+  assert_status(true, ["ruby", VALIDATOR, manifest_path], "proven stepper parent-child composite containment")
+
+  incomplete_stepper_composite = Marshal.load(Marshal.dump(proven_stepper_composite))
+  incomplete_stepper_composite["elements"].reject! { |element| element["identifier"] == "Increment" }
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(incomplete_stepper_composite) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "incomplete stepper containment rejection")
+
+  independently_actionable_containment = observed_proof("ios")
+  outer_action = independently_actionable_containment.fetch("elements").find do |element|
+    element["identifier"] == "kitchen.cookbook.cookbook_weeknights"
+  end
+  outer_action["frame"] = rect(x: 10, y: 5, width: 80, height: 70)
+  independently_actionable_containment["elements"] << ios_element(
+    "independent.inner.action",
+    type: "button",
+    frame: rect(x: 20, y: 15, width: 44, height: 44)
+  )
+  root.join("apple/observed-ios.json").write(JSON.pretty_generate(independently_actionable_containment) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "independent contained actions overlap rejection")
+
   coherent_terminal_occlusion = observed_proof("ios")
   coherent_terminal_occlusion["deepScroll"]["terminalElement"]["frame"] = rect(x: 10, y: 70, width: 44, height: 20)
   coherent_terminal_occlusion["deepScroll"]["findings"] = []
@@ -1335,6 +1431,36 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   macos_path.write(JSON.pretty_generate(missing_macos_initial_pixel_ax_binding) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing initial macOS pixel/AX binding rejection")
 
+  missing_initial_macos_contrast = observed_proof("macos")
+  missing_initial_macos_contrast.delete("screenshotContrastEvidence")
+  macos_path.write(JSON.pretty_generate(missing_initial_macos_contrast) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing initial macOS screenshot contrast rejection")
+
+  wrong_initial_macos_contrast_schema = observed_proof("macos")
+  wrong_initial_macos_contrast_schema.dig("screenshotContrastEvidence")["schema"] = "macosScreenshotContrastEvidenceV0"
+  macos_path.write(JSON.pretty_generate(wrong_initial_macos_contrast_schema) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS screenshot contrast schema rejection")
+
+  substituted_initial_macos_contrast = observed_proof("macos")
+  substituted_initial_macos_contrast.dig("screenshotContrastEvidence", "entries", 0, "pixelEvidence")["screenshotSHA256"] = "0" * 64
+  macos_path.write(JSON.pretty_generate(substituted_initial_macos_contrast) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS screenshot contrast hash rejection")
+
+  incomplete_initial_macos_contrast = observed_proof("macos")
+  incomplete_initial_macos_contrast.dig("screenshotContrastEvidence", "entries").clear
+  macos_path.write(JSON.pretty_generate(incomplete_initial_macos_contrast) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS screenshot contrast frame coverage rejection")
+
+  unreadable_initial_macos_control = observed_proof("macos")
+  unreadable_initial_macos_control.dig("screenshotContrastEvidence", "entries", 0, "pixelEvidence")["contrastRatio"] = 2.9
+  macos_path.write(JSON.pretty_generate(unreadable_initial_macos_control) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "unreadable initial macOS control rejection")
+
+  mismatched_initial_macos_frame = observed_proof("macos")
+  mismatched_initial_macos_frame.dig("screenshotContrastEvidence", "entries", 0, "element", "frame")["x"] += 1
+  macos_path.write(JSON.pretty_generate(mismatched_initial_macos_frame) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "macOS screenshot contrast element frame rejection")
+
   initial_macos_with_scroll_binding = observed_proof("macos")
   initial_macos_with_scroll_binding.fetch("pixelAccessibilityBinding").merge!(
     "selectedScrollHierarchyIdentifier" => "spoonjoy.page-scroll",
@@ -1350,6 +1476,23 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   )
   macos_path.write(JSON.pretty_generate(deep_macos_without_scroll_binding) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "incomplete deep-scroll macOS binding rejection")
+
+  missing_deep_macos_contrast = observed_proof("macos")
+  missing_deep_macos_contrast.fetch("deepScroll").delete("screenshotContrastEvidence")
+  macos_path.write(JSON.pretty_generate(missing_deep_macos_contrast) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "missing deep-scroll macOS screenshot contrast rejection")
+
+  wrong_deep_macos_contrast_phase = observed_proof("macos")
+  wrong_deep_macos_contrast_phase.dig("deepScroll", "screenshotContrastEvidence")["capturePhase"] = "initial"
+  macos_path.write(JSON.pretty_generate(wrong_deep_macos_contrast_phase) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "deep-scroll macOS screenshot contrast phase rejection")
+
+  unreadable_deep_macos_control = observed_proof("macos")
+  unreadable_deep_macos_control.dig(
+    "deepScroll", "screenshotContrastEvidence", "entries", 0, "pixelEvidence"
+  )["contrastRatio"] = 2.9
+  macos_path.write(JSON.pretty_generate(unreadable_deep_macos_control) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "unreadable deep-scroll macOS control rejection")
 
   failed_post_scroll_audit = observed_proof("macos")
   failed_post_scroll_audit.fetch("deepScroll")["postScrollAuditFindings"] = [

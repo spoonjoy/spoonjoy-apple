@@ -1,4 +1,5 @@
 import CoreGraphics
+import CryptoKit
 import Foundation
 import ImageIO
 
@@ -56,12 +57,20 @@ struct ScreenshotPixelBuffer: Sendable {
     let height: Int
     let pixels: [ObservedRGBPixel]
     let pointSize: CGSize
+    let screenshotSHA256: String?
 
-    init(width: Int, height: Int, pixels: [ObservedRGBPixel], pointSize: CGSize) {
+    init(
+        width: Int,
+        height: Int,
+        pixels: [ObservedRGBPixel],
+        pointSize: CGSize,
+        screenshotSHA256: String? = nil
+    ) {
         self.width = width
         self.height = height
         self.pixels = pixels
         self.pointSize = pointSize
+        self.screenshotSHA256 = screenshotSHA256
     }
 
     init?(pngData: Data, pointSize: CGSize) {
@@ -99,7 +108,15 @@ struct ScreenshotPixelBuffer: Sendable {
             let blue = UInt8(clamping: Int((Double(bytes[offset + 2]) * alpha + 255 * (1 - alpha)).rounded()))
             pixels.append(ObservedRGBPixel(red: red, green: green, blue: blue))
         }
-        self.init(width: width, height: height, pixels: pixels, pointSize: pointSize)
+        self.init(
+            width: width,
+            height: height,
+            pixels: pixels,
+            pointSize: pointSize,
+            screenshotSHA256: SHA256.hash(data: pngData)
+                .map { String(format: "%02x", $0) }
+                .joined()
+        )
     }
 
     func pixels(in frame: ObservedRect) -> [ObservedRGBPixel]? {
@@ -157,7 +174,6 @@ enum ScreenshotPixelContrastAdjudicator {
     private static let requiredContrastRatio = 4.5
     private static let minimumBackgroundCoverage = 0.6
     private static let maximumForegroundCoverage = 0.4
-    private static let minimumForegroundClusterShare = 0.2
 
     static func analyze(
         pixels: [ObservedRGBPixel],
@@ -202,8 +218,8 @@ enum ScreenshotPixelContrastAdjudicator {
                 count += 1
             }
         }
-        let foregroundCandidates = indexedForegroundCandidates.compactMap { candidate in
-            ignoredEdgeRuleRows.contains(candidate.offset / width) ? nil : candidate.element
+        let foregroundCandidates = indexedForegroundCandidates.filter { candidate in
+            !ignoredEdgeRuleRows.contains(candidate.offset / width)
         }
         let minimumForegroundPixels = max(8, pixels.count / 200)
         let candidateCoverage = Double(foregroundCandidates.count) / Double(pixels.count)
@@ -212,22 +228,40 @@ enum ScreenshotPixelContrastAdjudicator {
             return nil
         }
 
-        let foregroundBuckets = Dictionary(grouping: foregroundCandidates, by: quantizedKey)
-        let substantialClusterMinimum = max(
-            minimumForegroundPixels,
-            Int(ceil(Double(foregroundCandidates.count) * minimumForegroundClusterShare))
+        let substantialForegroundClusters = spatialComponents(
+            in: foregroundCandidates,
+            width: width
         )
-        let substantialForegroundClusters = foregroundBuckets.values.filter {
-            $0.count >= substantialClusterMinimum
-        }
+            .filter { $0.count >= minimumForegroundPixels }
         guard !substantialForegroundClusters.isEmpty else { return nil }
 
-        let evaluatedClusters = substantialForegroundClusters.map { cluster -> (ObservedRGBPixel, Double) in
-            let color = average(cluster)
+        let evaluatedClusters = substantialForegroundClusters.compactMap { cluster -> (ObservedRGBPixel, Double)? in
+            let coreCandidates = cluster.filter { candidate in
+                let pixel = candidate.element
+                let ratio = (max(background.luminance, pixel.luminance) + 0.05)
+                    / (min(background.luminance, pixel.luminance) + 0.05)
+                return ratio >= requiredContrastRatio
+            }
+            guard coreCandidates.count >= minimumForegroundPixels else { return nil }
+            let coreOffsets = Set(coreCandidates.map(\.offset))
+            guard cluster.allSatisfy({ candidate in
+                coreOffsets.contains(candidate.offset)
+                    || isWithinPixelRadius(
+                        candidate.offset,
+                        of: coreOffsets,
+                        width: width,
+                        radius: 2
+                    )
+            }) else {
+                return nil
+            }
+            let corePixels = coreCandidates.map(\.element)
+            let color = average(corePixels)
             let ratio = (max(background.luminance, color.luminance) + 0.05)
                 / (min(background.luminance, color.luminance) + 0.05)
             return (color, ratio)
         }
+        guard evaluatedClusters.count == substantialForegroundClusters.count else { return nil }
         guard let weakestCluster = evaluatedClusters.min(by: { $0.1 < $1.1 }) else { return nil }
         let foreground = weakestCluster.0
         let contrastRatio = weakestCluster.1
@@ -257,6 +291,72 @@ enum ScreenshotPixelContrastAdjudicator {
         (Int(pixel.red) / 8) << 10
             | (Int(pixel.green) / 8) << 5
             | Int(pixel.blue) / 8
+    }
+
+    private static func spatialComponents(
+        in candidates: [(offset: Int, element: ObservedRGBPixel)],
+        width: Int
+    ) -> [[(offset: Int, element: ObservedRGBPixel)]] {
+        let pixelsByOffset = Dictionary(uniqueKeysWithValues: candidates.map { ($0.offset, $0.element) })
+        var unvisitedOffsets = Set(pixelsByOffset.keys)
+        var components: [[(offset: Int, element: ObservedRGBPixel)]] = []
+
+        while let startOffset = unvisitedOffsets.first {
+            var pendingOffsets = [startOffset]
+            var component: [(offset: Int, element: ObservedRGBPixel)] = []
+            unvisitedOffsets.remove(startOffset)
+
+            while let offset = pendingOffsets.popLast() {
+                guard let pixel = pixelsByOffset[offset] else { continue }
+                component.append((offset: offset, element: pixel))
+                let row = offset / width
+                let column = offset % width
+
+                for rowDelta in -1...1 {
+                    for columnDelta in -1...1 where rowDelta != 0 || columnDelta != 0 {
+                        let neighborRow = row + rowDelta
+                        let neighborColumn = column + columnDelta
+                        guard neighborRow >= 0,
+                              neighborColumn >= 0,
+                              neighborColumn < width else {
+                            continue
+                        }
+                        let neighborOffset = neighborRow * width + neighborColumn
+                        if unvisitedOffsets.remove(neighborOffset) != nil {
+                            pendingOffsets.append(neighborOffset)
+                        }
+                    }
+                }
+            }
+            components.append(component)
+        }
+
+        return components
+    }
+
+    private static func isWithinPixelRadius(
+        _ offset: Int,
+        of targetOffsets: Set<Int>,
+        width: Int,
+        radius: Int
+    ) -> Bool {
+        let row = offset / width
+        let column = offset % width
+        for rowDelta in -radius...radius {
+            for columnDelta in -radius...radius {
+                let targetRow = row + rowDelta
+                let targetColumn = column + columnDelta
+                guard targetRow >= 0,
+                      targetColumn >= 0,
+                      targetColumn < width else {
+                    continue
+                }
+                if targetOffsets.contains(targetRow * width + targetColumn) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private static func average(_ pixels: [ObservedRGBPixel]) -> ObservedRGBPixel {

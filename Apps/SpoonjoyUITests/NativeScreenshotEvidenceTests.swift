@@ -242,6 +242,7 @@ private struct ObservedAuditResult {
 
 private enum ObservedAccessibilityAuditScope: String, Codable {
     case initialFullTree
+    case settledScrollWaypoint
     case settledTerminalInteraction
 }
 
@@ -251,6 +252,35 @@ private struct AttestedScreenshot {
     let identity: ObservedCaptureIdentity
     let pixelAccessibilityBinding: ObservedPixelAccessibilityBinding
     let windowFrame: ObservedRect
+    let elements: [ObservedAccessibilityElement]
+    let selectedScrollHierarchyElements: [ObservedAccessibilityElement]
+}
+
+private struct ObservedScrollWaypointCoverage: Codable, Equatable {
+    let requestedContentOffset: Double
+    let observedContentDisplacement: Double
+    let viewportOverlap: Double
+}
+
+private struct ObservedScrollWaypointEvidence: Codable {
+    let index: Int
+    let capturePhase: String
+    let coverage: ObservedScrollWaypointCoverage?
+    let contentViewport: ObservedRect
+    let findings: [ObservedAccessibilityFinding]
+    let auditIssues: [ObservedAuditIssue]
+    let auditScope: ObservedAccessibilityAuditScope
+    let auditTypes: [String]
+    let verifiedContrastFalsePositives: [ObservedVerifiedContrastFalsePositive]
+    let verifiedStaleOffscreenContrastFalsePositives: [ObservedVerifiedStaleOffscreenContrastFalsePositive]
+    let contrastPixelAdjudicationDiagnostics: [ObservedContrastPixelAdjudicationDiagnostic]
+    let verifiedSystemChromeContrastFalsePositives: [ObservedVerifiedSystemChromeContrastFalsePositive]
+    let verifiedNativeSidebarSelectionContrastFalsePositives: [ObservedVerifiedNativeSidebarSelectionContrastFalsePositive]
+    let verifiedTextClippedFalsePositives: [ObservedVerifiedTextClippedFalsePositive]
+    let screenshotSHA256: String
+    let readinessHandshake: ObservedReadinessHandshake
+    let captureIdentity: ObservedCaptureIdentity
+    let pixelAccessibilityBinding: ObservedPixelAccessibilityBinding
     let elements: [ObservedAccessibilityElement]
     let selectedScrollHierarchyElements: [ObservedAccessibilityElement]
 }
@@ -279,6 +309,7 @@ private struct ObservedDeepScrollEvidence: Codable {
     let selectedScrollHierarchyIdentifier: String?
     let elements: [ObservedAccessibilityElement]
     let selectedScrollHierarchyElements: [ObservedAccessibilityElement]
+    let waypoints: [ObservedScrollWaypointEvidence]
     let observedContentMovement: Bool
     let contentFitsWithoutScrolling: Bool
 }
@@ -449,9 +480,13 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             )
             : nil
         let auditResult = initialAuditResult
-        let allAuditIssues = auditResult.blockingIssues + (deepScroll?.auditIssues ?? [])
+        let waypointAuditIssues = deepScroll?.waypoints.flatMap(\.auditIssues) ?? []
+        let allAuditIssues = auditResult.blockingIssues
+            + waypointAuditIssues
+            + (deepScroll?.auditIssues ?? [])
         let verifiedContrastFalsePositives = auditResult.verifiedContrastFalsePositives
         let allContrastPixelAdjudicationDiagnostics = auditResult.contrastPixelAdjudicationDiagnostics
+            + (deepScroll?.waypoints.flatMap(\.contrastPixelAdjudicationDiagnostics) ?? [])
             + (deepScroll?.contrastPixelAdjudicationDiagnostics ?? [])
         let evidence = ObservedScreenshotEvidence(
             platform: UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "ios",
@@ -497,6 +532,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             XCTAssertTrue(
                 deepScroll.observedContentMovement || deepScroll.contentFitsWithoutScrolling,
                 "Deep-scroll evidence must observe movement or prove the terminal content already fits"
+            )
+            XCTAssertTrue(
+                intermediateAuditCoverageIsComplete(
+                    scrollActionCount: deepScroll.swipeCount,
+                    waypointIndices: deepScroll.waypoints.map(\.index),
+                    waypointAuditTypes: deepScroll.waypoints.map(\.auditTypes),
+                    waypointHasOverlapProof: deepScroll.waypoints.map { $0.coverage != nil }
+                ),
+                "Every scroll action must have an ordered, overlap-proven accessibility audit waypoint"
             )
             XCTAssertTrue(deepScroll.findings.isEmpty, "Deep scroll found: \(deepScroll.findings.map(\.message))")
         }
@@ -1063,12 +1107,36 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             elementFrame: nil
         )
         let elements = [navigationBar] + destinations + destinations
+        let screenshotSHA256 = String(repeating: "a", count: 64)
+        let screenshotBuffer = syntheticChromePixelBuffer(
+            width: Int(windowFrame.width),
+            height: Int(windowFrame.height),
+            frames: destinations.map(\.frame),
+            foreground: ObservedRGBPixel(red: 40, green: 35, blue: 29),
+            screenshotSHA256: screenshotSHA256
+        )
+        for frame in [navigationBar.frame] + destinations.map(\.frame) {
+            let crop = try? XCTUnwrap(screenshotBuffer.crop(in: frame))
+            XCTAssertNotNil(
+                crop.flatMap {
+                    ScreenshotPixelContrastAdjudicator.analyze(
+                        pixels: $0.pixels,
+                        width: $0.width,
+                        height: $0.height,
+                        screenshotSHA256: screenshotSHA256
+                    )
+                },
+                "Expected high-contrast pixels in exact compact chrome frame \(frame)"
+            )
+        }
 
         let verified = verifiedNativeCompactTabChromeContrastFalsePositive(
             idiom: .pad,
             contentSizeCategory: "accessibility-extra-extra-extra-large",
             issue: issue,
             elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
             windowFrame: windowFrame,
             capturePhase: "initial"
         )
@@ -1076,6 +1144,31 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeCompactTabChrome")
         XCTAssertEqual(verified?.navigationBar.frame, navigationFrame)
         XCTAssertEqual(verified?.destinations.map(\.label), ["Kitchen", "Recipes", "Saved", "Cookbooks"])
+
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: issue,
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: issue,
+            elements: elements,
+            screenshotBuffer: syntheticChromePixelBuffer(
+                width: Int(windowFrame.width),
+                height: Int(windowFrame.height),
+                frames: destinations.map(\.frame),
+                foreground: ObservedRGBPixel(red: 145, green: 141, blue: 136),
+                screenshotSHA256: screenshotSHA256
+            ),
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
 
         XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
             idiom: .phone,
@@ -1235,7 +1328,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             width: width,
             height: height,
             pixels: pixels,
-            pointSize: CGSize(width: width, height: height)
+            pointSize: CGSize(width: width, height: height),
+            screenshotSHA256: screenshotSHA256
         )
 
         let verified = verifiedNativeSidebarSelectionContrastFalsePositive(
@@ -1269,7 +1363,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             width: width,
             height: height,
             pixels: unprovenPixels,
-            pointSize: CGSize(width: width, height: height)
+            pointSize: CGSize(width: width, height: height),
+            screenshotSHA256: screenshotSHA256
         )
         XCTAssertNil(verifiedNativeSidebarSelectionContrastFalsePositive(
             idiom: .pad,
@@ -1378,6 +1473,28 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             elementFrame: nil
         )
         let elements = [navigationBar, tabBar] + destinations + destinations
+        let screenshotSHA256 = String(repeating: "b", count: 64)
+        let screenshotBuffer = syntheticChromePixelBuffer(
+            width: Int(windowFrame.width),
+            height: Int(windowFrame.height),
+            frames: [navigationBar.frame] + destinations.map(\.frame),
+            foreground: ObservedRGBPixel(red: 40, green: 35, blue: 29),
+            screenshotSHA256: screenshotSHA256
+        )
+        for frame in [navigationBar.frame, tabBar.frame] + destinations.map(\.frame) {
+            let crop = try? XCTUnwrap(screenshotBuffer.crop(in: frame))
+            XCTAssertNotNil(
+                crop.flatMap {
+                    ScreenshotPixelContrastAdjudicator.analyze(
+                        pixels: $0.pixels,
+                        width: $0.width,
+                        height: $0.height,
+                        screenshotSHA256: screenshotSHA256
+                    )
+                },
+                "Expected high-contrast pixels in exact bottom chrome frame \(frame)"
+            )
+        }
 
         for contentSizeCategory in [
             "large",
@@ -1389,6 +1506,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 contentSizeCategory: contentSizeCategory,
                 issue: issue,
                 elements: elements,
+                screenshotBuffer: screenshotBuffer,
+                screenshotSHA256: screenshotSHA256,
                 windowFrame: windowFrame,
                 capturePhase: "deepScroll"
             )
@@ -1416,6 +1535,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 contentSizeCategory: contentSizeCategory,
                 issue: issue,
                 elements: [navigationBar, tabBar] + largeTypeLabelOnlyDestinations + largeTypeLabelOnlyDestinations,
+                screenshotBuffer: screenshotBuffer,
+                screenshotSHA256: screenshotSHA256,
                 windowFrame: windowFrame,
                 capturePhase: "initial"
             )
@@ -1428,12 +1549,38 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             contentSizeCategory: "large",
             issue: issue,
             elements: [navigationBar, tabBar] + largeTypeLabelOnlyDestinations,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
             windowFrame: windowFrame,
             capturePhase: "initial"
         )
         XCTAssertEqual(ordinaryLabelOnly?.schema, "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4")
         XCTAssertEqual(ordinaryLabelOnly?.reason, "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome")
         XCTAssertEqual(ordinaryLabelOnly?.destinations.map(\.identifier), ["", "", "", "", ""])
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: issue,
+            elements: elements,
+            screenshotBuffer: syntheticChromePixelBuffer(
+                width: Int(windowFrame.width),
+                height: Int(windowFrame.height),
+                frames: [navigationBar.frame] + destinations.map(\.frame),
+                foreground: ObservedRGBPixel(red: 145, green: 141, blue: 136),
+                screenshotSHA256: screenshotSHA256
+            ),
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
         XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
             idiom: .phone,
             contentSizeCategory: "large",
@@ -1743,6 +1890,85 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertTrue(auditTypes.contains(.trait))
     }
 
+    func testSettledScrollWaypointAuditCoversVisualTypographyAndInteractionFailures() {
+        let auditTypes = accessibilityAuditTypes(
+            scope: .settledScrollWaypoint,
+            includesDynamicTypeChecks: true
+        )
+
+        XCTAssertTrue(auditTypes.contains(.contrast))
+        XCTAssertTrue(auditTypes.contains(.dynamicType))
+        XCTAssertTrue(auditTypes.contains(.textClipped))
+        XCTAssertTrue(auditTypes.contains(.hitRegion))
+        XCTAssertTrue(auditTypes.contains(.trait))
+    }
+
+    func testIntermediateWaypointCoverageRejectsViewportGaps() throws {
+        let viewport = ObservedRect(x: 0, y: 100, width: 400, height: 600)
+        let before = [
+            observedElement(
+                identifier: "recipe.waypoint.anchor",
+                frame: ObservedRect(x: 20, y: 300, width: 200, height: 44)
+            )
+        ]
+        let overlappingAfter = [
+            observedElement(
+                identifier: "recipe.waypoint.anchor",
+                frame: ObservedRect(x: 20, y: 0, width: 200, height: 44)
+            )
+        ]
+        let gappedAfter = [
+            observedElement(
+                identifier: "recipe.waypoint.anchor",
+                frame: ObservedRect(x: 20, y: -300, width: 200, height: 44)
+            )
+        ]
+
+        let coverage = try XCTUnwrap(scrollWaypointCoverage(
+            requestedContentOffset: -300,
+            before: before,
+            after: overlappingAfter,
+            viewport: viewport
+        ))
+        XCTAssertEqual(coverage.observedContentDisplacement, 300)
+        XCTAssertEqual(coverage.viewportOverlap, 300)
+        XCTAssertNil(scrollWaypointCoverage(
+            requestedContentOffset: -600,
+            before: before,
+            after: gappedAfter,
+            viewport: viewport
+        ))
+    }
+
+    func testIntermediateAuditCoverageRequiresOneCompleteWaypointPerScrollAction() {
+        let requiredAuditTypes = ["contrast", "dynamicType", "textClipped", "hitRegion", "trait"]
+
+        XCTAssertTrue(intermediateAuditCoverageIsComplete(
+            scrollActionCount: 2,
+            waypointIndices: [1, 2],
+            waypointAuditTypes: [requiredAuditTypes, requiredAuditTypes],
+            waypointHasOverlapProof: [true, true]
+        ))
+        XCTAssertFalse(intermediateAuditCoverageIsComplete(
+            scrollActionCount: 2,
+            waypointIndices: [1],
+            waypointAuditTypes: [requiredAuditTypes],
+            waypointHasOverlapProof: [true]
+        ))
+        XCTAssertFalse(intermediateAuditCoverageIsComplete(
+            scrollActionCount: 2,
+            waypointIndices: [1, 2],
+            waypointAuditTypes: [requiredAuditTypes, ["contrast", "trait"]],
+            waypointHasOverlapProof: [true, true]
+        ))
+        XCTAssertFalse(intermediateAuditCoverageIsComplete(
+            scrollActionCount: 2,
+            waypointIndices: [1, 2],
+            waypointAuditTypes: [requiredAuditTypes, requiredAuditTypes],
+            waypointHasOverlapProof: [true, false]
+        ))
+    }
+
     func testEveryDeepScrollRouteHasAnExactSourceGroundedTerminal() {
         for route in Self.deepScrollRoutes {
             let expectation = routeTerminalExpectation(route: route, environment: [:])
@@ -1855,7 +2081,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 background: ObservedRGBPixel(red: 251, green: 250, blue: 244),
                 foreground: ObservedRGBPixel(red: 40, green: 35, blue: 29)
             ),
-            pointSize: CGSize(width: 40, height: 20)
+            pointSize: CGSize(width: 40, height: 20),
+            screenshotSHA256: String(repeating: "a", count: 64)
         )
 
         let verified = verifiedStaleOffscreenContrastFalsePositive(
@@ -1966,6 +2193,50 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             pixels: pixels,
             width: 50,
             height: 20
+        ))
+    }
+
+    func testScreenshotContrastAdjudicatorRejectsSmallLowContrastSpanBelowTwentyPercentOfForeground() {
+        let width = 40
+        let height = 20
+        let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        let highContrast = ObservedRGBPixel(red: 40, green: 35, blue: 29)
+        let lowContrast = ObservedRGBPixel(red: 145, green: 141, blue: 136)
+        var pixels = Array(repeating: background, count: width * height)
+        for row in 5..<13 {
+            for column in 5..<15 {
+                pixels[row * width + column] = highContrast
+            }
+            pixels[row * width + 30] = lowContrast
+        }
+
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: pixels,
+            width: width,
+            height: height
+        ))
+    }
+
+    func testScreenshotContrastAdjudicatorRejectsConnectedLowContrastSpanOutsideAntialiasFringe() {
+        let width = 40
+        let height = 20
+        let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        let highContrast = ObservedRGBPixel(red: 40, green: 35, blue: 29)
+        let lowContrast = ObservedRGBPixel(red: 145, green: 141, blue: 136)
+        var pixels = Array(repeating: background, count: width * height)
+        for row in 5..<13 {
+            for column in 5..<15 {
+                pixels[row * width + column] = highContrast
+            }
+            pixels[row * width + 17] = lowContrast
+        }
+        pixels[5 * width + 15] = lowContrast
+        pixels[5 * width + 16] = lowContrast
+
+        XCTAssertNil(ScreenshotPixelContrastAdjudicator.analyze(
+            pixels: pixels,
+            width: width,
+            height: height
         ))
     }
 
@@ -2563,7 +2834,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             captureRunNonce?.trimmingCharacters(in: .whitespacesAndNewlines),
             "Screenshot observer requires a capture run nonce"
         )
-        guard capturePhase == "initial" || capturePhase == "deepScroll" else {
+        guard isAuditedCapturePhase(capturePhase) else {
             throw NSError(
                 domain: "app.spoonjoy.screenshot-capture",
                 code: 1,
@@ -2692,6 +2963,15 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return true
     }
 
+    private func isAuditedCapturePhase(_ capturePhase: String) -> Bool {
+        capturePhase == "initial"
+            || capturePhase == "deepScroll"
+            || capturePhase.range(
+                of: #"\AdeepScrollWaypoint-[1-9][0-9]*\z"#,
+                options: .regularExpression
+            ) != nil
+    }
+
     private func attestedFrameForAuditElement(
         identifier: String,
         label: String,
@@ -2736,7 +3016,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         capturePhase: String
     ) -> ObservedVerifiedStaleOffscreenContrastFalsePositive? {
         let dimensionTolerance = 0.75
-        guard capturePhase == "deepScroll",
+        guard capturePhase == "deepScroll" || capturePhase.hasPrefix("deepScrollWaypoint-"),
               issue.category == "contrast",
               issue.elementType == "staticText",
               let issueFrame = issue.elementFrame,
@@ -2747,6 +3027,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               abs(priorElementFrame.width - currentElementFrame.width) <= dimensionTolerance,
               abs(priorElementFrame.height - currentElementFrame.height) <= dimensionTolerance,
               abs(priorElementFrame.y - currentElementFrame.y) >= Self.minimumTerminalDragDistance,
+              priorScreenshotBuffer?.screenshotSHA256 == priorScreenshotSHA256,
               let crop = priorScreenshotBuffer?.crop(in: priorElementFrame),
               let pixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
                   pixels: crop.pixels,
@@ -2796,7 +3077,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               detailedDescription == exactWarning,
               type == "staticText",
               sidebarLabels.contains(label),
-              ["initial", "deepScroll"].contains(capturePhase),
+              isAuditedCapturePhase(capturePhase),
               let elementFrame = attestedFrameForAuditElement(
                   identifier: identifier,
                   label: label,
@@ -2965,6 +3246,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     contentSizeCategory: contentSizeCategory,
                     issue: observedIssue,
                     elements: attestedElements,
+                    screenshotBuffer: screenshotBuffer,
+                    screenshotSHA256: screenshotSHA256,
                     windowFrame: ObservedRect(windowFrame),
                     capturePhase: capturePhase
                 ) ?? self.verifiedNativeCompactTabChromeContrastFalsePositive(
@@ -2972,6 +3255,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     contentSizeCategory: contentSizeCategory,
                     issue: observedIssue,
                     elements: attestedElements,
+                    screenshotBuffer: screenshotBuffer,
+                    screenshotSHA256: screenshotSHA256,
                     windowFrame: ObservedRect(windowFrame),
                     capturePhase: capturePhase
                 ) {
@@ -3184,7 +3469,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
     ) -> ObservedVerifiedNativeSidebarSelectionContrastFalsePositive? {
         guard idiom == .pad,
               contentSizeCategory == "large",
-              ["initial", "deepScroll"].contains(capturePhase),
+              isAuditedCapturePhase(capturePhase),
               issue.category == "contrast",
               issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
               issue.compactDescription == "Contrast failed",
@@ -3196,7 +3481,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               issue.elementType.isEmpty,
               issue.elementFrame == nil,
               screenshotSHA256.range(of: #"\A[0-9a-f]{64}\z"#, options: .regularExpression) != nil,
-              let screenshotBuffer else {
+              let screenshotBuffer,
+              screenshotBuffer.screenshotSHA256 == screenshotSHA256 else {
             return nil
         }
 
@@ -3348,6 +3634,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         contentSizeCategory: String,
         issue: ObservedAuditIssue,
         elements: [ObservedAccessibilityElement],
+        screenshotBuffer: ScreenshotPixelBuffer? = nil,
+        screenshotSHA256: String = "",
         windowFrame: ObservedRect,
         capturePhase: String
     ) -> ObservedVerifiedSystemChromeContrastFalsePositive? {
@@ -3357,7 +3645,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ]
         guard idiom == .pad,
               supportedContentSizes.contains(contentSizeCategory),
-              ["initial", "deepScroll"].contains(capturePhase),
+              isAuditedCapturePhase(capturePhase),
               issue.category == "contrast",
               issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
               issue.compactDescription == "Contrast failed",
@@ -3412,6 +3700,14 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             destinationReferences.append(systemChromeReference(match))
         }
 
+        guard hasVerifiedSystemChromePixelContrast(
+            references: [systemChromeReference(navigationBar)] + destinationReferences,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256
+        ) else {
+            return nil
+        }
+
         return ObservedVerifiedSystemChromeContrastFalsePositive(
             schema: "iosNativeCompactTabChromeContrastFalsePositiveV1",
             capturePhase: capturePhase,
@@ -3429,6 +3725,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         contentSizeCategory: String,
         issue: ObservedAuditIssue,
         elements: [ObservedAccessibilityElement],
+        screenshotBuffer: ScreenshotPixelBuffer? = nil,
+        screenshotSHA256: String = "",
         windowFrame: ObservedRect,
         capturePhase: String
     ) -> ObservedVerifiedSystemChromeContrastFalsePositive? {
@@ -3439,7 +3737,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ]
         guard idiom == .phone,
               supportedContentSizes.contains(contentSizeCategory),
-              ["initial", "deepScroll"].contains(capturePhase),
+              isAuditedCapturePhase(capturePhase),
               issue.category == "contrast",
               issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
               issue.compactDescription == "Contrast failed",
@@ -3543,6 +3841,17 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             }
         }) else { return nil }
 
+        guard hasVerifiedSystemChromePixelContrast(
+            references: [
+                systemChromeReference(navigationBar),
+                systemChromeReference(tabBar)
+            ] + destinationReferences,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256
+        ) else {
+            return nil
+        }
+
         return ObservedVerifiedSystemChromeContrastFalsePositive(
             schema: usesOrdinaryLabelOnlyIdentity
                 ? "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4"
@@ -3561,6 +3870,32 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             tabBar: systemChromeReference(tabBar),
             destinations: destinationReferences
         )
+    }
+
+    private func hasVerifiedSystemChromePixelContrast(
+        references: [ObservedSystemChromeElementReference],
+        screenshotBuffer: ScreenshotPixelBuffer?,
+        screenshotSHA256: String
+    ) -> Bool {
+        guard screenshotSHA256.range(
+            of: #"\A[0-9a-f]{64}\z"#,
+            options: .regularExpression
+        ) != nil,
+        let screenshotBuffer,
+        screenshotBuffer.screenshotSHA256 == screenshotSHA256 else {
+            return false
+        }
+        return references.allSatisfy { reference in
+            guard let crop = screenshotBuffer.crop(in: reference.frame) else {
+                return false
+            }
+            return ScreenshotPixelContrastAdjudicator.analyze(
+                pixels: crop.pixels,
+                width: crop.width,
+                height: crop.height,
+                screenshotSHA256: screenshotSHA256
+            ) != nil
+        }
     }
 
     private func uniqueAttestedElements(
@@ -4027,6 +4362,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 selectedScrollHierarchyIdentifier: nil,
                 elements: [],
                 selectedScrollHierarchyElements: [],
+                waypoints: [],
                 observedContentMovement: false,
                 contentFitsWithoutScrolling: false
             )
@@ -4057,6 +4393,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         var scrollActionCount = 0
         var consecutiveTerminalMatches = 0
         var priorTerminalSignature: String?
+        var waypoints: [ObservedScrollWaypointEvidence] = []
+        var priorWaypointScreenshot = initialScreenshot
+        var priorWaypointElements = initialElements
+        var priorSelectedHierarchyElements = initialPrimaryElements
         let movementCandidates = uniqueMovementCandidates(
             elements: initialPrimaryElements,
             viewport: movementViewport
@@ -4087,16 +4427,117 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             }
             consecutiveTerminalMatches = 0
             priorTerminalSignature = nil
-            if let correction = terminalScrollCorrection(
-                terminalFrame: namedTerminal?.frame,
+            let requestedContentOffset = deterministicWaypointContentOffset(
+                correction: terminalScrollCorrection(
+                    terminalFrame: namedTerminal?.frame,
+                    viewport: initialViewport
+                ),
                 viewport: initialViewport
-            ) {
-                drag(primarySurface, contentOffset: correction)
-            } else {
-                primarySurface.swipeUp(velocity: .fast)
-            }
+            )
+            drag(primarySurface, contentOffset: requestedContentOffset)
             scrollActionCount += 1
             waitForScrollToSettle()
+            let waypointCapturePhase = "deepScrollWaypoint-\(scrollActionCount)"
+            let waypointCapture = try captureAttestedScreenshot(
+                in: app,
+                route: route,
+                captureRunNonce: ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"],
+                capturePhase: waypointCapturePhase,
+                selectedScrollHierarchy: primarySurface
+            )
+            let waypointWindowFrame = waypointCapture.windowFrame.cgRect
+            let waypointViewport = contentViewport(
+                windowFrame: waypointWindowFrame,
+                elements: waypointCapture.elements
+            )
+            let waypointAuditResult = accessibilityAuditIssues(
+                in: app,
+                viewport: waypointViewport,
+                screenshot: waypointCapture.screenshot,
+                windowFrame: waypointWindowFrame,
+                attestedElements: waypointCapture.elements,
+                contentSizeCategory: ProcessInfo.processInfo.environment["SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY"] ?? "",
+                capturePhase: waypointCapturePhase,
+                scope: .settledScrollWaypoint,
+                priorScreenshot: priorWaypointScreenshot,
+                priorAttestedElements: priorWaypointElements
+            )
+            let waypointElements = elementsWithHitRegionVerification(
+                waypointCapture.elements,
+                windowFrame: waypointWindowFrame,
+                hitRegionAuditVerified: waypointAuditResult.hitRegionAuditPassed
+            )
+            let waypointSelectedHierarchyElements = elementsWithHitRegionVerification(
+                waypointCapture.selectedScrollHierarchyElements,
+                windowFrame: waypointWindowFrame,
+                hitRegionAuditVerified: waypointAuditResult.hitRegionAuditPassed
+            )
+            let waypointCoverage = scrollWaypointCoverage(
+                requestedContentOffset: requestedContentOffset,
+                before: priorSelectedHierarchyElements,
+                after: waypointSelectedHierarchyElements,
+                viewport: waypointViewport
+            )
+            var waypointFindings = persistentChromeFindings(
+                before: priorWaypointElements,
+                after: waypointElements,
+                beforeScrollContent: priorSelectedHierarchyElements,
+                afterScrollContent: waypointSelectedHierarchyElements
+            )
+            waypointFindings.append(contentsOf: ScreenshotEvidenceGeometry.validate(
+                elements: waypointElements,
+                requirements: unconstrainedGeometryRequirements(viewport: waypointViewport)
+            ))
+            if waypointCoverage == nil {
+                waypointFindings.append(ObservedAccessibilityFinding(
+                    kind: .terminalNotReached,
+                    identifiers: [waypointCapturePhase],
+                    message: "Scroll waypoint did not prove overlapping viewport coverage.",
+                    intersection: nil
+                ))
+            }
+            if waypointCapture.pixelAccessibilityBinding.selectedScrollHierarchyIdentifier
+                != "spoonjoy.page-scroll" {
+                waypointFindings.append(ObservedAccessibilityFinding(
+                    kind: .requiredIdentifierMissing,
+                    identifiers: ["spoonjoy.page-scroll"],
+                    message: "Scroll waypoint was not bound to the exact selected scroll hierarchy.",
+                    intersection: nil
+                ))
+            }
+            let waypoint = ObservedScrollWaypointEvidence(
+                index: scrollActionCount,
+                capturePhase: waypointCapturePhase,
+                coverage: waypointCoverage,
+                contentViewport: waypointViewport,
+                findings: waypointFindings,
+                auditIssues: waypointAuditResult.blockingIssues,
+                auditScope: .settledScrollWaypoint,
+                auditTypes: waypointAuditResult.auditTypes,
+                verifiedContrastFalsePositives: waypointAuditResult.verifiedContrastFalsePositives,
+                verifiedStaleOffscreenContrastFalsePositives: waypointAuditResult.verifiedStaleOffscreenContrastFalsePositives,
+                contrastPixelAdjudicationDiagnostics: waypointAuditResult.contrastPixelAdjudicationDiagnostics,
+                verifiedSystemChromeContrastFalsePositives: waypointAuditResult.verifiedSystemChromeContrastFalsePositives,
+                verifiedNativeSidebarSelectionContrastFalsePositives: waypointAuditResult.verifiedNativeSidebarSelectionContrastFalsePositives,
+                verifiedTextClippedFalsePositives: waypointAuditResult.verifiedTextClippedFalsePositives,
+                screenshotSHA256: Self.sha256(waypointCapture.screenshot.pngRepresentation),
+                readinessHandshake: waypointCapture.handshake,
+                captureIdentity: waypointCapture.identity,
+                pixelAccessibilityBinding: waypointCapture.pixelAccessibilityBinding,
+                elements: waypointElements,
+                selectedScrollHierarchyElements: waypointSelectedHierarchyElements
+            )
+            waypoints.append(waypoint)
+            attachScreenshot(
+                waypointCapture.screenshot,
+                name: "deep-scroll-waypoint-\(scrollActionCount)-screenshot"
+            )
+            priorWaypointScreenshot = waypointCapture.screenshot
+            priorWaypointElements = waypointElements
+            priorSelectedHierarchyElements = waypointSelectedHierarchyElements
+            if waypointCoverage != nil {
+                observedContentMovement = true
+            }
             if !observedContentMovement {
                 let currentNamedTerminal = observedElement(
                     in: primarySurface,
@@ -4167,6 +4608,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let contentFitsWithoutScrolling = terminalWasFullyVisibleInitially
             && !observedContentMovement
         var findings: [ObservedAccessibilityFinding] = []
+        findings.append(contentsOf: waypoints.flatMap(\.findings))
         findings.append(contentsOf: persistentChromeFindings(
             before: initialElements,
             after: elements,
@@ -4188,6 +4630,20 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 apnsPushDeliveryIdentifier: nil
             )
         ))
+        let hasCompleteIntermediateAuditCoverage = intermediateAuditCoverageIsComplete(
+            scrollActionCount: scrollActionCount,
+            waypointIndices: waypoints.map(\.index),
+            waypointAuditTypes: waypoints.map(\.auditTypes),
+            waypointHasOverlapProof: waypoints.map { $0.coverage != nil }
+        )
+        if !hasCompleteIntermediateAuditCoverage {
+            findings.append(ObservedAccessibilityFinding(
+                kind: .terminalNotReached,
+                identifiers: [route],
+                message: "Deep-scroll proof did not audit every deterministic overlapping waypoint.",
+                intersection: nil
+            ))
+        }
         if deepCapture.pixelAccessibilityBinding.selectedScrollHierarchyIdentifier != "spoonjoy.page-scroll" {
             findings.append(ObservedAccessibilityFinding(
                 kind: .requiredIdentifierMissing,
@@ -4261,6 +4717,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 contentFitsWithoutScrolling: contentFitsWithoutScrolling,
                 scrollActionCount: scrollActionCount
             )
+                && hasCompleteIntermediateAuditCoverage
                 && terminalElementMatches(terminalElement, expectation: terminalExpectation, viewport: viewport),
             swipeCount: scrollActionCount,
             contentViewport: viewport,
@@ -4283,6 +4740,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             selectedScrollHierarchyIdentifier: deepCapture.pixelAccessibilityBinding.selectedScrollHierarchyIdentifier,
             elements: elements,
             selectedScrollHierarchyElements: selectedHierarchyElements,
+            waypoints: waypoints,
             observedContentMovement: observedContentMovement,
             contentFitsWithoutScrolling: contentFitsWithoutScrolling
         )
@@ -4311,6 +4769,97 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         reachedStableTerminal
             && ((scrollActionCount > 0 && observedContentMovement)
                 || (scrollActionCount == 0 && contentFitsWithoutScrolling))
+    }
+
+    private func intermediateAuditCoverageIsComplete(
+        scrollActionCount: Int,
+        waypointIndices: [Int],
+        waypointAuditTypes: [[String]],
+        waypointHasOverlapProof: [Bool]
+    ) -> Bool {
+        let requiredAuditTypes: Set<String> = [
+            "contrast", "dynamicType", "textClipped", "hitRegion", "trait"
+        ]
+        let expectedIndices = scrollActionCount == 0 ? [] : Array(1...scrollActionCount)
+        guard scrollActionCount >= 0,
+              waypointIndices.count == scrollActionCount,
+              waypointAuditTypes.count == scrollActionCount,
+              waypointHasOverlapProof.count == scrollActionCount,
+              waypointIndices == expectedIndices,
+              waypointHasOverlapProof.allSatisfy({ $0 }) else {
+            return false
+        }
+        return waypointAuditTypes.allSatisfy {
+            Set($0).isSuperset(of: requiredAuditTypes)
+        }
+    }
+
+    private func scrollWaypointCoverage(
+        requestedContentOffset: CGFloat,
+        before: [ObservedAccessibilityElement],
+        after: [ObservedAccessibilityElement],
+        viewport: ObservedRect
+    ) -> ObservedScrollWaypointCoverage? {
+        guard requestedContentOffset != 0, viewport.height > Self.minimumTerminalDragDistance else {
+            return nil
+        }
+        let excludedTypes = Self.chromeTypes.union(["scrollView", "collectionView"])
+        let beforeByIdentifier = Dictionary(
+            grouping: before.filter {
+                $0.exists && !$0.identifier.isEmpty && !excludedTypes.contains($0.type)
+            },
+            by: \.identifier
+        )
+        let afterByIdentifier = Dictionary(
+            grouping: after.filter {
+                $0.exists && !$0.identifier.isEmpty && !excludedTypes.contains($0.type)
+            },
+            by: \.identifier
+        )
+        let direction = requestedContentOffset.sign == .minus ? -1.0 : 1.0
+        let displacements = beforeByIdentifier.compactMap { identifier, beforeMatches -> Double? in
+            guard beforeMatches.count == 1,
+                  let beforeElement = beforeMatches.first,
+                  let afterMatches = afterByIdentifier[identifier],
+                  afterMatches.count == 1,
+                  let afterElement = afterMatches.first,
+                  beforeElement.type == afterElement.type,
+                  beforeElement.label == afterElement.label,
+                  abs(beforeElement.frame.x - afterElement.frame.x) <= 0.75,
+                  abs(beforeElement.frame.width - afterElement.frame.width) <= 0.75,
+                  abs(beforeElement.frame.height - afterElement.frame.height) <= 0.75 else {
+                return nil
+            }
+            let displacement = afterElement.frame.y - beforeElement.frame.y
+            return abs(displacement) > 1 && displacement.sign == direction.sign
+                ? abs(displacement)
+                : nil
+        }
+        guard let observedContentDisplacement = displacements.max() else {
+            return nil
+        }
+        let viewportOverlap = viewport.height - observedContentDisplacement
+        guard viewportOverlap >= Self.minimumTerminalDragDistance else {
+            return nil
+        }
+        return ObservedScrollWaypointCoverage(
+            requestedContentOffset: requestedContentOffset,
+            observedContentDisplacement: observedContentDisplacement,
+            viewportOverlap: viewportOverlap
+        )
+    }
+
+    private func deterministicWaypointContentOffset(
+        correction: CGFloat?,
+        viewport: ObservedRect
+    ) -> CGFloat {
+        let maximumStep = max(
+            Self.minimumTerminalDragDistance,
+            min(viewport.height * 0.5, viewport.height - Self.minimumTerminalDragDistance)
+        )
+        let desired = correction ?? -maximumStep
+        let magnitude = min(max(abs(desired), Self.minimumTerminalDragDistance), maximumStep)
+        return desired.sign == .minus ? -magnitude : magnitude
     }
 
     private func persistentChromeFindings(
@@ -4654,6 +5203,23 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         )
     }
 
+    private func unconstrainedGeometryRequirements(
+        viewport: ObservedRect
+    ) -> ObservedGeometryRequirements {
+        ObservedGeometryRequirements(
+            viewport: viewport,
+            requiredIdentifiers: [],
+            requiredVisibleIdentifiers: [],
+            requiredLabels: [],
+            peerPairs: [],
+            chromeTypes: Self.chromeTypes,
+            actionableTypes: Self.actionableTypes,
+            minimumActionTarget: 44,
+            apnsThisDeviceIdentifier: nil,
+            apnsPushDeliveryIdentifier: nil
+        )
+    }
+
     private func requirements(
         required: Set<String> = [],
         visible: Set<String> = [],
@@ -4712,6 +5278,37 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             }
         }
         return pixels
+    }
+
+    private func syntheticChromePixelBuffer(
+        width: Int,
+        height: Int,
+        frames: [ObservedRect],
+        foreground: ObservedRGBPixel,
+        screenshotSHA256: String
+    ) -> ScreenshotPixelBuffer {
+        let background = ObservedRGBPixel(red: 251, green: 250, blue: 244)
+        var pixels = Array(repeating: background, count: width * height)
+        for frame in frames {
+            let insetX = max(2, Int(frame.width / 3))
+            let insetY = max(2, Int(frame.height / 3))
+            let minX = max(0, Int(frame.minX) + insetX)
+            let minY = max(0, Int(frame.minY) + insetY)
+            let maxX = min(width, max(minX + 2, Int(frame.maxX) - insetX))
+            let maxY = min(height, max(minY + 2, Int(frame.maxY) - insetY))
+            for row in minY..<maxY {
+                for column in minX..<maxX {
+                    pixels[row * width + column] = foreground
+                }
+            }
+        }
+        return ScreenshotPixelBuffer(
+            width: width,
+            height: height,
+            pixels: pixels,
+            pointSize: CGSize(width: width, height: height),
+            screenshotSHA256: screenshotSHA256
+        )
     }
 
     private func csvSet(_ raw: String?) -> Set<String> {

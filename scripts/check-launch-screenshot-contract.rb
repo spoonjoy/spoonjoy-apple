@@ -623,6 +623,63 @@ def accessibility_source(route)
   end
 end
 
+def macos_contrast_pixel_fixture(screenshot_sha256, required_ratio)
+  {
+    "method" => "screenshotPixelContrastV2",
+    "screenshotSHA256" => screenshot_sha256,
+    "contrastRatio" => 7.1,
+    "requiredContrastRatio" => required_ratio,
+    "evaluatedForegroundClusterCount" => 1,
+    "backgroundCoverage" => 0.7,
+    "foregroundCoverage" => 0.2,
+    "analyzedPixelCount" => 1_000,
+    "backgroundPixelCount" => 700,
+    "foregroundPixelCount" => 200,
+    "ignoredEdgeRulePixelCount" => 0,
+    "ignoredEdgeRuleRowCount" => 0,
+    "background" => { "red" => 250, "green" => 249, "blue" => 243 },
+    "foreground" => { "red" => 40, "green" => 35, "blue" => 29 }
+  }
+end
+
+def macos_screenshot_contrast_fixture(elements, screenshot_sha256, capture_phase, window_frame)
+  actionable_roles = %w[AXButton AXCheckBox AXPopUpButton AXRadioButton AXTextField]
+  entries = elements.each_with_index.each_with_object([]) do |(element, index), result|
+    frame = element.fetch("frame")
+    fully_visible = frame["x"] >= window_frame["x"] && frame["y"] >= window_frame["y"] &&
+      frame["x"] + frame["width"] <= window_frame["x"] + window_frame["width"] &&
+      frame["y"] + frame["height"] <= window_frame["y"] + window_frame["height"]
+    next unless fully_visible && frame["width"].positive? && frame["height"].positive?
+
+    kind = if element["role"] == "AXStaticText" && !element["title"].to_s.empty?
+             "text"
+           elsif element["enabled"] == true &&
+                 (!Array(element["actions"]).empty? || actionable_roles.include?(element["role"]))
+             "control"
+           end
+    next unless kind
+
+    result << {
+      "elementIndex" => index,
+      "kind" => kind,
+      "element" => element.slice("identifier", "role", "subrole", "title").merge(
+        "frame" => frame.dup
+      ),
+      "pixelEvidence" => macos_contrast_pixel_fixture(
+        screenshot_sha256,
+        kind == "text" ? 4.5 : 3.0
+      )
+    }
+  end
+  {
+    "schema" => "macosScreenshotContrastEvidenceV1",
+    "capturePhase" => capture_phase,
+    "screenshotSHA256" => screenshot_sha256,
+    "windowFrame" => window_frame.dup,
+    "entries" => entries
+  }
+end
+
 def add_screenshot_artifacts!(root, manifest)
   root.join("screenshots").mkpath
   manifest["screenshotArtifacts"] = SCREENSHOT_ARTIFACTS.to_h do |name, relative_path|
@@ -800,6 +857,7 @@ def add_accessibility_proofs!(root, manifest, stem)
                           end
     if platform == "macos"
       macos_readiness = readiness_bindings.fetch(["macos", "large"])
+      window_frame = { "x" => 0, "y" => 0, "width" => 200, "height" => 120 }
       elements = ["fixture.terminal", *required_route_identifiers, *apns_identifiers].uniq.map.with_index do |identifier, index|
         {
           "identifier" => identifier,
@@ -824,9 +882,15 @@ def add_accessibility_proofs!(root, manifest, stem)
         "bundlePath" => "/Applications/Spoonjoy.app",
         "executablePath" => "/Applications/Spoonjoy.app/Contents/MacOS/Spoonjoy",
         "executableSHA256" => "e" * 64,
-        "windowFrames" => [{ "x" => 0, "y" => 0, "width" => 200, "height" => 120 }],
+        "windowFrames" => [window_frame],
         "elements" => elements,
         "findings" => [],
+        "screenshotContrastEvidence" => macos_screenshot_contrast_fixture(
+          elements,
+          manifest.dig("screenshotArtifacts", "macosDesktop", "sha256"),
+          "initial",
+          window_frame
+        ),
         "pixelAccessibilityBinding" => {
           "schema" => "macosPixelAccessibilityBindingV1",
           "capturePhase" => "initial",
@@ -850,6 +914,24 @@ def add_accessibility_proofs!(root, manifest, stem)
           "focused" => false,
           "actions" => terminal_interactive ? ["AXPress"] : []
         }
+        post_scroll_elements = [terminal]
+        if macos_screenshot_contrast_fixture(
+          post_scroll_elements,
+          manifest.dig("deepScrollScreenshotArtifacts", "macosDesktop", "sha256"),
+          "deepScroll",
+          window_frame
+        ).fetch("entries").empty?
+          post_scroll_elements << {
+            "identifier" => "fixture.deep-contrast",
+            "role" => "AXStaticText",
+            "subrole" => "",
+            "title" => "Visible content",
+            "frame" => { "x" => 150, "y" => 10, "width" => 40, "height" => 20 },
+            "enabled" => true,
+            "focused" => false,
+            "actions" => []
+          }
+        end
         observed["deepScroll"] = {
           "route" => route,
           "reachedTerminal" => true,
@@ -862,8 +944,14 @@ def add_accessibility_proofs!(root, manifest, stem)
           "postScrollScreenshotSHA256" => manifest.dig("deepScrollScreenshotArtifacts", "macosDesktop", "sha256"),
           "applicationProcessIdentifier" => 42,
           "windowID" => 84,
-          "postScrollElements" => [terminal],
+          "postScrollElements" => post_scroll_elements,
           "postScrollAuditFindings" => [],
+          "screenshotContrastEvidence" => macos_screenshot_contrast_fixture(
+            post_scroll_elements,
+            manifest.dig("deepScrollScreenshotArtifacts", "macosDesktop", "sha256"),
+            "deepScroll",
+            window_frame
+          ),
           "selectedScrollHierarchyIdentifier" => "#{route}.scroll",
           "selectedScrollHierarchyElements" => [terminal],
           "pixelAccessibilityBinding" => {
@@ -2903,6 +2991,14 @@ PY
         actions: terminal_interactive ? ["AXPress"] : []
       }
       root_frame = {x: 0, y: 0, width: 200, height: 120}
+      deep_elements = [terminal]
+      unless terminal[:role] == "AXStaticText" || terminal_interactive
+        deep_elements << {
+          identifier: "fixture.deep-contrast", role: "AXStaticText", subrole: "",
+          title: "Visible content", frame: {x: 150, y: 10, width: 40, height: 20},
+          enabled: true, focused: false, actions: []
+        }
+      end
       initial_screenshot_sha256 = Digest::SHA256.file(screenshot_path).hexdigest
       deep_screenshot_sha256 = Digest::SHA256.file(deep_scroll_screenshot_path).hexdigest
       pixel_binding = lambda do |phase, digest, selected_identifier = nil|
@@ -2921,6 +3017,44 @@ PY
         end
         binding
       end
+      contrast_pixels = lambda do |digest, required_ratio|
+        {
+          method: "screenshotPixelContrastV2", screenshotSHA256: digest, contrastRatio: 7.1,
+          requiredContrastRatio: required_ratio, evaluatedForegroundClusterCount: 1,
+          backgroundCoverage: 0.7, foregroundCoverage: 0.2, analyzedPixelCount: 1_000,
+          backgroundPixelCount: 700, foregroundPixelCount: 200, ignoredEdgeRulePixelCount: 0,
+          ignoredEdgeRuleRowCount: 0, background: {red: 250, green: 249, blue: 243},
+          foreground: {red: 40, green: 35, blue: 29}
+        }
+      end
+      contrast_evidence = lambda do |phase, digest, candidates|
+        entries = candidates.each_with_index.each_with_object([]) do |(element, index), result|
+          frame = element.fetch(:frame)
+          fully_visible = frame[:x] >= root_frame[:x] && frame[:y] >= root_frame[:y] &&
+            frame[:x] + frame[:width] <= root_frame[:x] + root_frame[:width] &&
+            frame[:y] + frame[:height] <= root_frame[:y] + root_frame[:height]
+          next unless fully_visible
+
+          kind = if element[:role] == "AXStaticText" && !element[:title].to_s.empty?
+                   "text"
+                 elsif element[:enabled] == true &&
+                       (!Array(element[:actions]).empty? || %w[AXButton AXCheckBox AXPopUpButton AXRadioButton AXTextField].include?(element[:role]))
+                   "control"
+                 end
+          next unless kind
+
+          result << {
+            elementIndex: index,
+            kind: kind,
+            element: element.slice(:identifier, :role, :subrole, :title, :frame),
+            pixelEvidence: contrast_pixels.call(digest, kind == "text" ? 4.5 : 3.0)
+          }
+        end
+        {
+          schema: "macosScreenshotContrastEvidenceV1", capturePhase: phase,
+          screenshotSHA256: digest, windowFrame: root_frame, entries: entries
+        }
+      end
       evidence = {
         platform: "macos", route: route, captureRunNonce: capture_run_nonce,
         readinessProofSHA256: Digest::SHA256.file(readiness_proof_path).hexdigest,
@@ -2929,6 +3063,7 @@ PY
         executablePath: File.expand_path(executable_path),
         executableSHA256: Digest::SHA256.file(executable_path).hexdigest,
         windowFrames: [root_frame], elements: elements, findings: [],
+        screenshotContrastEvidence: contrast_evidence.call("initial", initial_screenshot_sha256, elements),
         pixelAccessibilityBinding: pixel_binding.call("initial", initial_screenshot_sha256)
       }
       selected_identifier = "#{route}.scroll"
@@ -2943,7 +3078,8 @@ PY
         findings: [],
         postScrollScreenshotSHA256: deep_screenshot_sha256,
         applicationProcessIdentifier: Integer(pid),
-        postScrollElements: [terminal],
+        postScrollElements: deep_elements,
+        screenshotContrastEvidence: contrast_evidence.call("deepScroll", deep_screenshot_sha256, deep_elements),
         postScrollAuditFindings: [], pixelAccessibilityBinding: pixel_binding.call("deepScroll", deep_screenshot_sha256, selected_identifier),
         selectedScrollHierarchyIdentifier: selected_identifier, selectedScrollHierarchyElements: [terminal],
         windowID: Integer(window_id)
@@ -3112,7 +3248,19 @@ PY
     proof = assert_json(artifact_root.join(relative_path), "kitchen observed accessibility evidence")
     findings = proof["platform"] == "macos" ? proof["findings"] : proof["geometryFindings"]
     record_failure("kitchen observed accessibility evidence has findings") unless findings == []
-    next if proof["platform"] == "macos"
+    if proof["platform"] == "macos"
+      initial_contrast = proof["screenshotContrastEvidence"]
+      deep_contrast = proof.dig("deepScroll", "screenshotContrastEvidence")
+      record_failure("macOS initial screenshot contrast evidence was not capture-bound") unless
+        initial_contrast.is_a?(Hash) && initial_contrast["capturePhase"] == "initial" &&
+        initial_contrast["screenshotSHA256"] == proof["screenshotSHA256"] &&
+        initial_contrast.fetch("entries", []).length == proof.fetch("elements").length
+      record_failure("macOS deep-scroll screenshot contrast evidence was not capture-bound") unless
+        deep_contrast.is_a?(Hash) && deep_contrast["capturePhase"] == "deepScroll" &&
+        deep_contrast["screenshotSHA256"] == proof.dig("deepScroll", "postScrollScreenshotSHA256") &&
+        deep_contrast.fetch("entries", []).length == proof.dig("deepScroll", "postScrollElements").length
+      next
+    end
 
     record_failure("kitchen observed accessibility evidence omitted a required audit") unless proof.fetch("auditTypes", []).sort == REQUIRED_AUDIT_TYPES.sort
     record_failure("kitchen deep-scroll accessibility evidence omitted a required audit") unless proof.dig("deepScroll", "auditTypes")&.sort == REQUIRED_AUDIT_TYPES.sort

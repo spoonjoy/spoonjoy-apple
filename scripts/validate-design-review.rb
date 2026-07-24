@@ -259,14 +259,14 @@ def ios_native_target_exception?(candidate, elements)
     return elements.any? do |stepper|
       next false unless stepper["type"] == "stepper" && !stepper["label"].to_s.empty? && stepper["hitRegionAuditVerified"] == true
 
-      controls = %w[Decrement Increment].filter_map do |identifier|
+      controls = %w[Decrement Increment].map do |identifier|
         elements.find do |element|
           element["type"] == "button" &&
             element["identifier"] == identifier &&
             element["label"] == "#{stepper["label"]}, #{identifier}" &&
             rect_contains?(stepper.fetch("frame"), element.fetch("frame"), tolerance: 2.5)
         end
-      end
+      end.compact
       controls.length == 2 && (candidate == stepper || controls.include?(candidate))
     end
   end
@@ -287,6 +287,44 @@ def ios_native_target_exception?(candidate, elements)
   candidate["type"] == "button" && candidate["identifier"] == "recipe-covers.spoon-details" &&
     candidate["label"] == "Spoon details" && candidate["hitRegionAuditVerified"] == true &&
     frame["width"] + 0.5 >= 88 && frame["height"] + 0.5 >= 20
+end
+
+def ios_actionable_composite_pair?(first, second, elements)
+  first_frame = first.fetch("frame")
+  second_frame = second.fetch("frame")
+  if rect_contains?(first_frame, second_frame, tolerance: 0)
+    parent = first
+    child = second
+  elsif rect_contains?(second_frame, first_frame, tolerance: 0)
+    parent = second
+    child = first
+  else
+    return false
+  end
+
+  if parent["type"] == "stepper" && parent["hitRegionAuditVerified"] == true && !parent["label"].to_s.empty?
+    composite_children = %w[Decrement Increment].map do |identifier|
+      matches = elements.select do |element|
+        element["type"] == "button" && element["identifier"] == identifier &&
+          element["label"] == "#{parent["label"]}, #{identifier}" &&
+          rect_contains?(parent.fetch("frame"), element.fetch("frame"), tolerance: 0)
+      end
+      return false unless matches.length == 1
+
+      matches.first
+    end
+    return composite_children.include?(child)
+  end
+
+  return false unless parent["type"] == "switch" && parent["hitRegionAuditVerified"] == true &&
+    !parent["label"].to_s.empty? && parent.dig("frame", "width").to_f + 0.5 >= 88 &&
+    parent.dig("frame", "height").to_f + 0.5 >= 28
+
+  composite_children = elements.select do |element|
+    element["type"] == "switch" && element["label"].to_s.empty? &&
+      rect_contains?(parent.fetch("frame"), element.fetch("frame"), tolerance: 0)
+  end
+  composite_children.length == 1 && composite_children.first == child
 end
 
 def host_geometry_findings!(proof_path, elements, viewport, platform, route, manifest, include_route_requirements: true, element_bounds: viewport)
@@ -347,7 +385,7 @@ def host_geometry_findings!(proof_path, elements, viewport, platform, route, man
         next if first["identifier"].to_s.empty? || second["identifier"].to_s.empty? || first["identifier"] == second["identifier"]
         first_frame = first.fetch("frame")
         second_frame = second.fetch("frame")
-        next if rect_contains?(first_frame, second_frame, tolerance: 0) || rect_contains?(second_frame, first_frame, tolerance: 0)
+        next if ios_actionable_composite_pair?(first, second, elements)
         overlap = rect_intersection(first_frame, second_frame)
         next unless overlap && overlap["width"] * overlap["height"] > 1
 
@@ -430,6 +468,78 @@ def validate_macos_pixel_accessibility_binding!(proof_path, evidence, capture_ph
       binding["selectedScrollHierarchyIdentifier"] == selected_scroll_identifier &&
       hierarchy_before.is_a?(String) && hierarchy_before.match?(/\A[0-9a-f]{64}\z/) &&
       hierarchy_before == binding["selectedScrollHierarchySnapshotAfterSHA256"]
+  end
+end
+
+def macos_contrast_candidate_kind(element, window_frame)
+  frame = element["frame"]
+  return nil unless frame.is_a?(Hash) && frame["width"].to_f.positive? && frame["height"].to_f.positive?
+  return nil unless rect_contains?(window_frame, frame)
+  return "text" if element["role"] == "AXStaticText" && !element["title"].to_s.empty?
+  return nil unless element["enabled"] == true
+  return nil if element["role"] == "AXDisclosureTriangle" || MAC_NATIVE_CONTROL_SUBROLES.include?(element["subrole"])
+  return nil if Array(element["actions"]).empty? && !MAC_ACTIONABLE_ROLES.include?(element["role"])
+
+  "control"
+end
+
+def validate_macos_screenshot_contrast_evidence!(
+  proof_path,
+  evidence,
+  elements,
+  capture_phase,
+  screenshot_sha256,
+  window_frame
+)
+  contrast = evidence["screenshotContrastEvidence"]
+  expected_keys = %w[capturePhase entries schema screenshotSHA256 windowFrame]
+  fail_check("#{proof_path} macOS screenshot contrast evidence fields must be exact") unless
+    contrast.is_a?(Hash) && contrast.keys.sort == expected_keys.sort
+  fail_check("#{proof_path} macOS screenshot contrast schema mismatch") unless
+    contrast["schema"] == "macosScreenshotContrastEvidenceV1"
+  fail_check("#{proof_path} macOS screenshot contrast phase mismatch") unless contrast["capturePhase"] == capture_phase
+  fail_check("#{proof_path} macOS screenshot contrast hash mismatch") unless contrast["screenshotSHA256"] == screenshot_sha256
+  contrast_window = observed_rect!(proof_path, contrast["windowFrame"], "macOS screenshot contrast window frame")
+  fail_check("#{proof_path} macOS screenshot contrast window frame mismatch") unless contrast_window == window_frame
+
+  expected_candidates = elements.each_with_index.each_with_object([]) do |(element, index), result|
+    kind = macos_contrast_candidate_kind(element, window_frame)
+    result << [index, kind, element] if kind
+  end
+  entries = contrast["entries"]
+  fail_check("#{proof_path} macOS screenshot contrast entries must be a non-empty array") unless
+    entries.is_a?(Array) && !entries.empty?
+  fail_check("#{proof_path} macOS screenshot contrast coverage mismatch") unless entries.length == expected_candidates.length
+
+  entries.zip(expected_candidates).each_with_index do |(entry, candidate), evidence_index|
+    fail_check("#{proof_path} macOS screenshot contrast entry #{evidence_index} fields must be exact") unless
+      entry.is_a?(Hash) && entry.keys.sort == %w[element elementIndex kind pixelEvidence]
+    element_index, expected_kind, expected_element = candidate
+    fail_check("#{proof_path} macOS screenshot contrast element index mismatch") unless entry["elementIndex"] == element_index
+    fail_check("#{proof_path} macOS screenshot contrast element kind mismatch") unless entry["kind"] == expected_kind
+
+    reference = entry["element"]
+    expected_reference = expected_element.slice("identifier", "role", "subrole", "title", "frame")
+    fail_check("#{proof_path} macOS screenshot contrast element fields must be exact") unless
+      reference.is_a?(Hash) && reference.keys.sort == %w[frame identifier role subrole title]
+    observed_rect!(proof_path, reference["frame"], "macOS screenshot contrast element frame")
+    fail_check("#{proof_path} macOS screenshot contrast element frame coverage mismatch") unless reference == expected_reference
+
+    expected_ratio = expected_kind == "text" ? 4.5 : 3.0
+    pixels = entry["pixelEvidence"]
+    required_ratio = pixels.is_a?(Hash) ? pixels["requiredContrastRatio"] : nil
+    measured_ratio = pixels.is_a?(Hash) ? pixels["contrastRatio"] : nil
+    fail_check("#{proof_path} macOS screenshot contrast threshold mismatch") unless
+      required_ratio.is_a?(Numeric) && required_ratio.finite? && required_ratio == expected_ratio
+    fail_check("#{proof_path} macOS screenshot contrast ratio does not meet its threshold") unless
+      measured_ratio.is_a?(Numeric) && measured_ratio.finite? && measured_ratio >= required_ratio
+    validate_contrast_pixel_evidence!(
+      proof_path,
+      pixels,
+      screenshot_sha256,
+      "macOS screenshot contrast entry #{evidence_index}",
+      minimum_required_ratio: expected_ratio
+    )
   end
 end
 
@@ -977,6 +1087,14 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       proof["windowID"],
       viewport
     )
+    validate_macos_screenshot_contrast_evidence!(
+      proof_path,
+      proof,
+      elements,
+      "initial",
+      expected_initial_screenshot_sha256,
+      viewport
+    )
   else
     host_observation = validate_host_process_observation!(proof_path, proof["hostProcessObservation"])
     validate_contrast_pixel_adjudication_diagnostics!(
@@ -1122,6 +1240,14 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         proof["windowID"],
         viewport,
         selected_scroll_identifier: selected_identifier
+      )
+      validate_macos_screenshot_contrast_evidence!(
+        proof_path,
+        deep_scroll,
+        post_scroll_elements,
+        "deepScroll",
+        expected_deep_screenshot_sha256,
+        viewport
       )
       deep_geometry_findings = host_geometry_findings!(
         proof_path,
@@ -1311,7 +1437,13 @@ def validate_verified_contrast_false_positives!(proof_path, entries, expected_sc
   end
 end
 
-def validate_contrast_pixel_evidence!(proof_path, pixels, expected_screenshot_sha256, label)
+def validate_contrast_pixel_evidence!(
+  proof_path,
+  pixels,
+  expected_screenshot_sha256,
+  label,
+  minimum_required_ratio: 4.5
+)
   expected_keys = %w[
     analyzedPixelCount background backgroundCoverage backgroundPixelCount contrastRatio
     evaluatedForegroundClusterCount foreground foregroundCoverage foregroundPixelCount
@@ -1323,7 +1455,8 @@ def validate_contrast_pixel_evidence!(proof_path, pixels, expected_screenshot_sh
   fail_check("#{proof_path} #{label} screenshot SHA-256 mismatch") unless pixels["screenshotSHA256"] == expected_screenshot_sha256
   required_ratio = pixels["requiredContrastRatio"]
   measured_ratio = pixels["contrastRatio"]
-  fail_check("#{proof_path} #{label} threshold must be at least 4.5") unless required_ratio.is_a?(Numeric) && required_ratio.finite? && required_ratio >= 4.5
+  fail_check("#{proof_path} #{label} threshold must be at least #{minimum_required_ratio}") unless
+    required_ratio.is_a?(Numeric) && required_ratio.finite? && required_ratio >= minimum_required_ratio
   fail_check("#{proof_path} #{label} ratio does not meet its threshold") unless measured_ratio.is_a?(Numeric) && measured_ratio.finite? && measured_ratio >= required_ratio
   clusters = pixels["evaluatedForegroundClusterCount"]
   fail_check("#{proof_path} #{label} must evaluate foreground clusters") unless clusters.is_a?(Integer) && clusters.positive?

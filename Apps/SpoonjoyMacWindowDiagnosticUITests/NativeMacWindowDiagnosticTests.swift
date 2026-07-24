@@ -14,11 +14,36 @@ private struct MacWindowDiagnosticRect: Encodable {
     }
 }
 
+private enum MacWindowDiagnosticMarkerSelector: String, Encodable {
+    case accessibilityIdentifier = "accessibility-identifier"
+    case exactLabel = "exact-label"
+}
+
+private struct MacWindowDiagnosticMarker {
+    let selector: MacWindowDiagnosticMarkerSelector
+    let value: String
+
+    @MainActor
+    func element(in app: XCUIApplication) -> XCUIElement {
+        let descendants = app.descendants(matching: .any)
+        switch selector {
+        case .accessibilityIdentifier:
+            return descendants.matching(identifier: value).firstMatch
+        case .exactLabel:
+            return descendants
+                .matching(NSPredicate(format: "label == %@", value))
+                .firstMatch
+        }
+    }
+}
+
 private struct MacWindowDiagnostic: Encodable {
     let classification = "ui-window-diagnostic"
     let releaseAccessibilityEvidence: Bool = false
     let platform: String
     let route: String
+    let routeMarkerSelector: MacWindowDiagnosticMarkerSelector
+    let routeMarkerValue: String
     let routeMarkerLabel: String
     let routeMarkerFrame: MacWindowDiagnosticRect
     let windowFrame: MacWindowDiagnosticRect
@@ -31,6 +56,11 @@ private struct MacWindowDiagnostic: Encodable {
 }
 
 final class NativeMacWindowDiagnosticTests: XCTestCase {
+    private static let signedOutMarker = MacWindowDiagnosticMarker(
+        selector: .accessibilityIdentifier,
+        value: "native sign-in email or username"
+    )
+
     private static let supportedRouteMarkers = [
         "kitchen": "Lemon Pantry Pasta",
         "recipes": "Lemon Pantry Pasta",
@@ -71,7 +101,9 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
             Self.supportedRouteMarkers[route],
             "Unsupported explicit macOS screenshot route: \(route)"
         )
-        let routeMarkerLabel = signedIn ? signedInMarker : "Spoonjoy"
+        let expectedMarker = signedIn
+            ? MacWindowDiagnosticMarker(selector: .exactLabel, value: signedInMarker)
+            : Self.signedOutMarker
 
         let app = XCUIApplication()
         app.launchEnvironment = environment.filter { entry in
@@ -87,12 +119,10 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
         XCTAssertGreaterThan(window.frame.width, 0, "Spoonjoy macOS window has no measurable width")
         XCTAssertGreaterThan(window.frame.height, 0, "Spoonjoy macOS window has no measurable height")
 
-        let routeMarker = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == %@", routeMarkerLabel))
-            .firstMatch
+        let routeMarker = expectedMarker.element(in: app)
         XCTAssertTrue(
             routeMarker.waitForExistence(timeout: 30),
-            "Route \(route) did not expose its expected XCUI marker \(routeMarkerLabel)."
+            "Route \(route) did not expose its expected XCUI \(expectedMarker.selector.rawValue) marker \(expectedMarker.value)."
         )
         XCTAssertTrue(
             routeMarker.frame.intersects(window.frame),
@@ -145,7 +175,9 @@ final class NativeMacWindowDiagnosticTests: XCTestCase {
         let diagnostic = MacWindowDiagnostic(
             platform: "macos",
             route: route,
-            routeMarkerLabel: routeMarkerLabel,
+            routeMarkerSelector: expectedMarker.selector,
+            routeMarkerValue: expectedMarker.value,
+            routeMarkerLabel: routeMarker.label,
             routeMarkerFrame: MacWindowDiagnosticRect(routeMarker.frame),
             windowFrame: MacWindowDiagnosticRect(window.frame),
             accessibilityElementCount: accessibilityElements.count,

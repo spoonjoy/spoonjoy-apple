@@ -5,6 +5,7 @@ import ApplicationServices
 import CryptoKit
 import Darwin
 import Foundation
+import ImageIO
 
 struct AXObservedRect: Codable {
     let x: Double
@@ -92,6 +93,78 @@ struct AXObservedPixelAccessibilityBinding: Codable {
     let selectedScrollHierarchySnapshotAfterSHA256: String?
 }
 
+struct AXObservedRGBPixel: Codable {
+    let red: UInt8
+    let green: UInt8
+    let blue: UInt8
+
+    fileprivate var luminance: Double {
+        0.2126 * Self.linearized(red)
+            + 0.7152 * Self.linearized(green)
+            + 0.0722 * Self.linearized(blue)
+    }
+
+    fileprivate func distance(to other: Self) -> Double {
+        let redDelta = Double(red) - Double(other.red)
+        let greenDelta = Double(green) - Double(other.green)
+        let blueDelta = Double(blue) - Double(other.blue)
+        return (redDelta * redDelta + greenDelta * greenDelta + blueDelta * blueDelta).squareRoot()
+    }
+
+    private static func linearized(_ component: UInt8) -> Double {
+        let value = Double(component) / 255
+        return value <= 0.04045
+            ? value / 12.92
+            : pow((value + 0.055) / 1.055, 2.4)
+    }
+}
+
+struct AXObservedContrastPixelEvidence: Codable {
+    let method: String
+    let screenshotSHA256: String
+    let contrastRatio: Double
+    let requiredContrastRatio: Double
+    let evaluatedForegroundClusterCount: Int
+    let backgroundCoverage: Double
+    let foregroundCoverage: Double
+    let analyzedPixelCount: Int
+    let backgroundPixelCount: Int
+    let foregroundPixelCount: Int
+    let ignoredEdgeRulePixelCount: Int
+    let ignoredEdgeRuleRowCount: Int
+    let background: AXObservedRGBPixel
+    let foreground: AXObservedRGBPixel
+}
+
+struct AXObservedContrastElementReference: Codable {
+    let identifier: String
+    let role: String
+    let subrole: String
+    let title: String
+    let frame: AXObservedRect
+}
+
+struct AXObservedScreenshotContrastEntry: Codable {
+    let elementIndex: Int
+    let kind: String
+    let element: AXObservedContrastElementReference
+    let pixelEvidence: AXObservedContrastPixelEvidence
+}
+
+struct AXObservedScreenshotContrastEvidence: Codable {
+    let schema: String
+    let capturePhase: String
+    let screenshotSHA256: String
+    let windowFrame: AXObservedRect
+    let entries: [AXObservedScreenshotContrastEntry]
+}
+
+struct AXObservedContrastCandidate {
+    let elementIndex: Int
+    let kind: String
+    let element: AXObservedElement
+}
+
 struct AXObservedDeepScrollEvidence: Codable {
     let route: String
     let reachedTerminal: Bool
@@ -106,6 +179,7 @@ struct AXObservedDeepScrollEvidence: Codable {
     let windowID: CGWindowID?
     let postScrollElements: [AXObservedElement]
     let postScrollAuditFindings: [AXObservedFinding]
+    let screenshotContrastEvidence: AXObservedScreenshotContrastEvidence?
     let pixelAccessibilityBinding: AXObservedPixelAccessibilityBinding?
     let selectedScrollHierarchyIdentifier: String?
     let selectedScrollHierarchyElements: [AXObservedElement]
@@ -126,6 +200,7 @@ struct AXObservedEvidence: Codable {
     let windowFrames: [AXObservedRect]
     let elements: [AXObservedElement]
     let findings: [AXObservedFinding]
+    let screenshotContrastEvidence: AXObservedScreenshotContrastEvidence
     let pixelAccessibilityBinding: AXObservedPixelAccessibilityBinding
     let deepScroll: AXObservedDeepScrollEvidence?
     let recordedAt: String
@@ -152,12 +227,218 @@ struct AXPostScrollObservation {
     let selectedScrollHierarchyElements: [AXObservedElement]
     let terminal: AXObservedElement?
     let screenshot: CapturedPostScrollScreenshot
+    let screenshotContrastEvidence: AXObservedScreenshotContrastEvidence
     let pixelAccessibilityBinding: AXObservedPixelAccessibilityBinding
 }
 
 struct CapturedPostScrollScreenshot {
     let temporaryURL: URL
     let data: Data
+}
+
+struct ScreenshotPixelCrop {
+    let pixels: [AXObservedRGBPixel]
+    let width: Int
+    let height: Int
+}
+
+struct ScreenshotPixelBuffer {
+    let width: Int
+    let height: Int
+    let pixels: [AXObservedRGBPixel]
+    let pointSize: CGSize
+
+    init?(pngData: Data, pointSize: CGSize) {
+        guard pointSize.width > 0,
+              pointSize.height > 0,
+              let source = CGImageSourceCreateWithData(pngData as CFData, nil),
+              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            return nil
+        }
+        width = image.width
+        height = image.height
+        guard width > 0, height > 0 else { return nil }
+
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        guard let context = CGContext(
+            data: &bytes,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                | CGBitmapInfo.byteOrder32Big.rawValue
+        ) else {
+            return nil
+        }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        var decodedPixels: [AXObservedRGBPixel] = []
+        decodedPixels.reserveCapacity(width * height)
+        for offset in stride(from: 0, to: bytes.count, by: 4) {
+            let alpha = Double(bytes[offset + 3]) / 255
+            let whiteContribution = 255 * (1 - alpha)
+            decodedPixels.append(AXObservedRGBPixel(
+                red: UInt8(clamping: Int((Double(bytes[offset]) + whiteContribution).rounded())),
+                green: UInt8(clamping: Int((Double(bytes[offset + 1]) + whiteContribution).rounded())),
+                blue: UInt8(clamping: Int((Double(bytes[offset + 2]) + whiteContribution).rounded()))
+            ))
+        }
+        pixels = decodedPixels
+        self.pointSize = pointSize
+    }
+
+    func crop(in frame: AXObservedRect) -> ScreenshotPixelCrop? {
+        guard pixels.count == width * height,
+              frame.minX >= 0,
+              frame.minY >= 0,
+              frame.maxX <= pointSize.width,
+              frame.maxY <= pointSize.height,
+              !frame.isEmpty else {
+            return nil
+        }
+        let scaleX = Double(width) / pointSize.width
+        let scaleY = Double(height) / pointSize.height
+        let minX = Int(floor(frame.minX * scaleX))
+        let minY = Int(floor(frame.minY * scaleY))
+        let maxX = Int(ceil(frame.maxX * scaleX))
+        let maxY = Int(ceil(frame.maxY * scaleY))
+        guard minX >= 0,
+              minY >= 0,
+              maxX <= width,
+              maxY <= height,
+              maxX > minX,
+              maxY > minY else {
+            return nil
+        }
+
+        var cropPixels: [AXObservedRGBPixel] = []
+        cropPixels.reserveCapacity((maxX - minX) * (maxY - minY))
+        for row in minY..<maxY {
+            let start = row * width + minX
+            cropPixels.append(contentsOf: pixels[start..<(start + maxX - minX)])
+        }
+        return ScreenshotPixelCrop(pixels: cropPixels, width: maxX - minX, height: maxY - minY)
+    }
+}
+
+enum ScreenshotPixelContrastAnalyzer {
+    private static let minimumBackgroundCoverage = 0.6
+    private static let maximumForegroundCoverage = 0.4
+    private static let minimumForegroundClusterShare = 0.2
+
+    static func analyze(
+        pixels: [AXObservedRGBPixel],
+        width: Int,
+        height: Int,
+        screenshotSHA256: String,
+        requiredContrastRatio: Double
+    ) -> AXObservedContrastPixelEvidence? {
+        guard width > 0,
+              height > 0,
+              pixels.count == width * height,
+              pixels.count >= 64 else {
+            return nil
+        }
+
+        let buckets = Dictionary(grouping: pixels, by: quantizedKey)
+        guard let dominantBucket = buckets.values.max(by: { $0.count < $1.count }) else { return nil }
+        let dominantColor = average(dominantBucket)
+        let backgroundPixels = pixels.filter { $0.distance(to: dominantColor) <= 12 }
+        let backgroundCoverage = Double(backgroundPixels.count) / Double(pixels.count)
+        guard backgroundCoverage >= minimumBackgroundCoverage else { return nil }
+
+        let background = average(backgroundPixels)
+        let backgroundLuminance = background.luminance
+        let indexedForegroundCandidates = pixels.enumerated().filter {
+            $0.element.distance(to: background) >= 16
+                && abs($0.element.luminance - backgroundLuminance) >= 0.03
+        }
+        let edgeBandHeight = max(1, Int(ceil(Double(height) * 0.1)))
+        let minimumRuleWidth = max(1, Int(ceil(Double(width) * 0.6)))
+        let foregroundCountByRow = Dictionary(
+            grouping: indexedForegroundCandidates,
+            by: { $0.offset / width }
+        ).mapValues(\.count)
+        let ignoredEdgeRuleRows = Set(foregroundCountByRow.compactMap { row, count in
+            let isAtEdge = row < edgeBandHeight || row >= height - edgeBandHeight
+            return isAtEdge && count >= minimumRuleWidth ? row : nil
+        })
+        let ignoredEdgeRulePixelCount = indexedForegroundCandidates.reduce(into: 0) { count, candidate in
+            if ignoredEdgeRuleRows.contains(candidate.offset / width) {
+                count += 1
+            }
+        }
+        let foregroundCandidates = indexedForegroundCandidates.compactMap { candidate in
+            ignoredEdgeRuleRows.contains(candidate.offset / width) ? nil : candidate.element
+        }
+        let minimumForegroundPixels = max(8, pixels.count / 200)
+        let candidateCoverage = Double(foregroundCandidates.count) / Double(pixels.count)
+        guard foregroundCandidates.count >= minimumForegroundPixels,
+              candidateCoverage <= maximumForegroundCoverage else {
+            return nil
+        }
+
+        let foregroundBuckets = Dictionary(grouping: foregroundCandidates, by: quantizedKey)
+        let substantialClusterMinimum = max(
+            minimumForegroundPixels,
+            Int(ceil(Double(foregroundCandidates.count) * minimumForegroundClusterShare))
+        )
+        let substantialForegroundClusters = foregroundBuckets.values.filter {
+            $0.count >= substantialClusterMinimum
+        }
+        guard !substantialForegroundClusters.isEmpty else { return nil }
+
+        let evaluatedClusters = substantialForegroundClusters.map { cluster -> (AXObservedRGBPixel, Double) in
+            let color = average(cluster)
+            let ratio = (max(background.luminance, color.luminance) + 0.05)
+                / (min(background.luminance, color.luminance) + 0.05)
+            return (color, ratio)
+        }
+        guard let weakestCluster = evaluatedClusters.min(by: { $0.1 < $1.1 }),
+              weakestCluster.1 >= requiredContrastRatio else {
+            return nil
+        }
+        let foregroundPixelCount = substantialForegroundClusters.reduce(0) { $0 + $1.count }
+        let foregroundCoverage = Double(foregroundPixelCount) / Double(pixels.count)
+        return AXObservedContrastPixelEvidence(
+            method: "screenshotPixelContrastV2",
+            screenshotSHA256: screenshotSHA256,
+            contrastRatio: weakestCluster.1,
+            requiredContrastRatio: requiredContrastRatio,
+            evaluatedForegroundClusterCount: substantialForegroundClusters.count,
+            backgroundCoverage: backgroundCoverage,
+            foregroundCoverage: foregroundCoverage,
+            analyzedPixelCount: pixels.count,
+            backgroundPixelCount: backgroundPixels.count,
+            foregroundPixelCount: foregroundPixelCount,
+            ignoredEdgeRulePixelCount: ignoredEdgeRulePixelCount,
+            ignoredEdgeRuleRowCount: ignoredEdgeRuleRows.count,
+            background: background,
+            foreground: weakestCluster.0
+        )
+    }
+
+    private static func quantizedKey(_ pixel: AXObservedRGBPixel) -> Int {
+        (Int(pixel.red) / 8) << 10
+            | (Int(pixel.green) / 8) << 5
+            | Int(pixel.blue) / 8
+    }
+
+    private static func average(_ pixels: [AXObservedRGBPixel]) -> AXObservedRGBPixel {
+        let totals = pixels.reduce(into: (red: 0, green: 0, blue: 0)) { result, pixel in
+            result.red += Int(pixel.red)
+            result.green += Int(pixel.green)
+            result.blue += Int(pixel.blue)
+        }
+        let count = max(1, pixels.count)
+        return AXObservedRGBPixel(
+            red: UInt8(clamping: totals.red / count),
+            green: UInt8(clamping: totals.green / count),
+            blue: UInt8(clamping: totals.blue / count)
+        )
+    }
 }
 
 struct Options {
@@ -770,6 +1051,7 @@ func scrollByPageToTerminal(
         windowID: nil,
         postScrollElements: [],
         postScrollAuditFindings: [],
+        screenshotContrastEvidence: nil,
         pixelAccessibilityBinding: nil,
         selectedScrollHierarchyIdentifier: nil,
         selectedScrollHierarchyElements: []
@@ -807,6 +1089,7 @@ func observeDeepScroll(
             windowID: nil,
             postScrollElements: [],
             postScrollAuditFindings: [],
+            screenshotContrastEvidence: nil,
             pixelAccessibilityBinding: nil,
             selectedScrollHierarchyIdentifier: nil,
             selectedScrollHierarchyElements: []
@@ -936,6 +1219,7 @@ func observeDeepScroll(
         windowID: nil,
         postScrollElements: [],
         postScrollAuditFindings: [],
+        screenshotContrastEvidence: nil,
         pixelAccessibilityBinding: nil,
         selectedScrollHierarchyIdentifier: nil,
         selectedScrollHierarchyElements: []
@@ -959,7 +1243,7 @@ func capturePostScrollScreenshot(path: String, windowID: CGWindowID) -> Captured
     failureCleanupURLs.append(temporaryURL)
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-    process.arguments = ["-x", "-l", String(windowID), temporaryURL.path]
+    process.arguments = ["-x", "-o", "-l", String(windowID), temporaryURL.path]
     do {
         try process.run()
         process.waitUntilExit()
@@ -1017,6 +1301,104 @@ func failCapture(_ capture: CapturedPostScrollScreenshot, _ message: String) -> 
 func discardCapture(_ capture: CapturedPostScrollScreenshot) {
     try? FileManager.default.removeItem(at: capture.temporaryURL)
     failureCleanupURLs.removeAll { $0 == capture.temporaryURL }
+}
+
+func contrastEvidenceCandidates(
+    elements: [AXObservedElement],
+    windowFrame: AXObservedRect
+) -> [AXObservedContrastCandidate] {
+    let actionableRoles: Set<String> = [
+        kAXButtonRole as String,
+        kAXCheckBoxRole as String,
+        kAXPopUpButtonRole as String,
+        kAXRadioButtonRole as String,
+        kAXTextFieldRole as String
+    ]
+    return elements.enumerated().compactMap { index, element in
+        guard !element.frame.isEmpty, windowFrame.contains(element.frame) else { return nil }
+        if element.role == (kAXStaticTextRole as String), !element.title.isEmpty {
+            return AXObservedContrastCandidate(elementIndex: index, kind: "text", element: element)
+        }
+        guard element.enabled,
+              !isNativeSystemControl(element),
+              !element.actions.isEmpty || actionableRoles.contains(element.role) else {
+            return nil
+        }
+        return AXObservedContrastCandidate(elementIndex: index, kind: "control", element: element)
+    }
+}
+
+func screenshotContrastEvidence(
+    elements: [AXObservedElement],
+    windowFrame: AXObservedRect,
+    screenshot: CapturedPostScrollScreenshot,
+    capturePhase: String
+) -> AXObservedScreenshotContrastEvidence {
+    guard let pixelBuffer = ScreenshotPixelBuffer(
+        pngData: screenshot.data,
+        pointSize: CGSize(width: windowFrame.width, height: windowFrame.height)
+    ) else {
+        failCapture(screenshot, "macOS \(capturePhase) screenshot contrast buffer is unreadable")
+    }
+    let candidates = contrastEvidenceCandidates(elements: elements, windowFrame: windowFrame)
+    guard !candidates.isEmpty else {
+        failCapture(screenshot, "macOS \(capturePhase) screenshot has no fully visible text or control contrast candidates")
+    }
+    let screenshotSHA256 = sha256Hex(screenshot.data)
+    let entries = candidates.map { candidate -> AXObservedScreenshotContrastEntry in
+        let candidateFrame = candidate.element.frame
+        let localMinX = max(0, candidateFrame.minX - windowFrame.minX)
+        let localMinY = max(0, candidateFrame.minY - windowFrame.minY)
+        let localMaxX = min(windowFrame.width, candidateFrame.maxX - windowFrame.minX)
+        let localMaxY = min(windowFrame.height, candidateFrame.maxY - windowFrame.minY)
+        let localFrame = AXObservedRect(
+            x: localMinX,
+            y: localMinY,
+            width: localMaxX - localMinX,
+            height: localMaxY - localMinY
+        )
+        guard let crop = pixelBuffer.crop(in: localFrame) else {
+            failCapture(
+                screenshot,
+                "macOS \(capturePhase) contrast crop is unavailable for element \(candidate.elementIndex)"
+            )
+        }
+        let requiredContrastRatio = candidate.kind == "text" ? 4.5 : 3.0
+        guard let pixelEvidence = ScreenshotPixelContrastAnalyzer.analyze(
+            pixels: crop.pixels,
+            width: crop.width,
+            height: crop.height,
+            screenshotSHA256: screenshotSHA256,
+            requiredContrastRatio: requiredContrastRatio
+        ) else {
+            let identity = candidate.element.identifier.isEmpty
+                ? "\(candidate.element.role):\(candidate.element.title)"
+                : candidate.element.identifier
+            failCapture(
+                screenshot,
+                "macOS \(capturePhase) screenshot text/control is unreadable or unanalyzable: \(identity)"
+            )
+        }
+        return AXObservedScreenshotContrastEntry(
+            elementIndex: candidate.elementIndex,
+            kind: candidate.kind,
+            element: AXObservedContrastElementReference(
+                identifier: candidate.element.identifier,
+                role: candidate.element.role,
+                subrole: candidate.element.subrole,
+                title: candidate.element.title,
+                frame: candidate.element.frame
+            ),
+            pixelEvidence: pixelEvidence
+        )
+    }
+    return AXObservedScreenshotContrastEvidence(
+        schema: "macosScreenshotContrastEvidenceV1",
+        capturePhase: capturePhase,
+        screenshotSHA256: screenshotSHA256,
+        windowFrame: windowFrame,
+        entries: entries
+    )
 }
 
 func publishFailureDiagnostic(
@@ -1451,6 +1833,12 @@ func captureBoundObservation(
         }
         let rootBeforeDigest = observationDigest(firstElements)
         let rootAfterDigest = observationDigest(secondElements)
+        let contrastEvidence = screenshotContrastEvidence(
+            elements: secondElements,
+            windowFrame: secondWindow.frame,
+            screenshot: screenshot,
+            capturePhase: capturePhase
+        )
         return AXPostScrollObservation(
             window: secondWindow,
             elements: secondElements,
@@ -1459,6 +1847,7 @@ func captureBoundObservation(
             selectedScrollHierarchyElements: secondSelectedElements,
             terminal: terminal,
             screenshot: screenshot,
+            screenshotContrastEvidence: contrastEvidence,
             pixelAccessibilityBinding: AXObservedPixelAccessibilityBinding(
                 schema: "macosPixelAccessibilityBindingV1",
                 capturePhase: capturePhase,
@@ -1499,6 +1888,35 @@ func stablePostScrollObservation(
         capturePhase: "deepScroll",
         expectation: expectation
     )
+}
+
+if CommandLine.arguments.dropFirst() == ["--self-test-screenshot-contrast"] {
+    let background = AXObservedRGBPixel(red: 250, green: 249, blue: 243)
+    let readableForeground = AXObservedRGBPixel(red: 40, green: 35, blue: 29)
+    let unreadableForeground = AXObservedRGBPixel(red: 190, green: 188, blue: 182)
+    let readablePixels = (0..<100).map { $0.isMultiple(of: 5) ? readableForeground : background }
+    let unreadablePixels = (0..<100).map { $0.isMultiple(of: 5) ? unreadableForeground : background }
+    let digest = String(repeating: "a", count: 64)
+    guard let readable = ScreenshotPixelContrastAnalyzer.analyze(
+        pixels: readablePixels,
+        width: 10,
+        height: 10,
+        screenshotSHA256: digest,
+        requiredContrastRatio: 4.5
+    ),
+    readable.screenshotSHA256 == digest,
+    readable.contrastRatio >= readable.requiredContrastRatio,
+    ScreenshotPixelContrastAnalyzer.analyze(
+        pixels: unreadablePixels,
+        width: 10,
+        height: 10,
+        screenshotSHA256: digest,
+        requiredContrastRatio: 4.5
+    ) == nil else {
+        fail("macOS screenshot contrast self-test failed")
+    }
+    print("macOS screenshot contrast self-test ok")
+    exit(0)
 }
 
 if CommandLine.arguments.dropFirst() == ["--self-test-non-finite-frame"] {
@@ -1570,6 +1988,7 @@ let deepScroll = terminalExpectation(for: options).map { expectation in
             windowFrames: windowFrames,
             elements: elements,
             findings: observedFindings + scrollEvidence.findings,
+            screenshotContrastEvidence: initialObservation.screenshotContrastEvidence,
             pixelAccessibilityBinding: initialObservation.pixelAccessibilityBinding,
             deepScroll: scrollEvidence,
             recordedAt: ISO8601DateFormatter().string(from: Date())
@@ -1649,8 +2068,9 @@ let deepScroll = terminalExpectation(for: options).map { expectation in
         postScrollScreenshotSHA256: sha256Hex(postScrollObservation.screenshot.data),
         applicationProcessIdentifier: options.pid,
         windowID: options.windowID,
-        postScrollElements: publicationElements,
+        postScrollElements: postScrollObservation.elements,
         postScrollAuditFindings: postScrollAuditFindings,
+        screenshotContrastEvidence: postScrollObservation.screenshotContrastEvidence,
         pixelAccessibilityBinding: postScrollObservation.pixelAccessibilityBinding,
         selectedScrollHierarchyIdentifier: expectation.scrollIdentifier,
         selectedScrollHierarchyElements: publicationSelectedElements
@@ -1709,6 +2129,7 @@ let evidence = AXObservedEvidence(
     windowFrames: windowFrames,
     elements: elements,
     findings: observedFindings,
+    screenshotContrastEvidence: initialObservation.screenshotContrastEvidence,
     pixelAccessibilityBinding: initialObservation.pixelAccessibilityBinding,
     deepScroll: deepScroll,
     recordedAt: ISO8601DateFormatter().string(from: Date())

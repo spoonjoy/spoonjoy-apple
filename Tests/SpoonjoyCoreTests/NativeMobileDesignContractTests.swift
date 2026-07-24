@@ -341,7 +341,11 @@ struct NativeMobileDesignContractTests {
                 "let initialScreenshot = initialCapture.screenshot",
                 "attachScreenshot(initialScreenshot",
                 "terminalScrollCorrection(",
-                "drag(primarySurface, contentOffset: correction)",
+                "let requestedContentOffset = deterministicWaypointContentOffset(",
+                "drag(primarySurface, contentOffset: requestedContentOffset)",
+                "let waypointCapture = try captureAttestedScreenshot(",
+                "scrollWaypointCoverage(",
+                "intermediateAuditCoverageIsComplete(",
                 "terminalScrollSignature(",
                 "app.scrollViews[\"spoonjoy.page-scroll\"]",
                 "case \"kitchen\":",
@@ -2593,10 +2597,30 @@ struct NativeMobileDesignContractTests {
                 "return \"xxxLarge\"",
                 "case .accessibilityExtraExtraExtraLarge:",
                 "return \"accessibility5\"",
-                "\"observedDynamicTypeSize\": observedDynamicTypeSize(fallback: runtimeContext.dynamicTypeSize)"
+                "observedDynamicTypeSize: observedDynamicTypeSize(fallback: runtimeContext.dynamicTypeSize)",
+                "\"observedDynamicTypeSize\": proofIdentity.observedDynamicTypeSize"
             ],
             forbids: [
                 "\"observedDynamicTypeSize\": runtimeContext.dynamicTypeSize"
+            ]
+        )
+    }
+
+    @Test("screenshot proof deduplication follows the full observed surface identity")
+    func screenshotProofDeduplicationFollowsObservedSurfaceIdentity() throws {
+        let writerPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let writer = uncommentedSwift(try readRepoFile(writerPath))
+
+        expectContent(
+            writer,
+            in: writerPath,
+            contains: [
+                "ScreenshotVisualReadinessProofIdentity(",
+                "await ScreenshotVisualReadiness.observeProofIdentity(request.proofIdentity)",
+                "latestReceipt?.proofIdentity == proofIdentity",
+                "visualReadiness.proofIdentity == request.proofIdentity",
+                "currentReadiness.proofIdentity == request.proofIdentity",
+                "readinessGeneration: visualReadiness.generation"
             ]
         )
     }
