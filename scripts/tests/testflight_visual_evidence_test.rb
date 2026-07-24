@@ -12,6 +12,7 @@ require "tmpdir"
 class TestFlightVisualEvidenceTest < Minitest::Test
   ROOT = Pathname.new(__dir__).join("../..").expand_path
   SCRIPT = ROOT.join("scripts/testflight-visual-evidence.rb")
+  MATRIX_SCRIPT = ROOT.join("scripts/capture-native-screenshot-matrix.sh")
   CANDIDATE_SCRIPT = ROOT.join("scripts/verify-testflight-release-candidate.rb")
   SOURCE_SHA = "a" * 40
   SOURCE_TREE = "b" * 40
@@ -37,6 +38,10 @@ class TestFlightVisualEvidenceTest < Minitest::Test
   DEEP_SCROLL_ROUTES = %w[
     kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log
     cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings
+  ].freeze
+  SCREENSHOT_ROW_KEYS = %w[
+    iosScreenshot iosXXXLScreenshot iosAccessibilityScreenshot iosTabletScreenshot
+    iosTabletXXXLScreenshot iosTabletAccessibilityScreenshot macosScreenshot
   ].freeze
 
   def setup
@@ -74,6 +79,32 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     verify = run_tool("verify", *verify_arguments)
     assert verify.success?, verify.output
     assert_includes verify.output, Digest::SHA256.file(manifest_path).hexdigest
+  end
+
+  def test_matrix_recorder_emits_every_sealer_screenshot_record_with_file_evidence
+    row = record_route_rows([[ROUTES.first, capture_route_for(ROUTES.first), @artifact_root]]).fetch(0)
+
+    assert_equal SCREENSHOT_ROW_KEYS, row.keys & SCREENSHOT_ROW_KEYS
+    SCREENSHOT_ROW_KEYS.each do |key|
+      artifact = row.fetch(key)
+      path = Pathname.new(artifact.fetch("path"))
+      assert_equal true, artifact.fetch("exists"), key
+      assert_equal path.size, artifact.fetch("bytes"), key
+      assert_equal Digest::SHA256.file(path).hexdigest, artifact.fetch("sha256"), key
+    end
+  end
+
+  def test_rejects_route_row_missing_a_required_screenshot_key
+    summary = JSON.parse(matrix_summary_path.read)
+    summary.fetch("routes").first.delete("iosTabletXXXLScreenshot")
+    write_json(matrix_summary_path, summary)
+    matrix_summary_path.sub_ext(".jsonl").write(summary.fetch("routes").map { |row| JSON.generate(row) }.join("\n") + "\n")
+
+    result = run_tool("seal", *seal_arguments)
+
+    refute result.success?
+    assert_includes result.output, "recorded screenshot set is incomplete"
+    assert_includes result.output, "iosTabletXXXLScreenshot"
   end
 
 
@@ -621,6 +652,28 @@ class TestFlightVisualEvidenceTest < Minitest::Test
       "iosTabletAccessibilityScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("iosTabletAccessibility")), route_root.join(screenshot_paths.fetch("iosTabletAccessibility")).to_s),
       "macosScreenshot" => artifact_entry(route_root.join(screenshot_paths.fetch("macosDesktop")), route_root.join(screenshot_paths.fetch("macosDesktop")).to_s)
     }
+  end
+
+  def record_route_rows(route_records)
+    function = MATRIX_SCRIPT.read[/^record_route\(\) \{.*?^\}$/m]
+    raise "record_route function is missing" unless function
+
+    results_path = @temporary_directory.join("recorded-routes.jsonl")
+    input = route_records.map { |name, route, root| [name, route, root].join("\t") }.join("\n") + "\n"
+    shell = <<~BASH
+      set -euo pipefail
+      results_path="$1"
+      #{function}
+      while IFS=$'\t' read -r name route route_root; do
+        record_route "$name" "$route" "$route_root" "pass" "fixture capture"
+      done
+    BASH
+    _stdout, stderr, status = Open3.capture3(
+      "bash", "-c", shell, "record-route-contract", results_path.to_s, stdin_data: input
+    )
+    raise stderr unless status.success?
+
+    results_path.each_line.map { |line| JSON.parse(line) }
   end
 
   def capture_route_for(name)

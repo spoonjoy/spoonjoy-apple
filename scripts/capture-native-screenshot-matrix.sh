@@ -268,8 +268,11 @@ record_route() {
       "designReview" => design_review,
       "designReviewBlocked" => design_review_blocked,
       "iosScreenshot" => artifact(route_root, "screenshots/ios-mobile.png"),
+      "iosXXXLScreenshot" => artifact(route_root, "screenshots/ios-mobile-xxxl.png"),
       "iosAccessibilityScreenshot" => artifact(route_root, "screenshots/ios-mobile-accessibility.png"),
       "iosTabletScreenshot" => artifact(route_root, "screenshots/ios-tablet.png"),
+      "iosTabletXXXLScreenshot" => artifact(route_root, "screenshots/ios-tablet-xxxl.png"),
+      "iosTabletAccessibilityScreenshot" => artifact(route_root, "screenshots/ios-tablet-accessibility.png"),
       "macosScreenshot" => artifact(route_root, "screenshots/macos-desktop.png")
     }
     File.open(results_path, "a") { |file| file.puts(JSON.generate(row)) }
@@ -306,12 +309,19 @@ write_route_timeout_blocker() {
       "sourceBlockerPath" => source_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-mobile-xxxl.png",
         "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
+        "screenshots/ios-tablet-xxxl.png",
+        "screenshots/ios-tablet-accessibility.png",
         "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-xxxl-deep-scroll.png",
         "screenshots/ios-mobile-accessibility-deep-scroll.png",
         "screenshots/ios-tablet-deep-scroll.png",
+        "screenshots/ios-tablet-xxxl-deep-scroll.png",
+        "screenshots/ios-tablet-accessibility-deep-scroll.png",
         "screenshots/macos-desktop.png",
+        "screenshots/macos-desktop-deep-scroll.png",
         "design-review.json",
         "apple/#{route_slug}-accessibility-proof-ios.json",
         "apple/#{route_slug}-accessibility-proof-ios-ax.json",
@@ -330,7 +340,21 @@ write_route_timeout_blocker() {
     File.write(source_path, JSON.pretty_generate(source_blocker) + "\n")
     File.write(review_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$name" "$route" "$route_root" "$route_slug" "$command" "$output_path" "$route_timeout_seconds"
-  rm -f "$route_root/screenshots/ios-mobile.png" "$route_root/screenshots/ios-mobile-accessibility.png" "$route_root/screenshots/ios-tablet.png" "$route_root/screenshots/ios-mobile-deep-scroll.png" "$route_root/screenshots/ios-mobile-accessibility-deep-scroll.png" "$route_root/screenshots/ios-tablet-deep-scroll.png" "$route_root/screenshots/macos-desktop.png"
+  rm -f \
+    "$route_root/screenshots/ios-mobile.png" \
+    "$route_root/screenshots/ios-mobile-xxxl.png" \
+    "$route_root/screenshots/ios-mobile-accessibility.png" \
+    "$route_root/screenshots/ios-tablet.png" \
+    "$route_root/screenshots/ios-tablet-xxxl.png" \
+    "$route_root/screenshots/ios-tablet-accessibility.png" \
+    "$route_root/screenshots/ios-mobile-deep-scroll.png" \
+    "$route_root/screenshots/ios-mobile-xxxl-deep-scroll.png" \
+    "$route_root/screenshots/ios-mobile-accessibility-deep-scroll.png" \
+    "$route_root/screenshots/ios-tablet-deep-scroll.png" \
+    "$route_root/screenshots/ios-tablet-xxxl-deep-scroll.png" \
+    "$route_root/screenshots/ios-tablet-accessibility-deep-scroll.png" \
+    "$route_root/screenshots/macos-desktop.png" \
+    "$route_root/screenshots/macos-desktop-deep-scroll.png"
   rm -f "$route_root/design-review.json"
   rm -f "$route_root/apple/${route_slug}-accessibility-proof-ios.json" "$route_root/apple/${route_slug}-accessibility-proof-ios-ax.json" "$route_root/apple/${route_slug}-accessibility-proof-ipad.json" "$route_root/apple/${route_slug}-accessibility-proof-macos.json"
   rm -f "$route_root/apple/${route_slug}-observed-accessibility-ios.json" "$route_root/apple/${route_slug}-observed-accessibility-ios-ax.json" "$route_root/apple/${route_slug}-observed-accessibility-ipad.json" "$route_root/apple/${route_slug}-observed-accessibility-macos.json"
@@ -396,7 +420,10 @@ summarize_routes() {
     missing = rows.select { |row| row["missingDesignReview"] }
     blocked = rows.select { |row| row["blocked"] }
     failed = rows.select { |row| row["status"] != "pass" }
-    screenshot_keys = %w[iosScreenshot iosAccessibilityScreenshot iosTabletScreenshot macosScreenshot]
+    screenshot_keys = %w[
+      iosScreenshot iosXXXLScreenshot iosAccessibilityScreenshot iosTabletScreenshot
+      iosTabletXXXLScreenshot iosTabletAccessibilityScreenshot macosScreenshot
+    ]
     missing_screenshots = rows.select do |row|
       screenshot_keys.any? do |key|
         artifact = row[key]
@@ -486,7 +513,13 @@ capture_route() {
     status="blocked"
   elif [[ ! -f "$route_root/design-review.json" ]]; then
     status="fail"
-  elif [[ ! -s "$route_root/screenshots/ios-mobile.png" || ! -s "$route_root/screenshots/ios-mobile-accessibility.png" || ! -s "$route_root/screenshots/ios-tablet.png" || ! -s "$route_root/screenshots/macos-desktop.png" ]]; then
+  elif [[ ! -s "$route_root/screenshots/ios-mobile.png" ||
+          ! -s "$route_root/screenshots/ios-mobile-xxxl.png" ||
+          ! -s "$route_root/screenshots/ios-mobile-accessibility.png" ||
+          ! -s "$route_root/screenshots/ios-tablet.png" ||
+          ! -s "$route_root/screenshots/ios-tablet-xxxl.png" ||
+          ! -s "$route_root/screenshots/ios-tablet-accessibility.png" ||
+          ! -s "$route_root/screenshots/macos-desktop.png" ]]; then
     status="fail"
   elif [[ "$command_status" -ne 0 ]]; then
     status="fail"

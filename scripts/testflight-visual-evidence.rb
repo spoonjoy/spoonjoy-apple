@@ -296,6 +296,12 @@ module TestFlightVisualEvidence
         unless row["status"] == "pass" && row["blocked"] == false && row["missingDesignReview"] == false
           raise Error, "route #{row["name"].inspect} is not a terminal passing visual route"
         end
+        required_screenshot_keys = SCREENSHOTS.values.map(&:first)
+        missing_screenshot_keys = required_screenshot_keys.reject { |key| row.key?(key) }
+        unless missing_screenshot_keys.empty?
+          raise Error,
+                "route #{row["name"].inspect} recorded screenshot set is incomplete: #{missing_screenshot_keys.join(", ")}"
+        end
       end
     end
 
