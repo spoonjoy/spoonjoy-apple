@@ -291,6 +291,17 @@ private struct NativeLiveAuthOperationContext: Equatable, Sendable {
     let identity: NativeLiveAuthIdentity
 }
 
+private struct NativeLiveBootstrapJoinContext: Equatable, Sendable {
+    let authContext: NativeLiveAuthOperationContext
+    let accountID: String?
+}
+
+private struct NativeLiveBootstrapOperation {
+    let id: UUID
+    var joinContext: NativeLiveBootstrapJoinContext
+    let task: Task<Void, Never>
+}
+
 private struct NativeLiveMutationScope: Equatable, Sendable {
     let authContext: NativeLiveAuthOperationContext
     let authSessionState: NativeAuthSessionState
@@ -1920,13 +1931,13 @@ public final class NativeLiveAppStore: ObservableObject {
     private var configuration: APIClientConfiguration
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
-    private var bootstrapTask: Task<Void, Never>?
+    private var bootstrapOperation: NativeLiveBootstrapOperation?
     private var hasResolvedAuthScope = false
     private var pendingOpenedRoute: AppRoute?
     private var authGeneration: UInt64 = 0
 
     private var isBootstrapping: Bool {
-        bootstrapTask != nil
+        bootstrapOperation != nil
     }
 
     public var authSessionRepository: NativeAuthSessionRepository {
@@ -1962,57 +1973,94 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func bootstrap() async {
-        if let bootstrapTask {
-            await bootstrapTask.value
+        let requestedJoinContext = currentBootstrapJoinContext
+        if let bootstrapOperation,
+           bootstrapOperation.joinContext == requestedJoinContext {
+            await bootstrapOperation.task.value
             return
         }
 
-        let task = Task { @MainActor in
-            await performBootstrap()
-        }
-        bootstrapTask = task
-        await task.value
-        bootstrapTask = nil
-    }
-
-    private func performBootstrap() async {
+        bootstrapOperation?.task.cancel()
         advanceAuthGeneration(clearCredentials: true)
         hasResolvedAuthScope = false
+        let operationID = UUID()
+        let task = Task { @MainActor in
+            await performBootstrap(operationID: operationID)
+        }
+        bootstrapOperation = NativeLiveBootstrapOperation(
+            id: operationID,
+            joinContext: currentBootstrapJoinContext,
+            task: task
+        )
+        await task.value
+        if bootstrapOperation?.id == operationID {
+            bootstrapOperation = nil
+        }
+    }
+
+    private func performBootstrap(operationID: UUID) async {
         var resolvedAuthState: NativeAuthSessionState?
         do {
+            try ensureCurrentBootstrapOperation(operationID)
             guard !dependencies.fixtureFallbackPolicy.allowsProductionFallback() else {
                 throw NativeLiveAppStoreError.fixtureFallbackEnabledInProduction
             }
 
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
+            try ensureCurrentBootstrapOperation(operationID)
             resolvedAuthState = restoredAuthState
             configureForRestoredAuthState(restoredAuthState)
             if dependencies.bootstrapMode == .restoreCacheOnly {
-                let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
+                let restoredContent = try await restoreFromCache(
+                    authSessionState: restoredAuthState,
+                    bootstrapOperationID: operationID
+                )
                 if case .signedOut = restoredAuthState {
-                    apply(.signedOut(restoredContent.copy(
+                    try applyBootstrapState(.signedOut(restoredContent.copy(
                         offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
-                    )))
+                    )), operationID: operationID)
                 } else {
-                    apply(Self.restoreCacheOnlyBootstrapState(for: restoredContent))
+                    try applyBootstrapState(
+                        Self.restoreCacheOnlyBootstrapState(for: restoredContent),
+                        operationID: operationID
+                    )
                 }
                 completeBootstrapAuthScopeResolution()
                 return
             }
 
-            let authState = try await authorizedAuthState(from: restoredAuthState)
+            let authState = try await authorizedAuthState(
+                from: restoredAuthState,
+                bootstrapOperationID: operationID
+            )
             resolvedAuthState = authState
             guard case .authenticated(let session) = authState else {
-                let restoringContent = try await restoreFromCache(authSessionState: authState)
-                apply(.signedOut(restoringContent))
+                let restoringContent = try await restoreFromCache(
+                    authSessionState: authState,
+                    bootstrapOperationID: operationID
+                )
+                try applyBootstrapState(.signedOut(restoringContent), operationID: operationID)
                 completeBootstrapAuthScopeResolution()
                 return
             }
 
-            apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
-            try await bootstrapFromLiveAPI(session: session, trigger: .launch)
+            try applyBootstrapState(
+                .restoringCache(emptyContent(authSessionState: authState, display: .synced)),
+                operationID: operationID
+            )
+            try await bootstrapFromLiveAPI(
+                session: session,
+                trigger: .launch,
+                bootstrapOperationID: operationID
+            )
+            updateBootstrapJoinContext(operationID: operationID)
             completeBootstrapAuthScopeResolution()
+        } catch is CancellationError {
+            return
         } catch let error as APITransportError where error.isOffline {
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
             NativeLiveAppStoreTelemetry.bootstrapOffline(
                 stage: "launch",
                 error: error,
@@ -2029,17 +2077,29 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
             if let resolvedAuthState,
-               let offlineContent = try? await restoreFromCache(authSessionState: resolvedAuthState) {
-                apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
+               let offlineContent = try? await restoreFromCache(
+                   authSessionState: resolvedAuthState,
+                   bootstrapOperationID: operationID
+               ) {
+                try? applyBootstrapState(
+                    .offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))),
+                    operationID: operationID
+                )
                 completeBootstrapAuthScopeResolution()
-            } else {
-                apply(.offlineStale(currentContentState.copy(
+            } else if isCurrentBootstrapOperation(operationID) {
+                try? applyBootstrapState(.offlineStale(currentContentState.copy(
                     offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
-                )))
+                )), operationID: operationID)
                 failBootstrapAuthScopeResolution()
             }
         } catch {
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "launch",
                 error: error,
@@ -2056,10 +2116,13 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            apply(.syncFailed(
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
+            try? applyBootstrapState(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "bootstrap", retryAfter: nil), dismissal: nil)),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
-            ))
+            ), operationID: operationID)
             failBootstrapAuthScopeResolution()
         }
     }
@@ -3037,7 +3100,8 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func restoreFromCache(
         authSessionState: NativeAuthSessionState,
-        optimisticMutations: [NativeQueuedMutation] = []
+        optimisticMutations: [NativeQueuedMutation] = [],
+        bootstrapOperationID: UUID? = nil
     ) async throws -> NativeShellContentState {
         let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
         let preFilterCacheFallback = try NativeDurableCacheSnapshot(
@@ -3067,6 +3131,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: previousCacheSnapshot.environment,
                 plan: captureDraftPurgePlan
             ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
             let profileIDs = previousCacheSnapshot.records.compactMap { record -> String? in
                 guard case NativeCacheDomain.profile(let id) = record.metadata.domain else {
                     return nil
@@ -3087,6 +3154,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: previousCacheSnapshot.environment,
                 plan: chefProfilePurgePlan
             ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
             let recipeIDs = previousCacheSnapshot.records.flatMap { record -> [String] in
                 switch record.payload {
                 case .recipeCatalog(let recipeIDs):
@@ -3122,6 +3192,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: previousCacheSnapshot.environment,
                 plan: recipeCookbookPurgePlan
             ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
         }
 
         if let appStateStore = dependencies.appStateStoreProvider() {
@@ -3152,16 +3225,25 @@ public final class NativeLiveAppStore: ObservableObject {
                         environment: previousEnvironment,
                         plan: captureDraftPurgePlan
                     ), accountID: previousAppSnapshot.accountID, environment: previousAppSnapshot.environment)
+                    if let bootstrapOperationID {
+                        try ensureCurrentBootstrapOperation(bootstrapOperationID)
+                    }
                 }
             }
         }
 
         let record = try loadOrCreateCacheSnapshot(authSessionState: authSessionState)
         let syncSnapshot = try await scopedSyncSnapshot(authSessionState: authSessionState)
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         let appSnapshot = loadAppSnapshot(
             authSessionState: authSessionState,
             savedAt: savedAt
         )
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         restoredRoute = appSnapshot?.lastOpenedRoute.flatMap(AppRoute.init(stateIdentifier:))
         let display: OfflineIndicatorDisplay
         if !syncSnapshot.queue.mutations.isEmpty {
@@ -3185,7 +3267,6 @@ public final class NativeLiveAppStore: ObservableObject {
             optimisticMutations: optimisticMutations,
             offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: record.value.dismissedIndicators.first)
         )
-        currentContentState = content
         return content
     }
 
@@ -3243,10 +3324,14 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func bootstrapFromLiveAPI(
         session: AuthSession,
-        trigger: NativeSyncTriggerEvent
+        trigger: NativeSyncTriggerEvent,
+        bootstrapOperationID: UUID? = nil
     ) async throws {
         do {
         let report = try await syncTriggerCoordinator.handle(trigger)
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         for request in report.shoppingEntityPurgeRequests {
             await purgeShoppingEntityIdentifiers(
                 request.identifiers,
@@ -3254,6 +3339,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: request.accountID,
                 environment: request.environment
             )
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
         }
         for request in report.spoonEntityPurgeRequests {
             await purgeSpoonEntityIdentifiers(
@@ -3262,6 +3350,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: request.accountID,
                 environment: request.environment
             )
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
         }
         for request in report.captureDraftEntityPurgeRequests {
             await purgeCaptureDraftEntityIdentifiers(
@@ -3270,6 +3361,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: request.accountID,
                 environment: request.environment
             )
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
         }
         for request in report.chefProfileEntityPurgeRequests {
             await purgeChefProfileEntityIdentifiers(
@@ -3278,6 +3372,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: request.accountID,
                 environment: request.environment
             )
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
         }
         for request in report.recipeCookbookEntityPurgeRequests {
             await purgeRecipeCookbookEntityIdentifiers(
@@ -3286,8 +3383,15 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: request.accountID,
                 environment: request.environment
             )
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
         }
-        let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
+        let boundAuthState = try await authSessionStateByBindingReport(
+            report,
+            session: session,
+            bootstrapOperationID: bootstrapOperationID
+        )
         clearDrainedCaptureImports(
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
@@ -3295,8 +3399,14 @@ public final class NativeLiveAppStore: ObservableObject {
         var settingsRefreshError: Error?
         var settingsRefreshResult: SettingsSurfaceResult?
         do {
-            settingsRefreshResult = try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
+            settingsRefreshResult = try await refreshSettingsSurfaceCache(
+                authSessionState: boundAuthState,
+                bootstrapOperationID: bootstrapOperationID
+            )
         } catch {
+            if error is CancellationError {
+                throw error
+            }
             NativeLiveAppStoreTelemetry.settingsRefreshFailed(error)
             settingsRefreshError = error
         }
@@ -3305,7 +3415,8 @@ public final class NativeLiveAppStore: ObservableObject {
         }
         let restoredContent = try await restoreFromCache(
             authSessionState: boundAuthState,
-            optimisticMutations: drainedOverlayMutations
+            optimisticMutations: drainedOverlayMutations,
+            bootstrapOperationID: bootstrapOperationID
         )
         let shouldPreserveRestoredBlocker: Bool
         if case .blocker = restoredContent.offlineIndicatorState.display {
@@ -3351,6 +3462,9 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: content
             )
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
             apply(.syncFailed(
                 content.copy(offlineIndicatorState: OfflineIndicatorState(
                     display: .syncFailure(
@@ -3372,6 +3486,9 @@ public final class NativeLiveAppStore: ObservableObject {
                     route: restoredRoute,
                     contentState: content
                 )
+                if let bootstrapOperationID {
+                    try ensureCurrentBootstrapOperation(bootstrapOperationID)
+                }
             }
             if !content.queuedMutations.isEmpty {
                 apply(.queuedWork(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID), dismissal: nil))))
@@ -3381,7 +3498,12 @@ public final class NativeLiveAppStore: ObservableObject {
                 apply(.liveSynced(content))
             }
         }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            if let bootstrapOperationID {
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
+            }
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "liveAPI:\(String(describing: trigger))",
                 error: error,
@@ -3394,7 +3516,10 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
-    private func refreshSettingsSurfaceCache(authSessionState: NativeAuthSessionState) async throws -> SettingsSurfaceResult? {
+    private func refreshSettingsSurfaceCache(
+        authSessionState: NativeAuthSessionState,
+        bootstrapOperationID: UUID? = nil
+    ) async throws -> SettingsSurfaceResult? {
         guard let accountID = trustedAccountID(for: authSessionState),
               let settingsSurfaceFetch = dependencies.settingsSurfaceFetch else {
             return nil
@@ -3408,6 +3533,9 @@ public final class NativeLiveAppStore: ObservableObject {
             NativeDurableCache(records: currentSnapshot.records),
             grantedScopes(for: authSessionState)
         )
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         let recordIDs = Set(result.persistedRecords.map(\.id))
         let nextRecords = currentSnapshot.records.filter { !recordIDs.contains($0.id) } + result.persistedRecords
         try dependencies.cacheStore.save(try currentSnapshot.copy(records: nextRecords))
@@ -3611,6 +3739,41 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    private var currentBootstrapJoinContext: NativeLiveBootstrapJoinContext {
+        NativeLiveBootstrapJoinContext(
+            authContext: NativeLiveAuthOperationContext(
+                generation: authGeneration,
+                identity: authIdentity(for: currentContentState.authSessionState)
+            ),
+            accountID: trustedAccountID(for: currentContentState.authSessionState)
+        )
+    }
+
+    private func isCurrentBootstrapOperation(_ operationID: UUID) -> Bool {
+        !Task.isCancelled && bootstrapOperation?.id == operationID
+    }
+
+    private func ensureCurrentBootstrapOperation(_ operationID: UUID) throws {
+        guard isCurrentBootstrapOperation(operationID) else {
+            throw CancellationError()
+        }
+    }
+
+    private func updateBootstrapJoinContext(operationID: UUID) {
+        if bootstrapOperation?.id == operationID {
+            bootstrapOperation?.joinContext = currentBootstrapJoinContext
+        }
+    }
+
+    private func applyBootstrapState(
+        _ state: NativeAppBootstrapState,
+        operationID: UUID
+    ) throws {
+        try ensureCurrentBootstrapOperation(operationID)
+        apply(state)
+        updateBootstrapJoinContext(operationID: operationID)
+    }
+
     private func apply(_ state: NativeAppBootstrapState) {
         if authIdentity(for: currentContentState.authSessionState) != authIdentity(for: state.contentState.authSessionState) {
             advanceAuthGeneration(clearCredentials: state.contentState.authSessionState == .signedOut)
@@ -3743,7 +3906,8 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func authSessionStateByBindingReport(
         _ report: NativeSyncReport,
-        session: AuthSession
+        session: AuthSession,
+        bootstrapOperationID: UUID? = nil
     ) async throws -> NativeAuthSessionState {
         guard let accountID = report.accountID else {
             return .authenticated(session)
@@ -3754,6 +3918,9 @@ public final class NativeLiveAppStore: ObservableObject {
         }
 
         let boundSession = try await dependencies.authSessionRepository.bindAccountID(accountID)
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         if authIdentity(for: currentContentState.authSessionState) != authIdentity(for: boundSession) {
             advanceAuthGeneration(clearCredentials: true)
         }
@@ -3776,13 +3943,18 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
-    private func authorizedAuthState(from restoredAuthState: NativeAuthSessionState) async throws -> NativeAuthSessionState {
+    private func authorizedAuthState(
+        from restoredAuthState: NativeAuthSessionState,
+        bootstrapOperationID: UUID
+    ) async throws -> NativeAuthSessionState {
         switch restoredAuthState {
         case .signedOut:
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
             configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
             return .signedOut
         case .authenticated, .refreshRequired:
             let session = try await dependencies.authSessionRepository.validSession()
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
             configuration = APIClientConfiguration(
                 baseURL: dependencies.configuration.baseURL,
                 bearerToken: session.accessToken

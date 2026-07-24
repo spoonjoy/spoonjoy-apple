@@ -176,10 +176,11 @@ struct SpoonEntityTests {
                 (
                     relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
                     label: "bootstrapFromLiveAPI consumes spoon sync purge report",
-                    pattern: #"func\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)"#,
+                    pattern: #"func\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent,\s*bootstrapOperationID: UUID\? = nil\s*\)"#,
                     requiredTokens: [
                         "let report = try await syncTriggerCoordinator.handle(trigger)",
-                        "report.spoonEntityPurgeRequests"
+                        "report.spoonEntityPurgeRequests",
+                        "ensureCurrentBootstrapOperation(bootstrapOperationID)"
                     ],
                     forbiddenTokens: []
                 ),

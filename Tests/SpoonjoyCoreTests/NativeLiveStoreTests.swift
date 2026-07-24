@@ -425,6 +425,66 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("logout supersedes an in-flight account bootstrap and cannot republish private content")
+    func logoutSupersedesInFlightAccountBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let account = try Self.sampleSession(accountID: "chef_bootstrap_logout")
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID(account.clientID)
+            try await vault.saveSession(account)
+            let gate = NativeLiveStoreSuspensionGate()
+            let privateRecipe = Self.sampleRecipe(
+                id: "recipe_bootstrap_logout_private",
+                title: "Private Account Recipe"
+            )
+            let transport = GatedLiveStoreSyncTransport(
+                gate: gate,
+                result: .syncData(try Self.sampleSyncData(
+                    recipe: privateRecipe,
+                    shoppingItem: nil,
+                    accountID: try #require(account.accountID)
+                ))
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: transport
+            )
+
+            let staleBootstrap = Task { @MainActor in
+                await liveStore.bootstrap()
+            }
+            await gate.waitUntilSuspended()
+
+            let logout = Task { @MainActor in
+                try await liveStore.performSettingsSessionOperation(.logout)
+            }
+            var observedSignedOutBootstrap = false
+            for _ in 0..<200 {
+                if case .signedOut = liveStore.bootstrapState {
+                    observedSignedOutBootstrap = true
+                    break
+                }
+                await Task.yield()
+            }
+            #expect(observedSignedOutBootstrap)
+
+            await gate.release()
+            try await logout.value
+            await staleBootstrap.value
+
+            guard case .signedOut(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected stale account bootstrap to leave the store signed out; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.authSessionState == .signedOut)
+            #expect(!content.recipes.contains(where: { $0.id == privateRecipe.id }))
+            #expect(await transport.bootstrapCallCount() == 1)
+        }
+    }
+
+    @MainActor
     @Test("recipe mutations retain their originating auth generation before the first suspension")
     func recipeMutationRetainsOriginatingAuthGenerationBeforeFirstSuspension() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -7471,6 +7531,31 @@ private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
 
     func capturedBearerTokens() -> [String?] {
         bearerTokens
+    }
+}
+
+private actor GatedLiveStoreSyncTransport: NativeSyncTransport {
+    private let gate: NativeLiveStoreSuspensionGate
+    private let result: NativeSyncBootstrapResult
+    private var callCount = 0
+
+    init(gate: NativeLiveStoreSuspensionGate, result: NativeSyncBootstrapResult) {
+        self.gate = gate
+        self.result = result
+    }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        callCount += 1
+        await gate.suspend()
+        return result
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        .success(serverRevision: .updatedAt(mutation.createdAt))
+    }
+
+    func bootstrapCallCount() -> Int {
+        callCount
     }
 }
 

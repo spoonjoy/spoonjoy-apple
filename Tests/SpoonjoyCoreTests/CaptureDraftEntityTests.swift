@@ -149,7 +149,7 @@ struct CaptureDraftEntityTests {
                 (
                     relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
                     label: "restoreFromCache account or environment switch",
-                    pattern: #"func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\]\s*\)"#,
+                    pattern: #"func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\],\s*bootstrapOperationID: UUID\? = nil\s*\)"#,
                     requiredTokens: [
                         "preFilterCacheRecord",
                         "preFilterAppStateRecord",
@@ -167,6 +167,7 @@ struct CaptureDraftEntityTests {
                         "CaptureDraftEntityCatalog.purgeEntityIdentifiers(",
                         "CaptureDraftEntityCatalog.purgeDomainIdentifiers(",
                         "purgeCaptureDraftEntityIdentifiers",
+                        "ensureCurrentBootstrapOperation(bootstrapOperationID)",
                         "accountID: previousCacheSnapshot.accountID",
                         "environment: previousCacheSnapshot.environment",
                         "accountID: previousAppSnapshot.accountID",
