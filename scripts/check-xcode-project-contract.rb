@@ -330,7 +330,10 @@ diagnostic_source = ROOT.join("Apps/SpoonjoyMacWindowDiagnosticUITests/NativeMac
   "macos-ui-window-diagnostic",
   "macos-ui-window-diagnostic-screenshot",
   "app.descendants(matching: .any)",
-  "supportedRouteMarkers[route]",
+  "expectedRestoredRoutes[route]",
+  "screenshot.route.\\(expectedRestoredRoute)",
+  "expectedSignedOutRouteMarker",
+  "readRestoredRoute(in: stateDirectory)",
   "routeMarker.waitForExistence",
   "accessibilityElementCount",
   "XCUIIdentifierMinimizeWindow",
@@ -343,5 +346,6 @@ diagnostic_source = ROOT.join("Apps/SpoonjoyMacWindowDiagnosticUITests/NativeMac
 end
 fail_check("macOS window diagnostic must not default to the kitchen route") if diagnostic_source.match?(/EXPECTED_ROUTE[^\n]*\?\?\s*"kitchen"/)
 fail_check("macOS window diagnostic must not claim release accessibility evidence") if diagnostic_source.include?("observed-accessibility-evidence")
+fail_check("macOS window diagnostic must not use brittle route-label marker tables") if diagnostic_source.include?("supportedRouteMarkers")
 
 puts "xcode project contract ok"

@@ -8,9 +8,11 @@ import CoreSpotlight
 #endif
 
 struct SpoonjoyRootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
     @State private var hasAppliedRestoredRoute = false
+    @State private var hasCompletedInitialBootstrap = false
     @State private var screenshotProofReceipt: ScreenshotAccessibilityProofReceipt?
     @StateObject private var liveStore: NativeLiveAppStore
 
@@ -32,7 +34,20 @@ struct SpoonjoyRootView: View {
             .task {
                 synchronizeScreenshotProofReceipt()
                 await liveStore.bootstrap()
+                hasCompletedInitialBootstrap = true
                 applyRestoredRouteIfNeeded()
+            }
+            .onChange(of: scenePhase) { previousPhase, currentPhase in
+                guard hasCompletedInitialBootstrap,
+                      liveStore.allowsLiveEffects,
+                      previousPhase != .active,
+                      currentPhase == .active else {
+                    return
+                }
+                Task { @MainActor in
+                    await liveStore.refreshForForeground()
+                    applyRestoredRouteIfNeeded()
+                }
             }
             .onReceive(NotificationCenter.default.publisher(
                 for: ScreenshotAccessibilityProofHandshake.notification
@@ -167,6 +182,7 @@ struct SpoonjoyRootView: View {
                 }
             }
         }
+        .accessibilityIdentifier("screenshot.route.settings")
     }
 
     private func platformNavigation(contentState: NativeShellContentState) -> some View {
@@ -234,47 +250,6 @@ struct SpoonjoyRootView: View {
             },
             recordRecipeDetailTelemetry: { descriptor in
                 await liveStore.recordRecipeDetailTelemetry(descriptor)
-            },
-            syncTriggerCoordinator: liveStore.syncTriggerCoordinator,
-            purgeShoppingEntityIndexes: { request in
-                await liveStore.purgeShoppingEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
-            },
-            purgeSpoonEntityIndexes: { request in
-                await liveStore.purgeSpoonEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
-            },
-            purgeCaptureDraftEntityIndexes: { request in
-                await liveStore.purgeCaptureDraftEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
-            },
-            purgeChefProfileEntityIndexes: { request in
-                await liveStore.purgeChefProfileEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
-            },
-            purgeRecipeCookbookEntityIndexes: { request in
-                await liveStore.purgeRecipeCookbookEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
             }
         )
     }

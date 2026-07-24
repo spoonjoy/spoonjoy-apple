@@ -50,6 +50,7 @@ struct SignedOutSetupView: View {
 
     var body: some View {
         signedOutLayout
+        .accessibilityIdentifier("signed-out.route.\(pendingRoute.stateIdentifier)")
         .background(KitchenTableTheme.bone)
         .task {
             appleSignInCapability = Self.currentAppleSignInCapability()

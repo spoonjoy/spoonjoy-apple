@@ -374,7 +374,7 @@ class NativeScreenshotProvenanceTest < Minitest::Test
       touch "${CAPTURE_MARKER:?}"
       mkdir -p "$artifact_root/screenshots" "$artifact_root/apple"
       printf '{"mobileScreenshot":true,"desktopScreenshot":true,"blockers":[]}\n' > "$artifact_root/design-review.json"
-      for screenshot in ios-mobile.png ios-mobile-accessibility.png ios-tablet.png macos-desktop.png; do
+      for screenshot in ios-mobile.png ios-mobile-xxxl.png ios-mobile-accessibility.png ios-tablet.png ios-tablet-xxxl.png ios-tablet-accessibility.png macos-desktop.png; do
         if [[ "${CAPTURE_SKIP_SCREENSHOT:-}" != "$screenshot" ]]; then
           printf 'png:%s\n' "$screenshot" > "$artifact_root/screenshots/$screenshot"
         fi

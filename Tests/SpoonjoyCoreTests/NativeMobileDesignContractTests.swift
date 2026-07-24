@@ -361,12 +361,21 @@ struct NativeMobileDesignContractTests {
                 "verifiedContrastFalsePositives",
                 "ObservedVerifiedSystemChromeContrastFalsePositive",
                 "verifiedSystemChromeContrastFalsePositives",
-                "iosNativeCompactTabChromeContrastFalsePositiveV1",
-                "anonymousContrastBoundToAttestedNativeCompactTabChrome",
-                "testAnonymousContrastRequiresExactLargeTypeNativeCompactTabChromeAttestation",
-                "iosNativeBottomTabChromeContrastFalsePositiveV2",
-                "anonymousContrastBoundToAttestedNativeBottomTabChrome",
-                "testAnonymousContrastRequiresExactShippedPhoneNativeBottomTabChromeAttestation",
+                "iosNativeCompactTabChromeContrastFalsePositiveV2",
+                "elementContrastBoundToAttestedNativeCompactTabChrome",
+                "testChromeContrastWaiverRequiresExactIssueBoundLargeTypeNativeCompactTabEvidence",
+                "iosNativeBottomTabChromeContrastFalsePositiveV3",
+                "elementContrastBoundToAttestedNativeBottomTabChrome",
+                "testChromeContrastWaiverRequiresExactIssueBoundPhoneBottomTabEvidence",
+                "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV4",
+                "elementContrastBoundToAttestedNativeLargeTypeBottomTabChrome",
+                "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV5",
+                "elementContrastBoundToAttestedNativeLabelOnlyBottomTabChrome",
+                "iosNativeSidebarSelectionContrastFalsePositiveV3",
+                "elementContrastBoundToAttestedNativeSidebarSelection",
+                "testSidebarContrastWaiverRequiresExactIssueBoundSelectionPixelAttestation",
+                "issueElement",
+                "issuePixelEvidence",
                 "ObservedVerifiedTextClippedFalsePositive",
                 "verifiedTextClippedFalsePositives",
                 "iosNativeSidebarTextClippedFalsePositiveV1",
@@ -2621,6 +2630,50 @@ struct NativeMobileDesignContractTests {
                 "visualReadiness.proofIdentity == request.proofIdentity",
                 "currentReadiness.proofIdentity == request.proofIdentity",
                 "readinessGeneration: visualReadiness.generation"
+            ]
+        )
+    }
+
+    @Test("screenshot proof retries recover canonical generation bytes")
+    func screenshotProofRetriesRecoverCanonicalGenerationBytes() throws {
+        let writerPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
+        let writer = uncommentedSwift(try readRepoFile(writerPath))
+
+        expectContent(
+            writer,
+            in: writerPath,
+            contains: [
+                "private static func canonicalProofData(",
+                "let archivedData = try Data(contentsOf: generationOutputURL)",
+                "proofPayloadsMatchIgnoringWrittenAt(",
+                "return archivedData",
+                "data = try canonicalProofData("
+            ],
+            forbids: [
+                "guard try Data(contentsOf: generationOutputURL) == data"
+            ]
+        )
+    }
+
+    @Test("native chrome contrast waivers require issue-bound screenshot pixels")
+    func nativeChromeContrastWaiversRequireIssueBoundScreenshotPixels() throws {
+        let evidencePath = "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"
+        let evidence = uncommentedSwift(try readRepoFile(evidencePath))
+
+        expectContent(
+            evidence,
+            in: evidencePath,
+            contains: [
+                "let screenshotSHA256: String",
+                "let pixelEvidence: [ObservedVisibleTextContrastEvidence]",
+                "private func auditIssueReference(",
+                "guard !issue.elementType.isEmpty,",
+                "let issueFrame = issue.elementFrame,",
+                "private func systemChromePixelEvidence(",
+                "pixelEvidence: pixelEvidence"
+            ],
+            forbids: [
+                "issue.diagnosticDescription.contains(\"Element:(null)\"),\n              issue.diagnosticMirror.isEmpty,\n              issue.elementIdentifier.isEmpty,\n              issue.elementLabel.isEmpty,\n              issue.elementType.isEmpty,\n              issue.elementFrame == nil"
             ]
         )
     }

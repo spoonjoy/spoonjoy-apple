@@ -192,15 +192,13 @@ struct ShoppingEntityTests {
                     forbiddenTokens: []
                 ),
                 (
-                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    label: "foreground sync consumes sync purge report",
-                    pattern: #"\.task\(id: contentState\.environment\.rawValue\)"#,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+                    label: "foreground sync stays behind live store ownership",
+                    pattern: #"\.onChange\(of: scenePhase\)"#,
                     requiredTokens: [
-                        "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-                        "report.shoppingEntityPurgeRequests",
-                        "purgeShoppingEntityIndexesHandler"
+                        "await liveStore.refreshForForeground()"
                     ],
-                    forbiddenTokens: []
+                    forbiddenTokens: ["syncTriggerCoordinator.handle(.foreground)"]
                 ),
                 (
                     relativePath: "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",

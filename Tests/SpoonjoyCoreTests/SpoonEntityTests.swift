@@ -14,7 +14,7 @@ struct SpoonEntityTests {
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
                 "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",
-                "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
                 "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
             ],
             requiredTokens: [
@@ -134,10 +134,9 @@ struct SpoonEntityTests {
                     "tombstones",
                     "removedCacheKeys"
                 ],
-                "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift": [
-                    "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-                    "report.spoonEntityPurgeRequests",
-                    "purgeSpoonEntityIndexesHandler"
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift": [
+                    "@Environment(\\.scenePhase)",
+                    "await liveStore.refreshForForeground()"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift": [
                     "accountID: String? = nil",
@@ -186,15 +185,13 @@ struct SpoonEntityTests {
                     forbiddenTokens: []
                 ),
                 (
-                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    label: "foreground sync consumes spoon sync purge report",
-                    pattern: #"\.task\(id: contentState\.environment\.rawValue\)"#,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+                    label: "foreground sync stays behind live store ownership",
+                    pattern: #"\.onChange\(of: scenePhase\)"#,
                     requiredTokens: [
-                        "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-                        "report.spoonEntityPurgeRequests",
-                        "purgeSpoonEntityIndexesHandler"
+                        "await liveStore.refreshForForeground()"
                     ],
-                    forbiddenTokens: []
+                    forbiddenTokens: ["syncTriggerCoordinator.handle(.foreground)"]
                 ),
                 (
                     relativePath: "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",

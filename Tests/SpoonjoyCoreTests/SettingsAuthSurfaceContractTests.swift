@@ -101,10 +101,7 @@ struct SettingsAuthSurfaceContractTests {
                     "SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE",
                     "SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE",
                     "\"Session\"",
-                    "\"Agent Access\"",
-                    "\"This Device\"",
-                    "\"Push Delivery\"",
-                    "\"Notification Sync\""
+                    "\"This Device\""
                 ],
                 "scripts/capture-native-screenshot-matrix.sh": [
                     "settings-signed-out",

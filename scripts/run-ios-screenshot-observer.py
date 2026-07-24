@@ -381,6 +381,81 @@ def deep_scroll_screenshot_files(root: Path) -> list[Path]:
     return screenshot_attachment_files(root, "deep-scroll-screenshot_")
 
 
+def deep_scroll_waypoint_screenshot_files(root: Path, index: int) -> list[Path]:
+    return screenshot_attachment_files(root, f"deep-scroll-waypoint-{index}-screenshot_")
+
+
+def publish_waypoint_screenshots(
+    deep_scroll: dict,
+    attachments: Path,
+    output: Path,
+    *,
+    canonical_app_proof_path: Path,
+    expected_run_nonce: str,
+    expected_route: str,
+    expected_platform: str,
+    host_process_observation: dict,
+) -> None:
+    waypoints = deep_scroll.get("waypoints")
+    swipe_count = deep_scroll.get("swipeCount")
+    if not isinstance(swipe_count, int) or swipe_count < 0:
+        fail("deep-scroll waypoint export requires a nonnegative swipeCount")
+    if not isinstance(waypoints, list) or len(waypoints) != swipe_count:
+        fail("deep-scroll waypoint export count does not match swipeCount")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    for index, waypoint in enumerate(waypoints, start=1):
+        if not isinstance(waypoint, dict) or waypoint.get("index") != index:
+            fail(f"deep-scroll waypoint {index} evidence is malformed")
+        file_name = waypoint.get("screenshotArtifactPath")
+        expected_name = f"{output.stem}.deep-scroll-waypoint-{index}.png"
+        if file_name != expected_name or Path(str(file_name)).name != file_name:
+            fail(f"deep-scroll waypoint {index} screenshot artifact path is not canonical")
+        sources = deep_scroll_waypoint_screenshot_files(attachments, index)
+        if len(sources) != 1:
+            fail(f"expected one deep-scroll waypoint {index} screenshot, found {len(sources)}")
+        source = sources[0]
+        phase = f"deepScrollWaypoint-{index}"
+        if waypoint.get("capturePhase") != phase:
+            fail(f"deep-scroll waypoint {index} capture phase mismatch")
+        attest_audit_types(waypoint, phase)
+        waypoint_proof_path = readiness_proof_path(
+            canonical_app_proof_path,
+            waypoint.get("readinessHandshake"),
+        )
+        attest_screenshot_readiness(
+            waypoint,
+            waypoint_proof_path,
+            expected_run_nonce=expected_run_nonce,
+            expected_route=expected_route,
+            expected_platform=expected_platform,
+        )
+        attest_capture_identity(
+            waypoint,
+            source,
+            expected_run_nonce=expected_run_nonce,
+            expected_phase=phase,
+            host_process_observation=host_process_observation,
+        )
+        attest_exported_screenshot(waypoint, source, "screenshotSHA256")
+        expected_bytes = waypoint.get("screenshotBytes")
+        if not isinstance(expected_bytes, int) or expected_bytes <= 0 or source.stat().st_size != expected_bytes:
+            fail(f"deep-scroll waypoint {index} screenshot byte count mismatch")
+        destination = output.parent / file_name
+        if destination.is_symlink():
+            fail(f"deep-scroll waypoint {index} destination must not be a symlink")
+        temporary = destination.with_name(f".{destination.name}.{os.getpid()}.tmp")
+        shutil.copyfile(source, temporary)
+        os.replace(temporary, destination)
+        attest_capture_identity(
+            waypoint,
+            destination,
+            expected_run_nonce=expected_run_nonce,
+            expected_phase=phase,
+            host_process_observation=host_process_observation,
+        )
+
+
 def attest_exported_screenshot(evidence: dict, screenshot_path: Path, field: str) -> None:
     expected_sha256 = evidence.get(field)
     if not isinstance(expected_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", expected_sha256):
@@ -721,6 +796,8 @@ def main() -> None:
     configured_xctestrun = work_root / "Spoonjoy-observed.xctestrun"
     result_bundle = work_root / "ObservedAccessibility.xcresult"
     attachments = work_root / "attachments"
+    arguments.output.parent.mkdir(parents=True, exist_ok=True)
+    environment["SPOONJOY_OBSERVED_ACCESSIBILITY_EVIDENCE_PATH"] = str(arguments.output.resolve())
     configure_xctestrun(source_xctestrun, configured_xctestrun, app, runner, environment)
 
     test_status, host_process_observation = run_test_with_target_process_observation(
@@ -840,6 +917,16 @@ def main() -> None:
             fail("initial and deep-scroll screenshots came from different app processes")
         if deep_capture_identity["captureID"] == initial_capture_identity["captureID"]:
             fail("initial and deep-scroll screenshots reused one capture ID")
+        publish_waypoint_screenshots(
+            deep_scroll,
+            attachments,
+            arguments.output,
+            canonical_app_proof_path=canonical_app_proof_path,
+            expected_run_nonce=capture_run_nonce,
+            expected_route=arguments.route,
+            expected_platform=arguments.platform,
+            host_process_observation=host_process_observation,
+        )
     arguments.readiness_proof_output.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(app_proof_path, arguments.readiness_proof_output)
     if isinstance(deep_scroll, dict):

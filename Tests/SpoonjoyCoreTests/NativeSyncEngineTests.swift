@@ -891,6 +891,66 @@ struct NativeSyncEngineTests {
             }
             let restoredCheckpointClearStore = try FileBackedNativeSyncStore(fileURL: directory.appendingPathComponent("checkpoint-clear.json"))
             #expect((try await restoredCheckpointClearStore.loadSnapshot()).checkpoint == nil)
+
+            let compareAndSwapStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("compare-and-swap.json"),
+                fallback: .empty
+            )
+            let compareAndSwapBaseline = try await compareAndSwapStore.loadSnapshot()
+            let compareAndSwapReplacement = NativeSyncSnapshot(
+                accountID: "chef_compare_and_swap",
+                environment: .production,
+                checkpoint: nil,
+                queue: queue
+            )
+            try await compareAndSwapStore.replaceSnapshot(
+                compareAndSwapReplacement,
+                ifCurrent: compareAndSwapBaseline
+            )
+            #expect(try await compareAndSwapStore.loadSnapshot() == compareAndSwapReplacement)
+            do {
+                try await compareAndSwapStore.replaceSnapshot(.empty, ifCurrent: compareAndSwapBaseline)
+                Issue.record("Expected stale file-backed snapshot replacement to fail")
+            } catch NativeSyncStoreError.staleSnapshot {
+            }
+
+            let missingMediaDirectory = NativeStagedMediaDirectory(
+                directoryURL: directory.appendingPathComponent("missing-media", isDirectory: true)
+            )
+            let failureAtomicStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("failure-atomic.json"),
+                mediaResolver: missingMediaDirectory,
+                fallback: .empty
+            )
+            let failureAtomicBaseline = try await failureAtomicStore.loadSnapshot()
+            let missingPhoto = NativeStagedMediaUpload(
+                localStageID: "stage_missing_atomic",
+                fileName: "missing.jpg",
+                contentType: "image/jpeg",
+                byteCount: 3
+            )
+            let failureAtomicReplacement = NativeSyncSnapshot(
+                accountID: "chef_failure_atomic",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [
+                    .profilePhotoUpload(
+                        photo: missingPhoto,
+                        clientMutationID: "cm_failure_atomic",
+                        createdAt: Self.createdAt(3)
+                    )
+                ])
+            )
+            do {
+                try await failureAtomicStore.replaceSnapshot(
+                    failureAtomicReplacement,
+                    ifCurrent: failureAtomicBaseline
+                )
+                Issue.record("Expected missing staged media to reject snapshot replacement")
+            } catch NativeStagedMediaDirectoryError.missingStage(let stageID) {
+                #expect(stageID == missingPhoto.localStageID)
+            }
+            #expect(try await failureAtomicStore.loadSnapshot() == failureAtomicBaseline)
         }
 
         let localMutation = NativeQueuedMutation.captureDraftCreate(
@@ -997,6 +1057,12 @@ struct NativeSyncEngineTests {
         do {
             _ = try await unavailable.loadSnapshot()
             Issue.record("Expected unavailable loadSnapshot to throw")
+        } catch NativeSyncStoreError.unavailable(let message) {
+            #expect(message == "native sync unavailable")
+        }
+        do {
+            try await unavailable.replaceSnapshot(.empty, ifCurrent: .empty)
+            Issue.record("Expected unavailable replaceSnapshot to throw")
         } catch NativeSyncStoreError.unavailable(let message) {
             #expect(message == "native sync unavailable")
         }
@@ -2261,7 +2327,10 @@ struct NativeSyncEngineTests {
     func syncTriggerCoordinatorStartsBootstrapAndDrainForLifecycleNetworkAccountEnvironmentAndStaleSurfaceEvents() async throws {
         let runner = RecordingNativeSyncTriggerRunner()
         let scope = NativeSyncExecutionScope(expectedAccountID: "chef_ari", environment: .production)
-        let coordinator = NativeSyncTriggerCoordinator(runner: runner, configuration: configuration, scope: scope)
+        let coordinator = NativeSyncTriggerCoordinator(runner: runner, configuration: configuration).scoped(
+            configuration: configuration,
+            scope: scope
+        )
 
         try await coordinator.handle(.launch)
         try await coordinator.handle(.foreground)
@@ -3981,6 +4050,63 @@ struct NativeSyncEngineTests {
         #expect(report.pausedReason == .authRequired("Session expired."))
         #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_cookbook_conflict", "cm_profile_auth"])
         #expect(try await store.loadQueue().mutations.first?.lastError == "Cookbook was changed elsewhere.")
+    }
+
+    @Test("missing staged media conflicts only its dependency while independent work drains")
+    func missingStagedMediaConflictsOnlyItsDependencyWhileIndependentWorkDrains() async throws {
+        try await withTemporaryDirectory { directory in
+            let mediaDirectory = NativeStagedMediaDirectory(directoryURL: directory.appendingPathComponent("media"))
+            let originalPhoto = NativeStagedMediaUpload(
+                localStageID: "missing_profile_photo",
+                fileName: "profile.jpg",
+                contentType: "image/jpeg",
+                data: Data([0x73, 0x70, 0x6F, 0x6F, 0x6E])
+            )
+            let persistedPhotoMutation = try JSONDecoder().decode(
+                NativeQueuedMutation.self,
+                from: JSONEncoder().encode(NativeQueuedMutation.profilePhotoUpload(
+                    photo: originalPhoto,
+                    clientMutationID: "cm_missing_profile_photo",
+                    createdAt: Self.createdAt(0)
+                ))
+            )
+            let independentMutation = NativeQueuedMutation.shoppingAddItem(
+                name: "lemons",
+                quantity: 2,
+                unit: "each",
+                categoryKey: "produce",
+                iconKey: "lemon",
+                clientMutationID: "cm_independent_shopping",
+                createdAt: Self.createdAt(1)
+            )
+            let store = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .local,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [persistedPhotoMutation, independentMutation])
+            )
+            let transport = RecordingNativeSyncTransport(
+                bootstrap: .success(cursor: nil, tombstones: []),
+                mutationResults: [.success(serverRevision: nil)]
+            )
+            let engine = NativeSyncEngine(
+                store: store,
+                transport: transport,
+                mediaResolver: mediaDirectory,
+                clock: { now }
+            )
+
+            let report = try await engine.bootstrapAndDrain(
+                configuration: configuration,
+                trigger: .networkRecovered,
+                scope: boundScope
+            )
+
+            #expect(report.drainedClientMutationIDs == [independentMutation.clientMutationID])
+            #expect(report.conflicts.map(\.clientMutationID) == [persistedPhotoMutation.clientMutationID])
+            #expect(await transport.clientMutationIDs == [independentMutation.clientMutationID])
+            #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == [persistedPhotoMutation.clientMutationID])
+        }
     }
 
     @Test("retry results block the failed dependency key while independent mutations can still drain")

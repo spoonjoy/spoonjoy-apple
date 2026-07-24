@@ -74,6 +74,8 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     assert_equal expected_deep_scroll_keys, kitchen.fetch("deepScrollScreenshots").keys.sort
     recipes = manifest.dig("matrix", "routes").find { |route| route.fetch("name") == "recipes" }
     assert_equal expected_deep_scroll_keys, recipes.fetch("deepScrollScreenshots").keys.sort
+    assert_equal 6, kitchen.fetch("waypointScreenshots").length
+    assert kitchen.fetch("waypointScreenshots").all? { |path| path.end_with?(".deep-scroll-waypoint-1.png") }
     assert manifest.fetch("files").all? { |entry| entry.fetch("sha256").match?(/\A[0-9a-f]{64}\z/) }
 
     verify = run_tool("verify", *verify_arguments)
@@ -114,6 +116,43 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     result = run_tool("seal", *seal_arguments)
     refute result.success?
     assert_includes result.output, "deep-scroll screenshot"
+  end
+
+  def test_rejects_missing_deep_scroll_waypoint_screenshot
+    proof_path = @artifact_root.join("apple/observed-ios.json")
+    proof = JSON.parse(proof_path.read)
+    waypoint = proof.dig("deepScroll", "waypoints", 0)
+    proof_path.dirname.join(waypoint.fetch("screenshotArtifactPath")).delete
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "waypoint 0 screenshot is missing or not PNG"
+  end
+
+  def test_rejects_malformed_deep_scroll_waypoint_entries
+    proof_path = @artifact_root.join("apple/observed-ios.json")
+    proof = JSON.parse(proof_path.read)
+    proof.fetch("deepScroll")["waypoints"] = ["tampered"]
+    write_json(proof_path, proof)
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "waypoint 0 must be an object"
+  end
+
+  def test_rejects_a_symlinked_deep_scroll_waypoint_screenshot
+    proof_path = @artifact_root.join("apple/observed-ios.json")
+    proof = JSON.parse(proof_path.read)
+    waypoint = proof.dig("deepScroll", "waypoints", 0)
+    screenshot = proof_path.dirname.join(waypoint.fetch("screenshotArtifactPath"))
+    outside = @temporary_directory.join("outside-waypoint.png")
+    outside.binwrite(screenshot.binread)
+    screenshot.delete
+    File.symlink(outside, screenshot)
+
+    result = run_tool("seal", *seal_arguments)
+    refute result.success?
+    assert_includes result.output, "symlink"
   end
 
   def test_rejects_missing_xxxl_primary_screenshot
@@ -186,6 +225,33 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     result = run_tool("seal", *seal_arguments)
     refute result.success?
     assert_includes result.output, "canonical capture route"
+  end
+
+  def test_rejects_a_noncanonical_artifact_root_for_a_matrix_row
+    summary = JSON.parse(matrix_summary_path.read)
+    row = summary.fetch("routes").find { |candidate| candidate.fetch("name") == "settings-notifications" }
+    row["artifactRoot"] = @artifact_root.join("screenshot-routes/not-settings-notifications").to_s
+    write_json(matrix_summary_path, summary)
+    matrix_summary_path.sub_ext(".jsonl").write(summary.fetch("routes").map { |entry| JSON.generate(entry) }.join("\n") + "\n")
+
+    result = run_tool("seal", *seal_arguments)
+
+    refute result.success?
+    assert_includes result.output, "artifact root is not canonical"
+  end
+
+  def test_rejects_two_matrix_rows_that_share_one_evidence_root
+    summary = JSON.parse(matrix_summary_path.read)
+    settings = summary.fetch("routes").find { |candidate| candidate.fetch("name") == "settings" }
+    notifications = summary.fetch("routes").find { |candidate| candidate.fetch("name") == "settings-notifications" }
+    notifications["artifactRoot"] = settings.fetch("artifactRoot")
+    write_json(matrix_summary_path, summary)
+    matrix_summary_path.sub_ext(".jsonl").write(summary.fetch("routes").map { |entry| JSON.generate(entry) }.join("\n") + "\n")
+
+    result = run_tool("seal", *seal_arguments)
+
+    refute result.success?
+    assert_includes result.output, "artifact root is reused"
   end
 
   def test_rejects_blocker_residue_anywhere_in_the_matrix_root
@@ -601,7 +667,25 @@ class TestFlightVisualEvidenceTest < Minitest::Test
     ]
     proof_paths = accessibility_proof_paths + observed_proof_paths
     proof_paths.each do |relative_path|
-      write_json(route_root.join(relative_path), "route" => route, "proof" => relative_path)
+      proof_path = route_root.join(relative_path)
+      proof = { "route" => route, "proof" => relative_path }
+      if DEEP_SCROLL_ROUTES.include?(capture_route_for(route)) &&
+         relative_path.start_with?("apple/observed-") &&
+         relative_path != "apple/observed-macos.json"
+        waypoint_name = "#{proof_path.basename(".json")}.deep-scroll-waypoint-1.png"
+        waypoint_path = proof_path.dirname.join(waypoint_name)
+        waypoint_path.binwrite(png_bytes("#{route}:#{relative_path}:waypoint-1"))
+        proof["deepScroll"] = {
+          "swipeCount" => 1,
+          "waypoints" => [{
+            "index" => 1,
+            "screenshotArtifactPath" => waypoint_name,
+            "screenshotBytes" => waypoint_path.size,
+            "screenshotSHA256" => Digest::SHA256.file(waypoint_path).hexdigest
+          }]
+        }
+      end
+      write_json(proof_path, proof)
     end
 
     review = {

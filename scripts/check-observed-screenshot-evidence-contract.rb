@@ -1,9 +1,11 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "json"
+require "open3"
 require "pathname"
 
-ROOT = Pathname.new(__dir__).join("..").expand_path
+ROOT = Pathname.new(ENV.fetch("SPOONJOY_CONTRACT_ROOT", Pathname.new(__dir__).join("..").to_s)).expand_path
 
 def fail_check(message)
   warn "FAIL: #{message}"
@@ -13,7 +15,85 @@ end
 def source(relative_path)
   path = ROOT.join(relative_path)
   fail_check("missing #{relative_path}") unless path.file?
-  path.read
+  content = path.read
+  case path.extname
+  when ".py"
+    content.each_line.map { |line| line.lstrip.start_with?("#") ? "\n" : line }.join
+  when ".swift"
+    strip_swift_nonexecuting_source(content)
+  else
+    content
+  end
+end
+
+def strip_swift_nonexecuting_source(content)
+  active_lines = []
+  disabled_depth = 0
+  content.each_line do |line|
+    stripped = line.strip
+    if disabled_depth.positive?
+      disabled_depth += 1 if stripped.start_with?("#if ")
+      disabled_depth -= 1 if stripped == "#endif"
+      active_lines << "\n"
+      next
+    end
+    if stripped.match?(/\A#if\s+(?:false|0)\z/)
+      disabled_depth = 1
+      active_lines << "\n"
+      next
+    end
+    active_lines << line
+  end
+  fail_check("unterminated disabled Swift conditional") unless disabled_depth.zero?
+
+  result = +""
+  block_depth = 0
+  in_string = false
+  escaped = false
+  index = 0
+  swift_source = active_lines.join
+  while index < swift_source.length
+    pair = swift_source[index, 2]
+    character = swift_source[index]
+    if block_depth.positive?
+      if pair == "/*"
+        block_depth += 1
+        result << "  "
+        index += 2
+      elsif pair == "*/"
+        block_depth -= 1
+        result << "  "
+        index += 2
+      else
+        result << (character == "\n" ? "\n" : " ")
+        index += 1
+      end
+    elsif in_string
+      result << character
+      if escaped
+        escaped = false
+      elsif character == "\\"
+        escaped = true
+      elsif character == '"'
+        in_string = false
+      end
+      index += 1
+    elsif pair == "//"
+      newline = swift_source.index("\n", index) || swift_source.length
+      result << " " * (newline - index)
+      index = newline
+    elsif pair == "/*"
+      block_depth = 1
+      result << "  "
+      index += 2
+    else
+      in_string = true if character == '"'
+      result << character
+      index += 1
+    end
+  end
+  fail_check("unterminated Swift block comment") unless block_depth.zero?
+  result
 end
 
 def require_tokens(relative_path, tokens)
@@ -28,6 +108,73 @@ def forbid_tokens(relative_path, tokens)
   tokens.each do |token|
     fail_check("#{relative_path} still self-attests #{token.inspect}") if content.include?(token)
   end
+end
+
+def validate_python_observer_ast!(relative_path)
+  path = ROOT.join(relative_path)
+  inspector = <<~'PYTHON'
+    import ast
+    import json
+    import sys
+
+    tree = ast.parse(open(sys.argv[1], encoding="utf-8").read(), filename=sys.argv[1])
+
+    class ActiveCalls(ast.NodeVisitor):
+        def __init__(self):
+            self.calls = []
+
+        def visit_If(self, node):
+            if isinstance(node.test, ast.Constant) and not bool(node.test.value):
+                for statement in node.orelse:
+                    self.visit(statement)
+                return
+            self.generic_visit(node)
+
+        def visit_Call(self, node):
+            if isinstance(node.func, ast.Name):
+                name = node.func.id
+            elif isinstance(node.func, ast.Attribute):
+                name = node.func.attr
+            else:
+                name = ""
+            self.calls.append({
+                "name": name,
+                "line": node.lineno,
+                "keywords": sorted(keyword.arg for keyword in node.keywords if keyword.arg),
+            })
+            self.generic_visit(node)
+
+    result = {}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            visitor = ActiveCalls()
+            for statement in node.body:
+                visitor.visit(statement)
+            result[node.name] = visitor.calls
+    print(json.dumps(result, sort_keys=True))
+  PYTHON
+  stdout, stderr, status = Open3.capture3("python3", "-c", inspector, path.to_s)
+  fail_check("#{relative_path} AST inspection failed: #{stderr.strip}") unless status.success?
+  functions = JSON.parse(stdout)
+
+  waypoint_calls = functions.fetch("publish_waypoint_screenshots", [])
+  required_waypoint_calls = %w[
+    attest_audit_types readiness_proof_path attest_screenshot_readiness attest_capture_identity
+  ]
+  missing_waypoint_calls = required_waypoint_calls.reject do |name|
+    waypoint_calls.any? { |call| call["name"] == name }
+  end
+  fail_check("#{relative_path} publish_waypoint_screenshots missing active #{missing_waypoint_calls.join(", ")}") unless missing_waypoint_calls.empty?
+  fail_check("#{relative_path} publish_waypoint_screenshots must attest capture identity before and after publication") unless
+    waypoint_calls.count { |call| call["name"] == "attest_capture_identity" } >= 2
+
+  main_publish = functions.fetch("main", []).find { |call| call["name"] == "publish_waypoint_screenshots" }
+  required_keywords = %w[
+    canonical_app_proof_path expected_platform expected_route expected_run_nonce host_process_observation
+  ]
+  fail_check("#{relative_path} main missing active publish_waypoint_screenshots") unless main_publish
+  fail_check("#{relative_path} main waypoint publication lacks authoritative inputs") unless
+    required_keywords.all? { |keyword| main_publish.fetch("keywords").include?(keyword) }
 end
 
 proof_writer = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
@@ -117,26 +264,28 @@ require_tokens(ios_observer, [
   "testStaleOffscreenContrastRequiresPriorPixelsAndExactScrollDisplacement",
   "ObservedVerifiedSystemChromeContrastFalsePositive",
   "verifiedSystemChromeContrastFalsePositives",
-  "iosNativeCompactTabChromeContrastFalsePositiveV1",
-  "anonymousContrastBoundToAttestedNativeCompactTabChrome",
-  "testAnonymousContrastRequiresExactLargeTypeNativeCompactTabChromeAttestation",
-  "iosNativeBottomTabChromeContrastFalsePositiveV2",
-  "anonymousContrastBoundToAttestedNativeBottomTabChrome",
-  "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3",
-  "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome",
-  "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4",
-  "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome",
-  "testAnonymousContrastRequiresExactShippedPhoneNativeBottomTabChromeAttestation",
+  "iosNativeCompactTabChromeContrastFalsePositiveV2",
+  "elementContrastBoundToAttestedNativeCompactTabChrome",
+  "testChromeContrastWaiverRequiresExactIssueBoundLargeTypeNativeCompactTabEvidence",
+  "iosNativeBottomTabChromeContrastFalsePositiveV3",
+  "elementContrastBoundToAttestedNativeBottomTabChrome",
+  "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV4",
+  "elementContrastBoundToAttestedNativeLargeTypeBottomTabChrome",
+  "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV5",
+  "elementContrastBoundToAttestedNativeLabelOnlyBottomTabChrome",
+  "testChromeContrastWaiverRequiresExactIssueBoundPhoneBottomTabEvidence",
   "ObservedVerifiedNativeSidebarSelectionContrastFalsePositive",
   "ObservedVisibleTextContrastEvidence",
   "verifiedNativeSidebarSelectionContrastFalsePositives",
-  "iosNativeSidebarSelectionContrastFalsePositiveV1",
-  "anonymousContrastBoundToAttestedNativeSidebarSelection",
+  "iosNativeSidebarSelectionContrastFalsePositiveV3",
+  "elementContrastBoundToAttestedNativeSidebarSelection",
+  "issueElement",
+  "issuePixelEvidence",
   "selectedCellInteriorFrame",
   "selectedCellPixelEvidence",
   "selectedSymbolPixelEvidence",
   "visibleTextPixelEvidence",
-  "testAnonymousContrastRequiresExactLargeIpadNativeSidebarSelectionPixelAttestation",
+  "testSidebarContrastWaiverRequiresExactIssueBoundSelectionPixelAttestation",
   "ObservedVerifiedTextClippedFalsePositive",
   "verifiedTextClippedFalsePositives",
   "iosNativeSidebarTextClippedFalsePositiveV1",
@@ -202,7 +351,8 @@ require_tokens("Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift", 
   "screenshotPixelContrastV2",
   "screenshotSHA256",
   "minimumBackgroundCoverage = 0.6",
-  "requiredContrastRatio = 4.5",
+  "defaultRequiredContrastRatio = 4.5",
+  "requiredContrastRatio: Double = defaultRequiredContrastRatio",
   "evaluatedForegroundClusterCount",
   "substantialForegroundClusters",
   "backgroundPixelCount",
@@ -546,6 +696,7 @@ require_tokens("scripts/run-ios-screenshot-observer.py", [
   'initial_capture_identity = attest_capture_identity(',
   'deep_capture_identity = attest_capture_identity('
 ])
+validate_python_observer_ast!("scripts/run-ios-screenshot-observer.py")
 
 capture_script = source("scripts/capture-native-screenshots.sh")
 capture_ios_app_start = capture_script.index("capture_ios_app() {")

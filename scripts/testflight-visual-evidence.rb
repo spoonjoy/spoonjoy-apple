@@ -289,9 +289,30 @@ module TestFlightVisualEvidence
       unless routes.is_a?(Array) && routes.map { |row| row.is_a?(Hash) ? row["name"] : nil } == EXPECTED_ROUTES
         raise Error, "full route matrix rows do not match the canonical route order"
       end
+      route_roots = routes.map do |row|
+        root_value = row["artifactRoot"]
+        raise Error, "route #{row["name"].inspect} artifact root must be a non-empty string" unless
+          root_value.is_a?(String) && !root_value.empty?
+
+        Pathname.new(root_value).cleanpath.expand_path
+      end
+      duplicate_roots = route_roots.group_by(&:to_s).select { |_root, matches| matches.length > 1 }.keys
+      unless duplicate_roots.empty?
+        raise Error, "route artifact root is reused across matrix rows: #{duplicate_roots.sort.join(", ")}"
+      end
       routes.each do |row|
         unless row["route"] == EXPECTED_ROUTE_BY_NAME.fetch(row["name"])
           raise Error, "route #{row["name"].inspect} does not use its canonical capture route"
+        end
+        expected_root = if row["name"] == EXPECTED_ROUTES.first
+                          @artifact_root
+                        else
+                          @artifact_root.join("screenshot-routes", row["name"])
+                        end
+        observed_root = Pathname.new(row.fetch("artifactRoot")).cleanpath.expand_path
+        unless observed_root == expected_root
+          raise Error,
+                "route #{row["name"].inspect} artifact root is not canonical: expected #{expected_root}, got #{observed_root}"
         end
         unless row["status"] == "pass" && row["blocked"] == false && row["missingDesignReview"] == false
           raise Error, "route #{row["name"].inspect} is not a terminal passing visual route"
@@ -417,12 +438,13 @@ module TestFlightVisualEvidence
       end
 
       proofs = []
+      waypoint_screenshots = []
       REQUIRED_PROOF_ARRAYS.each do |key, expected_count|
         values = design[key]
         unless values.is_a?(Array) && values.length == expected_count
           raise Error, "route #{name} #{key} must contain #{expected_count} proofs"
         end
-        proofs.concat(seal_proofs(name, route_root, key, values))
+        proofs.concat(seal_proofs(name, route_root, key, values, waypoint_screenshots))
       end
       if DEEP_SCROLL_ROUTES.include?(row.fetch("route"))
         DEEP_SCROLL_PROOF_ARRAYS.each do |key, expected_count|
@@ -430,7 +452,7 @@ module TestFlightVisualEvidence
           unless values.is_a?(Array) && values.length == expected_count
             raise Error, "route #{name} #{key} must contain #{expected_count} proofs"
           end
-          proofs.concat(seal_proofs(name, route_root, key, values))
+          proofs.concat(seal_proofs(name, route_root, key, values, waypoint_screenshots))
         end
       elsif DEEP_SCROLL_PROOF_ARRAYS.keys.any? { |key| design.key?(key) }
         raise Error, "route #{name} must not claim deep-scroll proofs"
@@ -439,7 +461,7 @@ module TestFlightVisualEvidence
         next unless design.key?(key)
         values = design[key]
         raise Error, "route #{name} #{key} must be a non-empty proof array" unless values.is_a?(Array) && !values.empty?
-        proofs.concat(seal_proofs(name, route_root, key, values))
+        proofs.concat(seal_proofs(name, route_root, key, values, waypoint_screenshots))
       end
 
       {
@@ -448,20 +470,70 @@ module TestFlightVisualEvidence
         "designReview" => design_portable,
         "screenshots" => screenshots,
         "deepScrollScreenshots" => deep_scroll_screenshots,
-        "proofs" => proofs.sort
+        "proofs" => proofs.sort,
+        "waypointScreenshots" => waypoint_screenshots.sort
       }
     rescue KeyError => error
       raise Error, "route #{name || "unknown"} evidence is missing #{error.key}"
     end
 
-    def seal_proofs(route_name, route_root, key, values)
+    def seal_proofs(route_name, route_root, key, values, waypoint_screenshots)
       values.map.with_index do |relative, index|
         safe = TestFlightVisualEvidence.safe_relative_path(relative, "route #{route_name} #{key}[#{index}]")
         path = relative_route_file(route_root, safe, "route #{route_name} #{key}[#{index}]")
         proof = TestFlightVisualEvidence.parse_json(path, "route #{route_name} #{key}[#{index}]")
         raise Error, "route #{route_name} proof #{safe} contains a blocker" if TestFlightVisualEvidence.contains_blocked_true?(proof)
+        waypoint_screenshots.concat(seal_waypoint_screenshots(route_name, path, proof))
         add_selected(path, relative_source_path(path, "route #{route_name} proof #{safe}"))
       end
+    end
+
+    def seal_waypoint_screenshots(route_name, proof_path, proof)
+      waypoint_sets = []
+      if proof.key?("waypoints")
+        raise Error, "route #{route_name} proof waypoints must be an array" unless proof["waypoints"].is_a?(Array)
+        waypoint_sets << proof["waypoints"]
+      end
+      deep_scroll = proof["deepScroll"]
+      if deep_scroll.is_a?(Hash) && deep_scroll.key?("swipeCount")
+        swipe_count = deep_scroll["swipeCount"]
+        waypoints = deep_scroll["waypoints"]
+        unless swipe_count.is_a?(Integer) && swipe_count >= 0 && waypoints.is_a?(Array) && waypoints.length == swipe_count
+          raise Error, "route #{route_name} proof deep-scroll waypoint count mismatch"
+        end
+        waypoint_sets << waypoints
+      elsif deep_scroll.is_a?(Hash) && deep_scroll.key?("waypoints")
+        raise Error, "route #{route_name} proof deep-scroll waypoints require swipeCount"
+      end
+      waypoint_sets.flatten.each_with_index.map do |waypoint, index|
+        raise Error, "route #{route_name} waypoint #{index} must be an object" unless waypoint.is_a?(Hash)
+        relative = TestFlightVisualEvidence.safe_relative_path(
+          waypoint.fetch("screenshotArtifactPath"),
+          "route #{route_name} waypoint #{index} screenshot"
+        )
+        unless Pathname.new(relative).basename.to_s == relative
+          raise Error, "route #{route_name} waypoint #{index} screenshot must be adjacent to its proof"
+        end
+        screenshot_path = proof_path.dirname.join(relative).expand_path
+        TestFlightVisualEvidence.reject_symlink_components!(
+          @artifact_root,
+          screenshot_path,
+          "route #{route_name} waypoint #{index} screenshot"
+        )
+        unless screenshot_path.file? && TestFlightVisualEvidence.png?(screenshot_path)
+          raise Error, "route #{route_name} waypoint #{index} screenshot is missing or not PNG"
+        end
+        unless screenshot_path.size == waypoint.fetch("screenshotBytes") &&
+               Digest::SHA256.file(screenshot_path).hexdigest == waypoint.fetch("screenshotSHA256")
+          raise Error, "route #{route_name} waypoint #{index} screenshot integrity mismatch"
+        end
+        add_selected(
+          screenshot_path,
+          relative_source_path(screenshot_path, "route #{route_name} waypoint #{index} screenshot")
+        )
+      end
+    rescue KeyError => error
+      raise Error, "route #{route_name} waypoint screenshot is missing #{error.key}"
     end
 
     def relative_route_file(route_root, relative, label)
@@ -744,10 +816,56 @@ module TestFlightVisualEvidence
         end
         proofs = route["proofs"]
         raise Error, "route #{route_name} proof set is incomplete" unless proofs.is_a?(Array)
+        expected_waypoint_screenshots = []
         proofs.each do |reference|
           path = require_file_reference!(reference, files, "route #{route_name} proof", referenced)
           proof = TestFlightVisualEvidence.parse_json(path, "route #{route_name} proof")
           raise Error, "route #{route_name} proof contains a blocker" if TestFlightVisualEvidence.contains_blocked_true?(proof)
+          waypoint_sets = []
+          if proof.key?("waypoints")
+            raise Error, "route #{route_name} sealed proof waypoints must be an array" unless proof["waypoints"].is_a?(Array)
+            waypoint_sets << proof["waypoints"]
+          end
+          deep_scroll = proof["deepScroll"]
+          if deep_scroll.is_a?(Hash) && deep_scroll.key?("swipeCount")
+            swipe_count = deep_scroll["swipeCount"]
+            waypoints = deep_scroll["waypoints"]
+            unless swipe_count.is_a?(Integer) && swipe_count >= 0 && waypoints.is_a?(Array) && waypoints.length == swipe_count
+              raise Error, "route #{route_name} sealed proof deep-scroll waypoint count mismatch"
+            end
+            waypoint_sets << waypoints
+          elsif deep_scroll.is_a?(Hash) && deep_scroll.key?("waypoints")
+            raise Error, "route #{route_name} sealed proof deep-scroll waypoints require swipeCount"
+          end
+          waypoint_sets.flatten.each_with_index do |waypoint, index|
+            raise Error, "route #{route_name} sealed waypoint #{index} must be an object" unless waypoint.is_a?(Hash)
+            relative = TestFlightVisualEvidence.safe_relative_path(
+              waypoint.fetch("screenshotArtifactPath"),
+              "route #{route_name} sealed waypoint #{index} screenshot"
+            )
+            unless Pathname.new(relative).basename.to_s == relative
+              raise Error, "route #{route_name} sealed waypoint #{index} screenshot must be adjacent to its proof"
+            end
+            waypoint_reference = Pathname.new(reference).dirname.join(relative).cleanpath.to_s
+            waypoint_path = require_file_reference!(
+              waypoint_reference,
+              files,
+              "route #{route_name} sealed waypoint #{index} screenshot",
+              referenced
+            )
+            unless TestFlightVisualEvidence.png?(waypoint_path) &&
+                   waypoint_path.size == waypoint.fetch("screenshotBytes") &&
+                   Digest::SHA256.file(waypoint_path).hexdigest == waypoint.fetch("screenshotSHA256")
+              raise Error, "route #{route_name} sealed waypoint #{index} screenshot integrity mismatch"
+            end
+            expected_waypoint_screenshots << waypoint_reference
+          end
+        end
+        waypoint_screenshots = route["waypointScreenshots"]
+        unless waypoint_screenshots.is_a?(Array) && waypoint_screenshots.sort == expected_waypoint_screenshots.sort
+          raise Error,
+                "route #{route_name} waypoint screenshot references differ from its proofs: " \
+                "sealed=#{waypoint_screenshots.inspect} derived=#{expected_waypoint_screenshots.inspect}"
         end
         expected_proofs = []
         REQUIRED_PROOF_ARRAYS.each do |key, expected_count|

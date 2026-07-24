@@ -647,17 +647,27 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         guard self.snapshot() == current else {
             throw NativeSyncStoreError.staleSnapshot
         }
-        accountID = snapshot.accountID
-        environment = snapshot.environment
-        checkpoint = snapshot.checkpoint
+        let resolvedQueue: NativeMutationQueue
         if let mediaResolver {
-            queue = try snapshot.queue.resolvingStagedMedia(using: mediaResolver)
+            resolvedQueue = try snapshot.queue.resolvingStagedMedia(using: mediaResolver)
         } else {
-            queue = snapshot.queue
+            resolvedQueue = snapshot.queue
         }
-        records = Dictionary(uniqueKeysWithValues: snapshot.cachedRecords.map { ($0.cacheKey, $0) })
-        tombstones = snapshot.tombstones
-        try persist()
+        let persistedSnapshot = NativeSyncSnapshot(
+            accountID: snapshot.accountID,
+            environment: snapshot.environment,
+            checkpoint: snapshot.checkpoint,
+            queue: resolvedQueue,
+            cachedRecords: snapshot.cachedRecords,
+            tombstones: snapshot.tombstones
+        )
+        try store.save(persistedSnapshot)
+        accountID = persistedSnapshot.accountID
+        environment = persistedSnapshot.environment
+        checkpoint = persistedSnapshot.checkpoint
+        queue = persistedSnapshot.queue
+        records = Dictionary(uniqueKeysWithValues: persistedSnapshot.cachedRecords.map { ($0.cacheKey, $0) })
+        tombstones = persistedSnapshot.tombstones
     }
 
     private func persist() throws {
@@ -4260,11 +4270,18 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
 public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendable {
     private let store: any NativeSyncStore
     private let transport: any NativeSyncTransport
+    private let mediaResolver: (any NativeStagedMediaResolving)?
     private let clock: @Sendable () -> Date
 
-    public init(store: any NativeSyncStore, transport: any NativeSyncTransport, clock: @escaping @Sendable () -> Date = Date.init) {
+    public init(
+        store: any NativeSyncStore,
+        transport: any NativeSyncTransport,
+        mediaResolver: (any NativeStagedMediaResolving)? = nil,
+        clock: @escaping @Sendable () -> Date = Date.init
+    ) {
         self.store = store
         self.transport = transport
+        self.mediaResolver = mediaResolver
         self.clock = clock
     }
 
@@ -4439,12 +4456,24 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
 
             let result: NativeSyncMutationResult
             do {
-                result = try await transport.send(mutation, configuration: configuration)
+                let transportMutation: NativeQueuedMutation
+                if let mediaResolver {
+                    transportMutation = try mutation.resolvingStagedMedia(using: mediaResolver)
+                } else {
+                    transportMutation = mutation
+                }
+                result = try await transport.send(transportMutation, configuration: configuration)
             } catch is RecipeCoverImageNormalizationError {
                 result = .conflict(
                     kind: .validation,
                     serverRevision: nil,
                     message: "Queued cover photo is unreadable. Choose the photo again."
+                )
+            } catch is NativeStagedMediaDirectoryError {
+                result = .conflict(
+                    kind: .validation,
+                    serverRevision: nil,
+                    message: "Queued photo is missing. Choose the photo again."
                 )
             }
             switch result {

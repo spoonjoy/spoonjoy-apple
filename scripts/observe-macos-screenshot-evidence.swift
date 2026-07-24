@@ -326,7 +326,6 @@ struct ScreenshotPixelBuffer {
 enum ScreenshotPixelContrastAnalyzer {
     private static let minimumBackgroundCoverage = 0.6
     private static let maximumForegroundCoverage = 0.4
-    private static let minimumForegroundClusterShare = 0.2
 
     static func analyze(
         pixels: [AXObservedRGBPixel],
@@ -343,7 +342,11 @@ enum ScreenshotPixelContrastAnalyzer {
         }
 
         let buckets = Dictionary(grouping: pixels, by: quantizedKey)
-        guard let dominantBucket = buckets.values.max(by: { $0.count < $1.count }) else { return nil }
+        guard let dominantBucket = buckets.sorted(by: { left, right in
+            left.value.count == right.value.count
+                ? left.key < right.key
+                : left.value.count > right.value.count
+        }).first?.value else { return nil }
         let dominantColor = average(dominantBucket)
         let backgroundPixels = pixels.filter { $0.distance(to: dominantColor) <= 12 }
         let backgroundCoverage = Double(backgroundPixels.count) / Double(pixels.count)
@@ -370,8 +373,8 @@ enum ScreenshotPixelContrastAnalyzer {
                 count += 1
             }
         }
-        let foregroundCandidates = indexedForegroundCandidates.compactMap { candidate in
-            ignoredEdgeRuleRows.contains(candidate.offset / width) ? nil : candidate.element
+        let foregroundCandidates = indexedForegroundCandidates.filter { candidate in
+            !ignoredEdgeRuleRows.contains(candidate.offset / width)
         }
         let minimumForegroundPixels = max(8, pixels.count / 200)
         let candidateCoverage = Double(foregroundCandidates.count) / Double(pixels.count)
@@ -380,23 +383,43 @@ enum ScreenshotPixelContrastAnalyzer {
             return nil
         }
 
-        let foregroundBuckets = Dictionary(grouping: foregroundCandidates, by: quantizedKey)
-        let substantialClusterMinimum = max(
-            minimumForegroundPixels,
-            Int(ceil(Double(foregroundCandidates.count) * minimumForegroundClusterShare))
+        let substantialForegroundClusters = spatialComponents(
+            in: foregroundCandidates,
+            width: width
         )
-        let substantialForegroundClusters = foregroundBuckets.values.filter {
-            $0.count >= substantialClusterMinimum
-        }
+            .filter { $0.count >= minimumForegroundPixels }
+            .sorted { left, right in
+                (left.map(\.offset).min() ?? .max) < (right.map(\.offset).min() ?? .max)
+            }
         guard !substantialForegroundClusters.isEmpty else { return nil }
 
-        let evaluatedClusters = substantialForegroundClusters.map { cluster -> (AXObservedRGBPixel, Double) in
-            let color = average(cluster)
+        let evaluatedClusters = substantialForegroundClusters.compactMap { cluster -> (AXObservedRGBPixel, Double)? in
+            let coreCandidates = cluster.filter { candidate in
+                let pixel = candidate.element
+                let ratio = (max(background.luminance, pixel.luminance) + 0.05)
+                    / (min(background.luminance, pixel.luminance) + 0.05)
+                return ratio >= requiredContrastRatio
+            }
+            guard coreCandidates.count >= minimumForegroundPixels else { return nil }
+            let coreOffsets = Set(coreCandidates.map(\.offset))
+            guard cluster.allSatisfy({ candidate in
+                coreOffsets.contains(candidate.offset)
+                    || isWithinPixelRadius(
+                        candidate.offset,
+                        of: coreOffsets,
+                        width: width,
+                        radius: 2
+                    )
+            }) else {
+                return nil
+            }
+            let color = average(coreCandidates.map(\.element))
             let ratio = (max(background.luminance, color.luminance) + 0.05)
                 / (min(background.luminance, color.luminance) + 0.05)
             return (color, ratio)
         }
-        guard let weakestCluster = evaluatedClusters.min(by: { $0.1 < $1.1 }),
+        guard evaluatedClusters.count == substantialForegroundClusters.count,
+              let weakestCluster = evaluatedClusters.min(by: { $0.1 < $1.1 }),
               weakestCluster.1 >= requiredContrastRatio else {
             return nil
         }
@@ -424,6 +447,72 @@ enum ScreenshotPixelContrastAnalyzer {
         (Int(pixel.red) / 8) << 10
             | (Int(pixel.green) / 8) << 5
             | Int(pixel.blue) / 8
+    }
+
+    private static func spatialComponents(
+        in candidates: [(offset: Int, element: AXObservedRGBPixel)],
+        width: Int
+    ) -> [[(offset: Int, element: AXObservedRGBPixel)]] {
+        let pixelsByOffset = Dictionary(uniqueKeysWithValues: candidates.map { ($0.offset, $0.element) })
+        var unvisitedOffsets = Set(pixelsByOffset.keys)
+        var components: [[(offset: Int, element: AXObservedRGBPixel)]] = []
+
+        while let startOffset = unvisitedOffsets.first {
+            var pendingOffsets = [startOffset]
+            var component: [(offset: Int, element: AXObservedRGBPixel)] = []
+            unvisitedOffsets.remove(startOffset)
+
+            while let offset = pendingOffsets.popLast() {
+                guard let pixel = pixelsByOffset[offset] else { continue }
+                component.append((offset: offset, element: pixel))
+                let row = offset / width
+                let column = offset % width
+
+                for rowDelta in -1...1 {
+                    for columnDelta in -1...1 where rowDelta != 0 || columnDelta != 0 {
+                        let neighborRow = row + rowDelta
+                        let neighborColumn = column + columnDelta
+                        guard neighborRow >= 0,
+                              neighborColumn >= 0,
+                              neighborColumn < width else {
+                            continue
+                        }
+                        let neighborOffset = neighborRow * width + neighborColumn
+                        if unvisitedOffsets.remove(neighborOffset) != nil {
+                            pendingOffsets.append(neighborOffset)
+                        }
+                    }
+                }
+            }
+            components.append(component)
+        }
+
+        return components
+    }
+
+    private static func isWithinPixelRadius(
+        _ offset: Int,
+        of targetOffsets: Set<Int>,
+        width: Int,
+        radius: Int
+    ) -> Bool {
+        let row = offset / width
+        let column = offset % width
+        for rowDelta in -radius...radius {
+            for columnDelta in -radius...radius {
+                let targetRow = row + rowDelta
+                let targetColumn = column + columnDelta
+                guard targetRow >= 0,
+                      targetColumn >= 0,
+                      targetColumn < width else {
+                    continue
+                }
+                if targetOffsets.contains(targetRow * width + targetColumn) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private static func average(_ pixels: [AXObservedRGBPixel]) -> AXObservedRGBPixel {
@@ -554,9 +643,7 @@ func parseOptions() -> Options {
 
     if observesAPNs {
         requiredIdentifierSet.formUnion([
-            "settings.apns.this-device.heading",
-            "settings.apns.push-delivery.heading",
-            "settings.apns.notification-sync.heading"
+            "settings.apns.this-device.heading"
         ])
     }
     requiredIdentifierSet.formUnion(requiredIdentifiers(for: route))
@@ -1324,7 +1411,8 @@ func contrastEvidenceCandidates(
               !element.actions.isEmpty || actionableRoles.contains(element.role) else {
             return nil
         }
-        return AXObservedContrastCandidate(elementIndex: index, kind: "control", element: element)
+        let kind = element.title.isEmpty ? "control" : "text"
+        return AXObservedContrastCandidate(elementIndex: index, kind: kind, element: element)
     }
 }
 
@@ -1897,6 +1985,31 @@ if CommandLine.arguments.dropFirst() == ["--self-test-screenshot-contrast"] {
     let readablePixels = (0..<100).map { $0.isMultiple(of: 5) ? readableForeground : background }
     let unreadablePixels = (0..<100).map { $0.isMultiple(of: 5) ? unreadableForeground : background }
     let digest = String(repeating: "a", count: 64)
+    let windowFrame = AXObservedRect(x: 0, y: 0, width: 300, height: 200)
+    let titledButton = AXObservedElement(
+        identifier: "save",
+        role: kAXButtonRole as String,
+        subrole: "",
+        title: "Save",
+        frame: AXObservedRect(x: 10, y: 10, width: 100, height: 44),
+        enabled: true,
+        focused: false,
+        actions: [kAXPressAction as String]
+    )
+    let untitledButton = AXObservedElement(
+        identifier: "icon",
+        role: kAXButtonRole as String,
+        subrole: "",
+        title: "",
+        frame: AXObservedRect(x: 130, y: 10, width: 44, height: 44),
+        enabled: true,
+        focused: false,
+        actions: [kAXPressAction as String]
+    )
+    let candidateKinds = contrastEvidenceCandidates(
+        elements: [titledButton, untitledButton],
+        windowFrame: windowFrame
+    ).map(\.kind)
     guard let readable = ScreenshotPixelContrastAnalyzer.analyze(
         pixels: readablePixels,
         width: 10,
@@ -1912,10 +2025,11 @@ if CommandLine.arguments.dropFirst() == ["--self-test-screenshot-contrast"] {
         height: 10,
         screenshotSHA256: digest,
         requiredContrastRatio: 4.5
-    ) == nil else {
+    ) == nil,
+    candidateKinds == ["text", "control"] else {
         fail("macOS screenshot contrast self-test failed")
     }
-    print("macOS screenshot contrast self-test ok")
+    print("macOS screenshot contrast self-test ok; control-title classification ok")
     exit(0)
 }
 

@@ -290,7 +290,9 @@ class ScreenshotAttachmentTests(unittest.TestCase):
         screenshot_sha256: str,
         capture_phase: str = "initial",
     ) -> dict:
-        deep = capture_phase == "deepScroll"
+        deep = capture_phase == "deepScroll" or capture_phase.startswith(
+            "deepScrollWaypoint-"
+        )
         return {
             "schema": "iosPixelAccessibilityBindingV1",
             "captureID": capture_id,
@@ -566,6 +568,105 @@ class ScreenshotAttachmentTests(unittest.TestCase):
 
             self.assertEqual(destination.read_bytes(), source.read_bytes())
             self.assertEqual(list(destination.parent.glob(".*.tmp-*")), [])
+
+    def test_waypoint_publication_requires_authoritative_readiness_and_process_binding(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            attachments = root / "attachments"
+            attachments.mkdir()
+            source = attachments / "waypoint.png"
+            source.write_bytes(b"exact-waypoint-png-bytes")
+            (attachments / "manifest.json").write_text(
+                json.dumps(
+                    [
+                        {
+                            "attachments": [
+                                {
+                                    "suggestedHumanReadableName": "deep-scroll-waypoint-1-screenshot_0_A.png",
+                                    "exportedFileName": source.name,
+                                }
+                            ]
+                        }
+                    ]
+                )
+            )
+            nonce = "7238f644-ff7a-4c1a-a9aa-60dd478c1c1d"
+            canonical_proof = root / "native-accessibility-proof.json"
+            generation_proof = root / "native-accessibility-proof.generation-12.json"
+            proof_payload = {
+                "captureRunNonce": nonce,
+                "route": "kitchen",
+                "platform": "ipad",
+                "source": "KitchenView",
+                "readinessGeneration": 12,
+                "emittedBy": "SpoonjoyApp",
+                "bundleIdentifier": "app.spoonjoy",
+            }
+            generation_proof.write_text(json.dumps(proof_payload, sort_keys=True))
+            proof_digest = hashlib.sha256(generation_proof.read_bytes()).hexdigest()
+            screenshot_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+            capture_id = "4bd46f3c-5d3d-4c9f-9dd2-16dd476f4355"
+            phase = "deepScrollWaypoint-1"
+            waypoint = {
+                "index": 1,
+                "capturePhase": phase,
+                "screenshotArtifactPath": "observed.deep-scroll-waypoint-1.png",
+                "screenshotBytes": len(source.read_bytes()),
+                "screenshotSHA256": screenshot_digest,
+                "auditTypes": sorted(MODULE.REQUIRED_AUDIT_TYPES),
+                "readinessHandshake": {
+                    "captureRunNonce": nonce,
+                    "route": "kitchen",
+                    "source": "KitchenView",
+                    "readinessGeneration": 12,
+                    "proofFileName": generation_proof.name,
+                    "proofSHA256": proof_digest,
+                },
+                "captureIdentity": {
+                    "schema": "iosObservedCaptureV1",
+                    "captureID": capture_id,
+                    "captureRunNonce": nonce,
+                    "capturePhase": phase,
+                    "applicationBundleIdentifier": "app.spoonjoy",
+                    "applicationProcessIdentifier": 4312,
+                    "foregroundBeforeCapture": True,
+                    "foregroundAfterCapture": True,
+                    "screenshotSHA256": screenshot_digest,
+                },
+                "pixelAccessibilityBinding": self.pixel_accessibility_binding(
+                    capture_id,
+                    screenshot_digest,
+                    capture_phase=phase,
+                ),
+            }
+            deep_scroll = {"swipeCount": 1, "waypoints": [waypoint]}
+
+            MODULE.publish_waypoint_screenshots(
+                deep_scroll,
+                attachments,
+                root / "observed.json",
+                canonical_app_proof_path=canonical_proof,
+                expected_run_nonce=nonce,
+                expected_route="kitchen",
+                expected_platform="ipad",
+                host_process_observation=self.host_process_observation(),
+            )
+
+            sealed = root / waypoint["screenshotArtifactPath"]
+            self.assertEqual(sealed.read_bytes(), source.read_bytes())
+
+            waypoint["readinessHandshake"]["proofSHA256"] = "0" * 64
+            with self.assertRaisesRegex(SystemExit, "readiness proof SHA-256"):
+                MODULE.publish_waypoint_screenshots(
+                    deep_scroll,
+                    attachments,
+                    root / "observed.json",
+                    canonical_app_proof_path=canonical_proof,
+                    expected_run_nonce=nonce,
+                    expected_route="kitchen",
+                    expected_platform="ipad",
+                    host_process_observation=self.host_process_observation(),
+                )
 
 
 class TargetProcessObservationTests(unittest.TestCase):

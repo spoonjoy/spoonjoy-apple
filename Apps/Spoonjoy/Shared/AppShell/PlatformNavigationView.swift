@@ -51,12 +51,6 @@ struct PlatformNavigationView: View {
     private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
     private let searchTelemetryPipeline: NativeSearchTelemetryPipeline
     private let recordRecipeDetailTelemetryHandler: @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void
-    private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
-    private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
-    private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
-    private let purgeCaptureDraftEntityIndexesHandler: @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
-    private let purgeChefProfileEntityIndexesHandler: @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void
-    private let purgeRecipeCookbookEntityIndexesHandler: @Sendable (NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
 
     init(
         navigation: Binding<AppNavigationState>,
@@ -87,13 +81,7 @@ struct PlatformNavigationView: View {
         recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
         recordSearchTelemetry: @escaping @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void,
-        recordRecipeDetailTelemetry: @escaping @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void,
-        syncTriggerCoordinator: NativeSyncTriggerCoordinator,
-        purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
-        purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
-        purgeCaptureDraftEntityIndexes: @escaping @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void,
-        purgeChefProfileEntityIndexes: @escaping @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void,
-        purgeRecipeCookbookEntityIndexes: @escaping @Sendable (NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
+        recordRecipeDetailTelemetry: @escaping @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void
     ) {
         _navigation = navigation
         _search = search
@@ -124,12 +112,6 @@ struct PlatformNavigationView: View {
         self.searchSurfaceRepositoryHandler = searchSurfaceRepository
         self.searchTelemetryPipeline = NativeSearchTelemetryPipeline(report: recordSearchTelemetry)
         self.recordRecipeDetailTelemetryHandler = recordRecipeDetailTelemetry
-        self.syncTriggerCoordinator = syncTriggerCoordinator
-        self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
-        self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
-        self.purgeCaptureDraftEntityIndexesHandler = purgeCaptureDraftEntityIndexes
-        self.purgeChefProfileEntityIndexesHandler = purgeChefProfileEntityIndexes
-        self.purgeRecipeCookbookEntityIndexesHandler = purgeRecipeCookbookEntityIndexes
     }
 
     var body: some View {
@@ -198,28 +180,6 @@ struct PlatformNavigationView: View {
 #if canImport(AppIntents)
         .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
-        .task(id: contentState.environment.rawValue) {
-            guard allowsLiveEffects else {
-                return
-            }
-            if let report = try? await syncTriggerCoordinator.handle(.foreground) {
-                for request in report.shoppingEntityPurgeRequests {
-                    await purgeShoppingEntityIndexesHandler(request)
-                }
-                for request in report.spoonEntityPurgeRequests {
-                    await purgeSpoonEntityIndexesHandler(request)
-                }
-                for request in report.captureDraftEntityPurgeRequests {
-                    await purgeCaptureDraftEntityIndexesHandler(request)
-                }
-                for request in report.chefProfileEntityPurgeRequests {
-                    await purgeChefProfileEntityIndexesHandler(request)
-                }
-                for request in report.recipeCookbookEntityPurgeRequests {
-                    await purgeRecipeCookbookEntityIndexesHandler(request)
-                }
-            }
-        }
         .onChange(of: navigation.route) { _, route in
             if !routeKeepsSearchFocus(route) {
                 isSearchFieldFocused = false
@@ -323,28 +283,6 @@ struct PlatformNavigationView: View {
 #if canImport(AppIntents)
         .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
-        .task(id: contentState.environment.rawValue) {
-            guard allowsLiveEffects else {
-                return
-            }
-            if let report = try? await syncTriggerCoordinator.handle(.foreground) {
-                for request in report.shoppingEntityPurgeRequests {
-                    await purgeShoppingEntityIndexesHandler(request)
-                }
-                for request in report.spoonEntityPurgeRequests {
-                    await purgeSpoonEntityIndexesHandler(request)
-                }
-                for request in report.captureDraftEntityPurgeRequests {
-                    await purgeCaptureDraftEntityIndexesHandler(request)
-                }
-                for request in report.chefProfileEntityPurgeRequests {
-                    await purgeChefProfileEntityIndexesHandler(request)
-                }
-                for request in report.recipeCookbookEntityPurgeRequests {
-                    await purgeRecipeCookbookEntityIndexesHandler(request)
-                }
-            }
-        }
         .onChange(of: navigation.route) { _, route in
             if !routeKeepsSearchFocus(route) {
                 isSearchFieldFocused = false
@@ -527,6 +465,7 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
+        Group {
         switch route {
         case .kitchen:
             KitchenView(
@@ -724,6 +663,8 @@ struct PlatformNavigationView: View {
                 accessibilityIdentifier: "unknown-link.message"
             )
         }
+        }
+        .accessibilityIdentifier("screenshot.route.\(route.stateIdentifier)")
     }
 
     private var searchText: Binding<String> {

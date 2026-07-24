@@ -3,12 +3,15 @@
 
 require "json"
 require "digest"
+require "base64"
 require "fileutils"
 require "open3"
 require "pathname"
 require "rbconfig"
 require "shellwords"
 require "tmpdir"
+require "zlib"
+require_relative "lib/screenshot_contrast_evidence"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 ARTIFACT_ROOT = ROOT.join("artifacts/apple/native-screenshots")
@@ -407,8 +410,7 @@ SCRIPT_CONTRACTS = {
       "settingsSurfaceProofArtifacts",
       "visibleSections",
       "SettingsView",
-      "Push Delivery",
-      "Notification Sync"
+      "This Device"
     ]
   },
   "scripts/validate-design-review-blocker.rb" => {
@@ -623,23 +625,20 @@ def accessibility_source(route)
   end
 end
 
-def macos_contrast_pixel_fixture(screenshot_sha256, required_ratio)
-  {
-    "method" => "screenshotPixelContrastV2",
-    "screenshotSHA256" => screenshot_sha256,
-    "contrastRatio" => 7.1,
-    "requiredContrastRatio" => required_ratio,
-    "evaluatedForegroundClusterCount" => 1,
-    "backgroundCoverage" => 0.7,
-    "foregroundCoverage" => 0.2,
-    "analyzedPixelCount" => 1_000,
-    "backgroundPixelCount" => 700,
-    "foregroundPixelCount" => 200,
-    "ignoredEdgeRulePixelCount" => 0,
-    "ignoredEdgeRuleRowCount" => 0,
-    "background" => { "red" => 250, "green" => 249, "blue" => 243 },
-    "foreground" => { "red" => 40, "green" => 35, "blue" => 29 }
-  }
+def macos_contrast_pixel_fixture(screenshot_sha256, required_ratio, frame, window_frame)
+  screenshot_path = $launch_contract_screenshots_by_sha&.fetch(screenshot_sha256, nil)
+  raise "launch contract screenshot #{screenshot_sha256} is unavailable" unless screenshot_path
+  ScreenshotContrastEvidence.analyze(
+    screenshot_path: screenshot_path,
+    point_size: { "width" => window_frame["width"], "height" => window_frame["height"] },
+    frame: {
+      "x" => frame["x"] - window_frame["x"],
+      "y" => frame["y"] - window_frame["y"],
+      "width" => frame["width"],
+      "height" => frame["height"]
+    },
+    required_contrast_ratio: required_ratio
+  )
 end
 
 def macos_screenshot_contrast_fixture(elements, screenshot_sha256, capture_phase, window_frame)
@@ -655,7 +654,7 @@ def macos_screenshot_contrast_fixture(elements, screenshot_sha256, capture_phase
              "text"
            elsif element["enabled"] == true &&
                  (!Array(element["actions"]).empty? || actionable_roles.include?(element["role"]))
-             "control"
+             element["title"].to_s.empty? ? "control" : "text"
            end
     next unless kind
 
@@ -667,7 +666,9 @@ def macos_screenshot_contrast_fixture(elements, screenshot_sha256, capture_phase
       ),
       "pixelEvidence" => macos_contrast_pixel_fixture(
         screenshot_sha256,
-        kind == "text" ? 4.5 : 3.0
+        kind == "text" ? 4.5 : 3.0,
+        frame,
+        window_frame
       )
     }
   end
@@ -681,10 +682,12 @@ def macos_screenshot_contrast_fixture(elements, screenshot_sha256, capture_phase
 end
 
 def add_screenshot_artifacts!(root, manifest)
+  $launch_contract_screenshots_by_sha ||= {}
   root.join("screenshots").mkpath
   manifest["screenshotArtifacts"] = SCREENSHOT_ARTIFACTS.to_h do |name, relative_path|
     path = root.join(relative_path)
-    path.write("#{name}-fixture\n")
+    path.binwrite(launch_contract_patterned_png(name))
+    $launch_contract_screenshots_by_sha[Digest::SHA256.file(path).hexdigest] = path
     [name, {
       "path" => relative_path,
       "bytes" => path.size,
@@ -694,13 +697,51 @@ def add_screenshot_artifacts!(root, manifest)
   if DEEP_SCROLL_ROUTES.include?(manifest["screenshotRoute"])
     manifest["deepScrollScreenshotArtifacts"] = DEEP_SCROLL_SCREENSHOT_ARTIFACTS.to_h do |name, relative_path|
       path = root.join(relative_path)
-      path.write("#{name}-deep-scroll-fixture\n")
+      path.binwrite(launch_contract_patterned_png("#{name}-deep-scroll"))
+      $launch_contract_screenshots_by_sha[Digest::SHA256.file(path).hexdigest] = path
       [name, {
         "path" => relative_path,
         "bytes" => path.size,
         "sha256" => Digest::SHA256.file(path).hexdigest
       }]
     end
+  end
+end
+
+def launch_contract_png_chunk(type, payload)
+  type_bytes = type.b
+  [payload.bytesize].pack("N") + type_bytes + payload + [Zlib.crc32(type_bytes + payload)].pack("N")
+end
+
+def launch_contract_patterned_png(label, width: 400, height: 400)
+  rows = String.new(capacity: height * (width * 3 + 1), encoding: Encoding::BINARY)
+  height.times do
+    rows << "\x00"
+    width.times do |x|
+      value = (x % 8) < 2 ? 24 : 250
+      rows << value.chr << value.chr << value.chr
+    end
+  end
+  header = [width, height, 8, 2, 0, 0, 0].pack("NNCCCCC")
+  "\x89PNG\r\n\x1A\n".b +
+    launch_contract_png_chunk("IHDR", header) +
+    launch_contract_png_chunk("IDAT", Zlib::Deflate.deflate(rows, Zlib::BEST_COMPRESSION)) +
+    launch_contract_png_chunk("IEND", "".b) +
+    label.b
+end
+
+def copy_design_validator_bundle(destination_root)
+  %w[
+    scripts/validate-design-review.rb
+    scripts/lib/screenshot_contrast_evidence.rb
+    scripts/screenshot-contrast-evidence-verifier/main.swift
+    Apps/SpoonjoyUITests/ScreenshotEvidenceGeometry.swift
+    Apps/SpoonjoyUITests/ScreenshotPixelContrastAdjudicator.swift
+  ].each do |relative_path|
+    source = ROOT.join(relative_path)
+    destination = destination_root.join(relative_path)
+    destination.dirname.mkpath
+    FileUtils.cp(source, destination)
   end
 end
 
@@ -814,11 +855,7 @@ def add_accessibility_proofs!(root, manifest, stem)
     observed_path = root.join(relative_path)
     observed_path.dirname.mkpath
     apns_identifiers = if route == "settings" && manifest["settingsVisualFocus"] == "notifications"
-                         [
-                           "settings.apns.this-device.heading",
-                           "settings.apns.push-delivery.heading",
-                           "settings.apns.notification-sync.heading"
-                         ]
+                         ["settings.apns.this-device.heading"]
                        else
                          []
                        end
@@ -1099,6 +1136,55 @@ def add_accessibility_proofs!(root, manifest, stem)
         }
         observed["deepScroll"]["selectedScrollHierarchyIdentifier"] = "spoonjoy.page-scroll"
         observed["deepScroll"]["selectedScrollHierarchyElements"] = [terminal]
+        waypoint_capture_ids = [
+          "a1111111-1111-4111-8111-111111111111",
+          "b2222222-2222-4222-8222-222222222222"
+        ]
+        observed["deepScroll"]["waypoints"] = waypoint_capture_ids.each_with_index.map do |capture_id, zero_index|
+          index = zero_index + 1
+          phase = "deepScrollWaypoint-#{index}"
+          waypoint_file_name = "#{observed_path.basename(".json")}.deep-scroll-waypoint-#{index}.png"
+          waypoint_path = observed_path.dirname.join(waypoint_file_name)
+          deep_artifact_key = platform == "ipad" ? (content_size_category == "accessibility-extra-extra-extra-large" ? "iosTabletAccessibility" : content_size_category == "extra-extra-extra-large" ? "iosTabletXXXL" : "iosTablet") : (content_size_category == "accessibility-extra-extra-extra-large" ? "iosAccessibility" : content_size_category == "extra-extra-extra-large" ? "iosXXXL" : "iosMobile")
+          waypoint_bytes = root.join(manifest.dig("deepScrollScreenshotArtifacts", deep_artifact_key, "path")).binread
+          waypoint_path.binwrite(waypoint_bytes)
+          capture_identity = observed["deepScroll"]["captureIdentity"].merge(
+            "captureID" => capture_id,
+            "capturePhase" => phase
+          )
+          pixel_binding = observed["deepScroll"]["pixelAccessibilityBinding"].merge(
+            "captureID" => capture_id,
+            "capturePhase" => phase
+          )
+          {
+            "index" => index,
+            "capturePhase" => phase,
+            "coverage" => {
+              "requestedContentOffset" => 36,
+              "observedContentDisplacement" => 36,
+              "viewportOverlap" => 44
+            },
+            "contentViewport" => observed["deepScroll"]["contentViewport"],
+            "findings" => [],
+            "auditIssues" => [],
+            "auditScope" => "settledScrollWaypoint",
+            "auditTypes" => REQUIRED_AUDIT_TYPES,
+            "verifiedContrastFalsePositives" => [],
+            "verifiedStaleOffscreenContrastFalsePositives" => [],
+            "contrastPixelAdjudicationDiagnostics" => [],
+            "verifiedSystemChromeContrastFalsePositives" => [],
+            "verifiedNativeSidebarSelectionContrastFalsePositives" => [],
+            "verifiedTextClippedFalsePositives" => [],
+            "screenshotArtifactPath" => waypoint_file_name,
+            "screenshotBytes" => waypoint_bytes.bytesize,
+            "screenshotSHA256" => observed["deepScroll"]["screenshotSHA256"],
+            "readinessHandshake" => observed["deepScroll"]["readinessHandshake"],
+            "captureIdentity" => capture_identity,
+            "pixelAccessibilityBinding" => pixel_binding,
+            "elements" => [terminal],
+            "selectedScrollHierarchyElements" => [terminal]
+          }
+        end
       end
     end
     observed_path.write(JSON.pretty_generate(observed) + "\n")
@@ -1390,7 +1476,7 @@ Dir.mktmpdir("spoonjoy-design-review-contract") do |directory|
     "settingsSignedOutSurface" => false,
     "settingsSignedOutHandoffSurface" => false,
     "settingsSeedAccountID" => "chef_settings_capture",
-    "settingsSections" => ["Profile", "Security", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access"],
+    "settingsSections" => ["This Device"],
     "settingsSurfaceProofArtifacts" => ["apple/proof-ios.json", "apple/proof-macos.json"]
   }
   valid_profile_settings_manifest = {
@@ -2124,8 +2210,11 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     ROOT.join("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png"),
     fixture_cover_source
   )
+  script_root.join("fixture-contrast.png").binwrite(
+    launch_contract_patterned_png("capture-contract-fixture")
+  )
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
-  FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  copy_design_validator_bundle(scripts_dir.parent)
   FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
   observer_products = script_root.join("observer-products")
   observer_app = observer_products.join("Spoonjoy.app")
@@ -2238,7 +2327,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
             source = "WrongView"
             sections = ["Kitchen"]
         elif focus == "notifications":
-            sections = ["Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+            sections = ["This Device"]
         surface_proof_path.parent.mkdir(parents=True, exist_ok=True)
         surface_proof_path.write_text(json.dumps({
             "route": route,
@@ -2310,7 +2399,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     readiness_output.parent.mkdir(parents=True, exist_ok=True)
     readiness_output.write_bytes(proof_bytes)
     if args.route == "settings" and environment.get("SPOONJOY_SCREENSHOT_SETTINGS_FOCUS") == "notifications":
-        identifiers = ["settings.apns.this-device.heading", "settings.apns.push-delivery.heading", "settings.apns.notification-sync.heading"]
+        identifiers = ["settings.apns.this-device.heading"]
     elements = [terminal] + [{"identifier":identifier,"label":identifier,"type":"staticText","frame":{"x":10,"y":index * 20,"width":80,"height":18},"exists":True,"hittable":False,"enabled":True,"hitRegionAuditVerified":True,"focused":None} for index, identifier in enumerate(identifiers)]
     content_size = environment.get("SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY", "large")
     initial_filename = f"{proof_path.stem}.generation-1{proof_path.suffix or '.json'}"
@@ -2351,6 +2440,15 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
     def pixel_accessibility_binding(capture_identity, phase, deep=False):
         return {"schema":"iosPixelAccessibilityBindingV1","captureID":capture_identity["captureID"],"capturePhase":phase,"pixelSource":"mainScreen","screenshotSHA256":screenshot_sha256,"accessibilitySnapshotBeforeSHA256":"a"*64,"accessibilitySnapshotAfterSHA256":"a"*64,"windowFrame":{"x":0,"y":0,"width":100,"height":100},"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll" if deep else None,"selectedScrollHierarchySnapshotBeforeSHA256":"b"*64 if deep else None,"selectedScrollHierarchySnapshotAfterSHA256":"b"*64 if deep else None}
     audit_types = ["contrast", "dynamicType", "textClipped", "hitRegion", "trait"]
+    def scroll_waypoint(index, capture_id, handshake):
+        phase = f"deepScrollWaypoint-{index}"
+        identity = {"schema":"iosObservedCaptureV1","captureID":capture_id,"captureRunNonce":proof["captureRunNonce"],"capturePhase":phase,"applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
+        output = Path(args.output)
+        artifact_name = f"{output.stem}.deep-scroll-waypoint-{index}.png"
+        artifact = output.with_name(artifact_name)
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_bytes(png_bytes)
+        return {"index":index,"capturePhase":phase,"coverage":{"requestedContentOffset":36,"observedContentDisplacement":36,"viewportOverlap":44},"contentViewport":{"x":0,"y":0,"width":100,"height":80},"findings":[],"auditIssues":[],"auditScope":"settledScrollWaypoint","auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedNativeSidebarSelectionContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"screenshotArtifactPath":artifact_name,"screenshotBytes":len(png_bytes),"screenshotSHA256":screenshot_sha256,"readinessHandshake":handshake,"captureIdentity":identity,"pixelAccessibilityBinding":pixel_accessibility_binding(identity, phase, True),"elements":[terminal],"selectedScrollHierarchyElements":[terminal]}
     evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":elements,"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(initial_capture_identity, "initial"),"hostProcessObservation":host_process_observation,"geometryFindings":[product_finding] if product_finding else [],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[]}
     if args.route in {"kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers", "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs", "profile", "profile-graph", "search", "capture", "settings"}:
         deep_proof = dict(proof)
@@ -2361,7 +2459,8 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
         deep_filename = f"{proof_path.stem}.generation-2{proof_path.suffix or '.json'}"
         deep_handshake = {"captureRunNonce":proof["captureRunNonce"],"route":args.route,"source":proof["source"],"applicationProcessIdentifier":application_process_identifier,"readinessGeneration":2,"proofFileName":deep_filename,"proofSHA256":hashlib.sha256(deep_proof_bytes).hexdigest()}
         deep_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"19dc51d4-5113-4268-80a5-c85cc05e8d0b","captureRunNonce":proof["captureRunNonce"],"capturePhase":"deepScroll","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
-        evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"elements":[terminal],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(deep_capture_identity, "deepScroll", True),"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll","selectedScrollHierarchyElements":[terminal],"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}
+        waypoints = [scroll_waypoint(1, "a1111111-1111-4111-8111-111111111111", deep_handshake), scroll_waypoint(2, "b2222222-2222-4222-8222-222222222222", deep_handshake)]
+        evidence["deepScroll"] = {"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedNativeSidebarSelectionContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"elements":[terminal],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(deep_capture_identity, "deepScroll", True),"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll","selectedScrollHierarchyElements":[terminal],"waypoints":waypoints,"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}
         deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
         deep_output.write_bytes(deep_proof_bytes)
     output = Path(args.output)
@@ -2637,7 +2736,7 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
               source="WrongView"
               sections='["Kitchen"]'
             elif [[ "$focus" == "notifications" ]]; then
-              sections='["Notifications","This Device","Push Delivery","Notification Sync","Agent Access"]'
+              sections='["This Device"]'
             fi
             printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH"
           fi
@@ -2832,7 +2931,7 @@ PY
           source="WrongView"
           sections='["Kitchen"]'
         elif [[ "$focus" == "notifications" ]]; then
-          sections='["Notifications","This Device","Push Delivery","Notification Sync","Agent Access"]'
+          sections='["This Device"]'
         fi
         printf '{"route":"%s","visualFocus":"%s","visibleSections":%s,"source":"%s"}\n' "$route" "$focus" "$sections" "$source" > "$proof_path"
       fi
@@ -2948,14 +3047,15 @@ PY
       sleep "$SPOONJOY_CONTRACT_VALID_MACOS_PID_DELAY_SECONDS"
     fi
     mkdir -p "$(dirname "$screenshot_path")" "$(dirname "$deep_scroll_screenshot_path")"
-    /bin/cp "$PWD/Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png" "$screenshot_path"
-    /bin/cp "$PWD/Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png" "$deep_scroll_screenshot_path"
+    /bin/cp "$PWD/fixture-contrast.png" "$screenshot_path"
+    /bin/cp "$PWD/fixture-contrast.png" "$deep_scroll_screenshot_path"
     identifiers='["fixture.terminal"]'
     if [[ "$apns" == "1" ]]; then
-      identifiers='["fixture.terminal","settings.apns.this-device.heading","settings.apns.push-delivery.heading","settings.apns.notification-sync.heading"]'
+      identifiers='["fixture.terminal","settings.apns.this-device.heading"]'
     fi
     mkdir -p "$(dirname "$output")"
     ruby -rjson -rdigest -e '
+      require File.expand_path("scripts/lib/screenshot_contrast_evidence", Dir.pwd)
       output, route, identifiers, pid, capture_run_nonce, readiness_proof_path, screenshot_path, deep_scroll_screenshot_path, window_id, bundle_id, bundle_path, executable_path = ARGV
       elements = JSON.parse(identifiers).map.with_index { |identifier, index| {identifier: identifier, role: "AXStaticText", subrole: "", title: identifier, frame: {x: 10, y: 10 + index * 45, width: 120, height: 44}, enabled: true, focused: false, actions: []} }
       terminals = {
@@ -3017,17 +3117,15 @@ PY
         end
         binding
       end
-      contrast_pixels = lambda do |digest, required_ratio|
-        {
-          method: "screenshotPixelContrastV2", screenshotSHA256: digest, contrastRatio: 7.1,
-          requiredContrastRatio: required_ratio, evaluatedForegroundClusterCount: 1,
-          backgroundCoverage: 0.7, foregroundCoverage: 0.2, analyzedPixelCount: 1_000,
-          backgroundPixelCount: 700, foregroundPixelCount: 200, ignoredEdgeRulePixelCount: 0,
-          ignoredEdgeRuleRowCount: 0, background: {red: 250, green: 249, blue: 243},
-          foreground: {red: 40, green: 35, blue: 29}
-        }
+      contrast_pixels = lambda do |path, frame, required_ratio|
+        ScreenshotContrastEvidence.analyze(
+          screenshot_path: path,
+          point_size: {"width" => root_frame[:width], "height" => root_frame[:height]},
+          frame: frame.transform_keys(&:to_s),
+          required_contrast_ratio: required_ratio
+        )
       end
-      contrast_evidence = lambda do |phase, digest, candidates|
+      contrast_evidence = lambda do |phase, digest, path, candidates|
         entries = candidates.each_with_index.each_with_object([]) do |(element, index), result|
           frame = element.fetch(:frame)
           fully_visible = frame[:x] >= root_frame[:x] && frame[:y] >= root_frame[:y] &&
@@ -3039,7 +3137,7 @@ PY
                    "text"
                  elsif element[:enabled] == true &&
                        (!Array(element[:actions]).empty? || %w[AXButton AXCheckBox AXPopUpButton AXRadioButton AXTextField].include?(element[:role]))
-                   "control"
+                   element[:title].to_s.empty? ? "control" : "text"
                  end
           next unless kind
 
@@ -3047,7 +3145,7 @@ PY
             elementIndex: index,
             kind: kind,
             element: element.slice(:identifier, :role, :subrole, :title, :frame),
-            pixelEvidence: contrast_pixels.call(digest, kind == "text" ? 4.5 : 3.0)
+            pixelEvidence: contrast_pixels.call(path, frame, kind == "text" ? 4.5 : 3.0)
           }
         end
         {
@@ -3063,7 +3161,7 @@ PY
         executablePath: File.expand_path(executable_path),
         executableSHA256: Digest::SHA256.file(executable_path).hexdigest,
         windowFrames: [root_frame], elements: elements, findings: [],
-        screenshotContrastEvidence: contrast_evidence.call("initial", initial_screenshot_sha256, elements),
+        screenshotContrastEvidence: contrast_evidence.call("initial", initial_screenshot_sha256, screenshot_path, elements),
         pixelAccessibilityBinding: pixel_binding.call("initial", initial_screenshot_sha256)
       }
       selected_identifier = "#{route}.scroll"
@@ -3079,7 +3177,7 @@ PY
         postScrollScreenshotSHA256: deep_screenshot_sha256,
         applicationProcessIdentifier: Integer(pid),
         postScrollElements: deep_elements,
-        screenshotContrastEvidence: contrast_evidence.call("deepScroll", deep_screenshot_sha256, deep_elements),
+        screenshotContrastEvidence: contrast_evidence.call("deepScroll", deep_screenshot_sha256, deep_scroll_screenshot_path, deep_elements),
         postScrollAuditFindings: [], pixelAccessibilityBinding: pixel_binding.call("deepScroll", deep_screenshot_sha256, selected_identifier),
         selectedScrollHierarchyIdentifier: selected_identifier, selectedScrollHierarchyElements: [terminal],
         windowID: Integer(window_id)
@@ -3092,7 +3190,7 @@ PY
     set -euo pipefail
     out="${@: -1}"
     mkdir -p "$(dirname "$out")"
-    /bin/cp "$PWD/Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png" "$out"
+    /bin/cp "$PWD/fixture-contrast.png" "$out"
   SH
 
   stale_override_root = temp_root.join("stale-observer-product-override")
@@ -3682,13 +3780,13 @@ PY
   notification_review = assert_json(artifact_root.join("design-review.json"), "notification screenshot success lane")
   record_failure("notification screenshot route mismatch") unless notification_review["screenshotRoute"] == "settings"
   record_failure("notification screenshot focus mismatch") unless notification_review["settingsVisualFocus"] == "notifications"
-  record_failure("notification screenshot missing push delivery section") unless notification_review.fetch("settingsSections", []).include?("Push Delivery")
+  record_failure("notification screenshot sections mismatch") unless notification_review.fetch("settingsSections", []) == ["This Device"]
   record_failure("notification screenshot missing proof artifacts") unless notification_review.fetch("settingsSurfaceProofArtifacts", []).length >= 2
   notification_review.fetch("settingsSurfaceProofArtifacts", []).each do |relative_path|
     proof = assert_json(artifact_root.join(relative_path), "notification screenshot proof artifact")
     record_failure("notification screenshot proof route mismatch") unless proof["route"] == "settings"
     record_failure("notification screenshot proof focus mismatch") unless proof["visualFocus"] == "notifications"
-    record_failure("notification screenshot proof missing push delivery") unless proof.fetch("visibleSections", []).include?("Push Delivery")
+    record_failure("notification screenshot proof sections mismatch") unless proof.fetch("visibleSections", []) == ["This Device"]
     record_failure("notification screenshot proof source mismatch") unless proof["source"] == "SettingsView"
   end
 
@@ -3731,7 +3829,7 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
   fixture_cover.dirname.mkpath
   FileUtils.cp(ROOT.join("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png"), fixture_cover)
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
-  FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  copy_design_validator_bundle(scripts_dir.parent)
   FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
   observer_app = script_root.join("observer/Spoonjoy.app")
   observer_runner = script_root.join("observer/SpoonjoyUITests-Runner.app")
@@ -3861,7 +3959,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
   fixture_cover.dirname.mkpath
   FileUtils.cp(ROOT.join("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png"), fixture_cover)
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
-  FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  copy_design_validator_bundle(scripts_dir.parent)
   FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
   observer_app = script_root.join("observer/Spoonjoy.app")
   observer_runner = script_root.join("observer/SpoonjoyUITests-Runner.app")
@@ -4008,7 +4106,19 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
     initial_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"7616b756-9527-4fd6-982a-8f3cb9f9c4dc","captureRunNonce":proof["captureRunNonce"],"capturePhase":"initial","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
     deep_capture_identity = {"schema":"iosObservedCaptureV1","captureID":"19dc51d4-5113-4268-80a5-c85cc05e8d0b","captureRunNonce":proof["captureRunNonce"],"capturePhase":"deepScroll","applicationBundleIdentifier":"app.spoonjoy","applicationProcessIdentifier":application_process_identifier,"foregroundBeforeCapture":True,"foregroundAfterCapture":True,"screenshotSHA256":screenshot_sha256}
     audit_types = ["contrast", "dynamicType", "textClipped", "hitRegion", "trait"]
-    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"elements":[terminal],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}}
+    def pixel_accessibility_binding(identity, phase, deep=False):
+        return {"schema":"iosPixelAccessibilityBindingV1","captureID":identity["captureID"],"capturePhase":phase,"pixelSource":"mainScreen","screenshotSHA256":screenshot_sha256,"accessibilitySnapshotBeforeSHA256":"a"*64,"accessibilitySnapshotAfterSHA256":"a"*64,"windowFrame":{"x":0,"y":0,"width":100,"height":100},"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll" if deep else None,"selectedScrollHierarchySnapshotBeforeSHA256":"b"*64 if deep else None,"selectedScrollHierarchySnapshotAfterSHA256":"b"*64 if deep else None}
+    def scroll_waypoint(index, capture_id):
+        phase = f"deepScrollWaypoint-{index}"
+        identity = {**deep_capture_identity, "captureID":capture_id, "capturePhase":phase}
+        output = Path(args.output)
+        artifact_name = f"{output.stem}.deep-scroll-waypoint-{index}.png"
+        artifact = output.with_name(artifact_name)
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_bytes(png_bytes)
+        return {"index":index,"capturePhase":phase,"coverage":{"requestedContentOffset":36,"observedContentDisplacement":36,"viewportOverlap":44},"contentViewport":{"x":0,"y":0,"width":100,"height":80},"findings":[],"auditIssues":[],"auditScope":"settledScrollWaypoint","auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedNativeSidebarSelectionContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"screenshotArtifactPath":artifact_name,"screenshotBytes":len(png_bytes),"screenshotSHA256":screenshot_sha256,"readinessHandshake":deep_handshake,"captureIdentity":identity,"pixelAccessibilityBinding":pixel_accessibility_binding(identity, phase, True),"elements":[terminal],"selectedScrollHierarchyElements":[terminal]}
+    waypoints = [scroll_waypoint(1, "a1111111-1111-4111-8111-111111111111"), scroll_waypoint(2, "b2222222-2222-4222-8222-222222222222")]
+    evidence = {"platform":args.platform,"route":args.route,"viewport":{"x":0,"y":0,"width":100,"height":80},"elements":[terminal],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedNativeSidebarSelectionContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"screenshotSHA256":screenshot_sha256,"captureIdentity":initial_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(initial_capture_identity, "initial"),"geometryFindings":[],"observedContentSizeCategory":content_size,"observedDynamicTypeSize":observed_dynamic_type,"readinessHandshake":initial_handshake,"toolLimitations":[],"deepScroll":{"route":args.route,"reachedTerminal":True,"swipeCount":2,"contentViewport":{"x":0,"y":0,"width":100,"height":80},"tabBarFrame":{"x":0,"y":80,"width":100,"height":20},"terminalElement":terminal,"findings":[],"auditIssues":[],"auditTypes":audit_types,"verifiedContrastFalsePositives":[],"verifiedStaleOffscreenContrastFalsePositives":[],"contrastPixelAdjudicationDiagnostics":[],"verifiedSystemChromeContrastFalsePositives":[],"verifiedNativeSidebarSelectionContrastFalsePositives":[],"verifiedTextClippedFalsePositives":[],"elements":[terminal],"screenshotSHA256":screenshot_sha256,"captureIdentity":deep_capture_identity,"pixelAccessibilityBinding":pixel_accessibility_binding(deep_capture_identity, "deepScroll", True),"selectedScrollHierarchyIdentifier":"spoonjoy.page-scroll","selectedScrollHierarchyElements":[terminal],"waypoints":waypoints,"readinessHandshake":deep_handshake,"observedContentMovement":True,"contentFitsWithoutScrolling":False,"toolLimitations":[]}}
     deep_output = readiness_output.with_name(f"{readiness_output.stem}-deep-scroll{readiness_output.suffix or '.json'}")
     deep_output.write_bytes(deep_proof_bytes)
     output = Path(args.output)

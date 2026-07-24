@@ -3,8 +3,8 @@ import Testing
 
 @Suite("Native macOS window diagnostic contract")
 struct NativeMacWindowDiagnosticContractTests {
-    @Test("signed-out diagnostics use a semantic identifier while authenticated routes keep exact labels")
-    func signedOutDiagnosticUsesSemanticIdentifier() throws {
+    @Test("signed-out and authenticated diagnostics prove the requested route from live route-state identifiers")
+    func signedOutDiagnosticProvesRequestedRoute() throws {
         let sourceURL = repositoryRoot()
             .appendingPathComponent("Apps/SpoonjoyMacWindowDiagnosticUITests/NativeMacWindowDiagnosticTests.swift")
         let source = try String(contentsOf: sourceURL, encoding: .utf8)
@@ -12,15 +12,19 @@ struct NativeMacWindowDiagnosticContractTests {
         let requiredTokens = [
             "private enum MacWindowDiagnosticMarkerSelector: String, Encodable",
             "case accessibilityIdentifier = \"accessibility-identifier\"",
-            "case exactLabel = \"exact-label\"",
             "private static let signedOutMarker = MacWindowDiagnosticMarker(",
             "selector: .accessibilityIdentifier",
             "value: \"native sign-in email or username\"",
-            "let expectedMarker = signedIn",
-            "Self.signedOutMarker",
+            "private static let expectedRestoredRoutes",
+            "value: \"screenshot.route.\\(expectedRestoredRoute)\"",
+            "? \"screenshot.route.settings\"",
+            ": \"signed-out.route.\\(expectedRestoredRoute)\"",
+            "restoredRoute = try readRestoredRoute(",
+            "XCTAssertEqual(restoredRoute, expectedRestoredRoute",
+            "let routeMarker = (signedIn ? expectedMarker : expectedSignedOutRouteMarker).element(in: app)",
+            "routeMarker.waitForExistence(timeout: 30)",
             "switch selector",
             "matching(identifier: value)",
-            "NSPredicate(format: \"label == %@\", value)",
             "routeMarker.waitForExistence"
         ]
         let missingTokens = requiredTokens.filter { !source.contains($0) }
@@ -31,7 +35,10 @@ struct NativeMacWindowDiagnosticContractTests {
 
         let forbiddenTokens = [
             "let routeMarkerLabel = signedIn ? signedInMarker : \"Spoonjoy\"",
-            "NSPredicate(format: \"label == %@\", routeMarkerLabel)"
+            "NSPredicate(format: \"label == %@\", routeMarkerLabel)",
+            "selector: .exactLabel",
+            "private static let supportedRouteMarkers",
+            "private static let signedOutRouteMarkers"
         ]
         let forbiddenHits = forbiddenTokens.filter(source.contains)
         #expect(

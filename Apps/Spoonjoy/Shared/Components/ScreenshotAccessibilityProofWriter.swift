@@ -211,6 +211,11 @@ enum ScreenshotAccessibilityProofWriter {
     private static let captureRunNonceEnvironmentKey = "SPOONJOY_SCREENSHOT_RUN_NONCE"
 
 #if DEBUG
+    private enum ProofArchiveError: Error {
+        case invalidPayload
+        case mismatchedArchive
+    }
+
     private struct Request {
         let configuredPath: String
         let proofIdentity: ScreenshotVisualReadinessProofIdentity
@@ -305,22 +310,16 @@ enum ScreenshotAccessibilityProofWriter {
             proofIdentity: request.proofIdentity,
             visualReadiness: visualReadiness
         )
-        guard JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
-            return
-        }
+        let data: Data
         do {
             try FileManager.default.createDirectory(
                 at: outputURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
             )
-            if FileManager.default.fileExists(atPath: generationOutputURL.path) {
-                guard try Data(contentsOf: generationOutputURL) == data else {
-                    return
-                }
-            } else {
-                try data.write(to: generationOutputURL, options: [.atomic])
-            }
+            data = try canonicalProofData(
+                payload: payload,
+                generationOutputURL: generationOutputURL
+            )
             try data.write(to: outputURL, options: [.atomic])
         } catch {
             return
@@ -345,6 +344,48 @@ enum ScreenshotAccessibilityProofWriter {
             proofFileName: generationOutputURL.lastPathComponent,
             proofSHA256: proofSHA256
         ))
+    }
+
+    private static func canonicalProofData(
+        payload: [String: Any],
+        generationOutputURL: URL
+    ) throws -> Data {
+        guard JSONSerialization.isValidJSONObject(payload) else {
+            throw ProofArchiveError.invalidPayload
+        }
+        if FileManager.default.fileExists(atPath: generationOutputURL.path) {
+            let archivedData = try Data(contentsOf: generationOutputURL)
+            guard proofPayloadsMatchIgnoringWrittenAt(
+                archivedData: archivedData,
+                expectedPayload: payload
+            ) else {
+                throw ProofArchiveError.mismatchedArchive
+            }
+            return archivedData
+        }
+
+        var timestampedPayload = payload
+        timestampedPayload["writtenAt"] = ISO8601DateFormatter().string(from: Date())
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: timestampedPayload,
+            options: [.prettyPrinted, .sortedKeys]
+        ) else {
+            throw ProofArchiveError.invalidPayload
+        }
+        try data.write(to: generationOutputURL, options: [.atomic])
+        return data
+    }
+
+    private static func proofPayloadsMatchIgnoringWrittenAt(
+        archivedData: Data,
+        expectedPayload: [String: Any]
+    ) -> Bool {
+        guard var archivedPayload = try? JSONSerialization.jsonObject(with: archivedData) as? [String: Any],
+              let writtenAt = archivedPayload.removeValue(forKey: "writtenAt") as? String,
+              ISO8601DateFormatter().date(from: writtenAt) != nil else {
+            return false
+        }
+        return NSDictionary(dictionary: archivedPayload).isEqual(to: expectedPayload)
     }
 
     private static func proofArchiveURL(for outputURL: URL, generation: Int) -> URL {
@@ -394,8 +435,7 @@ enum ScreenshotAccessibilityProofWriter {
                 "isSettled": visualReadiness.isSettled
             ],
             "emittedBy": "SpoonjoyApp",
-            "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
-            "writtenAt": ISO8601DateFormatter().string(from: Date())
+            "bundleIdentifier": Bundle.main.bundleIdentifier ?? ""
         ]
         if let observedSurfaceVariant = proofIdentity.observedSurfaceVariant {
             payload["observedSurfaceVariant"] = observedSurfaceVariant

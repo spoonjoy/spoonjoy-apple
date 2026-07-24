@@ -66,6 +66,9 @@ private struct ObservedContrastPixelAdjudicationDiagnostic: Codable {
     let matchingAttestedElementCount: Int
     let attestedFrame: ObservedRect?
     let screenshotBufferAvailable: Bool
+    let screenshotSHA256: String
+    let screenshotPixelWidth: Int?
+    let screenshotPixelHeight: Int?
     let attempts: [ObservedContrastPixelAdjudicationAttempt]
 
     private enum CodingKeys: String, CodingKey {
@@ -75,6 +78,9 @@ private struct ObservedContrastPixelAdjudicationDiagnostic: Codable {
         case matchingAttestedElementCount
         case attestedFrame
         case screenshotBufferAvailable
+        case screenshotSHA256
+        case screenshotPixelWidth
+        case screenshotPixelHeight
         case attempts
     }
 
@@ -86,6 +92,9 @@ private struct ObservedContrastPixelAdjudicationDiagnostic: Codable {
         try container.encode(matchingAttestedElementCount, forKey: .matchingAttestedElementCount)
         try container.encode(attestedFrame, forKey: .attestedFrame)
         try container.encode(screenshotBufferAvailable, forKey: .screenshotBufferAvailable)
+        try container.encode(screenshotSHA256, forKey: .screenshotSHA256)
+        try container.encode(screenshotPixelWidth, forKey: .screenshotPixelWidth)
+        try container.encode(screenshotPixelHeight, forKey: .screenshotPixelHeight)
         try container.encode(attempts, forKey: .attempts)
     }
 }
@@ -103,6 +112,9 @@ private struct ObservedVerifiedSystemChromeContrastFalsePositive: Codable {
     let reason: String
     let contentSizeCategory: String
     let issue: ObservedAuditIssue
+    let screenshotSHA256: String
+    let issueElement: ObservedSystemChromeElementReference
+    let pixelEvidence: [ObservedVisibleTextContrastEvidence]
     let navigationBar: ObservedSystemChromeElementReference
     let tabBar: ObservedSystemChromeElementReference?
     let destinations: [ObservedSystemChromeElementReference]
@@ -110,6 +122,7 @@ private struct ObservedVerifiedSystemChromeContrastFalsePositive: Codable {
 
 private struct ObservedVisibleTextContrastEvidence: Codable {
     let element: ObservedSystemChromeElementReference
+    let pixelFrame: ObservedRect
     let pixelEvidence: ObservedContrastPixelEvidence
 }
 
@@ -119,6 +132,9 @@ private struct ObservedVerifiedNativeSidebarSelectionContrastFalsePositive: Coda
     let reason: String
     let contentSizeCategory: String
     let issue: ObservedAuditIssue
+    let screenshotSHA256: String
+    let issueElement: ObservedSystemChromeElementReference
+    let issuePixelEvidence: ObservedContrastPixelEvidence
     let sidebarNavigationBar: ObservedSystemChromeElementReference
     let detailNavigationBar: ObservedSystemChromeElementReference
     let sidebarCollection: ObservedSystemChromeElementReference
@@ -126,7 +142,9 @@ private struct ObservedVerifiedNativeSidebarSelectionContrastFalsePositive: Coda
     let selectedLabel: ObservedSystemChromeElementReference
     let selectedSymbol: ObservedSystemChromeElementReference
     let selectedCellInteriorFrame: ObservedRect
+    let selectedLabelTextFrame: ObservedRect
     let selectedCellPixelEvidence: ObservedContrastPixelEvidence
+    let selectedLabelTextPixelEvidence: ObservedContrastPixelEvidence
     let selectedSymbolPixelEvidence: ObservedContrastPixelEvidence
     let visibleTextPixelEvidence: [ObservedVisibleTextContrastEvidence]
 }
@@ -277,6 +295,8 @@ private struct ObservedScrollWaypointEvidence: Codable {
     let verifiedSystemChromeContrastFalsePositives: [ObservedVerifiedSystemChromeContrastFalsePositive]
     let verifiedNativeSidebarSelectionContrastFalsePositives: [ObservedVerifiedNativeSidebarSelectionContrastFalsePositive]
     let verifiedTextClippedFalsePositives: [ObservedVerifiedTextClippedFalsePositive]
+    let screenshotArtifactPath: String
+    let screenshotBytes: Int
     let screenshotSHA256: String
     let readinessHandshake: ObservedReadinessHandshake
     let captureIdentity: ObservedCaptureIdentity
@@ -1054,7 +1074,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         XCTAssertEqual(candidates.map(\.identifier), ["kitchen.recipe-index.count"])
     }
 
-    func testAnonymousContrastRequiresExactLargeTypeNativeCompactTabChromeAttestation() {
+    func testChromeContrastWaiverRequiresExactIssueBoundLargeTypeNativeCompactTabEvidence() {
         let windowFrame = ObservedRect(x: 0, y: 0, width: 834, height: 1_194)
         let navigationFrame = ObservedRect(x: 0, y: 32, width: 834, height: 54)
         let navigationBar = observedElement(
@@ -1099,12 +1119,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             type: "XCUIAccessibilityAuditType(rawValue: 1)",
             compactDescription: "Contrast failed",
             detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
-            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:(null)",
+            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:Kitchen",
             diagnosticMirror: "",
-            elementIdentifier: "",
-            elementLabel: "",
-            elementType: "",
-            elementFrame: nil
+            elementIdentifier: destinations[0].identifier,
+            elementLabel: destinations[0].label,
+            elementType: destinations[0].type,
+            elementFrame: destinations[0].frame
         )
         let elements = [navigationBar] + destinations + destinations
         let screenshotSHA256 = String(repeating: "a", count: 64)
@@ -1140,10 +1160,23 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             windowFrame: windowFrame,
             capturePhase: "initial"
         )
-        XCTAssertEqual(verified?.schema, "iosNativeCompactTabChromeContrastFalsePositiveV1")
-        XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeCompactTabChrome")
+        XCTAssertEqual(verified?.schema, "iosNativeCompactTabChromeContrastFalsePositiveV2")
+        XCTAssertEqual(verified?.reason, "elementContrastBoundToAttestedNativeCompactTabChrome")
+        XCTAssertEqual(verified?.screenshotSHA256, screenshotSHA256)
+        XCTAssertEqual(verified?.issueElement.frame, destinations[0].frame)
+        XCTAssertEqual(verified?.pixelEvidence.count, 4)
         XCTAssertEqual(verified?.navigationBar.frame, navigationFrame)
         XCTAssertEqual(verified?.destinations.map(\.label), ["Kitchen", "Recipes", "Saved", "Cookbooks"])
+        XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "accessibility-extra-extra-extra-large",
+            issue: anonymousContrastIssue(),
+            elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
 
         XCTAssertNil(verifiedNativeCompactTabChromeContrastFalsePositive(
             idiom: .pad,
@@ -1229,7 +1262,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ))
     }
 
-    func testAnonymousContrastRequiresExactLargeIpadNativeSidebarSelectionPixelAttestation() {
+    func testSidebarContrastWaiverRequiresExactIssueBoundSelectionPixelAttestation() {
         let width = 700
         let height = 900
         let paper = ObservedRGBPixel(red: 251, green: 250, blue: 244)
@@ -1308,12 +1341,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             type: "XCUIAccessibilityAuditType(rawValue: 1)",
             compactDescription: "Contrast failed",
             detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
-            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:(null)",
+            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:Kitchen",
             diagnosticMirror: "",
             elementIdentifier: "",
-            elementLabel: "",
-            elementType: "",
-            elementFrame: nil
+            elementLabel: selectedLabel.label,
+            elementType: selectedLabel.type,
+            elementFrame: selectedLabel.frame
         )
         let elements = [
             sidebarNavigationBar,
@@ -1342,15 +1375,28 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             windowFrame: windowFrame,
             capturePhase: "initial"
         )
-        XCTAssertEqual(verified?.schema, "iosNativeSidebarSelectionContrastFalsePositiveV1")
-        XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeSidebarSelection")
+        XCTAssertEqual(verified?.schema, "iosNativeSidebarSelectionContrastFalsePositiveV3")
+        XCTAssertEqual(verified?.reason, "elementContrastBoundToAttestedNativeSidebarSelection")
+        XCTAssertEqual(verified?.screenshotSHA256, screenshotSHA256)
+        XCTAssertEqual(verified?.issueElement.frame, selectedLabel.frame)
+        XCTAssertEqual(verified?.issuePixelEvidence.screenshotSHA256, screenshotSHA256)
         XCTAssertEqual(verified?.selectedCell.frame, selectedFrame)
         XCTAssertEqual(verified?.selectedSymbol.frame, selectedSymbolFrame)
-        XCTAssertEqual(verified?.visibleTextPixelEvidence.count, 20)
+        XCTAssertEqual(verified?.visibleTextPixelEvidence.count, 21)
         XCTAssertTrue(verified?.visibleTextPixelEvidence.allSatisfy {
             $0.pixelEvidence.screenshotSHA256 == screenshotSHA256
                 && $0.pixelEvidence.contrastRatio >= 4.5
         } == true)
+        XCTAssertNil(verifiedNativeSidebarSelectionContrastFalsePositive(
+            idiom: .pad,
+            contentSizeCategory: "large",
+            issue: anonymousContrastIssue(),
+            elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
 
         var unprovenPixels = pixels
         let unprovenFrame = visibleTextFrames[7]
@@ -1429,7 +1475,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         ))
     }
 
-    func testAnonymousContrastRequiresExactShippedPhoneNativeBottomTabChromeAttestation() {
+    func testChromeContrastWaiverRequiresExactIssueBoundPhoneBottomTabEvidence() {
         let windowFrame = ObservedRect(x: 0, y: 0, width: 402, height: 874)
         let navigationBar = observedElement(
             identifier: "Kitchen",
@@ -1465,12 +1511,12 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             type: "XCUIAccessibilityAuditType(rawValue: 1)",
             compactDescription: "Contrast failed",
             detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
-            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:(null)",
+            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:Kitchen",
             diagnosticMirror: "",
-            elementIdentifier: "",
-            elementLabel: "",
-            elementType: "",
-            elementFrame: nil
+            elementIdentifier: destinations[0].identifier,
+            elementLabel: destinations[0].label,
+            elementType: destinations[0].type,
+            elementFrame: destinations[0].frame
         )
         let elements = [navigationBar, tabBar] + destinations + destinations
         let screenshotSHA256 = String(repeating: "b", count: 64)
@@ -1511,11 +1557,24 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 windowFrame: windowFrame,
                 capturePhase: "deepScroll"
             )
-            XCTAssertEqual(verified?.schema, "iosNativeBottomTabChromeContrastFalsePositiveV2")
-            XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeBottomTabChrome")
+            XCTAssertEqual(verified?.schema, "iosNativeBottomTabChromeContrastFalsePositiveV3")
+            XCTAssertEqual(verified?.reason, "elementContrastBoundToAttestedNativeBottomTabChrome")
+            XCTAssertEqual(verified?.screenshotSHA256, screenshotSHA256)
+            XCTAssertEqual(verified?.issueElement.frame, destinations[0].frame)
+            XCTAssertEqual(verified?.pixelEvidence.count, 5)
             XCTAssertEqual(verified?.tabBar?.frame, tabBar.frame)
             XCTAssertEqual(verified?.destinations.map(\.label), ["Kitchen", "Recipes", "Saved", "Cookbooks", "Shopping"])
         }
+        XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
+            idiom: .phone,
+            contentSizeCategory: "large",
+            issue: anonymousContrastIssue(),
+            elements: elements,
+            screenshotBuffer: screenshotBuffer,
+            screenshotSHA256: screenshotSHA256,
+            windowFrame: windowFrame,
+            capturePhase: "initial"
+        ))
 
         let largeTypeLabelOnlyDestinations = destinations.map { destination in
             observedElement(
@@ -1526,6 +1585,18 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 hittable: true
             )
         }
+        let labelOnlyIssue = ObservedAuditIssue(
+            category: issue.category,
+            type: issue.type,
+            compactDescription: issue.compactDescription,
+            detailedDescription: issue.detailedDescription,
+            diagnosticDescription: issue.diagnosticDescription,
+            diagnosticMirror: issue.diagnosticMirror,
+            elementIdentifier: "",
+            elementLabel: largeTypeLabelOnlyDestinations[0].label,
+            elementType: largeTypeLabelOnlyDestinations[0].type,
+            elementFrame: largeTypeLabelOnlyDestinations[0].frame
+        )
         for contentSizeCategory in [
             "extra-extra-extra-large",
             "accessibility-extra-extra-extra-large"
@@ -1533,29 +1604,29 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             let verified = verifiedNativeBottomTabChromeContrastFalsePositive(
                 idiom: .phone,
                 contentSizeCategory: contentSizeCategory,
-                issue: issue,
+                issue: labelOnlyIssue,
                 elements: [navigationBar, tabBar] + largeTypeLabelOnlyDestinations + largeTypeLabelOnlyDestinations,
                 screenshotBuffer: screenshotBuffer,
                 screenshotSHA256: screenshotSHA256,
                 windowFrame: windowFrame,
                 capturePhase: "initial"
             )
-            XCTAssertEqual(verified?.schema, "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3")
-            XCTAssertEqual(verified?.reason, "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome")
+            XCTAssertEqual(verified?.schema, "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV4")
+            XCTAssertEqual(verified?.reason, "elementContrastBoundToAttestedNativeLargeTypeBottomTabChrome")
             XCTAssertEqual(verified?.destinations.map(\.identifier), ["", "", "", "", ""])
         }
         let ordinaryLabelOnly = verifiedNativeBottomTabChromeContrastFalsePositive(
             idiom: .phone,
             contentSizeCategory: "large",
-            issue: issue,
+            issue: labelOnlyIssue,
             elements: [navigationBar, tabBar] + largeTypeLabelOnlyDestinations,
             screenshotBuffer: screenshotBuffer,
             screenshotSHA256: screenshotSHA256,
             windowFrame: windowFrame,
             capturePhase: "initial"
         )
-        XCTAssertEqual(ordinaryLabelOnly?.schema, "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4")
-        XCTAssertEqual(ordinaryLabelOnly?.reason, "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome")
+        XCTAssertEqual(ordinaryLabelOnly?.schema, "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV5")
+        XCTAssertEqual(ordinaryLabelOnly?.reason, "elementContrastBoundToAttestedNativeLabelOnlyBottomTabChrome")
         XCTAssertEqual(ordinaryLabelOnly?.destinations.map(\.identifier), ["", "", "", "", ""])
         XCTAssertNil(verifiedNativeBottomTabChromeContrastFalsePositive(
             idiom: .phone,
@@ -1722,6 +1793,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             matchingAttestedElementCount: 0,
             attestedFrame: nil,
             screenshotBufferAvailable: true,
+            screenshotSHA256: String(repeating: "c", count: 64),
+            screenshotPixelWidth: 1_206,
+            screenshotPixelHeight: 2_622,
             attempts: [ObservedContrastPixelAdjudicationAttempt(
                 source: "audit",
                 frame: ObservedRect(x: 20, y: 71, width: 318, height: 72),
@@ -1738,7 +1812,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             object.keys.sorted(),
             [
                 "attempts", "attestedFrame", "capturePhase", "issue",
-                "matchingAttestedElementCount", "schema", "screenshotBufferAvailable"
+                "matchingAttestedElementCount", "schema", "screenshotBufferAvailable",
+                "screenshotPixelHeight", "screenshotPixelWidth", "screenshotSHA256"
             ]
         )
         XCTAssertTrue(object["attestedFrame"] is NSNull)
@@ -3370,7 +3445,7 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                     verifiedStaleOffscreenContrastFalsePositives.append(verified)
                     return true
                 }
-                if issue.auditType == .contrast && elementType == "staticText" {
+                if issue.auditType == .contrast {
                     contrastPixelAdjudicationDiagnostics.append(ObservedContrastPixelAdjudicationDiagnostic(
                         schema: "iosContrastPixelAdjudicationFailureV1",
                         capturePhase: capturePhase,
@@ -3378,6 +3453,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                         matchingAttestedElementCount: attestation.matchingCount,
                         attestedFrame: attestedFrame,
                         screenshotBufferAvailable: screenshotBuffer != nil,
+                        screenshotSHA256: screenshotSHA256,
+                        screenshotPixelWidth: screenshotBuffer?.width,
+                        screenshotPixelHeight: screenshotBuffer?.height,
                         attempts: pixelAttempts
                     ))
                 }
@@ -3474,12 +3552,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
               issue.compactDescription == "Contrast failed",
               issue.detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode",
-              issue.diagnosticDescription.contains("Element:(null)"),
-              issue.diagnosticMirror.isEmpty,
-              issue.elementIdentifier.isEmpty,
-              issue.elementLabel.isEmpty,
-              issue.elementType.isEmpty,
-              issue.elementFrame == nil,
               screenshotSHA256.range(of: #"\A[0-9a-f]{64}\z"#, options: .regularExpression) != nil,
               let screenshotBuffer,
               screenshotBuffer.screenshotSHA256 == screenshotSHA256 else {
@@ -3539,6 +3611,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               }) else {
             return nil
         }
+        let issueReferences = [selectedLabel, selectedSymbol].map(systemChromeReference)
+        guard let issueElement = auditIssueReference(issue, references: issueReferences) else {
+            return nil
+        }
 
         let interiorInset = 12.0
         let interiorFrame = ObservedRect(
@@ -3547,12 +3623,26 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             width: selectedCell.frame.width - interiorInset * 2,
             height: selectedCell.frame.height - interiorInset * 2
         )
+        let selectedLabelTextFrame = ObservedRect(
+            x: max(selectedSymbol.frame.maxX + 8, selectedCell.frame.minX + 8),
+            y: selectedCell.frame.minY + 8,
+            width: selectedCell.frame.maxX - max(selectedSymbol.frame.maxX + 8, selectedCell.frame.minX + 8) - 8,
+            height: selectedCell.frame.height - 16
+        )
         guard !interiorFrame.isEmpty,
+              !selectedLabelTextFrame.isEmpty,
               let selectedCellCrop = screenshotBuffer.crop(in: interiorFrame),
               let selectedCellPixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
                   pixels: selectedCellCrop.pixels,
                   width: selectedCellCrop.width,
                   height: selectedCellCrop.height,
+                  screenshotSHA256: screenshotSHA256
+              ),
+              let selectedLabelTextCrop = screenshotBuffer.crop(in: selectedLabelTextFrame),
+              let selectedLabelTextPixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
+                  pixels: selectedLabelTextCrop.pixels,
+                  width: selectedLabelTextCrop.width,
+                  height: selectedLabelTextCrop.height,
                   screenshotSHA256: screenshotSHA256
               ),
               let selectedSymbolCrop = screenshotBuffer.crop(in: selectedSymbol.frame),
@@ -3564,17 +3654,22 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               ) else {
             return nil
         }
+        let issuePixelEvidence = rectsApproximatelyEqual(issueElement.frame, selectedSymbol.frame)
+            ? selectedSymbolPixelEvidence
+            : selectedLabelTextPixelEvidence
 
         let visibleTextElements = liveElements.filter {
             $0.type == "staticText"
                 && !$0.label.isEmpty
                 && windowFrame.contains($0.frame)
-                && !rectsApproximatelyEqual($0.frame, selectedLabel.frame)
         }
         guard visibleTextElements.count >= 20 else { return nil }
         var visibleTextPixelEvidence: [ObservedVisibleTextContrastEvidence] = []
         for element in visibleTextElements.sorted(by: visualElementOrder) {
-            guard let crop = screenshotBuffer.crop(in: element.frame),
+            let pixelFrame = rectsApproximatelyEqual(element.frame, selectedLabel.frame)
+                ? selectedLabelTextFrame
+                : element.frame
+            guard let crop = screenshotBuffer.crop(in: pixelFrame),
                   let pixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
                       pixels: crop.pixels,
                       width: crop.width,
@@ -3585,16 +3680,20 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             }
             visibleTextPixelEvidence.append(ObservedVisibleTextContrastEvidence(
                 element: systemChromeReference(element),
+                pixelFrame: pixelFrame,
                 pixelEvidence: pixelEvidence
             ))
         }
 
         return ObservedVerifiedNativeSidebarSelectionContrastFalsePositive(
-            schema: "iosNativeSidebarSelectionContrastFalsePositiveV1",
+            schema: "iosNativeSidebarSelectionContrastFalsePositiveV3",
             capturePhase: capturePhase,
-            reason: "anonymousContrastBoundToAttestedNativeSidebarSelection",
+            reason: "elementContrastBoundToAttestedNativeSidebarSelection",
             contentSizeCategory: contentSizeCategory,
             issue: issue,
+            screenshotSHA256: screenshotSHA256,
+            issueElement: issueElement,
+            issuePixelEvidence: issuePixelEvidence,
             sidebarNavigationBar: systemChromeReference(sidebarNavigationBar),
             detailNavigationBar: systemChromeReference(detailNavigationBar),
             sidebarCollection: systemChromeReference(sidebarCollection),
@@ -3602,7 +3701,9 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             selectedLabel: systemChromeReference(selectedLabel),
             selectedSymbol: systemChromeReference(selectedSymbol),
             selectedCellInteriorFrame: interiorFrame,
+            selectedLabelTextFrame: selectedLabelTextFrame,
             selectedCellPixelEvidence: selectedCellPixelEvidence,
+            selectedLabelTextPixelEvidence: selectedLabelTextPixelEvidence,
             selectedSymbolPixelEvidence: selectedSymbolPixelEvidence,
             visibleTextPixelEvidence: visibleTextPixelEvidence
         )
@@ -3650,12 +3751,6 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
               issue.compactDescription == "Contrast failed",
               issue.detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode",
-              issue.diagnosticDescription.contains("Element:(null)"),
-              issue.diagnosticMirror.isEmpty,
-              issue.elementIdentifier.isEmpty,
-              issue.elementLabel.isEmpty,
-              issue.elementType.isEmpty,
-              issue.elementFrame == nil,
               !elements.contains(where: { $0.exists && $0.type == "tabBar" }) else {
             return nil
         }
@@ -3700,8 +3795,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             destinationReferences.append(systemChromeReference(match))
         }
 
-        guard hasVerifiedSystemChromePixelContrast(
-            references: [systemChromeReference(navigationBar)] + destinationReferences,
+        guard let issueElement = auditIssueReference(issue, references: destinationReferences),
+              let pixelEvidence = systemChromePixelEvidence(
+            references: destinationReferences,
+            labelPlacement: .trailing,
             screenshotBuffer: screenshotBuffer,
             screenshotSHA256: screenshotSHA256
         ) else {
@@ -3709,11 +3806,14 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         }
 
         return ObservedVerifiedSystemChromeContrastFalsePositive(
-            schema: "iosNativeCompactTabChromeContrastFalsePositiveV1",
+            schema: "iosNativeCompactTabChromeContrastFalsePositiveV2",
             capturePhase: capturePhase,
-            reason: "anonymousContrastBoundToAttestedNativeCompactTabChrome",
+            reason: "elementContrastBoundToAttestedNativeCompactTabChrome",
             contentSizeCategory: contentSizeCategory,
             issue: issue,
+            screenshotSHA256: screenshotSHA256,
+            issueElement: issueElement,
+            pixelEvidence: pixelEvidence,
             navigationBar: systemChromeReference(navigationBar),
             tabBar: nil,
             destinations: destinationReferences
@@ -3742,12 +3842,8 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
               issue.type == "XCUIAccessibilityAuditType(rawValue: 1)",
               issue.compactDescription == "Contrast failed",
               issue.detailedDescription == "Contrast failed for SwiftUI.AccessibilityNode",
-              issue.diagnosticDescription.contains("Element:(null)"),
-              issue.diagnosticMirror.isEmpty,
-              issue.elementIdentifier.isEmpty,
-              issue.elementLabel.isEmpty,
-              issue.elementType.isEmpty,
-              issue.elementFrame == nil else {
+              !issue.elementType.isEmpty,
+              issue.elementFrame != nil else {
             return nil
         }
 
@@ -3841,11 +3937,10 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
             }
         }) else { return nil }
 
-        guard hasVerifiedSystemChromePixelContrast(
-            references: [
-                systemChromeReference(navigationBar),
-                systemChromeReference(tabBar)
-            ] + destinationReferences,
+        guard let issueElement = auditIssueReference(issue, references: destinationReferences),
+              let pixelEvidence = systemChromePixelEvidence(
+            references: destinationReferences,
+            labelPlacement: .bottom,
             screenshotBuffer: screenshotBuffer,
             screenshotSHA256: screenshotSHA256
         ) else {
@@ -3854,48 +3949,101 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
 
         return ObservedVerifiedSystemChromeContrastFalsePositive(
             schema: usesOrdinaryLabelOnlyIdentity
-                ? "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4"
+                ? "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV5"
                 : usesLargeTypeLabelOnlyIdentity
-                    ? "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3"
-                    : "iosNativeBottomTabChromeContrastFalsePositiveV2",
+                    ? "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV4"
+                    : "iosNativeBottomTabChromeContrastFalsePositiveV3",
             capturePhase: capturePhase,
             reason: usesOrdinaryLabelOnlyIdentity
-                ? "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
+                ? "elementContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
                 : usesLargeTypeLabelOnlyIdentity
-                    ? "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
-                    : "anonymousContrastBoundToAttestedNativeBottomTabChrome",
+                    ? "elementContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
+                    : "elementContrastBoundToAttestedNativeBottomTabChrome",
             contentSizeCategory: contentSizeCategory,
             issue: issue,
+            screenshotSHA256: screenshotSHA256,
+            issueElement: issueElement,
+            pixelEvidence: pixelEvidence,
             navigationBar: systemChromeReference(navigationBar),
             tabBar: systemChromeReference(tabBar),
             destinations: destinationReferences
         )
     }
 
-    private func hasVerifiedSystemChromePixelContrast(
+    private func auditIssueReference(
+        _ issue: ObservedAuditIssue,
+        references: [ObservedSystemChromeElementReference]
+    ) -> ObservedSystemChromeElementReference? {
+        guard !issue.elementType.isEmpty,
+              let issueFrame = issue.elementFrame,
+              !issue.diagnosticDescription.contains("Element:(null)") else {
+            return nil
+        }
+        return references.only { reference in
+            reference.identifier == issue.elementIdentifier
+                && reference.label == issue.elementLabel
+                && reference.type == issue.elementType
+                && rectsApproximatelyEqual(reference.frame, issueFrame)
+        }
+    }
+
+    private enum SystemChromeLabelPlacement {
+        case trailing
+        case bottom
+    }
+
+    private func systemChromePixelEvidence(
         references: [ObservedSystemChromeElementReference],
+        labelPlacement: SystemChromeLabelPlacement,
         screenshotBuffer: ScreenshotPixelBuffer?,
         screenshotSHA256: String
-    ) -> Bool {
+    ) -> [ObservedVisibleTextContrastEvidence]? {
         guard screenshotSHA256.range(
             of: #"\A[0-9a-f]{64}\z"#,
             options: .regularExpression
         ) != nil,
         let screenshotBuffer,
         screenshotBuffer.screenshotSHA256 == screenshotSHA256 else {
-            return false
+            return nil
         }
-        return references.allSatisfy { reference in
-            guard let crop = screenshotBuffer.crop(in: reference.frame) else {
-                return false
+        var evidence: [ObservedVisibleTextContrastEvidence] = []
+        for reference in references {
+            let pixelFrame: ObservedRect
+            switch labelPlacement {
+            case .trailing:
+                pixelFrame = ObservedRect(
+                    x: reference.frame.minX + reference.frame.width * 0.28,
+                    y: reference.frame.minY + 4,
+                    width: reference.frame.width * 0.68,
+                    height: reference.frame.height - 8
+                )
+            case .bottom:
+                pixelFrame = ObservedRect(
+                    x: reference.frame.minX + 2,
+                    y: reference.frame.minY + reference.frame.height * 0.50,
+                    width: reference.frame.width - 4,
+                    height: reference.frame.height * 0.46
+                )
             }
-            return ScreenshotPixelContrastAdjudicator.analyze(
+            guard !pixelFrame.isEmpty,
+                  let crop = screenshotBuffer.crop(in: pixelFrame) else {
+                return nil
+            }
+            guard let pixelEvidence = ScreenshotPixelContrastAdjudicator.analyze(
                 pixels: crop.pixels,
                 width: crop.width,
                 height: crop.height,
                 screenshotSHA256: screenshotSHA256
-            ) != nil
+            ) else {
+                return nil
+            }
+            evidence.append(ObservedVisibleTextContrastEvidence(
+                element: reference,
+                pixelFrame: pixelFrame,
+                pixelEvidence: pixelEvidence
+            ))
         }
+        return evidence
     }
 
     private func uniqueAttestedElements(
@@ -4520,6 +4668,11 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
                 verifiedSystemChromeContrastFalsePositives: waypointAuditResult.verifiedSystemChromeContrastFalsePositives,
                 verifiedNativeSidebarSelectionContrastFalsePositives: waypointAuditResult.verifiedNativeSidebarSelectionContrastFalsePositives,
                 verifiedTextClippedFalsePositives: waypointAuditResult.verifiedTextClippedFalsePositives,
+                screenshotArtifactPath: try writeDurableWaypointScreenshot(
+                    waypointCapture.screenshot.pngRepresentation,
+                    index: scrollActionCount
+                ).path,
+                screenshotBytes: waypointCapture.screenshot.pngRepresentation.count,
                 screenshotSHA256: Self.sha256(waypointCapture.screenshot.pngRepresentation),
                 readinessHandshake: waypointCapture.handshake,
                 captureIdentity: waypointCapture.identity,
@@ -5280,6 +5433,21 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         return pixels
     }
 
+    private func anonymousContrastIssue() -> ObservedAuditIssue {
+        ObservedAuditIssue(
+            category: "contrast",
+            type: "XCUIAccessibilityAuditType(rawValue: 1)",
+            compactDescription: "Contrast failed",
+            detailedDescription: "Contrast failed for SwiftUI.AccessibilityNode",
+            diagnosticDescription: "<XCUIAccessibilityAuditIssue> Element:(null)",
+            diagnosticMirror: "",
+            elementIdentifier: "",
+            elementLabel: "",
+            elementType: "",
+            elementFrame: nil
+        )
+    }
+
     private func syntheticChromePixelBuffer(
         width: Int,
         height: Int,
@@ -5359,6 +5527,23 @@ final class NativeScreenshotEvidenceTests: XCTestCase {
         let output = URL(fileURLWithPath: configuredPath)
         try FileManager.default.createDirectory(at: output.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: output, options: .atomic)
+    }
+
+    private func writeDurableWaypointScreenshot(_ data: Data, index: Int) throws -> (path: String, url: URL) {
+        let configuredPath = try XCTUnwrap(
+            ProcessInfo.processInfo.environment[Self.evidencePathEnvironmentKey],
+            "Deep-scroll waypoint evidence requires a durable configured evidence path"
+        )
+        let evidenceURL = URL(fileURLWithPath: configuredPath)
+        let stem = evidenceURL.deletingPathExtension().lastPathComponent
+        let fileName = "\(stem).deep-scroll-waypoint-\(index).png"
+        let output = evidenceURL.deletingLastPathComponent().appendingPathComponent(fileName)
+        try FileManager.default.createDirectory(
+            at: output.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try data.write(to: output, options: .atomic)
+        return (fileName, output)
     }
 
     private func attachJSON(_ data: Data, name: String) {

@@ -171,7 +171,7 @@ struct ScreenshotPixelBuffer: Sendable {
 }
 
 enum ScreenshotPixelContrastAdjudicator {
-    private static let requiredContrastRatio = 4.5
+    private static let defaultRequiredContrastRatio = 4.5
     private static let minimumBackgroundCoverage = 0.6
     private static let maximumForegroundCoverage = 0.4
 
@@ -179,9 +179,12 @@ enum ScreenshotPixelContrastAdjudicator {
         pixels: [ObservedRGBPixel],
         width: Int,
         height: Int,
-        screenshotSHA256: String = String(repeating: "0", count: 64)
+        screenshotSHA256: String = String(repeating: "0", count: 64),
+        requiredContrastRatio: Double = defaultRequiredContrastRatio
     ) -> ObservedContrastPixelEvidence? {
-        guard width > 0,
+        guard requiredContrastRatio.isFinite,
+              requiredContrastRatio > 0,
+              width > 0,
               height > 0,
               pixels.count == width * height,
               pixels.count >= 64 else {
@@ -189,7 +192,11 @@ enum ScreenshotPixelContrastAdjudicator {
         }
 
         let buckets = Dictionary(grouping: pixels, by: quantizedKey)
-        guard let dominantBucket = buckets.values.max(by: { $0.count < $1.count }) else {
+        guard let dominantBucket = buckets.sorted(by: { left, right in
+            left.value.count == right.value.count
+                ? left.key < right.key
+                : left.value.count > right.value.count
+        }).first?.value else {
             return nil
         }
         let dominantColor = average(dominantBucket)
@@ -233,6 +240,9 @@ enum ScreenshotPixelContrastAdjudicator {
             width: width
         )
             .filter { $0.count >= minimumForegroundPixels }
+            .sorted { left, right in
+                (left.map(\.offset).min() ?? .max) < (right.map(\.offset).min() ?? .max)
+            }
         guard !substantialForegroundClusters.isEmpty else { return nil }
 
         let evaluatedClusters = substantialForegroundClusters.compactMap { cluster -> (ObservedRGBPixel, Double)? in

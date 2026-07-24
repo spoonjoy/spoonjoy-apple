@@ -1141,7 +1141,8 @@ private func makeVisualEvidenceFixture(
             "designReview": "payload/routes/\(route)/design-review.json",
             "screenshots": screenshotReferences,
             "deepScrollScreenshots": deepScrollScreenshotReferences,
-            "proofs": proofNames.map { "payload/routes/\(route)/proofs/\($0)" }
+            "proofs": proofNames.map { "payload/routes/\(route)/proofs/\($0)" },
+            "waypointScreenshots": []
         ])
     }
 

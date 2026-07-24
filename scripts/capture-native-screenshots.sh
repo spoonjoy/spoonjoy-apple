@@ -802,7 +802,7 @@ write_design_review_success() {
       manifest["settingsSections"] = if settings_focus == "signed-out"
                                        ["Session", "Environment", "Offline"]
                                      elsif settings_focus == "notifications"
-                                       ["Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access", "Offline"]
+                                       ["This Device"]
                                      else
                                        ["Profile", "Security", "Environment", "Offline"]
                                      end
@@ -2081,7 +2081,7 @@ validate_screenshot_surface_proof() {
     abort("#{platform} screenshot proof sections must be an array") unless sections.is_a?(Array)
     if screenshot_route == "settings"
       required_sections = if expected_focus == "notifications"
-                            ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                            ["This Device"]
                           elsif expected_focus == "signed-out"
                             ["Session", "Environment", "Offline"]
                           else
@@ -2518,6 +2518,98 @@ require_ios_capture_artifact() {
   fi
 }
 
+require_ios_observed_waypoint_artifacts() {
+  local evidence_path="$1"
+  if ! jq -e '
+    .deepScroll as $deep |
+    if $deep == null then
+      true
+    else
+      ($deep.swipeCount | type) == "number" and
+      $deep.swipeCount >= 0 and
+      ($deep.swipeCount | floor) == $deep.swipeCount and
+      ($deep.waypoints | type) == "array" and
+      ($deep.waypoints | length) == $deep.swipeCount and
+      all($deep.waypoints[];
+        (.index | type) == "number" and
+        (.index | floor) == .index and
+        (.screenshotArtifactPath | type) == "string" and
+        (.screenshotBytes | type) == "number" and
+        .screenshotBytes > 0 and
+        (.screenshotBytes | floor) == .screenshotBytes and
+        (.screenshotSHA256 | type) == "string" and
+        (.screenshotSHA256 | test("^[0-9a-f]{64}$"))
+      )
+    end
+  ' "$evidence_path" >/dev/null; then
+    printf 'staged iOS observed waypoint evidence is malformed: %s\n' "$evidence_path" >> "$capture_log"
+    ios_evidence_publication_failure_seen=true
+    return 1
+  fi
+
+  local evidence_stem
+  evidence_stem="$(basename "${evidence_path%.json}")"
+  while IFS=$'\t' read -r index artifact_name expected_bytes expected_sha256; do
+    local expected_name="${evidence_stem}.deep-scroll-waypoint-${index}.png"
+    if [[ "$artifact_name" != "$expected_name" || "$(basename "$artifact_name")" != "$artifact_name" ]]; then
+      printf 'staged iOS observed waypoint name is not canonical: %s\n' "$artifact_name" >> "$capture_log"
+      ios_evidence_publication_failure_seen=true
+      return 1
+    fi
+    local artifact_path="$(dirname "$evidence_path")/$artifact_name"
+    if [[ -L "$artifact_path" ]] || ! require_ios_capture_artifact "$artifact_path"; then
+      printf 'staged iOS observed waypoint artifact is missing or unsafe: %s\n' "$artifact_path" >> "$capture_log"
+      ios_evidence_publication_failure_seen=true
+      return 1
+    fi
+    local actual_bytes actual_sha256
+    actual_bytes="$(stat -f '%z' "$artifact_path")"
+    actual_sha256="$(shasum -a 256 "$artifact_path" | awk '{print $1}')"
+    if [[ "$actual_bytes" != "$expected_bytes" || "$actual_sha256" != "$expected_sha256" ]]; then
+      printf 'staged iOS observed waypoint artifact integrity mismatch: %s\n' "$artifact_path" >> "$capture_log"
+      ios_evidence_publication_failure_seen=true
+      return 1
+    fi
+  done < <(jq -r '.deepScroll.waypoints[]? | [.index, .screenshotArtifactPath, .screenshotBytes, .screenshotSHA256] | @tsv' "$evidence_path")
+}
+
+publish_ios_observed_waypoint_artifacts() {
+  local staged_evidence="$1"
+  local final_evidence="$2"
+  require_ios_observed_waypoint_artifacts "$staged_evidence" || return 1
+  while IFS= read -r artifact_name; do
+    publish_ios_capture_artifact \
+      "$(dirname "$staged_evidence")/$artifact_name" \
+      "$(dirname "$final_evidence")/$artifact_name" || return 1
+  done < <(jq -r '.deepScroll.waypoints[]?.screenshotArtifactPath' "$staged_evidence")
+}
+
+remove_ios_observed_waypoint_artifacts() {
+  local platform="${1:-all}"
+  local evidence_path waypoint_path
+  local evidence_paths=()
+  if [[ "$platform" == "all" || "$platform" == "ios" ]]; then
+    evidence_paths+=(
+      "$observed_accessibility_ios_abs"
+      "$observed_accessibility_ios_xxxl_abs"
+      "$observed_accessibility_ios_ax_abs"
+    )
+  fi
+  if [[ "$platform" == "all" || "$platform" == "ipad" ]]; then
+    evidence_paths+=(
+      "$observed_accessibility_ipad_abs"
+      "$observed_accessibility_ipad_xxxl_abs"
+      "$observed_accessibility_ipad_ax_abs"
+    )
+  fi
+  for evidence_path in "${evidence_paths[@]}"; do
+    for waypoint_path in "${evidence_path%.json}.deep-scroll-waypoint-"*.png; do
+      [[ -e "$waypoint_path" || -L "$waypoint_path" ]] || continue
+      rm -f "$waypoint_path"
+    done
+  done
+}
+
 cleanup_uncommitted_ios_generation() {
   if [[ "$ios_capture_generation_committed" == true ]]; then
     return 0
@@ -2531,6 +2623,7 @@ cleanup_uncommitted_ios_generation() {
   rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_xxxl_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs" "$accessibility_proof_ipad_xxxl_deep_scroll_abs" "$accessibility_proof_ipad_ax_deep_scroll_abs"
   rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_xxxl" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_ipad_xxxl" "$observed_accessibility_ipad_ax"
   rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_xxxl_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_ipad_xxxl_abs" "$observed_accessibility_ipad_ax_abs"
+  remove_ios_observed_waypoint_artifacts
 }
 
 capture_ios_app_with_retries() {
@@ -2566,6 +2659,7 @@ capture_ios_app_with_retries() {
   local final_ios_tablet_accessibility_deep_scroll_screenshot="$ios_tablet_accessibility_deep_scroll_screenshot"
   local attempt=1
   rm -f "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output" "$observed_accessibility_output"
+  remove_ios_observed_waypoint_artifacts "$expected_platform"
   if [[ "$expected_platform" == "ios" ]]; then
     rm -f "$final_observed_accessibility_ios_xxxl_abs" "$final_observed_accessibility_ios_ax_abs"
     rm -f "$final_ios_xxxl_screenshot" "$final_ios_accessibility_screenshot"
@@ -2639,12 +2733,15 @@ capture_ios_app_with_retries() {
       require_ios_capture_artifact "$staged_screenshot" || return 1
       require_ios_capture_artifact "$staged_accessibility_proof" || return 1
       require_ios_capture_artifact "$staged_observed_accessibility" || return 1
+      require_ios_observed_waypoint_artifacts "$staged_observed_accessibility" || return 1
       if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
         require_ios_capture_artifact "$staged_surface_proof" || return 1
       fi
       if [[ "$expected_platform" == "ios" ]]; then
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_screenshot")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_screenshot")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_abs")" || return 1
@@ -2652,6 +2749,8 @@ capture_ios_app_with_retries() {
       else
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_xxxl_screenshot")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_accessibility_screenshot")" || return 1
         require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_xxxl_abs")" || return 1
@@ -2684,9 +2783,12 @@ capture_ios_app_with_retries() {
         return 1
       fi
       publish_ios_capture_artifact "$staged_accessibility_proof" "$accessibility_proof_output" || return 1
+      publish_ios_observed_waypoint_artifacts "$staged_observed_accessibility" "$observed_accessibility_output" || return 1
       publish_ios_capture_artifact "$staged_observed_accessibility" "$observed_accessibility_output" || return 1
       if [[ "$expected_platform" == "ios" ]]; then
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" "$final_observed_accessibility_ios_xxxl_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" "$final_observed_accessibility_ios_xxxl_abs" || return 1
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" "$final_observed_accessibility_ios_ax_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" "$final_observed_accessibility_ios_ax_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_screenshot")" "$final_ios_xxxl_screenshot" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_screenshot")" "$final_ios_accessibility_screenshot" || return 1
@@ -2701,7 +2803,9 @@ capture_ios_app_with_retries() {
           publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_deep_scroll_screenshot")" "$final_ios_accessibility_deep_scroll_screenshot" || return 1
         fi
       else
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" "$final_observed_accessibility_ipad_xxxl_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" "$final_observed_accessibility_ipad_xxxl_abs" || return 1
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" "$final_observed_accessibility_ipad_ax_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" "$final_observed_accessibility_ipad_ax_abs" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_xxxl_screenshot")" "$final_ios_tablet_xxxl_screenshot" || return 1
         publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_accessibility_screenshot")" "$final_ios_tablet_accessibility_screenshot" || return 1

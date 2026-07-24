@@ -122,17 +122,19 @@ public struct RecipeCoverImageNormalizer: Equatable, Sendable {
 
     private static func jpegData(from image: CGImage, quality: Double) throws -> Data {
         let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(
+        let destination = CGImageDestinationCreateWithData(
             data,
             UTType.jpeg.identifier as CFString,
             1,
             nil
-        ) else { throw RecipeCoverImageNormalizationError.jpegEncodingFailed }
+        )
+        guard let destination else { throw RecipeCoverImageNormalizationError.jpegEncodingFailed }
 
         CGImageDestinationAddImage(destination, image, [
             kCGImageDestinationLossyCompressionQuality: quality
         ] as CFDictionary)
-        guard CGImageDestinationFinalize(destination) else { throw RecipeCoverImageNormalizationError.jpegEncodingFailed }
+        let finalized = CGImageDestinationFinalize(destination)
+        guard finalized else { throw RecipeCoverImageNormalizationError.jpegEncodingFailed }
 
         return data as Data
     }

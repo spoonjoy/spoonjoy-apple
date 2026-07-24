@@ -565,14 +565,15 @@ public enum ScenarioVerifier {
                     detail: "Root view gates launch through the live store before opening app routes.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
-                    tokens: ["NativeLiveAppStore", "NativeLiveAppStoreDependencies", "bootstrap()", "case .signedOut", "SignedOutSetupView("]
+                    tokens: ["NativeLiveAppStore", "NativeLiveAppStoreDependencies", "bootstrap()", "@Environment(\\.scenePhase)", "await liveStore.refreshForForeground()", "case .signedOut", "SignedOutSetupView("],
+                    forbiddenTokens: ["syncTriggerCoordinator.handle(.foreground)"]
                 ),
                 sourceCheck(
                     name: "native persistence source",
-                    detail: "Platform navigation routes live content state and queues native mutations through the live store.",
+                    detail: "Platform navigation routes live content state and queues native mutations through the live store; the root owns scene lifecycle refresh.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    tokens: ["NativeShellContentState", "contentState.recipes", "contentState.shoppingList", "NativeQueuedMutation", "queueMutation", "syncTriggerCoordinator"]
+                    tokens: ["NativeShellContentState", "contentState.recipes", "contentState.shoppingList", "NativeQueuedMutation", "queueMutation"]
                 ),
                 sourceCheck(
                     name: "search surface source",

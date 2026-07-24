@@ -6,6 +6,8 @@ require "digest"
 require "open3"
 require "pathname"
 require "tmpdir"
+require "zlib"
+require_relative "lib/screenshot_contrast_evidence"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 VALIDATOR = ROOT.join("scripts/validate-design-review.rb")
@@ -31,6 +33,33 @@ def assert_status(expected, command, label)
   return if status.success? == expected
 
   fail_check("#{label} expected success=#{expected}\nSTDOUT:\n#{stdout}\nSTDERR:\n#{stderr}")
+end
+
+def png_chunk(type, payload)
+  type_bytes = type.b
+  [payload.bytesize].pack("N") + type_bytes + payload + [Zlib.crc32(type_bytes + payload)].pack("N")
+end
+
+def patterned_png_bytes(label, width: 400, height: 400)
+  rows = String.new(capacity: height * (width * 3 + 1), encoding: Encoding::BINARY)
+  height.times do |y|
+    rows << "\x00"
+    width.times do |x|
+      value = (x % 8) < 2 ? 24 : 250
+      rows << value.chr << value.chr << value.chr
+    end
+  end
+  header = [width, height, 8, 2, 0, 0, 0].pack("NNCCCCC")
+  "\x89PNG\r\n\x1A\n".b +
+    png_chunk("IHDR", header) +
+    png_chunk("IDAT", Zlib::Deflate.deflate(rows, Zlib::BEST_COMPRESSION)) +
+    png_chunk("IEND", "".b) +
+    label.b
+end
+
+def write_fixture_screenshot(path, label)
+  path.binwrite(patterned_png_bytes(label))
+  $fixture_screenshots_by_sha[Digest::SHA256.file(path).hexdigest] = path
 end
 
 CAPTURE_RUN_NONCES = {
@@ -166,23 +195,15 @@ def macos_pixel_accessibility_binding(screenshot_sha256, phase)
   binding
 end
 
-def macos_contrast_pixel_evidence(screenshot_sha256, required_ratio)
-  {
-    "method" => "screenshotPixelContrastV2",
-    "screenshotSHA256" => screenshot_sha256,
-    "contrastRatio" => 7.1,
-    "requiredContrastRatio" => required_ratio,
-    "evaluatedForegroundClusterCount" => 1,
-    "backgroundCoverage" => 0.7,
-    "foregroundCoverage" => 0.2,
-    "analyzedPixelCount" => 1_000,
-    "backgroundPixelCount" => 700,
-    "foregroundPixelCount" => 200,
-    "ignoredEdgeRulePixelCount" => 0,
-    "ignoredEdgeRuleRowCount" => 0,
-    "background" => { "red" => 250, "green" => 249, "blue" => 243 },
-    "foreground" => { "red" => 40, "green" => 35, "blue" => 29 }
-  }
+def fixture_contrast_pixel_evidence(screenshot_sha256, frame:, point_size:, required_ratio: 4.5)
+  screenshot_path = $fixture_screenshots_by_sha&.fetch(screenshot_sha256, nil)
+  fail_check("fixture screenshot #{screenshot_sha256} is unavailable") unless screenshot_path
+  ScreenshotContrastEvidence.analyze(
+    screenshot_path: screenshot_path,
+    point_size: point_size,
+    frame: frame,
+    required_contrast_ratio: required_ratio
+  )
 end
 
 def macos_screenshot_contrast_evidence(elements, screenshot_sha256, phase)
@@ -191,7 +212,7 @@ def macos_screenshot_contrast_evidence(elements, screenshot_sha256, phase)
              "text"
            elsif element["enabled"] == true &&
                  (!Array(element["actions"]).empty? || MACOS_ACTIONABLE_ROLES.include?(element["role"]))
-             "control"
+             element["title"].to_s.empty? ? "control" : "text"
            end
     next unless kind
 
@@ -199,7 +220,17 @@ def macos_screenshot_contrast_evidence(elements, screenshot_sha256, phase)
       "elementIndex" => index,
       "kind" => kind,
       "element" => element.slice("identifier", "role", "subrole", "title").merge("frame" => element.fetch("frame").dup),
-      "pixelEvidence" => macos_contrast_pixel_evidence(screenshot_sha256, kind == "text" ? 4.5 : 3.0)
+      "pixelEvidence" => fixture_contrast_pixel_evidence(
+        screenshot_sha256,
+        frame: {
+          "x" => element.dig("frame", "x") - rect["x"],
+          "y" => element.dig("frame", "y") - rect["y"],
+          "width" => element.dig("frame", "width"),
+          "height" => element.dig("frame", "height")
+        },
+        point_size: { "width" => rect["width"], "height" => rect["height"] },
+        required_ratio: kind == "text" ? 4.5 : 3.0
+      )
     }
   end
   {
@@ -224,7 +255,9 @@ def fixture_screenshot_sha256(platform, dynamic_type:, capture_phase:)
          else
            "ios-mobile#{capture_phase == "deepScroll" ? "-deep-scroll" : ""}.png"
          end
-  Digest::SHA256.hexdigest("png:#{name}")
+  screenshot = $fixture_screenshot_root&.join("screenshots", name)
+  fail_check("fixture screenshot #{name} is unavailable") unless screenshot&.file?
+  Digest::SHA256.file(screenshot).hexdigest
 end
 
 def observed_proof(platform, dynamic_type: "large")
@@ -340,7 +373,7 @@ def observed_proof(platform, dynamic_type: "large")
       "deepScroll" => {
         "route" => "kitchen",
         "reachedTerminal" => true,
-        "swipeCount" => 3,
+        "swipeCount" => 0,
         "contentViewport" => rect(x: 0, y: 0, width: 100, height: 80),
         "tabBarFrame" => rect(x: 0, y: 80, width: 100, height: 20),
         "terminalElement" => terminal,
@@ -369,8 +402,9 @@ def observed_proof(platform, dynamic_type: "large")
         "selectedScrollHierarchyIdentifier" => "spoonjoy.page-scroll",
         "elements" => [terminal, ios_element("system.tabBar", type: "tabBar", frame: rect(x: 0, y: 80, width: 100, height: 20))],
         "selectedScrollHierarchyElements" => [terminal],
-        "observedContentMovement" => true,
-        "contentFitsWithoutScrolling" => false,
+        "waypoints" => [],
+        "observedContentMovement" => false,
+        "contentFitsWithoutScrolling" => true,
         "toolLimitations" => []
       }
     }
@@ -390,6 +424,7 @@ def observed_proof(platform, dynamic_type: "large")
 end
 
 def verified_contrast_false_positive(screenshot_sha256, capture_phase)
+  issue_frame = rect(x: 10, y: 10, width: 44, height: 20)
   {
     "capturePhase" => capture_phase,
     "issue" => {
@@ -402,29 +437,22 @@ def verified_contrast_false_positive(screenshot_sha256, capture_phase)
       "elementIdentifier" => "",
       "elementLabel" => "Inbox",
       "elementType" => "staticText",
-      "elementFrame" => rect(x: 10, y: 10, width: 44, height: 20)
+      "elementFrame" => issue_frame
     },
-    "pixelEvidence" => {
-      "method" => "screenshotPixelContrastV2",
-      "screenshotSHA256" => screenshot_sha256,
-      "contrastRatio" => 14.7,
-      "requiredContrastRatio" => 4.5,
-      "evaluatedForegroundClusterCount" => 1,
-      "backgroundCoverage" => 0.73,
-      "foregroundCoverage" => 0.2,
-      "analyzedPixelCount" => 1_000,
-      "backgroundPixelCount" => 730,
-      "foregroundPixelCount" => 200,
-      "ignoredEdgeRulePixelCount" => 0,
-      "ignoredEdgeRuleRowCount" => 0,
-      "background" => { "red" => 250, "green" => 249, "blue" => 243 },
-      "foreground" => { "red" => 40, "green" => 35, "blue" => 29 }
-    }
+    "pixelEvidence" => fixture_contrast_pixel_evidence(
+      screenshot_sha256,
+      frame: issue_frame,
+      point_size: { "width" => 100, "height" => 100 }
+    )
   }
 end
 
-def contrast_pixel_evidence(screenshot_sha256)
-  verified_contrast_false_positive(screenshot_sha256, "initial").fetch("pixelEvidence")
+def contrast_pixel_evidence(screenshot_sha256, frame:, point_size:)
+  fixture_contrast_pixel_evidence(
+    screenshot_sha256,
+    frame: frame,
+    point_size: point_size
+  )
 end
 
 def native_sidebar_selection_fixture(screenshot_sha256)
@@ -466,22 +494,34 @@ def native_sidebar_selection_fixture(screenshot_sha256)
   reference = lambda do |element|
     element.slice("identifier", "label", "type", "frame")
   end
+  selected_label_text_frame = rect(x: 74, y: 108, width: 226, height: 48)
+  visible_text_with_selection = ([selected_label] + visible_text).sort_by do |element|
+    [element.dig("frame", "y"), element.dig("frame", "x")]
+  end
   entry = {
-    "schema" => "iosNativeSidebarSelectionContrastFalsePositiveV1",
+    "schema" => "iosNativeSidebarSelectionContrastFalsePositiveV3",
     "capturePhase" => "initial",
-    "reason" => "anonymousContrastBoundToAttestedNativeSidebarSelection",
+    "reason" => "elementContrastBoundToAttestedNativeSidebarSelection",
     "contentSizeCategory" => "large",
     "issue" => {
       "category" => "contrast",
       "type" => "XCUIAccessibilityAuditType(rawValue: 1)",
       "compactDescription" => "Contrast failed",
       "detailedDescription" => "Contrast failed for SwiftUI.AccessibilityNode",
-      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:(null)",
+      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:Kitchen",
       "diagnosticMirror" => "",
       "elementIdentifier" => "",
-      "elementLabel" => "",
-      "elementType" => ""
+      "elementLabel" => "Kitchen",
+      "elementType" => "staticText",
+      "elementFrame" => selected_frame
     },
+    "screenshotSHA256" => screenshot_sha256,
+    "issueElement" => reference.call(selected_label),
+    "issuePixelEvidence" => contrast_pixel_evidence(
+      screenshot_sha256,
+      frame: selected_label_text_frame,
+      point_size: { "width" => 700, "height" => 900 }
+    ),
     "sidebarNavigationBar" => reference.call(sidebar_navigation),
     "detailNavigationBar" => reference.call(detail_navigation),
     "sidebarCollection" => reference.call(sidebar_collection),
@@ -489,12 +529,19 @@ def native_sidebar_selection_fixture(screenshot_sha256)
     "selectedLabel" => reference.call(selected_label),
     "selectedSymbol" => reference.call(selected_symbol),
     "selectedCellInteriorFrame" => rect(x: 32, y: 112, width: 264, height: 40),
-    "selectedCellPixelEvidence" => contrast_pixel_evidence(screenshot_sha256),
-    "selectedSymbolPixelEvidence" => contrast_pixel_evidence(screenshot_sha256),
-    "visibleTextPixelEvidence" => visible_text.map do |element|
+    "selectedLabelTextFrame" => selected_label_text_frame,
+    "selectedCellPixelEvidence" => contrast_pixel_evidence(screenshot_sha256, frame: rect(x: 32, y: 112, width: 264, height: 40), point_size: { "width" => 700, "height" => 900 }),
+    "selectedLabelTextPixelEvidence" => contrast_pixel_evidence(screenshot_sha256, frame: selected_label_text_frame, point_size: { "width" => 700, "height" => 900 }),
+    "selectedSymbolPixelEvidence" => contrast_pixel_evidence(screenshot_sha256, frame: selected_symbol.fetch("frame"), point_size: { "width" => 700, "height" => 900 }),
+    "visibleTextPixelEvidence" => visible_text_with_selection.map do |element|
       {
         "element" => reference.call(element),
-        "pixelEvidence" => contrast_pixel_evidence(screenshot_sha256)
+        "pixelFrame" => element.equal?(selected_label) ? selected_label_text_frame : element.fetch("frame"),
+        "pixelEvidence" => contrast_pixel_evidence(
+          screenshot_sha256,
+          frame: element.equal?(selected_label) ? selected_label_text_frame : element.fetch("frame"),
+          point_size: { "width" => 700, "height" => 900 }
+        )
       }
     end
   }
@@ -544,27 +591,52 @@ def native_compact_tab_chrome
   [navigation_bar, destinations]
 end
 
-def verified_system_chrome_contrast_false_positive(content_size_category:, capture_phase: "initial")
+def verified_system_chrome_contrast_false_positive(screenshot_sha256:, content_size_category:, capture_phase: "initial")
   navigation_bar, destinations = native_compact_tab_chrome
   reference = lambda do |element|
     element.slice("identifier", "label", "type", "frame")
   end
   {
-    "schema" => "iosNativeCompactTabChromeContrastFalsePositiveV1",
+    "schema" => "iosNativeCompactTabChromeContrastFalsePositiveV2",
     "capturePhase" => capture_phase,
-    "reason" => "anonymousContrastBoundToAttestedNativeCompactTabChrome",
+    "reason" => "elementContrastBoundToAttestedNativeCompactTabChrome",
     "contentSizeCategory" => content_size_category,
     "issue" => {
       "category" => "contrast",
       "type" => "XCUIAccessibilityAuditType(rawValue: 1)",
       "compactDescription" => "Contrast failed",
       "detailedDescription" => "Contrast failed for SwiftUI.AccessibilityNode",
-      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:(null)",
+      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:Kitchen",
       "diagnosticMirror" => "",
-      "elementIdentifier" => "",
-      "elementLabel" => "",
-      "elementType" => ""
+      "elementIdentifier" => destinations.first.fetch("identifier"),
+      "elementLabel" => destinations.first.fetch("label"),
+      "elementType" => destinations.first.fetch("type"),
+      "elementFrame" => destinations.first.fetch("frame")
     },
+    "screenshotSHA256" => screenshot_sha256,
+    "issueElement" => reference.call(destinations.first),
+    "pixelEvidence" => destinations.map do |element|
+      frame = element.fetch("frame")
+      {
+        "element" => reference.call(element),
+        "pixelFrame" => rect(
+          x: frame.fetch("x") + frame.fetch("width") * 0.28,
+          y: frame.fetch("y") + 4,
+          width: frame.fetch("width") * 0.68,
+          height: frame.fetch("height") - 8
+        ),
+        "pixelEvidence" => contrast_pixel_evidence(
+          screenshot_sha256,
+          frame: rect(
+            x: frame.fetch("x") + frame.fetch("width") * 0.28,
+            y: frame.fetch("y") + 4,
+            width: frame.fetch("width") * 0.68,
+            height: frame.fetch("height") - 8
+          ),
+          point_size: { "width" => 400, "height" => 200 }
+        )
+      }
+    end,
     "navigationBar" => reference.call(navigation_bar),
     "destinations" => destinations.map { |destination| reference.call(destination) }
   }
@@ -593,26 +665,26 @@ def native_bottom_tab_chrome(label_only: false)
   [navigation_bar, tab_bar, destinations]
 end
 
-def verified_bottom_tab_chrome_contrast_false_positive(capture_phase: "initial", content_size_category: "large", label_only: false)
+def verified_bottom_tab_chrome_contrast_false_positive(screenshot_sha256:, capture_phase: "initial", content_size_category: "large", label_only: false)
   navigation_bar, tab_bar, destinations = native_bottom_tab_chrome(label_only: label_only)
   reference = lambda do |element|
     element.slice("identifier", "label", "type", "frame")
   end
   {
     "schema" => if label_only && content_size_category == "large"
-                  "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4"
+                  "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV5"
                 elsif label_only
-                  "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3"
+                  "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV4"
                 else
-                  "iosNativeBottomTabChromeContrastFalsePositiveV2"
+                  "iosNativeBottomTabChromeContrastFalsePositiveV3"
                 end,
     "capturePhase" => capture_phase,
     "reason" => if label_only && content_size_category == "large"
-                  "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
+                  "elementContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
                 elsif label_only
-                  "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
+                  "elementContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
                 else
-                  "anonymousContrastBoundToAttestedNativeBottomTabChrome"
+                  "elementContrastBoundToAttestedNativeBottomTabChrome"
                 end,
     "contentSizeCategory" => content_size_category,
     "issue" => {
@@ -620,12 +692,37 @@ def verified_bottom_tab_chrome_contrast_false_positive(capture_phase: "initial",
       "type" => "XCUIAccessibilityAuditType(rawValue: 1)",
       "compactDescription" => "Contrast failed",
       "detailedDescription" => "Contrast failed for SwiftUI.AccessibilityNode",
-      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:(null)",
+      "diagnosticDescription" => "<XCUIAccessibilityAuditIssue> Element:Kitchen",
       "diagnosticMirror" => "",
-      "elementIdentifier" => "",
-      "elementLabel" => "",
-      "elementType" => ""
+      "elementIdentifier" => destinations.first.fetch("identifier"),
+      "elementLabel" => destinations.first.fetch("label"),
+      "elementType" => destinations.first.fetch("type"),
+      "elementFrame" => destinations.first.fetch("frame")
     },
+    "screenshotSHA256" => screenshot_sha256,
+    "issueElement" => reference.call(destinations.first),
+    "pixelEvidence" => destinations.map do |element|
+      frame = element.fetch("frame")
+      {
+        "element" => reference.call(element),
+        "pixelFrame" => rect(
+          x: frame.fetch("x") + 2,
+          y: frame.fetch("y") + frame.fetch("height") * 0.50,
+          width: frame.fetch("width") - 4,
+          height: frame.fetch("height") * 0.46
+        ),
+        "pixelEvidence" => contrast_pixel_evidence(
+          screenshot_sha256,
+          frame: rect(
+            x: frame.fetch("x") + 2,
+            y: frame.fetch("y") + frame.fetch("height") * 0.50,
+            width: frame.fetch("width") - 4,
+            height: frame.fetch("height") * 0.46
+          ),
+          point_size: { "width" => 400, "height" => 200 }
+        )
+      }
+    end,
     "navigationBar" => reference.call(navigation_bar),
     "tabBar" => reference.call(tab_bar),
     "destinations" => destinations.map { |destination| reference.call(destination) }
@@ -710,13 +807,16 @@ end
 
 Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   root = Pathname.new(directory)
+  $fixture_screenshot_root = root
+  $fixture_screenshots_by_sha = {}
   root.join("apple").mkpath
   root.join("screenshots").mkpath
   %w[ios-mobile.png ios-mobile-xxxl.png ios-mobile-accessibility.png ios-tablet.png ios-tablet-xxxl.png ios-tablet-accessibility.png macos-desktop.png].each do |name|
-    root.join("screenshots", name).write("png:#{name}")
+    write_fixture_screenshot(root.join("screenshots", name), name)
   end
   DEEP_SCROLL_SCREENSHOT_ARTIFACTS.each_value do |relative_path|
-    root.join(relative_path).write("png:#{Pathname.new(relative_path).basename}")
+    name = Pathname.new(relative_path).basename.to_s
+    write_fixture_screenshot(root.join(relative_path), name)
   end
   [["ios", "large", "ios"], ["ios", "xxxLarge", "ios-xxxl"], ["ios", "accessibility5", "ios-ax"], ["ipad", "large", "ipad"], ["ipad", "xxxLarge", "ipad-xxxl"], ["ipad", "accessibility5", "ipad-ax"], ["macos", "large", "macos"]].each do |platform, dynamic_type, suffix|
     root.join("apple/readiness-#{suffix}.json").write(readiness_proof_bytes(platform, dynamic_type: dynamic_type))
@@ -870,6 +970,10 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   inconsistent_ignored_rule["verifiedContrastFalsePositives"][0]["pixelEvidence"]["ignoredEdgeRulePixelCount"] = 30
   ipad_path.write(JSON.pretty_generate(inconsistent_ignored_rule) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "contrast edge-rule telemetry consistency")
+  manufactured_pixel_metrics = Marshal.load(Marshal.dump(ipad_verified))
+  manufactured_pixel_metrics["verifiedContrastFalsePositives"][0]["pixelEvidence"]["contrastRatio"] += 0.25
+  ipad_path.write(JSON.pretty_generate(manufactured_pixel_metrics) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "manufactured contrast metrics rejection")
   ipad_verified["verifiedContrastFalsePositives"][0]["pixelEvidence"]["screenshotSHA256"] = "0" * 64
   ipad_path.write(JSON.pretty_generate(ipad_verified) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "contrast adjudication screenshot substitution")
@@ -917,10 +1021,20 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   ipad_path.write(JSON.pretty_generate(substituted_sidebar_screenshot) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "native sidebar screenshot substitution rejection")
 
-  attributed_sidebar_issue = Marshal.load(Marshal.dump(ipad_native_sidebar))
-  attributed_sidebar_issue["verifiedNativeSidebarSelectionContrastFalsePositives"][0]["issue"]["elementLabel"] = "Kitchen"
-  ipad_path.write(JSON.pretty_generate(attributed_sidebar_issue) + "\n")
-  assert_status(false, ["ruby", VALIDATOR, manifest_path], "attributed native sidebar issue rejection")
+  anonymous_sidebar_issue = Marshal.load(Marshal.dump(ipad_native_sidebar))
+  anonymous_issue = anonymous_sidebar_issue["verifiedNativeSidebarSelectionContrastFalsePositives"][0]["issue"]
+  anonymous_issue["diagnosticDescription"] = "<XCUIAccessibilityAuditIssue> Element:(null)"
+  anonymous_issue["elementIdentifier"] = ""
+  anonymous_issue["elementLabel"] = ""
+  anonymous_issue["elementType"] = ""
+  anonymous_issue.delete("elementFrame")
+  ipad_path.write(JSON.pretty_generate(anonymous_sidebar_issue) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "anonymous native sidebar issue rejection")
+
+  substituted_sidebar_outer_screenshot = Marshal.load(Marshal.dump(ipad_native_sidebar))
+  substituted_sidebar_outer_screenshot["verifiedNativeSidebarSelectionContrastFalsePositives"][0]["screenshotSHA256"] = "0" * 64
+  ipad_path.write(JSON.pretty_generate(substituted_sidebar_outer_screenshot) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "native sidebar outer screenshot substitution rejection")
   ipad_path.write(JSON.pretty_generate(observed_proof("ipad")) + "\n")
 
   sidebar_frame = rect(x: 0, y: 0, width: 40, height: 80)
@@ -1000,26 +1114,33 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   verified_system_chrome["elements"] += [navigation_bar] + destinations + destinations
   verified_system_chrome["verifiedSystemChromeContrastFalsePositives"] = [
     verified_system_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosTabletAccessibility", "sha256"),
       content_size_category: "accessibility-extra-extra-extra-large"
     )
   ]
   ipad_ax_path.write(JSON.pretty_generate(verified_system_chrome) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "serialized native compact-tab contrast adjudication")
 
-  attributed_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
-  attributed_system_chrome["verifiedSystemChromeContrastFalsePositives"][0]["issue"]["elementLabel"] = "Recipe Index"
-  ipad_ax_path.write(JSON.pretty_generate(attributed_system_chrome) + "\n")
-  assert_status(false, ["ruby", VALIDATOR, manifest_path], "attributed compact-tab contrast rejection")
+  anonymous_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
+  anonymous_issue = anonymous_system_chrome["verifiedSystemChromeContrastFalsePositives"][0]["issue"]
+  anonymous_issue["diagnosticDescription"] = "<XCUIAccessibilityAuditIssue> Element:(null)"
+  anonymous_issue["elementIdentifier"] = ""
+  anonymous_issue["elementLabel"] = ""
+  anonymous_issue["elementType"] = ""
+  anonymous_issue.delete("elementFrame")
+  ipad_ax_path.write(JSON.pretty_generate(anonymous_system_chrome) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "anonymous compact-tab contrast rejection")
 
-  framed_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
-  framed_system_chrome["verifiedSystemChromeContrastFalsePositives"][0]["issue"]["elementFrame"] = rect(x: 10, y: 60, width: 40, height: 20)
-  ipad_ax_path.write(JSON.pretty_generate(framed_system_chrome) + "\n")
-  assert_status(false, ["ruby", VALIDATOR, manifest_path], "framed compact-tab contrast rejection")
+  mismatched_issue_element = Marshal.load(Marshal.dump(verified_system_chrome))
+  mismatched_issue_element["verifiedSystemChromeContrastFalsePositives"][0]["issueElement"] =
+    mismatched_issue_element["verifiedSystemChromeContrastFalsePositives"][0]["navigationBar"]
+  ipad_ax_path.write(JSON.pretty_generate(mismatched_issue_element) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "mismatched compact-tab issue element rejection")
 
-  wrong_diagnostic_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
-  wrong_diagnostic_system_chrome["verifiedSystemChromeContrastFalsePositives"][0]["issue"]["diagnosticDescription"] = "Element:Recipe Index"
-  ipad_ax_path.write(JSON.pretty_generate(wrong_diagnostic_system_chrome) + "\n")
-  assert_status(false, ["ruby", VALIDATOR, manifest_path], "non-anonymous compact-tab contrast rejection")
+  substituted_system_chrome_screenshot = Marshal.load(Marshal.dump(verified_system_chrome))
+  substituted_system_chrome_screenshot["verifiedSystemChromeContrastFalsePositives"][0]["screenshotSHA256"] = "0" * 64
+  ipad_ax_path.write(JSON.pretty_generate(substituted_system_chrome_screenshot) + "\n")
+  assert_status(false, ["ruby", VALIDATOR, manifest_path], "substituted compact-tab screenshot rejection")
 
   missing_destination_system_chrome = Marshal.load(Marshal.dump(verified_system_chrome))
   missing_destination_system_chrome["elements"].reject! { |element| element["identifier"] == "books.vertical" }
@@ -1046,7 +1167,10 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   ordinary_system_chrome["elements"] = ordinary_system_chrome["elements"].reject { |element| element["type"] == "tabBar" }
   ordinary_system_chrome["elements"] += [navigation_bar] + destinations
   ordinary_system_chrome["verifiedSystemChromeContrastFalsePositives"] = [
-    verified_system_chrome_contrast_false_positive(content_size_category: "large")
+    verified_system_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosTablet", "sha256"),
+      content_size_category: "large"
+    )
   ]
   ipad_path.write(JSON.pretty_generate(ordinary_system_chrome) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "ordinary-size compact-tab contrast rejection")
@@ -1061,7 +1185,9 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   verified_phone_chrome["elements"] = verified_phone_chrome["elements"].reject { |element| element["type"] == "tabBar" }
   verified_phone_chrome["elements"] += [phone_navigation_bar, phone_tab_bar] + phone_destinations + phone_destinations
   verified_phone_chrome["verifiedSystemChromeContrastFalsePositives"] = [
-    verified_bottom_tab_chrome_contrast_false_positive
+    verified_bottom_tab_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosMobile", "sha256")
+    )
   ]
   observed_ios_path.write(JSON.pretty_generate(verified_phone_chrome) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "serialized native bottom-tab contrast adjudication")
@@ -1073,7 +1199,10 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   ordinary_label_only_phone_issue["elements"] = ordinary_label_only_phone_issue["elements"].reject { |element| element["type"] == "tabBar" }
   ordinary_label_only_phone_issue["elements"] += [ordinary_label_navigation_bar, ordinary_label_tab_bar] + ordinary_label_destinations
   ordinary_label_only_phone_issue["verifiedSystemChromeContrastFalsePositives"] = [
-    verified_bottom_tab_chrome_contrast_false_positive(label_only: true)
+    verified_bottom_tab_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosMobile", "sha256"),
+      label_only: true
+    )
   ]
   observed_ios_path.write(JSON.pretty_generate(ordinary_label_only_phone_issue) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "ordinary label-only native bottom-tab contrast adjudication")
@@ -1112,14 +1241,20 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   end
   duplicate_phone_issue["elements"] += [phone_navigation_bar, phone_tab_bar] + phone_destinations + phone_destinations
   duplicate_phone_issue["verifiedSystemChromeContrastFalsePositives"] = [
-    verified_bottom_tab_chrome_contrast_false_positive(content_size_category: "extra-extra-extra-large")
+    verified_bottom_tab_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosXXXL", "sha256"),
+      content_size_category: "extra-extra-extra-large"
+    )
   ] * 2
   observed_ios_xxxl_path.write(JSON.pretty_generate(duplicate_phone_issue) + "\n")
   assert_status(true, ["ruby", VALIDATOR, manifest_path], "two serialized native bottom-tab contrast warnings")
 
   excessive_phone_issues = Marshal.load(Marshal.dump(duplicate_phone_issue))
   excessive_phone_issues["verifiedSystemChromeContrastFalsePositives"] <<
-    verified_bottom_tab_chrome_contrast_false_positive(content_size_category: "extra-extra-extra-large")
+    verified_bottom_tab_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosXXXL", "sha256"),
+      content_size_category: "extra-extra-extra-large"
+    )
   observed_ios_xxxl_path.write(JSON.pretty_generate(excessive_phone_issues) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "excessive native bottom-tab issue rejection")
 
@@ -1135,6 +1270,7 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   label_only_phone_issue["elements"] += [label_navigation_bar, label_tab_bar] + label_only_destinations + label_only_destinations
   label_only_phone_issue["verifiedSystemChromeContrastFalsePositives"] = [
     verified_bottom_tab_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosXXXL", "sha256"),
       content_size_category: "extra-extra-extra-large",
       label_only: true
     )
@@ -1151,7 +1287,10 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   compact_phone_chrome = Marshal.load(Marshal.dump(verified_phone_chrome))
   compact_phone_chrome["elements"].reject! { |element| element["type"] == "tabBar" || element["identifier"] == "checklist" }
   compact_phone_chrome["verifiedSystemChromeContrastFalsePositives"] = [
-    verified_system_chrome_contrast_false_positive(content_size_category: "large")
+    verified_system_chrome_contrast_false_positive(
+      screenshot_sha256: valid_manifest.dig("screenshotArtifacts", "iosMobile", "sha256"),
+      content_size_category: "large"
+    )
   ]
   observed_ios_path.write(JSON.pretty_generate(compact_phone_chrome) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "phone compact-tab substitution rejection")
@@ -1159,7 +1298,7 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
 
   root.join("screenshots/ios-mobile.png").write("tampered")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "tampered screenshot rejection")
-  root.join("screenshots/ios-mobile.png").write("png:ios-mobile.png")
+  write_fixture_screenshot(root.join("screenshots/ios-mobile.png"), "ios-mobile.png")
 
   stale = readiness_proof("ios").merge("routeEvidence" => { "voiceOverLabels" => ["invented"] })
   root.join("apple/readiness-ios.json").write(JSON.pretty_generate(stale) + "\n")
@@ -1388,7 +1527,8 @@ Dir.mktmpdir("spoonjoy-observed-accessibility") do |directory|
   zero_movement_deep_scroll = observed_proof("ipad")
   zero_movement_deep_scroll["deepScroll"] = zero_movement_deep_scroll.fetch("deepScroll").merge(
     "swipeCount" => 0,
-    "observedContentMovement" => false
+    "observedContentMovement" => false,
+    "contentFitsWithoutScrolling" => false
   )
   root.join("apple/observed-ipad.json").write(JSON.pretty_generate(zero_movement_deep_scroll) + "\n")
   assert_status(false, ["ruby", VALIDATOR, manifest_path], "zero-movement deep-scroll rejection")

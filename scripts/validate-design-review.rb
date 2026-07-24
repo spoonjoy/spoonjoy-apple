@@ -4,6 +4,7 @@
 require "json"
 require "digest"
 require "pathname"
+require_relative "lib/screenshot_contrast_evidence"
 
 SCREENSHOT_ARTIFACTS = {
   "iosMobile" => "screenshots/ios-mobile.png",
@@ -327,6 +328,19 @@ def ios_actionable_composite_pair?(first, second, elements)
   composite_children.length == 1 && composite_children.first == child
 end
 
+def ios_action_identity(element)
+  frame = element.fetch("frame")
+  JSON.generate([
+    element["identifier"].to_s,
+    element["type"].to_s,
+    element["label"].to_s,
+    frame["x"],
+    frame["y"],
+    frame["width"],
+    frame["height"]
+  ])
+end
+
 def host_geometry_findings!(proof_path, elements, viewport, platform, route, manifest, include_route_requirements: true, element_bounds: viewport)
   findings = []
   by_identifier = Hash.new { |hash, key| hash[key] = [] }
@@ -382,14 +396,16 @@ def host_geometry_findings!(proof_path, elements, viewport, platform, route, man
     end
     actionable.each_with_index do |first, first_index|
       actionable.drop(first_index + 1).each do |second|
-        next if first["identifier"].to_s.empty? || second["identifier"].to_s.empty? || first["identifier"] == second["identifier"]
+        first_identity = ios_action_identity(first)
+        second_identity = ios_action_identity(second)
+        next if first_identity == second_identity
         first_frame = first.fetch("frame")
         second_frame = second.fetch("frame")
         next if ios_actionable_composite_pair?(first, second, elements)
         overlap = rect_intersection(first_frame, second_frame)
         next unless overlap && overlap["width"] * overlap["height"] > 1
 
-        findings << "action peers #{first["identifier"]} and #{second["identifier"]} overlap"
+        findings << "action peers #{first_identity} and #{second_identity} overlap"
       end
     end
   end
@@ -480,7 +496,7 @@ def macos_contrast_candidate_kind(element, window_frame)
   return nil if element["role"] == "AXDisclosureTriangle" || MAC_NATIVE_CONTROL_SUBROLES.include?(element["subrole"])
   return nil if Array(element["actions"]).empty? && !MAC_ACTIONABLE_ROLES.include?(element["role"])
 
-  "control"
+  element["title"].to_s.empty? ? "control" : "text"
 end
 
 def validate_macos_screenshot_contrast_evidence!(
@@ -538,7 +554,9 @@ def validate_macos_screenshot_contrast_evidence!(
       pixels,
       screenshot_sha256,
       "macOS screenshot contrast entry #{evidence_index}",
-      minimum_required_ratio: expected_ratio
+      minimum_required_ratio: expected_ratio,
+      frame: reference.fetch("frame"),
+      window_frame: window_frame
     )
   end
 end
@@ -722,6 +740,37 @@ def validate_screenshot_artifacts!(manifest_path, manifest)
   end
 end
 
+def validate_exact_settings_sections!(proof_path, sections, visual_focus)
+  fail_check("#{proof_path} visible sections must be an array") unless sections.is_a?(Array)
+  if visual_focus == "notifications"
+    fail_check("#{proof_path} notification sections must exactly match independently observed This Device") unless
+      sections == ["This Device"]
+    return
+  end
+
+  required_sections = if visual_focus == "signed-out"
+                        ["Session", "Environment", "Offline"]
+                      else
+                        ["Profile", "Security"]
+                      end
+  missing_sections = required_sections.reject { |section| sections.include?(section) }
+  fail_check("#{proof_path} visibleSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless
+    missing_sections.empty?
+end
+
+def validate_observed_settings_notification_headings!(proof_path, elements)
+  identifiers = elements.map { |element| element["identifier"] }
+  required = "settings.apns.this-device.heading"
+  fail_check("#{proof_path} missing independently observed APNs heading: #{required}") unless identifiers.include?(required)
+
+  fabricated = identifiers & %w[
+    settings.apns.push-delivery.heading
+    settings.apns.notification-sync.heading
+    settings.apns.agent-access.heading
+  ]
+  fail_check("#{proof_path} contains fabricated APNs section headings: #{fabricated.join(", ")}") unless fabricated.empty?
+end
+
 def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   fail_check("#{manifest_path} settingsSurfaceProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
@@ -732,16 +781,7 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   fail_check("#{proof_path} visualFocus must be #{visual_focus}") unless proof["visualFocus"] == visual_focus
   fail_check("#{proof_path} source must be SettingsView") unless proof["source"] == "SettingsView"
   sections = proof["visibleSections"]
-  fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
-  required_sections = if visual_focus == "notifications"
-                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
-                      elsif visual_focus == "signed-out"
-                        ["Session", "Environment", "Offline"]
-                      else
-                        ["Profile", "Security"]
-                      end
-  missing_sections = required_sections.reject { |section| sections.include?(section) }
-  fail_check("#{proof_path} visibleSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
+  validate_exact_settings_sections!(proof_path, sections, visual_focus)
 end
 
 def expected_search_proof(variant)
@@ -1019,6 +1059,204 @@ def validate_ios_audit_types!(proof_path, evidence, capture_phase)
   end
 end
 
+def validate_ios_deep_scroll_waypoint_sequence!(proof_path, deep_scroll)
+  swipe_count = deep_scroll["swipeCount"]
+  waypoints = deep_scroll["waypoints"]
+  fail_check("#{proof_path} deep-scroll waypoint count requires a nonnegative swipeCount") unless
+    swipe_count.is_a?(Integer) && swipe_count >= 0
+  fail_check("#{proof_path} must include exactly one waypoint for every scroll action") unless
+    waypoints.is_a?(Array) && waypoints.length == swipe_count
+
+  waypoints.each_with_index do |waypoint, zero_index|
+    index = zero_index + 1
+    phase = "deepScrollWaypoint-#{index}"
+    fail_check("#{proof_path} #{phase} must be an object") unless waypoint.is_a?(Hash)
+    fail_check("#{proof_path} #{phase} index mismatch") unless waypoint["index"] == index
+    fail_check("#{proof_path} #{phase} capture phase mismatch") unless waypoint["capturePhase"] == phase
+    fail_check("#{proof_path} #{phase} contains geometry findings") unless waypoint["findings"] == []
+    fail_check("#{proof_path} #{phase} contains blocking accessibility audit issues") unless waypoint["auditIssues"] == []
+    fail_check("#{proof_path} #{phase} audit scope mismatch") unless waypoint["auditScope"] == "settledScrollWaypoint"
+    validate_ios_audit_types!(proof_path, waypoint, phase)
+
+    viewport = observed_rect!(proof_path, waypoint["contentViewport"], "#{phase} content viewport")
+    coverage = waypoint["coverage"]
+    fail_check("#{proof_path} #{phase} is missing overlapping viewport coverage") unless
+      coverage.is_a?(Hash) && coverage.keys.sort == %w[observedContentDisplacement requestedContentOffset viewportOverlap]
+    coverage_values = coverage.values
+    fail_check("#{proof_path} #{phase} coverage values must be finite numbers") unless
+      coverage_values.all? { |value| value.is_a?(Numeric) && value.finite? }
+    fail_check("#{proof_path} #{phase} did not request a scroll") if coverage["requestedContentOffset"].zero?
+    fail_check("#{proof_path} #{phase} did not prove real content displacement") unless
+      coverage["observedContentDisplacement"] > 1
+    fail_check("#{proof_path} #{phase} did not preserve a 44-point viewport overlap") unless
+      coverage["viewportOverlap"] >= 44
+    reconstructed_height = coverage["observedContentDisplacement"] + coverage["viewportOverlap"]
+    fail_check("#{proof_path} #{phase} overlap coverage does not reconstruct its viewport") unless
+      (reconstructed_height - viewport["height"]).abs <= 1
+  end
+
+  waypoints
+end
+
+def validate_ios_deep_scroll_waypoints!(
+  proof_path,
+  deep_scroll,
+  platform,
+  route,
+  manifest,
+  host_observation,
+  content_size_category,
+  initial_elements,
+  initial_screenshot_sha256,
+  initial_capture_id,
+  deep_readiness_binding
+)
+  waypoints = validate_ios_deep_scroll_waypoint_sequence!(proof_path, deep_scroll)
+  expected_keys = %w[
+    index capturePhase coverage contentViewport findings auditIssues auditScope auditTypes
+    verifiedContrastFalsePositives verifiedStaleOffscreenContrastFalsePositives
+    contrastPixelAdjudicationDiagnostics verifiedSystemChromeContrastFalsePositives
+    verifiedNativeSidebarSelectionContrastFalsePositives verifiedTextClippedFalsePositives
+    screenshotArtifactPath screenshotBytes screenshotSHA256 readinessHandshake captureIdentity pixelAccessibilityBinding elements
+    selectedScrollHierarchyElements
+  ].sort
+  prior_elements = initial_elements
+  prior_screenshot_sha256 = initial_screenshot_sha256
+  capture_ids = []
+
+  waypoints.each do |waypoint|
+    phase = waypoint.fetch("capturePhase")
+    fail_check("#{proof_path} #{phase} fields must be exact") unless waypoint.keys.sort == expected_keys
+    screenshot_sha256 = waypoint["screenshotSHA256"]
+    fail_check("#{proof_path} #{phase} screenshot SHA-256 is invalid") unless
+      screenshot_sha256.is_a?(String) && screenshot_sha256.match?(/\A[0-9a-f]{64}\z/)
+    screenshot_artifact_path = waypoint["screenshotArtifactPath"]
+    fail_check("#{proof_path} #{phase} screenshot artifact path must be one safe local PNG name") unless
+      screenshot_artifact_path.is_a?(String) &&
+      screenshot_artifact_path.match?(/\A[A-Za-z0-9._-]+\.png\z/) &&
+      Pathname.new(screenshot_artifact_path).basename.to_s == screenshot_artifact_path
+    screenshot_artifact = Pathname.new(proof_path.to_s).dirname.join(screenshot_artifact_path)
+    fail_check("#{proof_path} #{phase} screenshot artifact is missing") unless screenshot_artifact.file?
+    screenshot_bytes = waypoint["screenshotBytes"]
+    fail_check("#{proof_path} #{phase} screenshot byte count mismatch") unless
+      screenshot_bytes.is_a?(Integer) && screenshot_bytes.positive? && screenshot_artifact.size == screenshot_bytes
+    fail_check("#{proof_path} #{phase} screenshot artifact is not a PNG") unless
+      screenshot_artifact.binread(8) == "\x89PNG\r\n\x1A\n".b
+    fail_check("#{proof_path} #{phase} durable screenshot SHA-256 mismatch") unless
+      Digest::SHA256.file(screenshot_artifact).hexdigest == screenshot_sha256
+    ($observed_screenshot_paths_by_digest ||= {})[screenshot_sha256] = screenshot_artifact
+    handshake = waypoint["readinessHandshake"]
+    validate_readiness_handshake!(
+      proof_path,
+      handshake,
+      deep_readiness_binding,
+      route,
+      phase
+    )
+    validate_capture_identity!(
+      proof_path,
+      waypoint,
+      waypoint["captureIdentity"],
+      handshake,
+      host_observation,
+      phase,
+      screenshot_sha256
+    )
+    capture_ids << waypoint.dig("captureIdentity", "captureID")
+    elements = waypoint["elements"]
+    selected_hierarchy = waypoint["selectedScrollHierarchyElements"]
+    fail_check("#{proof_path} #{phase} elements must be non-empty") unless elements.is_a?(Array) && !elements.empty?
+    fail_check("#{proof_path} #{phase} selected scroll hierarchy must be non-empty") unless
+      selected_hierarchy.is_a?(Array) && !selected_hierarchy.empty?
+    fail_check("#{proof_path} #{phase} must bind spoonjoy.page-scroll") unless
+      waypoint.dig("pixelAccessibilityBinding", "selectedScrollHierarchyIdentifier") == "spoonjoy.page-scroll"
+    viewport = waypoint.fetch("contentViewport")
+    full_findings = host_geometry_findings!(
+      proof_path,
+      elements,
+      viewport,
+      platform,
+      route,
+      manifest,
+      include_route_requirements: false
+    )
+    fail_check("#{proof_path} #{phase} host geometry recomputation failed: #{full_findings.join("; ")}") unless
+      full_findings.empty?
+    hierarchy_findings = host_geometry_findings!(
+      proof_path,
+      selected_hierarchy,
+      viewport,
+      platform,
+      route,
+      manifest,
+      include_route_requirements: false
+    )
+    fail_check("#{proof_path} #{phase} selected-hierarchy geometry failed: #{hierarchy_findings.join("; ")}") unless
+      hierarchy_findings.empty?
+    validate_contrast_pixel_adjudication_diagnostics!(
+      proof_path,
+      waypoint["contrastPixelAdjudicationDiagnostics"],
+      waypoint["auditIssues"],
+      phase,
+      screenshot_sha256
+    )
+    validate_verified_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedContrastFalsePositives"],
+      screenshot_sha256,
+      phase,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame")
+    )
+    validate_verified_stale_offscreen_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedStaleOffscreenContrastFalsePositives"],
+      prior_elements,
+      elements,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame"),
+      prior_screenshot_sha256,
+      screenshot_sha256,
+      capture_phase: phase,
+      prior_capture_phase: waypoints.first.equal?(waypoint) ? "initial" : waypoints[waypoint.fetch("index") - 2].fetch("capturePhase")
+    )
+    validate_verified_system_chrome_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedSystemChromeContrastFalsePositives"],
+      phase,
+      platform,
+      content_size_category,
+      elements,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame"),
+      screenshot_sha256
+    )
+    validate_verified_native_sidebar_selection_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedNativeSidebarSelectionContrastFalsePositives"],
+      phase,
+      platform,
+      content_size_category,
+      elements,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame"),
+      screenshot_sha256
+    )
+    validate_verified_text_clipped_false_positives!(
+      proof_path,
+      waypoint["verifiedTextClippedFalsePositives"],
+      phase,
+      platform,
+      content_size_category,
+      elements
+    )
+    prior_elements = elements
+    prior_screenshot_sha256 = screenshot_sha256
+  end
+
+  terminal_capture_id = deep_scroll.dig("captureIdentity", "captureID")
+  all_capture_ids = [initial_capture_id, *capture_ids, terminal_capture_id]
+  fail_check("#{proof_path} initial, waypoint, and terminal capture IDs must all be unique") unless
+    all_capture_ids.all? { |capture_id| capture_id.is_a?(String) && !capture_id.empty? } &&
+      all_capture_ids.uniq.length == all_capture_ids.length
+end
+
 def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path, route, manifest, readiness_bindings, deep_readiness_bindings)
   fail_check("#{manifest_path} observedAccessibilityEvidenceArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
@@ -1101,7 +1339,8 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       proof_path,
       proof["contrastPixelAdjudicationDiagnostics"],
       proof["auditIssues"],
-      nil
+      nil,
+      expected_initial_screenshot_sha256
     )
     fail_check("#{proof_path} accessibility audit issues must be empty") unless proof["auditIssues"] == []
     validate_ios_audit_types!(proof_path, proof, "initial")
@@ -1139,7 +1378,8 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       proof_path,
       proof["verifiedContrastFalsePositives"],
       expected_initial_screenshot_sha256,
-      "initial"
+      "initial",
+      proof.dig("pixelAccessibilityBinding", "windowFrame")
     )
     fail_check("#{proof_path} stale offscreen contrast proof is deep-scroll-only") unless proof["verifiedStaleOffscreenContrastFalsePositives"] == []
     validate_verified_system_chrome_contrast_false_positives!(
@@ -1149,7 +1389,8 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       platform,
       content_size_category,
       elements,
-      proof.dig("pixelAccessibilityBinding", "windowFrame")
+      proof.dig("pixelAccessibilityBinding", "windowFrame"),
+      expected_initial_screenshot_sha256
     )
     validate_verified_native_sidebar_selection_contrast_false_positives!(
       proof_path,
@@ -1276,7 +1517,8 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         proof_path,
         deep_scroll["contrastPixelAdjudicationDiagnostics"],
         deep_scroll["auditIssues"],
-        "deepScroll"
+        "deepScroll",
+        deep_scroll["screenshotSHA256"]
       )
       fail_check("#{proof_path} compact deep-scroll accessibility audit issues must be empty") unless deep_scroll["auditIssues"] == []
       validate_ios_audit_types!(proof_path, deep_scroll, "deepScroll")
@@ -1291,6 +1533,21 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
       else
         fail_check("#{proof_path} scrollable content must prove a real movement") unless swipe_count.positive? && observed_movement == true
       end
+      deep_readiness_binding = deep_readiness_bindings[[platform, observed_dynamic_type]]
+      fail_check("#{proof_path} has no deep-scroll readiness artifact for #{platform}/#{observed_dynamic_type}") unless deep_readiness_binding
+      validate_ios_deep_scroll_waypoints!(
+        proof_path,
+        deep_scroll,
+        platform,
+        route,
+        manifest,
+        host_observation,
+        proof["observedContentSizeCategory"],
+        elements,
+        expected_initial_screenshot_sha256,
+        proof.dig("captureIdentity", "captureID"),
+        deep_readiness_binding
+      )
       expected_deep_screenshot_sha256 = expected_screenshot_digest!(
         manifest_path,
         manifest,
@@ -1299,8 +1556,6 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         "deepScroll"
       )
       fail_check("#{proof_path} deep-scroll screenshot SHA-256 mismatch") unless deep_scroll["screenshotSHA256"] == expected_deep_screenshot_sha256
-      deep_readiness_binding = deep_readiness_bindings[[platform, observed_dynamic_type]]
-      fail_check("#{proof_path} has no deep-scroll readiness artifact for #{platform}/#{observed_dynamic_type}") unless deep_readiness_binding
       validate_readiness_handshake!(
         proof_path,
         deep_scroll["readinessHandshake"],
@@ -1338,7 +1593,8 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         proof_path,
         deep_scroll["verifiedContrastFalsePositives"],
         expected_deep_screenshot_sha256,
-        "deepScroll"
+        "deepScroll",
+        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame")
       )
       validate_verified_stale_offscreen_contrast_false_positives!(
         proof_path,
@@ -1356,7 +1612,8 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
         platform,
         proof["observedContentSizeCategory"],
         deep_elements,
-        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame")
+        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame"),
+        expected_deep_screenshot_sha256
       )
       validate_verified_native_sidebar_selection_contrast_false_positives!(
         proof_path,
@@ -1385,10 +1642,7 @@ def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path
   end
 
   if route == "settings" && manifest["settingsVisualFocus"] == "notifications"
-    identifiers = elements.map { |element| element["identifier"] }
-    required = ["settings.apns.this-device.heading", "settings.apns.push-delivery.heading", "settings.apns.notification-sync.heading"]
-    missing = required - identifiers
-    fail_check("#{proof_path} missing observed APNs headings: #{missing.join(", ")}") unless missing.empty?
+    validate_observed_settings_notification_headings!(proof_path, elements)
   end
 
   platform
@@ -1416,7 +1670,13 @@ def expected_screenshot_digest!(manifest_path, manifest, platform, content_size_
   digest
 end
 
-def validate_verified_contrast_false_positives!(proof_path, entries, expected_screenshot_sha256, capture_phase)
+def validate_verified_contrast_false_positives!(
+  proof_path,
+  entries,
+  expected_screenshot_sha256,
+  capture_phase,
+  window_frame
+)
   fail_check("#{proof_path} verified contrast evidence must be an array") unless entries.is_a?(Array)
   entries.each do |entry|
     fail_check("#{proof_path} verified contrast entry must be an object") unless entry.is_a?(Hash)
@@ -1432,7 +1692,9 @@ def validate_verified_contrast_false_positives!(proof_path, entries, expected_sc
       proof_path,
       entry["pixelEvidence"],
       expected_screenshot_sha256,
-      "verified contrast"
+      "verified contrast",
+      frame: frame,
+      window_frame: window_frame
     )
   end
 end
@@ -1442,7 +1704,9 @@ def validate_contrast_pixel_evidence!(
   pixels,
   expected_screenshot_sha256,
   label,
-  minimum_required_ratio: 4.5
+  minimum_required_ratio: 4.5,
+  frame:,
+  window_frame:
 )
   expected_keys = %w[
     analyzedPixelCount background backgroundCoverage backgroundPixelCount contrastRatio
@@ -1482,9 +1746,51 @@ def validate_contrast_pixel_evidence!(
     end
     fail_check("#{proof_path} #{label} #{color_name} color is invalid") unless valid_color
   end
+
+  observed_window = observed_rect!(proof_path, window_frame, "#{label} pixel window frame")
+  observed_frame = observed_rect!(proof_path, frame, "#{label} pixel frame")
+  fail_check("#{proof_path} #{label} pixel frame is outside its screenshot window") unless
+    rect_contains?(observed_window, observed_frame, tolerance: 0.01)
+  local_frame = {
+    "x" => observed_frame["x"] - observed_window["x"],
+    "y" => observed_frame["y"] - observed_window["y"],
+    "width" => observed_frame["width"],
+    "height" => observed_frame["height"]
+  }
+  screenshot_path = screenshot_path_for_digest!(proof_path, expected_screenshot_sha256)
+  begin
+    recomputed = ScreenshotContrastEvidence.analyze(
+      screenshot_path: screenshot_path,
+      point_size: {
+        "width" => observed_window["width"],
+        "height" => observed_window["height"]
+      },
+      frame: local_frame,
+      required_contrast_ratio: required_ratio
+    )
+  rescue StandardError => error
+    fail_check("#{proof_path} #{label} pixel recomputation failed: #{error.message}")
+  end
+  fail_check("#{proof_path} #{label} pixel evidence does not match the attested PNG crop") unless recomputed == pixels
 end
 
-def validate_contrast_pixel_adjudication_diagnostics!(proof_path, entries, audit_issues, capture_phase)
+def screenshot_path_for_digest!(proof_path, digest)
+  registered = ($observed_screenshot_paths_by_digest ||= {})[digest]
+  return registered if registered&.file? && Digest::SHA256.file(registered).hexdigest == digest
+
+  artifact_root = proof_path.dirname.parent
+  candidates = (SCREENSHOT_ARTIFACTS.values + DEEP_SCROLL_SCREENSHOT_ARTIFACTS.values).uniq.each_with_object([]) do |relative_path, matches|
+    path = artifact_root.join(relative_path).cleanpath
+    next unless path.file?
+    next unless Digest::SHA256.file(path).hexdigest == digest
+
+    matches << path
+  end
+  fail_check("#{proof_path} has no screenshot file for pixel evidence SHA-256 #{digest}") if candidates.empty?
+  candidates.first
+end
+
+def validate_contrast_pixel_adjudication_diagnostics!(proof_path, entries, audit_issues, capture_phase, screenshot_sha256)
   fail_check("#{proof_path} contrast pixel diagnostics must be an array") unless entries.is_a?(Array)
   fail_check("#{proof_path} audit issues must be an array before contrast diagnostics") unless audit_issues.is_a?(Array)
   blocking_contrast = audit_issues.select do |issue|
@@ -1495,7 +1801,7 @@ def validate_contrast_pixel_adjudication_diagnostics!(proof_path, entries, audit
   entries.zip(blocking_contrast).each do |entry, issue|
     expected_keys = %w[
       schema capturePhase issue matchingAttestedElementCount attestedFrame
-      screenshotBufferAvailable attempts
+      screenshotBufferAvailable screenshotSHA256 screenshotPixelWidth screenshotPixelHeight attempts
     ]
     fail_check("#{proof_path} contrast pixel diagnostic fields must be exact") unless entry.is_a?(Hash) && entry.keys.sort == expected_keys.sort
     fail_check("#{proof_path} contrast pixel diagnostic schema mismatch") unless entry["schema"] == "iosContrastPixelAdjudicationFailureV1"
@@ -1510,6 +1816,14 @@ def validate_contrast_pixel_adjudication_diagnostics!(proof_path, entries, audit
       fail_check("#{proof_path} ambiguous contrast pixel attestation must not choose a frame") unless entry["attestedFrame"].nil?
     end
     fail_check("#{proof_path} contrast pixel screenshot-buffer state must be boolean") unless [true, false].include?(entry["screenshotBufferAvailable"])
+    fail_check("#{proof_path} contrast pixel diagnostic screenshot mismatch") unless entry["screenshotSHA256"] == screenshot_sha256
+    screenshot_dimensions = [entry["screenshotPixelWidth"], entry["screenshotPixelHeight"]]
+    if entry["screenshotBufferAvailable"]
+      fail_check("#{proof_path} available screenshot buffer requires positive pixel dimensions") unless
+        screenshot_dimensions.all? { |value| value.is_a?(Integer) && value.positive? }
+    else
+      fail_check("#{proof_path} unavailable screenshot buffer must encode null pixel dimensions") unless screenshot_dimensions.all?(&:nil?)
+    end
     attempts = entry["attempts"]
     fail_check("#{proof_path} contrast pixel attempts must be an array") unless attempts.is_a?(Array)
     attempts.each do |attempt|
@@ -1522,6 +1836,10 @@ def validate_contrast_pixel_adjudication_diagnostics!(proof_path, entries, audit
       crop_dimensions = [attempt["cropWidth"], attempt["cropHeight"]]
       if outcome == "analyzerRejected"
         fail_check("#{proof_path} analyzer rejection requires positive crop dimensions") unless crop_dimensions.all? { |value| value.is_a?(Integer) && value.positive? }
+        fail_check("#{proof_path} contrast crop exceeds screenshot pixels") unless
+          entry["screenshotBufferAvailable"] &&
+            crop_dimensions[0] <= screenshot_dimensions[0] &&
+            crop_dimensions[1] <= screenshot_dimensions[1]
       else
         fail_check("#{proof_path} unavailable contrast crop must encode null dimensions") unless crop_dimensions.all?(&:nil?)
       end
@@ -1536,7 +1854,9 @@ def validate_verified_stale_offscreen_contrast_false_positives!(
   deep_elements,
   window_frame_value,
   initial_screenshot_sha256,
-  deep_screenshot_sha256
+  deep_screenshot_sha256,
+  capture_phase: "deepScroll",
+  prior_capture_phase: "initial"
 )
   fail_check("#{proof_path} stale offscreen contrast evidence must be an array") unless entries.is_a?(Array)
   fail_check("#{proof_path} stale offscreen contrast evidence requires observed elements") unless initial_elements.is_a?(Array) && deep_elements.is_a?(Array)
@@ -1548,7 +1868,7 @@ def validate_verified_stale_offscreen_contrast_false_positives!(
     ]
     fail_check("#{proof_path} stale offscreen contrast fields must be exact") unless entry.is_a?(Hash) && entry.keys.sort == expected_keys.sort
     fail_check("#{proof_path} stale offscreen contrast schema mismatch") unless entry["schema"] == "iosStaleOffscreenContrastFalsePositiveV1"
-    fail_check("#{proof_path} stale offscreen contrast phase mismatch") unless entry["capturePhase"] == "deepScroll"
+    fail_check("#{proof_path} stale offscreen contrast phase mismatch") unless entry["capturePhase"] == capture_phase
     fail_check("#{proof_path} stale offscreen contrast reason mismatch") unless entry["reason"] == "priorHighContrastPixelsBoundToNowOffscreenAttestedElement"
     issue = entry["issue"]
     fail_check("#{proof_path} stale offscreen contrast issue must be attributed static text") unless issue.is_a?(Hash) && issue["category"] == "contrast" && issue["elementType"] == "staticText"
@@ -1578,12 +1898,13 @@ def validate_verified_stale_offscreen_contrast_false_positives!(
     validate_verified_contrast_false_positives!(
       proof_path,
       [{
-        "capturePhase" => "initial",
+        "capturePhase" => prior_capture_phase,
         "issue" => issue.merge("elementFrame" => prior_frame),
         "pixelEvidence" => entry["priorPixelEvidence"]
       }],
       initial_screenshot_sha256,
-      "initial"
+      prior_capture_phase,
+      window_frame
     )
   end
 end
@@ -1595,7 +1916,8 @@ def validate_verified_system_chrome_contrast_false_positives!(
   platform,
   content_size_category,
   elements,
-  window_frame_value
+  window_frame_value,
+  screenshot_sha256
 )
   fail_check("#{proof_path} verified system-chrome contrast evidence must be an array") unless entries.is_a?(Array)
   fail_check("#{proof_path} verified system-chrome contrast evidence requires observed elements") unless elements.is_a?(Array)
@@ -1603,46 +1925,50 @@ def validate_verified_system_chrome_contrast_false_positives!(
 
   expected_issue_keys = %w[
     category compactDescription detailedDescription diagnosticDescription diagnosticMirror
-    elementIdentifier elementLabel elementType type
+    elementFrame elementIdentifier elementLabel elementType type
   ]
   expected_reference_keys = %w[frame identifier label type]
   window_frame = entries.empty? ? nil : observed_rect!(proof_path, window_frame_value, "verified system-chrome window frame")
 
   entries.each do |entry|
     fail_check("#{proof_path} verified system-chrome contrast entry must be an object") unless entry.is_a?(Hash)
-    compact_variant = entry["schema"] == "iosNativeCompactTabChromeContrastFalsePositiveV1"
-    bottom_variant = entry["schema"] == "iosNativeBottomTabChromeContrastFalsePositiveV2"
-    large_type_bottom_variant = entry["schema"] == "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV3"
-    ordinary_label_only_bottom_variant = entry["schema"] == "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV4"
+    compact_variant = entry["schema"] == "iosNativeCompactTabChromeContrastFalsePositiveV2"
+    bottom_variant = entry["schema"] == "iosNativeBottomTabChromeContrastFalsePositiveV3"
+    large_type_bottom_variant = entry["schema"] == "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV4"
+    ordinary_label_only_bottom_variant = entry["schema"] == "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV5"
     fail_check("#{proof_path} verified system-chrome contrast schema mismatch") unless compact_variant || bottom_variant || large_type_bottom_variant || ordinary_label_only_bottom_variant
-    expected_entry_keys = %w[capturePhase contentSizeCategory destinations issue navigationBar reason schema]
+    expected_entry_keys = %w[
+      capturePhase contentSizeCategory destinations issue issueElement navigationBar pixelEvidence
+      reason schema screenshotSHA256
+    ]
     expected_entry_keys << "tabBar" if bottom_variant || large_type_bottom_variant || ordinary_label_only_bottom_variant
     fail_check("#{proof_path} verified system-chrome contrast fields must be exact") unless entry.keys.sort == expected_entry_keys.sort
     if compact_variant
       fail_check("#{proof_path} compact system-chrome evidence must contain at most one issue per capture phase") if entries.length > 1
       fail_check("#{proof_path} compact system-chrome evidence is limited to large-type native iPad chrome") unless
         platform == "ipad" && %w[extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
-      expected_reason = "anonymousContrastBoundToAttestedNativeCompactTabChrome"
+      expected_reason = "elementContrastBoundToAttestedNativeCompactTabChrome"
       expected_destinations = IOS_NATIVE_COMPACT_TAB_DESTINATIONS
     elsif bottom_variant
       fail_check("#{proof_path} bottom-tab system-chrome evidence is limited to shipped native iPhone content sizes") unless
         platform == "ios" && %w[large extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
-      expected_reason = "anonymousContrastBoundToAttestedNativeBottomTabChrome"
+      expected_reason = "elementContrastBoundToAttestedNativeBottomTabChrome"
       expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
     elsif large_type_bottom_variant
       fail_check("#{proof_path} label-only bottom-tab evidence is limited to shipped large-type iPhone sizes") unless
         platform == "ios" && %w[extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
-      expected_reason = "anonymousContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
+      expected_reason = "elementContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
       expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
     else
       fail_check("#{proof_path} ordinary label-only bottom-tab evidence is limited to initial shipped iPhone chrome") unless
         platform == "ios" && content_size_category == "large" && capture_phase == "initial"
-      expected_reason = "anonymousContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
+      expected_reason = "elementContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
       expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
     end
     fail_check("#{proof_path} verified system-chrome contrast phase mismatch") unless entry["capturePhase"] == capture_phase
     fail_check("#{proof_path} verified system-chrome contrast reason mismatch") unless entry["reason"] == expected_reason
     fail_check("#{proof_path} verified system-chrome content-size mismatch") unless entry["contentSizeCategory"] == content_size_category
+    fail_check("#{proof_path} verified system-chrome screenshot mismatch") unless entry["screenshotSHA256"] == screenshot_sha256
 
     issue = entry["issue"]
     fail_check("#{proof_path} verified system-chrome issue must be an object") unless issue.is_a?(Hash)
@@ -1652,12 +1978,10 @@ def validate_verified_system_chrome_contrast_false_positives!(
     fail_check("#{proof_path} verified system-chrome compact warning mismatch") unless issue["compactDescription"] == "Contrast failed"
     fail_check("#{proof_path} verified system-chrome detailed warning mismatch") unless issue["detailedDescription"] == "Contrast failed for SwiftUI.AccessibilityNode"
     diagnostic = issue["diagnosticDescription"]
-    fail_check("#{proof_path} verified system-chrome issue is not Apple's anonymous Element:(null) diagnostic") unless diagnostic.is_a?(String) && diagnostic.include?("Element:(null)")
+    fail_check("#{proof_path} verified system-chrome issue must identify a concrete element") unless diagnostic.is_a?(String) && !diagnostic.include?("Element:(null)")
     fail_check("#{proof_path} verified system-chrome diagnostic mirror must be empty") unless issue["diagnosticMirror"] == ""
-    %w[elementIdentifier elementLabel elementType].each do |field|
-      fail_check("#{proof_path} verified system-chrome issue must remain unattributed") unless issue[field] == ""
-    end
-    fail_check("#{proof_path} verified system-chrome issue must not claim an element frame") if issue.key?("elementFrame")
+    fail_check("#{proof_path} verified system-chrome issue type must identify an element") unless issue["elementType"].is_a?(String) && !issue["elementType"].empty?
+    issue_frame = observed_rect!(proof_path, issue["elementFrame"], "verified system-chrome issue frame")
 
     navigation_bar = entry["navigationBar"]
     fail_check("#{proof_path} verified system-chrome navigation bar must be an object") unless navigation_bar.is_a?(Hash)
@@ -1740,6 +2064,58 @@ def validate_verified_system_chrome_contrast_false_positives!(
       end.uniq
       fail_check("#{proof_path} label-only native tab identity must cover exactly five unique buttons") unless live_label_only.length == expected_destinations.length
     end
+
+    evidence_references = destinations
+    issue_element = entry["issueElement"]
+    fail_check("#{proof_path} verified system-chrome issue element must be an exact reference") unless
+      issue_element.is_a?(Hash) && issue_element.keys.sort == expected_reference_keys.sort
+    expected_issue_reference = {
+      "identifier" => issue["elementIdentifier"],
+      "label" => issue["elementLabel"],
+      "type" => issue["elementType"],
+      "frame" => issue_frame
+    }
+    fail_check("#{proof_path} verified system-chrome issue does not bind to its element reference") unless issue_element == expected_issue_reference
+    fail_check("#{proof_path} verified system-chrome issue element must identify exactly one attested chrome reference") unless
+      evidence_references.count { |reference| reference == issue_element } == 1
+
+    pixel_evidence = entry["pixelEvidence"]
+    fail_check("#{proof_path} verified system-chrome pixel evidence must cover every attested chrome reference") unless
+      pixel_evidence.is_a?(Array) && pixel_evidence.length == evidence_references.length
+    pixel_evidence.zip(evidence_references).each_with_index do |(pixel_entry, reference), index|
+      fail_check("#{proof_path} verified system-chrome pixel entry #{index} must contain exact element, frame, and pixel evidence") unless
+        pixel_entry.is_a?(Hash) && pixel_entry.keys.sort == %w[element pixelEvidence pixelFrame]
+      fail_check("#{proof_path} verified system-chrome pixel entry #{index} reference mismatch") unless pixel_entry["element"] == reference
+      pixel_frame = observed_rect!(proof_path, pixel_entry["pixelFrame"], "verified system-chrome label pixel frame #{index}")
+      reference_frame = reference.fetch("frame")
+      expected_pixel_frame = if compact_variant
+        {
+          "x" => reference_frame["x"] + reference_frame["width"] * 0.28,
+          "y" => reference_frame["y"] + 4,
+          "width" => reference_frame["width"] * 0.68,
+          "height" => reference_frame["height"] - 8
+        }
+      else
+        {
+          "x" => reference_frame["x"] + 2,
+          "y" => reference_frame["y"] + reference_frame["height"] * 0.50,
+          "width" => reference_frame["width"] - 4,
+          "height" => reference_frame["height"] * 0.46
+        }
+      end
+      fail_check("#{proof_path} verified system-chrome pixel entry #{index} must use the exact semantic label crop") unless
+        rect_equal?(pixel_frame, expected_pixel_frame, tolerance: 0.01) &&
+        rect_contains?(reference_frame, pixel_frame) &&
+        !rect_equal?(pixel_frame, reference_frame, tolerance: 0.01)
+      validate_contrast_pixel_evidence!(
+        proof_path,
+        pixel_entry["pixelEvidence"],
+        screenshot_sha256,
+        "verified system-chrome element #{index}",
+        frame: pixel_frame,
+        window_frame: window_frame
+      )
+    end
   end
 end
 
@@ -1763,13 +2139,15 @@ def validate_verified_native_sidebar_selection_contrast_false_positives!(
 
   window_frame = observed_rect!(proof_path, window_frame_value, "verified native-sidebar window frame")
   expected_entry_keys = %w[
-    capturePhase contentSizeCategory detailNavigationBar issue reason schema selectedCell
-    selectedCellInteriorFrame selectedCellPixelEvidence selectedLabel selectedSymbol
-    selectedSymbolPixelEvidence sidebarCollection sidebarNavigationBar visibleTextPixelEvidence
+    capturePhase contentSizeCategory detailNavigationBar issue issueElement issuePixelEvidence reason schema
+    screenshotSHA256 selectedCell
+    selectedCellInteriorFrame selectedCellPixelEvidence selectedLabel selectedLabelTextFrame
+    selectedLabelTextPixelEvidence selectedSymbol selectedSymbolPixelEvidence sidebarCollection
+    sidebarNavigationBar visibleTextPixelEvidence
   ]
   expected_issue_keys = %w[
     category compactDescription detailedDescription diagnosticDescription diagnosticMirror
-    elementIdentifier elementLabel elementType type
+    elementFrame elementIdentifier elementLabel elementType type
   ]
   expected_reference_keys = %w[frame identifier label type]
   live_elements = elements.select do |element|
@@ -1796,10 +2174,11 @@ def validate_verified_native_sidebar_selection_contrast_false_positives!(
   entries.each do |entry|
     fail_check("#{proof_path} verified native-sidebar contrast entry must be an object") unless entry.is_a?(Hash)
     fail_check("#{proof_path} verified native-sidebar contrast fields must be exact") unless entry.keys.sort == expected_entry_keys.sort
-    fail_check("#{proof_path} verified native-sidebar contrast schema mismatch") unless entry["schema"] == "iosNativeSidebarSelectionContrastFalsePositiveV1"
+    fail_check("#{proof_path} verified native-sidebar contrast schema mismatch") unless entry["schema"] == "iosNativeSidebarSelectionContrastFalsePositiveV3"
     fail_check("#{proof_path} verified native-sidebar contrast phase mismatch") unless entry["capturePhase"] == capture_phase
-    fail_check("#{proof_path} verified native-sidebar contrast reason mismatch") unless entry["reason"] == "anonymousContrastBoundToAttestedNativeSidebarSelection"
+    fail_check("#{proof_path} verified native-sidebar contrast reason mismatch") unless entry["reason"] == "elementContrastBoundToAttestedNativeSidebarSelection"
     fail_check("#{proof_path} verified native-sidebar content-size mismatch") unless entry["contentSizeCategory"] == content_size_category
+    fail_check("#{proof_path} verified native-sidebar screenshot mismatch") unless entry["screenshotSHA256"] == screenshot_sha256
 
     issue = entry["issue"]
     fail_check("#{proof_path} verified native-sidebar issue must be an object") unless issue.is_a?(Hash)
@@ -1808,12 +2187,10 @@ def validate_verified_native_sidebar_selection_contrast_false_positives!(
     fail_check("#{proof_path} verified native-sidebar issue type mismatch") unless issue["type"] == "XCUIAccessibilityAuditType(rawValue: 1)"
     fail_check("#{proof_path} verified native-sidebar compact warning mismatch") unless issue["compactDescription"] == "Contrast failed"
     fail_check("#{proof_path} verified native-sidebar detailed warning mismatch") unless issue["detailedDescription"] == "Contrast failed for SwiftUI.AccessibilityNode"
-    fail_check("#{proof_path} verified native-sidebar issue is not Apple's anonymous Element:(null) diagnostic") unless issue["diagnosticDescription"].is_a?(String) && issue["diagnosticDescription"].include?("Element:(null)")
+    fail_check("#{proof_path} verified native-sidebar issue must identify a concrete element") unless issue["diagnosticDescription"].is_a?(String) && !issue["diagnosticDescription"].include?("Element:(null)")
     fail_check("#{proof_path} verified native-sidebar diagnostic mirror must be empty") unless issue["diagnosticMirror"] == ""
-    %w[elementIdentifier elementLabel elementType].each do |field|
-      fail_check("#{proof_path} verified native-sidebar issue must remain unattributed") unless issue[field] == ""
-    end
-    fail_check("#{proof_path} verified native-sidebar issue must not claim an element frame") if issue.key?("elementFrame")
+    fail_check("#{proof_path} verified native-sidebar issue type must identify an element") unless issue["elementType"].is_a?(String) && !issue["elementType"].empty?
+    issue_frame = observed_rect!(proof_path, issue["elementFrame"], "verified native-sidebar issue frame")
 
     sidebar_navigation = validate_reference.call(entry["sidebarNavigationBar"], "verified native-sidebar navigation")
     detail_navigation = validate_reference.call(entry["detailNavigationBar"], "verified native detail navigation")
@@ -1852,6 +2229,18 @@ def validate_verified_native_sidebar_selection_contrast_false_positives!(
       selected_symbol["identifier"] == "house" && selected_symbol["label"] == "Home" && selected_symbol["type"] == "image" &&
       rect_contains?(selected_cell_frame, selected_symbol_frame)
 
+    issue_element = validate_reference.call(entry["issueElement"], "verified native-sidebar issue element")
+    expected_issue_reference = {
+      "identifier" => issue["elementIdentifier"],
+      "label" => issue["elementLabel"],
+      "type" => issue["elementType"],
+      "frame" => issue_frame
+    }
+    fail_check("#{proof_path} verified native-sidebar issue does not bind to its element reference") unless issue_element == expected_issue_reference
+    issue_candidates = [selected_label, selected_symbol]
+    fail_check("#{proof_path} verified native-sidebar issue must identify exactly one selected element") unless
+      issue_candidates.count { |reference| reference == issue_element } == 1
+
     interior_frame = observed_rect!(proof_path, entry["selectedCellInteriorFrame"], "verified native selected-cell interior frame")
     expected_interior = {
       "x" => selected_cell_frame["x"] + 12,
@@ -1860,24 +2249,44 @@ def validate_verified_native_sidebar_selection_contrast_false_positives!(
       "height" => selected_cell_frame["height"] - 24
     }
     fail_check("#{proof_path} verified native selected-cell crop must be the exact 12-point interior") unless rect_equal?(interior_frame, expected_interior, tolerance: 0.01)
-    validate_contrast_pixel_evidence!(proof_path, entry["selectedCellPixelEvidence"], screenshot_sha256, "verified native selected-cell")
-    validate_contrast_pixel_evidence!(proof_path, entry["selectedSymbolPixelEvidence"], screenshot_sha256, "verified native selected-symbol")
+    label_text_frame = observed_rect!(proof_path, entry["selectedLabelTextFrame"], "verified native selected-label text frame")
+    label_text_x = [selected_symbol_frame["x"] + selected_symbol_frame["width"] + 8, selected_cell_frame["x"] + 8].max
+    expected_label_text_frame = {
+      "x" => label_text_x,
+      "y" => selected_cell_frame["y"] + 8,
+      "width" => selected_cell_frame["x"] + selected_cell_frame["width"] - label_text_x - 8,
+      "height" => selected_cell_frame["height"] - 16
+    }
+    fail_check("#{proof_path} verified native selected-label crop must exclude the selected symbol and cell padding") unless
+      rect_equal?(label_text_frame, expected_label_text_frame, tolerance: 0.01) &&
+      rect_contains?(selected_cell_frame, label_text_frame) &&
+      rect_intersection(label_text_frame, selected_symbol_frame).nil?
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedCellPixelEvidence"], screenshot_sha256, "verified native selected-cell", frame: interior_frame, window_frame: window_frame)
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedLabelTextPixelEvidence"], screenshot_sha256, "verified native selected-label text", frame: label_text_frame, window_frame: window_frame)
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedSymbolPixelEvidence"], screenshot_sha256, "verified native selected-symbol", frame: selected_symbol_frame, window_frame: window_frame)
+    issue_pixel_frame = issue_element == selected_symbol ? selected_symbol_frame : label_text_frame
+    validate_contrast_pixel_evidence!(proof_path, entry["issuePixelEvidence"], screenshot_sha256, "verified native issue element", frame: issue_pixel_frame, window_frame: window_frame)
+    expected_issue_pixels = issue_element == selected_symbol ? entry["selectedSymbolPixelEvidence"] : entry["selectedLabelTextPixelEvidence"]
+    fail_check("#{proof_path} verified native issue pixel evidence does not match its selected-element crop") unless
+      entry["issuePixelEvidence"] == expected_issue_pixels
 
     visible_text = entry["visibleTextPixelEvidence"]
     fail_check("#{proof_path} verified native visible-text evidence must contain at least 20 entries") unless visible_text.is_a?(Array) && visible_text.length >= 20
     expected_visible_text = live_elements.select do |element|
       element["type"] == "staticText" && !element["label"].to_s.empty? &&
-        element["frame"].is_a?(Hash) && rect_contains?(window_frame, element["frame"]) &&
-        !rect_equal?(element["frame"], selected_label_frame, tolerance: 0.75)
+        element["frame"].is_a?(Hash) && rect_contains?(window_frame, element["frame"])
     end.sort_by { |element| [element.dig("frame", "y"), element.dig("frame", "x")] }
     fail_check("#{proof_path} verified native visible-text evidence count mismatch") unless visible_text.length == expected_visible_text.length
     visible_text.zip(expected_visible_text).each_with_index do |(visible_entry, expected_element), index|
-      fail_check("#{proof_path} verified native visible-text entry #{index} must contain exact element and pixel evidence") unless
-        visible_entry.is_a?(Hash) && visible_entry.keys.sort == %w[element pixelEvidence]
+      fail_check("#{proof_path} verified native visible-text entry #{index} must contain exact element, frame, and pixel evidence") unless
+        visible_entry.is_a?(Hash) && visible_entry.keys.sort == %w[element pixelEvidence pixelFrame]
       reference = validate_reference.call(visible_entry["element"], "verified native visible text #{index}")
       expected_reference = expected_element.slice("identifier", "label", "type", "frame")
       fail_check("#{proof_path} verified native visible-text order or identity mismatch") unless reference == expected_reference
-      validate_contrast_pixel_evidence!(proof_path, visible_entry["pixelEvidence"], screenshot_sha256, "verified native visible text #{index}")
+      expected_pixel_frame = reference == selected_label ? label_text_frame : reference.fetch("frame")
+      fail_check("#{proof_path} verified native visible-text pixel frame #{index} mismatch") unless
+        visible_entry["pixelFrame"].is_a?(Hash) && rect_equal?(visible_entry["pixelFrame"], expected_pixel_frame, tolerance: 0.01)
+      validate_contrast_pixel_evidence!(proof_path, visible_entry["pixelEvidence"], screenshot_sha256, "verified native visible text #{index}", frame: expected_pixel_frame, window_frame: window_frame)
     end
   end
 end
@@ -2123,7 +2532,7 @@ when "settings"
   required_sections = if visual_focus == "notifications"
                         fail_check("#{path} settingsAPNsPermissionState must be present for APNs captures") unless manifest["settingsAPNsPermissionState"].is_a?(String) && !manifest["settingsAPNsPermissionState"].empty?
                         fail_check("#{path} settingsAPNsRegistrationState must be present for APNs captures") unless manifest["settingsAPNsRegistrationState"].is_a?(String) && !manifest["settingsAPNsRegistrationState"].empty?
-                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                        ["This Device"]
                       elsif visual_focus == "signed-out"
                         fail_check("#{path} settingsScreenshotAuth must be 0 for signed-out settings captures") unless manifest["settingsScreenshotAuth"] == "0"
                         ["Session", "Environment", "Offline"]
@@ -2132,6 +2541,7 @@ when "settings"
                       end
   missing_sections = required_sections.reject { |section| sections.include?(section) }
   fail_check("#{path} settingsSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
+  validate_exact_settings_sections!(path, sections, visual_focus)
   proof_artifacts.each do |proof_relative_path|
     fail_check("#{path} settingsSurfaceProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
     validate_settings_proof!(path, proof_relative_path, visual_focus)
