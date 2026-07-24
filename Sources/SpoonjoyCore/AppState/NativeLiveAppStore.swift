@@ -4320,10 +4320,7 @@ public final class NativeLiveAppStore: ObservableObject {
             return .authenticated(session)
         }
 
-        if let boundAccountID = session.accountID {
-            guard boundAccountID == accountID else {
-                throw NativeLiveAppStoreError.invalidStagedSyncSnapshot
-            }
+        if session.accountID != nil {
             return .authenticated(session)
         }
 

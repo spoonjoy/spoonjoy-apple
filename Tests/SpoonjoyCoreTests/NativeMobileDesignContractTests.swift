@@ -2699,6 +2699,27 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("screenshot route markers contain destination accessibility without replacing the page scroll identity")
+    func screenshotRouteMarkersPreservePageScrollIdentity() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "ScreenshotRouteContainer(identifier: \"screenshot.route.\\(route.stateIdentifier)\")",
+                "private struct ScreenshotRouteContainer<Content: View>: View",
+                ".accessibilityElement(children: .contain)",
+                ".accessibilityIdentifier(identifier)"
+            ],
+            forbids: [
+                "Group {\n        switch route",
+                "}\n        .accessibilityIdentifier(\"screenshot.route.\\(route.stateIdentifier)\")"
+            ]
+        )
+    }
+
     @Test("screenshot variants prove rendered state from isolated fixture storage")
     func screenshotVariantsProveRenderedStateFromIsolatedFixtureStorage() throws {
         let rootPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"

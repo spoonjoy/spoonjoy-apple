@@ -465,7 +465,7 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
-        Group {
+        ScreenshotRouteContainer(identifier: "screenshot.route.\(route.stateIdentifier)") {
         switch route {
         case .kitchen:
             KitchenView(
@@ -664,7 +664,6 @@ struct PlatformNavigationView: View {
             )
         }
         }
-        .accessibilityIdentifier("screenshot.route.\(route.stateIdentifier)")
     }
 
     private var searchText: Binding<String> {
@@ -2249,6 +2248,19 @@ struct PlatformNavigationView: View {
         value.map { character in
             character.isLetter || character.isNumber ? String(character) : "-"
         }.joined()
+    }
+}
+
+private struct ScreenshotRouteContainer<Content: View>: View {
+    let identifier: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ZStack {
+            content()
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier(identifier)
     }
 }
 
