@@ -1,5 +1,65 @@
 import Foundation
 
+public enum SearchSurfaceScopeGrammar {
+    public static func title(for scope: SearchScope) -> String {
+        switch scope {
+        case .all:
+            "Everything"
+        case .recipes:
+            "Recipes"
+        case .cookbooks:
+            "Cookbooks"
+        case .chefs:
+            "Chefs"
+        case .shoppingList:
+            "Shopping"
+        }
+    }
+}
+
+public struct SearchSurfaceRenderFingerprint: Codable, Equatable, Hashable, Sendable {
+    public struct Row: Codable, Equatable, Hashable, Sendable {
+        public let type: String
+        public let id: String
+        public let title: String
+
+        public init(type: String, id: String, title: String) {
+            self.type = type
+            self.id = id
+            self.title = title
+        }
+    }
+
+    public struct EmptyState: Codable, Equatable, Hashable, Sendable {
+        public let scope: String
+        public let title: String
+        public let message: String
+
+        public init(scope: String, title: String, message: String) {
+            self.scope = scope
+            self.title = title
+            self.message = message
+        }
+    }
+
+    public enum DataSource: Codable, Equatable, Hashable, Sendable {
+        case live(requestID: String)
+        case cache(serverRevision: String?)
+        case offlineCache(serverRevision: String?)
+        case unavailable(reason: String)
+    }
+
+    public let rows: [Row]
+    public let dataSource: DataSource
+    public let emptyState: EmptyState?
+
+    public init(rows: [Row], dataSource: DataSource, emptyState: EmptyState?) {
+        self.rows = rows
+        self.dataSource = dataSource
+        self.emptyState = emptyState
+    }
+}
+
 public struct SearchSurfaceContext: Equatable, Hashable, Sendable {
     public let isAuthenticated: Bool
     public let canReadShoppingList: Bool
@@ -7,6 +67,240 @@ public struct SearchSurfaceContext: Equatable, Hashable, Sendable {
     public init(isAuthenticated: Bool, canReadShoppingList: Bool) {
         self.isAuthenticated = isAuthenticated
         self.canReadShoppingList = canReadShoppingList
+    }
+}
+
+public enum NativeSearchTelemetryOutcome: String, Equatable, Sendable {
+    case started
+    case completed
+    case cancelled
+    case failed
+
+    fileprivate var eventName: NativeTelemetryEvent.Name {
+        switch self {
+        case .started: .searchStarted
+        case .completed: .searchCompleted
+        case .cancelled, .failed: .searchFailed
+        }
+    }
+}
+
+public struct NativeSearchTelemetryDescriptor: Equatable, Sendable {
+    public let outcome: NativeSearchTelemetryOutcome
+    public let scope: SearchScope
+    public let queryLength: Int
+    public let resultCount: Int?
+    public let durationMilliseconds: Int?
+    public let requestID: String?
+    public let errorType: String?
+    public let hasCachedResults: Bool
+
+    public static func started(
+        state: SearchState,
+        correlationID: String,
+        hasCachedResults: Bool
+    ) -> Self {
+        Self(
+            outcome: .started,
+            state: state,
+            resultCount: nil,
+            durationMilliseconds: nil,
+            requestID: correlationID,
+            errorType: nil,
+            hasCachedResults: hasCachedResults
+        )
+    }
+
+    public static func completed(
+        state: SearchState,
+        page: SearchSurfacePage,
+        correlationID: String,
+        durationMilliseconds: Int
+    ) -> Self {
+        return Self(
+            outcome: .completed,
+            state: state,
+            resultCount: page.results.count,
+            durationMilliseconds: durationMilliseconds,
+            requestID: correlationID,
+            errorType: nil,
+            hasCachedResults: false
+        )
+    }
+
+    public static func failed(
+        state: SearchState,
+        error: SearchSurfaceRepositoryError,
+        correlationID: String,
+        durationMilliseconds: Int,
+        hasCachedResults: Bool
+    ) -> Self {
+        Self(
+            outcome: .failed,
+            state: state,
+            resultCount: nil,
+            durationMilliseconds: durationMilliseconds,
+            requestID: correlationID,
+            errorType: sanitizedErrorType(error),
+            hasCachedResults: hasCachedResults
+        )
+    }
+
+    public static func cancelled(
+        state: SearchState,
+        correlationID: String,
+        durationMilliseconds: Int,
+        hasCachedResults: Bool
+    ) -> Self {
+        Self(
+            outcome: .cancelled,
+            state: state,
+            resultCount: nil,
+            durationMilliseconds: durationMilliseconds,
+            requestID: correlationID,
+            errorType: "cancelled",
+            hasCachedResults: hasCachedResults
+        )
+    }
+
+    private init(
+        outcome: NativeSearchTelemetryOutcome,
+        state: SearchState,
+        resultCount: Int?,
+        durationMilliseconds: Int?,
+        requestID: String?,
+        errorType: String?,
+        hasCachedResults: Bool
+    ) {
+        self.outcome = outcome
+        scope = state.scope
+        queryLength = min(max(state.query.count, 0), 4_096)
+        self.resultCount = resultCount.map { min(max($0, 0), 100_000) }
+        self.durationMilliseconds = durationMilliseconds.map { min(max($0, 0), 600_000) }
+        self.requestID = requestID
+        self.errorType = errorType
+        self.hasCachedResults = hasCachedResults
+    }
+
+    public func telemetryEvent(
+        environment: String,
+        metadata: NativeTelemetryAppMetadata
+    ) -> NativeTelemetryEvent {
+        NativeTelemetryEvent(
+            name: outcome.eventName,
+            stage: "request_\(outcome.rawValue)",
+            environment: environment,
+            metadata: metadata,
+            route: "search",
+            errorType: errorType,
+            requestID: requestID,
+            hasRenderableCacheContent: hasCachedResults,
+            searchScope: scope.rawValue,
+            searchQueryLength: queryLength,
+            searchResultCount: resultCount,
+            durationMilliseconds: durationMilliseconds
+        )
+    }
+
+    private static func sanitizedErrorType(_ error: SearchSurfaceRepositoryError) -> String {
+        switch error {
+        case .authenticationRequired: "authentication_required"
+        case .authorizationRequired: "authorization_required"
+        case .offline: "offline"
+        case .cancelled: "cancelled"
+        case .searchFailed: "search_failed"
+        }
+    }
+}
+
+public enum NativeSearchTelemetryTerminalCandidate: Equatable, Sendable {
+    case completed(SearchSurfacePage)
+    case failed(SearchSurfaceRepositoryError)
+    case cancelled
+}
+
+public struct NativeSearchTelemetryTerminalDecision: Equatable, Sendable {
+    public let descriptor: NativeSearchTelemetryDescriptor
+    public let shouldApplyResult: Bool
+
+    public static func classify(
+        _ candidate: NativeSearchTelemetryTerminalCandidate,
+        state: SearchState,
+        correlationID: String,
+        durationMilliseconds: Int,
+        hasCachedResults: Bool,
+        isCurrent: Bool
+    ) -> Self {
+        guard isCurrent else {
+            return Self(
+                descriptor: .cancelled(
+                    state: state,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds,
+                    hasCachedResults: hasCachedResults
+                ),
+                shouldApplyResult: false
+            )
+        }
+
+        switch candidate {
+        case .completed(let page):
+            return Self(
+                descriptor: .completed(
+                    state: state,
+                    page: page,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds
+                ),
+                shouldApplyResult: true
+            )
+        case .failed(let error):
+            return Self(
+                descriptor: .failed(
+                    state: state,
+                    error: error,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds,
+                    hasCachedResults: hasCachedResults
+                ),
+                shouldApplyResult: true
+            )
+        case .cancelled:
+            return Self(
+                descriptor: .cancelled(
+                    state: state,
+                    correlationID: correlationID,
+                    durationMilliseconds: durationMilliseconds,
+                    hasCachedResults: hasCachedResults
+                ),
+                shouldApplyResult: false
+            )
+        }
+    }
+}
+
+@MainActor
+public final class NativeSearchTelemetryPipeline {
+    public typealias ReportOperation = @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void
+
+    private let report: ReportOperation
+    private var tail: Task<Void, Never>?
+
+    public init(report: @escaping ReportOperation) {
+        self.report = report
+    }
+
+    public func enqueue(_ descriptor: NativeSearchTelemetryDescriptor) {
+        let predecessor = tail
+        let report = report
+        tail = Task {
+            await predecessor?.value
+            await report(descriptor)
+        }
+    }
+
+    public func flush() async {
+        await tail?.value
     }
 }
 
@@ -171,12 +465,14 @@ public struct SearchSurfaceDebouncePolicy: Equatable, Sendable {
 
 public struct SearchSurfaceViewModel: Equatable, Sendable {
     public let state: SearchState
+    public let isLoading: Bool
     public let searchableScopes: [SearchScope]
     public let unsupportedScopes: [SearchScope]
     public let sections: [SearchSurfaceSection]
     public let emptyState: SearchSurfaceEmptyState?
     public let errorState: SearchSurfaceErrorState?
     public let offlineIndicator: OfflineIndicatorState
+    public let renderFingerprint: SearchSurfaceRenderFingerprint
 
     public init(
         page: SearchSurfacePage,
@@ -186,13 +482,26 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.state = state
+        isLoading = false
         let scopes = Self.searchableScopes(context: context)
         searchableScopes = scopes
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
-        sections = Self.sections(for: page.results, state: state)
-        emptyState = Self.emptyState(page: page, state: state, context: context)
+        let renderedSections = Self.sections(for: page.results, state: state)
+        sections = renderedSections
+        let renderedEmptyState = Self.emptyState(
+            hasRenderedResults: !renderedSections.isEmpty,
+            state: state,
+            context: context
+        )
+        emptyState = renderedEmptyState
         errorState = nil
         self.offlineIndicator = offlineIndicator ?? page.offlineIndicator(now: now())
+        renderFingerprint = Self.renderFingerprint(
+            sections: renderedSections,
+            dataSource: page.source,
+            emptyState: renderedEmptyState,
+            state: state
+        )
     }
 
     public init(
@@ -204,18 +513,76 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.state = state
+        isLoading = false
         let scopes = Self.searchableScopes(context: context)
         searchableScopes = scopes
         unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
         let recoveredSections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
         sections = recoveredSections
-        emptyState = cachedPage.map { Self.emptyState(page: $0, state: state, context: context) } ?? nil
-        errorState = recoveredSections.isEmpty ? Self.errorState(error) : nil
+        let renderedErrorState = recoveredSections.isEmpty ? Self.errorState(error) : nil
+        let recoveredEmptyState: SearchSurfaceEmptyState? = if renderedErrorState == nil, cachedPage != nil {
+            Self.emptyState(
+                hasRenderedResults: !recoveredSections.isEmpty,
+                state: state,
+                context: context
+            )
+        } else {
+            nil
+        }
+        emptyState = recoveredEmptyState
+        errorState = renderedErrorState
         self.offlineIndicator = offlineIndicator ?? Self.offlineIndicator(
             error: error,
             state: state,
             cachedPage: cachedPage,
             now: now
+        )
+        renderFingerprint = Self.renderFingerprint(
+            sections: recoveredSections,
+            dataSource: cachedPage?.source,
+            emptyState: recoveredEmptyState,
+            state: state,
+            unavailableReason: String(describing: error)
+        )
+    }
+
+    public static func loading(
+        state: SearchState,
+        context: SearchSurfaceContext,
+        cachedPage: SearchSurfacePage?,
+        now: @escaping @Sendable () -> Date = Date.init
+    ) -> SearchSurfaceViewModel {
+        SearchSurfaceViewModel(
+            loadingState: state,
+            context: context,
+            cachedPage: cachedPage,
+            now: now
+        )
+    }
+
+    private init(
+        loadingState state: SearchState,
+        context: SearchSurfaceContext,
+        cachedPage: SearchSurfacePage?,
+        now: @escaping @Sendable () -> Date
+    ) {
+        self.state = state
+        isLoading = true
+        let scopes = Self.searchableScopes(context: context)
+        searchableScopes = scopes
+        unsupportedScopes = SearchScope.allCases.filter { !scopes.contains($0) }
+        let cachedSections = cachedPage.map { Self.sections(for: $0.results, state: state) } ?? []
+        sections = cachedSections
+        emptyState = nil
+        errorState = nil
+        offlineIndicator = cachedPage?.offlineIndicator(now: now())
+            ?? OfflineIndicatorState(display: .synced, dismissal: nil)
+        renderFingerprint = Self.renderFingerprint(
+            sections: cachedSections,
+            dataSource: cachedPage?.source,
+            emptyState: nil,
+            state: state,
+            unavailableReason: "loading"
         )
     }
 
@@ -234,7 +601,14 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
                 false
             }
         }
-        let rows = scopedResults.map(SearchSurfaceRow.init(result:))
+        var seenRowIDs = Set<String>()
+        let rows = scopedResults.compactMap { result -> SearchSurfaceRow? in
+            let row = SearchSurfaceRow(result: result)
+            guard seenRowIDs.insert(row.id).inserted else {
+                return nil
+            }
+            return row
+        }
 
         return [
             SearchSurfaceSection(kind: .recipes, rows: rows.filter { $0.result.type == .recipe }),
@@ -245,11 +619,11 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
     }
 
     private static func emptyState(
-        page: SearchSurfacePage,
+        hasRenderedResults: Bool,
         state: SearchState,
         context: SearchSurfaceContext
     ) -> SearchSurfaceEmptyState? {
-        guard page.results.isEmpty else {
+        guard !hasRenderedResults else {
             return nil
         }
         if state.scope == .shoppingList && (!context.isAuthenticated || !context.canReadShoppingList) {
@@ -279,13 +653,70 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
         case .all:
             "No Spoonjoy results match \"\(query)\"."
         case .recipes:
-            "No saved recipes match \"\(query)\"."
+            "No recipes match \"\(query)\"."
         case .cookbooks:
             "No cookbooks match \"\(query)\"."
         case .chefs:
             "No chefs match \"\(query)\"."
         case .shoppingList:
             "No shopping items match \"\(query)\"."
+        }
+    }
+
+    private static func renderFingerprint(
+        sections: [SearchSurfaceSection],
+        dataSource: SearchSurfaceDataSource?,
+        emptyState: SearchSurfaceEmptyState?,
+        state: SearchState,
+        unavailableReason: String = "missing-page"
+    ) -> SearchSurfaceRenderFingerprint {
+        SearchSurfaceRenderFingerprint(
+            rows: sections.flatMap(\.rows).map { row in
+                SearchSurfaceRenderFingerprint.Row(
+                    type: row.result.type.rawValue,
+                    id: row.id,
+                    title: row.title
+                )
+            },
+            dataSource: renderDataSource(dataSource, unavailableReason: unavailableReason),
+            emptyState: emptyState.map {
+                SearchSurfaceRenderFingerprint.EmptyState(
+                    scope: state.scope.rawValue,
+                    title: $0.title,
+                    message: $0.message
+                )
+            }
+        )
+    }
+
+    private static func renderDataSource(
+        _ dataSource: SearchSurfaceDataSource?,
+        unavailableReason: String
+    ) -> SearchSurfaceRenderFingerprint.DataSource {
+        switch dataSource {
+        case .live(let requestID, _):
+            .live(requestID: requestID)
+        case .cache(let serverRevision, _):
+            .cache(serverRevision: renderServerRevision(serverRevision))
+        case .offlineCache(let serverRevision, _):
+            .offlineCache(serverRevision: renderServerRevision(serverRevision))
+        case nil:
+            .unavailable(reason: unavailableReason)
+        }
+    }
+
+    private static func renderServerRevision(_ revision: NativeCacheServerRevision?) -> String? {
+        switch revision {
+        case .etag(let value):
+            "etag:\(value)"
+        case .cursor(let value):
+            "cursor:\(value)"
+        case .updatedAt(let value):
+            "updated-at:\(value)"
+        case .localRevision(let value):
+            "local:\(value)"
+        case nil:
+            nil
         }
     }
 

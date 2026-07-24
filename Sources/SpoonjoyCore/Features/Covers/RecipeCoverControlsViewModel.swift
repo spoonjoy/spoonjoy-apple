@@ -92,6 +92,31 @@ public actor RecipeCoverPhotoStagingWorker {
     }
 }
 
+public struct RecipeCoverPhotoSelectionSession: Equatable, Sendable {
+    public struct Token: Equatable, Sendable {
+        fileprivate let id: UUID
+    }
+
+    private var activeToken: Token?
+
+    public init() {}
+
+    @discardableResult
+    public mutating func beginSelection() -> Token {
+        let token = Token(id: UUID())
+        activeToken = token
+        return token
+    }
+
+    public mutating func invalidate() {
+        activeToken = nil
+    }
+
+    public func accepts(_ token: Token) -> Bool {
+        activeToken == token
+    }
+}
+
 public struct RecipeCoverPhotoStagingPolicy: Equatable, Sendable {
     public static let offlineProductContract = RecipeCoverPhotoStagingPolicy()
 

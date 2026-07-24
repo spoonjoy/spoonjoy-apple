@@ -14,14 +14,18 @@ struct PlatformNavigationView: View {
 
     @Environment(\.openURL) private var openURL
 #if os(iOS)
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
     @FocusState private var isSearchFieldFocused: Bool
     @State private var isSearchPresented = false
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
+    @State private var loadedRecipesByID = RecipeDetailSnapshotCache()
+    @StateObject private var recipeEditorToolbarCoordinator = RecipeEditorToolbarCoordinator()
 
     private let contentState: NativeShellContentState
+    private let allowsLiveEffects: Bool
     private let offlineIndicatorState: OfflineIndicatorState
     private let dismissOfflineIndicator: @MainActor @Sendable () -> Void
     private let queueMutation: @Sendable (NativeQueuedMutation) async throws -> Void
@@ -45,17 +49,14 @@ struct PlatformNavigationView: View {
     private let recordSpoonCookLogDraftHandler: @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void
     private let recordSearchSurfacePageHandler: @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void
     private let searchSurfaceRepositoryHandler: @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository
-    private let syncTriggerCoordinator: NativeSyncTriggerCoordinator
-    private let purgeShoppingEntityIndexesHandler: @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void
-    private let purgeSpoonEntityIndexesHandler: @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void
-    private let purgeCaptureDraftEntityIndexesHandler: @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void
-    private let purgeChefProfileEntityIndexesHandler: @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void
-    private let purgeRecipeCookbookEntityIndexesHandler: @Sendable (NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
+    private let searchTelemetryPipeline: NativeSearchTelemetryPipeline
+    private let recordRecipeDetailTelemetryHandler: @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void
 
     init(
         navigation: Binding<AppNavigationState>,
         search: Binding<SearchState>,
         contentState: NativeShellContentState,
+        allowsLiveEffects: Bool,
         offlineIndicatorState: OfflineIndicatorState,
         dismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void,
         queueMutation: @escaping @Sendable (NativeQueuedMutation) async throws -> Void,
@@ -79,16 +80,13 @@ struct PlatformNavigationView: View {
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         recordSearchSurfacePage: @escaping @MainActor @Sendable (SearchSurfacePage, String) async throws -> Void,
         searchSurfaceRepository: @escaping @MainActor @Sendable (SearchSurfaceContext) -> any SearchSurfaceRepository,
-        syncTriggerCoordinator: NativeSyncTriggerCoordinator,
-        purgeShoppingEntityIndexes: @escaping @Sendable (NativeShoppingEntityIndexPurgeRequest) async -> Void,
-        purgeSpoonEntityIndexes: @escaping @Sendable (NativeSpoonEntityIndexPurgeRequest) async -> Void,
-        purgeCaptureDraftEntityIndexes: @escaping @Sendable (NativeCaptureDraftEntityIndexPurgeRequest) async -> Void,
-        purgeChefProfileEntityIndexes: @escaping @Sendable (NativeChefProfileEntityIndexPurgeRequest) async -> Void,
-        purgeRecipeCookbookEntityIndexes: @escaping @Sendable (NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
+        recordSearchTelemetry: @escaping @MainActor @Sendable (NativeSearchTelemetryDescriptor) async -> Void,
+        recordRecipeDetailTelemetry: @escaping @MainActor @Sendable (NativeRecipeDetailTelemetryDescriptor) async -> Void
     ) {
         _navigation = navigation
         _search = search
         self.contentState = contentState
+        self.allowsLiveEffects = allowsLiveEffects
         self.offlineIndicatorState = offlineIndicatorState
         self.dismissOfflineIndicator = dismissOfflineIndicator
         self.queueMutation = queueMutation
@@ -112,12 +110,8 @@ struct PlatformNavigationView: View {
         self.recordSpoonCookLogDraftHandler = recordSpoonCookLogDraft
         self.recordSearchSurfacePageHandler = recordSearchSurfacePage
         self.searchSurfaceRepositoryHandler = searchSurfaceRepository
-        self.syncTriggerCoordinator = syncTriggerCoordinator
-        self.purgeShoppingEntityIndexesHandler = purgeShoppingEntityIndexes
-        self.purgeSpoonEntityIndexesHandler = purgeSpoonEntityIndexes
-        self.purgeCaptureDraftEntityIndexesHandler = purgeCaptureDraftEntityIndexes
-        self.purgeChefProfileEntityIndexesHandler = purgeChefProfileEntityIndexes
-        self.purgeRecipeCookbookEntityIndexesHandler = purgeRecipeCookbookEntityIndexes
+        self.searchTelemetryPipeline = NativeSearchTelemetryPipeline(report: recordSearchTelemetry)
+        self.recordRecipeDetailTelemetryHandler = recordRecipeDetailTelemetry
     }
 
     var body: some View {
@@ -131,11 +125,21 @@ struct PlatformNavigationView: View {
                 desktopClassShell(spotlightPayload: spotlightPayload)
             }
         }
+        .onChange(of: contentState.searchSurfaceIdentity) { _, _ in
+            activeSearch = nil
+            liveSearchRequestMarker = nil
+            loadedRecipesByID.removeAll()
+        }
+        .onChange(of: usesCompactMobileShell) { _, usesCompactMobileShell in
+            navigation.synchronizeForShellTransition(to: usesCompactMobileShell ? .compact : .desktop)
+        }
     }
 
     private var usesCompactMobileShell: Bool {
-#if os(iOS)
-        horizontalSizeClass == .compact
+#if os(macOS)
+        false
+#elseif os(iOS)
+        horizontalSizeClass == .compact || dynamicTypeSize >= .xxxLarge
 #else
         false
 #endif
@@ -149,7 +153,7 @@ struct PlatformNavigationView: View {
                 .searchFocused($isSearchFieldFocused)
                 .searchScopes(searchScope) {
                     ForEach(availableSearchScopes, id: \.rawValue) { scope in
-                        Text(label(for: scope)).tag(scope)
+                        Text(SearchSurfaceScopeGrammar.title(for: scope)).tag(scope)
                     }
                 }
                 .onSubmit(of: .search) {
@@ -169,48 +173,13 @@ struct PlatformNavigationView: View {
     }
 
     private func compactMobileNavigationStack(spotlightPayload: SpotlightIndexPayload) -> some View {
-        NavigationStack {
-            compactNavigationContent
-            .navigationTitle(compactNavigationTitle(for: navigation.route))
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-#endif
-            .toolbar {
-                compactNavigationToolbar
-            }
-#if os(iOS)
-            .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
-#endif
-        }
-        .navigationDestination(for: AppRoute.self) { route in
-            destinationContent(for: route)
-        }
+        compactTabShell
         .task(id: spotlightIndexIdentity) {
             await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
         }
 #if canImport(AppIntents)
         .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
-        .task(id: contentState.environment.rawValue) {
-            if let report = try? await syncTriggerCoordinator.handle(.foreground) {
-                for request in report.shoppingEntityPurgeRequests {
-                    await purgeShoppingEntityIndexesHandler(request)
-                }
-                for request in report.spoonEntityPurgeRequests {
-                    await purgeSpoonEntityIndexesHandler(request)
-                }
-                for request in report.captureDraftEntityPurgeRequests {
-                    await purgeCaptureDraftEntityIndexesHandler(request)
-                }
-                for request in report.chefProfileEntityPurgeRequests {
-                    await purgeChefProfileEntityIndexesHandler(request)
-                }
-                for request in report.recipeCookbookEntityPurgeRequests {
-                    await purgeRecipeCookbookEntityIndexesHandler(request)
-                }
-            }
-        }
         .onChange(of: navigation.route) { _, route in
             if !routeKeepsSearchFocus(route) {
                 isSearchFieldFocused = false
@@ -224,6 +193,26 @@ struct PlatformNavigationView: View {
         }
     }
 
+    private func compactNavigationRootContent(for section: AppSection) -> some View {
+        compactNavigationBaseContent(for: section)
+            .toolbar {
+                compactNavigationToolbar
+            }
+    }
+
+    private func compactNavigationBaseContent(for section: AppSection) -> some View {
+        ZStack {
+            compactRouteSurface(for: compactRootRoute(for: section), in: section)
+        }
+            .navigationTitle(compactNavigationTitle(for: compactRootRoute(for: section)))
+#if os(iOS)
+            .toolbarTitleDisplayMode(.inline)
+            .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbarColorScheme(.light, for: .navigationBar)
+#endif
+    }
+
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
         NavigationSplitView {
             sidebar.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)
@@ -231,6 +220,7 @@ struct PlatformNavigationView: View {
         } detail: {
             routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)
         }
+        .tint(KitchenTableTheme.charcoal)
     }
 
     private func focusedCookModeShell(spotlightPayload: SpotlightIndexPayload) -> some View {
@@ -261,7 +251,7 @@ struct PlatformNavigationView: View {
                 .searchFocused($isSearchFieldFocused)
                 .searchScopes(searchScope) {
                     ForEach(availableSearchScopes, id: \.rawValue) { scope in
-                        Text(label(for: scope)).tag(scope)
+                        Text(SearchSurfaceScopeGrammar.title(for: scope)).tag(scope)
                     }
                 }
                 .onSubmit(of: .search) {
@@ -275,16 +265,17 @@ struct PlatformNavigationView: View {
     }
 
     private func baseRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, hidesNavigationBar: Bool) -> some View {
-        NavigationStack {
-            detailContentWithShellStatus
-                .navigationTitle(title(for: navigation.route))
+        NavigationStack(path: desktopPathBinding) {
+            detailContentWithShellStatus(for: navigation.desktopRootRoute)
+                .navigationTitle(title(for: navigation.desktopRootRoute))
 #if os(iOS)
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
         }
         .navigationDestination(for: AppRoute.self) { route in
-            destinationContent(for: route)
+            detailContentWithShellStatus(for: route)
+                .navigationTitle(title(for: route))
         }
         .task(id: spotlightIndexIdentity) {
             await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
@@ -292,25 +283,6 @@ struct PlatformNavigationView: View {
 #if canImport(AppIntents)
         .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
-        .task(id: contentState.environment.rawValue) {
-            if let report = try? await syncTriggerCoordinator.handle(.foreground) {
-                for request in report.shoppingEntityPurgeRequests {
-                    await purgeShoppingEntityIndexesHandler(request)
-                }
-                for request in report.spoonEntityPurgeRequests {
-                    await purgeSpoonEntityIndexesHandler(request)
-                }
-                for request in report.captureDraftEntityPurgeRequests {
-                    await purgeCaptureDraftEntityIndexesHandler(request)
-                }
-                for request in report.chefProfileEntityPurgeRequests {
-                    await purgeChefProfileEntityIndexesHandler(request)
-                }
-                for request in report.recipeCookbookEntityPurgeRequests {
-                    await purgeRecipeCookbookEntityIndexesHandler(request)
-                }
-            }
-        }
         .onChange(of: navigation.route) { _, route in
             if !routeKeepsSearchFocus(route) {
                 isSearchFieldFocused = false
@@ -321,52 +293,40 @@ struct PlatformNavigationView: View {
         }
     }
 
-    @ViewBuilder private var compactNavigationContent: some View {
-        if navigation.route.isCookModeActive || navigation.route.usesCompactAuxiliaryShell {
-            compactImmersiveRouteContent(for: navigation.route)
-        } else {
-            compactTabShell
-        }
-    }
-
     private var compactTabShell: some View {
         compactTabShellContent
     }
 
     private var compactTabShellContent: some View {
         TabView(selection: compactTabSelection) {
-            compactTabContent(for: .kitchen)
-                .tabItem {
-                    Label("Kitchen", systemImage: "house")
-                }
-                .tag(AppSection.kitchen)
+            Tab("Kitchen", systemImage: "house", value: AppSection.kitchen) {
+                compactTabNavigationStack(for: .kitchen)
+            }
 
-            compactTabContent(for: .recipes)
-                .tabItem {
-                    Label("My Recipes", systemImage: "book.closed")
-                }
-                .tag(AppSection.recipes)
+            Tab("Recipes", systemImage: "book.closed", value: AppSection.recipes) {
+                compactTabNavigationStack(for: .recipes)
+            }
 
-            compactTabContent(for: .savedRecipes)
-                .tabItem {
-                    Label("Saved", systemImage: "bookmark")
-                }
-                .tag(AppSection.savedRecipes)
+            Tab("Saved", systemImage: "bookmark", value: AppSection.savedRecipes) {
+                compactTabNavigationStack(for: .savedRecipes)
+            }
 
-            compactTabContent(for: .cookbooks)
-                .tabItem {
-                    Label("Cookbooks", systemImage: "books.vertical")
-                }
-                .tag(AppSection.cookbooks)
+            Tab("Cookbooks", systemImage: "books.vertical", value: AppSection.cookbooks) {
+                compactTabNavigationStack(for: .cookbooks)
+            }
 
-            compactTabContent(for: .shoppingList)
-                .tabItem {
-                    Label("Shopping List", systemImage: "checklist")
-                }
-                .tag(AppSection.shoppingList)
+            Tab("Shopping", systemImage: "checklist", value: AppSection.shoppingList) {
+                compactTabNavigationStack(for: .shoppingList)
+            }
         }
         .tint(KitchenTableTheme.action)
         .background(KitchenTableTheme.bone.ignoresSafeArea())
+#if os(iOS)
+        .toolbarBackground(KitchenTableTheme.bone, for: .tabBar)
+        .toolbarBackground(.visible, for: .tabBar)
+        .toolbarColorScheme(.light, for: .tabBar)
+        .tabBarMinimizeBehavior(.never)
+#endif
     }
 
     private var shouldShowShellOfflineStatus: Bool {
@@ -405,9 +365,9 @@ struct PlatformNavigationView: View {
         }
     }
 
-    @ViewBuilder private var detailContentWithShellStatus: some View {
+    @ViewBuilder private func detailContentWithShellStatus(for route: AppRoute) -> some View {
         VStack(spacing: 0) {
-            detailContent
+            destinationContent(for: route)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             if shouldShowShellOfflineStatus && !usesCompactMobileShell {
@@ -417,20 +377,25 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private var compactOfflineStatusBar: some View {
-        if offlineIndicatorState.display.informationalOnly {
-            OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet, onDismiss: dismissOfflineIndicator)
-                .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
-                .padding(.horizontal, 4)
-        } else {
-            OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
-                .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
-                .padding(.horizontal, 12)
-                .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
-                .overlay {
-                    Capsule()
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
-                }
-        }
+        OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
+            .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
+            .padding(.horizontal, 12)
+            .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
+            }
+    }
+
+    private var compactOfflineStatusBand: some View {
+        compactOfflineStatusBar
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 6)
+            .background(KitchenTableTheme.paper)
+            .overlay(alignment: .bottom) {
+                Divider()
+            }
     }
 
     private var shellOfflineStatusBar: some View {
@@ -460,48 +425,89 @@ struct PlatformNavigationView: View {
             sidebarLink(section: .capture, title: "Imports", systemImage: "tray.and.arrow.down")
             sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
         }
+        .scrollContentBackground(.hidden)
+        .background(KitchenTableTheme.paper)
+        .foregroundStyle(KitchenTableTheme.charcoal)
     }
 
-    @ViewBuilder private var detailContent: some View {
-        destinationContent(for: navigation.route)
-    }
-
-    @ViewBuilder private func compactImmersiveRouteContent(for route: AppRoute) -> some View {
-        VStack(spacing: 0) {
-            if shouldShowShellOfflineStatus {
-                compactOfflineStatusBar
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-
-            destinationContent(for: route)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private func compactTabNavigationStack(for section: AppSection) -> some View {
+        NavigationStack(path: compactPathBinding(for: section)) {
+            compactNavigationRootContent(for: section)
+                .navigationDestination(for: AppRoute.self) { route in
+                    ZStack {
+                        compactRouteSurface(for: route, in: section)
+                    }
+                        .navigationTitle(compactNavigationTitle(for: route))
+#if os(iOS)
+                        .toolbarTitleDisplayMode(.inline)
+                        .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
+                        .toolbarBackground(.visible, for: .navigationBar)
+                        .toolbarColorScheme(.light, for: .navigationBar)
+#endif
+                        .toolbar {
+                            compactNavigationToolbar
+                        }
+                }
         }
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+    }
+
+    private func compactRouteSurface(for route: AppRoute, in section: AppSection) -> some View {
+        destinationContent(for: route)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(\.spoonjoyCompactNavigation, true)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if shouldShowShellOfflineStatus && !offlineIndicatorState.display.informationalOnly
+                    && navigation.compactTabSelection == section {
+                    compactOfflineStatusBand
+                }
+            }
+            .background(KitchenTableTheme.bone)
     }
 
     @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
+        ScreenshotRouteContainer(identifier: "screenshot.route.\(route.stateIdentifier)") {
         switch route {
         case .kitchen:
             KitchenView(
                 kitchen: contentState.kitchen,
                 recipes: contentState.recipes,
                 cookbooks: contentState.cookbooks,
-                openRecipe: openRecipe,
-                startCooking: startCooking,
-                openCookbook: openCookbook
+                ownerUsername: currentKitchenOwnerUsername
             )
         case .recipes:
-            RecipesView(viewModel: myRecipesCatalogViewModel, openRoute: openRoute)
+            RecipesView(viewModel: myRecipesCatalogViewModel)
         case .savedRecipes:
-            SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
+            SavedRecipesView(viewModel: savedRecipesCatalogViewModel)
         case .recipeDetail(let id, .detail):
+            let shellRecipe = shellRecipe(id: id)
+            let shellIdentity = contentState.searchSurfaceIdentity
+            let loadContext = RecipeDetailRouteLoadContext(
+                taskIdentity: RecipeDetailLoadIdentity(
+                    recipeID: id,
+                    shellIdentity: shellIdentity,
+                    shellRecipe: shellRecipe
+                ),
+                shellRecipe: shellRecipe
+            )
             RecipeDetailRouteView(
                 recipeID: id,
+                loadContext: loadContext,
                 repository: recipeCatalogRepository,
                 spoonRepository: spoonCookLogRepository,
-                initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
+                initialViewModel: loadedRecipesByID.recipe(
+                    id: id,
+                    shellRecipe: shellRecipe,
+                    shellIdentity: shellIdentity
+                ).map(recipeDetailScreenViewModel(for:)),
                 loadingTitle: recipeLoadingTitle(id: id),
+                onRecipeLoaded: { recipe, loadContext in
+                    recordLoadedRecipe(
+                        recipe,
+                        shellRecipe: loadContext.shellRecipe,
+                        shellIdentity: loadContext.taskIdentity.shellIdentity
+                    )
+                },
+                reportTelemetry: recordRecipeDetailTelemetryHandler,
                 actionConnectivity: recipeActionConnectivity,
                 shoppingViewModel: shoppingViewModel,
                 context: recipeDetailContext(for:),
@@ -528,7 +534,7 @@ struct PlatformNavigationView: View {
                 shoppingViewModel: shoppingViewModel,
                 performShoppingAction: performShoppingAction,
                 close: {
-                    openRecipe(id)
+                    completeTerminalRoute(returningTo: .recipeDetail(id: id, presentation: .detail))
                 }
             )
         case .recipeEditor(let id):
@@ -538,10 +544,12 @@ struct PlatformNavigationView: View {
                     mutationDidPlan: handleRecipeEditorPlan,
                     mutationsDidQueue: queueMutations,
                     conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
-                    close: openRoute,
+                    close: completeTerminalRoute(returningTo:),
                     shellOfflineIndicatorState: offlineIndicatorState,
-                    onDismissOfflineIndicator: dismissOfflineIndicator
+                    onDismissOfflineIndicator: dismissOfflineIndicator,
+                    toolbarCoordinator: recipeEditorToolbarCoordinator
                 )
+                .id(editorViewModel.route.stateIdentifier)
             } else {
                 ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "We couldn't open this recipe editor.")
             }
@@ -555,7 +563,7 @@ struct PlatformNavigationView: View {
                 stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage(queuedMutations: contentState.queuedMutations),
                 performCoverAction: performCoverAction,
                 close: {
-                    openRecipe(id)
+                    completeTerminalRoute(returningTo: .recipeDetail(id: id, presentation: .detail))
                 },
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
@@ -591,7 +599,7 @@ struct PlatformNavigationView: View {
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .chefs:
-            ChefsView(profiles: chefProfiles, openRoute: openRoute)
+            ChefsView(profiles: chefProfiles)
         case .shoppingList:
             ShoppingListView(
                 viewModel: shoppingViewModel,
@@ -611,7 +619,7 @@ struct PlatformNavigationView: View {
             .onAppear {
                 search.apply(route: routeSearch.route)
                 if routeSearch.route != navigation.route {
-                    navigation.navigate(to: routeSearch.route)
+                    presentRoute(routeSearch.route, replacingCurrentRoute: true)
                 }
                 if shouldAutoFocusSearchField {
                     isSearchFieldFocused = true
@@ -646,7 +654,15 @@ struct PlatformNavigationView: View {
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .unknownLink:
-            ShellPlaceholderView(title: "Link Not Found", systemImage: "link.badge.plus", detail: "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link.")
+            ShellPlaceholderView(
+                title: "Link Not Found",
+                systemImage: "link.badge.plus",
+                detail: "Open Spoonjoy from a supported recipe, cookbook, shopping, search, capture, or settings link.",
+                screenshotRoute: "unknown-link",
+                screenshotSource: "ShellPlaceholderView",
+                accessibilityIdentifier: "unknown-link.message"
+            )
+        }
         }
     }
 
@@ -713,45 +729,42 @@ struct PlatformNavigationView: View {
             get: { navigation.sidebarSelection },
             set: { section in
                 guard let section else { return }
-                navigateToSidebar(section)
+                navigation.selectSidebar(section)
+                if section != .search {
+                    isSearchFieldFocused = false
+                }
             }
         )
     }
 
     private func sidebarLink(section: AppSection, title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
+        Label {
+            Text(title)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: systemImage)
+        }
+            .foregroundStyle(KitchenTableTheme.charcoal)
             .tag(section)
     }
 
     private var compactTabSelection: Binding<AppSection> {
         Binding(
-            get: { compactTabSection(for: navigation.route) },
+            get: { navigation.compactTabSelection },
             set: { section in
-                navigateToCompactTab(section)
+                navigation.selectCompactTab(section)
             }
         )
     }
 
-    @ViewBuilder private func compactTabContent(for section: AppSection) -> some View {
-        VStack(spacing: 0) {
-            if shouldShowShellOfflineStatus && section == compactTabSection(for: navigation.route) {
-                compactOfflineStatusBar
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+    private func compactPathBinding(for section: AppSection) -> Binding<[AppRoute]> {
+        Binding(
+            get: { navigation.compactPath(for: section) },
+            set: { path in
+                navigation.setCompactPath(path, for: section)
             }
-
-            destinationContent(for: compactPresentedRoute(for: section))
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .environment(\.spoonjoyCompactNavigation, true)
-                .safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)
-        }
-        .background(KitchenTableTheme.bone)
-    }
-
-    private func compactPresentedRoute(for section: AppSection) -> AppRoute {
-        compactTabSection(for: navigation.route) == section
-            ? navigation.route
-            : compactRootRoute(for: section)
+        )
     }
 
     private func compactRootRoute(for section: AppSection) -> AppRoute {
@@ -777,89 +790,80 @@ struct PlatformNavigationView: View {
         }
     }
 
-    private func compactTabSection(for route: AppRoute) -> AppSection {
-        switch route {
-        case .kitchen:
-            .kitchen
-        case .recipes, .recipeDetail, .recipeEditor, .recipeCoverControls:
-            .recipes
-        case .savedRecipes:
-            .savedRecipes
-        case .cookbooks, .cookbookDetail:
-            .cookbooks
-        case .shoppingList:
-            .shoppingList
-        case .search:
-            .kitchen
-        case .chefs, .profile, .profileGraph:
-            .chefs
-        case .capture, .settings, .unknownLink:
-            .kitchen
-        }
-    }
-
-    private func navigateToCompactTab(_ section: AppSection) {
-        if section != .search {
-            isSearchFieldFocused = false
-        }
-        switch section {
-        case .kitchen:
-            navigation.navigate(to: .kitchen)
-        case .recipes:
-            navigation.navigate(to: .recipes)
-        case .savedRecipes:
-            navigation.navigate(to: .savedRecipes)
-        case .cookbooks:
-            navigation.navigate(to: .cookbooks)
-        case .shoppingList:
-            navigation.navigate(to: .shoppingList)
-        case .chefs:
-            navigation.navigate(to: .chefs)
-        case .search:
-            Task {
-                await performSearch(search)
+    private var desktopPathBinding: Binding<[AppRoute]> {
+        Binding(
+            get: { navigation.desktopPath },
+            set: { path in
+                navigation.setDesktopPath(path)
             }
-        case .capture:
-            navigation.navigate(to: .capture)
-        case .settings:
-            navigation.navigate(to: .settings)
-        }
+        )
     }
 
     @ToolbarContentBuilder private var compactNavigationToolbar: some ToolbarContent {
 #if os(iOS)
-        if let backAction = compactBackAction(for: navigation.route) {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    openRoute(backAction.route)
-                } label: {
-                    Label(backAction.title, systemImage: "chevron.backward")
+        if shouldShowShellOfflineStatus && offlineIndicatorState.display.informationalOnly {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button(action: dismissOfflineIndicator) {
+                    Image(systemName: compactInformationalOfflineStatusSymbol)
+                        .frame(
+                            width: KitchenTableTheme.minimumTouchTarget,
+                            height: KitchenTableTheme.minimumTouchTarget
+                        )
+                        .contentShape(Rectangle())
                 }
-                .accessibilityLabel(backAction.accessibilityLabel)
+                .accessibilityLabel(compactInformationalOfflineStatusLabel)
+                .accessibilityHint("Hides this status")
             }
         }
-
-        ToolbarItem(placement: .topBarTrailing) {
-            Menu {
-                Button("Import queue", systemImage: "tray.and.arrow.down") {
-                    openRoute(.capture)
-                }
-                Button("Chefs", systemImage: "person.2") {
-                    openRoute(.chefs)
-                }
-                Button("Search", systemImage: "magnifyingglass") {
-                    Task {
-                        await performSearch(search)
+        if isRecipeEditorRoute {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    recipeEditorToolbarCoordinator.performSave(for: navigation.route.stateIdentifier)
+                } label: {
+                    if recipeEditorToolbarCoordinator.isSaving(for: navigation.route.stateIdentifier) {
+                        ProgressView()
+                    } else {
+                        Text("Save")
                     }
                 }
-                Button("Settings", systemImage: "gearshape") {
-                    openRoute(.settings)
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
+                .disabled(!recipeEditorToolbarCoordinator.canPerformSave(for: navigation.route.stateIdentifier))
+                .accessibilityIdentifier("recipe-editor.save")
             }
-            .accessibilityLabel("More")
+        } else {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Imports", systemImage: "tray.and.arrow.down") {
+                        openRoute(.capture)
+                    }
+                    Button("Chefs", systemImage: "person.2") {
+                        openRoute(.chefs)
+                    }
+                    Button("Search", systemImage: "magnifyingglass") {
+                        Task {
+                            await performSearch(search)
+                        }
+                    }
+                    Button("Settings", systemImage: "gearshape") {
+                        openRoute(.settings)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.body.weight(.semibold))
+                        .frame(
+                            width: KitchenTableTheme.minimumTouchTarget,
+                            height: KitchenTableTheme.minimumTouchTarget
+                        )
+                        .contentShape(Rectangle())
+                }
+                .frame(
+                    width: KitchenTableTheme.minimumTouchTarget,
+                    height: KitchenTableTheme.minimumTouchTarget
+                )
+                .contentShape(Rectangle())
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("More")
+                .tint(KitchenTableTheme.charcoal)
+            }
         }
 #else
         ToolbarItem(placement: .automatic) {
@@ -868,54 +872,39 @@ struct PlatformNavigationView: View {
 #endif
     }
 
-    private func compactBackAction(for route: AppRoute) -> (title: String, accessibilityLabel: String, route: AppRoute)? {
-        switch route {
-        case .recipeDetail(let id, .cook):
-            (title: "Recipe", accessibilityLabel: "Back to recipe", route: .recipeDetail(id: id, presentation: .detail))
-        case .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
-            (title: "My Recipes", accessibilityLabel: "Back to My Recipes", route: .recipes)
-        case .cookbookDetail:
-            (title: "Cookbooks", accessibilityLabel: "Back to Cookbooks", route: .cookbooks)
-        case .profile, .profileGraph:
-            (title: "Chefs", accessibilityLabel: "Back to Chefs", route: .chefs)
-        case .capture, .settings, .unknownLink:
-            (title: "Kitchen", accessibilityLabel: "Back to Kitchen", route: .kitchen)
-        case .kitchen, .recipes, .savedRecipes, .cookbooks, .shoppingList, .chefs, .search:
-            nil
+    private var compactInformationalOfflineStatusSymbol: String {
+        switch offlineIndicatorState.display {
+        case .stale:
+            "clock.badge.exclamationmark"
+        case .offline:
+            "wifi.slash"
+        case .synced, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            "wifi.slash"
+        }
+    }
+
+    private var compactInformationalOfflineStatusLabel: String {
+        switch offlineIndicatorState.display {
+        case .stale:
+            "Saved kitchen may be out of date"
+        case .offline:
+            "Showing saved kitchen"
+        case .synced, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
+            "Offline status"
+        }
+    }
+
+    private var isRecipeEditorRoute: Bool {
+        if case .recipeEditor = navigation.route {
+            true
+        } else {
+            false
         }
     }
 
     private func openSearchFromDock() {
         Task {
             await performSearch(search)
-        }
-    }
-
-    private func navigateToSidebar(_ section: AppSection) {
-        if section != .search {
-            isSearchFieldFocused = false
-        }
-        switch section {
-        case .kitchen:
-            navigation.navigate(to: .kitchen)
-        case .recipes:
-            navigation.navigate(to: .recipes)
-        case .savedRecipes:
-            navigation.navigate(to: .savedRecipes)
-        case .cookbooks:
-            navigation.navigate(to: .cookbooks)
-        case .shoppingList:
-            navigation.navigate(to: .shoppingList)
-        case .chefs:
-            navigation.navigate(to: .chefs)
-        case .search:
-            Task {
-                await performSearch(search)
-            }
-        case .capture:
-            navigation.navigate(to: .capture)
-        case .settings:
-            navigation.navigate(to: .settings)
         }
     }
 
@@ -944,7 +933,7 @@ struct PlatformNavigationView: View {
         case .search:
             "Kitchen Search"
         case .capture:
-            "Import queue"
+            "Imports"
         case .settings:
             "Settings"
         case .unknownLink:
@@ -953,31 +942,28 @@ struct PlatformNavigationView: View {
     }
 
     private func compactNavigationTitle(for route: AppRoute) -> String {
-        switch route {
-        case .kitchen:
-            ""
-        default:
-            title(for: route)
-        }
-    }
-
-    private func label(for scope: SearchScope) -> String {
-        switch scope {
-        case .all:
-            "All"
-        case .recipes:
-            "Recipes"
-        case .cookbooks:
-            "Cookbooks"
-        case .chefs:
-            "Chefs"
-        case .shoppingList:
-            "Shopping"
-        }
+        title(for: route)
     }
 
     private func recipe(id: String) -> Recipe? {
+        let shellRecipe = shellRecipe(id: id)
+        return loadedRecipesByID.recipe(
+            id: id,
+            shellRecipe: shellRecipe,
+            shellIdentity: contentState.searchSurfaceIdentity
+        )
+    }
+
+    private func shellRecipe(id: String) -> Recipe? {
         contentState.recipes.first { $0.id == id }
+    }
+
+    private func recordLoadedRecipe(_ recipe: Recipe, shellRecipe: Recipe?, shellIdentity: String) {
+        loadedRecipesByID.recordLoadedRecipe(
+            recipe,
+            shellRecipe: shellRecipe,
+            shellIdentity: shellIdentity
+        )
     }
 
     private func recipeLoadingTitle(id: String) -> String? {
@@ -1008,22 +994,58 @@ struct PlatformNavigationView: View {
 
     private func openRecipe(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
+        presentRoute(.recipeDetail(id: id, presentation: .detail))
     }
 
     private func openRoute(_ route: AppRoute) {
         if !routeKeepsSearchFocus(route) {
             isSearchFieldFocused = false
         }
-        navigation.navigate(to: route)
+        presentRoute(route)
+    }
+
+    private func completeTerminalRoute(returningTo route: AppRoute) {
+        isSearchFieldFocused = false
+        if usesCompactMobileShell {
+            navigation.completeCompactRoute(returningTo: route)
+        } else {
+            navigation.completeDesktopRoute(returningTo: route)
+        }
+    }
+
+    private func presentRoute(_ route: AppRoute, replacingCurrentRoute: Bool = false) {
+        if usesCompactMobileShell {
+            if replacingCurrentRoute {
+                navigation.replaceCompactTop(with: route)
+            } else {
+                navigation.pushCompact(route)
+            }
+        } else if replacingCurrentRoute {
+            navigation.replaceDesktopTop(with: route)
+        } else {
+            navigation.pushDesktop(route)
+        }
     }
 
     @MainActor
     private func performSearch(_ nextSearch: SearchState) async {
         let nextSearch = normalizedSearch(nextSearch)
         let identity = contentState.searchSurfaceIdentity
+        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
+        activeSearch = ActiveSearchSurfaceState(
+            identity: identity,
+            viewModel: loadingSearchViewModel(for: nextSearch, cachedPage: cachedPage)
+        )
         search.apply(route: .search(query: nextSearch.query, scope: nextSearch.scope))
-        navigation.navigate(to: search.route)
+        presentRoute(search.route, replacingCurrentRoute: routeKeepsSearchFocus(navigation.route))
+        guard allowsLiveEffects else {
+            liveSearchRequestMarker = nil
+            activeSearch = ActiveSearchSurfaceState(
+                identity: identity,
+                viewModel: contentState.performSearch(nextSearch)
+            )
+            return
+        }
         let requestMarker = LiveSearchRequestMarker(identity: identity, routeIdentifier: nextSearch.route.stateIdentifier)
 
         guard nextSearch.hasQuery else {
@@ -1041,19 +1063,37 @@ struct PlatformNavigationView: View {
         defer {
             clearLiveSearchRequestMarker(requestMarker)
         }
+        let searchStartedAt = ContinuousClock.now
+        let telemetryCorrelationID = "native-search-\(UUID().uuidString.lowercased())"
+        reportSearchTelemetry(.started(
+            state: nextSearch,
+            correlationID: telemetryCorrelationID,
+            hasCachedResults: !cachedPage.results.isEmpty
+        ))
 
-        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
         let context = contentState.searchSurfaceContext
         let repository = searchSurfaceRepositoryHandler(context)
         do {
             let page = try await repository.search(
                 request: SearchSurfaceRequest(query: nextSearch.query, scope: nextSearch.scope, limit: 20)
             )
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+            let terminalDecision = reportSearchTerminalTelemetry(
+                .completed(page),
+                state: nextSearch,
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
+            guard terminalDecision.shouldApplyResult else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
             }
             try? await recordSearchSurfacePageHandler(page, identity)
+            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+                clearLiveSearchRequestMarker(requestMarker)
+                return
+            }
             activeSearch = ActiveSearchSurfaceState(
                 identity: identity,
                 viewModel: contentState.performSearch(
@@ -1062,10 +1102,26 @@ struct PlatformNavigationView: View {
                 )
             )
         } catch SearchSurfaceRepositoryError.cancelled {
+            _ = reportSearchTerminalTelemetry(
+                .cancelled,
+                state: nextSearch,
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
             clearLiveSearchRequestMarker(requestMarker)
             return
         } catch let error as SearchSurfaceRepositoryError {
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+            let terminalDecision = reportSearchTerminalTelemetry(
+                .failed(error),
+                state: nextSearch,
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
+            guard terminalDecision.shouldApplyResult else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
             }
@@ -1078,14 +1134,23 @@ struct PlatformNavigationView: View {
                 )
             )
         } catch {
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
+            let searchError = SearchSurfaceRepositoryError.searchFailed(message: String(describing: error))
+            let terminalDecision = reportSearchTerminalTelemetry(
+                .failed(searchError),
+                state: nextSearch,
+                correlationID: telemetryCorrelationID,
+                startedAt: searchStartedAt,
+                hasCachedResults: !cachedPage.results.isEmpty,
+                identity: identity
+            )
+            guard terminalDecision.shouldApplyResult else {
                 clearLiveSearchRequestMarker(requestMarker)
                 return
             }
             activeSearch = ActiveSearchSurfaceState(
                 identity: identity,
                 viewModel: contentState.performSearch(
-                    error: .searchFailed(message: String(describing: error)),
+                    error: searchError,
                     state: nextSearch,
                     cachedPage: cachedPage
                 )
@@ -1117,6 +1182,37 @@ struct PlatformNavigationView: View {
         }
     }
 
+    private func reportSearchTelemetry(_ descriptor: NativeSearchTelemetryDescriptor) {
+        searchTelemetryPipeline.enqueue(descriptor)
+    }
+
+    private func reportSearchTerminalTelemetry(
+        _ candidate: NativeSearchTelemetryTerminalCandidate,
+        state: SearchState,
+        correlationID: String,
+        startedAt: ContinuousClock.Instant,
+        hasCachedResults: Bool,
+        identity: String
+    ) -> NativeSearchTelemetryTerminalDecision {
+        let decision = NativeSearchTelemetryTerminalDecision.classify(
+            candidate,
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: elapsedMilliseconds(since: startedAt),
+            hasCachedResults: hasCachedResults,
+            isCurrent: canApplySearchResult(identity: identity, state: state)
+        )
+        reportSearchTelemetry(decision.descriptor)
+        return decision
+    }
+
+    private func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Int {
+        let components = start.duration(to: .now).components
+        let seconds = Double(components.seconds) * 1_000
+        let subseconds = Double(components.attoseconds) / 1_000_000_000_000_000
+        return max(0, Int(seconds + subseconds))
+    }
+
     private func hasActiveSearch(for routeSearch: SearchState) -> Bool {
         guard let activeSearch else {
             return false
@@ -1132,7 +1228,21 @@ struct PlatformNavigationView: View {
         if routeSearch.query.isEmpty && routeSearch.scope == .all {
             return contentState.searchSurfaceViewModel
         }
-        return contentState.performSearch(routeSearch)
+        return loadingSearchViewModel(
+            for: routeSearch,
+            cachedPage: contentState.searchSurfacePage(for: routeSearch)
+        )
+    }
+
+    private func loadingSearchViewModel(
+        for state: SearchState,
+        cachedPage: SearchSurfacePage?
+    ) -> SearchSurfaceViewModel {
+        SearchSurfaceViewModel.loading(
+            state: state,
+            context: contentState.searchSurfaceContext,
+            cachedPage: cachedPage
+        )
     }
 
     private func normalizedSearch(_ candidate: SearchState) -> SearchState {
@@ -1156,17 +1266,17 @@ struct PlatformNavigationView: View {
     }
 
     private func openProfileRoute(_ route: AppRoute) {
-        navigation.navigate(to: route)
+        presentRoute(route)
     }
 
     private func startCooking(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
+        presentRoute(.recipeDetail(id: id, presentation: .cook))
     }
 
     private func openCookbook(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .cookbookDetail(id: id))
+        presentRoute(.cookbookDetail(id: id))
     }
 
     private var shoppingViewModel: ShoppingSurfaceViewModel {
@@ -1435,9 +1545,31 @@ struct PlatformNavigationView: View {
     }
 
     private var currentChefSummary: ChefSummary? {
-        contentState.recipes.first?.chef ?? contentState.cookbooks.first?.chef ?? currentChefID.map {
-            ChefSummary(id: $0, username: "Spoonjoy")
+        guard let currentChefID else {
+            return nil
         }
+
+        if let cachedProfile = contentState.cachedProfiles.first(where: { $0.profile.id == currentChefID }) {
+            return ChefSummary(
+                id: cachedProfile.profile.id,
+                username: cachedProfile.profile.username,
+                photoURL: cachedProfile.profile.photoURL
+            )
+        }
+
+        return (contentState.recipes.map(\.chef) + contentState.cookbooks.map(\.chef))
+            .first(where: { $0.id == currentChefID })
+            ?? ChefSummary(id: currentChefID, username: "Spoonjoy")
+    }
+
+    private var currentKitchenOwnerUsername: String? {
+        guard let currentChefID else {
+            return nil
+        }
+
+        return contentState.cachedProfiles.first(where: { $0.profile.id == currentChefID })?.profile.username
+            ?? (contentState.recipes.map(\.chef) + contentState.cookbooks.map(\.chef))
+                .first(where: { $0.id == currentChefID })?.username
     }
 
     private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
@@ -1522,7 +1654,7 @@ struct PlatformNavigationView: View {
     }
 
     private var shoppingSurfaceConnectivity: ShoppingSurfaceConnectivity {
-        if offlineIndicatorState.display == .offline {
+        if !allowsLiveEffects || offlineIndicatorState.display == .offline {
             return .offline
         }
 
@@ -2119,6 +2251,33 @@ struct PlatformNavigationView: View {
     }
 }
 
+private struct ScreenshotRouteContainer<Content: View>: View {
+    let identifier: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ZStack {
+            content()
+        }
+        .overlay(alignment: .topLeading) {
+            ScreenshotRouteMarker(identifier: identifier)
+        }
+    }
+}
+
+private struct ScreenshotRouteMarker: View {
+    let identifier: String
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Current route")
+            .accessibilityIdentifier(identifier)
+            .allowsHitTesting(false)
+    }
+}
+
 private struct SpotlightIndexPayload {
     let scope: SpotlightIndexScope
     let documents: [SpotlightIndexDocument]
@@ -2153,25 +2312,6 @@ private extension View {
 }
 #endif
 
-private extension AppRoute {
-    var usesCompactAuxiliaryShell: Bool {
-        switch self {
-        case .chefs, .profile, .profileGraph, .search, .capture, .settings, .unknownLink:
-            true
-        case .kitchen,
-             .recipes,
-             .savedRecipes,
-             .recipeDetail,
-             .recipeEditor,
-             .recipeCoverControls,
-             .cookbooks,
-             .cookbookDetail,
-             .shoppingList:
-            false
-        }
-    }
-}
-
 private struct ActiveSearchSurfaceState: Equatable {
     let identity: String
     let viewModel: SearchSurfaceViewModel
@@ -2186,6 +2326,11 @@ private struct ShellPlaceholderView: View {
     let title: String
     let systemImage: String
     let detail: String
+    var screenshotRoute: String? = nil
+    var screenshotSource: String? = nil
+    var accessibilityIdentifier: String? = nil
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2193,8 +2338,20 @@ private struct ShellPlaceholderView: View {
                 .font(.title)
             Text(detail)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
+                .accessibilityIdentifier(accessibilityIdentifier ?? "")
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
+        .task(id: screenshotRoute) {
+            guard let screenshotRoute, let screenshotSource else { return }
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: screenshotRoute,
+                source: screenshotSource,
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
+        }
     }
 }

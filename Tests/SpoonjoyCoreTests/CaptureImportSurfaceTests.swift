@@ -9,65 +9,51 @@ struct CaptureImportSurfaceTests {
         let failures = captureImportSurfaceSourceContractFailures(
             requiredFiles: [
                 "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
-                "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift",
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",
+                "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift",
                 "scripts/capture-native-screenshots.sh",
                 "scripts/validate-design-review.rb"
             ],
             requiredTokens: [
                 "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift": [
-                    "CaptureImportEntryPoint",
-                    "agentMCP",
-                    "appIntent",
-                    "Spoonjoy agent",
-                    "Shortcuts & Siri",
-                    "Shortcuts and Siri",
-                    "Import queue",
-                    "Siri",
-                    "Submit import",
-                    "Retry sync",
-                    "Retry when online",
-                    "Resolve import setup",
+                    "Review recipes before they join your kitchen.",
+                    "shouldShowStatusPanel",
+                    "captureActionsMenu",
+                    "Import actions",
+                    "Delete import",
+                    "Import paused",
+                    "Saved locally",
+                    "No imports waiting",
+                    "hasProviderBlocker",
                     "shellOfflineIndicatorState",
                     "OfflineStatusView",
                     "ImportStatusPanel("
                 ],
-                "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
-                    "Import queue",
-                    "Submit import",
-                    "Retry when online",
-                    "SignedOutSetupView",
-                    "Opening Capture after sign-in"
-                ],
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
-                    "CaptureImportEntryPoint",
-                    "agentMCP",
-                    "appIntent",
-                    "Spoonjoy agent",
-                    "Shortcuts & Siri",
-                    "Shortcuts and Siri",
-                    "Import queue",
+                    "shouldShowStatusPanel",
+                    "captureActionsMenu",
+                    "Import actions",
+                    "Delete import",
+                    "Import paused",
+                    "Saved locally",
+                    "No imports waiting",
                     "ImportStatusPanel(",
                     "shellOfflineIndicatorState",
                     "OfflineStatusView",
-                    "Submit import",
-                    "Retry sync",
-                    "Retry when online",
-                    "Resolve import setup",
-                    "Capture surface reviews Spoonjoy agent and Shortcuts drafts"
+                    "Capture surface reviews agent-created imports without presenting fake in-app creation"
                 ],
                 "scripts/capture-native-screenshots.sh": [
-                    "\"Import queue\"",
-                    "\"Submit import\"",
-                    "\"Retry when online\"",
                     "capture_surface_variant",
                     "captureSignedOutSurface",
                     "SignedOutSetupView"
                 ],
+                "Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift": [
+                    "case \"capture\": [\"Imports\"]"
+                ],
                 "scripts/validate-design-review.rb": [
-                    "\"Import queue\"",
-                    "\"Submit import\"",
-                    "\"Retry when online\"",
+                    "\"Imports\"",
+                    "\"Import actions\"",
+                    "\"Delete import\"",
                     "EXPECTED_CAPTURE_VARIANTS",
                     "captureSurfaceVariant",
                     "captureSignedOutSurface"
@@ -75,6 +61,11 @@ struct CaptureImportSurfaceTests {
             ],
             forbiddenTokens: [
                 "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift": [
+                    "CaptureImportEntryPoint",
+                    "entryPointLedger",
+                    "Import queue",
+                    "Submit import",
+                    "Retry sync",
                     "Agent import",
                     "MCP agent",
                     "MCP agent imports",
@@ -117,10 +108,6 @@ struct CaptureImportSurfaceTests {
                     "photoLibraryComingSoon",
                     "Share Sheet",
                     "Future entry points are listed"
-                ],
-                "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift": [
-                    "\"Send to Spoonjoy\"",
-                    "\"Import Status\""
                 ],
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift": [
                     "\"Send to Spoonjoy\"",

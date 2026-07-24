@@ -17,10 +17,15 @@ ENTITLEMENTS = APP_ROOT.join("Shared/Spoonjoy.entitlements")
 SCHEME_DIR = PROJECT_PATH.join("xcshareddata/xcschemes")
 IOS_SCHEME = SCHEME_DIR.join("Spoonjoy iOS.xcscheme")
 MAC_SCHEME = SCHEME_DIR.join("Spoonjoy macOS.xcscheme")
+MAC_WINDOW_DIAGNOSTIC_SCHEME = SCHEME_DIR.join("Spoonjoy macOS Window Diagnostics.xcscheme")
 IOS_TARGET = "#{PROJECT_NAME} iOS"
 MAC_TARGET = "#{PROJECT_NAME} macOS"
+IOS_UI_TEST_TARGET = "SpoonjoyUITests"
+MAC_WINDOW_DIAGNOSTIC_TARGET = "SpoonjoyMacWindowDiagnosticUITests"
 IOS_BUNDLE_ID = "app.spoonjoy"
 MAC_BUNDLE_ID = "app.spoonjoy.mac"
+IOS_UI_TEST_BUNDLE_ID = "app.spoonjoy.uitests"
+MAC_WINDOW_DIAGNOSTIC_BUNDLE_ID = "app.spoonjoy.mac.windowdiagnosticuitests"
 ASSOCIATED_DOMAIN = "applinks:spoonjoy.app"
 URL_SCHEME = "spoonjoy"
 PACKAGE_PRODUCT = "SpoonjoyCore"
@@ -29,6 +34,9 @@ EXPECTED_FILES = [
   APP_ROOT.join("Shared/SpoonjoyApp.swift"),
   APP_ROOT.join("iOS/SpoonjoyiOSApp.swift"),
   APP_ROOT.join("macOS/SpoonjoyMacApp.swift"),
+  ROOT.join("Apps/SpoonjoyUITests/NativeScreenshotEvidenceTests.swift"),
+  ROOT.join("Apps/SpoonjoyUITests/ScreenshotEvidenceGeometry.swift"),
+  ROOT.join("Apps/SpoonjoyMacWindowDiagnosticUITests/NativeMacWindowDiagnosticTests.swift"),
   APP_ROOT.join("Shared/Assets.xcassets"),
   INFO_PLIST,
   ENTITLEMENTS
@@ -123,7 +131,7 @@ end
 EXPECTED_FILES.each do |path|
   fail_check("missing #{relative(path)}") unless path.exist?
 end
-expected_schemes = [IOS_SCHEME, MAC_SCHEME]
+expected_schemes = [IOS_SCHEME, MAC_SCHEME, MAC_WINDOW_DIAGNOSTIC_SCHEME]
 missing_schemes = expected_schemes.reject(&:file?)
 fail_check("missing shared scheme(s): #{missing_schemes.map { |path| relative(path) }.join(", ")}") unless missing_schemes.empty?
 scheme_files = SCHEME_DIR.children.select { |path| path.extname == ".xcscheme" }.map(&:basename).map(&:to_s).sort
@@ -152,15 +160,34 @@ project = Xcodeproj::Project.open(PROJECT_PATH.to_s)
 target_by_name = project.targets.each_with_object({}) { |target, index| index[target.name] = target }
 ios_target = target_by_name[IOS_TARGET] || fail_check("missing target #{IOS_TARGET}")
 mac_target = target_by_name[MAC_TARGET] || fail_check("missing target #{MAC_TARGET}")
+ios_ui_test_target = target_by_name[IOS_UI_TEST_TARGET] || fail_check("missing target #{IOS_UI_TEST_TARGET}")
+mac_window_diagnostic_target = target_by_name[MAC_WINDOW_DIAGNOSTIC_TARGET] || fail_check("missing target #{MAC_WINDOW_DIAGNOSTIC_TARGET}")
 
 {
-  IOS_SCHEME => { required: IOS_TARGET, forbidden: MAC_TARGET },
-  MAC_SCHEME => { required: MAC_TARGET, forbidden: IOS_TARGET }
+  IOS_SCHEME => { required: IOS_TARGET, required_test: IOS_UI_TEST_TARGET, forbidden: MAC_TARGET },
+  MAC_SCHEME => {
+    required: MAC_TARGET,
+    forbidden: MAC_WINDOW_DIAGNOSTIC_TARGET,
+    forbids_testable: true
+  },
+  MAC_WINDOW_DIAGNOSTIC_SCHEME => {
+    required: MAC_TARGET,
+    required_test: MAC_WINDOW_DIAGNOSTIC_TARGET,
+    forbidden: IOS_TARGET
+  }
 }.each do |scheme, targets|
   scheme_text = scheme.read
   fail_check("#{relative(scheme)} missing #{targets.fetch(:required)}") unless scheme_text.include?(targets.fetch(:required))
   fail_check("#{relative(scheme)} must not include #{targets.fetch(:forbidden)}") if scheme_text.include?(targets.fetch(:forbidden))
   fail_check("#{relative(scheme)} missing Launch/Profile runnable") unless scheme_text.include?("<BuildableProductRunnable")
+  if targets[:required_test]
+    fail_check("#{relative(scheme)} missing #{targets.fetch(:required_test)}") unless scheme_text.include?(targets.fetch(:required_test))
+    fail_check("#{relative(scheme)} missing TestableReference") unless scheme_text.include?("<TestableReference")
+    fail_check("#{relative(scheme)} Test action must use BootstrapDebug") unless scheme_text.match?(%r{<TestAction\s+buildConfiguration = "BootstrapDebug"})
+  end
+  if targets[:forbids_testable]
+    fail_check("#{relative(scheme)} generic app scheme must not include TestableReference") if scheme_text.include?("<TestableReference")
+  end
 end
 
 {
@@ -206,6 +233,36 @@ end
 
 [ios_target, mac_target].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
 
+DEPLOYMENT_TARGETS.fetch(IOS_BUNDLE_ID).each do |configuration, settings|
+  build_configuration = ios_ui_test_target.build_configuration_list[configuration] || fail_check("missing #{IOS_UI_TEST_TARGET} #{configuration}")
+  build_settings = build_configuration.build_settings
+  label = "#{IOS_UI_TEST_TARGET} #{configuration}"
+  assert_setting(build_settings, "PRODUCT_BUNDLE_IDENTIFIER", IOS_UI_TEST_BUNDLE_ID, label)
+  assert_setting(build_settings, "SWIFT_VERSION", "6.0", label)
+  assert_setting(build_settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", label)
+  assert_setting(build_settings, "GCC_TREAT_WARNINGS_AS_ERRORS", "YES", label)
+  assert_setting(build_settings, "GENERATE_INFOPLIST_FILE", "YES", label)
+  assert_setting(build_settings, "IPHONEOS_DEPLOYMENT_TARGET", settings.fetch("IPHONEOS_DEPLOYMENT_TARGET"), label)
+  assert_setting(build_settings, "TEST_TARGET_NAME", IOS_TARGET, label)
+  assert_setting(build_settings, "LM_FILTER_WARNINGS", "YES", label)
+  assert_setting(build_settings, "LM_SKIP_METADATA_EXTRACTION", "YES", label)
+end
+
+DEPLOYMENT_TARGETS.fetch(MAC_BUNDLE_ID).each do |configuration, settings|
+  build_configuration = mac_window_diagnostic_target.build_configuration_list[configuration] || fail_check("missing #{MAC_WINDOW_DIAGNOSTIC_TARGET} #{configuration}")
+  build_settings = build_configuration.build_settings
+  label = "#{MAC_WINDOW_DIAGNOSTIC_TARGET} #{configuration}"
+  assert_setting(build_settings, "PRODUCT_BUNDLE_IDENTIFIER", MAC_WINDOW_DIAGNOSTIC_BUNDLE_ID, label)
+  assert_setting(build_settings, "SWIFT_VERSION", "6.0", label)
+  assert_setting(build_settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", label)
+  assert_setting(build_settings, "GCC_TREAT_WARNINGS_AS_ERRORS", "YES", label)
+  assert_setting(build_settings, "GENERATE_INFOPLIST_FILE", "YES", label)
+  assert_setting(build_settings, "MACOSX_DEPLOYMENT_TARGET", settings.fetch("MACOSX_DEPLOYMENT_TARGET"), label)
+  assert_setting(build_settings, "TEST_TARGET_NAME", MAC_TARGET, label)
+  assert_setting(build_settings, "LM_FILTER_WARNINGS", "YES", label)
+  assert_setting(build_settings, "LM_SKIP_METADATA_EXTRACTION", "YES", label)
+end
+
 mac_bootstrap = Gem::Version.new(
   mac_target.build_configuration_list["BootstrapDebug"].build_settings.fetch("MACOSX_DEPLOYMENT_TARGET")
 )
@@ -223,6 +280,8 @@ end
 
 ios_sources = target_source_paths(ios_target)
 mac_sources = target_source_paths(mac_target)
+ios_ui_test_sources = target_source_paths(ios_ui_test_target)
+mac_window_diagnostic_sources = target_source_paths(mac_window_diagnostic_target)
 app_swift_files = APP_ROOT.find.select { |path| path.file? && path.extname == ".swift" }.map(&:to_s)
 
 app_swift_files.each do |source|
@@ -243,5 +302,50 @@ app_swift_files.each do |source|
   fail_check("#{rel} unexpectedly in #{IOS_TARGET}") if !expected_targets.include?(IOS_TARGET) && ios_sources.include?(source)
   fail_check("#{rel} unexpectedly in #{MAC_TARGET}") if !expected_targets.include?(MAC_TARGET) && mac_sources.include?(source)
 end
+
+ui_test_swift_files = ROOT.join("Apps/SpoonjoyUITests").find.select do |path|
+  path.file? && path.extname == ".swift"
+end.map(&:to_s)
+ui_test_swift_files.each do |source|
+  fail_check("#{relative(source)} missing from #{IOS_UI_TEST_TARGET}") unless ios_ui_test_sources.include?(source)
+  fail_check("#{relative(source)} unexpectedly in #{IOS_TARGET}") if ios_sources.include?(source)
+  fail_check("#{relative(source)} unexpectedly in #{MAC_TARGET}") if mac_sources.include?(source)
+end
+
+
+mac_window_diagnostic_swift_files = ROOT.join("Apps/SpoonjoyMacWindowDiagnosticUITests").find.select do |path|
+  path.file? && path.extname == ".swift"
+end.map(&:to_s)
+mac_window_diagnostic_swift_files.each do |source|
+  fail_check("#{relative(source)} missing from #{MAC_WINDOW_DIAGNOSTIC_TARGET}") unless mac_window_diagnostic_sources.include?(source)
+  fail_check("#{relative(source)} unexpectedly in #{IOS_TARGET}") if ios_sources.include?(source)
+  fail_check("#{relative(source)} unexpectedly in #{MAC_TARGET}") if mac_sources.include?(source)
+end
+
+diagnostic_source = ROOT.join("Apps/SpoonjoyMacWindowDiagnosticUITests/NativeMacWindowDiagnosticTests.swift").read
+[
+  "SPOONJOY_SCREENSHOT_EXPECTED_ROUTE",
+  "ui-window-diagnostic",
+  "releaseAccessibilityEvidence: Bool = false",
+  "macos-ui-window-diagnostic",
+  "macos-ui-window-diagnostic-screenshot",
+  "app.descendants(matching: .any)",
+  "expectedRestoredRoutes[route]",
+  "screenshot.route.\\(expectedRestoredRoute)",
+  "expectedSignedOutRouteMarker",
+  "readRestoredRoute(in: stateDirectory)",
+  "routeMarker.waitForExistence",
+  "accessibilityElementCount",
+  "XCUIIdentifierMinimizeWindow",
+  "app.activate()",
+  "initialWindowCount",
+  "reopenedWindowCount",
+  "restoredMinimizedWindow"
+].each do |token|
+  fail_check("macOS window diagnostic source missing #{token}") unless diagnostic_source.include?(token)
+end
+fail_check("macOS window diagnostic must not default to the kitchen route") if diagnostic_source.match?(/EXPECTED_ROUTE[^\n]*\?\?\s*"kitchen"/)
+fail_check("macOS window diagnostic must not claim release accessibility evidence") if diagnostic_source.include?("observed-accessibility-evidence")
+fail_check("macOS window diagnostic must not use brittle route-label marker tables") if diagnostic_source.include?("supportedRouteMarkers")
 
 puts "xcode project contract ok"

@@ -77,7 +77,7 @@ public enum CookModeSystemTimerScheduler {
         case .unsupportedPlatform:
             return fallback
         case .denied:
-            return "Allow system timers in Settings to set this timer."
+            return "Allow Spoonjoy to set timers in Settings."
         case .authorizationFailed:
             return "Could not request permission to set system timers."
         case .schedulingFailed:

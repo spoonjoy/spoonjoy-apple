@@ -182,23 +182,23 @@ struct ShoppingEntityTests {
                 (
                     relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
                     label: "bootstrapFromLiveAPI consumes sync purge report",
-                    pattern: #"func\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)"#,
+                    pattern: #"func\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent,\s*bootstrapOperationID: UUID\s*\)"#,
                     requiredTokens: [
-                        "let report = try await syncTriggerCoordinator.handle(trigger)",
-                        "report.shoppingEntityPurgeRequests"
+                        "let stagedExecution = try await dependencies.syncStageOperation(",
+                        "report = staged.report",
+                        "report.shoppingEntityPurgeRequests",
+                        "withBootstrapEffect(operationID: bootstrapOperationID)"
                     ],
                     forbiddenTokens: []
                 ),
                 (
-                    relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    label: "foreground sync consumes sync purge report",
-                    pattern: #"\.task\(id: contentState\.environment\.rawValue\)"#,
+                    relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+                    label: "foreground sync stays behind live store ownership",
+                    pattern: #"\.onChange\(of: scenePhase\)"#,
                     requiredTokens: [
-                        "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-                        "report.shoppingEntityPurgeRequests",
-                        "purgeShoppingEntityIndexesHandler"
+                        "await liveStore.refreshForForeground()"
                     ],
-                    forbiddenTokens: []
+                    forbiddenTokens: ["syncTriggerCoordinator.handle(.foreground)"]
                 ),
                 (
                     relativePath: "Sources/SpoonjoyCore/Sync/NativeSyncEngine.swift",

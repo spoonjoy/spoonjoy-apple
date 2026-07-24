@@ -9,6 +9,27 @@ struct RecipeEditorParityTests {
         bearerToken: "sj_private_token"
     )
 
+    @Test("toolbar session rejects stale editor actions")
+    func toolbarSessionRejectsStaleEditorActions() {
+        var session = RecipeEditorToolbarSession()
+        session.configure(routeIdentifier: "recipe-editor:first", canSave: true, isSaving: false)
+
+        #expect(session.canPerformSave(for: "recipe-editor:first"))
+        #expect(!session.canPerformSave(for: "recipe-editor:second"))
+
+        session.configure(routeIdentifier: "recipe-editor:second", canSave: true, isSaving: false)
+        session.reset(ifMatching: "recipe-editor:first")
+
+        #expect(session.routeIdentifier == "recipe-editor:second")
+        #expect(session.canPerformSave(for: "recipe-editor:second"))
+
+        session.configure(routeIdentifier: "recipe-editor:second", canSave: true, isSaving: true)
+        #expect(!session.canPerformSave(for: "recipe-editor:second"))
+
+        session.reset(ifMatching: "recipe-editor:second")
+        #expect(session == RecipeEditorToolbarSession())
+    }
+
     @Test("draft hydrates from recipe and exposes owner-only editing affordances")
     func draftHydratesFromRecipeAndExposesOwnerOnlyEditingAffordances() throws {
         let recipe = recipeEditorRecipe()

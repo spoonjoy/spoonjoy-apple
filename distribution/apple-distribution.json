@@ -41,7 +41,7 @@
           }
         ],
         "build": {
-          "whatsNew": "Adds browser-based Google and GitHub sign-in from the native setup flow, so beta testers can sign in with their Spoonjoy web accounts.",
+          "whatsNew": "Overhauls Spoonjoy's native kitchen, recipes, cook mode, shopping, search, and capture surfaces; improves transitions and loading; and hardens sign-in, cache, and sync behavior.",
           "autoNotifyEnabled": true,
           "notifyTesters": true
         },

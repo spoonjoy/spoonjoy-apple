@@ -71,11 +71,13 @@ struct ShoppingListView: View {
             EditButton()
         }
 #endif
-        .task(id: viewModel.activeCountLabel) {
+        .task(id: screenshotSurfaceVariant) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "shopping-list",
                 source: "ShoppingListView",
-                runtimeContext: screenshotAccessibilityRuntimeContext
+                runtimeContext: screenshotAccessibilityRuntimeContext,
+                observedSurfaceVariant: screenshotSurfaceVariant,
+                observedSurfaceState: screenshotObservedSurfaceState
             )
         }
     }
@@ -91,6 +93,60 @@ struct ShoppingListView: View {
             dynamicTypeSize: String(describing: dynamicTypeSize),
             reduceMotionEnabled: accessibilityReduceMotion
         )
+    }
+
+    private var screenshotSurfaceVariant: String {
+        if !viewModel.duplicateItemIDs.isEmpty {
+            return "duplicate"
+        }
+        if viewModel.conflictBanner != nil {
+            return "conflict"
+        }
+        if viewModel.queuedWorkSummary != nil {
+            return "offline-queued"
+        }
+        guard let shoppingList = viewModel.shoppingList else {
+            return "loading"
+        }
+        if shoppingList.activeItems.isEmpty, !shoppingList.completedItems.isEmpty {
+            return "all-complete"
+        }
+        if shoppingList.activeItems.isEmpty {
+            return "empty"
+        }
+        return "normal"
+    }
+
+    private var screenshotObservedSurfaceState: ScreenshotObservedSurfaceState {
+        ScreenshotObservedSurfaceState(
+            statusOwner: "ShoppingListView",
+            connectivity: viewModel.connectivity == .offline ? "offline" : "online",
+            queuedMutationCount: viewModel.shoppingQueuedMutationCount,
+            visibleIndicator: screenshotVisibleIndicator
+        )
+    }
+
+    private var screenshotVisibleIndicator: String {
+        switch viewModel.offlineIndicator.display {
+        case .synced:
+            "synced"
+        case .offline:
+            "offline"
+        case .stale:
+            "stale"
+        case .dismissed:
+            "dismissed"
+        case .queuedWork:
+            "queuedWork"
+        case .syncFailure:
+            "syncFailure"
+        case .conflict:
+            "conflict"
+        case .blocker:
+            "blocker"
+        case .destructiveConfirmation:
+            "destructiveConfirmation"
+        }
     }
 
     private var shoppingRunHeader: some View {
@@ -261,7 +317,8 @@ struct ShoppingListView: View {
             ReceiptListView(
                 sections: viewModel.sections,
                 setChecked: settingChecked,
-                deleteItem: deleteItem
+                deleteItem: deleteItem,
+                terminalAccessibilityIdentifier: "shopping-list.terminal"
             )
         }
     }
@@ -437,6 +494,7 @@ private struct ShoppingReceiptStateView: View {
                     Label("Add from recipe", systemImage: "book")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityIdentifier("shopping-list.terminal")
             }
         }
         .padding(18)

@@ -11,6 +11,62 @@ struct SettingsTokenConnectionTests {
         bearerToken: "sj_private_token"
     )
 
+    @Test("stored access keys expose only a non-credential display identifier")
+    func storedAccessKeysExposeOnlyANonCredentialDisplayIdentifier() {
+        let token = SettingsAPITokenSummary(
+            id: "cred_display",
+            name: "Kitchen iPad",
+            tokenPrefix: "sj_live_abcd",
+            scopes: ["recipes:read"],
+            createdAt: Self.createdAt,
+            updatedAt: Self.createdAt,
+            lastUsedAt: nil,
+            revokedAt: nil,
+            expiresAt: nil
+        )
+        let shortToken = SettingsAPITokenSummary(
+            id: "cred_short",
+            name: "Short",
+            tokenPrefix: "abc",
+            scopes: [],
+            createdAt: Self.createdAt,
+            updatedAt: Self.createdAt,
+            lastUsedAt: nil,
+            revokedAt: nil,
+            expiresAt: nil
+        )
+
+        #expect(token.displayIdentifier == "Key ID abcd")
+        #expect(token.displayIdentifier != token.tokenPrefix)
+        #expect(!token.displayIdentifier.contains("sj_live"))
+        #expect(!token.displayIdentifier.contains("Ending"))
+        #expect(shortToken.displayIdentifier == "Access key")
+        #expect(shortToken.displayIdentifier != shortToken.tokenPrefix)
+    }
+
+    @Test("signed-out authentication copy stays user-facing in every failure path")
+    func signedOutAuthenticationCopyStaysUserFacingInEveryFailurePath() throws {
+        let source = try readRepoFile("Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift")
+
+        for required in [
+            "Sign in with Apple isn't available right now. Choose another sign-in option.",
+            "Password sign-in isn't available right now. Choose another sign-in option.",
+            "Apple couldn't verify this sign-in. Try again or choose another sign-in option."
+        ] {
+            #expect(source.contains(required), "SignedOutSetupView.swift missing user-facing copy: \(required)")
+        }
+
+        for forbidden in [
+            "not available in this build",
+            "signed Spoonjoy build",
+            "signed build",
+            "authorized by Apple yet",
+            "for this build"
+        ] {
+            #expect(!source.contains(forbidden), "SignedOutSetupView.swift exposes implementation narration: \(forbidden)")
+        }
+    }
+
     @Test("settings surface exposes signed-in account state, signed-out handoff, tokens, connections, and conflicts")
     func settingsSurfaceExposesAccountTokenConnectionState() throws {
         let queuedProfileUpdate = NativeQueuedMutation.profileDisplayUpdate(
@@ -1200,13 +1256,14 @@ struct SettingsTokenConnectionTests {
             "PendingSettingsDestructiveAction",
             "confirmationDialog(",
             "confirmSettingsAction(",
+            "token.displayIdentifier",
             "onlineOnlyActionsDisabled(surface)",
             "cm_settings_remove_photo_"
         ] {
             #expect(settingsView.contains(token), "SettingsView.swift missing \(token)")
         }
 
-        for forbidden in ["tokenHash", "rawToken", "tokenSecret", "accessTokenSecret", "refreshTokenSecret", "accessTokenValue", "refreshTokenValue"] {
+        for forbidden in ["token.tokenPrefix", "tokenHash", "rawToken", "tokenSecret", "accessTokenSecret", "refreshTokenSecret", "accessTokenValue", "refreshTokenValue"] {
             #expect(!settingsView.contains(forbidden), "SettingsView.swift must not render raw credential secret field \(forbidden)")
         }
 
@@ -1238,22 +1295,41 @@ struct SettingsTokenConnectionTests {
 
         let macApp = try readRepoFile("Apps/Spoonjoy/macOS/SpoonjoyMacApp.swift")
         for token in [
+            "Window(\"Spoonjoy\", id: \"main\")",
             ".frame(minWidth: 900, minHeight: 620)",
             ".defaultSize(width: 1040, height: 760)",
             ".windowResizability(.contentMinSize)",
-            "SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()",
+            ".restorationBehavior(.disabled)",
+            ".defaultLaunchBehavior(.presented)",
             "CommandGroup(replacing: .newItem)",
-            "appDelegate.showMainWindow()",
-            "func applicationShouldHandleReopen",
-            "showMainWindowIfNeeded()",
-            "existingVisibleMainWindow()",
-            "show-main-window-existing-app-window",
             "SPOONJOY_MAC_LAUNCH_PROOF_PATH",
             "SpoonjoyMacLaunchProof.record",
+            "scene-body-evaluated",
+            "delegate-did-finish-launching",
+            "SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()",
+            "applicationShouldHandleReopen",
+            "SpoonjoyMacMainWindowCoordinator.shared.showMainWindow()",
+            "DispatchQueue.main.asyncAfter(deadline: .now() + 0.5)",
+            "showMainWindowIfNeeded()",
+            "fallbackWindow",
+            "let windowCountBeforePresentation = restorableMainWindowCount()",
+            "window.isMiniaturized",
+            "window.deminiaturize(nil)",
+            "let outcome = wasMiniaturized ? \"\\(event)-deminiaturized\" : event",
+            "\\(outcome) cardinality-before=",
+            "cardinality-after=\\(restorableMainWindowCount())",
             "NSHostingController(rootView: SpoonjoyRootView())",
-            "window.minSize = NSSize(width: 900, height: 620)"
+            "NSWindow("
         ] {
             #expect(macApp.contains(token), "SpoonjoyMacApp.swift missing \(token)")
+        }
+        for forbidden in [
+            "WindowGroup(\"Spoonjoy\", id: \"main\")",
+            "launch-window-check-immediate",
+            "!window.isMiniaturized",
+            "New Window"
+        ] {
+            #expect(!macApp.contains(forbidden), "SpoonjoyMacApp.swift must leave the main window under singleton SwiftUI ownership: \(forbidden)")
         }
 
         #expect(!rootView.contains("signedOutRouteUsesNativeShell"), "Signed-out launch must not bypass native Apple sign-in into the shell.")

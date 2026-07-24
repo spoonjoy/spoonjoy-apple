@@ -8,27 +8,20 @@ struct SpoonjoyMacApp: App {
 
     init() {
         SpoonjoyMacLaunchProof.record("app-init")
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated {
-                SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()
-            }
-        }
     }
 
     var body: some Scene {
-        WindowGroup {
+        let _ = SpoonjoyMacLaunchProof.record("scene-body-evaluated")
+        Window("Spoonjoy", id: "main") {
             SpoonjoyRootView()
                 .frame(minWidth: 900, minHeight: 620)
         }
         .defaultSize(width: 1040, height: 760)
         .windowResizability(.contentMinSize)
+        .restorationBehavior(.disabled)
+        .defaultLaunchBehavior(.presented)
         .commands {
-            CommandGroup(replacing: .newItem) {
-                Button("New Window") {
-                    appDelegate.showMainWindow()
-                }
-                .keyboardShortcut("n", modifiers: .command)
-            }
+            CommandGroup(replacing: .newItem) { }
         }
     }
 }
@@ -65,13 +58,9 @@ final class SpoonjoyMacAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag {
-            showMainWindow()
+            SpoonjoyMacMainWindowCoordinator.shared.showMainWindow()
         }
         return true
-    }
-
-    func showMainWindow() {
-        SpoonjoyMacMainWindowCoordinator.shared.showMainWindow()
     }
 
     func application(
@@ -101,38 +90,25 @@ final class SpoonjoyMacMainWindowCoordinator {
     func scheduleLaunchWindowCheck() {
         SpoonjoyMacLaunchProof.record("schedule-launch-window-check")
         guard !didScheduleLaunchCheck else {
-            SpoonjoyMacLaunchProof.record("schedule-launch-window-check-skip")
             return
         }
         didScheduleLaunchCheck = true
 
-        DispatchQueue.main.async {
-            MainActor.assumeIsolated {
-                SpoonjoyMacLaunchProof.record("launch-window-check-immediate")
-                self.showMainWindowIfNeeded()
-            }
-        }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             MainActor.assumeIsolated {
-                SpoonjoyMacLaunchProof.record("launch-window-check-delayed")
                 self.showMainWindowIfNeeded()
             }
         }
     }
 
     func showMainWindow() {
-        SpoonjoyMacLaunchProof.record("show-main-window-start windows=\(NSApp.windows.count)")
-        if let existingWindow = existingVisibleMainWindow() {
-            existingWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            SpoonjoyMacLaunchProof.record("show-main-window-existing-app-window visible=\(existingWindow.isVisible) windows=\(NSApp.windows.count)")
+        if let existingWindow = existingMainWindow() {
+            present(existingWindow, event: "show-main-window-existing")
             return
         }
 
         if let fallbackWindow {
-            fallbackWindow.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
-            SpoonjoyMacLaunchProof.record("show-main-window-existing visible=\(fallbackWindow.isVisible) windows=\(NSApp.windows.count)")
+            present(fallbackWindow, event: "show-main-window-fallback")
             return
         }
 
@@ -150,23 +126,40 @@ final class SpoonjoyMacMainWindowCoordinator {
         fallbackWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        SpoonjoyMacLaunchProof.record("show-main-window-created visible=\(window.isVisible) windows=\(NSApp.windows.count)")
+        SpoonjoyMacLaunchProof.record("show-main-window-created")
     }
 
     private func showMainWindowIfNeeded() {
-        let hasVisibleWindow = existingVisibleMainWindow() != nil || fallbackWindow?.isVisible == true
-        SpoonjoyMacLaunchProof.record("show-main-window-if-needed visibleWindow=\(hasVisibleWindow) windows=\(NSApp.windows.count)")
-        if !hasVisibleWindow {
-            showMainWindow()
+        guard existingMainWindow()?.isVisible != true,
+              fallbackWindow?.isVisible != true else {
+            return
+        }
+        showMainWindow()
+    }
+
+    private func existingMainWindow() -> NSWindow? {
+        NSApp.windows.first { window in
+            (fallbackWindow.map { window !== $0 } ?? true) &&
+            window.canBecomeMain
         }
     }
 
-    private func existingVisibleMainWindow() -> NSWindow? {
-        NSApp.windows.first { window in
-            (fallbackWindow.map { window !== $0 } ?? true) &&
-            window.isVisible &&
-            window.canBecomeMain &&
-            !window.isMiniaturized
+    private func present(_ window: NSWindow, event: String) {
+        let windowCountBeforePresentation = restorableMainWindowCount()
+        let wasMiniaturized = window.isMiniaturized
+        if wasMiniaturized {
+            window.deminiaturize(nil)
         }
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        let outcome = wasMiniaturized ? "\(event)-deminiaturized" : event
+        SpoonjoyMacLaunchProof.record(
+            "\(outcome) cardinality-before=\(windowCountBeforePresentation) " +
+            "cardinality-after=\(restorableMainWindowCount())"
+        )
+    }
+
+    private func restorableMainWindowCount() -> Int {
+        NSApp.windows.filter(\.canBecomeMain).count
     }
 }

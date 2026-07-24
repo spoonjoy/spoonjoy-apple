@@ -69,23 +69,41 @@ jobs:
             swift_log="$RUNNER_TEMP/swift-tests.log"
             swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$swift_log"
             ruby scripts/fail-on-warning.rb --log "$swift_log"
+
           elif [ -d Spoonjoy.xcodeproj ]; then
             ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
             ios_test_log="$RUNNER_TEMP/xcode-ios-tests.log"
-            macos_test_log="$RUNNER_TEMP/xcode-macos-tests.log"
+            macos_build_log="$RUNNER_TEMP/xcode-macos-build.log"
             xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$ios_test_log"
             ruby scripts/fail-on-warning.rb --log "$ios_test_log"
-            xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$macos_test_log"
-            ruby scripts/fail-on-warning.rb --log "$macos_test_log"
+            xcodebuild build -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$macos_build_log"
+            ruby scripts/fail-on-warning.rb --log "$macos_build_log"
           elif ls ./*.xcodeproj >/dev/null 2>&1; then
             echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
             exit 1
           else
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
+      - name: Run non-launch native UI geometry regressions
+        run: |
+          set -euo pipefail
+          ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          simulator_arch="$(uname -m)"
+          ui_geometry_log="$RUNNER_TEMP/native-ui-geometry-tests.log"
+          xcodebuild test \
+            -project Spoonjoy.xcodeproj \
+            -scheme "Spoonjoy iOS" \
+            -configuration BootstrapDebug \
+            -destination "$ios_destination,arch=$simulator_arch" \
+            -only-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests \
+            -skip-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests/testObservedAccessibilityAndGeometry \
+            CODE_SIGNING_ALLOWED=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            2>&1 | tee "$ui_geometry_log"
+          ruby scripts/fail-on-warning.rb --log "$ui_geometry_log"
 
-  native-scenario-verifier:
-    name: Native scenario verifier
+  native-scenario-contracts:
+    name: Native scenario contracts
     runs-on: macos-26
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -235,6 +253,160 @@ jobs:
             echo "No Package.swift or Xcode project present yet; bootstrap check passes."
           fi
 
+  native-visual-evidence:
+    name: Native visual evidence
+    needs:
+      - ruby-advisory-scan
+      - swift-tests
+      - native-scenario-contracts
+      - app-bundle
+      - coverage
+    runs-on: macos-26
+    timeout-minutes: 360
+    permissions:
+      contents: read
+    outputs:
+      visual-artifact-id: ${{ steps.artifact-metadata.outputs.artifact-id }}
+      visual-artifact-name: ${{ steps.seal.outputs.artifact-name }}
+      visual-artifact-digest: ${{ steps.artifact-metadata.outputs.artifact-digest }}
+      visual-manifest-digest: ${{ steps.seal.outputs.manifest-digest }}
+      source-tree: ${{ steps.seal.outputs.source-tree }}
+    steps:
+      - name: Check out exact Native source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+
+      - name: Run non-release macOS window diagnostic
+        run: |
+          set -euo pipefail
+          macos_destination="platform=macOS,arch=$(uname -m)"
+          diagnostic_root="$(mktemp -d "$RUNNER_TEMP/macos-window-diagnostic-non-release.XXXXXX")"
+          diagnostic_log="$diagnostic_root/test.log"
+          cleanup_diagnostic_environment() {
+            launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
+            launchctl unsetenv SPOONJOY_SCREENSHOT_AUTH >/dev/null 2>&1 || true
+          }
+          trap cleanup_diagnostic_environment EXIT
+          launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE kitchen
+          launchctl setenv SPOONJOY_SCREENSHOT_AUTH 0
+          echo "Running diagnostic-only macOS UI coverage; this result is not release accessibility evidence."
+          SPOONJOY_SCREENSHOT_EXPECTED_ROUTE=kitchen \
+          SPOONJOY_SCREENSHOT_AUTH=0 \
+          xcodebuild test \
+            -project Spoonjoy.xcodeproj \
+            -scheme "Spoonjoy macOS Window Diagnostics" \
+            -configuration BootstrapDebug \
+            -destination "$macos_destination" \
+            -only-testing:SpoonjoyMacWindowDiagnosticUITests/NativeMacWindowDiagnosticTests/testExplicitRouteWindowDiagnostic \
+            -resultBundlePath "$diagnostic_root/result.xcresult" \
+            CODE_SIGNING_ALLOWED=NO \
+            GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            2>&1 | tee "$diagnostic_log"
+          ruby scripts/fail-on-warning.rb --log "$diagnostic_log"
+
+      - name: Capture the complete native screenshot matrix
+        run: |
+          set -euo pipefail
+          scripts/capture-native-screenshot-matrix.sh \
+            --artifact-root "$RUNNER_TEMP/native-visual-matrix" \
+            --unit-slug release \
+            --require-full-matrix
+
+      - name: Seal exact-run visual evidence
+        id: seal
+        run: |
+          set -euo pipefail
+          source_tree="$(git rev-parse "${GITHUB_SHA}^{tree}")"
+          artifact_name="native-visual-evidence-${GITHUB_SHA}-${GITHUB_RUN_ID}-${{ github.run_attempt }}"
+          ruby scripts/testflight-visual-evidence.rb seal \
+            --artifact-root "$RUNNER_TEMP/native-visual-matrix" \
+            --matrix-manifest "$RUNNER_TEMP/native-visual-matrix/apple/release-route-matrix.json" \
+            --output-dir "$RUNNER_TEMP/native-visual-evidence" \
+            --source-sha "$GITHUB_SHA" \
+            --source-tree "$source_tree" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --workflow-job "native-visual-evidence" \
+            --github-output "$GITHUB_OUTPUT"
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
+          echo "source-tree=$source_tree" >> "$GITHUB_OUTPUT"
+
+      - name: Reverify sealed evidence before upload
+        run: |
+          set -euo pipefail
+          ruby scripts/testflight-visual-evidence.rb verify \
+            --artifact-dir "$RUNNER_TEMP/native-visual-evidence" \
+            --source-sha "$GITHUB_SHA" \
+            --source-tree "${{ steps.seal.outputs.source-tree }}" \
+            --workflow-run-id "$GITHUB_RUN_ID" \
+            --workflow-run-attempt "$GITHUB_RUN_ATTEMPT" \
+            --workflow-job "native-visual-evidence" \
+            --manifest-sha256 "${{ steps.seal.outputs.manifest-digest }}"
+
+      - name: Upload immutable visual evidence
+        id: upload
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ${{ steps.seal.outputs.artifact-name }}
+          path: ${{ runner.temp }}/native-visual-evidence
+          if-no-files-found: error
+          include-hidden-files: false
+          overwrite: false
+          retention-days: 90
+
+      - name: Normalize uploaded artifact identity
+        id: artifact-metadata
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          [[ "$ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]] || {
+            echo "Visual artifact ID is not a positive integer." >&2
+            exit 1
+          }
+          if [[ "$ARTIFACT_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
+            normalized_digest="sha256:$ARTIFACT_DIGEST"
+          elif [[ "$ARTIFACT_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            normalized_digest="$ARTIFACT_DIGEST"
+          else
+            echo "Visual artifact digest is not SHA-256." >&2
+            exit 1
+          fi
+          echo "artifact-id=$ARTIFACT_ID" >> "$GITHUB_OUTPUT"
+          echo "artifact-digest=$normalized_digest" >> "$GITHUB_OUTPUT"
+
+  native-scenario-verifier:
+    name: Native scenario verifier
+    if: ${{ always() }}
+    needs:
+      - native-scenario-contracts
+      - native-visual-evidence
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Enforce required Native scenario and visual results
+        env:
+          SCENARIO_CONTRACT_RESULT: ${{ needs.native-scenario-contracts.result }}
+          VISUAL_EVIDENCE_RESULT: ${{ needs.native-visual-evidence.result }}
+        run: |
+          set -euo pipefail
+          [[ "$SCENARIO_CONTRACT_RESULT" == "success" ]] || {
+            echo "Native scenario contracts did not succeed: $SCENARIO_CONTRACT_RESULT" >&2
+            exit 1
+          }
+          [[ "$VISUAL_EVIDENCE_RESULT" == "success" ]] || {
+            echo "Native visual evidence did not succeed: $VISUAL_EVIDENCE_RESULT" >&2
+            exit 1
+          }
+
   testflight-release-note:
     name: TestFlight release note
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -244,6 +416,7 @@ jobs:
       - native-scenario-verifier
       - app-bundle
       - coverage
+      - native-visual-evidence
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -269,23 +442,39 @@ jobs:
           generated_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
           jq -n \
             --arg sourceSha "$GITHUB_SHA" \
+            --arg sourceTree "${{ needs.native-visual-evidence.outputs.source-tree }}" \
             --argjson nativeRunId "$GITHUB_RUN_ID" \
             --argjson nativeRunAttempt "$GITHUB_RUN_ATTEMPT" \
             --arg generatedAt "$generated_at" \
             --arg notes "$notes" \
+            --argjson visualArtifactId "${{ needs.native-visual-evidence.outputs.visual-artifact-id }}" \
+            --arg visualArtifactName "${{ needs.native-visual-evidence.outputs.visual-artifact-name }}" \
+            --arg visualArtifactDigest "${{ needs.native-visual-evidence.outputs.visual-artifact-digest }}" \
+            --arg visualManifestSha256 "${{ needs.native-visual-evidence.outputs.visual-manifest-digest }}" \
             '{
-              schemaVersion: 1,
+              schemaVersion: 2,
               sourceSha: $sourceSha,
+              sourceTree: $sourceTree,
               nativeRunId: $nativeRunId,
               nativeRunAttempt: $nativeRunAttempt,
               generatedAt: $generatedAt,
-              notes: $notes
+              notes: $notes,
+              visualEvidence: {
+                artifactId: $visualArtifactId,
+                artifactName: $visualArtifactName,
+                artifactDigest: $visualArtifactDigest,
+                manifestSha256: $visualManifestSha256,
+                workflowRunId: $nativeRunId,
+                workflowRunAttempt: $nativeRunAttempt,
+                workflowJob: "native-visual-evidence",
+                jobName: "Native visual evidence"
+              }
             }' > "$note_dir/testflight-release-notes.json"
 
       - name: Upload exact-SHA TestFlight release note
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: testflight-release-notes-${{ github.sha }}
+          name: testflight-release-notes-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/testflight-release-note/testflight-release-notes.json
           if-no-files-found: error
           retention-days: 90

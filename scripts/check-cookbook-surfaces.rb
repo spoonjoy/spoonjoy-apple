@@ -74,9 +74,13 @@ REQUIRED_TOKENS = {
     "CookbooksView",
     "CookbookCreateSheet",
     "CookbookShelf",
+    "CookbookThumb",
     "CookbookCoverArt",
     "CookbookFallbackCover",
     "CookbookImageCover",
+    "KitchenTableNoPhotoView",
+    "ToolbarItem(placement: .primaryAction)",
+    "KitchenTableTheme.pageBottomSpacing",
     "CookbookRecipeIndexRow",
     "DisclosureGroup(isExpanded",
     "CookbookSurfaceViewModel",
@@ -122,6 +126,12 @@ FORBIDDEN_TOKENS = [
   "MealPlan"
 ].freeze
 
+FORBIDDEN_COOKBOOK_VIEW_TOKENS = [
+  "openCookbookButton",
+  "leadCookbookActions",
+  "KitchenTableTheme.compactDockReserve"
+].freeze
+
 REQUIRED_WEB_COOKBOOK_WRITE_METHODS = {
   "/api/v1/cookbooks" => ["POST"],
   "/api/v1/cookbooks/{id}" => ["PATCH", "DELETE"],
@@ -162,6 +172,13 @@ failures = []
 
 REQUIRED_FILES.each do |relative_path|
   failures << "missing cookbook surface file: #{relative_path}" unless ROOT.join(relative_path).file?
+end
+
+cookbook_view_path = ROOT.join("Apps/Spoonjoy/Shared/Views/CookbooksView.swift")
+if cookbook_view_path.file?
+  cookbook_view = uncommented_swift(cookbook_view_path.read)
+  forbidden = FORBIDDEN_COOKBOOK_VIEW_TOKENS.select { |token| cookbook_view.include?(token) }
+  failures << "Apps/Spoonjoy/Shared/Views/CookbooksView.swift contains obsolete cookbook UI tokens: #{forbidden.join(", ")}" unless forbidden.empty?
 end
 
 REQUIRED_TOKENS.each do |relative_path, tokens|

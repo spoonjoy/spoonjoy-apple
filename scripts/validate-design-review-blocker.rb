@@ -12,7 +12,8 @@ CAPABILITY_BY_BASENAME = {
   "screenshots-xcode-platform-blocker.json" => "XcodePlatform",
   "screenshots-core-simulator-blocker.json" => "CoreSimulator",
   "screenshots-ipad-core-simulator-blocker.json" => "CoreSimulator",
-  "screenshots-macos-launch-blocker.json" => "MacOSLaunch"
+  "screenshots-macos-launch-blocker.json" => "MacOSLaunch",
+  "screenshots-macos-accessibility-blocker.json" => "MacOSAccessibility"
 }.freeze
 
 options = {
@@ -38,12 +39,40 @@ end
 def required_skipped_artifacts(unit_slug)
   Set[
     "screenshots/ios-mobile.png",
+    "screenshots/ios-mobile-xxxl.png",
+    "screenshots/ios-mobile-accessibility.png",
     "screenshots/ios-tablet.png",
+    "screenshots/ios-tablet-xxxl.png",
+    "screenshots/ios-tablet-accessibility.png",
+    "screenshots/ios-mobile-deep-scroll.png",
+    "screenshots/ios-mobile-xxxl-deep-scroll.png",
+    "screenshots/ios-mobile-accessibility-deep-scroll.png",
+    "screenshots/ios-tablet-deep-scroll.png",
+    "screenshots/ios-tablet-xxxl-deep-scroll.png",
+    "screenshots/ios-tablet-accessibility-deep-scroll.png",
     "screenshots/macos-desktop.png",
+    "screenshots/macos-desktop-deep-scroll.png",
     "design-review.json",
     "apple/#{unit_slug}-accessibility-proof-ios.json",
+    "apple/#{unit_slug}-accessibility-proof-ios-xxxl.json",
+    "apple/#{unit_slug}-accessibility-proof-ios-ax.json",
     "apple/#{unit_slug}-accessibility-proof-ipad.json",
-    "apple/#{unit_slug}-accessibility-proof-macos.json"
+    "apple/#{unit_slug}-accessibility-proof-ipad-xxxl.json",
+    "apple/#{unit_slug}-accessibility-proof-ipad-ax.json",
+    "apple/#{unit_slug}-accessibility-proof-macos.json",
+    "apple/#{unit_slug}-accessibility-proof-ios-deep-scroll.json",
+    "apple/#{unit_slug}-accessibility-proof-ios-xxxl-deep-scroll.json",
+    "apple/#{unit_slug}-accessibility-proof-ios-ax-deep-scroll.json",
+    "apple/#{unit_slug}-accessibility-proof-ipad-deep-scroll.json",
+    "apple/#{unit_slug}-accessibility-proof-ipad-xxxl-deep-scroll.json",
+    "apple/#{unit_slug}-accessibility-proof-ipad-ax-deep-scroll.json",
+    "apple/#{unit_slug}-observed-accessibility-ios.json",
+    "apple/#{unit_slug}-observed-accessibility-ios-xxxl.json",
+    "apple/#{unit_slug}-observed-accessibility-ios-ax.json",
+    "apple/#{unit_slug}-observed-accessibility-ipad.json",
+    "apple/#{unit_slug}-observed-accessibility-ipad-xxxl.json",
+    "apple/#{unit_slug}-observed-accessibility-ipad-ax.json",
+    "apple/#{unit_slug}-observed-accessibility-macos.json"
   ]
 end
 
@@ -75,7 +104,8 @@ allowed_sources = {
   artifact_root.join("apple/#{unit_slug}-screenshots-xcode-platform-blocker.json").expand_path => "XcodePlatform",
   artifact_root.join("apple/#{unit_slug}-screenshots-core-simulator-blocker.json").expand_path => "CoreSimulator",
   artifact_root.join("apple/#{unit_slug}-screenshots-ipad-core-simulator-blocker.json").expand_path => "CoreSimulator",
-  artifact_root.join("apple/#{unit_slug}-screenshots-macos-launch-blocker.json").expand_path => "MacOSLaunch"
+  artifact_root.join("apple/#{unit_slug}-screenshots-macos-launch-blocker.json").expand_path => "MacOSLaunch",
+  artifact_root.join("apple/#{unit_slug}-screenshots-macos-accessibility-blocker.json").expand_path => "MacOSAccessibility"
 }
 source_path = Pathname.new(manifest.fetch("sourceBlockerPath")).expand_path
 expected_capability = allowed_sources[source_path]

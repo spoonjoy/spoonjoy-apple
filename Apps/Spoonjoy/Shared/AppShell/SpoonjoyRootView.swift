@@ -1,3 +1,5 @@
+import Combine
+import Foundation
 import SpoonjoyCore
 import SwiftUI
 
@@ -6,9 +8,12 @@ import CoreSpotlight
 #endif
 
 struct SpoonjoyRootView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
     @State private var hasAppliedRestoredRoute = false
+    @State private var hasCompletedInitialBootstrap = false
+    @State private var screenshotProofReceipt: ScreenshotAccessibilityProofReceipt?
     @StateObject private var liveStore: NativeLiveAppStore
 
     private let router: DeepLinkRouter
@@ -23,9 +28,31 @@ struct SpoonjoyRootView: View {
 
     var body: some View {
         rootContent
+            .overlay(alignment: .topLeading) {
+                screenshotReadinessMarker
+            }
             .task {
+                synchronizeScreenshotProofReceipt()
                 await liveStore.bootstrap()
+                hasCompletedInitialBootstrap = true
                 applyRestoredRouteIfNeeded()
+            }
+            .onChange(of: scenePhase) { previousPhase, currentPhase in
+                guard hasCompletedInitialBootstrap,
+                      liveStore.allowsLiveEffects,
+                      previousPhase != .active,
+                      currentPhase == .active else {
+                    return
+                }
+                Task { @MainActor in
+                    await liveStore.refreshForForeground()
+                    applyRestoredRouteIfNeeded()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: ScreenshotAccessibilityProofHandshake.notification
+            )) { _ in
+                synchronizeScreenshotProofReceipt()
             }
             .onOpenURL { url in
                 applyURL(url)
@@ -41,6 +68,34 @@ struct SpoonjoyRootView: View {
                     applySpotlightIdentifier(uniqueIdentifier)
                 }
             }
+#endif
+    }
+
+    @ViewBuilder private var screenshotReadinessMarker: some View {
+#if DEBUG
+        if let screenshotProofReceipt {
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityIdentifier(screenshotProofReceipt.markerIdentifier)
+                .accessibilityLabel(screenshotProofReceipt.markerLabel)
+                .allowsHitTesting(false)
+        }
+#endif
+    }
+
+    @MainActor private func synchronizeScreenshotProofReceipt() {
+#if DEBUG
+        let expectedNonce = ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_RUN_NONCE"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let expectedNonce,
+              !expectedNonce.isEmpty,
+              let receipt = ScreenshotAccessibilityProofHandshake.latestReceipt,
+              receipt.captureRunNonce == expectedNonce else {
+            screenshotProofReceipt = nil
+            return
+        }
+        screenshotProofReceipt = receipt
 #endif
     }
 
@@ -127,6 +182,7 @@ struct SpoonjoyRootView: View {
                 }
             }
         }
+        .accessibilityIdentifier("screenshot.route.settings")
     }
 
     private func platformNavigation(contentState: NativeShellContentState) -> some View {
@@ -135,6 +191,7 @@ struct SpoonjoyRootView: View {
             navigation: $navigation,
             search: $search,
             contentState: visibleContentState,
+            allowsLiveEffects: liveStore.allowsLiveEffects,
             offlineIndicatorState: Self.screenshotAugmentedOfflineIndicatorState(
                 visibleContentState,
                 fallback: liveStore.offlineIndicatorState
@@ -188,46 +245,11 @@ struct SpoonjoyRootView: View {
             searchSurfaceRepository: { context in
                 liveStore.searchSurfaceRepository(context: context)
             },
-            syncTriggerCoordinator: liveStore.syncTriggerCoordinator,
-            purgeShoppingEntityIndexes: { request in
-                await liveStore.purgeShoppingEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
+            recordSearchTelemetry: { descriptor in
+                await liveStore.recordSearchTelemetry(descriptor)
             },
-            purgeSpoonEntityIndexes: { request in
-                await liveStore.purgeSpoonEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
-            },
-            purgeCaptureDraftEntityIndexes: { request in
-                await liveStore.purgeCaptureDraftEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
-            },
-            purgeChefProfileEntityIndexes: { request in
-                await liveStore.purgeChefProfileEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
-            },
-            purgeRecipeCookbookEntityIndexes: { request in
-                await liveStore.purgeRecipeCookbookEntityIdentifiers(
-                    request.identifiers,
-                    domainIdentifiers: request.domainIdentifiers,
-                    accountID: request.accountID,
-                    environment: request.environment
-                )
+            recordRecipeDetailTelemetry: { descriptor in
+                await liveStore.recordRecipeDetailTelemetry(descriptor)
             }
         )
     }
@@ -449,9 +471,7 @@ struct SpoonjoyRootView: View {
 
     private func applyURL(_ url: URL) {
         let route = router.route(for: url)
-        search.apply(route: route)
-        navigation.navigate(to: route)
-        liveStore.recordingOpenedRoute(route)
+        applyExplicitRoute(route)
     }
 
     private func applySpotlightIdentifier(_ uniqueIdentifier: String) {
@@ -461,15 +481,18 @@ struct SpoonjoyRootView: View {
         } else {
             route = .unknownLink
         }
-        search.apply(route: route)
-        navigation.navigate(to: route)
-        liveStore.recordingOpenedRoute(route)
+        applyExplicitRoute(route)
     }
 
     private func openKitchenFromStandaloneSettings() {
-        search.apply(route: .kitchen)
-        navigation.navigate(to: .kitchen)
-        liveStore.recordingOpenedRoute(.kitchen)
+        applyExplicitRoute(.kitchen)
+    }
+
+    private func applyExplicitRoute(_ route: AppRoute) {
+        hasAppliedRestoredRoute = true
+        search.apply(route: route)
+        navigation.navigate(to: route)
+        liveStore.recordingOpenedRoute(route)
     }
 
     private func applyRestoredRouteIfNeeded() {
@@ -487,7 +510,12 @@ struct SpoonjoyRootView: View {
     private static func defaultDependencies() -> NativeLiveAppStoreDependencies {
         let environment = ProcessInfo.processInfo.environment
         let configuration = Self.defaultAPIConfiguration(environment: environment)
-        let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+        let defaultAppDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+#if DEBUG
+        let appDirectory = screenshotStateDirectory(environment: environment) ?? defaultAppDirectory
+#else
+        let appDirectory = defaultAppDirectory
+#endif
 #if DEBUG
         let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? debugTokenVault(
             environment: environment,
@@ -600,7 +628,7 @@ struct SpoonjoyRootView: View {
             syncEngine: syncEngine,
             syncTriggerCoordinator: syncTriggerCoordinator,
             appStateStoreProvider: {
-                NativeAppStateStore(fileURL: NativeAppStateLocation.defaultFileURL())
+                NativeAppStateStore(fileURL: appDirectory.appendingPathComponent(NativeAppStateLocation.fileName))
             },
             configuration: configuration,
             cacheEnvironment: Self.defaultCacheEnvironment(configuration: configuration),
@@ -791,6 +819,114 @@ struct SpoonjoyRootView: View {
     }
 
 #if DEBUG
+    private static func screenshotStateDirectory(environment: [String: String]) -> URL? {
+        let directory: URL
+        if truthy("SPOONJOY_SCREENSHOT_INLINE_FIXTURES", in: environment) {
+            directory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+        } else {
+            guard let rawPath = environment["SPOONJOY_SCREENSHOT_STATE_DIRECTORY"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+                  !rawPath.isEmpty else {
+                return nil
+            }
+            directory = URL(fileURLWithPath: rawPath, isDirectory: true).standardizedFileURL
+        }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        materializeScreenshotFixturePayloads(environment: environment, directory: directory)
+        return directory
+    }
+
+    private static func materializeScreenshotFixturePayloads(
+        environment: [String: String],
+        directory: URL
+    ) {
+        let mediaFixture = materializeScreenshotMediaFixture(
+            environment: environment,
+            directory: directory
+        )
+        let payloads = [
+            ("SPOONJOY_SCREENSHOT_APP_STATE_JSON", "native-app-state.json"),
+            ("SPOONJOY_SCREENSHOT_DURABLE_CACHE_JSON", "native-durable-cache.json"),
+            ("SPOONJOY_SCREENSHOT_SYNC_STORE_JSON", "native-sync-store.json")
+        ]
+        for (environmentKey, fileName) in payloads {
+            guard let rawPayload = environment[environmentKey],
+                  let data = rawPayload.data(using: .utf8),
+                  var object = try? JSONSerialization.jsonObject(with: data) else {
+                continue
+            }
+            if environmentKey == "SPOONJOY_SCREENSHOT_SYNC_STORE_JSON", let mediaFixture {
+                object = replacingScreenshotMediaURL(
+                    in: object,
+                    sourceURL: mediaFixture.sourceURL,
+                    destinationURL: mediaFixture.destinationURL
+                )
+            }
+            guard JSONSerialization.isValidJSONObject(object),
+                  let materializedData = try? JSONSerialization.data(
+                      withJSONObject: object,
+                      options: [.prettyPrinted, .sortedKeys]
+                  ) else {
+                continue
+            }
+            try? materializedData.write(
+                to: directory.appendingPathComponent(fileName),
+                options: .atomic
+            )
+        }
+    }
+
+    private static func materializeScreenshotMediaFixture(
+        environment: [String: String],
+        directory: URL
+    ) -> (sourceURL: String, destinationURL: String)? {
+        guard let sourceURL = environment["SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_URL"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              let parsedSourceURL = URL(string: sourceURL),
+              parsedSourceURL.isFileURL,
+              !parsedSourceURL.lastPathComponent.isEmpty,
+              let encodedData = environment["SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_BASE64"],
+              let data = Data(base64Encoded: encodedData, options: .ignoreUnknownCharacters) else {
+            return nil
+        }
+        let destinationURL = directory.appendingPathComponent(parsedSourceURL.lastPathComponent)
+        do {
+            try data.write(to: destinationURL, options: .atomic)
+            return (sourceURL, destinationURL.absoluteString)
+        } catch {
+            return nil
+        }
+    }
+
+    private static func replacingScreenshotMediaURL(
+        in value: Any,
+        sourceURL: String,
+        destinationURL: String
+    ) -> Any {
+        if let string = value as? String {
+            return string == sourceURL ? destinationURL : string
+        }
+        if let array = value as? [Any] {
+            return array.map {
+                replacingScreenshotMediaURL(
+                    in: $0,
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL
+                )
+            }
+        }
+        if let dictionary = value as? [String: Any] {
+            return dictionary.mapValues {
+                replacingScreenshotMediaURL(
+                    in: $0,
+                    sourceURL: sourceURL,
+                    destinationURL: destinationURL
+                )
+            }
+        }
+        return value
+    }
+
     private static func screenshotValidationTokenVault(environment: [String: String]) -> (any TokenVault)? {
         guard truthy("SPOONJOY_SCREENSHOT_AUTH", in: environment) else {
             return nil

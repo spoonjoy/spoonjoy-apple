@@ -24,6 +24,10 @@ fail_check("at least one --log is required") if options[:logs].empty?
 BENIGN_FULL_LINE_DIAGNOSTICS = [
   "IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver"
 ].freeze
+BENIGN_LINE_PATTERNS = [
+  /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+[-+]\d{4} SpoonjoyUITests-Runner\[\d+:\d+\] \[General\] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com\.apple\.app_launch_measurement\.FirstFramePresentationMetric\z/,
+  /\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+[-+]\d{4} SpoonjoyUITests-Runner\[\d+:\d+\] \[General\] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com\.apple\.app_launch_measurement\.ExtendedLaunchMetrics\z/
+].freeze
 
 diagnostic_lines = []
 diagnostic_patterns = [
@@ -45,6 +49,7 @@ options[:logs].each do |log_path|
   path.each_line.with_index(1) do |line, number|
     diagnostic = line.chomp
     next if BENIGN_FULL_LINE_DIAGNOSTICS.include?(diagnostic)
+    next if BENIGN_LINE_PATTERNS.any? { |pattern| diagnostic.match?(pattern) }
 
     diagnostic_lines << "#{path}:#{number}: #{diagnostic}" if diagnostic_patterns.any? { |pattern| line.match?(pattern) }
   end

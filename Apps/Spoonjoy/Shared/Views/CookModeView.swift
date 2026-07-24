@@ -158,12 +158,17 @@ struct CookModeView: View {
                 cookModeBottomActionRail
             }
         } else {
-            VStack(alignment: .leading, spacing: 0) {
-                ScrollView {
-                    cookModeScrollContent
-                }
-
+            ScrollView {
+                cookModeScrollContent
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomControls
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(KitchenTableTheme.bone)
+                    .overlay(alignment: .top) {
+                        Divider()
+                    }
             }
         }
     }
@@ -171,10 +176,16 @@ struct CookModeView: View {
     private var cookModeScrollContent: some View {
         VStack(alignment: .leading, spacing: 20) {
             header
-            currentStepCard
-            dependencyChecklist
-            ingredientChecklist
+            if usesEmbeddedSpoonDock {
+                currentStepCard
+                dependencyChecklist
+                ingredientChecklist
+            } else {
+                regularCookModeWorkspace
+            }
         }
+        .frame(maxWidth: 1040, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
         .padding(.top, 20)
         .padding(.bottom, compactScrollBottomPadding)
@@ -250,10 +261,27 @@ struct CookModeView: View {
 
     private var regularHeaderTools: some View {
         VStack(alignment: .trailing, spacing: 8) {
-            utilityButton
+            HStack(spacing: 8) {
+                utilityButton
+                regularCloseButton
+            }
             shoppingStatus
         }
-        .frame(maxWidth: 220, alignment: .trailing)
+        .frame(maxWidth: 240, alignment: .trailing)
+    }
+
+    private var regularCloseButton: some View {
+        Button(action: close) {
+            Image(systemName: "xmark")
+                .font(.body.weight(.semibold))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .frame(width: 44, height: 44)
+        .accessibilityLabel("Close cook mode")
+        .accessibilityHint("Returns to the recipe.")
+        .help("Close cook mode")
     }
 
     private var compactTaskHeader: some View {
@@ -317,6 +345,7 @@ struct CookModeView: View {
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
         .frame(maxWidth: 156, alignment: .leading)
+        .accessibilityIdentifier("cook.tools")
         .accessibilityHint("Opens recipe scale and shopping-list tools.")
     }
 
@@ -358,6 +387,32 @@ struct CookModeView: View {
         }
     }
 
+    private var regularCookModeWorkspace: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 24) {
+                    currentStepCard
+                        .frame(minWidth: 520, maxWidth: 640, alignment: .topLeading)
+                    regularReferenceColumn
+                        .frame(minWidth: 280, maxWidth: 360, alignment: .topLeading)
+                }
+
+                VStack(alignment: .leading, spacing: 20) {
+                    currentStepCard
+                    regularReferenceColumn
+                }
+            }
+        }
+    }
+
+    private var regularReferenceColumn: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            dependencyChecklist
+            ingredientChecklist
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
     private func focusedStep(_ step: RecipeStep) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             ViewThatFits(in: .horizontal) {
@@ -378,12 +433,15 @@ struct CookModeView: View {
             Text(step.description)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.charcoal)
-            if let timer = viewModel.systemTimer {
+#if os(iOS)
+            if #available(iOS 26.1, *), let timer = viewModel.systemTimer {
                 CookModeSystemTimer(timer: timer) {
                     try await scheduleSystemTimer(timer, step: step)
                 }
+                .frame(maxWidth: 280, alignment: .leading)
                     .id(timer.stepID)
             }
+#endif
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -396,6 +454,7 @@ struct CookModeView: View {
         Text("\(step.stepNum). \(step.stepTitle ?? "Step")")
             .font(.title2)
             .foregroundStyle(KitchenTableTheme.charcoal)
+            .accessibilityIdentifier("cook.current-step")
             .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
     }
 
@@ -434,6 +493,12 @@ struct CookModeView: View {
                         }
                         .toggleStyle(.largeCheck)
                         .tint(KitchenTableTheme.herb)
+                        .accessibilityIdentifier(
+                            row.id == viewModel.ingredientChecklistRows.last?.id ? "cook-mode.terminal" : "cook-mode.ingredient.\(row.id)"
+                        )
+                        .accessibilityLabel(
+                            row.quantityText.isEmpty ? row.title : "\(row.title), \(row.quantityText)"
+                        )
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }
                 }
@@ -444,27 +509,15 @@ struct CookModeView: View {
     }
 
     private var bottomControls: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            Button(action: previous) {
-                Label("Back step", systemImage: "chevron.backward.circle")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-            .disabled(!canGoBack)
-            .frame(maxWidth: 180)
-
-            KitchenSafeControls(
-                canAdvance: canAdvance,
-                markComplete: markCurrentStepComplete,
-                advance: advance,
-                close: close
-            )
-            .frame(maxWidth: 460)
-        }
-        .frame(maxWidth: 820, alignment: .center)
+        KitchenSafeControls(
+            canGoBack: canGoBack,
+            canAdvance: canAdvance,
+            previous: previous,
+            markComplete: markCurrentStepComplete,
+            advance: advance
+        )
+        .frame(maxWidth: 760, alignment: .center)
         .frame(maxWidth: .infinity, alignment: .center)
-        .padding(.horizontal, KitchenTableTheme.pagePadding)
-        .padding(.vertical, 12)
-        .background(KitchenTableTheme.paper.opacity(0.72))
     }
 
     private var cookModeBottomActionRail: some View {
@@ -745,21 +798,8 @@ private struct CookModeSystemTimer: View {
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             .disabled(isScheduling)
             .accessibilityLabel(timer.startButtonTitle)
-        } else {
-            unavailableCue
         }
-#else
-        unavailableCue
 #endif
-    }
-
-    private var unavailableCue: some View {
-        Label(timer.systemUnavailableMessage, systemImage: "iphone")
-            .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.inkMuted)
-            .lineLimit(2)
-            .multilineTextAlignment(.trailing)
-            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -779,7 +819,7 @@ private enum CookModeAlarmKitTimerScheduler {
                 }
             )
             try await CookModeSystemTimerScheduler.schedule(using: client)
-            return "\(timer.durationLabel) system timer set."
+            return "\(timer.durationLabel) timer set."
         }
 #endif
         throw CookModeSystemTimerSchedulingError.unsupportedPlatform

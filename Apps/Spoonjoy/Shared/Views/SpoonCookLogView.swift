@@ -13,6 +13,7 @@ private let supportedSpoonPhotoContentTypes = [
 struct SpoonCookLogView: View {
     let viewModel: SpoonCookLogViewModel
     let showsHeader: Bool
+    let terminalAccessibilityIdentifier: String
     let actionDidPlan: @MainActor (SpoonCookLogMutationPlan) async throws -> Void
     let draftDidChange: @MainActor (SpoonCookLogDraftState?) -> Void
     let conflictDidRequestReview: @MainActor (String) async throws -> Void
@@ -34,6 +35,7 @@ struct SpoonCookLogView: View {
     init(
         viewModel: SpoonCookLogViewModel,
         showsHeader: Bool = true,
+        terminalAccessibilityIdentifier: String = "cook-log.terminal",
         draft: SpoonCookLogDraftState? = nil,
         actionDidPlan: @escaping @MainActor (SpoonCookLogMutationPlan) async throws -> Void,
         draftDidChange: @escaping @MainActor (SpoonCookLogDraftState?) -> Void = { _ in },
@@ -42,6 +44,7 @@ struct SpoonCookLogView: View {
     ) {
         self.viewModel = viewModel
         self.showsHeader = showsHeader
+        self.terminalAccessibilityIdentifier = terminalAccessibilityIdentifier
         self.actionDidPlan = actionDidPlan
         self.draftDidChange = draftDidChange
         self.conflictDidRequestReview = conflictDidRequestReview
@@ -160,9 +163,11 @@ struct SpoonCookLogView: View {
             TextField("What changed?", text: $note, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(2...4)
+                .accessibilityIdentifier("cook-log.note")
             TextField("Next time", text: $nextTime, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...3)
+                .accessibilityIdentifier("cook-log.next-time")
 
             cookLogPhotoSlot
             cookLogActionBar
@@ -218,6 +223,7 @@ struct SpoonCookLogView: View {
         }
         .buttonStyle(.plain)
         .disabled(actionInFlight)
+        .accessibilityIdentifier("cook-log.photo")
         .accessibilityLabel(hasStagedPhoto ? "Cook photo ready" : "Add cook photo")
         .onChange(of: selectedPhoto) { _, item in
             Task { @MainActor in
@@ -272,6 +278,7 @@ struct SpoonCookLogView: View {
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
         .disabled(actionInFlight)
+        .accessibilityIdentifier("cook-log.submit")
         .accessibilityLabel("Log cook")
     }
 
@@ -282,10 +289,16 @@ struct SpoonCookLogView: View {
                 .foregroundStyle(KitchenTableTheme.inkMuted)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityHint(emptyState.message)
+                .accessibilityIdentifier(terminalAccessibilityIdentifier)
         } else {
             VStack(alignment: .leading, spacing: 10) {
                 ForEach(viewModel.rows) { row in
                     spoonRow(row)
+                        .accessibilityIdentifier(
+                            row.id == viewModel.rows.last?.id
+                                ? terminalAccessibilityIdentifier
+                                : "cook-log.row.\(row.id)"
+                        )
                 }
             }
         }

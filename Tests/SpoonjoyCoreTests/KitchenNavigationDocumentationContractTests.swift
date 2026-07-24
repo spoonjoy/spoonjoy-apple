@@ -20,7 +20,7 @@ struct KitchenNavigationDocumentationContractTests {
                 "`Shopping List` -> `/shopping-list`",
                 "`Chefs` -> `/chefs`",
                 "`Kitchen Search` -> `/search`",
-                "compact iPhone tabs are exactly `Kitchen`, `My Recipes`, `Saved`, `Cookbooks`, and `Shopping List`",
+                "compact iPhone tabs are exactly `Kitchen`, `Recipes`, `Saved`, `Cookbooks`, and `Shopping`",
                 "Search stays in the trailing `More` menu",
                 "Saved Recipes derive from cookbooks owned by the current chef",
                 "route matrix covers `kitchen`, `recipes`, `saved-recipes`, `cookbooks`, `shopping-list`, `chefs`, and `search`"
@@ -35,11 +35,9 @@ struct KitchenNavigationDocumentationContractTests {
     func nativeScreenshotHarnessCoversSavedRecipesAndChefsRoutes() throws {
         let matrixPath = "scripts/capture-native-screenshot-matrix.sh"
         let capturePath = "scripts/capture-native-screenshots.sh"
-        let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"
         let validatorPath = "scripts/validate-design-review.rb"
         let matrix = try readKitchenNavigationRepoFile(matrixPath)
         let capture = try readKitchenNavigationRepoFile(capturePath)
-        let proof = uncommentedKitchenNavigationSwift(try readKitchenNavigationRepoFile(proofPath))
         let validator = try readKitchenNavigationRepoFile(validatorPath)
 
         expectKitchenNavigationContent(
@@ -64,22 +62,7 @@ struct KitchenNavigationDocumentationContractTests {
                 "chefs)",
                 "expected_recorded_route=\"chefs\"",
                 "deep_link_path=\"chefs\"",
-                "macos_window_title=\"Chefs\"",
-                "when \"saved-recipes\" then \"SavedRecipesView\"",
-                "when \"chefs\" then \"ChefsView\""
-            ]
-        )
-
-        expectKitchenNavigationContent(
-            proof,
-            in: proofPath,
-            contains: [
-                "case (\"saved-recipes\", \"SavedRecipesView\")",
-                "voiceOverLabels: [\"Saved Recipes\", \"Recipe index\", \"Loading saved recipes\"]",
-                "hierarchyAnchors: [\"SavedRecipesView\", \"RecipesView\", \"KitchenTableHeader\", \"RecipeCatalogLead\", \"RecipeIndexRow\"]",
-                "case (\"chefs\", \"ChefsView\")",
-                "voiceOverLabels: [\"Chefs\", \"Fellow chefs\", \"Kitchen visitors\"]",
-                "hierarchyAnchors: [\"ChefsView\", \"ProfileSurfaceViewModel\", \"ProfileGraphPage\"]"
+                "macos_window_title=\"Chefs\""
             ]
         )
 

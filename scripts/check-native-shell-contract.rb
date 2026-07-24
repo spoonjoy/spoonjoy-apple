@@ -149,7 +149,6 @@ REQUIRED_SOURCE_TOKENS = {
   "Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift" => [
     ".toolbar",
     "ToolbarItem",
-    "Menu",
     "Button",
     "EditMode",
     "ShareActions"
@@ -292,20 +291,18 @@ cook_mode_content = uncommented_swift(cook_mode_source.read)
 cook_mode_required_tokens = [
   "#if os(iOS)",
   "horizontalSizeClass == .compact",
-  "#else\n        false\n#endif",
+  "#else\n        true\n#endif",
   ".safeAreaInset(edge: .bottom, spacing: 0)",
   "cookModeBottomActionRail",
   "SpoonDock(context: SpoonDockContext.cookMode("
 ]
 cook_mode_missing = cook_mode_required_tokens.reject { |token| cook_mode_content.include?(token) }
-fail_check("#{relative(cook_mode_source)} missing compact iOS-only SpoonDock/safe-area tokens: #{cook_mode_missing.join(", ")}") unless cook_mode_missing.empty?
+fail_check("#{relative(cook_mode_source)} missing focused cook-mode SpoonDock/safe-area tokens: #{cook_mode_missing.join(", ")}") unless cook_mode_missing.empty?
 
 toolbar_source = ROOT.join("Apps/Spoonjoy/Shared/AppShell/SpoonjoyToolbar.swift")
 toolbar_content = uncommented_swift(toolbar_source.read)
 toolbar_required_tokens = [
   "ToolbarItem(placement: .primaryAction)",
-  "Menu",
-  "Label(\"Actions\", systemImage: \"ellipsis.circle\")",
   "ShareActions(route: navigation.route)",
   "EditMode"
 ]

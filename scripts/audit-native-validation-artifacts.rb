@@ -168,6 +168,7 @@ ALLOWED_FINAL_CAPABILITIES = %w[
   XcodePlatform
   CoreSimulator
   MacOSLaunch
+  MacOSAccessibility
   AASAProductionValidation
   AppIntentsSDK
   AppleDeveloperProgram
@@ -489,6 +490,8 @@ def expected_capability_for_path(relative_path)
   when "apple/matrix-smoke-macos-blocker.json",
        "apple/matrix-screenshots-macos-launch-blocker.json"
     "MacOSLaunch"
+  when "apple/matrix-screenshots-macos-accessibility-blocker.json"
+    "MacOSAccessibility"
   when "apple/apple-developer-program-blocker-apns.json"
     "AppleDeveloperProgram"
   when /\Aapple\/appintents-sdk-blocker-[a-z0-9-]+\.json\z/
@@ -586,7 +589,8 @@ required_screenshots = [
     "screenshots/ios-mobile.png",
     "apple/matrix-screenshots-xcode-platform-blocker.json",
     "apple/matrix-screenshots-core-simulator-blocker.json",
-    "apple/matrix-screenshots-macos-launch-blocker.json"
+    "apple/matrix-screenshots-macos-launch-blocker.json",
+    "apple/matrix-screenshots-macos-accessibility-blocker.json"
   ]),
   group_entry(artifact_root, "final design review success or blocker", [
     "design-review.json",
@@ -634,6 +638,7 @@ final_blocker_paths = [
   artifact_root.join("apple/matrix-screenshots-xcode-platform-blocker.json"),
   artifact_root.join("apple/matrix-screenshots-core-simulator-blocker.json"),
   artifact_root.join("apple/matrix-screenshots-macos-launch-blocker.json"),
+  artifact_root.join("apple/matrix-screenshots-macos-accessibility-blocker.json"),
   artifact_root.join("apple/apple-developer-program-blocker-apns.json")
 ]
 final_blocker_paths += Dir[artifact_root.join("apple/appintents-sdk-blocker-*.json").to_s].map { |path| Pathname.new(path) }
@@ -666,7 +671,7 @@ stale_top_level_blockers = Dir[artifact_root.join("*blocker*.json").to_s].map do
 
   parsed = parse_json_file(path, failures, rel(path, artifact_root))
   next unless parsed
-  next unless %w[XcodePlatform CoreSimulator MacOSLaunch AppIntentsSDK].include?(parsed["capability"])
+  next unless %w[XcodePlatform CoreSimulator MacOSLaunch MacOSAccessibility AppIntentsSDK].include?(parsed["capability"])
 
   rel(path, artifact_root)
 end.compact

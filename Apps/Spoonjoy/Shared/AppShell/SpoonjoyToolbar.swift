@@ -12,20 +12,28 @@ struct SpoonjoyToolbar: ViewModifier {
         content
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            search.apply(route: search.route)
-                            navigation.navigate(to: search.route)
-                        } label: {
-                            Label(search.hasQuery ? "Open Search" : "Search All", systemImage: "magnifyingglass")
-                        }
-                        ShareActions(route: navigation.route)
-                        editControl
-                    } label: {
-                        Label("Actions", systemImage: "ellipsis.circle")
-                    }
+                    routeActions
                 }
             }
+    }
+
+    @ViewBuilder private var routeActions: some View {
+        switch navigation.route {
+        case .kitchen, .recipes, .savedRecipes, .cookbooks, .chefs:
+            Button {
+                search.apply(route: search.route)
+                navigation.pushDesktop(search.route)
+            } label: {
+                Label(search.hasQuery ? "Open Search" : "Search", systemImage: "magnifyingglass")
+            }
+            .help("Search Spoonjoy")
+        case .recipeDetail, .cookbookDetail, .profile:
+            ShareActions(route: navigation.route)
+        case .shoppingList:
+            editControl
+        case .recipeEditor, .recipeCoverControls, .profileGraph, .search, .capture, .settings, .unknownLink:
+            EmptyView()
+        }
     }
 
 #if os(iOS)

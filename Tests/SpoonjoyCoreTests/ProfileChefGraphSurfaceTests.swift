@@ -78,6 +78,95 @@ struct ProfileChefGraphSurfaceTests {
         ])
     }
 
+    @Test("live profile recipes hide AI placeholder covers and preserve authored cover provenance")
+    func liveProfileRecipesHideAIPlaceholderCoversAndPreserveAuthoredCoverProvenance() throws {
+        let summaries = try JSONDecoder().decode(
+            [ProfileRecipeSummary].self,
+            from: Data(
+                """
+                [
+                  {
+                    "id": "recipe_ai_placeholder",
+                    "title": "Placeholder Soup",
+                    "description": null,
+                    "servings": "2",
+                    "coverImageUrl": "https://spoonjoy.app/photos/recipes/placeholder.jpg",
+                    "coverProvenanceLabel": "Generated placeholder",
+                    "coverSourceType": "ai-placeholder",
+                    "href": "/recipes/recipe_ai_placeholder",
+                    "canonicalUrl": "https://spoonjoy.app/recipes/recipe_ai_placeholder"
+                  },
+                  {
+                    "id": "recipe_chef_upload",
+                    "title": "Chef Pasta",
+                    "description": null,
+                    "servings": "4",
+                    "coverImageUrl": "https://spoonjoy.app/photos/recipes/chef-upload.jpg",
+                    "coverProvenanceLabel": "Chef photo",
+                    "coverSourceType": "chef-upload",
+                    "href": "/recipes/recipe_chef_upload",
+                    "canonicalUrl": "https://spoonjoy.app/recipes/recipe_chef_upload"
+                  },
+                  {
+                    "id": "recipe_editorialized",
+                    "title": "Editorial Tart",
+                    "description": null,
+                    "servings": "6",
+                    "coverImageUrl": "https://spoonjoy.app/photos/recipes/editorialized.jpg",
+                    "coverProvenanceLabel": "Editorialized chef photo",
+                    "coverSourceType": "editorialized-chef-photo",
+                    "href": "/recipes/recipe_editorialized",
+                    "canonicalUrl": "https://spoonjoy.app/recipes/recipe_editorialized"
+                  }
+                ]
+                """.utf8
+            )
+        )
+
+        let placeholder = try #require(summaries.first { $0.id == "recipe_ai_placeholder" })
+        let chefUpload = try #require(summaries.first { $0.id == "recipe_chef_upload" })
+        let editorialized = try #require(summaries.first { $0.id == "recipe_editorialized" })
+
+        #expect(placeholder.coverImageURL == nil)
+        #expect(placeholder.coverProvenanceLabel == nil)
+        #expect(placeholder.coverSourceType == .aiPlaceholder)
+        #expect(chefUpload.coverImageURL == URL(string: "https://spoonjoy.app/photos/recipes/chef-upload.jpg"))
+        #expect(chefUpload.coverProvenanceLabel == "Chef photo")
+        #expect(chefUpload.coverSourceType == .chefUpload)
+        #expect(editorialized.coverImageURL == URL(string: "https://spoonjoy.app/photos/recipes/editorialized.jpg"))
+        #expect(editorialized.coverProvenanceLabel == "Editorialized chef photo")
+        #expect(editorialized.coverSourceType == .editorializedChefPhoto)
+    }
+
+    @Test("local profile recipe projection reuses the recipe cover display policy")
+    func localProfileRecipeProjectionReusesRecipeCoverDisplayPolicy() throws {
+        let placeholderURL = try #require(URL(string: "https://spoonjoy.app/photos/recipes/placeholder.jpg"))
+        let chefUploadURL = try #require(URL(string: "https://spoonjoy.app/photos/recipes/chef-upload.jpg"))
+        let placeholder = ProfileRecipeSummary(
+            recipe: Self.profileRecipe(
+                id: "recipe_ai_placeholder",
+                coverImageURL: placeholderURL,
+                coverProvenanceLabel: "Generated placeholder",
+                coverSourceType: .aiPlaceholder
+            )
+        )
+        let chefUpload = ProfileRecipeSummary(
+            recipe: Self.profileRecipe(
+                id: "recipe_chef_upload",
+                coverImageURL: chefUploadURL,
+                coverProvenanceLabel: "Chef photo",
+                coverSourceType: .chefUpload
+            )
+        )
+
+        #expect(placeholder.coverImageURL == nil)
+        #expect(placeholder.coverProvenanceLabel == nil)
+        #expect(placeholder.coverSourceType == .aiPlaceholder)
+        #expect(chefUpload.coverImageURL == chefUploadURL)
+        #expect(chefUpload.coverProvenanceLabel == "Chef photo")
+        #expect(chefUpload.coverSourceType == .chefUpload)
+    }
+
     @Test("profile repository normalizes server profile links for encoded identifiers")
     @MainActor
     func profileRepositoryNormalizesServerProfileLinksForEncodedIdentifiers() async throws {
@@ -517,6 +606,39 @@ struct ProfileChefGraphSurfaceTests {
             ],
             fellowChefsCount: 1,
             kitchenVisitorsCount: 1
+        )
+    }
+
+    private static func profileRecipe(
+        id: String,
+        coverImageURL: URL?,
+        coverProvenanceLabel: String?,
+        coverSourceType: RecipeCoverSourceType?
+    ) -> Recipe {
+        let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
+        return Recipe(
+            id: id,
+            title: "Profile Recipe",
+            description: nil,
+            servings: "2",
+            chef: ChefSummary(id: "chef_ari", username: "ari"),
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: .image,
+            href: "/recipes/\(id)",
+            canonicalURL: canonicalURL,
+            attribution: RecipeAttribution(
+                creditText: "Profile Recipe by ari on Spoonjoy",
+                canonicalURL: canonicalURL,
+                sourceURLRaw: nil,
+                sourceHost: nil,
+                sourceRecipe: nil
+            ),
+            createdAt: "2026-07-01T00:00:00.000Z",
+            updatedAt: "2026-07-01T00:00:00.000Z",
+            steps: [],
+            cookbooks: []
         )
     }
 

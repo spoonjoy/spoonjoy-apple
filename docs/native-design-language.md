@@ -56,7 +56,7 @@ The native app mirrors the web kitchen drawer model while using platform navigat
 - `Chefs` -> `/chefs`
 - `Kitchen Search` -> `/search`
 
-On compact iPhone, the compact iPhone tabs are exactly `Kitchen`, `My Recipes`, `Saved`, `Cookbooks`, and `Shopping List`. Search stays in the trailing `More` menu and opens the native `.searchable` route with toolbar-principal placement and scopes. Chefs stays in the same menu and in the regular-width sidebar.
+On compact iPhone, the compact iPhone tabs are exactly `Kitchen`, `Recipes`, `Saved`, `Cookbooks`, and `Shopping`. The shorter tab captions preserve the full `My Recipes` and `Shopping List` route titles while keeping Apple system-tab typography readable at accessibility sizes. Search stays in the trailing `More` menu and opens the native `.searchable` route with toolbar-principal placement and scopes. Chefs stays in the same menu and in the regular-width sidebar.
 
 Saved Recipes derive from cookbooks owned by the current chef: filter cookbooks to the authenticated chef, flatten cookbook recipes, dedupe by recipe ID, and preserve deterministic first-seen ordering. My Recipes means authored by the current chef, not every recipe they saved.
 

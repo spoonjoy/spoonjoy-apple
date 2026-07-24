@@ -2,6 +2,67 @@ import Foundation
 import SpoonjoyCore
 import SwiftUI
 
+@MainActor
+final class RecipeEditorToolbarCoordinator: ObservableObject {
+    @Published private(set) var session = RecipeEditorToolbarSession()
+    private var saveAction: (() -> Void)?
+
+    func configure(routeIdentifier: String, canSave: Bool, isSaving: Bool, saveAction: @escaping () -> Void) {
+        session.configure(routeIdentifier: routeIdentifier, canSave: canSave, isSaving: isSaving)
+        self.saveAction = saveAction
+    }
+
+    func canPerformSave(for routeIdentifier: String) -> Bool {
+        session.canPerformSave(for: routeIdentifier)
+    }
+
+    func isSaving(for routeIdentifier: String) -> Bool {
+        session.routeIdentifier == routeIdentifier && session.isSaving
+    }
+
+    func performSave(for routeIdentifier: String) {
+        guard session.canPerformSave(for: routeIdentifier) else { return }
+        saveAction?()
+    }
+
+    func reset(ifMatching routeIdentifier: String) {
+        guard session.routeIdentifier == routeIdentifier else { return }
+        session.reset(ifMatching: routeIdentifier)
+        saveAction = nil
+    }
+}
+
+private struct RecipeEditorToolbarFingerprint: Equatable {
+    let routeIdentifier: String
+    let originalDraft: RecipeEditorDraft
+    let connectivity: RecipeEditorConnectivity
+    let conflict: RecipeEditorConflict?
+    let queuedMutations: [NativeQueuedMutation]
+    let currentDraft: RecipeEditorDraft
+    let conflictOverride: Bool
+    let runtimeConflict: RecipeEditorConflict?
+    let isSubmitting: Bool
+}
+
+private struct RecipeConflictDiscardContext: Equatable, Sendable {
+    let routeIdentifier: String
+    let conflict: RecipeEditorConflict
+}
+
+private struct RecipeEditorPlatformScroller: ViewModifier {
+    @ViewBuilder
+    func body(content: Content) -> some View {
+#if os(macOS)
+        ScrollView {
+            content.fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, KitchenTableTheme.pageSpacing)
+        }
+#else
+        content
+#endif
+    }
+}
+
 struct RecipeEditorView: View {
     let viewModel: RecipeEditorViewModel
     let mutationDidPlan: @MainActor @Sendable (RecipeEditorMutationPlan) async throws -> Void
@@ -10,14 +71,23 @@ struct RecipeEditorView: View {
     let close: @MainActor @Sendable (AppRoute) -> Void
     let shellOfflineIndicatorState: OfflineIndicatorState?
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
+    let toolbarCoordinator: RecipeEditorToolbarCoordinator?
 
     @State private var draft: RecipeEditorDraft
     @State private var blockedMessage: String?
     @State private var showDeleteConfirmation = false
     @State private var isSubmitting = false
+    @State private var submissionTask: Task<Void, Never>?
+    @State private var activeSubmissionID: UUID?
+    @State private var conflictDiscardTask: Task<Void, Never>?
+    @State private var conflictDiscardOwner = NativeAsyncOperationOwner<RecipeConflictDiscardContext>()
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
+    @State private var expandedOutputStepIDs: Set<String> = []
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -26,7 +96,8 @@ struct RecipeEditorView: View {
         conflictDidDiscardLocalChange: @escaping @MainActor @Sendable (RecipeEditorConflict) async throws -> Void,
         close: @escaping @MainActor @Sendable (AppRoute) -> Void,
         shellOfflineIndicatorState: OfflineIndicatorState? = nil,
-        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {},
+        toolbarCoordinator: RecipeEditorToolbarCoordinator? = nil
     ) {
         self.viewModel = viewModel
         self.mutationDidPlan = mutationDidPlan
@@ -35,6 +106,7 @@ struct RecipeEditorView: View {
         self.close = close
         self.shellOfflineIndicatorState = shellOfflineIndicatorState
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
+        self.toolbarCoordinator = toolbarCoordinator
         _draft = State(initialValue: viewModel.draft)
     }
 
@@ -56,77 +128,139 @@ struct RecipeEditorView: View {
                             reviewConflict()
                         }
                         Button(conflictBanner.discardActionTitle) {
-                            Task {
-                                await discardLocalChange()
-                            }
+                            startConflictDiscard()
                         }
+                        .disabled(conflictDiscardTask != nil)
                     }
                 }
             }
 
-            Section("Recipe") {
-                TextField("Title", text: $draft.title)
-                TextEditor(text: descriptionText)
-                    .frame(minHeight: 88)
-                TextField("Servings", text: servingsText)
+            Section {
+                VStack(alignment: .leading, spacing: 0) {
+                    Group {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            TextField("Title", text: $draft.title, axis: .vertical)
+                                .lineLimit(1...4)
+                        } else {
+                            TextField("Title", text: $draft.title)
+                        }
+                    }
+                        .accessibilityIdentifier("recipe-editor.title")
+                        .accessibilityLabel("Title")
+                        .padding(.vertical, 11)
+                        .contentShape(Rectangle())
+
+                    Divider()
+
+                    if dynamicTypeSize.isAccessibilitySize {
+                        accessibilityServingsField
+                        Divider()
+                        recipeDescriptionField
+                    } else {
+                        recipeDescriptionField
+                        Divider()
+                        compactServingsField
+                    }
+                }
+            } header: {
+                editorSectionHeader("Recipe")
             }
 
-            Section("Steps") {
-                ForEach($draft.steps) { $step in
+            Section {
+                ForEach(draft.steps) { stepValue in
+                    let step = stepBinding(id: stepValue.id, fallback: stepValue)
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Text("Step \(step.stepNum)")
+                            Text("Step \(step.wrappedValue.stepNum)")
                                 .font(.headline)
                             Spacer()
                             Button(role: .destructive) {
-                                removeStep(id: step.id)
+                                removeStep(id: stepValue.id)
                             } label: {
-                                Label("Delete Step", systemImage: "trash")
+                                Image(systemName: "trash")
+                                    .accessibilityLabel("Delete Step")
                             }
                             .labelStyle(.iconOnly)
+                            .frame(
+                                width: KitchenTableTheme.minimumTouchTarget,
+                                height: KitchenTableTheme.minimumTouchTarget
+                            )
+                            .contentShape(Rectangle())
                             .disabled(isSubmitting)
                         }
 
-                        TextField("Step title", text: optionalText($step.title))
-                        TextEditor(text: $step.description)
-                            .frame(minHeight: 72)
-                        Stepper(value: durationBinding($step.duration), in: 0...720, step: 1) {
-                            Text("Duration \(step.duration ?? 0) minutes")
+                        Group {
+                            if dynamicTypeSize.isAccessibilitySize {
+                                TextField("Step title", text: optionalText(step.title), axis: .vertical)
+                                    .lineLimit(1...4)
+                            } else {
+                                TextField("Step title", text: optionalText(step.title))
+                            }
                         }
+                            .accessibilityLabel("Step title")
+                            .padding(.vertical, 11)
+                            .contentShape(Rectangle())
+                        durationControl(step.duration)
+                        TextField("What happens in this step?", text: step.description, axis: .vertical)
+                            .lineLimit(3...5)
+                            .padding(.vertical, 11)
+                            .contentShape(Rectangle())
+                            .accessibilityLabel("Step description")
 
-                        let priorSteps = priorSteps(for: step)
+                        let priorSteps = priorSteps(for: step.wrappedValue)
                         if !priorSteps.isEmpty {
-                            DisclosureGroup("Uses Output From") {
+                            Button {
+                                toggleOutputSteps(for: stepValue.id)
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Text("Uses Output From")
+                                    Spacer()
+                                    Image(systemName: expandedOutputStepIDs.contains(stepValue.id) ? "chevron.up" : "chevron.down")
+                                        .accessibilityHidden(true)
+                                }
+                                .padding(.vertical, 11)
+                                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Uses Output From")
+                            .accessibilityValue(expandedOutputStepIDs.contains(stepValue.id) ? "Expanded" : "Collapsed")
+
+                            if expandedOutputStepIDs.contains(stepValue.id) {
                                 ForEach(priorSteps) { priorStep in
                                     Toggle(
                                         "Step \(priorStep.stepNum)",
-                                        isOn: outputUseBinding($step.outputStepNums, outputStepNum: priorStep.stepNum)
+                                        isOn: outputUseBinding(step.outputStepNums, outputStepNum: priorStep.stepNum)
                                     )
                                 }
                             }
                         }
 
-                        ForEach($step.ingredients) { $ingredient in
-                            HStack {
-                                TextField("Ingredient", text: $ingredient.name)
-                                TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
-                                    .frame(minWidth: 72)
-                                TextField("Unit", text: optionalText($ingredient.unit))
-                                Button(role: .destructive) {
-                                    removeIngredient(id: ingredient.id, from: step.id)
-                                } label: {
-                                    Label("Delete Ingredient", systemImage: "minus.circle")
-                                }
-                                .labelStyle(.iconOnly)
-                                .disabled(isSubmitting)
-                            }
+                        ForEach(step.wrappedValue.ingredients) { ingredientValue in
+                            let ingredient = ingredientBinding(
+                                stepID: stepValue.id,
+                                ingredientID: ingredientValue.id,
+                                fallback: ingredientValue
+                            )
+                            ingredientControls(
+                                ingredient,
+                                ingredientID: ingredientValue.id,
+                                stepID: stepValue.id
+                            )
                         }
 
                         Button {
-                            addIngredient(to: step.id)
+                            addIngredient(to: stepValue.id)
                         } label: {
                             Label("Add Ingredient", systemImage: "plus.circle")
+                                .fixedSize(horizontal: false, vertical: true)
                         }
+                        .frame(
+                            maxWidth: .infinity,
+                            minHeight: KitchenTableTheme.minimumTouchTarget,
+                            alignment: .leading
+                        )
+                        .contentShape(Rectangle())
                         .disabled(isSubmitting)
                     }
                     .padding(.vertical, 6)
@@ -142,38 +276,72 @@ struct RecipeEditorView: View {
                     Label("Add Step", systemImage: "plus.circle")
                 }
                 .disabled(isSubmitting)
+            } header: {
+                editorSectionHeader("Steps")
             }
 
             Section {
-                Button {
-                    Task {
-                        await save()
-                    }
-                } label: {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Label("Save", systemImage: "checkmark.circle")
-                    }
-                }
-                .disabled(!activeViewModel.updatingDraft(draft).canSubmit || isSubmitting)
-
                 if draft.recipeID != nil {
                     Button(role: .destructive) {
                         showDeleteConfirmation = true
                     } label: {
                         Label("Delete Recipe", systemImage: "trash")
+                            .foregroundStyle(KitchenTableTheme.tomato)
                     }
+                    .accessibilityIdentifier("recipe-editor.delete")
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                 }
             }
         }
+        .modifier(RecipeEditorPlatformScroller())
+        .scrollEdgeEffectStyle(.soft, for: .top)
+        .scrollEdgeEffectHidden(for: .bottom)
+        .contentMargins(.top, KitchenTableTheme.pageSpacing, for: .scrollContent)
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
+        .toolbar {
+            if !usesCompactNavigation {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        startSave()
+                    } label: {
+                        if isSubmitting {
+                            ProgressView()
+                        } else {
+                            Text("Save")
+                        }
+                    }
+                    .disabled(!activeViewModel.updatingDraft(draft).canSubmit || isSubmitting)
+                    .accessibilityIdentifier("recipe-editor.save")
+                }
+            }
+        }
+        .onAppear {
+            synchronizeToolbarCoordinator()
+        }
+        .onChange(of: toolbarFingerprint) { _, _ in
+            synchronizeToolbarCoordinator()
+        }
+        .onChange(of: editorRouteIdentifier) { previousRouteIdentifier, routeIdentifier in
+            guard previousRouteIdentifier != routeIdentifier else {
+                return
+            }
+            cancelConflictDiscard()
+        }
+        .onChange(of: conflictDiscardContext) { previousContext, context in
+            guard previousContext != context else {
+                return
+            }
+            cancelConflictDiscard()
+        }
+        .onDisappear {
+            cancelSubmission()
+            cancelConflictDiscard()
+            toolbarCoordinator?.reset(ifMatching: editorRouteIdentifier)
+        }
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Recipe", role: .destructive) {
-                Task {
-                    await deleteRecipe()
-                }
+                startDelete()
             }
             Button("Cancel", role: .cancel) {}
         }
@@ -182,6 +350,16 @@ struct RecipeEditorView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal)
                 .background(KitchenTableTheme.bone.opacity(0.94))
+        }
+        .task(id: draft.recipeID) {
+            await ScreenshotAccessibilityProofWriter.writeIfNeeded(
+                route: "recipe-editor",
+                source: "RecipeEditorView",
+                runtimeContext: ScreenshotAccessibilityRuntimeContext(
+                    dynamicTypeSize: String(describing: dynamicTypeSize),
+                    reduceMotionEnabled: accessibilityReduceMotion
+                )
+            )
         }
     }
 
@@ -205,8 +383,59 @@ struct RecipeEditorView: View {
         return viewModel
     }
 
+    private var editorRouteIdentifier: String {
+        viewModel.route.stateIdentifier
+    }
+
+    private var toolbarFingerprint: RecipeEditorToolbarFingerprint {
+        RecipeEditorToolbarFingerprint(
+            routeIdentifier: editorRouteIdentifier,
+            originalDraft: viewModel.draft,
+            connectivity: viewModel.connectivity,
+            conflict: viewModel.conflict,
+            queuedMutations: viewModel.queuedRecipeMutations,
+            currentDraft: draft,
+            conflictOverride: conflictOverride,
+            runtimeConflict: runtimeConflict,
+            isSubmitting: isSubmitting
+        )
+    }
+
     private var descriptionText: Binding<String> {
         optionalText($draft.description)
+    }
+
+    private var recipeDescriptionField: some View {
+        TextField("Description", text: descriptionText, axis: .vertical)
+            .lineLimit(3...6)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+            .accessibilityLabel("Description")
+    }
+
+    private var accessibilityServingsField: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Servings")
+            TextField("", text: servingsText)
+                .labelsHidden()
+                .multilineTextAlignment(.leading)
+                .accessibilityLabel("Servings")
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
+        }
+    }
+
+    private var compactServingsField: some View {
+        LabeledContent("Servings") {
+            TextField("", text: servingsText)
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .accessibilityLabel("Servings")
+                .frame(minWidth: 64)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
+        }
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
     }
 
     private var servingsText: Binding<String> {
@@ -222,36 +451,258 @@ struct RecipeEditorView: View {
         )
     }
 
-    private func durationBinding(_ value: Binding<Int?>) -> Binding<Int> {
+    private func durationControl(_ value: Binding<Int?>) -> some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Duration")
+                    HStack(spacing: 12) {
+                        Text(durationSummary(value.wrappedValue))
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                        Spacer(minLength: 8)
+                        durationStepper(value)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            } else {
+                LabeledContent("Duration") {
+                    HStack(spacing: 8) {
+                        Text(durationSummary(value.wrappedValue))
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                        durationStepper(value)
+                    }
+                }
+            }
+        }
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+        .disabled(isSubmitting)
+    }
+
+    private func durationStepper(_ value: Binding<Int?>) -> some View {
+        Stepper(value: durationMinutes(value), in: 0...720) {
+            EmptyView()
+        }
+        .labelsHidden()
+        .controlSize(.extraLarge)
+        .accessibilityLabel("Duration")
+        .accessibilityValue(durationSummary(value.wrappedValue))
+    }
+
+    private func durationSummary(_ minutes: Int?) -> String {
+        guard let minutes else { return "Not set" }
+        return "\(minutes) min"
+    }
+
+    private func durationMinutes(_ value: Binding<Int?>) -> Binding<Int> {
         Binding(
             get: { value.wrappedValue ?? 0 },
-            set: { nextValue in
-                value.wrappedValue = nextValue == 0 ? nil : nextValue
+            set: { minutes in
+                value.wrappedValue = minutes == 0 ? nil : minutes
             }
         )
     }
 
-    @MainActor private func save() async {
+    @ViewBuilder
+    private func ingredientControls(
+        _ ingredient: Binding<RecipeEditorIngredientDraft>,
+        ingredientID: String,
+        stepID: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            TextField("Ingredient", text: ingredient.name)
+                .accessibilityLabel("Ingredient")
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
+
+            if dynamicTypeSize.isAccessibilitySize {
+                accessibilityIngredientControls(
+                    ingredient,
+                    ingredientID: ingredientID,
+                    stepID: stepID
+                )
+            } else {
+                compactIngredientControls(
+                    ingredient,
+                    ingredientID: ingredientID,
+                    stepID: stepID
+                )
+            }
+        }
+    }
+
+    private func accessibilityIngredientControls(
+        _ ingredient: Binding<RecipeEditorIngredientDraft>,
+        ingredientID: String,
+        stepID: String
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            LabeledContent("Quantity") {
+                TextField(
+                    "",
+                    value: ingredient.quantity,
+                    format: .number.precision(.fractionLength(0...3))
+                )
+                .labelsHidden()
+                .multilineTextAlignment(.trailing)
+                .accessibilityLabel("Quantity")
+            }
+
+            LabeledContent("Unit") {
+                TextField("", text: optionalText(ingredient.unit))
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .accessibilityLabel("Unit")
+            }
+
+            Button(role: .destructive) {
+                removeIngredient(id: ingredientID, from: stepID)
+            } label: {
+                Label("Delete Ingredient", systemImage: "minus.circle")
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(
+                maxWidth: .infinity,
+                minHeight: KitchenTableTheme.minimumTouchTarget,
+                alignment: .leading
+            )
+            .contentShape(Rectangle())
+            .disabled(isSubmitting)
+        }
+    }
+
+    private func compactIngredientControls(
+        _ ingredient: Binding<RecipeEditorIngredientDraft>,
+        ingredientID: String,
+        stepID: String
+    ) -> some View {
+        HStack(spacing: 12) {
+            TextField(
+                "Quantity",
+                value: ingredient.quantity,
+                format: .number.precision(.fractionLength(0...3))
+            )
+            .accessibilityLabel("Quantity")
+            .frame(minWidth: 88)
+            .padding(.vertical, 11)
+            .contentShape(Rectangle())
+
+            TextField("Unit", text: optionalText(ingredient.unit))
+                .accessibilityLabel("Unit")
+                .frame(minWidth: 72)
+                .padding(.vertical, 11)
+                .contentShape(Rectangle())
+
+            Button(role: .destructive) {
+                removeIngredient(id: ingredientID, from: stepID)
+            } label: {
+                Image(systemName: "minus.circle")
+                    .accessibilityLabel("Delete Ingredient")
+            }
+            .labelStyle(.iconOnly)
+            .frame(
+                width: KitchenTableTheme.minimumTouchTarget,
+                height: KitchenTableTheme.minimumTouchTarget
+            )
+            .contentShape(Rectangle())
+            .disabled(isSubmitting)
+        }
+    }
+
+    private func toggleOutputSteps(for stepID: String) {
+        withAnimation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2)) {
+            if expandedOutputStepIDs.contains(stepID) {
+                expandedOutputStepIDs.remove(stepID)
+            } else {
+                expandedOutputStepIDs.insert(stepID)
+            }
+        }
+    }
+
+    private func synchronizeToolbarCoordinator() {
+        toolbarCoordinator?.configure(
+            routeIdentifier: editorRouteIdentifier,
+            canSave: activeViewModel.updatingDraft(draft).canSubmit,
+            isSaving: isSubmitting
+        ) {
+            startSave()
+        }
+    }
+
+    private func editorSectionHeader(_ title: String) -> some View {
+        Text(title)
+            .font(.headline)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .textCase(nil)
+    }
+
+    @MainActor private func startSave() {
+        startSubmission { submissionID in
+            await save(submissionID: submissionID)
+        }
+    }
+
+    @MainActor private func startDelete() {
+        startSubmission { submissionID in
+            await deleteRecipe(submissionID: submissionID)
+        }
+    }
+
+    @MainActor private func startSubmission(
+        operation: @escaping @MainActor (UUID) async -> Void
+    ) {
+        guard submissionTask == nil else {
+            return
+        }
+        let submissionID = UUID()
+        activeSubmissionID = submissionID
+        submissionTask = Task { @MainActor in
+            await operation(submissionID)
+            guard activeSubmissionID == submissionID else {
+                return
+            }
+            activeSubmissionID = nil
+            submissionTask = nil
+        }
+    }
+
+    @MainActor private func cancelSubmission() {
+        activeSubmissionID = nil
+        submissionTask?.cancel()
+        submissionTask = nil
+        isSubmitting = false
+    }
+
+    @MainActor private func save(submissionID: UUID) async {
         let actions = RecipeEditorDraftChangePlanner.actions(
             original: viewModel.draft,
             draft: draft,
             clientMutationID: clientMutationID
         )
-        await plan(actions)
+        await plan(actions, submissionID: submissionID)
     }
 
-    @MainActor private func deleteRecipe() async {
-        await plan([.deleteRecipe(clientMutationID: clientMutationID("recipe-delete"), confirmation: .confirmed)])
+    @MainActor private func deleteRecipe(submissionID: UUID) async {
+        await plan(
+            [.deleteRecipe(clientMutationID: clientMutationID("recipe-delete"), confirmation: .confirmed)],
+            submissionID: submissionID
+        )
     }
 
-    @MainActor private func plan(_ actions: [RecipeEditorAction]) async {
+    @MainActor private func plan(_ actions: [RecipeEditorAction], submissionID: UUID? = nil) async {
         guard !isSubmitting else {
             return
+        }
+        if let submissionID {
+            guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                return
+            }
         }
 
         isSubmitting = true
         defer {
-            isSubmitting = false
+            if submissionID == nil || activeSubmissionID == submissionID {
+                isSubmitting = false
+            }
         }
 
         do {
@@ -287,6 +738,11 @@ struct RecipeEditorView: View {
                 }
             }
 
+            if let submissionID {
+                guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                    return
+                }
+            }
             blockedMessage = nil
             offlineDisplayOverride = nil
             let successRoute = plannedActions.compactMap(\.plan.successRoute).last
@@ -294,8 +750,18 @@ struct RecipeEditorView: View {
                 close(successRoute)
             }
         } catch let error as RecipeEditorActionExecutionError {
+            if let submissionID {
+                guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                    return
+                }
+            }
             blockedMessage = message(for: error.underlyingError, action: error.action)
         } catch {
+            if let submissionID {
+                guard activeSubmissionID == submissionID, !Task.isCancelled else {
+                    return
+                }
+            }
             blockedMessage = message(for: error, action: nil)
         }
     }
@@ -394,6 +860,38 @@ struct RecipeEditorView: View {
         draft.steps[stepIndex].ingredients.removeAll { $0.id == id }
     }
 
+    private func stepBinding(id: String, fallback: RecipeEditorStepDraft) -> Binding<RecipeEditorStepDraft> {
+        Binding(
+            get: {
+                draft.steps.first { $0.id == id } ?? fallback
+            },
+            set: { updatedStep in
+                guard let index = draft.steps.firstIndex(where: { $0.id == id }) else { return }
+                draft.steps[index] = updatedStep
+            }
+        )
+    }
+
+    private func ingredientBinding(
+        stepID: String,
+        ingredientID: String,
+        fallback: RecipeEditorIngredientDraft
+    ) -> Binding<RecipeEditorIngredientDraft> {
+        Binding(
+            get: {
+                draft.steps
+                    .first { $0.id == stepID }?
+                    .ingredients
+                    .first { $0.id == ingredientID } ?? fallback
+            },
+            set: { updatedIngredient in
+                guard let stepIndex = draft.steps.firstIndex(where: { $0.id == stepID }) else { return }
+                guard let ingredientIndex = draft.steps[stepIndex].ingredients.firstIndex(where: { $0.id == ingredientID }) else { return }
+                draft.steps[stepIndex].ingredients[ingredientIndex] = updatedIngredient
+            }
+        )
+    }
+
     private func renumberSteps() {
         draft.renumberStepsPreservingOutputIdentities()
     }
@@ -405,22 +903,81 @@ struct RecipeEditorView: View {
         close(routeAfterConflictExit(conflict))
     }
 
-    @MainActor private func discardLocalChange() async {
-        guard let conflict = activeViewModel.conflict else {
+    @MainActor private func startConflictDiscard() {
+        guard conflictDiscardTask == nil,
+              let context = conflictDiscardContext else {
+            return
+        }
+
+        let lease = conflictDiscardOwner.begin(context: context)
+        conflictDiscardTask = Task { @MainActor in
+            await discardLocalChange(context, lease: lease)
+        }
+    }
+
+    @MainActor private func cancelConflictDiscard() {
+        conflictDiscardOwner.cancel()
+        conflictDiscardTask?.cancel()
+        conflictDiscardTask = nil
+    }
+
+    @MainActor private func discardLocalChange(
+        _ context: RecipeConflictDiscardContext,
+        lease: NativeAsyncOperationLease<RecipeConflictDiscardContext>
+    ) async {
+        guard ownsConflictDiscard(lease) else {
+            abandonConflictDiscard(lease)
             return
         }
 
         do {
-            try await conflictDidDiscardLocalChange(conflict)
+            try await conflictDidDiscardLocalChange(context.conflict)
+            guard ownsConflictDiscard(lease),
+                  conflictDiscardOwner.finish(lease, currentContext: context) else {
+                abandonConflictDiscard(lease)
+                return
+            }
+            conflictDiscardTask = nil
             conflictOverride = true
             runtimeConflict = nil
             blockedMessage = nil
             offlineDisplayOverride = nil
-            close(routeAfterConflictExit(conflict))
+            close(routeAfterConflictExit(context.conflict))
         } catch {
+            guard ownsConflictDiscard(lease),
+                  conflictDiscardOwner.finish(lease, currentContext: context) else {
+                abandonConflictDiscard(lease)
+                return
+            }
+            conflictDiscardTask = nil
             blockedMessage = message(for: error, action: nil)
             offlineDisplayOverride = .syncFailure(errorID: "recipe-editor-conflict", retryAfter: nil)
         }
+    }
+
+    private var conflictDiscardContext: RecipeConflictDiscardContext? {
+        activeViewModel.conflict.map {
+            RecipeConflictDiscardContext(routeIdentifier: editorRouteIdentifier, conflict: $0)
+        }
+    }
+
+    @MainActor private func ownsConflictDiscard(
+        _ lease: NativeAsyncOperationLease<RecipeConflictDiscardContext>
+    ) -> Bool {
+        guard let conflictDiscardContext else {
+            return false
+        }
+        return !Task.isCancelled
+            && conflictDiscardOwner.owns(lease, currentContext: conflictDiscardContext)
+    }
+
+    @MainActor private func abandonConflictDiscard(
+        _ lease: NativeAsyncOperationLease<RecipeConflictDiscardContext>
+    ) {
+        guard conflictDiscardOwner.cancel(lease) else {
+            return
+        }
+        conflictDiscardTask = nil
     }
 
     private func routeAfterConflictExit(_ conflict: RecipeEditorConflict) -> AppRoute {

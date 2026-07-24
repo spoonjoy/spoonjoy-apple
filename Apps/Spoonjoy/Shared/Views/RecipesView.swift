@@ -7,7 +7,6 @@ struct RecipesView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let viewModel: RecipeCatalogViewModel
-    let openRoute: (AppRoute) -> Void
     private let headerEyebrow: String
     private let title: String
     private let searchPrompt: String
@@ -18,11 +17,10 @@ struct RecipesView: View {
     private let emptyStateOverride: RecipeCatalogEmptyState?
     @State private var state: RecipeCatalogState
     @State private var query: String
-    @State private var isLoading = false
+    @State private var isLoading: Bool
 
     init(
         viewModel: RecipeCatalogViewModel,
-        openRoute: @escaping (AppRoute) -> Void,
         headerEyebrow: String = "My Kitchen",
         title: String = "My Recipes",
         searchPrompt: String = "Search my recipes",
@@ -33,7 +31,6 @@ struct RecipesView: View {
         emptyStateOverride: RecipeCatalogEmptyState? = nil
     ) {
         self.viewModel = viewModel
-        self.openRoute = openRoute
         self.headerEyebrow = headerEyebrow
         self.title = title
         self.searchPrompt = searchPrompt
@@ -44,6 +41,7 @@ struct RecipesView: View {
         self.emptyStateOverride = emptyStateOverride
         _state = State(initialValue: viewModel.state)
         _query = State(initialValue: viewModel.state.query)
+        _isLoading = State(initialValue: viewModel.state.rows.isEmpty)
     }
 
     var body: some View {
@@ -57,15 +55,26 @@ struct RecipesView: View {
 
             if isLoading, state.rows.isEmpty {
                 KitchenTableLoadingStateView(title: loadingTitle, subtitle: loadingSubtitle, systemImage: "book.closed")
+                    .transition(.opacity)
             } else if let emptyState = state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) {
                 recipesEmptyState(emptyState)
+                    .transition(.opacity)
             } else if let leadRow = state.leadRow {
-                RecipeCatalogLead(row: leadRow, openRoute: openRoute)
-                if !state.indexRows.isEmpty {
-                    recipeIndexSection(rows: state.indexRows)
+                Group {
+                    RecipeCatalogLead(
+                        row: leadRow,
+                        accessibilityIdentifier: state.indexRows.isEmpty
+                            ? "\(proofRoute).terminal"
+                            : "recipe.lead.\(leadRow.id)"
+                    )
+                    if !state.indexRows.isEmpty {
+                        recipeIndexSection(rows: state.indexRows)
+                    }
                 }
+                .transition(.opacity)
             } else {
                 recipeIndexSection(rows: state.rows)
+                    .transition(.opacity)
             }
         }
         .searchable(text: $query, prompt: searchPrompt)
@@ -99,6 +108,7 @@ struct RecipesView: View {
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("\(proofRoute).terminal")
                 Spacer(minLength: 0)
             }
             .padding(14)
@@ -111,12 +121,13 @@ struct RecipesView: View {
     private func recipeIndexSection(rows: [RecipeCatalogRowViewModel]) -> some View {
         KitchenTableSection(title: "Recipe Index") {
             ForEach(rows) { row in
-                Button {
-                    openRoute(row.openRoute)
-                } label: {
+                let isTerminal = row.id == rows.last?.id
+                NavigationLink(value: row.openRoute) {
                     RecipeIndexRow(row: row)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(isTerminal ? "\(proofRoute).terminal" : "recipe.row.\(row.id)")
+                .accessibilityLabel(row.title)
             }
         }
     }
@@ -124,12 +135,10 @@ struct RecipesView: View {
 
 struct SavedRecipesView: View {
     let viewModel: RecipeCatalogViewModel
-    let openRoute: (AppRoute) -> Void
 
     var body: some View {
         RecipesView(
             viewModel: viewModel,
-            openRoute: openRoute,
             title: "Saved Recipes",
             searchPrompt: "Search saved recipes",
             loadingTitle: "Loading saved recipes",
@@ -146,7 +155,6 @@ struct ChefsView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let profiles: [NativeCachedProfile]
-    let openRoute: (AppRoute) -> Void
 
     var body: some View {
         KitchenTablePage {
@@ -165,13 +173,13 @@ struct ChefsView: View {
                         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
                         .background(KitchenTableTheme.paper)
                         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                        .accessibilityIdentifier("chefs.terminal")
                 }
             } else {
                 KitchenTableSection(title: "Fellow Chefs") {
                     ForEach(profiles.map(\.profile), id: \.id) { profile in
-                        Button {
-                            openRoute(.profile(identifier: profile.username))
-                        } label: {
+                        let isTerminal = profile.id == profiles.last?.profile.id
+                        NavigationLink(value: AppRoute.profile(identifier: profile.username)) {
                             KitchenTableObjectRow(title: profile.username, subtitle: "Open kitchen profile") {
                                 Image(systemName: "person.crop.circle")
                                     .font(.title2)
@@ -186,6 +194,8 @@ struct ChefsView: View {
                             }
                         }
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier(isTerminal ? "chefs.terminal" : "chefs.row.\(profile.id)")
+                        .accessibilityLabel("\(profile.username), Open kitchen profile")
                         .accessibilityHint("Opens chef profile")
                     }
                 }
@@ -206,14 +216,14 @@ struct ChefsView: View {
 
 private struct RecipeCatalogLead: View {
     let row: RecipeCatalogRowViewModel
-    let openRoute: (AppRoute) -> Void
+    let accessibilityIdentifier: String
 
     var body: some View {
-        Button {
-            openRoute(row.openRoute)
-        } label: {
+        NavigationLink(value: row.openRoute) {
             VStack(alignment: .leading, spacing: 10) {
-                leadCover
+                if row.coverImageURL != nil {
+                    leadCover
+                }
 
                 Text("On the Counter".uppercased())
                     .font(.caption2.weight(.bold))
@@ -231,6 +241,8 @@ private struct RecipeCatalogLead: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .accessibilityLabel(row.title)
         .accessibilityHint("Opens recipe detail")
     }
 
@@ -244,15 +256,6 @@ private struct RecipeCatalogLead: View {
             )
             .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
             .clipped()
-        } else {
-            RecipeCoverImage(
-                url: nil,
-                title: row.title,
-                subtitle: "Photo not added",
-                showsFallbackLabel: true
-            )
-            .frame(maxWidth: .infinity, minHeight: 126, maxHeight: 126)
-            .clipped()
         }
     }
 
@@ -264,22 +267,30 @@ private struct RecipeCatalogLead: View {
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
-        .joined(separator: " - ")
+        .joined(separator: "\n")
     }
 }
 
 extension RecipesView {
     @MainActor private func loadCatalog(query: String) async {
         isLoading = true
-        defer { isLoading = false }
         do {
             try await viewModel.load(query: query, limit: state.limit)
-            state = viewModel.state
-            self.query = viewModel.state.query
+            withAnimation(contentAnimation) {
+                state = viewModel.state
+                self.query = viewModel.state.query
+                isLoading = false
+            }
         } catch {
-            state = viewModel.state
-            self.query = viewModel.state.query
+            withAnimation(contentAnimation) {
+                self.query = viewModel.state.query
+                isLoading = false
+            }
         }
+    }
+
+    private var contentAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.2)
     }
 }
 
@@ -291,7 +302,11 @@ private struct RecipeIndexRow: View {
     }
 
     var body: some View {
-        KitchenTableObjectRow(title: row.title, subtitle: rowSubtitle) {
+        KitchenTableObjectRow(
+            title: row.title,
+            subtitle: rowSubtitle,
+            showsLeading: row.coverImageURL != nil
+        ) {
             RecipeCoverImage(
                 url: row.coverImageURL,
                 title: row.title,
@@ -315,7 +330,7 @@ private struct RecipeIndexRow: View {
         ]
         .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
         .filter { !$0.isEmpty }
-        .joined(separator: " - ")
+        .joined(separator: "\n")
     }
 }
 

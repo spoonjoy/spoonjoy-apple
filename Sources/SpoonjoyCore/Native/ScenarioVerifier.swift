@@ -374,14 +374,14 @@ public enum ScenarioVerifier {
                     detail: "Receipt list uses native list sections, source-aware rows, large check toggles, and swipe actions.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
-                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List {", "Section {", "ShoppingReceiptRow", "sourceLine", "duplicateCountLabel", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
+                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List {", "Section {", "ShoppingReceiptRow", "sourceLine", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
                 ),
                 sourceCheck(
                     name: "kitchen safe controls source",
                     detail: "Kitchen-safe controls use compact native action decks with explicit accessibility labels.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/KitchenSafeControls.swift",
-                    tokens: ["KitchenSafeControlDeck", "Button", "Label(\"Mark done\"", "Label(\"Next step\"", "Label(\"Close\"", "accessibilityLabel"]
+                    tokens: ["KitchenSafeControlDeck", "ViewThatFits", "Label(\"Mark done\"", "Label(\"Back step\"", "Label(\"Next step\"", "accessibilityLabel"]
                 ),
                 sourceCheck(
                     name: "navigation surface source",
@@ -402,25 +402,25 @@ public enum ScenarioVerifier {
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", "renderFingerprint", "SearchSurfaceScopeGrammar"],
                     forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(
                     name: "capture surface source",
-                    detail: "Capture surface reviews Spoonjoy agent and Shortcuts drafts without presenting fake in-app import creation.",
+                    detail: "Capture surface reviews agent-created imports without presenting fake in-app creation.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
                     tokens: [
                         "CaptureDraftView",
                         "CaptureDraftViewModel",
                         "CaptureImportViewModel",
-                        "CaptureImportEntryPoint",
-                        "agentMCP",
-                        "appIntent",
-                        "Spoonjoy agent",
-                        "Shortcuts & Siri",
-                        "Shortcuts and Siri",
-                        "Import queue",
+                        "shouldShowStatusPanel",
+                        "captureActionsMenu",
+                        "Import actions",
+                        "Delete import",
+                        "Import paused",
+                        "Saved locally",
+                        "No imports waiting",
                         "agentImportStatus",
                         "ImportStatusPanel(",
                         "shellOfflineIndicatorState",
@@ -428,14 +428,15 @@ public enum ScenarioVerifier {
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
-                        "Submit import",
-                        "Retry sync",
-                        "Retry when online",
-                        "Resolve import setup",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],
                     forbiddenTokens: [
+                        "CaptureImportEntryPoint",
+                        "entryPointLedger",
+                        "Import queue",
+                        "Submit import",
+                        "Retry sync",
                         "Agent import",
                         "MCP agent",
                         "App Intents",
@@ -519,7 +520,7 @@ public enum ScenarioVerifier {
                         "native password sign-in",
                         "passwordSignInFailureMessage",
                         "currentAppleSignInCapability",
-                        "Sign in with Apple needs a signed Spoonjoy build"
+                        "Sign in with Apple isn't available right now. Choose another sign-in option."
                     ],
                     forbiddenTokens: [
                         "authRequired:",
@@ -564,39 +565,40 @@ public enum ScenarioVerifier {
                     detail: "Root view gates launch through the live store before opening app routes.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
-                    tokens: ["NativeLiveAppStore", "NativeLiveAppStoreDependencies", "bootstrap()", "case .signedOut", "SignedOutSetupView("]
+                    tokens: ["NativeLiveAppStore", "NativeLiveAppStoreDependencies", "bootstrap()", "@Environment(\\.scenePhase)", "await liveStore.refreshForForeground()", "case .signedOut", "SignedOutSetupView("],
+                    forbiddenTokens: ["syncTriggerCoordinator.handle(.foreground)"]
                 ),
                 sourceCheck(
                     name: "native persistence source",
-                    detail: "Platform navigation routes live content state and queues native mutations through the live store.",
+                    detail: "Platform navigation routes live content state and queues native mutations through the live store; the root owns scene lifecycle refresh.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    tokens: ["NativeShellContentState", "contentState.recipes", "contentState.shoppingList", "NativeQueuedMutation", "queueMutation", "syncTriggerCoordinator"]
+                    tokens: ["NativeShellContentState", "contentState.recipes", "contentState.shoppingList", "NativeQueuedMutation", "queueMutation"]
                 ),
                 sourceCheck(
                     name: "search surface source",
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", "renderFingerprint", "SearchSurfaceScopeGrammar"],
                     forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(
                     name: "capture surface source",
-                    detail: "Capture surface reviews Spoonjoy agent and Shortcuts drafts without presenting fake in-app import creation.",
+                    detail: "Capture surface reviews agent-created imports without presenting fake in-app creation.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift",
                     tokens: [
                         "CaptureDraftView",
                         "CaptureDraftViewModel",
                         "CaptureImportViewModel",
-                        "CaptureImportEntryPoint",
-                        "agentMCP",
-                        "appIntent",
-                        "Spoonjoy agent",
-                        "Shortcuts & Siri",
-                        "Shortcuts and Siri",
-                        "Import queue",
+                        "shouldShowStatusPanel",
+                        "captureActionsMenu",
+                        "Import actions",
+                        "Delete import",
+                        "Import paused",
+                        "Saved locally",
+                        "No imports waiting",
                         "agentImportStatus",
                         "ImportStatusPanel(",
                         "shellOfflineIndicatorState",
@@ -604,14 +606,15 @@ public enum ScenarioVerifier {
                         "onChange(of: inputDraft)",
                         "reconcile(with: inputDraft)",
                         "hasPendingImport",
-                        "Submit import",
-                        "Retry sync",
-                        "Retry when online",
-                        "Resolve import setup",
                         "plan.userFacingMessage",
                         "canCreateServerRecipe"
                     ],
                     forbiddenTokens: [
+                        "CaptureImportEntryPoint",
+                        "entryPointLedger",
+                        "Import queue",
+                        "Submit import",
+                        "Retry sync",
                         "Agent import",
                         "MCP agent",
                         "App Intents",

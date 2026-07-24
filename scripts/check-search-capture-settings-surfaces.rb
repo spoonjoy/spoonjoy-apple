@@ -79,21 +79,17 @@ REQUIRED_TOKENS = {
     "CaptureDraftViewModel",
     "CaptureImportViewModel",
     "CaptureDraft",
-    "CaptureImportEntryPoint",
-    "agentMCP",
-    "appIntent",
-    "Spoonjoy agent",
-    "Shortcuts & Siri",
-    "Import queue",
-    "Siri",
-    "Recipes sent by your Spoonjoy agent appear here for review.",
-    "Use your Spoonjoy agent or Shortcuts to create a capture.",
+    "Review recipes before they join your kitchen.",
     "onChange(of: inputDraft)",
     "reconcile(with: inputDraft)",
     "hasPendingImport",
+    "hasProviderBlocker",
+    "shouldShowStatusPanel",
     "ImportStatusPanel",
-    "Submit import",
-    "Delete capture",
+    "captureActionsMenu",
+    "Import actions",
+    "Delete import",
+    "No imports waiting",
     "plan.userFacingMessage",
     "canCreateServerRecipe",
     "KitchenTableTheme"
@@ -291,7 +287,18 @@ FORBIDDEN_TOKENS = [
 	  "Ouro Draft"
 	].freeze
 
-FORBIDDEN_BY_FILE = {}.freeze
+FORBIDDEN_BY_FILE = {
+  "Apps/Spoonjoy/Shared/Views/CaptureDraftView.swift" => [
+    "CaptureImportEntryPoint",
+    "entryPointLedger",
+    "Import queue",
+    "Submit import",
+    "MCP agent imports",
+    "App Intents",
+    "PhotosPickerItem",
+    "CameraCaptureView"
+  ]
+}.freeze
 
 def fail_check(message)
   warn "FAIL: #{message}"

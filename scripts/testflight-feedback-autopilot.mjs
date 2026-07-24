@@ -44,6 +44,7 @@ const INSTALL_VALIDATION_DELAY_MS = 250;
 const INSTALL_VALIDATION_TIMEOUT_MS = 15_000;
 const SUBPROCESS_TIMEOUT_MS = 10_000;
 const LOCAL_HEALTH_REQUEST_TIMEOUT_MS = 2_000;
+const HUNG_LOCAL_HEALTH_SELF_TEST_TIMEOUT_MS = 1_000;
 const PUBLIC_HEALTH_ATTEMPTS = 180;
 const PUBLIC_HEALTH_DELAY_MS = 1_000;
 const PUBLIC_HEALTH_TIMEOUT_MS = 180_000;
@@ -694,18 +695,9 @@ async function installLaunchd() {
     pathValue,
   });
 
-  const results = [];
-  for (const item of plists) {
-    const plistPath = launchAgentPath(item.label);
-    writeFileSync(plistPath, buildPlist(item.values), { mode: 0o644 });
-    runLaunchctl(["bootout", `gui/${uid}`, plistPath], { allowFailure: true });
-    runLaunchctl(["bootstrap", `gui/${uid}`, plistPath]);
-    runLaunchctl(["kickstart", "-k", `gui/${uid}/${item.label}`]);
-    results.push({ label: item.label, plistPath });
-  }
-
-  const install = await waitForInstallConfig({ definitions: plists });
-  if (!install.ok) throw new Error(`Launchd install validation failed: ${install.issues.join("; ")}`);
+  const refresh = await refreshLaunchdServices({ definitions: plists, uid });
+  const { install } = refresh;
+  if (!refresh.ok) throw new Error(`Launchd install validation failed: ${install.issues.join("; ")}`);
   const localHealth = await waitForLocalHealth();
   const localHealthIssues = healthIssues("local", localHealth);
   if (localHealthIssues.length > 0) throw new Error(`Launchd listener health validation failed: ${localHealthIssues.join("; ")}`);
@@ -716,12 +708,105 @@ async function installLaunchd() {
     ok: true,
     repo: DEFAULT_REPO,
     scriptPath: SCRIPT_PATH,
-    plists: results,
+    plists: refresh.services,
+    restart: refresh.restart,
     services: launchdSummary(),
     install,
     localHealth,
     publicHealth,
   }, null, 2));
+}
+
+async function refreshLaunchdServices({
+  definitions,
+  uid = currentUserId(),
+  plistWriter = (plistPath, values) => writeFileSync(plistPath, buildPlist(values), { mode: 0o644 }),
+  plistPathForLabel = launchAgentPath,
+  launchctlRunner = runLaunchctl,
+  installWaiter = waitForInstallConfig,
+} = {}) {
+  const desiredDefinitions = definitions || launchAgentDefinitions();
+  const services = [];
+  const launchctlCalls = [];
+
+  const serviceByLabel = new Map();
+  const writePlist = (definition, service) => {
+    const plistPath = plistPathForLabel(definition.label);
+    try {
+      plistWriter(plistPath, definition.values);
+      service.plistWrite = { ok: true };
+    } catch (error) {
+      service.plistWrite = { ok: false, error: error?.message || String(error) };
+    }
+  };
+  const runCommands = (definition, service, commandNames, timeoutMs = SUBPROCESS_TIMEOUT_MS) => {
+    const plistPath = service.plistPath;
+    const commandArguments = {
+      bootout: ["bootout", `gui/${uid}`, plistPath],
+      bootstrap: ["bootstrap", `gui/${uid}`, plistPath],
+      kickstart: ["kickstart", "-k", `gui/${uid}/${definition.label}`],
+    };
+    for (const commandName of commandNames) {
+      const commandArgs = commandArguments[commandName];
+      let result;
+      try {
+        result = launchctlRunner(commandArgs, { allowFailure: true, timeoutMs });
+      } catch (error) {
+        result = { status: null, signal: null, error };
+      }
+      const operation = {
+        name: commandName,
+        ok: result?.status === 0,
+        timedOut: subprocessTimedOut(result || {}),
+        status: result?.status ?? null,
+        signal: result?.signal ?? null,
+      };
+      service.operations.push(operation);
+      launchctlCalls.push({ label: definition.label, ...operation });
+    }
+  };
+
+  for (const definition of desiredDefinitions) {
+    const plistPath = plistPathForLabel(definition.label);
+    const service = { label: definition.label, plistPath, plistWrite: null, operations: [] };
+    services.push(service);
+    serviceByLabel.set(definition.label, service);
+    writePlist(definition, service);
+    runCommands(definition, service, ["bootout", "bootstrap", "kickstart"]);
+  }
+
+  // launchctl can outlive a bounded client call while completing the requested
+  // replacement. The installed plist and loaded job are the authoritative
+  // outcome, so reconcile all services after every refresh attempt.
+  const install = await installWaiter({
+    definitions: desiredDefinitions,
+    onInvalid: async ({ install: observed, deadline, clock }) => {
+      for (const definition of desiredDefinitions) {
+        const item = observed.items?.[definition.label];
+        if (!item || item.ok) continue;
+        const service = serviceByLabel.get(definition.label);
+        writePlist(definition, service);
+        const remainingMs = deadline - clock();
+        if (remainingMs <= 0) break;
+        runCommands(
+          definition,
+          service,
+          item.repairActions || ["bootout", "bootstrap", "kickstart"],
+          Math.max(1, Math.min(SUBPROCESS_TIMEOUT_MS, remainingMs)),
+        );
+      }
+    },
+  });
+  return {
+    ok: install.ok,
+    services,
+    install,
+    restart: {
+      launchctlCallCount: launchctlCalls.length,
+      timedOutOperations: launchctlCalls.filter((operation) => operation.timedOut).length,
+      failedOperations: launchctlCalls.filter((operation) => !operation.ok).length,
+    },
+  };
 }
 
 function launchAgentDefinitions({
@@ -1700,6 +1785,7 @@ function validateInstallConfig({
       plistPath,
       ok: itemIssues.length === 0,
       issues: itemIssues,
+      repairActions: launchAgentRepairActions({ plist, loaded, definition }),
     };
     issues.push(...itemIssues.map((issue) => `${label}: ${issue}`));
   }
@@ -1710,6 +1796,30 @@ function validateInstallConfig({
     items,
     issues,
   };
+}
+
+function launchAgentRepairActions({ plist, loaded, definition }) {
+  if (!loaded) return ["bootstrap", "kickstart"];
+
+  const expectedArguments = definition.values.ProgramArguments || [];
+  const expectedDirectory = definition.values.WorkingDirectory;
+  const expectedEnvironment = definition.values.EnvironmentVariables || {};
+  const loadedDefinitionMatches = loaded.program === expectedArguments[0]
+    && sameArguments(loaded.programArguments, expectedArguments)
+    && (!expectedDirectory || loaded.workingDirectory === expectedDirectory)
+    && managedEnvironmentDifferences(loaded.environment, expectedEnvironment).length === 0;
+  if (!loadedDefinitionMatches) return ["bootout", "bootstrap", "kickstart"];
+
+  const keepAliveUnhealthy = definition.values.KeepAlive && (loaded.state !== "running" || !loaded.pid);
+  const scheduledJobUnhealthy = definition.values.StartInterval
+    && loaded.state !== "running"
+    && loaded.lastExitCode !== null
+    && loaded.lastExitCode !== 0;
+  if (!loaded.runs || keepAliveUnhealthy || scheduledJobUnhealthy) return ["kickstart"];
+
+  // Rewriting the desired plist is enough when only the on-disk definition is
+  // stale; the already loaded job is exact and should not be interrupted.
+  return [];
 }
 
 function validateLaunchAgentDefinition({ plistPath, plist, loaded, definition, pathExists = existsSync }) {
@@ -1910,6 +2020,195 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
       issues: candidateDefinitions === definitions ? [] : ["installed definitions were not reused"],
     }),
   });
+  const exerciseTimedOutKickstartInstall = async (installReport) => {
+    const calls = [];
+    let definitionsReused = false;
+    const result = await refreshLaunchdServices({
+      definitions,
+      uid: 501,
+      plistWriter: () => {},
+      plistPathForLabel: (label) => `/Users/tester/Library/LaunchAgents/${label}.plist`,
+      launchctlRunner: (commandArgs) => {
+        calls.push(commandArgs);
+        if (commandArgs[0] === "kickstart" && commandArgs.at(-1)?.endsWith(`/${LISTENER_LABEL}`)) {
+          return {
+            status: null,
+            signal: "SIGKILL",
+            error: Object.assign(new Error("timed out"), { code: "ETIMEDOUT" }),
+          };
+        }
+        return { status: 0, signal: null };
+      },
+      installWaiter: async ({ definitions: candidateDefinitions }) => {
+        definitionsReused = candidateDefinitions === definitions;
+        return installReport;
+      },
+    });
+    const refreshedLabels = new Set(calls.map((commandArgs) => commandArgs.at(-1)?.split("/").at(-1)));
+    return {
+      ok: result.ok,
+      serviceCount: result.services.length,
+      launchctlCallCount: calls.length,
+      timedOutKickstarts: result.services
+        .flatMap((service) => service.operations)
+        .filter((operation) => operation.name === "kickstart" && operation.timedOut).length,
+      remainingServicesRefreshed: refreshedLabels.has(TUNNEL_LABEL) && refreshedLabels.has(RECONCILE_LABEL),
+      definitionsReused,
+      issues: result.install.issues || [],
+    };
+  };
+  const timedOutKickstartInstall = await exerciseTimedOutKickstartInstall({ ok: true, issues: [] });
+  const exerciseBootstrapRetryInstall = async ({ permanent }) => {
+    const calls = [];
+    let tunnelBootstrapAttempts = 0;
+    const launchctlRunner = (commandArgs) => {
+      calls.push(commandArgs);
+      const isTunnel = commandArgs.some((argument) => argument.includes(TUNNEL_LABEL));
+      if (isTunnel && commandArgs[0] === "bootstrap") {
+        tunnelBootstrapAttempts += 1;
+        if (permanent || tunnelBootstrapAttempts === 1) return { status: 5, signal: null };
+      }
+      return { status: 0, signal: null };
+    };
+    const validator = () => {
+      const tunnelLoaded = !permanent && tunnelBootstrapAttempts >= 2;
+      const items = Object.fromEntries(definitions.map((definition) => [
+        definition.label,
+        definition.label === TUNNEL_LABEL
+          ? {
+              ok: tunnelLoaded,
+              issues: tunnelLoaded ? [] : ["launchd job is not loaded"],
+              repairActions: tunnelLoaded ? [] : ["bootstrap", "kickstart"],
+            }
+          : { ok: true, issues: [], repairActions: [] },
+      ]));
+      return {
+        ok: tunnelLoaded,
+        items,
+        issues: tunnelLoaded ? [] : [`${TUNNEL_LABEL}: tunnel is not loaded`],
+      };
+    };
+    const result = await refreshLaunchdServices({
+      definitions,
+      uid: 501,
+      plistWriter: () => {},
+      plistPathForLabel: (label) => `/Users/tester/Library/LaunchAgents/${label}.plist`,
+      launchctlRunner,
+      installWaiter: ({ definitions: candidateDefinitions, onInvalid }) => waitForInstallConfig({
+        attempts: 3,
+        delayMs: 0,
+        timeoutMs: 1_000,
+        definitions: candidateDefinitions,
+        validator,
+        onInvalid,
+        sleeper: async () => {},
+      }),
+    });
+    const countCalls = (label, operation = null) => calls.filter((commandArgs) =>
+      commandArgs.some((argument) => argument.includes(label))
+      && (!operation || commandArgs[0] === operation)
+    ).length;
+    const tunnelBootoutAttempts = countCalls(TUNNEL_LABEL, "bootout");
+    const listenerLaunchctlCalls = countCalls(LISTENER_LABEL);
+    return {
+      ok: result.ok,
+      attemptsUsed: result.install.attemptsUsed,
+      tunnelBootstrapAttempts,
+      tunnelBootoutAttempts,
+      listenerLaunchctlCalls,
+      stateDirectedRepair: tunnelBootoutAttempts === 1 && listenerLaunchctlCalls === 3,
+      issues: result.install.issues || [],
+    };
+  };
+  const transientBootstrapInstall = await exerciseBootstrapRetryInstall({ permanent: false });
+  const permanentBootstrapFailure = await exerciseBootstrapRetryInstall({ permanent: true });
+  const scheduledExitPublication = await (async () => {
+    const calls = [];
+    let observations = 0;
+    const result = await refreshLaunchdServices({
+      definitions,
+      uid: 501,
+      plistWriter: () => {},
+      plistPathForLabel: (label) => `/Users/tester/Library/LaunchAgents/${label}.plist`,
+      launchctlRunner: (commandArgs) => {
+        calls.push(commandArgs);
+        return { status: 0, signal: null };
+      },
+      installWaiter: ({ definitions: candidateDefinitions, onInvalid }) => waitForInstallConfig({
+        attempts: 3,
+        delayMs: 0,
+        timeoutMs: 1_000,
+        definitions: candidateDefinitions,
+        validator: () => {
+          observations += 1;
+          if (observations > 1) return { ok: true, items: {}, issues: [] };
+          const transitionalLoaded = loaded(reconcileValues, {
+            state: "not running",
+            pid: null,
+            runs: 1,
+            lastExitCode: null,
+          });
+          return {
+            ok: false,
+            items: {
+              [RECONCILE_LABEL]: {
+                ok: false,
+                issues: ["loaded launchd last exit code is (missing), expected 0"],
+                repairActions: launchAgentRepairActions({
+                  plist: reconcileValues,
+                  loaded: transitionalLoaded,
+                  definition: reconcileDefinition,
+                }),
+              },
+            },
+            issues: [`${RECONCILE_LABEL}: exit publication pending`],
+          };
+        },
+        onInvalid,
+        sleeper: async () => {},
+      }),
+    });
+    const reconcileLaunchctlCalls = calls.filter((commandArgs) =>
+      commandArgs.some((argument) => argument.includes(RECONCILE_LABEL))
+    ).length;
+    return {
+      ok: result.ok,
+      attemptsUsed: result.install.attemptsUsed,
+      reconcileLaunchctlCalls,
+      observedWithoutRestart: reconcileLaunchctlCalls === 3,
+    };
+  })();
+  const stateRepairPlans = {
+    unloaded: launchAgentRepairActions({
+      plist: tunnelValues,
+      loaded: null,
+      definition: tunnelDefinition,
+    }),
+    staleDefinition: launchAgentRepairActions({
+      plist: tunnelValues,
+      loaded: loaded({ ...tunnelValues, ProgramArguments: legacy }),
+      definition: tunnelDefinition,
+    }),
+    deadKeepAlive: launchAgentRepairActions({
+      plist: tunnelValues,
+      loaded: loaded(tunnelValues, { state: "not running", pid: null, runs: 1, lastExitCode: 1 }),
+      definition: tunnelDefinition,
+    }),
+    scheduledExitPublishing: launchAgentRepairActions({
+      plist: reconcileValues,
+      loaded: loaded(reconcileValues, { state: "not running", pid: null, runs: 1, lastExitCode: null }),
+      definition: reconcileDefinition,
+    }),
+    failedScheduled: launchAgentRepairActions({
+      plist: reconcileValues,
+      loaded: loaded(reconcileValues, { state: "not running", pid: null, runs: 1, lastExitCode: 1 }),
+      definition: reconcileDefinition,
+    }),
+  };
+  const neverConvergedKickstartInstall = await exerciseTimedOutKickstartInstall({
+    ok: false,
+    issues: [`${LISTENER_LABEL}: listener never converged`],
+  });
   const subprocessStartedAt = Date.now();
   const subprocessResult = runBoundedCommand(
     process.execPath,
@@ -1998,6 +2297,12 @@ ${pid === null ? "" : `\tpid = ${pid}\n`}${lastExitCode === undefined || lastExi
     timedOutLaunchdConvergence,
     deadlineLaunchdConvergence,
     definitionReuse,
+    timedOutKickstartInstall,
+    transientBootstrapInstall,
+    permanentBootstrapFailure,
+    scheduledExitPublication,
+    stateRepairPlans,
+    neverConvergedKickstartInstall,
     hungSubprocess,
     htmlHealthFailure,
     transientPublicHealth,
@@ -2127,10 +2432,11 @@ function resolveExecutable(name, fallback) {
 }
 
 function runLaunchctl(args, options = {}) {
-  const result = runBoundedCommand("launchctl", args);
+  const timeoutMs = options.timeoutMs || SUBPROCESS_TIMEOUT_MS;
+  const result = runBoundedCommand("launchctl", args, { timeoutMs });
   if (result.status !== 0 && !options.allowFailure) {
     const reason = subprocessTimedOut(result)
-      ? `timed out after ${SUBPROCESS_TIMEOUT_MS}ms`
+      ? `timed out after ${timeoutMs}ms`
       : result.stderr || result.stdout || `exit ${result.status}`;
     throw new Error(`launchctl ${args.join(" ")} failed: ${reason}`);
   }
@@ -2269,7 +2575,7 @@ async function selfTestHungLocalHealth() {
 
   const health = await fetchHealth({
     url: `http://127.0.0.1:${address.port}/health`,
-    timeoutMs: 100,
+    timeoutMs: HUNG_LOCAL_HEALTH_SELF_TEST_TIMEOUT_MS,
   });
   let closeError = null;
   let serverClosed = false;
@@ -2313,6 +2619,7 @@ async function waitForInstallConfig({
   sleeper = sleep,
   clock = Date.now,
   definitions = null,
+  onInvalid = null,
 } = {}) {
   let install = null;
   let attemptsUsed = 0;
@@ -2327,7 +2634,12 @@ async function waitForInstallConfig({
     if (attempt + 1 >= maximumAttempts) break;
     const remainingMs = deadline - clock();
     if (remainingMs <= 0) break;
-    await sleeper(Math.min(delayMs, remainingMs));
+    if (onInvalid) {
+      await onInvalid({ install, attempt: attempt + 1, deadline, clock, definitions });
+    }
+    const remainingAfterRepairMs = deadline - clock();
+    if (remainingAfterRepairMs <= 0) break;
+    await sleeper(Math.min(delayMs, remainingAfterRepairMs));
   }
   return {
     ...(install || { ok: false, issues: ["launchd validation did not run"] }),

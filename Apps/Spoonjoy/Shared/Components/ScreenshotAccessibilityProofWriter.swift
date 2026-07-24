@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import SpoonjoyCore
 #if os(iOS)
@@ -10,47 +11,82 @@ actor ScreenshotVisualReadiness {
     private var state = ScreenshotVisualReadinessState()
 
     static func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
-        await shared.beginMedia(token)
+        await handleTransition(await shared.beginMedia(token))
     }
 
     static func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) async {
-        await shared.finishMedia(token, succeeded: succeeded)
+        await handleTransition(await shared.finishMedia(token, succeeded: succeeded))
     }
 
     static func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) async {
-        await shared.removeMedia(token)
+        await handleTransition(await shared.removeMedia(token))
     }
 
     static func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
-        await shared.beginBlockingIndicator(token)
+        await handleTransition(await shared.beginBlockingIndicator(token))
     }
 
     static func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) async {
-        await shared.endBlockingIndicator(token)
+        await handleTransition(await shared.endBlockingIndicator(token))
     }
 
     static func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {
         await shared.waitForSettled()
     }
 
-    private func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+    static func currentSnapshot() async -> ScreenshotVisualReadinessSnapshot {
+        await shared.state.snapshot
+    }
+
+    static func observeProofIdentity(_ identity: ScreenshotVisualReadinessProofIdentity) async -> Int? {
+        await shared.observeProofIdentity(identity)
+    }
+
+    private static func handleTransition(_ generation: Int?) async {
+        guard let generation else { return }
+        await ScreenshotAccessibilityProofHandshake.revoke(before: generation)
+        await ScreenshotAccessibilityProofWriter.visualReadinessDidTransition()
+    }
+
+    private func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.beginMedia(token)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) {
+    private func observeProofIdentity(_ identity: ScreenshotVisualReadinessProofIdentity) -> Int? {
+        let previousGeneration = state.snapshot.generation
+        state.observeProofIdentity(identity)
+        return transitionedGeneration(after: previousGeneration)
+    }
+
+    private func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.finishMedia(token, succeeded: succeeded)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) {
+    private func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.removeMedia(token)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+    private func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.beginBlockingIndicator(token)
+        return transitionedGeneration(after: previousGeneration)
     }
 
-    private func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
+    private func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) -> Int? {
+        let previousGeneration = state.snapshot.generation
         state.endBlockingIndicator(token)
+        return transitionedGeneration(after: previousGeneration)
+    }
+
+    private func transitionedGeneration(after previousGeneration: Int) -> Int? {
+        let generation = state.snapshot.generation
+        return generation == previousGeneration ? nil : generation
     }
 
     private func waitForSettled() async -> ScreenshotVisualReadinessSnapshot {
@@ -87,22 +123,123 @@ struct ScreenshotAccessibilityRuntimeContext {
     let reduceMotionEnabled: Bool
 }
 
+struct ScreenshotObservedSurfaceState {
+    let statusOwner: String
+    let connectivity: String
+    let queuedMutationCount: Int
+    let visibleIndicator: String
+
+    var proofIdentity: ScreenshotVisualReadinessObservedSurfaceState {
+        ScreenshotVisualReadinessObservedSurfaceState(
+            statusOwner: statusOwner,
+            connectivity: connectivity,
+            queuedMutationCount: queuedMutationCount,
+            visibleIndicator: visibleIndicator
+        )
+    }
+}
+
+struct ScreenshotAccessibilityProofReceipt: Equatable, Sendable {
+    let captureRunNonce: String
+    let route: String
+    let source: String
+    let applicationProcessIdentifier: Int32
+    let readinessGeneration: Int
+    let proofIdentity: ScreenshotVisualReadinessProofIdentity
+    let proofFileName: String
+    let proofSHA256: String
+
+    var markerIdentifier: String {
+        "screenshot.readiness.\(captureRunNonce)"
+    }
+
+    var markerLabel: String {
+        [
+            "Screenshot readiness",
+            captureRunNonce,
+            route,
+            source,
+            String(applicationProcessIdentifier),
+            String(readinessGeneration),
+            proofFileName,
+            proofSHA256
+        ]
+            .joined(separator: "|")
+    }
+}
+
+@MainActor
+enum ScreenshotAccessibilityProofHandshake {
+    nonisolated static let notification = Notification.Name("app.spoonjoy.screenshot-proof-ready")
+    private(set) static var latestReceipt: ScreenshotAccessibilityProofReceipt?
+
+    static func existingReceipt(
+        captureRunNonce: String,
+        route: String,
+        source: String,
+        readinessGeneration: Int,
+        proofIdentity: ScreenshotVisualReadinessProofIdentity
+    ) -> ScreenshotAccessibilityProofReceipt? {
+        guard latestReceipt?.captureRunNonce == captureRunNonce,
+              latestReceipt?.route == route,
+              latestReceipt?.source == source,
+              latestReceipt?.readinessGeneration == readinessGeneration,
+              latestReceipt?.proofIdentity == proofIdentity else {
+            return nil
+        }
+        return latestReceipt
+    }
+
+    static func publish(_ receipt: ScreenshotAccessibilityProofReceipt) {
+        latestReceipt = receipt
+        NotificationCenter.default.post(name: notification, object: nil)
+    }
+
+    static func revoke(before generation: Int) {
+        guard let receipt = latestReceipt,
+              receipt.readinessGeneration < generation else {
+            return
+        }
+        latestReceipt = nil
+        NotificationCenter.default.post(name: notification, object: nil)
+    }
+}
+
 enum ScreenshotAccessibilityProofWriter {
     private static let environmentKey = "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH"
     private static let expectedRouteEnvironmentKey = "SPOONJOY_SCREENSHOT_EXPECTED_ROUTE"
+    private static let captureRunNonceEnvironmentKey = "SPOONJOY_SCREENSHOT_RUN_NONCE"
+
+#if DEBUG
+    private enum ProofArchiveError: Error {
+        case invalidPayload
+        case mismatchedArchive
+    }
+
+    private struct Request {
+        let configuredPath: String
+        let proofIdentity: ScreenshotVisualReadinessProofIdentity
+    }
+
+    @MainActor private static var activeRequest: Request?
+    @MainActor private static var reattestationTask: Task<Void, Never>?
+#endif
 
     @MainActor static func writeIfNeeded(
         route: String,
         source: String,
-        runtimeContext: ScreenshotAccessibilityRuntimeContext
+        runtimeContext: ScreenshotAccessibilityRuntimeContext,
+        observedSurfaceVariant: String? = nil,
+        observedSurfaceState: ScreenshotObservedSurfaceState? = nil
     ) async {
 #if DEBUG
         guard let rawPath = ProcessInfo.processInfo.environment[environmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
               !rawPath.isEmpty else {
             return
         }
-        let visualReadiness = await ScreenshotVisualReadiness.waitForSettled()
-        guard !Task.isCancelled else {
+        guard let captureRunNonce = ProcessInfo.processInfo.environment[captureRunNonceEnvironmentKey]?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              UUID(uuidString: captureRunNonce) != nil else {
             return
         }
         if let expectedRoute = ProcessInfo.processInfo.environment[expectedRouteEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -110,56 +247,186 @@ enum ScreenshotAccessibilityProofWriter {
            expectedRoute != route {
             return
         }
-
-        let outputURL = URL(fileURLWithPath: rawPath)
-        let payload = basePayload(
+        let proofIdentity = ScreenshotVisualReadinessProofIdentity(
+            captureRunNonce: captureRunNonce,
             route: route,
             source: source,
-            runtimeContext: runtimeContext,
-            visualReadiness: visualReadiness
+            observedDynamicTypeSize: observedDynamicTypeSize(fallback: runtimeContext.dynamicTypeSize),
+            observedReduceMotion: runtimeContext.reduceMotionEnabled,
+            observedSurfaceVariant: observedSurfaceVariant,
+            observedSurfaceState: observedSurfaceState?.proofIdentity
         )
-        guard JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
-            return
+        let request = Request(configuredPath: rawPath, proofIdentity: proofIdentity)
+        activeRequest = request
+        if let generation = await ScreenshotVisualReadiness.observeProofIdentity(request.proofIdentity) {
+            ScreenshotAccessibilityProofHandshake.revoke(before: generation)
         }
-        try? FileManager.default.createDirectory(
-            at: outputURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try? data.write(to: outputURL, options: [.atomic])
+        await issueProof(for: request)
 #else
         _ = route
         _ = source
         _ = runtimeContext
+        _ = observedSurfaceVariant
+        _ = observedSurfaceState
+#endif
+    }
+
+    @MainActor static func visualReadinessDidTransition() {
+#if DEBUG
+        guard let activeRequest else { return }
+        reattestationTask?.cancel()
+        reattestationTask = Task { @MainActor in
+            await issueProof(for: activeRequest)
+        }
 #endif
     }
 
 #if DEBUG
+    @MainActor private static func issueProof(for request: Request) async {
+        let visualReadiness = await ScreenshotVisualReadiness.waitForSettled()
+        guard !Task.isCancelled,
+              visualReadiness.isSettled,
+              visualReadiness.proofIdentity == request.proofIdentity else {
+            return
+        }
+        if ScreenshotAccessibilityProofHandshake.existingReceipt(
+            captureRunNonce: request.proofIdentity.captureRunNonce,
+            route: request.proofIdentity.route,
+            source: request.proofIdentity.source,
+            readinessGeneration: visualReadiness.generation,
+            proofIdentity: request.proofIdentity
+        ) != nil {
+            return
+        }
+        let outputURL = screenshotProofOutputURL(
+            configuredPath: request.configuredPath,
+            environment: ProcessInfo.processInfo.environment
+        )
+        let generationOutputURL = proofArchiveURL(
+            for: outputURL,
+            generation: visualReadiness.generation
+        )
+        let payload = basePayload(
+            proofIdentity: request.proofIdentity,
+            visualReadiness: visualReadiness
+        )
+        let data: Data
+        do {
+            try FileManager.default.createDirectory(
+                at: outputURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            data = try canonicalProofData(
+                payload: payload,
+                generationOutputURL: generationOutputURL
+            )
+            try data.write(to: outputURL, options: [.atomic])
+        } catch {
+            return
+        }
+        let currentReadiness = await ScreenshotVisualReadiness.currentSnapshot()
+        guard !Task.isCancelled,
+              currentReadiness.isSettled,
+              currentReadiness.generation == visualReadiness.generation,
+              currentReadiness.proofIdentity == request.proofIdentity else {
+            return
+        }
+        let proofSHA256 = SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
+        ScreenshotAccessibilityProofHandshake.publish(ScreenshotAccessibilityProofReceipt(
+            captureRunNonce: request.proofIdentity.captureRunNonce,
+            route: request.proofIdentity.route,
+            source: request.proofIdentity.source,
+            applicationProcessIdentifier: ProcessInfo.processInfo.processIdentifier,
+            readinessGeneration: visualReadiness.generation,
+            proofIdentity: request.proofIdentity,
+            proofFileName: generationOutputURL.lastPathComponent,
+            proofSHA256: proofSHA256
+        ))
+    }
+
+    private static func canonicalProofData(
+        payload: [String: Any],
+        generationOutputURL: URL
+    ) throws -> Data {
+        guard JSONSerialization.isValidJSONObject(payload) else {
+            throw ProofArchiveError.invalidPayload
+        }
+        if FileManager.default.fileExists(atPath: generationOutputURL.path) {
+            let archivedData = try Data(contentsOf: generationOutputURL)
+            guard proofPayloadsMatchIgnoringWrittenAt(
+                archivedData: archivedData,
+                expectedPayload: payload
+            ) else {
+                throw ProofArchiveError.mismatchedArchive
+            }
+            return archivedData
+        }
+
+        var timestampedPayload = payload
+        timestampedPayload["writtenAt"] = ISO8601DateFormatter().string(from: Date())
+        guard let data = try? JSONSerialization.data(
+            withJSONObject: timestampedPayload,
+            options: [.prettyPrinted, .sortedKeys]
+        ) else {
+            throw ProofArchiveError.invalidPayload
+        }
+        try data.write(to: generationOutputURL, options: [.atomic])
+        return data
+    }
+
+    private static func proofPayloadsMatchIgnoringWrittenAt(
+        archivedData: Data,
+        expectedPayload: [String: Any]
+    ) -> Bool {
+        guard var archivedPayload = try? JSONSerialization.jsonObject(with: archivedData) as? [String: Any],
+              let writtenAt = archivedPayload.removeValue(forKey: "writtenAt") as? String,
+              ISO8601DateFormatter().date(from: writtenAt) != nil else {
+            return false
+        }
+        return NSDictionary(dictionary: archivedPayload).isEqual(to: expectedPayload)
+    }
+
+    private static func proofArchiveURL(for outputURL: URL, generation: Int) -> URL {
+        outputURL.deletingPathExtension()
+            .appendingPathExtension("generation-\(generation)")
+            .appendingPathExtension(outputURL.pathExtension.isEmpty ? "json" : outputURL.pathExtension)
+    }
+
+    private static func screenshotProofOutputURL(
+        configuredPath: String,
+        environment: [String: String]
+    ) -> URL {
+        let usesInlineFixtures = ["1", "true", "yes"].contains(
+            environment["SPOONJOY_SCREENSHOT_INLINE_FIXTURES"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased() ?? ""
+        )
+        guard usesInlineFixtures else {
+            return URL(fileURLWithPath: configuredPath)
+        }
+        return NativeAppStateLocation.defaultFileURL()
+            .deletingLastPathComponent()
+            .appendingPathComponent(URL(fileURLWithPath: configuredPath).lastPathComponent)
+    }
+
     @MainActor private static func basePayload(
-        route: String,
-        source: String,
-        runtimeContext: ScreenshotAccessibilityRuntimeContext,
+        proofIdentity: ScreenshotVisualReadinessProofIdentity,
         visualReadiness: ScreenshotVisualReadinessSnapshot
     ) -> [String: Any] {
-        let evidence = routeEvidence(route: route, source: source)
-        return [
+        var payload: [String: Any] = [
             "platform": platform,
-            "route": route,
-            "source": source,
+            "route": proofIdentity.route,
+            "source": proofIdentity.source,
+            "captureRunNonce": proofIdentity.captureRunNonce,
+            "readinessGeneration": visualReadiness.generation,
             "launchEnvironmentProof": launchEnvironmentProof,
-            "dynamicType": !runtimeContext.dynamicTypeSize.isEmpty && !evidence.dynamicTypeTextStyles.isEmpty,
-            "voiceOverLabels": !evidence.voiceOverLabels.isEmpty,
-            "keyboardNavigation": !evidence.keyboardNavigationTargets.isEmpty,
-            "reduceMotion": true,
-            "contrast": !evidence.contrastPairs.isEmpty,
-            "kitchenTableHierarchy": !evidence.hierarchyAnchors.isEmpty,
-            "noOverlap": !evidence.layoutGuards.isEmpty,
-            "minimumTargetSize": evidence.minimumTargetSize,
-            "textFits": evidence.layoutGuards.contains("text-fit"),
-            "noTinyClusters": evidence.layoutGuards.contains("no-tiny-clusters"),
-            "observedDynamicTypeSize": runtimeContext.dynamicTypeSize,
-            "observedReduceMotion": runtimeContext.reduceMotionEnabled,
+            "screenshotStateSnapshotProof": screenshotStateSnapshotProof,
+            "observedDynamicTypeSize": proofIdentity.observedDynamicTypeSize,
+            "observedReduceMotion": proofIdentity.observedReduceMotion,
             "visualReadiness": [
+                "generation": visualReadiness.generation,
                 "expectedMediaCount": visualReadiness.expectedMediaCount,
                 "loadedMediaCount": visualReadiness.loadedMediaCount,
                 "pendingMediaCount": visualReadiness.pendingMediaCount,
@@ -167,143 +434,126 @@ enum ScreenshotAccessibilityProofWriter {
                 "blockingIndicatorCount": visualReadiness.blockingIndicatorCount,
                 "isSettled": visualReadiness.isSettled
             ],
-            "routeEvidence": evidence.dictionary,
-            "offlineIndicatorProof": OfflineStatusView.screenshotAccessibilityProof,
             "emittedBy": "SpoonjoyApp",
-            "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
-            "writtenAt": ISO8601DateFormatter().string(from: Date())
+            "bundleIdentifier": Bundle.main.bundleIdentifier ?? ""
         ]
+        if let observedSurfaceVariant = proofIdentity.observedSurfaceVariant {
+            payload["observedSurfaceVariant"] = observedSurfaceVariant
+        }
+        if let observedSurfaceState = proofIdentity.observedSurfaceState {
+            payload["observedSurfaceState"] = [
+                "statusOwner": observedSurfaceState.statusOwner,
+                "connectivity": observedSurfaceState.connectivity,
+                "queuedMutationCount": observedSurfaceState.queuedMutationCount,
+                "visibleIndicator": observedSurfaceState.visibleIndicator
+            ]
+        }
+        return payload
     }
 
-    private static func routeEvidence(route: String, source: String) -> RouteAccessibilityEvidence {
-        switch (route, source) {
-        case ("recipes", "RecipesView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Recipes", "On the Counter", "Recipe index", "Loading recipes"],
-                keyboardNavigationTargets: ["recipe lead button", "RecipeIndexRow buttons", "search field"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("saved-recipes", "SavedRecipesView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Saved Recipes", "Recipe index", "Loading saved recipes"],
-                keyboardNavigationTargets: ["saved recipe lead button", "RecipeIndexRow buttons", "search field"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("chefs", "ChefsView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Chefs", "Fellow chefs", "Kitchen visitors"],
-                keyboardNavigationTargets: ["chef profile rows", "native More menu", "regular sidebar"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("cookbooks", "CookbooksView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Cookbooks", "Shelf", "Index", "New Cookbook"],
-                keyboardNavigationTargets: ["cookbook shelf buttons", "cookbook index rows", "share buttons", "new cookbook action"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("cookbook-detail", "CookbookDetailView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
-                keyboardNavigationTargets: ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
-                hierarchyAnchors: ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("capture", "CaptureDraftView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
-                keyboardNavigationTargets: ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
-                hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
-            )
-        case ("capture", "SignedOutSetupView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Google OAuth sign-in", "native GitHub OAuth sign-in", "native Apple sign-in", "native password sign-in"],
-                keyboardNavigationTargets: ["native sign-in email or username", "native sign-in password", "native Google OAuth sign-in", "native GitHub OAuth sign-in", "native Apple sign-in", "Settings"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
-                contrastPairs: ["charcoal on bone", "herb button on bone", "brass status on bone"],
-                hierarchyAnchors: ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "OAuthProviderHint", "SignInWithAppleButton"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters"]
-            )
-        case ("search", "SearchView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Search", "row.accessibilityLabel"],
-                keyboardNavigationTargets: ["native search field", "typed rows", "SearchSurfaceSectionView buttons", "offline status dismiss"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
-                contrastPairs: ["charcoal on bone", "herb tint on bone", "status label on card"],
-                hierarchyAnchors: ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView", "OfflineStatusView"],
-                layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "offline-status-section"]
-            )
-        case ("settings", "SettingsView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Settings", "Profile", "Security", "Session", "Sign In", "Notifications", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Hide offline status"],
-                keyboardNavigationTargets: ["profile form fields", "security token controls", "session handoff controls", "APNs device controls", "notification toggles", "notification sync status", "offline status dismiss"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
-                contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
-                layoutGuards: ["kitchen-table-page", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
-            )
-        case ("recipe-detail", "RecipeDetailView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "timer", "Cooks"],
-                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows", "duration cues"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepDurationCue", "RecipeStepChecklistRow", "SpoonCookLogView"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("cook-log", "SpoonCookLogView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
-                keyboardNavigationTargets: ["cookLogForm fields", "cookLogPhotoSlot", "cookLogActionBar"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
-                contrastPairs: ["charcoal on bone", "brass on bone", "muted text on bone"],
-                hierarchyAnchors: ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("cook-mode", "CookModeView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Set 10 min timer", "Ingredients", "Cook tools"],
-                keyboardNavigationTargets: ["cook step handrail", "system timer button", "ingredient toggles", "dependency toggles", "cook tools"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "herb tint on bone", "status text on material"],
-                hierarchyAnchors: ["CookModeView", "currentStepCard", "RecipeStepDurationCue", "CookModeSystemTimer", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
-            )
-        case ("shopping-list", "ShoppingListView"):
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
-                keyboardNavigationTargets: ["shopping receipt composer", "receipt actions menu", "native tab bar"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
-                hierarchyAnchors: ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
-                layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
-            )
+    @MainActor private static func observedDynamicTypeSize(fallback: String) -> String {
+#if os(iOS)
+        switch UIApplication.shared.preferredContentSizeCategory {
+        case .extraSmall:
+            return "xSmall"
+        case .small:
+            return "small"
+        case .medium:
+            return "medium"
+        case .large:
+            return "large"
+        case .extraLarge:
+            return "xLarge"
+        case .extraExtraLarge:
+            return "xxLarge"
+        case .extraExtraExtraLarge:
+            return "xxxLarge"
+        case .accessibilityMedium:
+            return "accessibility1"
+        case .accessibilityLarge:
+            return "accessibility2"
+        case .accessibilityExtraLarge:
+            return "accessibility3"
+        case .accessibilityExtraExtraLarge:
+            return "accessibility4"
+        case .accessibilityExtraExtraExtraLarge:
+            return "accessibility5"
         default:
-            RouteAccessibilityEvidence(
-                voiceOverLabels: ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
-                keyboardNavigationTargets: ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel", ".title2"],
-                contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "brass on bone"],
-                hierarchyAnchors: ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndex", "RecipeIndexRow", "CookbookShelf"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "fixed-cover-height", "ordinal"]
-            )
+            return fallback
         }
+#else
+        return fallback
+#endif
+    }
+
+    private static var screenshotStateSnapshotProof: [String: Any] {
+        let environment = ProcessInfo.processInfo.environment
+        let rawDirectory = environment["SPOONJOY_SCREENSHOT_STATE_DIRECTORY"]?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let usesInlineFixtures = ["1", "true", "yes"].contains(
+            environment["SPOONJOY_SCREENSHOT_INLINE_FIXTURES"]?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased() ?? ""
+        )
+        let configuredDirectory: URL? = if usesInlineFixtures {
+            NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+        } else if rawDirectory.isEmpty {
+            nil
+        } else {
+            URL(fileURLWithPath: rawDirectory, isDirectory: true).standardizedFileURL
+        }
+        let snapshotURL = configuredDirectory?
+            .appendingPathComponent(NativeAppStateLocation.fileName) ?? NativeAppStateLocation.defaultFileURL()
+        let syncSnapshotURL = snapshotURL.deletingLastPathComponent()
+            .appendingPathComponent("native-sync-store.json")
+        var proof: [String: Any] = [
+            "stateDirectoryConfigured": !rawDirectory.isEmpty,
+            "stateDirectoryResolved": true,
+            "appSnapshotPresent": false,
+            "appSnapshotJSONReadable": false,
+            "appSnapshotCaptureDraftPresent": false,
+            "appSnapshotShoppingListPresent": false,
+            "appSnapshotPendingCaptureImportPresent": false,
+            "appSnapshotProviderBlockerPresent": false,
+            "syncSnapshotPresent": false,
+            "syncSnapshotJSONReadable": false,
+            "syncSnapshotQueueCount": 0,
+            "syncSnapshotQueuedShoppingWorkPresent": false
+        ]
+
+        if FileManager.default.fileExists(atPath: snapshotURL.path) {
+            proof["appSnapshotPresent"] = true
+            if let data = try? Data(contentsOf: snapshotURL),
+               let snapshot = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let providerBlocker = (snapshot["captureImportProviderBlocker"] as? String)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                proof["appSnapshotJSONReadable"] = true
+                proof["appSnapshotCaptureDraftPresent"] = snapshot["captureDraft"] is [String: Any]
+                proof["appSnapshotShoppingListPresent"] = snapshot["shoppingList"] is [String: Any]
+                proof["appSnapshotPendingCaptureImportPresent"] = snapshot["pendingCaptureImport"] is [String: Any]
+                proof["appSnapshotProviderBlockerPresent"] = !providerBlocker.isEmpty
+            }
+        }
+
+        if FileManager.default.fileExists(atPath: syncSnapshotURL.path) {
+            proof["syncSnapshotPresent"] = true
+            if let data = try? Data(contentsOf: syncSnapshotURL),
+               let snapshot = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let queue = snapshot["queue"] as? [String: Any],
+               let mutations = queue["mutations"] as? [[String: Any]] {
+                proof["syncSnapshotJSONReadable"] = true
+                proof["syncSnapshotQueueCount"] = mutations.count
+                proof["syncSnapshotQueuedShoppingWorkPresent"] = mutations.contains { mutation in
+                    guard let kind = mutation["kind"] as? [String: Any],
+                          let type = kind["type"] as? String else {
+                        return false
+                    }
+                    return type.hasPrefix("shopping.")
+                }
+            }
+        }
+
+        return proof
     }
 
     @MainActor private static var platform: String {
@@ -322,31 +572,11 @@ enum ScreenshotAccessibilityProofWriter {
             "screenshotAuth": environment["SPOONJOY_SCREENSHOT_AUTH"] ?? "",
             "screenshotRestoreCacheOnly": environment["SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY"] ?? "",
             "screenshotAccountID": environment["SPOONJOY_SCREENSHOT_ACCOUNT_ID"] ?? "",
+            "screenshotRecipeCoversFixture": environment["SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE"] ?? "",
             "screenshotAPNsPermissionState": environment["SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE"] ?? "",
             "screenshotAPNsRegistrationState": environment["SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE"] ?? "",
             "apiBaseURL": environment["SPOONJOY_API_BASE_URL"] ?? ""
         ]
-    }
-
-    private struct RouteAccessibilityEvidence {
-        let voiceOverLabels: [String]
-        let keyboardNavigationTargets: [String]
-        let dynamicTypeTextStyles: [String]
-        let contrastPairs: [String]
-        let hierarchyAnchors: [String]
-        let layoutGuards: [String]
-        let minimumTargetSize = 44
-
-        var dictionary: [String: Any] {
-            [
-                "voiceOverLabels": voiceOverLabels,
-                "keyboardNavigationTargets": keyboardNavigationTargets,
-                "dynamicTypeTextStyles": dynamicTypeTextStyles,
-                "contrastPairs": contrastPairs,
-                "hierarchyAnchors": hierarchyAnchors,
-                "layoutGuards": layoutGuards
-            ]
-        }
     }
 #endif
 }

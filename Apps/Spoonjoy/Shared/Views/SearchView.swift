@@ -4,12 +4,10 @@ import SwiftUI
 
 struct SearchView: View {
     private static let screenshotAccountIDEnvironmentKey = "SPOONJOY_SCREENSHOT_ACCOUNT_ID"
-    private static let screenshotDisableSearchFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS"
     private static let screenshotProofPathEnvironmentKey = "SPOONJOY_SCREENSHOT_PROOF_PATH"
 
     @Binding private var search: SearchState
     @State private var inFlightRequest: SearchSurfaceRequest?
-    @FocusState private var isSearchFieldFocused: Bool
 
     private let viewModel: SearchSurfaceViewModel
     private let openRoute: (AppRoute) -> Void
@@ -39,60 +37,54 @@ struct SearchView: View {
             KitchenTableHeader(
                 eyebrow: "Kitchen Index",
                 title: "Search",
-                subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)"
+                subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)",
+                hidesTitleInCompactNavigation: true
             )
 
             if viewModel.offlineIndicator.display.isVisible {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
             }
 
-            if let errorState = viewModel.errorState {
+            if viewModel.isLoading, viewModel.sections.isEmpty {
+                SearchSurfaceLoadingView()
+            } else if let errorState = viewModel.errorState {
                 SearchSurfaceMessageView(
                     title: errorState.title,
                     message: errorState.message,
-                    systemImage: errorState.systemImage
+                    systemImage: errorState.systemImage,
+                    terminalAccessibilityIdentifier: "search.terminal"
                 )
-            }
-
-            if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
+            } else if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
                 SearchSurfaceMessageView(
                     title: emptyState.title,
                     message: emptyState.message,
-                    systemImage: emptyState.systemImage
+                    systemImage: emptyState.systemImage,
+                    terminalAccessibilityIdentifier: "search.terminal"
                 )
             } else {
+                if viewModel.isLoading {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .accessibilityLabel("Searching")
+                }
                 ForEach(viewModel.sections) { section in
-                    SearchSurfaceSectionView(section: section, openRoute: openRoute)
+                    SearchSurfaceSectionView(
+                        section: section,
+                        terminalRowID: viewModel.sections.last?.rows.last?.id,
+                        openRoute: openRoute
+                    )
                 }
             }
         }
         .tint(KitchenTableTheme.herb)
-        .navigationTitle("Search")
-#if os(iOS)
-        .searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Spoonjoy")
-#else
-        .searchable(text: searchTextBinding, prompt: "Search Spoonjoy")
-#endif
-        .searchFocused($isSearchFieldFocused)
-        .searchScopes(searchScopeBinding) {
-            ForEach(searchableScopeOrder, id: \.rawValue) { scope in
-                Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
-            }
-        }
-        .onAppear {
-            focusSearchFieldIfNeeded()
-        }
-        .onSubmit(of: .search) {
-            Task {
-                await searchTask(search)
-            }
-        }
+        .animation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.isLoading)
+        .animation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18), value: viewModel.renderFingerprint)
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
-        .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
+        .accessibilityValue(searchableScopeOrder.map { SearchSurfaceScopeGrammar.title(for: $0) }.joined(separator: ", "))
         .task(id: search.route.stateIdentifier) {
-            focusSearchFieldIfNeeded()
-            await writeScreenshotProofIfNeeded()
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "search",
                 source: "SearchView",
@@ -100,46 +92,10 @@ struct SearchView: View {
             )
             await debounceSearch()
         }
-    }
-
-    private var shouldAutoFocusSearchField: Bool {
-        !Self.truthy(ProcessInfo.processInfo.environment[Self.screenshotDisableSearchFocusEnvironmentKey])
-    }
-
-    private static func truthy(_ rawValue: String?) -> Bool {
-        guard let value = rawValue?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() else {
-            return false
+        .task(id: viewModel.renderFingerprint) {
+            writeScreenshotProofIfNeeded()
+            await SearchCoverPrefetcher.prefetch(viewModel.sections.flatMap(\.rows).compactMap(\.imageURL))
         }
-        return ["1", "true", "yes", "y", "on"].contains(value)
-    }
-
-    private func focusSearchFieldIfNeeded() {
-        guard shouldAutoFocusSearchField else {
-            isSearchFieldFocused = false
-            return
-        }
-        isSearchFieldFocused = true
-    }
-
-    private var searchTextBinding: Binding<String> {
-        Binding(
-            get: { search.query },
-            set: { query in
-                search.update(query: query, scope: search.scope)
-            }
-        )
-    }
-
-    private var searchScopeBinding: Binding<SearchScope> {
-        Binding(
-            get: { search.scope },
-            set: { scope in
-                search.update(query: search.query, scope: scope)
-                Task {
-                    await searchTask(search)
-                }
-            }
-        )
     }
 
     private var searchableScopeOrder: [SearchScope] {
@@ -184,19 +140,22 @@ struct SearchView: View {
     }
 
     @MainActor
-    private func writeScreenshotProofIfNeeded() async {
+    private func writeScreenshotProofIfNeeded() {
 #if DEBUG
         guard let rawPath = ProcessInfo.processInfo.environment[Self.screenshotProofPathEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
               !rawPath.isEmpty else {
             return
         }
-        try? await Task.sleep(nanoseconds: 700_000_000)
-        guard !Task.isCancelled else {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let fingerprintData = try? encoder.encode(viewModel.renderFingerprint),
+              let renderFingerprint = try? JSONSerialization.jsonObject(with: fingerprintData) else {
             return
         }
         let accountID = ProcessInfo.processInfo.environment[Self.screenshotAccountIDEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let outputURL = URL(fileURLWithPath: rawPath)
         let payload: [String: Any] = [
+            "proofVersion": 2,
             "route": "search",
             "routeIdentifier": search.route.stateIdentifier,
             "query": search.query,
@@ -204,6 +163,7 @@ struct SearchView: View {
             "searchScopes": searchableScopeOrder.map(\.rawValue),
             "accountID": accountID,
             "visibleSections": viewModel.sections.map(\.title),
+            "renderFingerprint": renderFingerprint,
             "source": "SearchView",
             "writtenAt": ISO8601DateFormatter().string(from: Date())
         ]
@@ -220,41 +180,71 @@ struct SearchView: View {
     }
 }
 
+private struct SearchSurfaceLoadingView: View {
+    var body: some View {
+        KitchenTableSection(title: "Results") {
+            ForEach(0..<4, id: \.self) { _ in
+                HStack(spacing: 12) {
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                        .fill(KitchenTableTheme.inkMuted.opacity(0.12))
+                        .frame(width: 48, height: 48)
+                    VStack(alignment: .leading, spacing: 8) {
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(KitchenTableTheme.inkMuted.opacity(0.16))
+                            .frame(maxWidth: 210, minHeight: 14, maxHeight: 14)
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(KitchenTableTheme.inkMuted.opacity(0.10))
+                            .frame(maxWidth: 132, minHeight: 10, maxHeight: 10)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: 56)
+                .accessibilityHidden(true)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Searching")
+    }
+}
+
+private enum SearchCoverPrefetcher {
+    static func prefetch(_ urls: [URL]) async {
+        let uniqueURLs = Array(Set(urls)).prefix(12)
+        await withTaskGroup(of: Void.self) { group in
+            for url in uniqueURLs {
+                group.addTask {
+                    var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 3)
+                    request.allowsConstrainedNetworkAccess = true
+                    request.allowsExpensiveNetworkAccess = true
+                    _ = try? await URLSession.shared.data(for: request)
+                }
+            }
+        }
+    }
+}
+
 private enum SearchSurfaceContract {
     static let searchableScopes = "searchable scopes"
     static let typedRows = "typed rows"
 }
 
-private enum SearchSurfaceNativeChrome {
-    static func title(for scope: SearchScope) -> String {
-        switch scope {
-        case .all:
-            "Everything"
-        case .recipes:
-            "Recipes"
-        case .cookbooks:
-            "Cookbooks"
-        case .chefs:
-            "Chefs"
-        case .shoppingList:
-            "Shopping"
-        }
-    }
-}
-
 private struct SearchSurfaceSectionView: View {
     let section: SearchSurfaceSection
+    let terminalRowID: String?
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
         KitchenTableSection(title: section.title) {
             ForEach(section.rows) { row in
+                let isTerminal = row.id == terminalRowID
                 Button {
                     openRoute(row.openRoute)
                 } label: {
                     SearchSurfaceRowView(row: row)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier(isTerminal ? "search.terminal" : "search.row.\(row.id)")
+                .accessibilityLabel(row.accessibilityLabel)
             }
         }
     }
@@ -405,6 +395,7 @@ private struct SearchSurfaceMessageView: View {
     let title: String
     let message: String
     let systemImage: String
+    let terminalAccessibilityIdentifier: String
 
     var body: some View {
         Label {
@@ -415,6 +406,7 @@ private struct SearchSurfaceMessageView: View {
                 Text(message)
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .accessibilityIdentifier(terminalAccessibilityIdentifier)
             }
         } icon: {
             Image(systemName: systemImage)

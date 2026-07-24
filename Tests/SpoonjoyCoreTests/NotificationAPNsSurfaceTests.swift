@@ -144,6 +144,7 @@ struct NotificationAPNsSurfaceTests {
                 ]
             ],
             forbiddenTokens: [
+                "on this build",
                 "KitchenTableSection(title: \"Device Notifications\"",
                 "KitchenTableSection(title: \"APNs Delivery\"",
                 "subtitle: \"Local permission and device token\"",
@@ -160,16 +161,134 @@ struct NotificationAPNsSurfaceTests {
             ],
             stringAllowedTokens: [
                 path: [
-                    "KitchenTableSection(title: \"This Device\", subtitle: \"Permission and delivery on this device\")",
-                    "KitchenTableSection(title: \"Push Delivery\", subtitle: \"What will arrive on this build\")",
-                    "Device setup is saved. Push delivery is limited on this build.",
-                    "Push delivery is limited on this build.",
-                    "When full push delivery is available, Spoonjoy will use it automatically."
+                    "This Device",
+                    "Permission and delivery on this device",
+                    "Push Delivery",
+                    "Delivery to this device",
+                    "settings.apns.this-device.heading",
+                    "settings.apns.push-delivery.heading",
+                    "Your notification setup is saved.",
+                    "Push delivery isn't available yet.",
+                    "Your preferences are saved."
                 ]
             ]
         )
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
+    }
+
+    @Test("device notification controls follow permission and registration truth")
+    func deviceNotificationControlsFollowPermissionAndRegistrationTruth() throws {
+        let checkedAt = Date(timeIntervalSince1970: 1_783_000_000)
+        let permissions: [(state: APNsPermissionState, isDenied: Bool)] = [
+            (.notDetermined, false),
+            (.authorized(lastCheckedAt: checkedAt), false),
+            (.denied(lastCheckedAt: checkedAt), true)
+        ]
+        let registrations: [(summary: APNsRegistrationSummary?, isRegistered: Bool)] = [
+            (nil, false),
+            (
+                APNsRegistrationSummary(
+                    deviceID: "device_unregistered",
+                    platform: .ios,
+                    environment: .development,
+                    registrationState: .unregistered,
+                    lastValidatedAt: checkedAt
+                ),
+                false
+            ),
+            (
+                APNsRegistrationSummary(
+                    deviceID: "device_registered",
+                    platform: .ios,
+                    environment: .development,
+                    registrationState: .registered,
+                    lastValidatedAt: checkedAt
+                ),
+                true
+            )
+        ]
+        let preferences = SettingsNotificationPreferences(
+            notifySpoonOnMyRecipe: true,
+            notifyForkOfMyRecipe: false,
+            notifyCookbookSaveOfMine: true,
+            notifyFellowChefOriginCook: false
+        )
+
+        for permission in permissions {
+            for registration in registrations {
+                let viewModel = NotificationAPNsSurfaceViewModel(
+                    data: NotificationAPNsSurfaceData(
+                        preferences: preferences,
+                        apnsRegistration: registration.summary,
+                        permissionState: permission.state,
+                        source: .live(requestID: "req_device_state", validatedAt: checkedAt)
+                    ),
+                    queuedMutations: [],
+                    connectivity: .online,
+                    now: { checkedAt }
+                )
+
+                #expect(viewModel.isRegistered == registration.isRegistered)
+                #expect((viewModel.permissionDeniedBanner != nil) == permission.isDenied)
+            }
+        }
+
+        let source = try String(
+            contentsOf: repoRoot().appendingPathComponent("Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift"),
+            encoding: .utf8
+        )
+        for required in [
+            "if viewModel.isRegistered, let registration = viewModel.apnsRegistration",
+            "return .registered(registration)",
+            "switch viewModel.data.permissionState",
+            "case .denied:",
+            "case .notDetermined:",
+            "case .authorized:",
+            "if let banner = viewModel.permissionDeniedBanner",
+            "case .registrationRequired:",
+            "This device isn't set up for Spoonjoy notifications.",
+            "Turn On for This Device",
+            "Stop on This Device"
+        ] {
+            #expect(source.contains(required), "NotificationAPNsSettingsView.swift missing state contract: \(required)")
+        }
+        #expect(!source.contains("if let registration = viewModel.apnsRegistration"))
+        #expect(!source.contains("case (.denied, _):"))
+    }
+
+    @Test("notification screenshot readiness is measured instead of slept")
+    func notificationScreenshotReadinessIsMeasuredInsteadOfSlept() throws {
+        let root = repoRoot()
+        let settingsSource = try String(
+            contentsOf: root.appendingPathComponent("Apps/Spoonjoy/Shared/Views/SettingsView.swift"),
+            encoding: .utf8
+        )
+        let notificationSource = try String(
+            contentsOf: root.appendingPathComponent("Apps/Spoonjoy/Shared/Views/NotificationAPNsSettingsView.swift"),
+            encoding: .utf8
+        )
+
+        for required in [
+            "overlayPreferenceValue(NotificationAPNsDeviceSectionBoundsPreferenceKey.self)",
+            "observation.hasVisibleDeviceHeader",
+            "notificationFocusCorrectionAnchor",
+            "deviceSectionFrame",
+            "safeAreaTop"
+        ] {
+            #expect(settingsSource.contains(required), "SettingsView.swift missing measured readiness token: \(required)")
+        }
+        for required in [
+            "NotificationAPNsDeviceSectionBoundsPreferenceKey",
+            ".anchorPreference(key: NotificationAPNsDeviceSectionBoundsPreferenceKey.self",
+            "_notifySpoonOnMyRecipe = State(initialValue: viewModel.notificationDraft.notifySpoonOnMyRecipe)",
+            "_notificationDraftID = State(initialValue: Self.notificationIdentity(viewModel.notificationDraft))"
+        ] {
+            #expect(notificationSource.contains(required), "NotificationAPNsSettingsView.swift missing deterministic layout token: \(required)")
+        }
+        for forbidden in ["Task.sleep", "700_000_000", "200_000_000"] {
+            #expect(!settingsSource.contains(forbidden), "SettingsView.swift still uses time-based screenshot readiness: \(forbidden)")
+        }
     }
 
     @Test("APNs action boundary queues only after a system device token exists")

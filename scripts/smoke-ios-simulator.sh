@@ -36,6 +36,8 @@ legacy_log_path="$artifact_root/smoke-ios-simulator.log"
 legacy_blocker_path="$artifact_root/smoke-ios-simulator-blocker.json"
 log_path="${log_path:-$artifact_root/apple/${unit_slug}-smoke-ios-inner.log}"
 blocker_path="${blocker_path:-$artifact_root/apple/${unit_slug}-smoke-ios-simulator-blocker.json}"
+app_stdout_path="$artifact_root/apple/${unit_slug}-app-stdout.log"
+app_stderr_path="$artifact_root/apple/${unit_slug}-app-stderr.log"
 derived_data_path="$artifact_root/DerivedData-iOS"
 prebuilt_app_path="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
 reuse_installed_app="${SPOONJOY_SCREENSHOT_REUSE_INSTALLED_IOS_APP:-0}"
@@ -44,6 +46,7 @@ timeout_seconds="${SPOONJOY_SMOKE_TIMEOUT_SECONDS:-30}"
 boot_timeout_seconds="${SPOONJOY_SMOKE_BOOT_TIMEOUT_SECONDS:-120}"
 launch_attempts="${SPOONJOY_SMOKE_LAUNCH_ATTEMPTS:-3}"
 registration_timeout_seconds="${SPOONJOY_SMOKE_REGISTRATION_TIMEOUT_SECONDS:-120}"
+host_settle_seconds="${SPOONJOY_SMOKE_HOST_SETTLE_SECONDS:-5}"
 list_runtimes_command="xcrun simctl list runtimes"
 boot_command="xcrun simctl boot"
 launch_command="xcrun simctl launch"
@@ -80,39 +83,45 @@ import os
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 
 timeout_seconds = int(sys.argv[1])
 command = sys.argv[2]
-process = subprocess.Popen(
-    ["bash", "-c", command],
-    stdout=subprocess.PIPE,
-    stderr=subprocess.STDOUT,
-    text=True,
-    start_new_session=True,
-)
-try:
-    stdout, _ = process.communicate(timeout=timeout_seconds)
-except subprocess.TimeoutExpired:
+with tempfile.TemporaryFile(mode="w+b") as output:
+    process = subprocess.Popen(
+        ["bash", "-c", command],
+        stdout=output,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    timed_out = False
     try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except (ProcessLookupError, PermissionError):
-        pass
-    time.sleep(0.2)
-    if process.poll() is None:
+        exit_code = process.wait(timeout=timeout_seconds)
+    except subprocess.TimeoutExpired:
+        timed_out = True
         try:
-            os.killpg(process.pid, signal.SIGKILL)
+            os.killpg(process.pid, signal.SIGTERM)
         except (ProcessLookupError, PermissionError):
             pass
-    try:
-        stdout, _ = process.communicate(timeout=1)
-    except subprocess.TimeoutExpired:
-        stdout = ""
-    print(stdout, end="")
-    print(f"command timed out after {timeout_seconds} seconds")
-    sys.exit(124)
-print(stdout, end="")
-sys.exit(process.returncode)
+        time.sleep(0.2)
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
+        exit_code = 124
+
+    output.seek(0)
+    sys.stdout.buffer.write(output.read())
+    sys.stdout.flush()
+    if timed_out:
+        print(f"command timed out after {timeout_seconds} seconds")
+    sys.exit(exit_code)
 PY
 }
 
@@ -292,6 +301,9 @@ fi
   printf 'Simulator host open exit code: %s\n' "$simulator_host_status"
   if [[ "$simulator_host_status" -ne 0 ]]; then
     printf 'Simulator host did not open; continuing because headless CoreSimulator launch may still be available\n'
+  elif [[ "$host_settle_seconds" != "0" ]]; then
+    printf 'Waiting %s seconds for Simulator host foreground readiness\n' "$host_settle_seconds"
+    sleep "$host_settle_seconds"
   fi
 } >> "$log_path" 2>&1
 
@@ -375,13 +387,13 @@ if [[ "$install_status" -ne 0 ]]; then
 fi
 
 {
-  printf 'Launching app: %s --terminate-running-process app.spoonjoy\n' "$launch_command"
+  printf 'Launching app: %s app.spoonjoy\n' "$launch_command"
   launch_status=1
   attempt=1
   while [[ "$attempt" -le "$launch_attempts" ]]; do
     printf 'simulator launch attempt %s/%s\n' "$attempt" "$launch_attempts"
     set +e
-    run_with_timeout "$launch_command --terminate-running-process $udid app.spoonjoy"
+    run_with_timeout "$launch_command --stdout='$app_stdout_path' --stderr='$app_stderr_path' $udid app.spoonjoy"
     launch_status=$?
     set -e
     printf 'simulator launch attempt %s exit code: %s\n' "$attempt" "$launch_status"
@@ -405,7 +417,7 @@ fi
 if [[ "$launch_status" -ne 0 ]]; then
   write_blocker \
     "CoreSimulator" \
-    "$launch_command --terminate-running-process $udid app.spoonjoy" \
+    "$launch_command --stdout=$app_stdout_path --stderr=$app_stderr_path $udid app.spoonjoy" \
     "$log_path" \
     "CoreSimulator app launch failed or hit a timeout after $launch_attempts attempt(s)." \
     "Confirm the selected simulator can foreground Spoonjoy, reset the simulator if needed, and rerun the iOS launch smoke."

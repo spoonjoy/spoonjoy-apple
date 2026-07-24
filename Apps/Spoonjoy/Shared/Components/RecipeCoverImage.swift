@@ -266,6 +266,7 @@ struct KitchenTableNoPhotoView: View {
                 }
             }
         }
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
     }
 

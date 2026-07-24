@@ -52,7 +52,7 @@ public struct CookModeSystemTimerViewModel: Equatable {
     }
 
     public var systemUnavailableMessage: String {
-        "System timers are available on iPhone and iPad with iOS 26.1 or newer."
+        "Timer unavailable."
     }
 }
 

@@ -824,6 +824,21 @@ struct CoverControlSurfaceTests {
         try assertNormalizedCoverJPEG(staged)
     }
 
+    @Test("cover photo selection session rejects stale and cleared completions")
+    func coverPhotoSelectionSessionRejectsStaleAndClearedCompletions() {
+        var session = RecipeCoverPhotoSelectionSession()
+
+        let first = session.beginSelection()
+        let second = session.beginSelection()
+
+        #expect(!session.accepts(first))
+        #expect(session.accepts(second))
+
+        session.invalidate()
+
+        #expect(!session.accepts(second))
+    }
+
     @Test("cover photo staging normalizes HEIF PNG JPEG WebP and oversized input to bounded JPEG")
     func coverPhotoStagingNormalizesSupportedFormatsToBoundedJPEG() throws {
         let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
@@ -1208,12 +1223,16 @@ struct CoverControlSurfaceTests {
         #expect(coverControlsSource.contains("import UniformTypeIdentifiers"))
         #expect(coverControlsSource.contains("@State private var selectedCoverPhotoItem: PhotosPickerItem?"))
         #expect(coverControlsSource.contains("@State private var stagedCoverPhoto: NativeStagedMediaUpload?"))
+        #expect(coverControlsSource.contains("@State private var photoSelectionSession = RecipeCoverPhotoSelectionSession()"))
+        #expect(coverControlsSource.contains("@State private var photoStagingTask: Task<Void, Never>?"))
         #expect(coverControlsSource.contains("let stagedMediaUsage: RecipeCoverPhotoStagedMediaUsage"))
         #expect(coverControlsSource.contains("PhotosPicker(selection: $selectedCoverPhotoItem, matching: .images)"))
         #expect(coverControlsSource.contains("loadTransferable(type: Data.self)"))
         #expect(coverControlsSource.contains("RecipeCoverPhotoStagingPolicy.offlineProductContract"))
         #expect(coverControlsSource.contains("private static let photoStagingWorker = RecipeCoverPhotoStagingWorker()"))
         #expect(coverControlsSource.contains("stageSelectedCoverPhoto"))
+        #expect(coverControlsSource.contains("photoSelectionSession.accepts(token)"))
+        #expect(coverControlsSource.contains("invalidatePhotoStaging()"))
         #expect(coverControlsSource.contains("NativeStagedMediaUpload("))
         #expect(coverControlsSource.contains("\"image/heic\""))
         #expect(coverControlsSource.contains("\"image/webp\""))
@@ -1235,28 +1254,31 @@ struct CoverControlSurfaceTests {
         #expect(!rejectionSource.contains("stagedCoverPhoto = nil"))
     }
 
-    @Test("native photo studio exposes upload spoon editorial placeholder and regeneration controls")
-    func nativePhotoStudioExposesUploadSpoonEditorialPlaceholderAndRegenerationControls() throws {
+    @Test("native photo studio exposes chef photo workflows without placeholder generation")
+    func nativePhotoStudioExposesChefPhotoWorkflowsWithoutPlaceholderGeneration() throws {
         let coverControlsSource = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
 
         let uploadTokens = [
             #"Text("Photo Studio")"#,
-            #"@State private var shouldActivateUploadedCover = true"#,
+            #".padding(.vertical, 12)"#,
             #"@State private var shouldGenerateEditorialCover = true"#,
             #"@State private var shouldPostUploadedPhotoAsSpoon = true"#,
             #"@State private var spoonNote = """#,
             #"@State private var spoonNextTime = """#,
             #"@State private var spoonCookedAt = """#,
-            #"Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)"#,
-            #"Toggle("Editorialize cover", isOn: $shouldGenerateEditorialCover)"#,
-            #"Toggle("Post original as a Spoon", isOn: $shouldPostUploadedPhotoAsSpoon)"#,
-            #"DisclosureGroup("Spoon details""#,
+            #"Toggle(isOn: $shouldGenerateEditorialCover)"#,
+            #"Text("Editorialize cover")"#,
+            #"Toggle(isOn: $shouldPostUploadedPhotoAsSpoon)"#,
+            #"Text("Post original as a Spoon")"#,
+            #".padding(.vertical, 8)"#,
+            #"DisclosureGroup {"#,
+            #"Text("Spoon details")"#,
             #"TextField("Note", text: $spoonNote)"#,
             #"TextField("Next time", text: $spoonNextTime)"#,
             #"TextField("Cooked at", text: $spoonCookedAt)"#,
             #"Button { submitStagedCoverPhoto() }"#,
             #"runAction(.uploadPhoto("#,
-            #"activateWhenReady: shouldActivateUploadedCover"#,
+            #"activateWhenReady: true"#,
             #"generateEditorial: shouldGenerateEditorialCover"#,
             #"postAsSpoon: shouldPostUploadedPhotoAsSpoon"#,
             #"note: trimmedOptional(spoonNote)"#,
@@ -1266,34 +1288,38 @@ struct CoverControlSurfaceTests {
         let missingUploadTokens = uploadTokens.filter { !coverControlsSource.contains($0) }
         #expect(missingUploadTokens.isEmpty, "Missing native upload/Spoon control tokens: \(missingUploadTokens)")
 
-        let generationTokens = [
-            #"@State private var placeholderPromptAddition = """#,
-            #"TextField("Placeholder direction", text: $placeholderPromptAddition)"#,
-            #"runAction(.generatePlaceholder("#,
-            #"promptAddition: trimmedOptional(placeholderPromptAddition)"#,
-            #"activateWhenReady: true"#,
+        let headerStart = try #require(coverControlsSource.range(of: "private var header: some View"))
+        let headerEnd = try #require(coverControlsSource.range(of: "@ViewBuilder private var statusMessages"))
+        let headerSource = coverControlsSource[headerStart.lowerBound..<headerEnd.lowerBound]
+        #expect(headerSource.contains(".frame(minHeight: KitchenTableTheme.minimumTouchTarget)"))
+        #expect(headerSource.contains(".contentShape(Rectangle())"))
+
+        let uploadSource = try swiftMemberBody(
+            named: "photoUploadControl",
+            in: coverControlsSource
+        )
+        #expect(uploadSource.contains(#"Text("Spoon details")"#))
+        #expect(uploadSource.contains(".foregroundStyle(KitchenTableTheme.charcoal)"))
+        #expect(uploadSource.components(separatedBy: ".controlSize(.extraLarge)").count == 4)
+        #expect(uploadSource.components(separatedBy: ".frame(minHeight: KitchenTableTheme.minimumTouchTarget)").count == 5)
+        #expect(uploadSource.contains(#".accessibilityIdentifier("recipe-covers.spoon-details")"#))
+        #expect(uploadSource.contains(#".accessibilityLabel("Note")"#))
+        #expect(uploadSource.contains(#".accessibilityLabel("Next time")"#))
+        #expect(uploadSource.contains(#".accessibilityLabel("Cooked at")"#))
+
+        let regenerationTokens = [
             #"@State private var regenerationPromptAdditions: [String: String] = [:]"#,
             #"TextField("Regeneration direction", text: regenerationPromptBinding(for: cover.id))"#,
             #"promptAddition: trimmedOptional(regenerationPromptAdditions[cover.id] ?? "")"#,
             #"activateWhenReady: cover.isActive"#
         ]
-        let missingGenerationTokens = generationTokens.filter { !coverControlsSource.contains($0) }
-        #expect(missingGenerationTokens.isEmpty, "Missing native generation control tokens: \(missingGenerationTokens)")
+        let missingRegenerationTokens = regenerationTokens.filter { !coverControlsSource.contains($0) }
+        #expect(missingRegenerationTokens.isEmpty, "Missing native regeneration control tokens: \(missingRegenerationTokens)")
 
-        let placeholderGenerationSource = try swiftMemberBody(
-            named: "placeholderGenerationControl",
-            in: coverControlsSource
-        )
-        for token in [
-            #"Button { generatePlaceholderCover() }"#,
-            #".disabled(connectivity == .offline)"#
-        ] {
-            #expect(
-                placeholderGenerationSource.contains(token),
-                "placeholderGenerationControl missing scoped token \(token)"
-            )
-        }
-
+        #expect(coverControlsSource.contains(
+            ".textFieldStyle(.roundedBorder)\n                        .controlSize(.extraLarge)\n                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)"
+        ))
+        #expect(coverControlsSource.contains(#".accessibilityLabel("Regeneration direction")"#))
         let processingTokens = [
             "ProgressView()",
             #"Label("Editorializing cover", systemImage: "sparkles")"#,
@@ -1303,8 +1329,102 @@ struct CoverControlSurfaceTests {
         let missingProcessingTokens = processingTokens.filter { !coverControlsSource.contains($0) }
         #expect(missingProcessingTokens.isEmpty, "Missing native processing/copy tokens: \(missingProcessingTokens)")
 
-        let forbiddenTokens = [#"Text("Recipe Covers")"#].filter { coverControlsSource.contains($0) }
-        #expect(forbiddenTokens.isEmpty, "Native Photo Studio still renders stale copy: \(forbiddenTokens)")
+        let forbiddenTokens = [
+            #"Text("Recipe Covers")"#,
+            #"@State private var shouldActivateUploadedCover = true"#,
+            #"Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)"#,
+            #"activateWhenReady: shouldActivateUploadedCover"#,
+            #".disabled(connectivity == .offline)"#,
+            #"placeholderPromptAddition"#,
+            #"placeholderGenerationControl"#,
+            #"generatePlaceholderCover"#,
+            #".generatePlaceholder("#,
+            #"Text("AI placeholder")"#,
+            #"Label("Generate Placeholder", systemImage: "sparkles")"#,
+            #"TextField("Placeholder direction""#,
+            #"recipe-covers.generate-placeholder"#
+        ].filter { coverControlsSource.contains($0) }
+        #expect(forbiddenTokens.isEmpty, "Native Photo Studio still exposes stale or placeholder generation UI: \(forbiddenTokens)")
+    }
+
+    @Test("native photo studio action groups adapt to narrow layouts with stable identifiers")
+    func nativePhotoStudioActionGroupsAdaptToNarrowLayoutsWithStableIdentifiers() throws {
+        let source = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+
+        let uploadStart = try #require(source.range(of: "private var photoUploadControl: some View"))
+        let uploadEnd = try #require(source.range(of: "private var noCoverControl: some View"))
+        let uploadSource = source[uploadStart.lowerBound..<uploadEnd.lowerBound]
+        for token in [
+            "ViewThatFits(in: .horizontal)",
+            "HStack(alignment: .center, spacing: 12)",
+            "VStack(alignment: .leading, spacing: 10)",
+            "stagedPhotoActions(hasStagedPhoto: hasStagedPhoto, fillsAvailableWidth: false)",
+            "stagedPhotoActions(hasStagedPhoto: hasStagedPhoto, fillsAvailableWidth: true)",
+            ".frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)",
+            #".accessibilityIdentifier("recipe-covers.staged-photo-status")"#,
+            #".accessibilityIdentifier("recipe-covers.clear-photo")"#,
+            #".accessibilityIdentifier("recipe-covers.save-photo")"#
+        ] {
+            #expect(uploadSource.contains(token), "Adaptive staged-photo controls missing token \(token)")
+        }
+
+        let coverRowStart = try #require(source.range(of: "private func coverRow(_ cover: RecipeCoverCandidate) -> some View"))
+        let coverRowEnd = try #require(source.range(of: "private func replacementOptions(for cover: RecipeCoverCandidate)"))
+        let coverRowSource = source[coverRowStart.lowerBound..<coverRowEnd.lowerBound]
+        for token in [
+            "ViewThatFits(in: .horizontal)",
+            "coverMutationActions(for: cover, fillsAvailableWidth: false)",
+            "coverMutationActions(for: cover, fillsAvailableWidth: true)",
+            #".accessibilityIdentifier("recipe-covers.cover-actions.\(cover.id)")"#,
+            #".accessibilityIdentifier("recipe-covers.regenerate.\(cover.id)")"#,
+            #".accessibilityIdentifier("recipe-covers.archive-replace.\(cover.id)")"#,
+            #"cover.id == data.covers.last?.id ? "recipe-covers.terminal" : "recipe-covers.archive.\(cover.id)""#
+        ] {
+            #expect(coverRowSource.contains(token), "Adaptive cover mutation controls missing token \(token)")
+        }
+        #expect(
+            coverRowSource.components(separatedBy: ".frame(maxWidth: fillsAvailableWidth ? .infinity : nil, alignment: .leading)").count >= 4,
+            "Narrow cover mutation controls must expand and align consistently"
+        )
+    }
+
+    @Test("native screenshot fixtures exercise staged and server-backed photo studio actions")
+    func nativeScreenshotFixturesExercisePhotoStudioActionStates() throws {
+        let source = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift")
+        let proofWriter = try readCoverControlsRepoFile("Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift")
+        let capture = try readCoverControlsRepoFile("scripts/capture-native-screenshots.sh")
+        let validator = try readCoverControlsRepoFile("scripts/validate-design-review.rb")
+        for token in [
+            "#if DEBUG",
+            #"static let environmentKey = "SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE""#,
+            #"static let actionStates = "action-states""#,
+            #"id: "cover_primary""#,
+            #"id: "cover_alternate""#,
+            "isServerBacked: true",
+            "activeVariant: .image",
+            #"localStageID: "screenshot-cover-photo""#,
+            "RecipeCoverScreenshotFixture.controlsData(recipe: loadedRecipe)",
+            "stagedCoverPhoto = RecipeCoverScreenshotFixture.stagedPhoto"
+        ] {
+            #expect(source.contains(token), "Photo Studio screenshot action fixture missing token \(token)")
+        }
+        #expect(proofWriter.contains(#""screenshotRecipeCoversFixture": environment["SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE"]"#))
+        for token in [
+            #"recipe_covers_capture_fixture="action-states""#,
+            "SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE",
+            "SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE",
+            #"manifest["recipeCoverControlsFixture"] = "action-states""#,
+            #"manifest["renderedSurfaceAnchors"] = ["stagedPhotoActions", "coverMutationActions"]"#
+        ] {
+            #expect(capture.contains(token), "Photo Studio screenshot capture missing token \(token)")
+        }
+        for token in [
+            #""recipe-covers" => "recipe-covers.terminal""#,
+            #"launch_proof["screenshotRecipeCoversFixture"] == "action-states""#,
+            #"manifest["recipeCoverControlsFixture"] == "action-states""#
+        ] {
+            #expect(validator.contains(token), "Photo Studio screenshot validation missing token \(token)")
+        }
     }
 
     private static func cover(

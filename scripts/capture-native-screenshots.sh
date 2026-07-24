@@ -27,14 +27,34 @@ done
 
 apple_dir="$artifact_root/apple"
 mkdir -p "$artifact_root/screenshots" "$apple_dir"
+artifact_root_abs="$(cd "$artifact_root" && pwd -P)"
 ios_screenshot="$artifact_root/screenshots/ios-mobile.png"
+ios_xxxl_screenshot="$artifact_root/screenshots/ios-mobile-xxxl.png"
+ios_accessibility_screenshot="$artifact_root/screenshots/ios-mobile-accessibility.png"
 ios_tablet_screenshot="$artifact_root/screenshots/ios-tablet.png"
+ios_tablet_xxxl_screenshot="$artifact_root/screenshots/ios-tablet-xxxl.png"
+ios_tablet_accessibility_screenshot="$artifact_root/screenshots/ios-tablet-accessibility.png"
+ios_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-deep-scroll.png"
+ios_xxxl_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-xxxl-deep-scroll.png"
+ios_accessibility_deep_scroll_screenshot="$artifact_root/screenshots/ios-mobile-accessibility-deep-scroll.png"
+ios_tablet_deep_scroll_screenshot="$artifact_root/screenshots/ios-tablet-deep-scroll.png"
+ios_tablet_xxxl_deep_scroll_screenshot="$artifact_root/screenshots/ios-tablet-xxxl-deep-scroll.png"
+ios_tablet_accessibility_deep_scroll_screenshot="$artifact_root/screenshots/ios-tablet-accessibility-deep-scroll.png"
 macos_screenshot="$artifact_root/screenshots/macos-desktop.png"
+macos_deep_scroll_screenshot="$artifact_root/screenshots/macos-desktop-deep-scroll.png"
+macos_screenshot_diagnostic="$artifact_root/screenshots/macos-desktop-diagnostic.png"
+ios_app="${SPOONJOY_SCREENSHOT_IOS_APP_PATH:-}"
+ios_ui_test_runner="${SPOONJOY_SCREENSHOT_IOS_UI_TEST_RUNNER_PATH:-}"
+ios_xctestrun="${SPOONJOY_SCREENSHOT_IOS_XCTESTRUN_PATH:-}"
+allow_attested_ios_products="${SPOONJOY_SCREENSHOT_ALLOW_ATTESTED_IOS_PRODUCTS:-0}"
+ios_provenance_manifest="${SPOONJOY_SCREENSHOT_PROVENANCE_MANIFEST:-}"
 macos_app="${SPOONJOY_SCREENSHOT_MACOS_APP_PATH:-$artifact_root/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app}"
 design_review="$artifact_root/design-review.json"
 design_review_blocked="$artifact_root/design-review-blocked.json"
 matrix_log="$artifact_root/apple/${unit_slug}-screenshots.log"
 capture_log="$artifact_root/apple/${unit_slug}-screenshots-inner.log"
+ios_app_stdout_log="$artifact_root/apple/${unit_slug}-ios-app-stdout.log"
+ios_app_stderr_log="$artifact_root/apple/${unit_slug}-ios-app-stderr.log"
 ios_smoke_log="$artifact_root/apple/${unit_slug}-screenshots-smoke-ios.log"
 ipad_smoke_log="$artifact_root/apple/${unit_slug}-screenshots-smoke-ipad.log"
 macos_smoke_log="$artifact_root/apple/${unit_slug}-screenshots-smoke-macos.log"
@@ -42,11 +62,14 @@ xcode_blocker="$artifact_root/apple/${unit_slug}-screenshots-xcode-platform-bloc
 ios_blocker="$artifact_root/apple/${unit_slug}-screenshots-core-simulator-blocker.json"
 ipad_blocker="$artifact_root/apple/${unit_slug}-screenshots-ipad-core-simulator-blocker.json"
 macos_blocker="$artifact_root/apple/${unit_slug}-screenshots-macos-launch-blocker.json"
-state_file="${HOME}/Library/Application Support/Spoonjoy/native-app-state.json"
-cache_file="${HOME}/Library/Application Support/Spoonjoy/native-durable-cache.json"
-sync_file="${HOME}/Library/Application Support/Spoonjoy/native-sync-store.json"
-proof_file="${HOME}/Library/Application Support/Spoonjoy/native-screenshot-proof.json"
-auth_file="${HOME}/Library/Application Support/Spoonjoy/debug-auth-session.json"
+macos_accessibility_blocker="$artifact_root/apple/${unit_slug}-screenshots-macos-accessibility-blocker.json"
+macos_state_directory="$artifact_root_abs/macos-state/Spoonjoy"
+state_file="$macos_state_directory/native-app-state.json"
+cache_file="$macos_state_directory/native-durable-cache.json"
+sync_file="$macos_state_directory/native-sync-store.json"
+fixture_cover_source="Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png"
+proof_file="$macos_state_directory/native-screenshot-proof.json"
+auth_file="$macos_state_directory/debug-auth-session.json"
 state_backup="$artifact_root/native-app-state-capture-backup.json"
 cache_backup="$artifact_root/native-durable-cache-capture-backup.json"
 sync_backup="$artifact_root/native-sync-store-capture-backup.json"
@@ -60,29 +83,95 @@ ios_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ios.json"
 ipad_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-ipad.json"
 macos_proof_artifact_rel="apple/${unit_slug}-screenshot-proof-macos.json"
 accessibility_proof_ios="$artifact_root/apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ios_xxxl="$artifact_root/apple/${unit_slug}-accessibility-proof-ios-xxxl.json"
+accessibility_proof_ios_ax="$artifact_root/apple/${unit_slug}-accessibility-proof-ios-ax.json"
 accessibility_proof_ipad="$artifact_root/apple/${unit_slug}-accessibility-proof-ipad.json"
+accessibility_proof_ipad_xxxl="$artifact_root/apple/${unit_slug}-accessibility-proof-ipad-xxxl.json"
+accessibility_proof_ipad_ax="$artifact_root/apple/${unit_slug}-accessibility-proof-ipad-ax.json"
 accessibility_proof_macos="$artifact_root/apple/${unit_slug}-accessibility-proof-macos.json"
 accessibility_proof_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ios_xxxl_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios-xxxl.json"
+accessibility_proof_ios_ax_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ios-ax.json"
 accessibility_proof_ipad_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ipad.json"
+accessibility_proof_ipad_xxxl_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ipad-xxxl.json"
+accessibility_proof_ipad_ax_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-ipad-ax.json"
 accessibility_proof_macos_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-accessibility-proof-macos.json"
 accessibility_proof_ios_rel="apple/${unit_slug}-accessibility-proof-ios.json"
+accessibility_proof_ios_xxxl_rel="apple/${unit_slug}-accessibility-proof-ios-xxxl.json"
+accessibility_proof_ios_ax_rel="apple/${unit_slug}-accessibility-proof-ios-ax.json"
 accessibility_proof_ipad_rel="apple/${unit_slug}-accessibility-proof-ipad.json"
+accessibility_proof_ipad_xxxl_rel="apple/${unit_slug}-accessibility-proof-ipad-xxxl.json"
+accessibility_proof_ipad_ax_rel="apple/${unit_slug}-accessibility-proof-ipad-ax.json"
 accessibility_proof_macos_rel="apple/${unit_slug}-accessibility-proof-macos.json"
+accessibility_proof_ios_deep_scroll="${accessibility_proof_ios%.json}-deep-scroll.json"
+accessibility_proof_ios_xxxl_deep_scroll="${accessibility_proof_ios_xxxl%.json}-deep-scroll.json"
+accessibility_proof_ios_ax_deep_scroll="${accessibility_proof_ios_ax%.json}-deep-scroll.json"
+accessibility_proof_ipad_deep_scroll="${accessibility_proof_ipad%.json}-deep-scroll.json"
+accessibility_proof_ipad_xxxl_deep_scroll="${accessibility_proof_ipad_xxxl%.json}-deep-scroll.json"
+accessibility_proof_ipad_ax_deep_scroll="${accessibility_proof_ipad_ax%.json}-deep-scroll.json"
+accessibility_proof_ios_deep_scroll_abs="${accessibility_proof_ios_abs%.json}-deep-scroll.json"
+accessibility_proof_ios_xxxl_deep_scroll_abs="${accessibility_proof_ios_xxxl_abs%.json}-deep-scroll.json"
+accessibility_proof_ios_ax_deep_scroll_abs="${accessibility_proof_ios_ax_abs%.json}-deep-scroll.json"
+accessibility_proof_ipad_deep_scroll_abs="${accessibility_proof_ipad_abs%.json}-deep-scroll.json"
+accessibility_proof_ipad_xxxl_deep_scroll_abs="${accessibility_proof_ipad_xxxl_abs%.json}-deep-scroll.json"
+accessibility_proof_ipad_ax_deep_scroll_abs="${accessibility_proof_ipad_ax_abs%.json}-deep-scroll.json"
+accessibility_proof_ios_deep_scroll_rel="${accessibility_proof_ios_rel%.json}-deep-scroll.json"
+accessibility_proof_ios_xxxl_deep_scroll_rel="${accessibility_proof_ios_xxxl_rel%.json}-deep-scroll.json"
+accessibility_proof_ios_ax_deep_scroll_rel="${accessibility_proof_ios_ax_rel%.json}-deep-scroll.json"
+accessibility_proof_ipad_deep_scroll_rel="${accessibility_proof_ipad_rel%.json}-deep-scroll.json"
+accessibility_proof_ipad_xxxl_deep_scroll_rel="${accessibility_proof_ipad_xxxl_rel%.json}-deep-scroll.json"
+accessibility_proof_ipad_ax_deep_scroll_rel="${accessibility_proof_ipad_ax_rel%.json}-deep-scroll.json"
+observed_accessibility_ios="$artifact_root/apple/${unit_slug}-observed-accessibility-ios.json"
+observed_accessibility_ios_xxxl="$artifact_root/apple/${unit_slug}-observed-accessibility-ios-xxxl.json"
+observed_accessibility_ios_ax="$artifact_root/apple/${unit_slug}-observed-accessibility-ios-ax.json"
+observed_accessibility_ipad="$artifact_root/apple/${unit_slug}-observed-accessibility-ipad.json"
+observed_accessibility_ipad_xxxl="$artifact_root/apple/${unit_slug}-observed-accessibility-ipad-xxxl.json"
+observed_accessibility_ipad_ax="$artifact_root/apple/${unit_slug}-observed-accessibility-ipad-ax.json"
+observed_accessibility_macos="$artifact_root/apple/${unit_slug}-observed-accessibility-macos.json"
+observed_accessibility_macos_diagnostic="$artifact_root/apple/${unit_slug}-observed-accessibility-macos-diagnostic.json"
+observed_accessibility_ios_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios.json"
+observed_accessibility_ios_xxxl_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios-xxxl.json"
+observed_accessibility_ios_ax_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ios-ax.json"
+observed_accessibility_ipad_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ipad.json"
+observed_accessibility_ipad_xxxl_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ipad-xxxl.json"
+observed_accessibility_ipad_ax_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-ipad-ax.json"
+observed_accessibility_macos_abs="$(cd "$apple_dir" && pwd -P)/${unit_slug}-observed-accessibility-macos.json"
+observed_accessibility_ios_rel="apple/${unit_slug}-observed-accessibility-ios.json"
+observed_accessibility_ios_xxxl_rel="apple/${unit_slug}-observed-accessibility-ios-xxxl.json"
+observed_accessibility_ios_ax_rel="apple/${unit_slug}-observed-accessibility-ios-ax.json"
+observed_accessibility_ipad_rel="apple/${unit_slug}-observed-accessibility-ipad.json"
+observed_accessibility_ipad_xxxl_rel="apple/${unit_slug}-observed-accessibility-ipad-xxxl.json"
+observed_accessibility_ipad_ax_rel="apple/${unit_slug}-observed-accessibility-ipad-ax.json"
+observed_accessibility_macos_rel="apple/${unit_slug}-observed-accessibility-macos.json"
+ios_observer_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_OBSERVER_TIMEOUT_SECONDS:-300}"
+macos_observer_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_OBSERVER_TIMEOUT_SECONDS:-60}"
+macos_observer_preflight_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_OBSERVER_PREFLIGHT_TIMEOUT_SECONDS:-5}"
 ios_accessibility_proof_runtime_path=""
 screenshot_proof_path=""
+screenshot_run_nonce=""
+macos_screenshot_pid=""
+macos_window_id=""
+macos_display_assertion_pid=""
+macos_display_wake_pid=""
+ios_state_directory=""
 screenshot_route="kitchen"
 shopping_capture_variant="normal"
 search_capture_variant="blank"
-capture_surface_variant="normal"
+capture_surface_variant="empty"
 settings_capture_variant="profile"
 settings_apns_permission_state=""
 settings_apns_registration_state=""
 screenshot_auth_enabled="1"
+recipe_covers_capture_fixture=""
 expected_accessibility_source=""
 if [[ -n "$requested_route" ]]; then
   screenshot_route="$requested_route"
 else
-  if [[ "$unit_slug" == *recipe-detail* || "$unit_slug" == *recipe_detail* ]]; then
+  if [[ "$unit_slug" == *recipe-editor* || "$unit_slug" == *recipe_editor* ]]; then
+    screenshot_route="recipe-editor"
+  elif [[ "$unit_slug" == *recipe-covers* || "$unit_slug" == *recipe_covers* ]]; then
+    screenshot_route="recipe-covers"
+  elif [[ "$unit_slug" == *recipe-detail* || "$unit_slug" == *recipe_detail* ]]; then
     screenshot_route="recipe-detail"
   elif [[ "$unit_slug" == *cook-log* || "$unit_slug" == *cook_log* ]]; then
     screenshot_route="cook-log"
@@ -110,6 +199,10 @@ else
     screenshot_route="shopping-list"
   elif [[ "$unit_slug" == *chefs* ]]; then
     screenshot_route="chefs"
+  elif [[ "$unit_slug" == *profile-graph* || "$unit_slug" == *profile_graph* ]]; then
+    screenshot_route="profile-graph"
+  elif [[ "$unit_slug" == *profile* ]]; then
+    screenshot_route="profile"
   elif [[ "$unit_slug" == *search-typed-results* || "$unit_slug" == *search_typed_results* ]]; then
     screenshot_route="search-typed-results"
   elif [[ "$unit_slug" == *search-scoped-recipes* || "$unit_slug" == *search_scoped_recipes* ]]; then
@@ -138,6 +231,8 @@ else
     screenshot_route="capture"
   elif [[ "$unit_slug" == *settings* || "$unit_slug" == *notification* || "$unit_slug" == *notifications* || "$unit_slug" == *apns* ]]; then
     screenshot_route="settings"
+  elif [[ "$unit_slug" == *unknown-link* || "$unit_slug" == *unknown_link* ]]; then
+    screenshot_route="unknown-link"
   fi
 fi
 if [[ "$screenshot_route" == "shopping-list-empty" ]]; then
@@ -212,10 +307,17 @@ if [[ "$screenshot_route" == "settings" ]]; then
     settings_apns_registration_state="unregistered"
   fi
 fi
+expected_surface_variant=""
+if [[ "$screenshot_route" == "shopping-list" ]]; then
+  expected_surface_variant="$shopping_capture_variant"
+elif [[ "$screenshot_route" == "capture" ]]; then
+  expected_surface_variant="$capture_surface_variant"
+fi
 settings_capture_account_id="chef_settings_capture"
 kitchen_capture_account_id="chef_kitchen_capture"
 search_capture_account_id="chef_search_capture"
 shopping_capture_account_id="chef_shopping_capture"
+owner_capture_account_id="chef_ari"
 cookbook_detail_id="cookbook_weeknights"
 shopping_conflict_client_mutation_id="cm_shopping_conflict_capture"
 shopping_conflict_launch_client_mutation_id=""
@@ -229,17 +331,29 @@ expected_search_query=""
 expected_search_scope="all"
 expected_search_route_identifier="search:all:"
 recipe_detail_focus=""
-proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-60}"
+proof_attempts="${SPOONJOY_SCREENSHOT_PROOF_ATTEMPTS:-360}"
 proof_sleep_seconds="${SPOONJOY_SCREENSHOT_PROOF_SLEEP_SECONDS:-0.5}"
 ios_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 ios_boot_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS:-90}"
-ios_foreground_probe_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS:-2}"
+ios_host_settle_seconds="${SPOONJOY_SCREENSHOT_IOS_HOST_SETTLE_SECONDS:-5}"
+ios_simulator_spawn_arch="${SPOONJOY_SCREENSHOT_SIMULATOR_ARCH:-$(uname -m)}"
 macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
 ios_smoke_attempts="${SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS:-2}"
-ios_capture_attempts="${SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS:-2}"
+ios_capture_attempts="${SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS:-3}"
+ios_visual_evidence_failure_seen=false
+ios_evidence_publication_failure_seen=false
+ios_capture_generation_committed=false
+case "$ios_simulator_spawn_arch" in
+  arm64|x86_64) ;;
+  *)
+    printf 'Unsupported simulator spawn architecture: %s\n' "$ios_simulator_spawn_arch" >&2
+    exit 2
+    ;;
+esac
 expected_recorded_route="$screenshot_route"
 deep_link_path="$screenshot_route"
+deep_link_url=""
 macos_window_title="Kitchen"
 # Legacy contract marker: older capture code opened spoonjoy://$screenshot_route directly.
 case "$screenshot_route" in
@@ -266,6 +380,19 @@ case "$screenshot_route" in
     expected_recorded_route="recipe:recipe_lemon_pantry_pasta"
     deep_link_path="recipes/recipe_lemon_pantry_pasta"
     macos_window_title="Lemon Pantry Pasta"
+    ;;
+  recipe-editor)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="recipe-editor:recipe_lemon_pantry_pasta"
+    deep_link_path="recipes/recipe_lemon_pantry_pasta/edit"
+    macos_window_title="Recipes"
+    ;;
+  recipe-covers)
+    capture_account_id="$owner_capture_account_id"
+    recipe_covers_capture_fixture="action-states"
+    expected_recorded_route="recipe-covers:recipe_lemon_pantry_pasta"
+    deep_link_path="recipes/recipe_lemon_pantry_pasta/covers"
+    macos_window_title="Recipes"
     ;;
   cook-log)
     capture_account_id="$kitchen_capture_account_id"
@@ -304,6 +431,18 @@ case "$screenshot_route" in
     deep_link_path="chefs"
     macos_window_title="Chefs"
     ;;
+  profile)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="profile:ari"
+    deep_link_path="users/ari"
+    macos_window_title="Profile"
+    ;;
+  profile-graph)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="profile-graph:ari:kitchen-visitors:1"
+    deep_link_path="users/ari/kitchen-visitors?page=1"
+    macos_window_title="Kitchen Visitors"
+    ;;
   search)
     capture_account_id="$search_capture_account_id"
     search_capture_disable_focus="1"
@@ -334,7 +473,7 @@ case "$screenshot_route" in
         ;;
       no-results)
         expected_search_query="kumquat"
-        expected_search_scope="recipes"
+        expected_search_scope="all"
         ;;
       *)
         printf 'Unsupported search capture variant: %s\n' "$search_capture_variant" >&2
@@ -373,11 +512,19 @@ case "$screenshot_route" in
     deep_link_path="settings"
     macos_window_title="Settings"
     ;;
+  unknown-link)
+    capture_account_id="$owner_capture_account_id"
+    expected_recorded_route="unknown-link"
+    deep_link_path="unknown"
+    deep_link_url="spoonjoy://unknown"
+    macos_window_title="Unknown Link"
+    ;;
   *)
     printf 'Unsupported screenshot route: %s\n' "$screenshot_route" >&2
     exit 2
     ;;
 esac
+deep_link_url="${deep_link_url:-spoonjoy://$deep_link_path}"
 
 write_blocker() {
   local path="$1"
@@ -404,7 +551,11 @@ write_blocker() {
 write_design_review_blocked() {
   local source_blocker_path="$1"
   ruby -rjson -e '
-    source_path, output_path, ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof = ARGV
+    source_path, output_path, ios_accessibility_proof, ios_xxxl_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, ios_observed, ios_xxxl_observed, ios_ax_observed, ipad_observed, macos_observed = ARGV
+    ipad_xxxl_accessibility_proof = ipad_accessibility_proof.sub(/\.json\z/, "-xxxl.json")
+    ipad_ax_accessibility_proof = ipad_accessibility_proof.sub(/\.json\z/, "-ax.json")
+    ipad_xxxl_observed = ipad_observed.sub(/\.json\z/, "-xxxl.json")
+    ipad_ax_observed = ipad_observed.sub(/\.json\z/, "-ax.json")
     blocker = JSON.parse(File.read(source_path))
     manifest = {
       "blocked" => true,
@@ -412,21 +563,54 @@ write_design_review_blocked() {
       "sourceBlockerPath" => source_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-mobile-xxxl.png",
+        "screenshots/ios-mobile-accessibility.png",
         "screenshots/ios-tablet.png",
+        "screenshots/ios-tablet-xxxl.png",
+        "screenshots/ios-tablet-accessibility.png",
+        "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-xxxl-deep-scroll.png",
+        "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "screenshots/ios-tablet-deep-scroll.png",
+        "screenshots/ios-tablet-xxxl-deep-scroll.png",
+        "screenshots/ios-tablet-accessibility-deep-scroll.png",
         "screenshots/macos-desktop.png",
+        "screenshots/macos-desktop-deep-scroll.png",
         "design-review.json",
         ios_accessibility_proof,
+        ios_xxxl_accessibility_proof,
+        ios_ax_accessibility_proof,
         ipad_accessibility_proof,
-        macos_accessibility_proof
+        ipad_xxxl_accessibility_proof,
+        ipad_ax_accessibility_proof,
+        macos_accessibility_proof,
+        ios_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ios_xxxl_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ios_ax_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ipad_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ipad_xxxl_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ipad_ax_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ios_observed,
+        ios_xxxl_observed,
+        ios_ax_observed,
+        ipad_observed,
+        ipad_xxxl_observed,
+        ipad_ax_observed,
+        macos_observed
       ],
       "reason" => blocker.fetch("reason"),
       "ownerAction" => blocker.fetch("ownerAction")
     }
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel"
-  rm -f "$ios_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
-  rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
-  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
+  ' "$source_blocker_path" "$design_review_blocked" "$accessibility_proof_ios_rel" "$accessibility_proof_ios_xxxl_rel" "$accessibility_proof_ios_ax_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$observed_accessibility_ios_rel" "$observed_accessibility_ios_xxxl_rel" "$observed_accessibility_ios_ax_rel" "$observed_accessibility_ipad_rel" "$observed_accessibility_macos_rel"
+  rm -f "$ios_screenshot" "$ios_xxxl_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$ios_tablet_xxxl_screenshot" "$ios_tablet_accessibility_screenshot" "$macos_screenshot" "$macos_deep_scroll_screenshot"
+  rm -f "$ios_deep_scroll_screenshot" "$ios_xxxl_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot" "$ios_tablet_xxxl_deep_scroll_screenshot" "$ios_tablet_accessibility_deep_scroll_screenshot"
+  rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_xxxl" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad" "$accessibility_proof_ipad_xxxl" "$accessibility_proof_ipad_ax" "$accessibility_proof_macos"
+  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_xxxl_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_ipad_xxxl_abs" "$accessibility_proof_ipad_ax_abs" "$accessibility_proof_macos_abs"
+  rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_xxxl_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll" "$accessibility_proof_ipad_xxxl_deep_scroll" "$accessibility_proof_ipad_ax_deep_scroll"
+  rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_xxxl_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs" "$accessibility_proof_ipad_xxxl_deep_scroll_abs" "$accessibility_proof_ipad_ax_deep_scroll_abs"
+  rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_xxxl" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_ipad_xxxl" "$observed_accessibility_ipad_ax" "$observed_accessibility_macos"
+  rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_xxxl_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_ipad_xxxl_abs" "$observed_accessibility_ipad_ax_abs" "$observed_accessibility_macos_abs"
   rm -f "$design_review"
 }
 
@@ -461,23 +645,39 @@ with open(output_path, "ab") as output:
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
+
+    def terminate_process_group():
+        if process.poll() is not None:
+            return
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            pass
+        deadline = time.monotonic() + 0.2
+        while process.poll() is None and time.monotonic() < deadline:
+            time.sleep(0.01)
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+        if process.poll() is None:
+            process.wait()
+
+    def forward_parent_signal(signum, _frame):
+        terminate_process_group()
+        sys.exit(128 + signum)
+
+    for forwarded_signal in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(forwarded_signal, forward_parent_signal)
+
     try:
         exit_code = process.wait(timeout=timeout_seconds)
         output.write(f"\n{label} exited with code {exit_code}\n".encode())
         sys.exit(exit_code)
     except subprocess.TimeoutExpired:
         output.write(f"\n{label} timed out after {timeout_seconds} seconds\n".encode())
-        try:
-            os.killpg(process.pid, signal.SIGTERM)
-        except (ProcessLookupError, PermissionError):
-            pass
-        time.sleep(0.2)
-        if process.poll() is None:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except (ProcessLookupError, PermissionError):
-                pass
-        process.wait()
+        terminate_process_group()
         sys.exit(124)
 PY
 }
@@ -495,49 +695,119 @@ run_cleanup_command() {
   return "$status"
 }
 
+start_macos_display_assertion() {
+  if ! command -v caffeinate >/dev/null 2>&1; then
+    printf 'caffeinate is unavailable; macOS screenshot capture cannot keep the display awake\n' >> "$capture_log"
+    return 1
+  fi
+
+  caffeinate -d -i -w "$$" >> "$capture_log" 2>&1 &
+  macos_display_assertion_pid="$!"
+  caffeinate -u -t 5 >> "$capture_log" 2>&1 &
+  macos_display_wake_pid="$!"
+  sleep 0.1
+  if ! kill -0 "$macos_display_assertion_pid" >/dev/null 2>&1 \
+    || ! kill -0 "$macos_display_wake_pid" >/dev/null 2>&1; then
+    printf 'caffeinate display assertion exited before macOS screenshot capture\n' >> "$capture_log"
+    kill -TERM "$macos_display_assertion_pid" "$macos_display_wake_pid" >/dev/null 2>&1 || true
+    macos_display_assertion_pid=""
+    macos_display_wake_pid=""
+    return 1
+  fi
+}
+
+stop_macos_display_assertion() {
+  [[ -z "$macos_display_assertion_pid" ]] || kill -TERM "$macos_display_assertion_pid" >/dev/null 2>&1 || true
+  [[ -z "$macos_display_wake_pid" ]] || kill -TERM "$macos_display_wake_pid" >/dev/null 2>&1 || true
+  [[ -z "$macos_display_assertion_pid" ]] || wait "$macos_display_assertion_pid" >/dev/null 2>&1 || true
+  [[ -z "$macos_display_wake_pid" ]] || wait "$macos_display_wake_pid" >/dev/null 2>&1 || true
+  macos_display_assertion_pid=""
+  macos_display_wake_pid=""
+}
+
 write_design_review_success() {
-  ruby -rjson -e '
-    output_path, route, settings_focus, ios_proof, ipad_proof, macos_proof, ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
+  ruby -rjson -rdigest -e '
+    output_path, route, settings_focus, ios_proof, ipad_proof, macos_proof, ios_accessibility_proof, ios_xxxl_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof, ios_observed, ios_xxxl_observed, ios_ax_observed, ipad_observed, macos_observed, shopping_variant, search_capture_variant, capture_surface_variant, settings_capture_variant, settings_apns_permission_state, settings_apns_registration_state, expected_search_query, expected_search_scope, expected_search_route_identifier, screenshot_auth_enabled = ARGV
+    ipad_xxxl_accessibility_proof = ipad_accessibility_proof.sub(/\.json\z/, "-xxxl.json")
+    ipad_ax_accessibility_proof = ipad_accessibility_proof.sub(/\.json\z/, "-ax.json")
+    ipad_xxxl_observed = ipad_observed.sub(/\.json\z/, "-xxxl.json")
+    ipad_ax_observed = ipad_observed.sub(/\.json\z/, "-ax.json")
     manifest = {
-      "mobileScreenshot" => true,
-      "desktopScreenshot" => true,
       "screenshotRoute" => route,
-      "dynamicType" => true,
-      "voiceOverLabels" => true,
-      "keyboardNavigation" => true,
-      "reduceMotion" => true,
-      "contrast" => true,
-      "kitchenTableHierarchy" => true,
-      "noOverlap" => true,
-      "accessibilityProofArtifacts" => [ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof],
+      "accessibilityProofArtifacts" => [ios_accessibility_proof, ios_xxxl_accessibility_proof, ios_ax_accessibility_proof, ipad_accessibility_proof, ipad_xxxl_accessibility_proof, ipad_ax_accessibility_proof, macos_accessibility_proof],
+      "observedAccessibilityEvidenceArtifacts" => [ios_observed, ios_xxxl_observed, ios_ax_observed, ipad_observed, ipad_xxxl_observed, ipad_ax_observed, macos_observed],
+      "accessibilityContentSizeScreenshot" => "screenshots/ios-mobile-accessibility.png",
       "blockers" => []
     }
+    artifact_root = File.dirname(output_path)
+    manifest["screenshotArtifacts"] = {
+      "iosMobile" => "screenshots/ios-mobile.png",
+      "iosXXXL" => "screenshots/ios-mobile-xxxl.png",
+      "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
+      "iosTablet" => "screenshots/ios-tablet.png",
+      "iosTabletXXXL" => "screenshots/ios-tablet-xxxl.png",
+      "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility.png",
+      "macosDesktop" => "screenshots/macos-desktop.png"
+    }.transform_values do |relative_path|
+      absolute_path = File.join(artifact_root, relative_path)
+      abort("missing screenshot artifact #{relative_path}") unless File.file?(absolute_path) && File.size(absolute_path).positive?
+      {
+        "path" => relative_path,
+        "bytes" => File.size(absolute_path),
+        "sha256" => Digest::SHA256.file(absolute_path).hexdigest
+      }
+    end
+    if [
+      "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+      "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs",
+      "profile", "profile-graph", "search", "capture", "settings"
+    ].include?(route)
+      manifest["deepScrollAccessibilityProofArtifacts"] = [
+        ios_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ios_xxxl_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ios_ax_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ipad_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ipad_xxxl_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json"),
+        ipad_ax_accessibility_proof.sub(/\.json\z/, "-deep-scroll.json")
+      ]
+      manifest["deepScrollScreenshotArtifacts"] = {
+        "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+        "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
+        "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "iosTablet" => "screenshots/ios-tablet-deep-scroll.png",
+        "iosTabletXXXL" => "screenshots/ios-tablet-xxxl-deep-scroll.png",
+        "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility-deep-scroll.png",
+        "macosDesktop" => "screenshots/macos-desktop-deep-scroll.png"
+      }.transform_values do |relative_path|
+        absolute_path = File.join(artifact_root, relative_path)
+        abort("missing deep-scroll screenshot artifact #{relative_path}") unless File.file?(absolute_path) && File.size(absolute_path).positive?
+        {
+          "path" => relative_path,
+          "bytes" => File.size(absolute_path),
+          "sha256" => Digest::SHA256.file(absolute_path).hexdigest
+        }
+      end
+    end
     if route == "settings"
       manifest["settingsCaptureVariant"] = settings_capture_variant
       manifest["settingsScreenshotAuth"] = screenshot_auth_enabled
-      manifest["settingsSignedInSurface"] = settings_capture_variant != "signed-out"
-      manifest["settingsSignedOutSurface"] = settings_capture_variant == "signed-out"
       manifest["settingsVisualFocus"] = settings_focus
+      manifest["settingsSignedOutSurface"] = settings_focus == "signed-out"
+      manifest["settingsSignedOutHandoffSurface"] = settings_focus == "signed-out"
       manifest["settingsSurfaceProofArtifacts"] = [ios_proof, ipad_proof, macos_proof]
       if settings_focus == "notifications"
-        manifest["settingsNotificationAPNsSurface"] = true
         manifest["settingsAPNsPermissionState"] = settings_apns_permission_state.empty? ? "not-determined" : settings_apns_permission_state
         manifest["settingsAPNsRegistrationState"] = settings_apns_registration_state.empty? ? "registered" : settings_apns_registration_state
-      elsif settings_focus == "signed-out"
-        manifest["settingsSignedOutHandoffSurface"] = true
-      else
-        manifest["settingsProfileSurface"] = true
       end
       manifest["settingsSections"] = if settings_focus == "signed-out"
                                        ["Session", "Environment", "Offline"]
                                      elsif settings_focus == "notifications"
-                                       ["Notifications", "This Device", "Push Delivery", "Notification Sync", "Agent Access", "Offline"]
+                                       ["This Device"]
                                      else
                                        ["Profile", "Security", "Environment", "Offline"]
                                      end
       manifest["settingsSeedAccountID"] = settings_capture_variant == "signed-out" ? "signed-out" : "chef_settings_capture"
     elsif route == "search"
-      manifest["searchNativeSurface"] = true
       manifest["searchScopes"] = ["all", "recipes", "cookbooks", "chefs", "shopping-list"]
       manifest["searchSeedAccountID"] = "chef_search_capture"
       manifest.merge!(
@@ -548,51 +818,53 @@ write_design_review_success() {
       )
       manifest["searchSurfaceProofArtifacts"] = [ios_proof, ipad_proof, macos_proof]
     elsif route == "recipes"
-      manifest["recipesNativeSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
     elsif route == "recipe-detail"
-      manifest["recipeDetailSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+    elsif route == "recipe-editor"
+      manifest["recipeSeedAccountID"] = "chef_ari"
+      manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+    elsif route == "recipe-covers"
+      manifest["recipeSeedAccountID"] = "chef_ari"
+      manifest["recipeID"] = "recipe_lemon_pantry_pasta"
+      manifest["recipeCoverControlsFixture"] = "action-states"
+      manifest["renderedSurfaceAnchors"] = ["stagedPhotoActions", "coverMutationActions"]
     elsif route == "cook-log"
-      manifest["cookLogSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
-      manifest["cookLogForm"] = true
-      manifest["cookLogPhotoSlot"] = true
-      manifest["cookLogActionBar"] = true
+      manifest["renderedSurfaceAnchors"] = ["cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"]
     elsif route == "cook-mode"
-      manifest["cookModeSurface"] = true
       manifest["recipeSeedAccountID"] = "chef_kitchen_capture"
       manifest["recipeID"] = "recipe_lemon_pantry_pasta"
     elsif route == "cookbooks"
-      manifest["cookbooksNativeSurface"] = true
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
-      manifest["cookbookLibrarySpread"] = true
-      manifest["cookbookShelfStrip"] = true
+      manifest["renderedSurfaceAnchors"] = ["cookbookShelfStrip", "cookbookLibrarySpread"]
     elsif route == "cookbook-detail"
-      manifest["cookbookDetailSurface"] = true
       manifest["cookbookSeedAccountID"] = "chef_kitchen_capture"
       manifest["cookbookID"] = "cookbook_weeknights"
-      manifest["cookbookContentsIndex"] = true
-      manifest["cookbookOwnerToolsDisclosure"] = true
+      manifest["renderedSurfaceAnchors"] = ["cookbookContentsIndex", "cookbookOwnerToolsDisclosure"]
+    elsif route == "profile"
+      manifest["profileSeedAccountID"] = "chef_ari"
+      manifest["profileIdentifier"] = "ari"
+    elsif route == "profile-graph"
+      manifest["profileSeedAccountID"] = "chef_ari"
+      manifest["profileIdentifier"] = "ari"
+      manifest["profileGraphDirection"] = "kitchen-visitors"
+      manifest["profileGraphPage"] = 1
     elsif route == "shopping-list"
-      manifest["shoppingListSurface"] = true
       manifest["shoppingSeedAccountID"] = "chef_shopping_capture"
       manifest["shoppingListVariant"] = shopping_variant
-      manifest["shoppingConflictState"] = true if shopping_variant == "conflict"
     elsif route == "capture"
       manifest["captureSurfaceVariant"] = capture_surface_variant
-      manifest["captureSignedOutSurface"] = capture_surface_variant == "signed-out"
-      manifest["captureNativeSurface"] = capture_surface_variant != "signed-out"
       manifest["captureSeedAccountID"] = capture_surface_variant == "signed-out" ? "signed-out" : "chef_kitchen_capture"
       manifest["captureScreenshotAuth"] = screenshot_auth_enabled
-    else
-      manifest["kitchenSignedInSurface"] = true
+      manifest["captureSignedOutSurface"] = capture_surface_variant == "signed-out"
+    elsif route == "kitchen"
       manifest["kitchenSeedAccountID"] = "chef_kitchen_capture"
     end
     File.write(output_path, JSON.pretty_generate(manifest) + "\n")
-  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$ipad_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$settings_capture_variant" "$settings_apns_permission_state" "$settings_apns_registration_state" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
+  ' "$design_review" "$screenshot_route" "$settings_capture_focus" "$ios_proof_artifact_rel" "$ipad_proof_artifact_rel" "$macos_proof_artifact_rel" "$accessibility_proof_ios_rel" "$accessibility_proof_ios_xxxl_rel" "$accessibility_proof_ios_ax_rel" "$accessibility_proof_ipad_rel" "$accessibility_proof_macos_rel" "$observed_accessibility_ios_rel" "$observed_accessibility_ios_xxxl_rel" "$observed_accessibility_ios_ax_rel" "$observed_accessibility_ipad_rel" "$observed_accessibility_macos_rel" "$shopping_capture_variant" "$search_capture_variant" "$capture_surface_variant" "$settings_capture_variant" "$settings_apns_permission_state" "$settings_apns_registration_state" "$expected_search_query" "$expected_search_scope" "$expected_search_route_identifier" "$screenshot_auth_enabled"
 }
 
 is_xcode_platform_blocker() {
@@ -607,6 +879,28 @@ is_xcode_platform_blocker() {
     ]
     exit(allowed.any? { |pattern| output.match?(pattern) } ? 0 : 1)
   ' "$1"
+}
+
+atomic_fixture_write() {
+  local target_path="$1"
+  local writer="$2"
+  shift 2
+  local temporary_path="${target_path}.tmp.$$.$RANDOM"
+  mkdir -p "$(dirname "$target_path")"
+  if "$writer" "$temporary_path" "$@"; then
+    mv -f "$temporary_path" "$target_path"
+  else
+    rm -f "$temporary_path"
+    return 1
+  fi
+}
+
+install_fixture_cover() {
+  local destination_directory="$1"
+  local destination_path="$destination_directory/lemon-pantry-pasta.png"
+  mkdir -p "$destination_directory"
+  cp "$fixture_cover_source" "$destination_path"
+  printf '%s\n' "$destination_path"
 }
 
 write_app_state() {
@@ -724,8 +1018,9 @@ write_app_state() {
 write_sync_store() {
   local path="$1"
   local route="$2"
+  local fixture_cover_path="$3"
   ruby -rjson -rfileutils -e '
-    path, route, account_id, shopping_variant, capture_variant = ARGV
+    path, route, account_id, shopping_variant, capture_variant, fixture_cover_path = ARGV
     recipes_path = "Sources/SpoonjoyCore/Fixtures/recipes-fixture.json"
     cookbooks_path = "Sources/SpoonjoyCore/Fixtures/cookbooks-fixture.json"
     shopping_path = "Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json"
@@ -795,44 +1090,78 @@ write_sync_store() {
                     "cookbooks" => []
                   }
                 ]
-              end
-    if route == "recipe-detail"
-      cover_asset_path = File.expand_path("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png")
+    end
+    if ["kitchen", "recipe-detail", "recipe-editor", "recipe-covers", "profile", "profile-graph"].include?(route)
       recipes = recipes.map do |recipe|
         next recipe unless recipe.fetch("id") == "recipe_lemon_pantry_pasta"
 
         recipe.merge(
-          "coverImageUrl" => "file://#{cover_asset_path}",
+          "coverImageUrl" => "file://#{fixture_cover_path}",
           "coverProvenanceLabel" => nil,
           "coverSourceType" => "chef-upload",
           "coverVariant" => "image"
         )
       end
     end
-    cookbooks = if File.file?(cookbooks_path)
-                  JSON.parse(File.read(cookbooks_path)).fetch("cookbooks")
-                else
-                  [
-                    {
-                      "id" => "cookbook_weeknights",
-                      "title" => "Weeknights",
-                      "chef" => { "id" => "chef_ari", "username" => "ari" },
-                      "recipeCount" => 1,
-                      "coverImageUrls" => [],
-                      "href" => "/cookbooks/cookbook_weeknights",
-                      "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights",
-                      "attribution" => {
-                        "creditText" => "Weeknights by ari on Spoonjoy",
-                        "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights"
-                      },
-                      "createdAt" => "2026-06-01T00:00:00.000Z",
-                      "updatedAt" => "2026-06-01T00:10:00.000Z",
-                      "recipes" => recipes.map do |recipe|
-                        recipe.slice("id", "title", "description", "servings", "chef", "coverImageUrl", "coverProvenanceLabel", "coverSourceType", "coverVariant", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt")
-                      end
-                    }
-                  ]
-                end
+    if ["profile", "profile-graph"].include?(route)
+      recipes = recipes.map do |recipe|
+        next recipe unless recipe.fetch("id") == "recipe_lemon_pantry_pasta"
+
+        recipe.merge("recentSpoons" => [{
+          "id" => "spoon_jules_lemon",
+          "chefId" => "chef_jules",
+          "recipeId" => "recipe_lemon_pantry_pasta",
+          "cookedAt" => "2026-06-02T18:30:00.000Z",
+          "photoUrl" => nil,
+          "note" => "More lemon next time.",
+          "nextTime" => "Add parsley.",
+          "deletedAt" => nil,
+          "createdAt" => "2026-06-02T18:30:00.000Z",
+          "updatedAt" => "2026-06-02T18:31:00.000Z",
+          "chef" => { "id" => "chef_jules", "username" => "jules" }
+        }])
+      end
+    end
+    fixture_cookbooks = if File.file?(cookbooks_path)
+                          JSON.parse(File.read(cookbooks_path)).fetch("cookbooks")
+                        else
+                          []
+                        end
+    weeknights = fixture_cookbooks.find { |cookbook| cookbook.fetch("id") == "cookbook_weeknights" } || {
+      "id" => "cookbook_weeknights",
+      "title" => "Weeknights",
+      "chef" => { "id" => "chef_ari", "username" => "ari" },
+      "recipeCount" => 1,
+      "coverImageUrls" => [],
+      "href" => "/cookbooks/cookbook_weeknights",
+      "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+      "attribution" => {
+        "creditText" => "Weeknights by ari on Spoonjoy",
+        "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_weeknights"
+      },
+      "createdAt" => "2026-06-01T00:00:00.000Z",
+      "updatedAt" => "2026-06-01T00:10:00.000Z",
+      "recipes" => recipes.map do |recipe|
+        recipe.slice("id", "title", "description", "servings", "chef", "coverImageUrl", "coverProvenanceLabel", "coverSourceType", "coverVariant", "href", "canonicalUrl", "attribution", "createdAt", "updatedAt")
+      end
+    }
+    terminal_cookbook = {
+      "id" => "cookbook_slow_sundays",
+      "title" => "Slow Sundays and Long Simmering Suppers",
+      "chef" => { "id" => "chef_ari", "username" => "ari" },
+      "recipeCount" => 0,
+      "coverImageUrls" => [],
+      "href" => "/cookbooks/cookbook_slow_sundays",
+      "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_slow_sundays",
+      "attribution" => {
+        "creditText" => "Slow Sundays and Long Simmering Suppers by ari on Spoonjoy",
+        "canonicalUrl" => "https://spoonjoy.app/cookbooks/cookbook_slow_sundays"
+      },
+      "createdAt" => "2026-06-02T00:00:00.000Z",
+      "updatedAt" => "2026-06-02T00:10:00.000Z",
+      "recipes" => []
+    }
+    cookbooks = [weeknights, terminal_cookbook]
     shopping = if File.file?(shopping_path)
                  JSON.parse(File.read(shopping_path))
                else
@@ -913,6 +1242,19 @@ write_sync_store() {
         "serverRevision" => nil
       }
     end)
+    records << {
+      "kind" => "profile",
+      "resourceID" => account_id,
+      "payload" => {
+        "id" => account_id,
+        "username" => "ari",
+        "photoUrl" => nil,
+        "joinedLabel" => "Joined Spoonjoy",
+        "href" => "/users/ari",
+        "canonicalUrl" => "https://spoonjoy.app/users/ari"
+      },
+      "serverRevision" => nil
+    }
     queue_mutations = []
     if shopping_variant == "offline-queued" || shopping_variant == "conflict"
       client_mutation_id = shopping_variant == "conflict" ? "cm_shopping_conflict_capture" : "cm_shopping_offline_capture"
@@ -958,7 +1300,7 @@ write_sync_store() {
     }
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, JSON.pretty_generate(snapshot) + "\n")
-  ' "$path" "$route" "$capture_account_id" "$shopping_capture_variant" "$capture_surface_variant"
+  ' "$path" "$route" "$capture_account_id" "$shopping_capture_variant" "$capture_surface_variant" "$fixture_cover_path"
 }
 
 write_cache_state() {
@@ -1031,7 +1373,7 @@ write_cache_state() {
               "sourceEndpoint" => "/api/v1/cookbooks",
               "serverRevision" => { "cursor" => { "_0" => "screenshot-cookbooks" } }
             },
-            "payload" => { "cookbookList" => { "cookbookIDs" => ["cookbook_weeknights"] } }
+            "payload" => { "cookbookList" => { "cookbookIDs" => ["cookbook_weeknights", "cookbook_slow_sundays"] } }
           },
           {
             "id" => "cookbook-detail:cookbook_weeknights",
@@ -1049,6 +1391,25 @@ write_cache_state() {
               "cookbookDetail" => {
                 "id" => "cookbook_weeknights",
                 "title" => "Weeknights"
+              }
+            }
+          },
+          {
+            "id" => "cookbook-detail:cookbook_slow_sundays",
+            "metadata" => {
+              "accountID" => account_id,
+              "environment" => "production",
+              "schemaVersion" => 2,
+              "domain" => { "cookbookDetail" => { "id" => "cookbook_slow_sundays" } },
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "sourceEndpoint" => "/api/v1/cookbooks/cookbook_slow_sundays",
+              "serverRevision" => { "etag" => { "_0" => "\"cookbook-slow-sundays-screenshot-v1\"" } }
+            },
+            "payload" => {
+              "cookbookDetail" => {
+                "id" => "cookbook_slow_sundays",
+                "title" => "Slow Sundays and Long Simmering Suppers"
               }
             }
           }
@@ -1182,6 +1543,7 @@ ios_launch_app() {
     env \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_AUTH="$screenshot_auth_enabled" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_STATE_DIRECTORY="$ios_state_directory" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
@@ -1189,13 +1551,22 @@ ios_launch_app() {
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE="$settings_apns_permission_state" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE="$settings_apns_registration_state" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_VARIANT="$shopping_capture_variant" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SEARCH_VARIANT="$search_capture_variant" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_CAPTURE_VARIANT="$capture_surface_variant" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_QUERY="$expected_search_query" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_SCOPE="$expected_search_scope" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT="$expected_surface_variant" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RUN_NONCE="$screenshot_run_nonce" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE="$recipe_covers_capture_fixture" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
-      xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+      xcrun simctl launch --stdout="$ios_app_stdout_log" --stderr="$ios_app_stderr_log" "$udid" app.spoonjoy
 }
 
 open_macos_app() {
+  screenshot_run_nonce="$(uuidgen | tr '[:upper:]' '[:lower:]')"
   set_macos_launch_environment
   run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" \
     env \
@@ -1208,11 +1579,20 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE="$settings_apns_permission_state" \
       SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE="$settings_apns_registration_state" \
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
+      SPOONJOY_SCREENSHOT_SHOPPING_VARIANT="$shopping_capture_variant" \
+      SPOONJOY_SCREENSHOT_SEARCH_VARIANT="$search_capture_variant" \
+      SPOONJOY_SCREENSHOT_CAPTURE_VARIANT="$capture_surface_variant" \
+      SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_QUERY="$expected_search_query" \
+      SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_SCOPE="$expected_search_scope" \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
+      SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT="$expected_surface_variant" \
+      SPOONJOY_SCREENSHOT_RUN_NONCE="$screenshot_run_nonce" \
+      SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE="$recipe_covers_capture_fixture" \
+      SPOONJOY_SCREENSHOT_STATE_DIRECTORY="$macos_state_directory" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
       SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
-      open -n "$macos_app"
+      open -n -F "$macos_app"
 }
 
 set_macos_launch_environment() {
@@ -1231,7 +1611,16 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE \
       SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE \
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID \
+      SPOONJOY_SCREENSHOT_SHOPPING_VARIANT \
+      SPOONJOY_SCREENSHOT_SEARCH_VARIANT \
+      SPOONJOY_SCREENSHOT_CAPTURE_VARIANT \
+      SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_QUERY \
+      SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_SCOPE \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
+      SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT \
+      SPOONJOY_SCREENSHOT_RUN_NONCE \
+      SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE \
+      SPOONJOY_SCREENSHOT_STATE_DIRECTORY \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
       SPOONJOY_API_BASE_URL
@@ -1254,7 +1643,16 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE "$settings_apns_permission_state"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE "$settings_apns_registration_state"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID "$shopping_conflict_launch_client_mutation_id"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_VARIANT "$shopping_capture_variant"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SEARCH_VARIANT "$search_capture_variant"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_CAPTURE_VARIANT "$capture_surface_variant"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_QUERY "$expected_search_query"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_SCOPE "$expected_search_scope"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT "$expected_surface_variant"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_RUN_NONCE "$screenshot_run_nonce"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE "$recipe_covers_capture_fixture"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_STATE_DIRECTORY "$macos_state_directory"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_API_BASE_URL "https://spoonjoy.app"
@@ -1293,7 +1691,15 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_VARIANT >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SEARCH_VARIANT >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_CAPTURE_VARIANT >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_QUERY >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_SCOPE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_STATE_DIRECTORY >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_API_BASE_URL >/dev/null 2>&1 || true
@@ -1310,40 +1716,61 @@ ios_udid_from_smoke_log() {
   ' "$smoke_log"
 }
 
-latest_front_display_event() {
-  ruby -e '
-    path = ARGV.fetch(0)
-    events = File.readlines(path, chomp: true).select { |line| line.include?("Front display did change:") }
-    exit(1) if events.empty?
-    puts events.last
-  ' "$1"
-}
-
-wait_for_ios_foreground() {
+terminate_ios_app_and_confirm_stopped() {
   local udid="$1"
-  local output=""
-  local foreground_log
-  local foreground_status
-  local latest_event
-  foreground_log="$(mktemp)"
+  local terminate_log
+  local terminate_status
+  local probe_log
+  local probe_status
+  terminate_log="$(mktemp)"
+  set +e
+  run_with_timeout "simulator app termination timeout" "$ios_launch_timeout_seconds" "$terminate_log" \
+    xcrun simctl terminate "$udid" app.spoonjoy
+  terminate_status=$?
+  set -e
+  if [[ "$terminate_status" -ne 0 ]]; then
+    if ! grep -qi "found nothing to terminate" "$terminate_log"; then
+      cat "$terminate_log" >> "$capture_log"
+      rm -f "$terminate_log"
+      return 1
+    fi
+  fi
+  rm -f "$terminate_log"
+
+  probe_log="$(mktemp)"
   for _ in $(seq 1 30); do
-    : > "$foreground_log"
+    : > "$probe_log"
     set +e
-    run_with_timeout "simulator foreground probe timeout" "$ios_foreground_probe_timeout_seconds" "$foreground_log" \
-      xcrun simctl spawn "$udid" log show --last 2m --style compact --predicate 'process == "SpringBoard" AND eventMessage CONTAINS[c] "Front display did change"'
-    foreground_status=$?
+    run_with_timeout "simulator stopped-process probe timeout" "$cleanup_timeout_seconds" "$probe_log" \
+      xcrun simctl spawn -a "$ios_simulator_spawn_arch" "$udid" launchctl list
+    probe_status=$?
     set -e
-    output="$(cat "$foreground_log")"
-    printf '%s\n' "$output" >> "$capture_log"
-    latest_event="$(latest_front_display_event "$foreground_log" || true)"
-    printf 'Latest simulator front display event: %s\n' "${latest_event:-<none>}" >> "$capture_log"
-    if [[ "$foreground_status" -eq 0 && "$latest_event" == *"app.spoonjoy"* ]]; then
-      rm -f "$foreground_log"
+    if [[ "$probe_status" -eq 0 ]] && ! grep -Fq 'UIKitApplication:app.spoonjoy' "$probe_log"; then
+      rm -f "$probe_log"
       return 0
     fi
-    sleep 0.5
+    if [[ "$probe_status" -ne 0 ]]; then
+      cat "$probe_log" >> "$capture_log"
+      rm -f "$probe_log"
+      return 1
+    fi
+    sleep 0.1
   done
-  rm -f "$foreground_log"
+  rm -f "$probe_log"
+  printf 'Spoonjoy remained running after simulator termination on %s\n' "$udid" >> "$capture_log"
+  return 1
+}
+
+terminate_macos_app_and_confirm_stopped() {
+  run_cleanup_command "quit Spoonjoy before fixture write" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
+  run_cleanup_command "kill Spoonjoy before fixture write" pkill -x Spoonjoy || true
+  for _ in $(seq 1 30); do
+    if ! pgrep -x Spoonjoy >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  printf 'Spoonjoy remained running after macOS termination\n' >> "$capture_log"
   return 1
 }
 
@@ -1485,191 +1912,78 @@ wait_for_accessibility_proof() {
   local expected_platform="$3"
   local output_path="$4"
   local source_override="${5:-}"
+  local expected_surface_variant="${6:-}"
   for _ in $(seq 1 "$proof_attempts"); do
     if ruby -rjson -rfileutils -e '
-      path, expected_route, expected_platform, output_path, source_override = ARGV
+      path, expected_route, expected_platform, output_path, source_override, expected_surface_variant = ARGV
       proof = JSON.parse(File.read(path))
-      expected_source = case expected_route
-                        when "kitchen" then "KitchenView"
-                        when "recipes" then "RecipesView"
-                        when "saved-recipes" then "SavedRecipesView"
-                        when "cookbooks" then "CookbooksView"
-                        when "cookbook-detail" then "CookbookDetailView"
-                        when "capture" then "CaptureDraftView"
-                        when "search" then "SearchView"
-                        when "settings" then "SettingsView"
-                        when "recipe-detail" then "RecipeDetailView"
-                        when "cook-log" then "SpoonCookLogView"
-                        when "cook-mode" then "CookModeView"
-                        when "shopping-list" then "ShoppingListView"
-                        when "chefs" then "ChefsView"
-                        else abort("unsupported route #{expected_route}")
-                        end
+      expected_source = {
+        "kitchen" => "KitchenView",
+        "recipes" => "RecipesView",
+        "saved-recipes" => "SavedRecipesView",
+        "cookbooks" => "CookbooksView",
+        "cookbook-detail" => "CookbookDetailView",
+        "capture" => "CaptureDraftView",
+        "search" => "SearchView",
+        "settings" => "SettingsView",
+        "recipe-detail" => "RecipeDetailView",
+        "recipe-editor" => "RecipeEditorView",
+        "recipe-covers" => "RecipeCoverControlsView",
+        "cook-log" => "SpoonCookLogView",
+        "cook-mode" => "CookModeView",
+        "shopping-list" => "ShoppingListView",
+        "chefs" => "ChefsView",
+        "profile" => "ProfileView",
+        "profile-graph" => "ProfileGraphList",
+        "unknown-link" => "ShellPlaceholderView"
+      }.fetch(expected_route)
       expected_source = source_override unless source_override.empty?
-      evidence_key = expected_source == "SignedOutSetupView" ? "capture-signed-out" : expected_route
-      expected_bundle = if expected_platform == "macos"
-                          "app.spoonjoy.mac"
-                        elsif expected_platform == "ipad"
-                          "app.spoonjoy"
-                        else
-                          "app.spoonjoy"
-                        end
-      expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "reduceMotion", "contrast", "kitchenTableHierarchy", "noOverlap"]
-      expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
-      expected_dismissible = ["offline", "stale"]
-      expected_severe = ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
-      expected_route_evidence = {
-        "kitchen" => {
-          "voiceOverLabels" => ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
-          "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
-          "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "ordinal"]
-        },
-        "search" => {
-          "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
-          "keyboardNavigationTargets" => ["native search field", "typed rows", "SearchSurfaceSectionView buttons"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
-          "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
-        },
-        "recipes" => {
-          "voiceOverLabels" => ["Recipes", "On the Counter", "Recipe index", "Loading recipes"],
-          "keyboardNavigationTargets" => ["recipe lead button", "RecipeIndexRow buttons", "search field"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone"],
-          "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        },
-        "saved-recipes" => {
-          "voiceOverLabels" => ["Saved Recipes", "Recipe index", "Loading saved recipes"],
-          "keyboardNavigationTargets" => ["saved recipe lead button", "RecipeIndexRow buttons", "search field"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone"],
-          "hierarchyAnchors" => ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        },
-        "cookbooks" => {
-          "voiceOverLabels" => ["Cookbooks", "Shelf", "Index", "New Cookbook"],
-          "keyboardNavigationTargets" => ["cookbook shelf buttons", "cookbook index rows", "share buttons", "new cookbook action"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone"],
-          "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        },
-        "cookbook-detail" => {
-          "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
-          "keyboardNavigationTargets" => ["cookbook primary actions", "CookbookRecipeIndexRow buttons", "share menu", "CookbookOwnerToolsDisclosure"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
-          "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        },
-        "capture" => {
-          "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
-          "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
-          "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
-        },
-        "capture-signed-out" => {
-          "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Google OAuth sign-in", "native GitHub OAuth sign-in", "native Apple sign-in", "native password sign-in"],
-          "keyboardNavigationTargets" => ["native sign-in email or username", "native sign-in password", "native Google OAuth sign-in", "native GitHub OAuth sign-in", "native Apple sign-in", "Settings"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
-          "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
-          "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "OAuthProviderHint", "SignInWithAppleButton"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
-        },
-        "settings" => {
-          "voiceOverLabels" => ["Settings", "Profile", "Security", "Session", "Sign In"],
-          "keyboardNavigationTargets" => ["profile form fields", "security token controls", "session handoff controls"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass label on bone"],
-          "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
-          "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
-        },
-        "recipe-detail" => {
-          "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
-          "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-          "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        },
-        "cook-log" => {
-          "voiceOverLabels" => ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
-          "keyboardNavigationTargets" => ["cookLogForm fields", "cookLogPhotoSlot", "cookLogActionBar"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone", "muted text on bone"],
-          "hierarchyAnchors" => ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        },
-        "cook-mode" => {
-          "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
-          "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "herb tint on bone", "status text on material"],
-          "hierarchyAnchors" => ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        },
-        "shopping-list" => {
-          "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
-          "keyboardNavigationTargets" => ["shopping receipt composer", "receipt actions menu", "native tab bar"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
-          "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
-        },
-        "chefs" => {
-          "voiceOverLabels" => ["Chefs", "Fellow chefs", "Kitchen visitors"],
-          "keyboardNavigationTargets" => ["chef profile rows", "native More menu", "regular sidebar"],
-          "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-          "contrastPairs" => ["charcoal on bone", "brass on bone"],
-          "hierarchyAnchors" => ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
-        }
-      }
-      abort("#{expected_platform} accessibility proof platform mismatch") unless proof.fetch("platform") == expected_platform
-      abort("#{expected_platform} accessibility proof route mismatch") unless proof.fetch("route") == expected_route
-      abort("#{expected_platform} accessibility proof source mismatch") unless proof.fetch("source") == expected_source
-      abort("#{expected_platform} accessibility proof emitter mismatch") unless proof.fetch("emittedBy") == "SpoonjoyApp"
-      abort("#{expected_platform} accessibility proof bundle mismatch") unless proof.fetch("bundleIdentifier") == expected_bundle
-      missing_fields = expected_fields.reject { |field| proof[field] == true }
-      abort("#{expected_platform} accessibility proof false fields: #{missing_fields.join(", ")}") unless missing_fields.empty?
-      abort("#{expected_platform} accessibility proof minimumTargetSize mismatch") unless proof.fetch("minimumTargetSize") >= 44
-      abort("#{expected_platform} accessibility proof textFits mismatch") unless proof.fetch("textFits") == true
-      abort("#{expected_platform} accessibility proof noTinyClusters mismatch") unless proof.fetch("noTinyClusters") == true
-      abort("#{expected_platform} accessibility proof observedDynamicTypeSize missing") unless proof.fetch("observedDynamicTypeSize").is_a?(String) && !proof.fetch("observedDynamicTypeSize").empty?
-      abort("#{expected_platform} accessibility proof observedReduceMotion missing") unless [true, false].include?(proof.fetch("observedReduceMotion"))
-      visual_readiness = proof.fetch("visualReadiness")
-      abort("#{expected_platform} accessibility proof visualReadiness mismatch") unless visual_readiness.is_a?(Hash)
-      abort("#{expected_platform} accessibility proof has pending media") unless visual_readiness.fetch("pendingMediaCount") == 0
-      abort("#{expected_platform} accessibility proof has failed media") unless visual_readiness.fetch("failedMediaCount") == 0
-      abort("#{expected_platform} accessibility proof has blocking indicators") unless visual_readiness.fetch("blockingIndicatorCount") == 0
-      abort("#{expected_platform} accessibility proof did not settle") unless visual_readiness.fetch("isSettled") == true
-      route_evidence = proof.fetch("routeEvidence")
-      abort("#{expected_platform} accessibility proof routeEvidence mismatch") unless route_evidence.is_a?(Hash)
-      expected_route_evidence.fetch(evidence_key).each do |field, required_values|
-        actual_values = route_evidence.fetch(field)
-        abort("#{expected_platform} accessibility proof routeEvidence #{field} is not an array") unless actual_values.is_a?(Array)
-        missing_values = required_values.reject { |value| actual_values.include?(value) }
-        abort("#{expected_platform} accessibility proof routeEvidence #{field} missing #{missing_values.join(", ")}") unless missing_values.empty?
+      expected_bundle = expected_platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy"
+      abort("platform mismatch") unless proof.fetch("platform") == expected_platform
+      abort("route mismatch") unless proof.fetch("route") == expected_route
+      abort("source mismatch") unless proof.fetch("source") == expected_source
+      abort("emitter mismatch") unless proof.fetch("emittedBy") == "SpoonjoyApp"
+      abort("bundle mismatch") unless proof.fetch("bundleIdentifier") == expected_bundle
+      unless expected_surface_variant.empty?
+        abort("surface variant mismatch") unless proof["observedSurfaceVariant"] == expected_surface_variant
       end
-      offline = proof.fetch("offlineIndicatorProof")
-      abort("#{expected_platform} accessibility proof offline source mismatch") unless offline.fetch("source") == "OfflineStatusView"
-      abort("#{expected_platform} accessibility proof visible states mismatch") unless offline.fetch("visibleStates") == expected_visible
-      abort("#{expected_platform} accessibility proof dismissible states mismatch") unless offline.fetch("dismissibleStates") == expected_dismissible
-      abort("#{expected_platform} accessibility proof severe states mismatch") unless offline.fetch("severeStates") == expected_severe
-      abort("#{expected_platform} accessibility proof hidden states mismatch") unless offline.fetch("hiddenStates") == ["synced", "dismissed"]
-      abort("#{expected_platform} accessibility proof voiceOverLabel mismatch") unless offline.fetch("voiceOverLabel") == true
-      abort("#{expected_platform} accessibility proof dismissButtonLabel mismatch") unless offline.fetch("dismissButtonLabel") == "Hide offline status"
-      abort("#{expected_platform} accessibility proof severityCorrect mismatch") unless offline.fetch("severityCorrect") == true
+      if expected_route == "recipe-covers"
+        abort("Photo Studio action fixture mismatch") unless proof.dig("launchEnvironmentProof", "screenshotRecipeCoversFixture") == "action-states"
+      end
+      if expected_route == "shopping-list" && expected_surface_variant == "offline-queued"
+        surface_state = proof["observedSurfaceState"]
+        abort("queued shopping state mismatch") unless surface_state.is_a?(Hash) &&
+          surface_state["statusOwner"] == "ShoppingListView" &&
+          surface_state["connectivity"] == "offline" &&
+          surface_state["visibleIndicator"] == "queuedWork" &&
+          surface_state["queuedMutationCount"].is_a?(Integer) &&
+          surface_state["queuedMutationCount"].positive?
+      end
+      legacy_fields = %w[
+        dynamicType voiceOverLabels keyboardNavigation reduceMotion contrast
+        kitchenTableHierarchy noOverlap minimumTargetSize textFits noTinyClusters
+        routeEvidence offlineIndicatorProof
+      ].select { |field| proof.key?(field) }
+      abort("legacy self-attestation: #{legacy_fields.join(", ")}") unless legacy_fields.empty?
+      observed_size = proof["observedDynamicTypeSize"]
+      abort("dynamic type observation missing") unless observed_size.is_a?(String) && !observed_size.empty?
+      abort("reduce motion observation missing") unless [true, false].include?(proof["observedReduceMotion"])
+      state_proof = proof["screenshotStateSnapshotProof"]
+      abort("screenshot state proof missing") unless state_proof.is_a?(Hash)
+      abort("screenshot app state is unreadable") unless state_proof["stateDirectoryResolved"] == true &&
+        state_proof["appSnapshotPresent"] == true &&
+        state_proof["appSnapshotJSONReadable"] == true &&
+        state_proof["syncSnapshotPresent"] == true &&
+        state_proof["syncSnapshotJSONReadable"] == true
+      readiness = proof["visualReadiness"]
+      abort("visual readiness missing") unless readiness.is_a?(Hash)
+      abort("visual route not settled") unless readiness["pendingMediaCount"] == 0 &&
+        readiness["failedMediaCount"] == 0 &&
+        readiness["blockingIndicatorCount"] == 0 &&
+        readiness["isSettled"] == true
       FileUtils.mkdir_p(File.dirname(output_path))
       File.write(output_path, JSON.pretty_generate(proof) + "\n")
-    ' "$proof_path" "$expected_route" "$expected_platform" "$output_path" "$source_override" >/dev/null 2>&1; then
+    ' "$proof_path" "$expected_route" "$expected_platform" "$output_path" "$source_override" "$expected_surface_variant" >/dev/null 2>&1; then
       return 0
     fi
     sleep "$proof_sleep_seconds"
@@ -1683,15 +1997,18 @@ log_accessibility_proof_diagnostic() {
   local expected_route="$2"
   local expected_platform="$3"
   local label="$4"
+  local expected_surface_variant="${5:-}"
   if [[ -f "$proof_path" ]]; then
     ruby -rjson -e '
-      path, expected_route, expected_platform, label = ARGV
+      path, expected_route, expected_platform, label, expected_surface_variant = ARGV
       proof = JSON.parse(File.read(path))
       summary = {
         "expectedRoute" => expected_route,
         "expectedPlatform" => expected_platform,
+        "expectedSurfaceVariant" => expected_surface_variant,
         "actualRoute" => proof["route"],
         "actualPlatform" => proof["platform"],
+        "actualObservedSurfaceVariant" => proof["observedSurfaceVariant"],
         "actualSource" => proof["source"],
         "bundleIdentifier" => proof["bundleIdentifier"],
         "observedDynamicTypeSize" => proof["observedDynamicTypeSize"],
@@ -1707,7 +2024,7 @@ log_accessibility_proof_diagnostic() {
         summary["appStateFirstRun"] = state["hasCompletedFirstRun"]
       end
       warn("#{label} accessibility proof mismatch: #{JSON.generate(summary)}")
-    ' "$proof_path" "$expected_route" "$expected_platform" "$label" >> "$capture_log" 2>&1 || true
+    ' "$proof_path" "$expected_route" "$expected_platform" "$label" "$expected_surface_variant" >> "$capture_log" 2>&1 || true
   else
     printf '%s accessibility proof missing at %s (expected route %s, platform %s)\n' \
       "$label" "$proof_path" "$expected_route" "$expected_platform" >> "$capture_log"
@@ -1737,12 +2054,34 @@ validate_screenshot_surface_proof() {
       abort("#{platform} screenshot proof scope mismatch") unless proof.fetch("scope") == expected_search_scope
       abort("#{platform} screenshot proof query mismatch") unless proof.fetch("query") == expected_search_query
       abort("#{platform} screenshot proof searchable scopes mismatch") unless proof.fetch("searchScopes") == expected_scopes
+      fingerprint = proof.fetch("renderFingerprint")
+      abort("#{platform} search render fingerprint must be an object") unless fingerprint.is_a?(Hash)
+      rows = fingerprint.fetch("rows")
+      abort("#{platform} search render fingerprint rows must be an array") unless rows.is_a?(Array)
+      rows.each do |row|
+        abort("#{platform} search render fingerprint row must be exact") unless row.is_a?(Hash) && row.keys.sort == ["id", "title", "type"]
+      end
+      data_source = fingerprint.fetch("dataSource")
+      abort("#{platform} search render fingerprint data source must be exact") unless data_source.is_a?(Hash) && data_source.length == 1
+      if search_capture_variant == "scoped-cookbooks"
+        expected_rows = [{"type" => "cookbook", "id" => "cookbook-cookbook_weeknights", "title" => "Weeknights"}]
+        abort("#{platform} scoped cookbook render fingerprint mismatch") unless rows == expected_rows
+        abort("#{platform} scoped cookbook render must not include an empty state") unless fingerprint["emptyState"].nil?
+      elsif search_capture_variant == "no-results"
+        abort("#{platform} no-results render fingerprint must have no rows") unless rows.empty?
+        expected_empty = {
+          "scope" => "all",
+          "title" => "No matches for \"kumquat\"",
+          "message" => "No Spoonjoy results match \"kumquat\"."
+        }
+        abort("#{platform} no-results render fingerprint empty state mismatch") unless fingerprint.fetch("emptyState") == expected_empty
+      end
     end
     sections = proof.fetch("visibleSections")
     abort("#{platform} screenshot proof sections must be an array") unless sections.is_a?(Array)
     if screenshot_route == "settings"
       required_sections = if expected_focus == "notifications"
-                            ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                            ["This Device"]
                           elsif expected_focus == "signed-out"
                             ["Session", "Environment", "Offline"]
                           else
@@ -1796,17 +2135,272 @@ resolve_ios_data_container() {
   return 1
 }
 
+prepare_ios_observer_products() {
+  local configured_count=0
+  [[ -n "$ios_app" ]] && configured_count=$((configured_count + 1))
+  [[ -n "$ios_ui_test_runner" ]] && configured_count=$((configured_count + 1))
+  [[ -n "$ios_xctestrun" ]] && configured_count=$((configured_count + 1))
+  if [[ "$configured_count" -gt 0 ]]; then
+    if [[ "$allow_attested_ios_products" != "1" ]]; then
+      printf 'refusing unattested inherited iOS observer products; direct captures must build inside the current artifact root\n' >> "$capture_log"
+      return 1
+    fi
+    if [[ "$configured_count" -ne 3 ]]; then
+      printf 'attested iOS screenshot products require app, UI-test runner, and xctestrun paths together\n' >> "$capture_log"
+      return 1
+    fi
+    if [[ -z "$ios_provenance_manifest" || ! -f "$ios_provenance_manifest" ]]; then
+      printf 'attested iOS screenshot products require a provenance manifest\n' >> "$capture_log"
+      return 1
+    fi
+    if ! ruby -rjson -e '
+      manifest_path, app_path, runner_path, xctestrun_path = ARGV
+      manifest = JSON.parse(File.read(manifest_path))
+      expected = manifest.fetch("builds").fetch("ios").values_at(
+        "captureAppPath",
+        "captureUITestRunnerPath",
+        "captureXctestrunPath"
+      )
+      actual = [app_path, runner_path, xctestrun_path].map { |path| File.realpath(path) }
+      expected = expected.map { |path| File.realpath(path) }
+      abort("attested iOS screenshot product paths do not match the provenance manifest") unless actual == expected
+    ' "$ios_provenance_manifest" "$ios_app" "$ios_ui_test_runner" "$ios_xctestrun" >> "$capture_log" 2>&1; then
+      return 1
+    fi
+  else
+    if [[ "$allow_attested_ios_products" == "1" ]]; then
+      printf 'attested iOS screenshot product mode requires explicit product paths\n' >> "$capture_log"
+      return 1
+    fi
+    local observer_derived_data="$artifact_root/DerivedData-iOS-Observer"
+    if ! run_with_timeout "iOS screenshot observer build timeout" "$ios_observer_timeout_seconds" "$capture_log" \
+      xcodebuild \
+        -project Spoonjoy.xcodeproj \
+        -scheme "Spoonjoy iOS" \
+        -configuration BootstrapDebug \
+        -destination "generic/platform=iOS Simulator" \
+        -derivedDataPath "$observer_derived_data" \
+        CODE_SIGNING_ALLOWED=NO \
+        GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+        build-for-testing; then
+      return 1
+    fi
+    ios_app="$observer_derived_data/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app"
+    ios_ui_test_runner="$observer_derived_data/Build/Products/BootstrapDebug-iphonesimulator/SpoonjoyUITests-Runner.app"
+    ios_xctestrun="$(find "$observer_derived_data/Build/Products" -maxdepth 1 -name '*.xctestrun' -type f -print -quit)"
+    export SPOONJOY_SCREENSHOT_IOS_APP_PATH="$ios_app"
+  fi
+  [[ -d "$ios_app" && -d "$ios_ui_test_runner" && -f "$ios_xctestrun" ]]
+}
+
+capture_ios_observed_accessibility() {
+  local udid="$1"
+  local expected_platform="$2"
+  local output_path="$3"
+  local content_size_category="${4:-large}"
+  local screenshot_output="${5:-}"
+  local readiness_proof_output="$6"
+  local surface_proof_output="${7:-}"
+  local deep_scroll_screenshot_output=""
+  local observer_suffix
+  case "$content_size_category" in
+    large) observer_suffix="$expected_platform" ;;
+    extra-extra-extra-large) observer_suffix="${expected_platform}-xxxl" ;;
+    accessibility-extra-extra-extra-large) observer_suffix="${expected_platform}-ax" ;;
+    *)
+      printf 'unsupported observed Dynamic Type category: %s\n' "$content_size_category" >> "$capture_log"
+      return 1
+      ;;
+  esac
+  case "$screenshot_route" in
+    kitchen|recipes|saved-recipes|recipe-detail|recipe-editor|recipe-covers|cook-mode|cook-log|cookbooks|cookbook-detail|shopping-list|chefs|profile|profile-graph|search|capture|settings)
+      if [[ "$expected_platform" == "ipad" ]]; then
+        if [[ "$content_size_category" == "large" ]]; then
+          deep_scroll_screenshot_output="$ios_tablet_deep_scroll_screenshot"
+        elif [[ "$content_size_category" == "extra-extra-extra-large" ]]; then
+          deep_scroll_screenshot_output="$ios_tablet_xxxl_deep_scroll_screenshot"
+        else
+          deep_scroll_screenshot_output="$ios_tablet_accessibility_deep_scroll_screenshot"
+        fi
+      elif [[ "$content_size_category" == "large" ]]; then
+        deep_scroll_screenshot_output="$ios_deep_scroll_screenshot"
+      elif [[ "$content_size_category" == "extra-extra-extra-large" ]]; then
+        deep_scroll_screenshot_output="$ios_xxxl_deep_scroll_screenshot"
+      else
+        deep_scroll_screenshot_output="$ios_accessibility_deep_scroll_screenshot"
+      fi
+      rm -f "$deep_scroll_screenshot_output"
+      ;;
+  esac
+  local observer_work_root="$artifact_root/apple/${unit_slug}-${observer_suffix}-observer"
+  local observer_environment_json="${observer_work_root}-environment.json"
+  local capture_run_nonce
+  capture_run_nonce="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+  local observer_accessibility_proof_runtime_path="$ios_state_directory/native-accessibility-proof.observer-${observer_suffix}-${capture_run_nonce}.json"
+  if [[ -s "$ios_accessibility_proof_runtime_path" ]]; then
+    cp "$ios_accessibility_proof_runtime_path" "$observer_accessibility_proof_runtime_path"
+  else
+    rm -f "$observer_accessibility_proof_runtime_path"
+  fi
+  local inline_fixture_cover="${observer_work_root}-media-fixture.jpg"
+  local inline_fixture_cover_url="file:///spoonjoy-screenshot-media/lemon-pantry-pasta.jpg"
+  local inline_fixture_cover_base64
+  local inline_sync_store="${observer_work_root}-sync-store.json"
+  if ! sips \
+    -s format jpeg \
+    -s formatOptions 65 \
+    --resampleWidth 800 \
+    "$fixture_cover_source" \
+    --out "$inline_fixture_cover" >> "$capture_log" 2>&1; then
+    printf 'unable to prepare portable screenshot media fixture\n' >> "$capture_log"
+    return 1
+  fi
+  inline_fixture_cover_base64="$(base64 < "$inline_fixture_cover" | tr -d '\r\n')"
+  write_sync_store \
+    "$inline_sync_store" \
+    "$screenshot_route" \
+    "/spoonjoy-screenshot-media/lemon-pantry-pasta.jpg"
+  rm -f "$output_path"
+  jq -n \
+    --arg auth "$screenshot_auth_enabled" \
+    --arg stateDirectory "$ios_state_directory" \
+    --arg accountID "$capture_account_id" \
+    --arg settingsFocus "$settings_capture_focus" \
+    --arg disableSearchFocus "$search_capture_disable_focus" \
+    --arg recipeDetailFocus "$recipe_detail_focus" \
+    --arg apnsPermission "$settings_apns_permission_state" \
+    --arg apnsRegistration "$settings_apns_registration_state" \
+    --arg shoppingConflictID "$shopping_conflict_launch_client_mutation_id" \
+    --arg shoppingVariant "$shopping_capture_variant" \
+    --arg searchVariant "$search_capture_variant" \
+    --arg captureVariant "$capture_surface_variant" \
+    --arg expectedSearchQuery "$expected_search_query" \
+    --arg expectedSearchScope "$expected_search_scope" \
+    --arg route "$screenshot_route" \
+    --arg surfaceVariant "$expected_surface_variant" \
+    --arg captureRunNonce "$capture_run_nonce" \
+    --arg recipeCoversFixture "$recipe_covers_capture_fixture" \
+    --arg contentSizeCategory "$content_size_category" \
+    --arg proofPath "$screenshot_proof_path" \
+    --arg accessibilityProofPath "$observer_accessibility_proof_runtime_path" \
+    --arg mediaFixtureURL "$inline_fixture_cover_url" \
+    --arg mediaFixtureBase64 "$inline_fixture_cover_base64" \
+    --rawfile appState "$ios_state_directory/native-app-state.json" \
+    --rawfile durableCache "$ios_state_directory/native-durable-cache.json" \
+    --rawfile syncStore "$inline_sync_store" \
+    '{
+      SPOONJOY_SCREENSHOT_AUTH: $auth,
+      SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY: "1",
+      SPOONJOY_SCREENSHOT_STATE_DIRECTORY: $stateDirectory,
+      SPOONJOY_SCREENSHOT_ACCOUNT_ID: $accountID,
+      SPOONJOY_SCREENSHOT_SETTINGS_FOCUS: $settingsFocus,
+      SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS: $disableSearchFocus,
+      SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS: $recipeDetailFocus,
+      SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE: $apnsPermission,
+      SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE: $apnsRegistration,
+      SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID: $shoppingConflictID,
+      SPOONJOY_SCREENSHOT_SHOPPING_VARIANT: $shoppingVariant,
+      SPOONJOY_SCREENSHOT_SEARCH_VARIANT: $searchVariant,
+      SPOONJOY_SCREENSHOT_CAPTURE_VARIANT: $captureVariant,
+      SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_QUERY: $expectedSearchQuery,
+      SPOONJOY_SCREENSHOT_EXPECTED_SEARCH_SCOPE: $expectedSearchScope,
+      SPOONJOY_SCREENSHOT_EXPECTED_ROUTE: $route,
+      SPOONJOY_SCREENSHOT_EXPECTED_SURFACE_VARIANT: $surfaceVariant,
+      SPOONJOY_SCREENSHOT_RUN_NONCE: $captureRunNonce,
+      SPOONJOY_SCREENSHOT_RECIPE_COVERS_FIXTURE: $recipeCoversFixture,
+      SPOONJOY_OBSERVED_CONTENT_SIZE_CATEGORY: $contentSizeCategory,
+      SPOONJOY_SCREENSHOT_PROOF_PATH: $proofPath,
+      SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH: $accessibilityProofPath,
+      SPOONJOY_SCREENSHOT_INLINE_FIXTURES: "1",
+      SPOONJOY_SCREENSHOT_APP_STATE_JSON: $appState,
+      SPOONJOY_SCREENSHOT_DURABLE_CACHE_JSON: $durableCache,
+      SPOONJOY_SCREENSHOT_SYNC_STORE_JSON: $syncStore,
+      SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_URL: $mediaFixtureURL,
+      SPOONJOY_SCREENSHOT_MEDIA_FIXTURE_BASE64: $mediaFixtureBase64,
+      SPOONJOY_API_BASE_URL: "https://spoonjoy.app"
+    }' > "$observer_environment_json"
+  local observer_status=0
+  local -a observer_command=(python3 scripts/run-ios-screenshot-observer.py \
+    --xctestrun "$ios_xctestrun" \
+    --app "$ios_app" \
+    --runner "$ios_ui_test_runner" \
+    --destination-udid "$udid" \
+    --platform "$expected_platform" \
+    --route "$screenshot_route" \
+    --output "$output_path" \
+    --readiness-proof-output "$readiness_proof_output" \
+    --work-root "$observer_work_root" \
+    --log "$capture_log" \
+    --timeout-seconds "$ios_observer_timeout_seconds" \
+    --simulator-arch "$ios_simulator_spawn_arch" \
+    --environment-json "$observer_environment_json")
+  if [[ -n "$screenshot_output" ]]; then
+    observer_command+=(--screenshot-output "$screenshot_output")
+  fi
+  if [[ -n "$deep_scroll_screenshot_output" ]]; then
+    observer_command+=(--deep-scroll-screenshot-output "$deep_scroll_screenshot_output")
+  fi
+  "${observer_command[@]}" >> "$capture_log" 2>&1 || observer_status=$?
+  rm -f "$observer_environment_json"
+  if [[ "$observer_status" -ne 0 ]]; then
+    return "$observer_status"
+  fi
+  if [[ -n "$screenshot_output" ]]; then
+    validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1 || return 1
+  fi
+  if [[ -n "$surface_proof_output" && ( "$screenshot_route" == "settings" || "$screenshot_route" == "search" ) ]]; then
+    local proof_focus="$settings_capture_focus"
+    local proof_route_identifier=""
+    if [[ "$screenshot_route" == "search" ]]; then
+      proof_focus=""
+      proof_route_identifier="$expected_search_route_identifier"
+    fi
+    wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" "$proof_route_identifier" || return 1
+    validate_screenshot_surface_proof "$screenshot_proof_path" "$surface_proof_output" "$expected_platform" >> "$capture_log" 2>&1 || return 1
+  fi
+  if jq -e '
+    ((.auditIssues // []) | length)
+      + ((.geometryFindings // []) | length)
+      + ((.deepScroll.findings // []) | length)
+      + ((.deepScroll.auditIssues // []) | length)
+      > 0
+  ' "$output_path" >/dev/null 2>&1; then
+    ios_visual_evidence_failure_seen=true
+    return 65
+  fi
+  return "$observer_status"
+}
+
+refresh_ios_fixture_paths() {
+  local udid="$1"
+  local expected_platform="$2"
+  local data_container
+  local fixture_cover_path
+  if ! data_container="$(resolve_ios_data_container "$udid")"; then
+    printf 'unable to refresh simulator app data container for app.spoonjoy on %s\n' "$udid" >> "$capture_log"
+    return 1
+  fi
+  local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
+  ios_state_directory="$ios_app_dir/screenshot-routes/${unit_slug}-${expected_platform}"
+  rm -f "$ios_state_directory"/native-accessibility-proof.observer-*.json
+  fixture_cover_path="$(install_fixture_cover "$ios_state_directory")"
+  screenshot_proof_path="$ios_state_directory/native-screenshot-proof.json"
+  ios_accessibility_proof_runtime_path="$ios_state_directory/native-accessibility-proof.json"
+  atomic_fixture_write "$ios_state_directory/native-app-state.json" write_app_state "$expected_recorded_route"
+  atomic_fixture_write "$ios_state_directory/native-durable-cache.json" write_cache_state "$screenshot_route"
+  atomic_fixture_write "$ios_state_directory/native-sync-store.json" write_sync_store "$screenshot_route" "$fixture_cover_path"
+}
+
 capture_ios_app() {
   local udid="$1"
   local expected_platform="$2"
   local screenshot_output="$3"
   local surface_proof_output="$4"
   local accessibility_proof_output="$5"
+  local observed_accessibility_output="$6"
   local data_container
-  local terminate_log
   local bootstatus_log
   bootstatus_log="$(mktemp)"
-  terminate_log="$(mktemp)"
   if run_with_timeout "simulator boot readiness timeout" "$ios_boot_timeout_seconds" "$bootstatus_log" \
     xcrun simctl bootstatus "$udid" -b; then
     printf 'Reusing simulator booted by smoke preparation: %s\n' "$udid" >> "$capture_log"
@@ -1828,54 +2422,208 @@ capture_ios_app() {
     printf 'unable to resolve simulator app data container for app.spoonjoy on %s\n' "$udid" >> "$capture_log"
     return 1
   fi
-  local ios_app_dir="$data_container/Library/Application Support/Spoonjoy"
-  screenshot_proof_path="$ios_app_dir/native-screenshot-proof.json"
-  ios_accessibility_proof_runtime_path="$ios_app_dir/native-accessibility-proof.json"
-  write_app_state "$ios_app_dir/native-app-state.json" "$expected_recorded_route"
-  write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
-  write_sync_store "$ios_app_dir/native-sync-store.json" "$screenshot_route"
+  if ! terminate_ios_app_and_confirm_stopped "$udid"; then
+    return 1
+  fi
+  refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
   rm -f "$screenshot_proof_path"
   rm -f "$ios_accessibility_proof_runtime_path"
-  rm -f "$ios_app_dir/debug-auth-session.json"
-  if ! xcrun simctl terminate "$udid" app.spoonjoy >"$terminate_log" 2>&1; then
-    if ! grep -qi "found nothing to terminate" "$terminate_log"; then
-      cat "$terminate_log" >> "$capture_log"
+  rm -f "$ios_state_directory/debug-auth-session.json"
+  xcrun simctl ui "$udid" content_size large >> "$capture_log" 2>&1 || return 1
+  if ! capture_ios_observed_accessibility \
+    "$udid" \
+    "$expected_platform" \
+    "$observed_accessibility_output" \
+    "large" \
+    "$screenshot_output" \
+    "$accessibility_proof_output" \
+    "$surface_proof_output"; then
+    return 1
+  fi
+  if [[ "$expected_platform" == "ios" ]]; then
+    terminate_ios_app_and_confirm_stopped "$udid" || return 1
+    refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
+    xcrun simctl ui "$udid" content_size extra-extra-extra-large >> "$capture_log" 2>&1 || return 1
+    if ! capture_ios_observed_accessibility \
+      "$udid" \
+      "$expected_platform" \
+      "$observed_accessibility_ios_xxxl_abs" \
+      "extra-extra-extra-large" \
+      "$ios_xxxl_screenshot" \
+      "$accessibility_proof_ios_xxxl_abs"; then
+      return 1
+    fi
+    terminate_ios_app_and_confirm_stopped "$udid" || return 1
+    refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
+    xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large >> "$capture_log" 2>&1 || return 1
+    if ! capture_ios_observed_accessibility \
+      "$udid" \
+      "$expected_platform" \
+      "$observed_accessibility_ios_ax_abs" \
+      "accessibility-extra-extra-extra-large" \
+      "$ios_accessibility_screenshot" \
+      "$accessibility_proof_ios_ax_abs"; then
+      return 1
+    fi
+  else
+    terminate_ios_app_and_confirm_stopped "$udid" || return 1
+    refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
+    xcrun simctl ui "$udid" content_size extra-extra-extra-large >> "$capture_log" 2>&1 || return 1
+    if ! capture_ios_observed_accessibility \
+      "$udid" \
+      "$expected_platform" \
+      "$observed_accessibility_ipad_xxxl_abs" \
+      "extra-extra-extra-large" \
+      "$ios_tablet_xxxl_screenshot" \
+      "$accessibility_proof_ipad_xxxl_abs"; then
+      return 1
+    fi
+    terminate_ios_app_and_confirm_stopped "$udid" || return 1
+    refresh_ios_fixture_paths "$udid" "$expected_platform" || return 1
+    xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large >> "$capture_log" 2>&1 || return 1
+    if ! capture_ios_observed_accessibility \
+      "$udid" \
+      "$expected_platform" \
+      "$observed_accessibility_ipad_ax_abs" \
+      "accessibility-extra-extra-extra-large" \
+      "$ios_tablet_accessibility_screenshot" \
+      "$accessibility_proof_ipad_ax_abs"; then
+      return 1
     fi
   fi
-  rm -f "$terminate_log"
-  if ! ios_launch_app "$udid"; then
-    printf 'simulator launch timeout or failure for iOS route %s\n' "$screenshot_route" >> "$capture_log"
+  xcrun simctl ui "$udid" content_size large >> "$capture_log" 2>&1 || return 1
+}
+
+publish_ios_capture_artifact() {
+  local staged_path="$1"
+  local final_path="$2"
+  if [[ ! -s "$staged_path" ]]; then
+    printf 'staged iOS capture artifact is missing or empty: %s\n' "$staged_path" >> "$capture_log"
+    ios_evidence_publication_failure_seen=true
     return 1
   fi
-  wait_for_ios_foreground "$udid" || return 1
-  sleep 1
-  if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
-    local proof_focus="$settings_capture_focus"
-    local proof_route_identifier=""
-    if [[ "$screenshot_route" == "search" ]]; then
-      proof_focus=""
-      proof_route_identifier="$expected_search_route_identifier"
+  mkdir -p "$(dirname "$final_path")"
+  if ! mv -f "$staged_path" "$final_path"; then
+    ios_evidence_publication_failure_seen=true
+    return 1
+  fi
+}
+
+require_ios_capture_artifact() {
+  local staged_path="$1"
+  if [[ ! -s "$staged_path" ]]; then
+    printf 'staged iOS capture artifact is missing or empty: %s\n' "$staged_path" >> "$capture_log"
+    ios_evidence_publication_failure_seen=true
+    return 1
+  fi
+}
+
+require_ios_observed_waypoint_artifacts() {
+  local evidence_path="$1"
+  if ! jq -e '
+    .deepScroll as $deep |
+    if $deep == null then
+      true
+    else
+      ($deep.swipeCount | type) == "number" and
+      $deep.swipeCount >= 0 and
+      ($deep.swipeCount | floor) == $deep.swipeCount and
+      ($deep.waypoints | type) == "array" and
+      ($deep.waypoints | length) == $deep.swipeCount and
+      all($deep.waypoints[];
+        (.index | type) == "number" and
+        (.index | floor) == .index and
+        (.screenshotArtifactPath | type) == "string" and
+        (.screenshotBytes | type) == "number" and
+        .screenshotBytes > 0 and
+        (.screenshotBytes | floor) == .screenshotBytes and
+        (.screenshotSHA256 | type) == "string" and
+        (.screenshotSHA256 | test("^[0-9a-f]{64}$"))
+      )
+    end
+  ' "$evidence_path" >/dev/null; then
+    printf 'staged iOS observed waypoint evidence is malformed: %s\n' "$evidence_path" >> "$capture_log"
+    ios_evidence_publication_failure_seen=true
+    return 1
+  fi
+
+  local evidence_stem
+  evidence_stem="$(basename "${evidence_path%.json}")"
+  while IFS=$'\t' read -r index artifact_name expected_bytes expected_sha256; do
+    local expected_name="${evidence_stem}.deep-scroll-waypoint-${index}.png"
+    if [[ "$artifact_name" != "$expected_name" || "$(basename "$artifact_name")" != "$artifact_name" ]]; then
+      printf 'staged iOS observed waypoint name is not canonical: %s\n' "$artifact_name" >> "$capture_log"
+      ios_evidence_publication_failure_seen=true
+      return 1
     fi
-    wait_for_screenshot_proof "$screenshot_proof_path" "$screenshot_route" "$proof_focus" "$proof_route_identifier" || return 1
-    validate_screenshot_surface_proof "$screenshot_proof_path" "$surface_proof_output" "$expected_platform" >> "$capture_log" 2>&1 || return 1
+    local artifact_path="$(dirname "$evidence_path")/$artifact_name"
+    if [[ -L "$artifact_path" ]] || ! require_ios_capture_artifact "$artifact_path"; then
+      printf 'staged iOS observed waypoint artifact is missing or unsafe: %s\n' "$artifact_path" >> "$capture_log"
+      ios_evidence_publication_failure_seen=true
+      return 1
+    fi
+    local actual_bytes actual_sha256
+    actual_bytes="$(stat -f '%z' "$artifact_path")"
+    actual_sha256="$(shasum -a 256 "$artifact_path" | awk '{print $1}')"
+    if [[ "$actual_bytes" != "$expected_bytes" || "$actual_sha256" != "$expected_sha256" ]]; then
+      printf 'staged iOS observed waypoint artifact integrity mismatch: %s\n' "$artifact_path" >> "$capture_log"
+      ios_evidence_publication_failure_seen=true
+      return 1
+    fi
+  done < <(jq -r '.deepScroll.waypoints[]? | [.index, .screenshotArtifactPath, .screenshotBytes, .screenshotSHA256] | @tsv' "$evidence_path")
+}
+
+publish_ios_observed_waypoint_artifacts() {
+  local staged_evidence="$1"
+  local final_evidence="$2"
+  require_ios_observed_waypoint_artifacts "$staged_evidence" || return 1
+  while IFS= read -r artifact_name; do
+    publish_ios_capture_artifact \
+      "$(dirname "$staged_evidence")/$artifact_name" \
+      "$(dirname "$final_evidence")/$artifact_name" || return 1
+  done < <(jq -r '.deepScroll.waypoints[]?.screenshotArtifactPath' "$staged_evidence")
+}
+
+remove_ios_observed_waypoint_artifacts() {
+  local platform="${1:-all}"
+  local evidence_path waypoint_path
+  local evidence_paths=()
+  if [[ "$platform" == "all" || "$platform" == "ios" ]]; then
+    evidence_paths+=(
+      "$observed_accessibility_ios_abs"
+      "$observed_accessibility_ios_xxxl_abs"
+      "$observed_accessibility_ios_ax_abs"
+    )
   fi
-  if ! wait_for_accessibility_proof "$ios_accessibility_proof_runtime_path" "$screenshot_route" "$expected_platform" "$accessibility_proof_output" "$expected_accessibility_source"; then
-    log_accessibility_proof_diagnostic "$ios_accessibility_proof_runtime_path" "$screenshot_route" "$expected_platform" "$expected_platform"
-    printf 'Spoonjoy did not write the expected %s accessibility proof for %s\n' "$expected_platform" "$screenshot_route" >> "$capture_log"
-    return 1
+  if [[ "$platform" == "all" || "$platform" == "ipad" ]]; then
+    evidence_paths+=(
+      "$observed_accessibility_ipad_abs"
+      "$observed_accessibility_ipad_xxxl_abs"
+      "$observed_accessibility_ipad_ax_abs"
+    )
   fi
-  if ! wait_for_ios_foreground "$udid"; then
-    printf 'Spoonjoy stopped being the front display before screenshot capture\n' >> "$capture_log"
-    return 1
+  for evidence_path in "${evidence_paths[@]}"; do
+    for waypoint_path in "${evidence_path%.json}.deep-scroll-waypoint-"*.png; do
+      [[ -e "$waypoint_path" || -L "$waypoint_path" ]] || continue
+      rm -f "$waypoint_path"
+    done
+  done
+}
+
+cleanup_uncommitted_ios_generation() {
+  if [[ "$ios_capture_generation_committed" == true ]]; then
+    return 0
   fi
-  xcrun simctl io "$udid" screenshot "$screenshot_output" >> "$capture_log" 2>&1
-  if ! wait_for_ios_foreground "$udid"; then
-    printf 'Spoonjoy stopped being the front display during screenshot capture\n' >> "$capture_log"
-    rm -f "$screenshot_output"
-    return 1
-  fi
-  [[ -f "$screenshot_output" && -s "$screenshot_output" ]]
-  validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1
+  rm -f "$ios_screenshot" "$ios_xxxl_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$ios_tablet_xxxl_screenshot" "$ios_tablet_accessibility_screenshot"
+  rm -f "$ios_deep_scroll_screenshot" "$ios_xxxl_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot" "$ios_tablet_xxxl_deep_scroll_screenshot" "$ios_tablet_accessibility_deep_scroll_screenshot"
+  rm -f "$ios_proof_artifact" "$ipad_proof_artifact"
+  rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_xxxl" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad" "$accessibility_proof_ipad_xxxl" "$accessibility_proof_ipad_ax"
+  rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_xxxl_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_ipad_xxxl_abs" "$accessibility_proof_ipad_ax_abs"
+  rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_xxxl_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll" "$accessibility_proof_ipad_xxxl_deep_scroll" "$accessibility_proof_ipad_ax_deep_scroll"
+  rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_xxxl_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs" "$accessibility_proof_ipad_xxxl_deep_scroll_abs" "$accessibility_proof_ipad_ax_deep_scroll_abs"
+  rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_xxxl" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_ipad_xxxl" "$observed_accessibility_ipad_ax"
+  rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_xxxl_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_ipad_xxxl_abs" "$observed_accessibility_ipad_ax_abs"
+  remove_ios_observed_waypoint_artifacts
 }
 
 capture_ios_app_with_retries() {
@@ -1884,16 +2632,231 @@ capture_ios_app_with_retries() {
   local screenshot_output="$3"
   local surface_proof_output="$4"
   local accessibility_proof_output="$5"
+  local observed_accessibility_output="$6"
+  local final_observed_accessibility_ios_xxxl_abs="$observed_accessibility_ios_xxxl_abs"
+  local final_observed_accessibility_ios_ax_abs="$observed_accessibility_ios_ax_abs"
+  local final_ios_xxxl_screenshot="$ios_xxxl_screenshot"
+  local final_ios_accessibility_screenshot="$ios_accessibility_screenshot"
+  local final_accessibility_proof_ios_xxxl_abs="$accessibility_proof_ios_xxxl_abs"
+  local final_accessibility_proof_ios_ax_abs="$accessibility_proof_ios_ax_abs"
+  local final_accessibility_proof_ios_deep_scroll_abs="$accessibility_proof_ios_deep_scroll_abs"
+  local final_accessibility_proof_ios_xxxl_deep_scroll_abs="$accessibility_proof_ios_xxxl_deep_scroll_abs"
+  local final_accessibility_proof_ios_ax_deep_scroll_abs="$accessibility_proof_ios_ax_deep_scroll_abs"
+  local final_accessibility_proof_ipad_deep_scroll_abs="$accessibility_proof_ipad_deep_scroll_abs"
+  local final_observed_accessibility_ipad_xxxl_abs="$observed_accessibility_ipad_xxxl_abs"
+  local final_observed_accessibility_ipad_ax_abs="$observed_accessibility_ipad_ax_abs"
+  local final_ios_tablet_xxxl_screenshot="$ios_tablet_xxxl_screenshot"
+  local final_ios_tablet_accessibility_screenshot="$ios_tablet_accessibility_screenshot"
+  local final_accessibility_proof_ipad_xxxl_abs="$accessibility_proof_ipad_xxxl_abs"
+  local final_accessibility_proof_ipad_ax_abs="$accessibility_proof_ipad_ax_abs"
+  local final_accessibility_proof_ipad_xxxl_deep_scroll_abs="$accessibility_proof_ipad_xxxl_deep_scroll_abs"
+  local final_accessibility_proof_ipad_ax_deep_scroll_abs="$accessibility_proof_ipad_ax_deep_scroll_abs"
+  local final_ios_deep_scroll_screenshot="$ios_deep_scroll_screenshot"
+  local final_ios_xxxl_deep_scroll_screenshot="$ios_xxxl_deep_scroll_screenshot"
+  local final_ios_accessibility_deep_scroll_screenshot="$ios_accessibility_deep_scroll_screenshot"
+  local final_ios_tablet_deep_scroll_screenshot="$ios_tablet_deep_scroll_screenshot"
+  local final_ios_tablet_xxxl_deep_scroll_screenshot="$ios_tablet_xxxl_deep_scroll_screenshot"
+  local final_ios_tablet_accessibility_deep_scroll_screenshot="$ios_tablet_accessibility_deep_scroll_screenshot"
   local attempt=1
+  rm -f "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output" "$observed_accessibility_output"
+  remove_ios_observed_waypoint_artifacts "$expected_platform"
+  if [[ "$expected_platform" == "ios" ]]; then
+    rm -f "$final_observed_accessibility_ios_xxxl_abs" "$final_observed_accessibility_ios_ax_abs"
+    rm -f "$final_ios_xxxl_screenshot" "$final_ios_accessibility_screenshot"
+    rm -f "$final_accessibility_proof_ios_xxxl_abs" "$final_accessibility_proof_ios_ax_abs"
+    rm -f "$final_accessibility_proof_ios_deep_scroll_abs" "$final_accessibility_proof_ios_xxxl_deep_scroll_abs" "$final_accessibility_proof_ios_ax_deep_scroll_abs"
+    rm -f "$final_ios_deep_scroll_screenshot" "$final_ios_xxxl_deep_scroll_screenshot" "$final_ios_accessibility_deep_scroll_screenshot"
+  else
+    rm -f "$final_observed_accessibility_ipad_xxxl_abs" "$final_observed_accessibility_ipad_ax_abs"
+    rm -f "$final_ios_tablet_xxxl_screenshot" "$final_ios_tablet_accessibility_screenshot"
+    rm -f "$final_accessibility_proof_ipad_xxxl_abs" "$final_accessibility_proof_ipad_ax_abs"
+    rm -f "$final_accessibility_proof_ipad_deep_scroll_abs" "$final_accessibility_proof_ipad_xxxl_deep_scroll_abs" "$final_accessibility_proof_ipad_ax_deep_scroll_abs"
+    rm -f "$final_ios_tablet_deep_scroll_screenshot" "$final_ios_tablet_xxxl_deep_scroll_screenshot" "$final_ios_tablet_accessibility_deep_scroll_screenshot"
+  fi
   while [[ "$attempt" -le "$ios_capture_attempts" ]]; do
-    rm -f "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output"
-    if capture_ios_app "$udid" "$expected_platform" "$screenshot_output" "$surface_proof_output" "$accessibility_proof_output"; then
+    local attempt_directory="$artifact_root/apple/${unit_slug}-${expected_platform}-capture-attempt-${attempt}"
+    rm -rf "$attempt_directory"
+    mkdir -p "$attempt_directory"
+    local staged_screenshot="$attempt_directory/$(basename "$screenshot_output")"
+    local staged_surface_proof="$attempt_directory/$(basename "$surface_proof_output")"
+    local staged_accessibility_proof="$attempt_directory/$(basename "$accessibility_proof_output")"
+    local staged_observed_accessibility="$attempt_directory/$(basename "$observed_accessibility_output")"
+    observed_accessibility_ios_xxxl_abs="$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")"
+    observed_accessibility_ios_ax_abs="$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")"
+    ios_xxxl_screenshot="$attempt_directory/$(basename "$final_ios_xxxl_screenshot")"
+    ios_accessibility_screenshot="$attempt_directory/$(basename "$final_ios_accessibility_screenshot")"
+    accessibility_proof_ios_xxxl_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_abs")"
+    accessibility_proof_ios_ax_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_abs")"
+    accessibility_proof_ios_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")"
+    accessibility_proof_ios_xxxl_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_deep_scroll_abs")"
+    accessibility_proof_ios_ax_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_deep_scroll_abs")"
+    accessibility_proof_ipad_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ipad_deep_scroll_abs")"
+    observed_accessibility_ipad_xxxl_abs="$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")"
+    observed_accessibility_ipad_ax_abs="$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")"
+    ios_tablet_xxxl_screenshot="$attempt_directory/$(basename "$final_ios_tablet_xxxl_screenshot")"
+    ios_tablet_accessibility_screenshot="$attempt_directory/$(basename "$final_ios_tablet_accessibility_screenshot")"
+    accessibility_proof_ipad_xxxl_abs="$attempt_directory/$(basename "$final_accessibility_proof_ipad_xxxl_abs")"
+    accessibility_proof_ipad_ax_abs="$attempt_directory/$(basename "$final_accessibility_proof_ipad_ax_abs")"
+    accessibility_proof_ipad_xxxl_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ipad_xxxl_deep_scroll_abs")"
+    accessibility_proof_ipad_ax_deep_scroll_abs="$attempt_directory/$(basename "$final_accessibility_proof_ipad_ax_deep_scroll_abs")"
+    ios_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_deep_scroll_screenshot")"
+    ios_xxxl_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_xxxl_deep_scroll_screenshot")"
+    ios_accessibility_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_accessibility_deep_scroll_screenshot")"
+    ios_tablet_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_tablet_deep_scroll_screenshot")"
+    ios_tablet_xxxl_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_tablet_xxxl_deep_scroll_screenshot")"
+    ios_tablet_accessibility_deep_scroll_screenshot="$attempt_directory/$(basename "$final_ios_tablet_accessibility_deep_scroll_screenshot")"
+    if capture_ios_app "$udid" "$expected_platform" "$staged_screenshot" "$staged_surface_proof" "$staged_accessibility_proof" "$staged_observed_accessibility"; then
+      observed_accessibility_ios_xxxl_abs="$final_observed_accessibility_ios_xxxl_abs"
+      observed_accessibility_ios_ax_abs="$final_observed_accessibility_ios_ax_abs"
+      ios_xxxl_screenshot="$final_ios_xxxl_screenshot"
+      ios_accessibility_screenshot="$final_ios_accessibility_screenshot"
+      accessibility_proof_ios_xxxl_abs="$final_accessibility_proof_ios_xxxl_abs"
+      accessibility_proof_ios_ax_abs="$final_accessibility_proof_ios_ax_abs"
+      accessibility_proof_ios_deep_scroll_abs="$final_accessibility_proof_ios_deep_scroll_abs"
+      accessibility_proof_ios_xxxl_deep_scroll_abs="$final_accessibility_proof_ios_xxxl_deep_scroll_abs"
+      accessibility_proof_ios_ax_deep_scroll_abs="$final_accessibility_proof_ios_ax_deep_scroll_abs"
+      accessibility_proof_ipad_deep_scroll_abs="$final_accessibility_proof_ipad_deep_scroll_abs"
+      observed_accessibility_ipad_xxxl_abs="$final_observed_accessibility_ipad_xxxl_abs"
+      observed_accessibility_ipad_ax_abs="$final_observed_accessibility_ipad_ax_abs"
+      ios_tablet_xxxl_screenshot="$final_ios_tablet_xxxl_screenshot"
+      ios_tablet_accessibility_screenshot="$final_ios_tablet_accessibility_screenshot"
+      accessibility_proof_ipad_xxxl_abs="$final_accessibility_proof_ipad_xxxl_abs"
+      accessibility_proof_ipad_ax_abs="$final_accessibility_proof_ipad_ax_abs"
+      accessibility_proof_ipad_xxxl_deep_scroll_abs="$final_accessibility_proof_ipad_xxxl_deep_scroll_abs"
+      accessibility_proof_ipad_ax_deep_scroll_abs="$final_accessibility_proof_ipad_ax_deep_scroll_abs"
+      ios_deep_scroll_screenshot="$final_ios_deep_scroll_screenshot"
+      ios_xxxl_deep_scroll_screenshot="$final_ios_xxxl_deep_scroll_screenshot"
+      ios_accessibility_deep_scroll_screenshot="$final_ios_accessibility_deep_scroll_screenshot"
+      ios_tablet_deep_scroll_screenshot="$final_ios_tablet_deep_scroll_screenshot"
+      ios_tablet_xxxl_deep_scroll_screenshot="$final_ios_tablet_xxxl_deep_scroll_screenshot"
+      ios_tablet_accessibility_deep_scroll_screenshot="$final_ios_tablet_accessibility_deep_scroll_screenshot"
+      require_ios_capture_artifact "$staged_screenshot" || return 1
+      require_ios_capture_artifact "$staged_accessibility_proof" || return 1
+      require_ios_capture_artifact "$staged_observed_accessibility" || return 1
+      require_ios_observed_waypoint_artifacts "$staged_observed_accessibility" || return 1
+      if [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
+        require_ios_capture_artifact "$staged_surface_proof" || return 1
+      fi
+      if [[ "$expected_platform" == "ios" ]]; then
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_screenshot")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_screenshot")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_abs")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_abs")" || return 1
+      else
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" || return 1
+        require_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_xxxl_screenshot")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_accessibility_screenshot")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_xxxl_abs")" || return 1
+        require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_ax_abs")" || return 1
+      fi
+      case "$screenshot_route" in
+        kitchen|recipes|saved-recipes|recipe-detail|recipe-editor|recipe-covers|cook-mode|cook-log|cookbooks|cookbook-detail|shopping-list|chefs|profile|profile-graph|search|capture|settings)
+          if [[ "$expected_platform" == "ios" ]]; then
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_deep_scroll_abs")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_deep_scroll_abs")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_deep_scroll_screenshot")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_deep_scroll_screenshot")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_deep_scroll_screenshot")" || return 1
+          else
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_deep_scroll_abs")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_xxxl_deep_scroll_abs")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_ax_deep_scroll_abs")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_deep_scroll_screenshot")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_xxxl_deep_scroll_screenshot")" || return 1
+            require_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_accessibility_deep_scroll_screenshot")" || return 1
+          fi
+          ;;
+      esac
+      publish_ios_capture_artifact "$staged_screenshot" "$screenshot_output" || return 1
+      if [[ -s "$staged_surface_proof" ]]; then
+        publish_ios_capture_artifact "$staged_surface_proof" "$surface_proof_output" || return 1
+      elif [[ "$screenshot_route" == "settings" || "$screenshot_route" == "search" ]]; then
+        printf 'staged iOS surface proof is required for route %s\n' "$screenshot_route" >> "$capture_log"
+        return 1
+      fi
+      publish_ios_capture_artifact "$staged_accessibility_proof" "$accessibility_proof_output" || return 1
+      publish_ios_observed_waypoint_artifacts "$staged_observed_accessibility" "$observed_accessibility_output" || return 1
+      publish_ios_capture_artifact "$staged_observed_accessibility" "$observed_accessibility_output" || return 1
+      if [[ "$expected_platform" == "ios" ]]; then
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" "$final_observed_accessibility_ios_xxxl_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_xxxl_abs")" "$final_observed_accessibility_ios_xxxl_abs" || return 1
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" "$final_observed_accessibility_ios_ax_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ios_ax_abs")" "$final_observed_accessibility_ios_ax_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_screenshot")" "$final_ios_xxxl_screenshot" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_screenshot")" "$final_ios_accessibility_screenshot" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_abs")" "$final_accessibility_proof_ios_xxxl_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_abs")" "$final_accessibility_proof_ios_ax_abs" || return 1
+        if [[ -s "$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")" ]]; then
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_deep_scroll_abs")" "$final_accessibility_proof_ios_deep_scroll_abs" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_xxxl_deep_scroll_abs")" "$final_accessibility_proof_ios_xxxl_deep_scroll_abs" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ios_ax_deep_scroll_abs")" "$final_accessibility_proof_ios_ax_deep_scroll_abs" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_deep_scroll_screenshot")" "$final_ios_deep_scroll_screenshot" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_xxxl_deep_scroll_screenshot")" "$final_ios_xxxl_deep_scroll_screenshot" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_accessibility_deep_scroll_screenshot")" "$final_ios_accessibility_deep_scroll_screenshot" || return 1
+        fi
+      else
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" "$final_observed_accessibility_ipad_xxxl_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_xxxl_abs")" "$final_observed_accessibility_ipad_xxxl_abs" || return 1
+        publish_ios_observed_waypoint_artifacts "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" "$final_observed_accessibility_ipad_ax_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_observed_accessibility_ipad_ax_abs")" "$final_observed_accessibility_ipad_ax_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_xxxl_screenshot")" "$final_ios_tablet_xxxl_screenshot" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_accessibility_screenshot")" "$final_ios_tablet_accessibility_screenshot" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_xxxl_abs")" "$final_accessibility_proof_ipad_xxxl_abs" || return 1
+        publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_ax_abs")" "$final_accessibility_proof_ipad_ax_abs" || return 1
+        if [[ -s "$attempt_directory/$(basename "$final_accessibility_proof_ipad_deep_scroll_abs")" ]]; then
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_deep_scroll_abs")" "$final_accessibility_proof_ipad_deep_scroll_abs" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_xxxl_deep_scroll_abs")" "$final_accessibility_proof_ipad_xxxl_deep_scroll_abs" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_accessibility_proof_ipad_ax_deep_scroll_abs")" "$final_accessibility_proof_ipad_ax_deep_scroll_abs" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_deep_scroll_screenshot")" "$final_ios_tablet_deep_scroll_screenshot" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_xxxl_deep_scroll_screenshot")" "$final_ios_tablet_xxxl_deep_scroll_screenshot" || return 1
+          publish_ios_capture_artifact "$attempt_directory/$(basename "$final_ios_tablet_accessibility_deep_scroll_screenshot")" "$final_ios_tablet_accessibility_deep_scroll_screenshot" || return 1
+        fi
+      fi
+      rm -rf "$attempt_directory"
       return 0
     fi
+    observed_accessibility_ios_xxxl_abs="$final_observed_accessibility_ios_xxxl_abs"
+    observed_accessibility_ios_ax_abs="$final_observed_accessibility_ios_ax_abs"
+    ios_xxxl_screenshot="$final_ios_xxxl_screenshot"
+    ios_accessibility_screenshot="$final_ios_accessibility_screenshot"
+    accessibility_proof_ios_xxxl_abs="$final_accessibility_proof_ios_xxxl_abs"
+    accessibility_proof_ios_ax_abs="$final_accessibility_proof_ios_ax_abs"
+    accessibility_proof_ios_deep_scroll_abs="$final_accessibility_proof_ios_deep_scroll_abs"
+    accessibility_proof_ios_xxxl_deep_scroll_abs="$final_accessibility_proof_ios_xxxl_deep_scroll_abs"
+    accessibility_proof_ios_ax_deep_scroll_abs="$final_accessibility_proof_ios_ax_deep_scroll_abs"
+    accessibility_proof_ipad_deep_scroll_abs="$final_accessibility_proof_ipad_deep_scroll_abs"
+    observed_accessibility_ipad_xxxl_abs="$final_observed_accessibility_ipad_xxxl_abs"
+    observed_accessibility_ipad_ax_abs="$final_observed_accessibility_ipad_ax_abs"
+    ios_tablet_xxxl_screenshot="$final_ios_tablet_xxxl_screenshot"
+    ios_tablet_accessibility_screenshot="$final_ios_tablet_accessibility_screenshot"
+    accessibility_proof_ipad_xxxl_abs="$final_accessibility_proof_ipad_xxxl_abs"
+    accessibility_proof_ipad_ax_abs="$final_accessibility_proof_ipad_ax_abs"
+    accessibility_proof_ipad_xxxl_deep_scroll_abs="$final_accessibility_proof_ipad_xxxl_deep_scroll_abs"
+    accessibility_proof_ipad_ax_deep_scroll_abs="$final_accessibility_proof_ipad_ax_deep_scroll_abs"
+    ios_deep_scroll_screenshot="$final_ios_deep_scroll_screenshot"
+    ios_xxxl_deep_scroll_screenshot="$final_ios_xxxl_deep_scroll_screenshot"
+    ios_accessibility_deep_scroll_screenshot="$final_ios_accessibility_deep_scroll_screenshot"
+    ios_tablet_deep_scroll_screenshot="$final_ios_tablet_deep_scroll_screenshot"
+    ios_tablet_xxxl_deep_scroll_screenshot="$final_ios_tablet_xxxl_deep_scroll_screenshot"
+    ios_tablet_accessibility_deep_scroll_screenshot="$final_ios_tablet_accessibility_deep_scroll_screenshot"
+    rm -rf "$attempt_directory"
     printf '%s screenshot capture attempt %s/%s failed for route %s\n' "$expected_platform" "$attempt" "$ios_capture_attempts" "$screenshot_route" >> "$capture_log"
+    if [[ "$ios_visual_evidence_failure_seen" == true ]]; then
+      return 1
+    fi
     if [[ "$attempt" -lt "$ios_capture_attempts" ]]; then
-      xcrun simctl terminate "$udid" app.spoonjoy >> "$capture_log" 2>&1 || true
-      xcrun simctl shutdown "$udid" >> "$capture_log" 2>&1 || true
+      run_with_timeout "simulator retry termination timeout" "$ios_launch_timeout_seconds" "$capture_log" \
+        xcrun simctl terminate "$udid" app.spoonjoy || true
+      run_with_timeout "simulator retry shutdown timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+        xcrun simctl shutdown "$udid" || true
       sleep 2
     fi
     attempt=$((attempt + 1))
@@ -1901,24 +2864,144 @@ capture_ios_app_with_retries() {
   return 1
 }
 
+transition_ios_capture_device() {
+  local previous_udid="$1"
+  local next_udid="$2"
+  if [[ -z "$next_udid" ]]; then
+    printf 'simulator device transition is missing the destination UDID\n' >> "$capture_log"
+    return 1
+  fi
+
+  printf 'Transitioning simulator capture device: %s -> %s\n' "${previous_udid:-none}" "$next_udid" >> "$capture_log"
+  if [[ -n "$previous_udid" && "$previous_udid" != "$next_udid" ]]; then
+    run_with_timeout "simulator device transition termination timeout" "$ios_launch_timeout_seconds" "$capture_log" \
+      xcrun simctl terminate "$previous_udid" app.spoonjoy || true
+    run_with_timeout "simulator device transition shutdown timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+      xcrun simctl shutdown "$previous_udid" || true
+  fi
+
+  run_with_timeout "simulator device transition boot request timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+    xcrun simctl boot "$next_udid" || true
+  if ! run_with_timeout "simulator device transition boot readiness timeout" "$ios_boot_timeout_seconds" "$capture_log" \
+    xcrun simctl bootstatus "$next_udid" -b; then
+    return 1
+  fi
+  if ! run_with_timeout "Simulator host transition timeout" "$ios_launch_timeout_seconds" "$capture_log" \
+    open -a Simulator --args -CurrentDeviceUDID "$next_udid"; then
+    return 1
+  fi
+  if [[ "$ios_host_settle_seconds" != "0" ]]; then
+    printf 'Waiting %s seconds for Simulator host foreground readiness\n' "$ios_host_settle_seconds" >> "$capture_log"
+    sleep "$ios_host_settle_seconds"
+  fi
+}
+
 capture_macos_window() {
   run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application \"$macos_app\" to activate" || true
   sleep 1
   local window_id=""
   local spoonjoy_pid=""
+  macos_screenshot_pid=""
+  macos_window_id=""
+  rm -f "$macos_screenshot"
   for _ in $(seq 1 20); do
-    spoonjoy_pid="$(pgrep -x Spoonjoy | tail -n 1 || true)"
-    if [[ -n "$spoonjoy_pid" ]] && window_id="$(swift scripts/find-macos-window-id.swift "$spoonjoy_pid" "$macos_window_title" 2>> "$capture_log")"; then
-      break
-    fi
-    window_id=""
+    while IFS= read -r spoonjoy_pid; do
+      [[ -n "$spoonjoy_pid" ]] || continue
+      if window_id="$(swift scripts/find-macos-window-id.swift "$spoonjoy_pid" "$macos_window_title" 2>> "$capture_log")"; then
+        macos_screenshot_pid="$spoonjoy_pid"
+        break
+      fi
+      window_id=""
+    done < <(pgrep -x Spoonjoy | sort -nr || true)
+    [[ -n "$window_id" ]] && break
     sleep 0.5
   done
-  if [[ -z "$window_id" ]]; then
+  if [[ -z "$window_id" || -z "$macos_screenshot_pid" ]]; then
     return 1
   fi
-  screencapture -x -l "$window_id" "$macos_screenshot" >> "$capture_log" 2>&1
-  [[ -f "$macos_screenshot" && -s "$macos_screenshot" ]]
+  macos_window_id="$window_id"
+  return 0
+}
+
+capture_macos_observed_accessibility() {
+  local output_path="$1"
+  local spoonjoy_pid="$macos_screenshot_pid"
+  local executable_name
+  local executable_path
+  local observer_deadline
+  local observer_remaining_seconds
+  local observer_preflight_timeout_seconds
+  local -a observer_command
+  local -a observer_preflight_command
+  [[ -n "$spoonjoy_pid" ]] || return 1
+  [[ -n "$macos_window_id" ]] || return 1
+  executable_name="$(plutil -extract CFBundleExecutable raw -o - "$macos_app/Contents/Info.plist")"
+  executable_path="$macos_app/Contents/MacOS/$executable_name"
+  observer_deadline=$((SECONDS + macos_observer_timeout_seconds))
+  while IFS= read -r spoonjoy_pid; do
+    observer_remaining_seconds=$((observer_deadline - SECONDS))
+    (( observer_remaining_seconds > 0 )) || return 1
+    observer_preflight_timeout_seconds="$macos_observer_preflight_timeout_seconds"
+    if (( observer_preflight_timeout_seconds > observer_remaining_seconds )); then
+      observer_preflight_timeout_seconds="$observer_remaining_seconds"
+    fi
+    observer_command=(
+      swift scripts/observe-macos-screenshot-evidence.swift
+      --pid "$spoonjoy_pid"
+      --route "$screenshot_route"
+      --shopping-variant "$shopping_capture_variant"
+      --search-variant "$search_capture_variant"
+      --capture-variant "$capture_surface_variant"
+      --expected-search-query "$expected_search_query"
+      --expected-search-scope "$expected_search_scope"
+      --capture-run-nonce "$screenshot_run_nonce"
+      --readiness-proof-path "$accessibility_proof_macos_abs"
+      --screenshot-path "$macos_screenshot"
+      --deep-scroll-screenshot-path "$macos_deep_scroll_screenshot"
+      --window-id "$macos_window_id"
+      --bundle-id app.spoonjoy.mac
+      --bundle-path "$macos_app"
+      --executable-path "$executable_path"
+      --output "$output_path"
+    )
+    if [[ "$screenshot_route" == "settings" && "$settings_capture_focus" == "notifications" ]]; then
+      observer_command+=(--apns)
+    fi
+    if [[ "$screenshot_auth_enabled" == "0" ]]; then
+      observer_command+=(--signed-out)
+    fi
+    observer_preflight_command=("${observer_command[@]}" --preflight)
+    if ! run_with_timeout "macOS accessibility observer preflight timeout" "$observer_preflight_timeout_seconds" "$capture_log" "${observer_preflight_command[@]}"; then
+      continue
+    fi
+    observer_remaining_seconds=$((observer_deadline - SECONDS))
+    (( observer_remaining_seconds > 0 )) || return 1
+    rm -f "$output_path"
+    if run_with_timeout "macOS accessibility observation timeout" "$observer_remaining_seconds" "$capture_log" "${observer_command[@]}" && [[ -s "$output_path" ]]; then
+      if ruby -rjson -rdigest -e '
+        evidence_path, expected_pid, expected_window_id, initial_screenshot_path, deep_screenshot_path, route = ARGV
+        evidence = JSON.parse(File.read(evidence_path))
+        abort("macOS observer PID binding mismatch") unless evidence.fetch("pid") == Integer(expected_pid, 10)
+        abort("macOS observer window binding mismatch") unless evidence.fetch("windowID") == Integer(expected_window_id, 10)
+        abort("macOS observer initial screenshot digest mismatch") unless evidence.fetch("screenshotSHA256") == Digest::SHA256.file(initial_screenshot_path).hexdigest
+        deep_routes = %w[kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings]
+        if deep_routes.include?(route)
+          deep = evidence.fetch("deepScroll")
+          abort("macOS observer did not reach terminal content") unless deep.fetch("reachedTerminal") == true
+          abort("macOS observer deep-scroll findings are not empty") unless deep.fetch("findings") == []
+          abort("macOS observer post-scroll audit findings are not empty") unless deep.fetch("postScrollAuditFindings") == []
+          abort("macOS observer post-scroll PID binding mismatch") unless deep.fetch("applicationProcessIdentifier") == Integer(expected_pid, 10)
+          abort("macOS observer post-scroll window binding mismatch") unless deep.fetch("windowID") == Integer(expected_window_id, 10)
+          abort("macOS observer post-scroll screenshot is missing") unless File.file?(deep_screenshot_path) && File.size(deep_screenshot_path).positive?
+          abort("macOS observer post-scroll screenshot digest mismatch") unless deep.fetch("postScrollScreenshotSHA256") == Digest::SHA256.file(deep_screenshot_path).hexdigest
+        end
+      ' "$output_path" "$spoonjoy_pid" "$macos_window_id" "$macos_screenshot" "$macos_deep_scroll_screenshot" "$screenshot_route" >> "$capture_log" 2>&1; then
+        return 0
+      fi
+      rm -f "$output_path" "$macos_deep_scroll_screenshot"
+    fi
+  done < <(printf '%s\n' "$macos_screenshot_pid")
+  return 1
 }
 
 wait_for_route() {
@@ -2010,25 +3093,62 @@ run_ios_smoke() {
 }
 
 : > "$capture_log"
-rm -f "$ios_screenshot" "$ios_tablet_screenshot" "$macos_screenshot"
+rm -f "$ios_screenshot" "$ios_xxxl_screenshot" "$ios_accessibility_screenshot" "$ios_tablet_screenshot" "$ios_tablet_xxxl_screenshot" "$ios_tablet_accessibility_screenshot" "$macos_screenshot" "$macos_deep_scroll_screenshot"
+rm -f "$ios_deep_scroll_screenshot" "$ios_xxxl_deep_scroll_screenshot" "$ios_accessibility_deep_scroll_screenshot" "$ios_tablet_deep_scroll_screenshot" "$ios_tablet_xxxl_deep_scroll_screenshot" "$ios_tablet_accessibility_deep_scroll_screenshot"
+rm -f "$macos_screenshot_diagnostic"
 rm -f "$ios_proof_artifact" "$ipad_proof_artifact" "$macos_proof_artifact"
-rm -f "$accessibility_proof_ios" "$accessibility_proof_ipad" "$accessibility_proof_macos"
-rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"
+rm -f "$accessibility_proof_ios" "$accessibility_proof_ios_xxxl" "$accessibility_proof_ios_ax" "$accessibility_proof_ipad" "$accessibility_proof_ipad_xxxl" "$accessibility_proof_ipad_ax" "$accessibility_proof_macos"
+rm -f "$accessibility_proof_ios_abs" "$accessibility_proof_ios_xxxl_abs" "$accessibility_proof_ios_ax_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_ipad_xxxl_abs" "$accessibility_proof_ipad_ax_abs" "$accessibility_proof_macos_abs"
+rm -f "$accessibility_proof_ios_deep_scroll" "$accessibility_proof_ios_xxxl_deep_scroll" "$accessibility_proof_ios_ax_deep_scroll" "$accessibility_proof_ipad_deep_scroll" "$accessibility_proof_ipad_xxxl_deep_scroll" "$accessibility_proof_ipad_ax_deep_scroll"
+rm -f "$accessibility_proof_ios_deep_scroll_abs" "$accessibility_proof_ios_xxxl_deep_scroll_abs" "$accessibility_proof_ios_ax_deep_scroll_abs" "$accessibility_proof_ipad_deep_scroll_abs" "$accessibility_proof_ipad_xxxl_deep_scroll_abs" "$accessibility_proof_ipad_ax_deep_scroll_abs"
+rm -f "$observed_accessibility_ios" "$observed_accessibility_ios_xxxl" "$observed_accessibility_ios_ax" "$observed_accessibility_ipad" "$observed_accessibility_ipad_xxxl" "$observed_accessibility_ipad_ax" "$observed_accessibility_macos"
+rm -f "$observed_accessibility_ios_abs" "$observed_accessibility_ios_xxxl_abs" "$observed_accessibility_ios_ax_abs" "$observed_accessibility_ipad_abs" "$observed_accessibility_ipad_xxxl_abs" "$observed_accessibility_ipad_ax_abs" "$observed_accessibility_macos_abs"
 rm -f "$design_review_blocked"
 rm -f "$design_review"
-rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker"
+rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker" "$macos_accessibility_blocker"
+rm -f "$observed_accessibility_macos_diagnostic"
+trap 'stop_macos_display_assertion; cleanup_uncommitted_ios_generation' EXIT
 
-run_ios_smoke "iPhone simulator" "iphone" "$ios_smoke_log" "$ios_blocker"
+ios_udid=""
+ipad_udid=""
+
+if ! prepare_ios_observer_products; then
+  write_blocker \
+    "$xcode_blocker" \
+    "XcodePlatform" \
+    "xcodebuild build-for-testing for Spoonjoy iOS observer" \
+    "$capture_log" \
+    "The iOS screenshot app and external UI observer products could not be prepared from one build." \
+    "Repair the iOS app/UI-test build and rerun screenshot capture."
+fi
+
+if [[ ! -f "$xcode_blocker" ]]; then
+  run_ios_smoke "iPhone simulator" "iphone" "$ios_smoke_log" "$ios_blocker"
+fi
 if [[ ! -f "$xcode_blocker" ]]; then
   run_ios_smoke "iPad simulator" "ipad" "$ipad_smoke_log" "$ipad_blocker"
 fi
-if [[ ! -f "$xcode_blocker" ]]; then
+if [[ ! -f "$xcode_blocker" ]] && ! start_macos_display_assertion; then
+  write_blocker \
+    "$macos_blocker" \
+    "MacOSDisplayWake" \
+    "caffeinate -d -i -w <capture-pid> and caffeinate -u -t 5" \
+    "$capture_log" \
+    "The capture host could not wake and hold the macOS display for deterministic screenshot evidence." \
+    "Repair the host caffeinate capability and rerun screenshot capture."
+fi
+if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   run_smoke "macOS launch" "$macos_smoke_log" "$macos_blocker" scripts/smoke-macos.sh
 fi
 
 if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
   ios_udid="$(ios_udid_from_smoke_log "$ios_smoke_log" || true)"
-  if [[ -z "$ios_udid" ]] || ! capture_ios_app_with_retries "$ios_udid" "ios" "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios_abs"; then
+  ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
+  if [[ -z "$ios_udid" ]] || ! transition_ios_capture_device "$ipad_udid" "$ios_udid" || ! capture_ios_app_with_retries "$ios_udid" "ios" "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios_abs" "$observed_accessibility_ios_abs"; then
+    if [[ "$ios_visual_evidence_failure_seen" == true || "$ios_evidence_publication_failure_seen" == true ]]; then
+      printf 'iOS visual evidence or transactional publication failed for route %s; release evidence failures are not CoreSimulator blockers.\n' "$screenshot_route" >&2
+      exit 1
+    fi
     write_blocker \
       "$ios_blocker" \
       "CoreSimulator" \
@@ -2040,8 +3160,14 @@ if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
 fi
 
 if [[ ! -f "$xcode_blocker" && ! -f "$ipad_blocker" ]]; then
-  ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
-  if [[ -z "$ipad_udid" ]] || ! capture_ios_app_with_retries "$ipad_udid" "ipad" "$ios_tablet_screenshot" "$ipad_proof_artifact" "$accessibility_proof_ipad_abs"; then
+  if [[ -z "$ipad_udid" ]]; then
+    ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
+  fi
+  if [[ -z "$ipad_udid" ]] || ! transition_ios_capture_device "$ios_udid" "$ipad_udid" || ! capture_ios_app_with_retries "$ipad_udid" "ipad" "$ios_tablet_screenshot" "$ipad_proof_artifact" "$accessibility_proof_ipad_abs" "$observed_accessibility_ipad_abs"; then
+    if [[ "$ios_visual_evidence_failure_seen" == true || "$ios_evidence_publication_failure_seen" == true ]]; then
+      printf 'iPad visual evidence or transactional publication failed for route %s; release evidence failures are not CoreSimulator blockers.\n' "$screenshot_route" >&2
+      exit 1
+    fi
     write_blocker \
       "$ipad_blocker" \
       "CoreSimulator" \
@@ -2122,7 +3248,16 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       rm -f "$auth_file"
     fi
   }
-  trap restore_capture_state EXIT
+  trap 'restore_capture_state || true; stop_macos_display_assertion; cleanup_uncommitted_ios_generation' EXIT
+  if ! terminate_macos_app_and_confirm_stopped; then
+    write_blocker \
+      "$macos_blocker" \
+      "MacOSTermination" \
+      "terminate_macos_app_and_confirm_stopped" \
+      "$capture_log" \
+      "Spoonjoy macOS did not stop before screenshot fixture state was written." \
+      "Rerun screenshot capture after the existing Spoonjoy process exits."
+  fi
   rm -f "$state_file"
   rm -f "$cache_file"
   rm -f "$sync_file"
@@ -2130,17 +3265,15 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   rm -f "$auth_file"
   rm -f "$accessibility_proof_macos" "$accessibility_proof_macos_abs"
   screenshot_proof_path="$proof_file"
-  write_app_state "$state_file" "$expected_recorded_route"
-  write_cache_state "$cache_file" "$screenshot_route"
-  write_sync_store "$sync_file" "$screenshot_route"
-  run_cleanup_command "quit Spoonjoy before capture" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
-  run_cleanup_command "kill Spoonjoy before capture" pkill -x Spoonjoy || true
-  sleep 1
+  macos_fixture_cover_path="$(install_fixture_cover "$macos_state_directory")"
+  atomic_fixture_write "$state_file" write_app_state "$expected_recorded_route"
+  atomic_fixture_write "$cache_file" write_cache_state "$screenshot_route"
+  atomic_fixture_write "$sync_file" write_sync_store "$screenshot_route" "$macos_fixture_cover_path"
   if ! open_macos_app; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "open -n $macos_app" \
+      "open -n -F $macos_app" \
       "$capture_log" \
       "Spoonjoy macOS launch timeout or failure occurred before screenshot capture." \
       "Launch the app from an unlocked desktop session and rerun screenshot capture."
@@ -2155,11 +3288,11 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       "Spoonjoy macOS process was not running after launch." \
       "Launch the app from an unlocked desktop session and rerun screenshot capture."
   fi
-  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"$deep_link_url\""; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "spoonjoy://$deep_link_path" \
+      "$deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS route open timeout or failure occurred before screenshot capture." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2176,18 +3309,18 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS did not prove the expected visible screenshot route." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
   fi
-  if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs" "$expected_accessibility_source"; then
-    log_accessibility_proof_diagnostic "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "macOS"
+  if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs" "$expected_accessibility_source" "$expected_surface_variant"; then
+    log_accessibility_proof_diagnostic "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "macOS" "$expected_surface_variant"
     printf 'Spoonjoy did not write the expected macOS accessibility proof for %s\n' "$screenshot_route" >> "$capture_log"
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs spoonjoy://$deep_link_path" \
+      "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs $deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route." \
       "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2205,26 +3338,32 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
-      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+      "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
       "$capture_log" \
       "Spoonjoy macOS screenshot proof did not match the expected route." \
       "Rerun screenshot capture after the expected route is visible."
   fi
   if [[ ! -f "$macos_blocker" ]] && ! capture_macos_window; then
     printf 'Retrying Spoonjoy window capture after relaunch\n' >> "$capture_log"
-    run_cleanup_command "quit Spoonjoy before relaunch" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
-    run_cleanup_command "kill Spoonjoy before relaunch" pkill -x Spoonjoy || true
-    sleep 1
+    if ! terminate_macos_app_and_confirm_stopped; then
+      write_blocker \
+        "$macos_blocker" \
+        "MacOSTermination" \
+        "terminate_macos_app_and_confirm_stopped" \
+        "$capture_log" \
+        "Spoonjoy macOS did not stop before retry fixture state was written." \
+        "Rerun screenshot capture after the existing Spoonjoy process exits."
+    fi
     rm -f "$proof_file"
     rm -f "$accessibility_proof_macos" "$accessibility_proof_macos_abs"
-    write_app_state "$state_file" "$expected_recorded_route"
-    write_cache_state "$cache_file" "$screenshot_route"
-    write_sync_store "$sync_file" "$screenshot_route"
+    atomic_fixture_write "$state_file" write_app_state "$expected_recorded_route"
+    atomic_fixture_write "$cache_file" write_cache_state "$screenshot_route"
+    atomic_fixture_write "$sync_file" write_sync_store "$screenshot_route" "$macos_fixture_cover_path"
     if ! open_macos_app; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "open -n $macos_app" \
+        "open -n -F $macos_app" \
         "$capture_log" \
         "Spoonjoy macOS relaunch timeout or failure occurred before screenshot capture." \
         "Launch the app from an unlocked desktop session and rerun screenshot capture."
@@ -2239,11 +3378,11 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
         "Spoonjoy macOS process was not running after relaunch." \
         "Launch the app from an unlocked desktop session and rerun screenshot capture."
     fi
-    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"$deep_link_url\""; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "spoonjoy://$deep_link_path" \
+        "$deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS route open timeout or failure occurred after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2254,18 +3393,18 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS did not prove the expected visible screenshot route after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
     fi
-    if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs" "$expected_accessibility_source"; then
-      log_accessibility_proof_diagnostic "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "macOS relaunch"
+    if [[ ! -f "$macos_blocker" ]] && ! wait_for_accessibility_proof "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "$accessibility_proof_macos_abs" "$expected_accessibility_source" "$expected_surface_variant"; then
+      log_accessibility_proof_diagnostic "$accessibility_proof_macos_abs" "$screenshot_route" "macos" "macOS relaunch" "$expected_surface_variant"
       printf 'Spoonjoy did not write the expected macOS accessibility proof after relaunch for %s\n' "$screenshot_route" >> "$capture_log"
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs spoonjoy://$deep_link_path" \
+        "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH=$accessibility_proof_macos_abs $deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS did not prove the expected accessibility state for the screenshot route after relaunch." \
         "Launch the app from an unlocked desktop session and confirm the expected route renders before screenshot capture."
@@ -2283,7 +3422,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
-        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file spoonjoy://$deep_link_path" \
+        "SPOONJOY_SCREENSHOT_PROOF_PATH=$proof_file $deep_link_url" \
         "$capture_log" \
         "Spoonjoy macOS screenshot proof did not match the expected route after relaunch." \
         "Rerun screenshot capture after the expected route is visible."
@@ -2292,15 +3431,30 @@ if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
       capture_macos_window || true
     fi
   fi
-  if [[ ! -f "$macos_blocker" && ( ! -f "$macos_screenshot" || ! -s "$macos_screenshot" ) ]]; then
-    printf 'Spoonjoy window not found for macOS screenshot capture\n' >> "$capture_log"
+  if [[ ! -f "$macos_blocker" ]] && ! capture_macos_observed_accessibility "$observed_accessibility_macos_abs"; then
+    if [[ -s "$observed_accessibility_macos_abs" ]]; then
+      cp "$observed_accessibility_macos_abs" "$observed_accessibility_macos_diagnostic"
+    fi
+    if [[ -s "$macos_screenshot" ]]; then
+      cp "$macos_screenshot" "$macos_screenshot_diagnostic"
+    fi
     write_blocker \
-      "$macos_blocker" \
-      "MacOSLaunch" \
-      "scripts/find-macos-window-id.swift <pid> $macos_window_title && screencapture -x -l <window-id> $macos_screenshot" \
+      "$macos_accessibility_blocker" \
+      "MacOSAccessibility" \
+      "swift scripts/observe-macos-screenshot-evidence.swift --pid <exact Spoonjoy pid> --route $screenshot_route --capture-run-nonce <uuid> --readiness-proof-path <path> --screenshot-path <path> --deep-scroll-screenshot-path <path> --window-id <exact window id> --bundle-id app.spoonjoy.mac --bundle-path <path> --executable-path <path>" \
       "$capture_log" \
-      "Spoonjoy window capture was unavailable in the macOS GUI session." \
-      "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."
+      "The external macOS accessibility observer could not prove the exact foreground Spoonjoy process and visible route." \
+      "Grant Accessibility access to the capture host if prompted, repair any reported geometry findings, and rerun screenshot capture."
+  fi
+  if [[ ! -f "$macos_blocker" && ! -f "$macos_accessibility_blocker" && ( ! -f "$macos_screenshot" || ! -s "$macos_screenshot" ) ]]; then
+    printf 'The macOS observer did not publish its point-in-time bound window screenshot\n' >> "$capture_log"
+    write_blocker \
+      "$macos_accessibility_blocker" \
+      "MacOSAccessibility" \
+      "swift scripts/observe-macos-screenshot-evidence.swift --pid <exact Spoonjoy pid> --window-id <exact window id> --screenshot-path $macos_screenshot" \
+      "$capture_log" \
+      "The external macOS observer produced no point-in-time AX/pixel-bound screenshot." \
+      "Grant Screen Recording and Accessibility access to the capture host, then rerun screenshot capture."
   fi
   run_cleanup_command "quit Spoonjoy after capture" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
   run_cleanup_command "kill Spoonjoy after capture" pkill -x Spoonjoy || true
@@ -2314,13 +3468,27 @@ elif [[ -f "$ipad_blocker" ]]; then
   write_design_review_blocked "$ipad_blocker"
 elif [[ -f "$macos_blocker" ]]; then
   write_design_review_blocked "$macos_blocker"
+elif [[ -f "$macos_accessibility_blocker" ]]; then
+  write_design_review_blocked "$macos_accessibility_blocker"
 else
-  if [[ ! -s "$ios_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$macos_screenshot" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS screenshots\n' >&2
+  if [[ ! -s "$ios_screenshot" || ! -s "$ios_xxxl_screenshot" || ! -s "$ios_accessibility_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$ios_tablet_xxxl_screenshot" || ! -s "$ios_tablet_accessibility_screenshot" || ! -s "$macos_screenshot" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce Large, XXXL, accessibility iPhone and iPad plus macOS screenshots\n' >&2
     exit 1
   fi
-  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_ipad_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS accessibility proofs\n' >&2
+  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_ios_xxxl_abs" || ! -s "$accessibility_proof_ios_ax_abs" || ! -s "$accessibility_proof_ipad_abs" || ! -s "$accessibility_proof_ipad_xxxl_abs" || ! -s "$accessibility_proof_ipad_ax_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce Large, XXXL, accessibility iPhone and iPad plus macOS accessibility proofs\n' >&2
+    exit 1
+  fi
+  case "$screenshot_route" in
+    kitchen|recipes|saved-recipes|recipe-detail|recipe-editor|recipe-covers|cook-mode|cook-log|cookbooks|cookbook-detail|shopping-list|chefs|profile|profile-graph|search|capture|settings)
+      if [[ ! -s "$accessibility_proof_ios_deep_scroll_abs" || ! -s "$accessibility_proof_ios_xxxl_deep_scroll_abs" || ! -s "$accessibility_proof_ios_ax_deep_scroll_abs" || ! -s "$accessibility_proof_ipad_deep_scroll_abs" || ! -s "$accessibility_proof_ipad_xxxl_deep_scroll_abs" || ! -s "$accessibility_proof_ipad_ax_deep_scroll_abs" || ! -s "$macos_deep_scroll_screenshot" ]]; then
+        printf 'Screenshot capture produced no blocker but did not produce all deep-scroll readiness proofs\n' >&2
+        exit 1
+      fi
+      ;;
+  esac
+  if [[ ! -s "$observed_accessibility_ios_abs" || ! -s "$observed_accessibility_ios_xxxl_abs" || ! -s "$observed_accessibility_ios_ax_abs" || ! -s "$observed_accessibility_ipad_abs" || ! -s "$observed_accessibility_ipad_xxxl_abs" || ! -s "$observed_accessibility_ipad_ax_abs" || ! -s "$observed_accessibility_macos_abs" ]]; then
+    printf 'Screenshot capture produced no blocker but did not produce Large, XXXL, accessibility iPhone and iPad plus macOS observed accessibility evidence\n' >&2
     exit 1
   fi
   write_design_review_success
@@ -2337,5 +3505,6 @@ if [[ -f "$design_review_blocked" ]]; then
   printf 'native screenshot capture blocked: %s\n' "$design_review_blocked"
 else
   ruby scripts/validate-design-review.rb "$design_review"
+  ios_capture_generation_committed=true
   printf 'native screenshot capture complete: %s\n' "$design_review"
 fi

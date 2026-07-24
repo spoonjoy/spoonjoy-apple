@@ -58,11 +58,12 @@ struct CaptureDraftView: View {
         KitchenTablePage {
             header
             offlineStatus
-            agentImportStatus
+            if shouldShowStatusPanel {
+                agentImportStatus
+            }
             if let currentDraft {
                 draftPreview(currentDraft)
             }
-            entryPointLedger
             statusBanner
         }
         .onAppear {
@@ -71,43 +72,29 @@ struct CaptureDraftView: View {
         .onChange(of: inputDraft) { _, draft in
             reconcile(with: draft)
         }
-        .task {
+        .task(id: screenshotSurfaceVariant) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "capture",
                 source: "CaptureDraftView",
                 runtimeContext: ScreenshotAccessibilityRuntimeContext(
                     dynamicTypeSize: String(describing: dynamicTypeSize),
                     reduceMotionEnabled: accessibilityReduceMotion
-                )
+                ),
+                observedSurfaceVariant: screenshotSurfaceVariant
             )
         }
     }
 
     private var header: some View {
         KitchenTableHeader(
-            eyebrow: "Import queue",
-            title: "Capture",
-            subtitle: "Recipes sent by your Spoonjoy agent appear here for review. Shortcuts and Siri use the same local retry flow."
+            eyebrow: "Kitchen",
+            title: "Imports",
+            subtitle: "Review recipes before they join your kitchen."
         )
     }
 
-    private var entryPointLedger: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(CaptureImportEntryPoint.allCases) { entryPoint in
-                CaptureImportEntryPointRow(entryPoint: entryPoint)
-                if entryPoint.id != CaptureImportEntryPoint.allCases.last?.id {
-                    Divider()
-                        .overlay(KitchenTableTheme.line.opacity(0.55))
-                }
-            }
-        }
-        .background(KitchenTableTheme.paper)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.line.opacity(0.45), lineWidth: 1)
-        }
-        .accessibilityElement(children: .contain)
+    private var shouldShowStatusPanel: Bool {
+        currentDraft == nil || hasPendingImport || hasProviderBlocker || isOffline
     }
 
     private var agentImportStatus: some View {
@@ -115,8 +102,22 @@ struct CaptureDraftView: View {
             hasCurrentDraft: currentDraft != nil,
             hasPendingImport: hasPendingImport,
             hasProviderBlocker: hasProviderBlocker,
-            isOffline: isOffline
+            isOffline: isOffline,
+            terminalAccessibilityIdentifier: currentDraft == nil ? "capture.terminal" : nil
         )
+    }
+
+    private var screenshotSurfaceVariant: String {
+        if hasProviderBlocker {
+            return "provider-blocked"
+        }
+        if hasPendingImport {
+            return "offline-retry"
+        }
+        if currentDraft != nil {
+            return "draft"
+        }
+        return "empty"
     }
 
     @ViewBuilder private var offlineStatus: some View {
@@ -139,7 +140,7 @@ struct CaptureDraftView: View {
 
     private func draftPreview(_ draft: CaptureDraft) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Import source", systemImage: iconName(for: draft))
+            Label("Source", systemImage: iconName(for: draft))
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.herb)
             ForEach(draft.previewLines, id: \.self) { line in
@@ -153,31 +154,16 @@ struct CaptureDraftView: View {
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
             }
-            if isOffline {
-                Label("Saved locally", systemImage: "externaldrive.badge.checkmark")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            }
-            if hasPendingImport {
-                Label("Retry when online", systemImage: "arrow.clockwise")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            }
             HStack(alignment: .center, spacing: 10) {
                 Button {
                     Task { await submit(draft) }
                 } label: {
-                    Label(actionInFlight ? "Submitting import" : submitButtonTitle, systemImage: "tray.and.arrow.up")
+                    Label(actionInFlight ? "Importing" : "Import", systemImage: "tray.and.arrow.up")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-                .disabled(!draft.canCreateServerRecipe || actionInFlight || hasPendingImport)
-                Button {
-                    Task { await discard(draft) }
-                } label: {
-                    Label("Delete capture", systemImage: "trash")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
-                .disabled(actionInFlight)
+                .disabled(!draft.canCreateServerRecipe || actionInFlight || hasPendingImport || hasProviderBlocker)
+
+                captureActionsMenu(draft)
             }
             .buttonStyle(.borderless)
         }
@@ -191,8 +177,21 @@ struct CaptureDraftView: View {
         }
     }
 
-    private var submitButtonTitle: String {
-        hasPendingImport ? "Retry sync" : "Submit import"
+    private func captureActionsMenu(_ draft: CaptureDraft) -> some View {
+        Menu {
+            Button("Delete import", systemImage: "trash", role: .destructive) {
+                Task { await discard(draft) }
+            }
+            .disabled(actionInFlight)
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .font(.title3.weight(.semibold))
+                .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("capture.terminal")
+        .accessibilityLabel("Import actions")
+        .help("Import actions")
     }
 
     private func reconcile(with draft: CaptureDraft?) {
@@ -261,92 +260,19 @@ struct CaptureDraftView: View {
     }
 }
 
-private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
-    case agentMCP
-    case appIntent
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .agentMCP:
-            "Spoonjoy agent"
-        case .appIntent:
-            "Shortcuts & Siri"
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .agentMCP:
-            "Send an import-ready recipe capture from the Spoonjoy agent."
-        case .appIntent:
-            "Open, submit, and delete captures from Shortcuts and Siri."
-        }
-    }
-
-    var status: String {
-        switch self {
-        case .agentMCP, .appIntent:
-            "Ready"
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .agentMCP:
-            "wand.and.stars"
-        case .appIntent:
-            "sparkles"
-        }
-    }
-}
-
-private struct CaptureImportEntryPointRow: View {
-    let entryPoint: CaptureImportEntryPoint
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: entryPoint.symbolName)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.herb)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(entryPoint.title)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
-                    Text(entryPoint.status)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                }
-                Text(entryPoint.detail)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-    }
-}
-
 private struct ImportStatusPanel: View {
     let hasCurrentDraft: Bool
     let hasPendingImport: Bool
     let hasProviderBlocker: Bool
     let isOffline: Bool
+    let terminalAccessibilityIdentifier: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(statusTitle, systemImage: statusSymbol)
                 .font(KitchenTableTheme.sectionTitle)
                 .foregroundStyle(statusForeground)
-            Text(statusBody)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
+            statusBodyText
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -358,36 +284,57 @@ private struct ImportStatusPanel: View {
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 
+    @ViewBuilder private var statusBodyText: some View {
+        if let terminalAccessibilityIdentifier {
+            Text(statusBody)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(terminalAccessibilityIdentifier)
+        } else {
+            Text(statusBody)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
     private var statusTitle: String {
         if hasProviderBlocker {
-            return "Resolve import setup"
+            return "Import paused"
         }
         if hasPendingImport {
-            return "Retry when online"
+            return "Saved locally"
+        }
+        if hasCurrentDraft && isOffline {
+            return "Saved locally"
         }
         if hasCurrentDraft {
-            return "Import ready"
+            return "Ready to import"
         }
         if isOffline {
-            return "Offline import queue"
+            return "Offline"
         }
-        return "Waiting for import"
+        return "No imports waiting"
     }
 
     private var statusBody: String {
         if hasProviderBlocker {
-            return "Recipe import setup is required before Spoonjoy can finish this capture. Fix the provider setup, then retry the saved import."
+            return "Import is unavailable right now. This recipe is still saved."
         }
         if hasPendingImport {
-            return "The import is saved locally. Spoonjoy will retry it when the account is back online."
+            return "Spoonjoy will retry this import when you're online."
+        }
+        if hasCurrentDraft && isOffline {
+            return "Import when you're back online."
         }
         if hasCurrentDraft {
-            return "Review the captured source below. Submit import when it is ready."
+            return "Review the source below."
         }
         if isOffline {
-            return "New Spoonjoy agent or Shortcuts imports can be kept locally until Spoonjoy reconnects."
+            return "Nothing is waiting to import."
         }
-        return "Use your Spoonjoy agent or Shortcuts to create a capture."
+        return "New recipes from your Spoonjoy agent will appear here."
     }
 
     private var statusSymbol: String {

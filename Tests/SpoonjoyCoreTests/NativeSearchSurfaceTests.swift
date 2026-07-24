@@ -11,6 +11,193 @@ struct NativeSearchSurfaceTests {
         bearerToken: "sj_private_token"
     )
 
+    @Test("loaded recipe details remain scoped to the shell snapshot they overlaid")
+    func loadedRecipeDetailsRemainScopedToTheirShellSnapshot() throws {
+        let bootstrapRecipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipes.first)
+        let loadedRecipe = Self.copy(
+            bootstrapRecipe,
+            title: "Live detail",
+            updatedAt: "2026-07-22T23:00:00.000Z"
+        )
+        let editedRecipe = Self.copy(
+            bootstrapRecipe,
+            title: "Edited under the same shell identity",
+            updatedAt: bootstrapRecipe.updatedAt
+        )
+        var cache = RecipeDetailSnapshotCache()
+        let shellIdentity = "production|chef_ari|informational"
+
+        cache.recordLoadedRecipe(loadedRecipe, shellRecipe: bootstrapRecipe, shellIdentity: shellIdentity)
+
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: bootstrapRecipe, shellIdentity: shellIdentity) == loadedRecipe)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: bootstrapRecipe, shellIdentity: "production|chef_jules|informational") == bootstrapRecipe)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: editedRecipe, shellIdentity: shellIdentity) == editedRecipe)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: nil, shellIdentity: shellIdentity) == nil)
+
+        cache.recordLoadedRecipe(loadedRecipe, shellRecipe: nil, shellIdentity: shellIdentity)
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: nil, shellIdentity: shellIdentity) == loadedRecipe)
+
+        cache.removeAll()
+        #expect(cache.recipe(id: bootstrapRecipe.id, shellRecipe: bootstrapRecipe, shellIdentity: shellIdentity) == bootstrapRecipe)
+    }
+
+    @Test("recipe detail load identity tracks exact shell content and owning session")
+    func recipeDetailLoadIdentityTracksExactShellContentAndOwningSession() throws {
+        let bootstrapRecipe = try #require(RecipeFixtureCatalog.decodeFromBundle().recipes.first)
+        let sameTimestampEdit = Self.copy(
+            bootstrapRecipe,
+            title: "Changed without a timestamp bump",
+            updatedAt: bootstrapRecipe.updatedAt
+        )
+        let baseline = RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: bootstrapRecipe
+        )
+
+        #expect(baseline == RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: bootstrapRecipe
+        ))
+        #expect(baseline != RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: sameTimestampEdit
+        ))
+        #expect(baseline != RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "preview|chef_ari|informational",
+            shellRecipe: bootstrapRecipe
+        ))
+
+        let noShellRecipe = RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nil
+        )
+        #expect(noShellRecipe == RecipeDetailLoadIdentity(
+            recipeID: bootstrapRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nil
+        ))
+
+        let nonJSONRecipe = Self.copy(
+            bootstrapRecipe,
+            title: bootstrapRecipe.title,
+            updatedAt: bootstrapRecipe.updatedAt,
+            steps: [
+                RecipeStep(
+                    id: "step_non_json_quantity",
+                    stepNum: 1,
+                    stepTitle: "Measure",
+                    description: "Measure a non-finite fixture quantity.",
+                    duration: nil,
+                    ingredients: [
+                        RecipeIngredient(
+                            id: "ingredient_non_json_quantity",
+                            name: "coverage fixture",
+                            quantity: .nan,
+                            unit: nil
+                        )
+                    ]
+                )
+            ]
+        )
+        let fallbackIdentity = RecipeDetailLoadIdentity(
+            recipeID: nonJSONRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nonJSONRecipe
+        )
+        #expect(fallbackIdentity == RecipeDetailLoadIdentity(
+            recipeID: nonJSONRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: nonJSONRecipe
+        ))
+        #expect(fallbackIdentity != noShellRecipe)
+        #expect(fallbackIdentity != RecipeDetailLoadIdentity(
+            recipeID: nonJSONRecipe.id,
+            shellIdentity: "production|chef_ari|informational",
+            shellRecipe: Self.copy(
+                nonJSONRecipe,
+                title: "Changed non-JSON recipe",
+                updatedAt: nonJSONRecipe.updatedAt,
+                steps: nonJSONRecipe.steps
+            )
+        ))
+    }
+
+    @MainActor
+    @Test("superseded recipe detail work cannot preserve or publish the previous owner's recipe")
+    func supersededRecipeDetailWorkCannotPublishPreviousOwnerRecipe() async {
+        let gate = NativeSearchSuspensionGate()
+        let state = NativeOwnedLoadStateHarness(
+            identity: "production|chef_ari",
+            initialValue: "Ari's private recipe"
+        )
+        let staleLease = state.begin(
+            identity: "production|chef_ari",
+            snapshot: "Ari's private recipe"
+        )
+        let staleCompletion = Task { @MainActor in
+            await gate.suspend()
+            return state.publish(
+                "Ari's late recipe",
+                lease: staleLease,
+                currentIdentity: "production|chef_jules"
+            )
+        }
+        await gate.waitUntilSuspended()
+
+        let currentLease = state.begin(identity: "production|chef_jules", snapshot: nil)
+        #expect(state.presentation == .loading(snapshotTitle: nil))
+
+        await gate.release()
+        #expect(await staleCompletion.value == false)
+        #expect(state.presentation == .loading(snapshotTitle: nil))
+        #expect(state.publish(
+            "Jules's recipe",
+            lease: currentLease,
+            currentIdentity: "production|chef_jules"
+        ))
+        #expect(state.presentation == .loaded("Jules's recipe"))
+
+        let failedLease = state.begin(identity: "production|chef_no_recipe", snapshot: nil)
+        #expect(state.markMissing(
+            "We couldn't find this recipe.",
+            lease: failedLease,
+            currentIdentity: "production|chef_no_recipe"
+        ))
+        #expect(state.presentation == .missing("We couldn't find this recipe."))
+    }
+
+    private static func copy(
+        _ recipe: Recipe,
+        title: String,
+        updatedAt: String,
+        steps: [RecipeStep]? = nil
+    ) -> Recipe {
+        Recipe(
+            id: recipe.id,
+            title: title,
+            description: recipe.description,
+            servings: recipe.servings,
+            chef: recipe.chef,
+            coverImageURL: recipe.coverImageURL,
+            coverProvenanceLabel: recipe.coverProvenanceLabel,
+            coverSourceType: recipe.coverSourceType,
+            coverVariant: recipe.coverVariant,
+            href: recipe.href,
+            canonicalURL: recipe.canonicalURL,
+            attribution: recipe.attribution,
+            createdAt: recipe.createdAt,
+            updatedAt: updatedAt,
+            steps: steps ?? recipe.steps,
+            cookbooks: recipe.cookbooks,
+            recentSpoons: recipe.recentSpoons
+        )
+    }
+
     @Test("search surface exists as a first-class native feature")
     func searchSurfaceExistsAsFirstClassNativeFeature() throws {
         let failures = sourceContractFailures(
@@ -47,6 +234,8 @@ struct NativeSearchSurfaceTests {
                 ],
                 "Sources/SpoonjoyCore/Features/Search/SearchSurfaceViewModel.swift": [
                     "SearchSurfaceViewModel",
+                    "isLoading",
+                    "static func loading(",
                     "SearchSurfaceContext",
                     "SearchSurfaceSection",
                     "SearchSurfaceRow",
@@ -65,15 +254,11 @@ struct NativeSearchSurfaceTests {
                 ],
                 "Apps/Spoonjoy/Shared/Views/SearchView.swift": [
                     "SearchSurfaceViewModel",
+                    "viewModel.isLoading",
+                    "SearchSurfaceLoadingView",
                     "SearchSurfaceSection",
                     "SearchSurfaceRow",
                     "OfflineStatusView",
-                    ".navigationTitle(\"Search\")",
-                    ".searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: \"Search Spoonjoy\")",
-                    "@FocusState private var isSearchFieldFocused",
-                    ".searchFocused($isSearchFieldFocused)",
-                    "isSearchFieldFocused = true",
-                    "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
                     "searchTask",
                     "debounce",
                     "SPOONJOY_SCREENSHOT_PROOF_PATH",
@@ -82,6 +267,8 @@ struct NativeSearchSurfaceTests {
                     "\"source\": \"SearchView\"",
                     "\"routeIdentifier\"",
                     "\"searchScopes\"",
+                    "\"renderFingerprint\"",
+                    ".task(id: viewModel.renderFingerprint)",
                     "ISO8601DateFormatter"
                 ],
                 "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift": [
@@ -99,6 +286,9 @@ struct NativeSearchSurfaceTests {
                     "shouldAutoFocusSearchField",
                     "search.apply(route: routeSearch.route)",
                     "ActiveSearchSurfaceState",
+                    "@State private var loadedRecipesByID",
+                    "recordLoadedRecipe",
+                    "viewModel: loadingSearchViewModel",
                     "recordSearchSurfacePageHandler(page, identity)",
                     "contentState.searchSurfaceIdentity",
                     "normalizedSearch(",
@@ -112,6 +302,15 @@ struct NativeSearchSurfaceTests {
                     "routeOwnsOfflineStatus",
                     "routeKeepsSearchFocus",
                     "searchSurfaceRepositoryHandler(context)",
+                    "NativeSearchTelemetryPipeline",
+                    "NativeSearchTelemetryDescriptor",
+                    "reportSearchTelemetry(.started",
+                    "reportSearchTerminalTelemetry(",
+                    "NativeSearchTelemetryTerminalDecision.classify",
+                    "isCurrent: canApplySearchResult(identity: identity, state: state)",
+                    "correlationID: telemetryCorrelationID",
+                    "SearchSurfaceScopeGrammar.title(for: scope)",
+                    "guard allowsLiveEffects else",
                     "isSearchFieldFocused = false"
                 ],
                 "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift": [
@@ -119,6 +318,8 @@ struct NativeSearchSurfaceTests {
                     "recordSearchSurfacePage(page, expectedIdentity: identity)",
                     "searchSurfaceRepository: { context in",
                     "liveStore.searchSurfaceRepository(context: context)",
+                    "liveStore.recordSearchTelemetry(descriptor)",
+                    "allowsLiveEffects: liveStore.allowsLiveEffects",
                     "SignedOutSetupView("
                 ],
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift": [
@@ -129,6 +330,8 @@ struct NativeSearchSurfaceTests {
                     "performSearch(",
                     "searchSurfaceRepository(context: SearchSurfaceContext)",
                     "dependencies.recipeEditorAPITransport(refresher)",
+                    "allowsLiveEffects",
+                    "RestoreOnlySearchSurfaceRepository",
                     "currentSearchSurfaceIdentity",
                     "searchSurfaceAccountID",
                     "searchSurfaceSevereOfflineIndicator",
@@ -166,6 +369,263 @@ struct NativeSearchSurfaceTests {
         )
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
+    }
+
+    @Test("pending search never renders a definitive empty state")
+    func pendingSearchSuppressesEmptyState() {
+        let state = SearchState(query: "tomato", scope: .all)
+        let context = SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true)
+        let pending = SearchSurfaceViewModel.loading(
+            state: state,
+            context: context,
+            cachedPage: nil
+        )
+
+        #expect(pending.state == state)
+        #expect(pending.isLoading)
+        #expect(pending.sections.isEmpty)
+        #expect(pending.emptyState == nil)
+        #expect(pending.errorState == nil)
+
+        let staleCache = SearchSurfacePage(
+            query: "tomato",
+            scope: .all,
+            limit: 20,
+            isAuthenticated: true,
+            results: [Self.recipeResult()],
+            source: .cache(serverRevision: .cursor("search-v1"), lastValidatedAt: Self.staleValidatedAt)
+        )
+        let refreshingCache = SearchSurfaceViewModel.loading(
+            state: state,
+            context: context,
+            cachedPage: staleCache,
+            now: { Self.now }
+        )
+
+        #expect(refreshingCache.sections.flatMap(\.rows).map(\.result.id) == ["recipe_tomato_tart"])
+        #expect(refreshingCache.offlineIndicator.display == .stale(domain: .searchResults(query: "tomato", scope: .all)))
+    }
+
+    @Test("search telemetry is useful without exposing query text")
+    func searchTelemetryIsPrivacySafe() throws {
+        let state = SearchState(query: "family secret", scope: .recipes)
+        let descriptor = NativeSearchTelemetryDescriptor.failed(
+            state: state,
+            error: .offline,
+            correlationID: "native-search-private-safe",
+            durationMilliseconds: 321,
+            hasCachedResults: true
+        )
+        let event = descriptor.telemetryEvent(
+            environment: "production",
+            metadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.2", buildNumber: "45")
+        )
+        let request = try NativeTelemetryRequests.recordEvent(event)
+            .urlRequest(configuration: Self.configuration)
+        let body = try #require(request.body)
+        let json = try #require(JSONSerialization.jsonObject(with: body) as? [String: Any])
+
+        #expect(event.name == .searchFailed)
+        #expect(event.searchScope == "recipes")
+        #expect(event.searchQueryLength == 13)
+        #expect(event.durationMilliseconds == 321)
+        #expect(event.hasRenderableCacheContent == true)
+        #expect(event.errorType == "offline")
+        #expect(json["searchScope"] as? String == "recipes")
+        #expect(json["searchQueryLength"] as? Int == 13)
+        #expect(!String(decoding: body, as: UTF8.self).contains("family secret"))
+    }
+
+    @Test("search telemetry covers lifecycle outcomes clamps and sanitized failures")
+    @MainActor
+    func searchTelemetryCoversLifecycleOutcomesClampsAndSanitizedFailures() async {
+        let longState = SearchState(query: String(repeating: "x", count: 5_000), scope: .all)
+        let metadata = NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.2", buildNumber: "45")
+        let correlationID = "native-search-telemetry-correlation"
+        let startedDescriptor = NativeSearchTelemetryDescriptor.started(
+            state: longState,
+            correlationID: correlationID,
+            hasCachedResults: true
+        )
+        let started = startedDescriptor
+            .telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(started.name == .searchStarted)
+        #expect(started.stage == "request_started")
+        #expect(started.requestID == correlationID)
+        #expect(started.searchQueryLength == 4_096)
+        #expect(started.hasRenderableCacheContent == true)
+
+        let livePage = SearchSurfacePage(
+            query: "tomato",
+            scope: .recipes,
+            limit: 20,
+            isAuthenticated: false,
+            results: [Self.recipeResult()],
+            source: .live(requestID: "req_search_complete", validatedAt: Self.now)
+        )
+        let completed = NativeSearchTelemetryDescriptor.completed(
+            state: SearchState(query: "tomato", scope: .recipes),
+            page: livePage,
+            correlationID: correlationID,
+            durationMilliseconds: -12
+        ).telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(completed.name == .searchCompleted)
+        #expect(completed.stage == "request_completed")
+        #expect(completed.requestID == correlationID)
+        #expect(completed.searchResultCount == 1)
+        #expect(completed.durationMilliseconds == 0)
+
+        let cachedPage = SearchSurfacePage(
+            query: "tomato",
+            scope: .recipes,
+            limit: 20,
+            isAuthenticated: false,
+            results: [],
+            source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+        )
+        let cachedCompletion = NativeSearchTelemetryDescriptor.completed(
+            state: SearchState(query: "tomato", scope: .recipes),
+            page: cachedPage,
+            correlationID: correlationID,
+            durationMilliseconds: 700_000
+        ).telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(cachedCompletion.requestID == correlationID)
+        #expect(cachedCompletion.durationMilliseconds == 600_000)
+
+        let cancelled = NativeSearchTelemetryDescriptor.cancelled(
+            state: SearchState(query: "private query", scope: .shoppingList),
+            correlationID: correlationID,
+            durationMilliseconds: 42,
+            hasCachedResults: true
+        ).telemetryEvent(environment: "production", metadata: metadata)
+
+        #expect(cancelled.name == .searchFailed)
+        #expect(cancelled.stage == "request_cancelled")
+        #expect(cancelled.errorType == "cancelled")
+        #expect(cancelled.durationMilliseconds == 42)
+        #expect(cancelled.hasRenderableCacheContent == true)
+        #expect(cancelled.requestID == correlationID)
+
+        let failures: [(SearchSurfaceRepositoryError, String)] = [
+            (.authenticationRequired(scope: .shoppingList), "authentication_required"),
+            (.authorizationRequired(scope: .shoppingList, requiredScope: "shopping_list:read"), "authorization_required"),
+            (.offline, "offline"),
+            (.cancelled, "cancelled"),
+            (.searchFailed(message: "private transport detail"), "search_failed")
+        ]
+        for (error, expectedType) in failures {
+            let event = NativeSearchTelemetryDescriptor.failed(
+                state: SearchState(query: "private query", scope: .shoppingList),
+                error: error,
+                correlationID: correlationID,
+                durationMilliseconds: 1,
+                hasCachedResults: false
+            ).telemetryEvent(environment: "production", metadata: metadata)
+            #expect(event.name == .searchFailed)
+            #expect(event.errorType == expectedType)
+            #expect(event.requestID == correlationID)
+        }
+
+        let recorder = DelayedSearchTelemetryRecorder()
+        let pipeline = NativeSearchTelemetryPipeline { descriptor in
+            await recorder.record(descriptor)
+        }
+        pipeline.enqueue(startedDescriptor)
+        pipeline.enqueue(.failed(
+            state: longState,
+            error: .offline,
+            correlationID: correlationID,
+            durationMilliseconds: 1,
+            hasCachedResults: false
+        ))
+        await pipeline.flush()
+        #expect(await recorder.outcomes() == [.started, .failed])
+        #expect(await recorder.requestIDs() == [correlationID, correlationID])
+
+        let defaultClockLoading = SearchSurfaceViewModel.loading(
+            state: SearchState(query: "tomato", scope: .recipes),
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            cachedPage: cachedPage
+        )
+        #expect(defaultClockLoading.offlineIndicator.display.isVisible)
+    }
+
+    @Test("superseded search terminals emit only correlated cancellation")
+    @MainActor
+    func supersededSearchTerminalsEmitOnlyCorrelatedCancellation() async {
+        let state = SearchState(query: "tomato", scope: .recipes)
+        let correlationID = "native-search-superseded"
+        let page = SearchSurfacePage(
+            query: "tomato",
+            scope: .recipes,
+            limit: 20,
+            isAuthenticated: false,
+            results: [Self.recipeResult()],
+            source: .live(requestID: "req_search_superseded", validatedAt: Self.now)
+        )
+        let recorder = DelayedSearchTelemetryRecorder()
+        let pipeline = NativeSearchTelemetryPipeline { descriptor in
+            await recorder.record(descriptor)
+        }
+
+        for candidate in [
+            NativeSearchTelemetryTerminalCandidate.completed(page),
+            .failed(.offline)
+        ] {
+            let decision = NativeSearchTelemetryTerminalDecision.classify(
+                candidate,
+                state: state,
+                correlationID: correlationID,
+                durationMilliseconds: 24,
+                hasCachedResults: true,
+                isCurrent: false
+            )
+            #expect(decision.shouldApplyResult == false)
+            #expect(decision.descriptor.outcome == .cancelled)
+            #expect(decision.descriptor.requestID == correlationID)
+            pipeline.enqueue(decision.descriptor)
+        }
+
+        let currentCompleted = NativeSearchTelemetryTerminalDecision.classify(
+            .completed(page),
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: 24,
+            hasCachedResults: false,
+            isCurrent: true
+        )
+        let currentFailed = NativeSearchTelemetryTerminalDecision.classify(
+            .failed(.offline),
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: 24,
+            hasCachedResults: false,
+            isCurrent: true
+        )
+        let currentCancelled = NativeSearchTelemetryTerminalDecision.classify(
+            .cancelled,
+            state: state,
+            correlationID: correlationID,
+            durationMilliseconds: 24,
+            hasCachedResults: false,
+            isCurrent: true
+        )
+        #expect(currentCompleted.shouldApplyResult)
+        #expect(currentCompleted.descriptor.outcome == .completed)
+        #expect(currentFailed.shouldApplyResult)
+        #expect(currentFailed.descriptor.outcome == .failed)
+        #expect(currentCancelled.shouldApplyResult == false)
+        #expect(currentCancelled.descriptor.outcome == .cancelled)
+
+        await pipeline.flush()
+        let outcomes = await recorder.outcomes()
+        #expect(outcomes == [.cancelled, .cancelled])
+        #expect(!outcomes.contains(.completed))
+        #expect(!outcomes.contains(.failed))
+        #expect(await recorder.requestIDs() == [correlationID, correlationID])
     }
 
     @Test("live search repository uses API v1 search and gates private shopping-list results")
@@ -432,7 +892,27 @@ struct NativeSearchSurfaceTests {
             message: "Spoonjoy search is offline.",
             systemImage: "wifi.exclamationmark"
         ))
+        #expect(failedSearch.emptyState == nil)
         #expect(failedSearch.offlineIndicator.display == .syncFailure(errorID: "search-all", retryAfter: nil))
+
+        let emptyCachedFailure = SearchSurfaceViewModel(
+            error: .searchFailed(message: "Spoonjoy search is offline."),
+            state: SearchState(query: "tomato", scope: .all),
+            cachedPage: SearchSurfacePage(
+                query: "tomato",
+                scope: .all,
+                limit: 20,
+                isAuthenticated: true,
+                results: [],
+                source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt)
+            ),
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        #expect(emptyCachedFailure.sections.isEmpty)
+        #expect(emptyCachedFailure.errorState?.title == "Search could not load")
+        #expect(emptyCachedFailure.emptyState == nil)
+        #expect(emptyCachedFailure.renderFingerprint.emptyState == nil)
 
         let offlineSearch = SearchSurfaceViewModel(
             error: .offline,
@@ -537,9 +1017,25 @@ struct NativeSearchSurfaceTests {
         )
         #expect(noMatches.emptyState == SearchSurfaceEmptyState(
             title: "No matches for \"kumquat\"",
-            message: "No saved recipes match \"kumquat\".",
+            message: "No recipes match \"kumquat\".",
             systemImage: "magnifyingglass"
         ))
+
+        let rawResultsOutsideScope = SearchSurfaceViewModel(
+            page: SearchSurfacePage(
+                query: "kumquat",
+                scope: .recipes,
+                limit: 20,
+                isAuthenticated: true,
+                results: [Self.cookbookResult()],
+                source: .live(requestID: "req_search_wrong_scope", validatedAt: Self.now)
+            ),
+            state: SearchState(query: "kumquat", scope: .recipes),
+            context: SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true),
+            now: { Self.now }
+        )
+        #expect(rawResultsOutsideScope.sections.isEmpty)
+        #expect(rawResultsOutsideScope.emptyState?.message == "No recipes match \"kumquat\".")
 
         let scopedRecipesWithDefaultClock = SearchSurfaceViewModel(
             page: page,
@@ -590,7 +1086,7 @@ struct NativeSearchSurfaceTests {
     func searchEmptyStatesSpeakInTheSelectedScope() {
         let expectations: [(SearchScope, String)] = [
             (.all, "No Spoonjoy results match \"kumquat\"."),
-            (.recipes, "No saved recipes match \"kumquat\"."),
+            (.recipes, "No recipes match \"kumquat\"."),
             (.cookbooks, "No cookbooks match \"kumquat\"."),
             (.chefs, "No chefs match \"kumquat\"."),
             (.shoppingList, "No shopping items match \"kumquat\".")
@@ -618,6 +1114,66 @@ struct NativeSearchSurfaceTests {
                 systemImage: "magnifyingglass"
             ))
         }
+    }
+
+    @Test("search sections keep the first row for each typed result identity")
+    func searchSectionsKeepTheFirstRowForEachTypedResultIdentity() {
+        let firstRecipe = Self.recipeResult()
+        let repeatedRecipe = SearchSurfaceResult(
+            type: firstRecipe.type,
+            id: firstRecipe.id,
+            ownerID: firstRecipe.ownerID,
+            ownerUsername: firstRecipe.ownerUsername,
+            title: "Repeated Tomato Tart",
+            subtitle: firstRecipe.subtitle,
+            snippet: firstRecipe.snippet,
+            href: firstRecipe.href,
+            canonicalURL: firstRecipe.canonicalURL,
+            imageURL: firstRecipe.imageURL,
+            score: firstRecipe.score,
+            metadata: firstRecipe.metadata
+        )
+        let sameRawIDInAnotherType = SearchSurfaceResult(
+            type: .cookbook,
+            id: firstRecipe.id,
+            ownerID: "chef_ari",
+            ownerUsername: "ari",
+            title: "Tomato Tart Collection",
+            subtitle: "Cookbook by ari",
+            snippet: nil,
+            href: "/cookbooks/\(firstRecipe.id)",
+            canonicalURL: URL(string: "https://spoonjoy.app/cookbooks/\(firstRecipe.id)")!,
+            imageURL: nil,
+            score: -0.5,
+            metadata: [:]
+        )
+        let page = SearchSurfacePage(
+            query: "tomato",
+            scope: .all,
+            limit: 20,
+            isAuthenticated: true,
+            results: [firstRecipe, repeatedRecipe, sameRawIDInAnotherType, Self.cookbookResult()],
+            source: .live(requestID: "req_search_duplicates", validatedAt: Self.now)
+        )
+        let state = SearchState(query: "tomato", scope: .all)
+        let context = SearchSurfaceContext(isAuthenticated: true, canReadShoppingList: true)
+
+        let live = SearchSurfaceViewModel(page: page, state: state, context: context, now: { Self.now })
+        #expect(live.sections.flatMap(\.rows).map(\.id) == [
+            "recipe-recipe_tomato_tart",
+            "cookbook-recipe_tomato_tart",
+            "cookbook-cookbook_tomato"
+        ])
+        #expect(live.sections.flatMap(\.rows).first?.title == "Tomato Tart")
+
+        let recovered = SearchSurfaceViewModel(
+            error: .offline,
+            state: state,
+            cachedPage: page,
+            context: context,
+            now: { Self.now }
+        )
+        #expect(recovered.sections == live.sections)
     }
 
     @Test("search rows expose stable native labels icons and fallback subtitles")
@@ -1347,6 +1903,89 @@ private struct UnexpectedSearchFailureTransport: SpoonjoyAPITransport {
         decode _: Value.Type
     ) async throws -> APIEnvelope<Value> {
         throw SearchTestError.unexpected
+    }
+}
+
+private actor DelayedSearchTelemetryRecorder {
+    private var descriptors: [NativeSearchTelemetryDescriptor] = []
+
+    func record(_ descriptor: NativeSearchTelemetryDescriptor) async {
+        if descriptor.outcome == .started {
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+        descriptors.append(descriptor)
+    }
+
+    func outcomes() -> [NativeSearchTelemetryOutcome] {
+        descriptors.map(\.outcome)
+    }
+
+    func requestIDs() -> [String?] {
+        descriptors.map(\.requestID)
+    }
+}
+
+@MainActor
+private final class NativeOwnedLoadStateHarness {
+    private var state: NativeOwnedLoadState<String, String>
+
+    init(identity: String, initialValue: String?) {
+        state = NativeOwnedLoadState(
+            identity: identity,
+            initialValue: initialValue,
+            loadingTitle: nil
+        )
+    }
+
+    var presentation: NativeOwnedLoadPresentation<String> {
+        state.presentation
+    }
+
+    func begin(identity: String, snapshot: String?) -> NativeAsyncOperationLease<String> {
+        state.begin(identity: identity, snapshot: snapshot, loadingTitle: nil)
+    }
+
+    func publish(
+        _ value: String,
+        lease: NativeAsyncOperationLease<String>,
+        currentIdentity: String
+    ) -> Bool {
+        state.publish(value, lease: lease, currentIdentity: currentIdentity)
+    }
+
+    func markMissing(
+        _ message: String,
+        lease: NativeAsyncOperationLease<String>,
+        currentIdentity: String
+    ) -> Bool {
+        state.markMissing(message, lease: lease, currentIdentity: currentIdentity)
+    }
+}
+
+private actor NativeSearchSuspensionGate {
+    private var suspensionContinuation: CheckedContinuation<Void, Never>?
+    private var waiterContinuations: [CheckedContinuation<Void, Never>] = []
+
+    func suspend() async {
+        waiterContinuations.forEach { $0.resume() }
+        waiterContinuations.removeAll()
+        await withCheckedContinuation { continuation in
+            suspensionContinuation = continuation
+        }
+    }
+
+    func waitUntilSuspended() async {
+        if suspensionContinuation != nil {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            waiterContinuations.append(continuation)
+        }
+    }
+
+    func release() {
+        suspensionContinuation?.resume()
+        suspensionContinuation = nil
     }
 }
 

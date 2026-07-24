@@ -138,10 +138,231 @@ public struct NativeRecipeCookbookEntityIndexPurgeRequest: Equatable, Sendable {
 public typealias NativeRecipeCookbookEntityIndexPurgeOperation = @Sendable (_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async -> Void
 public typealias NativeTelemetryReportOperation = @Sendable (_ event: NativeTelemetryEvent, _ configuration: APIClientConfiguration) async -> Void
 
+public struct NativeAsyncOperationLease<Context: Equatable & Sendable>: Equatable, Sendable {
+    fileprivate let id: UUID
+    public let context: Context
+}
+
+public struct NativeAsyncOperationOwner<Context: Equatable & Sendable>: Sendable {
+    private var activeLease: NativeAsyncOperationLease<Context>?
+
+    public init() {}
+
+    @discardableResult
+    public mutating func begin(context: Context) -> NativeAsyncOperationLease<Context> {
+        let lease = NativeAsyncOperationLease(id: UUID(), context: context)
+        activeLease = lease
+        return lease
+    }
+
+    public func owns(
+        _ lease: NativeAsyncOperationLease<Context>,
+        currentContext: Context
+    ) -> Bool {
+        activeLease == lease && lease.context == currentContext
+    }
+
+    @discardableResult
+    public mutating func finish(
+        _ lease: NativeAsyncOperationLease<Context>,
+        currentContext: Context
+    ) -> Bool {
+        guard owns(lease, currentContext: currentContext) else {
+            return false
+        }
+        activeLease = nil
+        return true
+    }
+
+    public mutating func cancel() {
+        activeLease = nil
+    }
+
+    @discardableResult
+    public mutating func cancel(_ lease: NativeAsyncOperationLease<Context>) -> Bool {
+        guard activeLease == lease else {
+            return false
+        }
+        activeLease = nil
+        return true
+    }
+}
+
+public enum NativeOwnedLoadPresentation<Value: Equatable & Sendable>: Equatable, Sendable {
+    case loading(snapshotTitle: String?)
+    case loaded(Value)
+    case missing(String)
+    case failed(String)
+}
+
+public struct NativeOwnedLoadState<Identity: Equatable & Sendable, Value: Equatable & Sendable>: Sendable {
+    private var owner = NativeAsyncOperationOwner<Identity>()
+    public private(set) var currentIdentity: Identity
+    public private(set) var presentation: NativeOwnedLoadPresentation<Value>
+
+    public init(identity: Identity, initialValue: Value?, loadingTitle: String?) {
+        currentIdentity = identity
+        presentation = initialValue.map(NativeOwnedLoadPresentation.loaded)
+            ?? .loading(snapshotTitle: loadingTitle)
+        owner.begin(context: identity)
+    }
+
+    @discardableResult
+    public mutating func begin(
+        identity: Identity,
+        snapshot: Value?,
+        loadingTitle: String?
+    ) -> NativeAsyncOperationLease<Identity> {
+        let lease = owner.begin(context: identity)
+        currentIdentity = identity
+        presentation = snapshot.map(NativeOwnedLoadPresentation.loaded)
+            ?? .loading(snapshotTitle: loadingTitle)
+        return lease
+    }
+
+    @discardableResult
+    public mutating func transition(
+        identity: Identity,
+        snapshot: Value?,
+        loadingTitle: String?
+    ) -> Bool {
+        guard identity != currentIdentity else {
+            return false
+        }
+        owner.begin(context: identity)
+        currentIdentity = identity
+        presentation = snapshot.map(NativeOwnedLoadPresentation.loaded)
+            ?? .loading(snapshotTitle: loadingTitle)
+        return true
+    }
+
+    @discardableResult
+    public mutating func publish(
+        _ value: Value,
+        lease: NativeAsyncOperationLease<Identity>,
+        currentIdentity: Identity
+    ) -> Bool {
+        guard owner.owns(lease, currentContext: currentIdentity) else {
+            return false
+        }
+        presentation = .loaded(value)
+        return true
+    }
+
+    @discardableResult
+    public mutating func markMissing(
+        _ message: String,
+        lease: NativeAsyncOperationLease<Identity>,
+        currentIdentity: Identity
+    ) -> Bool {
+        guard owner.owns(lease, currentContext: currentIdentity) else {
+            return false
+        }
+        presentation = .missing(message)
+        return true
+    }
+
+    @discardableResult
+    public mutating func markFailed(
+        _ message: String,
+        lease: NativeAsyncOperationLease<Identity>,
+        currentIdentity: Identity
+    ) -> Bool {
+        guard owner.owns(lease, currentContext: currentIdentity) else {
+            return false
+        }
+        presentation = .failed(message)
+        return true
+    }
+
+    public mutating func cancel() {
+        owner.cancel()
+    }
+}
+
+private enum NativeLiveAuthIdentity: Equatable, Sendable {
+    case signedOut
+    case boundSession(clientID: String, accountID: String)
+    case unboundSession(clientID: String, refreshToken: String)
+}
+
+private struct NativeLiveAuthOperationContext: Equatable, Sendable {
+    let generation: UInt64
+    let identity: NativeLiveAuthIdentity
+}
+
+private struct NativeLiveBootstrapJoinContext: Equatable, Sendable {
+    let authContext: NativeLiveAuthOperationContext
+    let accountID: String?
+    let environment: NativeCacheEnvironment
+}
+
+private struct NativeLiveBootstrapOperation {
+    let id: UUID
+    var joinContext: NativeLiveBootstrapJoinContext
+    let task: Task<Void, Never>
+}
+
+private struct NativeLiveMutationScope: Equatable, Sendable {
+    let authContext: NativeLiveAuthOperationContext
+    let authSessionState: NativeAuthSessionState
+    let accountID: String
+    let environment: NativeCacheEnvironment
+}
+
 public enum NativeLiveAppBootstrapMode: Equatable, Sendable {
     case liveFirst
     case restoreCacheOnly
 }
+
+public struct NativeLiveStagedSyncExecution: Sendable {
+    public let report: NativeSyncReport
+    public let snapshot: NativeSyncSnapshot
+
+    public init(report: NativeSyncReport, snapshot: NativeSyncSnapshot) {
+        self.report = report
+        self.snapshot = snapshot
+    }
+}
+
+struct NativeBootstrapEffectOwnership {
+    private(set) var operationID: UUID?
+    private var depth = 0
+
+    var isActive: Bool {
+        operationID != nil
+    }
+
+    mutating func begin(operationID: UUID) throws {
+        if self.operationID == operationID {
+            depth += 1
+            return
+        }
+        guard self.operationID == nil else {
+            throw CancellationError()
+        }
+        self.operationID = operationID
+        depth = 1
+    }
+
+    mutating func end(operationID: UUID) {
+        guard self.operationID == operationID else {
+            return
+        }
+        depth -= 1
+        guard depth == 0 else {
+            return
+        }
+        self.operationID = nil
+    }
+}
+
+public typealias NativeLiveSyncStageOperation = @Sendable (
+    _ baseline: NativeSyncSnapshot,
+    _ configuration: APIClientConfiguration,
+    _ trigger: NativeSyncTriggerEvent,
+    _ scope: NativeSyncExecutionScope
+) async throws -> NativeLiveStagedSyncExecution
 
 public struct NativeLiveAppStoreDependencies {
     public let authSessionRepository: NativeAuthSessionRepository
@@ -149,6 +370,7 @@ public struct NativeLiveAppStoreDependencies {
     public let syncStore: any NativeSyncStore
     public let syncEngine: NativeSyncEngine
     public let syncTriggerCoordinator: NativeSyncTriggerCoordinator
+    public let syncStageOperation: NativeLiveSyncStageOperation
     public let appStateStoreProvider: @MainActor () -> NativeAppStateStore?
     public let configuration: APIClientConfiguration
     public let cacheEnvironment: NativeCacheEnvironment
@@ -172,6 +394,7 @@ public struct NativeLiveAppStoreDependencies {
         syncStore: any NativeSyncStore,
         syncEngine: NativeSyncEngine,
         syncTriggerCoordinator: NativeSyncTriggerCoordinator,
+        syncStageOperation: NativeLiveSyncStageOperation? = nil,
         appStateStoreProvider: @escaping @MainActor () -> NativeAppStateStore?,
         configuration: APIClientConfiguration,
         cacheEnvironment: NativeCacheEnvironment,
@@ -196,6 +419,11 @@ public struct NativeLiveAppStoreDependencies {
         self.syncStore = syncStore
         self.syncEngine = syncEngine
         self.syncTriggerCoordinator = syncTriggerCoordinator
+        self.syncStageOperation = syncStageOperation ?? Self.stagedSyncOperation(
+            transport: URLSessionNativeSyncTransport(),
+            mediaResolver: stagedMediaDirectory,
+            clock: now
+        )
         self.appStateStoreProvider = appStateStoreProvider
         self.configuration = configuration
         self.cacheEnvironment = cacheEnvironment
@@ -212,6 +440,48 @@ public struct NativeLiveAppStoreDependencies {
         self.nativeTelemetryMetadata = nativeTelemetryMetadata
         self.bootstrapMode = bootstrapMode
         self.now = now
+    }
+
+    public static func stagedSyncOperation(
+        transport: any NativeSyncTransport,
+        mediaResolver: (any NativeStagedMediaResolving)? = nil
+    ) -> NativeLiveSyncStageOperation {
+        stagedSyncOperation(transport: transport, mediaResolver: mediaResolver, clock: { Date() })
+    }
+
+    public static func stagedSyncOperation(
+        transport: any NativeSyncTransport,
+        mediaResolver: (any NativeStagedMediaResolving)? = nil,
+        clock: @escaping @Sendable () -> Date
+    ) -> NativeLiveSyncStageOperation {
+        { baseline, configuration, trigger, scope in
+            let stagingStore = InMemoryNativeSyncStore(
+                accountID: baseline.accountID,
+                environment: baseline.environment,
+                checkpoint: baseline.checkpoint,
+                queue: baseline.queue,
+                cachedRecords: baseline.cachedRecords
+            )
+            for tombstone in baseline.tombstones {
+                await stagingStore.appendTombstone(tombstone)
+            }
+            let stagingEngine = NativeSyncEngine(
+                store: stagingStore,
+                transport: transport,
+                mediaResolver: mediaResolver,
+                clock: clock
+            )
+            let coordinator = NativeSyncTriggerCoordinator(
+                runner: stagingEngine,
+                configuration: configuration,
+                scope: scope
+            )
+            let report = try await coordinator.handle(trigger)
+            return NativeLiveStagedSyncExecution(
+                report: report,
+                snapshot: await stagingStore.loadSnapshot()
+            )
+        }
     }
 }
 
@@ -942,16 +1212,7 @@ public struct NativeShellContentState {
     }
 
     private func profileRecipeSummary(recipe: Recipe) -> ProfileRecipeSummary {
-        ProfileRecipeSummary(
-            id: recipe.id,
-            title: recipe.title,
-            description: recipe.description,
-            servings: recipe.servings,
-            coverImageURL: recipe.coverImageURL,
-            coverProvenanceLabel: recipe.coverProvenanceLabel,
-            href: recipe.href,
-            canonicalURL: recipe.canonicalURL
-        )
+        ProfileRecipeSummary(recipe: recipe)
     }
 
     private func profileCookbookSummary(cookbook: Cookbook) -> ProfileCookbookSummary {
@@ -1559,7 +1820,7 @@ public struct NativeShellContentState {
         cookbooks: [Cookbook],
         shoppingList: ShoppingListState?
     ) -> KitchenFixtureState {
-        let leadRecipe = recipes.first
+        let leadRecipe = recipes.first(where: { $0.displayCoverImageURL != nil }) ?? recipes.first
         let leadID = leadRecipe?.id ?? "live-empty"
         let leadTitle = leadRecipe?.title ?? "Spoonjoy"
         return KitchenFixtureState(
@@ -1769,19 +2030,20 @@ public final class NativeLiveAppStore: ObservableObject {
     private var configuration: APIClientConfiguration
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
+    private var bootstrapOperation: NativeLiveBootstrapOperation?
+    private var hasResolvedAuthScope = false
+    private var pendingOpenedRoute: AppRoute?
+    private var authGeneration: UInt64 = 0
+    private var bootstrapEffectOwnership = NativeBootstrapEffectOwnership()
+    private var bootstrapEffectWaiters: [CheckedContinuation<Void, Never>] = []
+    private var lifecycleMutationIsActive = false
+
+    private var isBootstrapping: Bool {
+        bootstrapOperation != nil
+    }
 
     public var authSessionRepository: NativeAuthSessionRepository {
         dependencies.authSessionRepository
-    }
-
-    public var syncTriggerCoordinator: NativeSyncTriggerCoordinator {
-        dependencies.syncTriggerCoordinator.scoped(
-            configuration: configuration,
-            scope: NativeSyncExecutionScope(
-                expectedAccountID: trustedAccountID(for: currentContentState.authSessionState),
-                environment: cacheEnvironment
-            )
-        )
     }
 
     public var offlineIndicatorState: OfflineIndicatorState {
@@ -1803,35 +2065,122 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func bootstrap() async {
+        await startBootstrap(trigger: .launch, reuseMatchingInFlightOperation: true)
+    }
+
+    public func refreshForForeground() async {
+        await startBootstrap(trigger: .foreground, reuseMatchingInFlightOperation: false)
+    }
+
+    private func startBootstrap(
+        trigger: NativeSyncTriggerEvent,
+        reuseMatchingInFlightOperation: Bool
+    ) async {
+        let requestedJoinContext = currentBootstrapJoinContext
+        if reuseMatchingInFlightOperation,
+           let bootstrapOperation,
+           bootstrapOperation.joinContext == requestedJoinContext {
+            await bootstrapOperation.task.value
+            return
+        }
+
+        bootstrapOperation?.task.cancel()
+        advanceAuthGeneration(clearCredentials: true)
+        hasResolvedAuthScope = false
+        let transitionGeneration = authGeneration
+        let launch: (operationID: UUID, task: Task<Void, Never>)
         do {
+            launch = try await withLifecycleMutation {
+                await waitForBootstrapEffectCompletion()
+                guard authGeneration == transitionGeneration else {
+                    throw CancellationError()
+                }
+                let operationID = UUID()
+                let task = Task { @MainActor in
+                    await performBootstrap(operationID: operationID, trigger: trigger)
+                }
+                bootstrapOperation = NativeLiveBootstrapOperation(
+                    id: operationID,
+                    joinContext: currentBootstrapJoinContext,
+                    task: task
+                )
+                return (operationID, task)
+            }
+        } catch {
+            return
+        }
+        await launch.task.value
+        if bootstrapOperation?.id == launch.operationID {
+            bootstrapOperation = nil
+        }
+    }
+
+    private func performBootstrap(
+        operationID: UUID,
+        trigger: NativeSyncTriggerEvent
+    ) async {
+        var resolvedAuthState: NativeAuthSessionState?
+        do {
+            try ensureCurrentBootstrapOperation(operationID)
             guard !dependencies.fixtureFallbackPolicy.allowsProductionFallback() else {
                 throw NativeLiveAppStoreError.fixtureFallbackEnabledInProduction
             }
 
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
+            try ensureCurrentBootstrapOperation(operationID)
+            resolvedAuthState = restoredAuthState
+            configureForRestoredAuthState(restoredAuthState)
             if dependencies.bootstrapMode == .restoreCacheOnly {
-                configureForRestoredAuthState(restoredAuthState)
-                let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
+                let restoredContent = try await restoreFromCache(
+                    authSessionState: restoredAuthState,
+                    bootstrapOperationID: operationID
+                )
                 if case .signedOut = restoredAuthState {
-                    apply(.signedOut(restoredContent.copy(
+                    try applyBootstrapState(.signedOut(restoredContent.copy(
                         offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
-                    )))
+                    )), operationID: operationID)
                 } else {
-                    apply(Self.restoreCacheOnlyBootstrapState(for: restoredContent))
+                    try applyBootstrapState(
+                        Self.restoreCacheOnlyBootstrapState(for: restoredContent),
+                        operationID: operationID
+                    )
                 }
+                completeBootstrapAuthScopeResolution()
                 return
             }
 
-            let authState = try await authorizedAuthState(from: restoredAuthState)
+            let authState = try await authorizedAuthState(
+                from: restoredAuthState,
+                bootstrapOperationID: operationID
+            )
+            resolvedAuthState = authState
             guard case .authenticated(let session) = authState else {
-                let restoringContent = try await restoreFromCache(authSessionState: authState)
-                apply(.signedOut(restoringContent))
+                let restoringContent = try await restoreFromCache(
+                    authSessionState: authState,
+                    bootstrapOperationID: operationID
+                )
+                try applyBootstrapState(.signedOut(restoringContent), operationID: operationID)
+                completeBootstrapAuthScopeResolution()
                 return
             }
 
-            apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
-            try await bootstrapFromLiveAPI(session: session, trigger: .launch)
+            try applyBootstrapState(
+                .restoringCache(emptyContent(authSessionState: authState, display: .synced)),
+                operationID: operationID
+            )
+            try await bootstrapFromLiveAPI(
+                session: session,
+                trigger: trigger,
+                bootstrapOperationID: operationID
+            )
+            updateBootstrapJoinContext(operationID: operationID)
+            completeBootstrapAuthScopeResolution()
+        } catch is CancellationError {
+            return
         } catch let error as APITransportError where error.isOffline {
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
             NativeLiveAppStoreTelemetry.bootstrapOffline(
                 stage: "launch",
                 error: error,
@@ -1848,9 +2197,29 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState
-            apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
+            if let resolvedAuthState,
+               let offlineContent = try? await restoreFromCache(
+                   authSessionState: resolvedAuthState,
+                   bootstrapOperationID: operationID
+               ) {
+                try? applyBootstrapState(
+                    .offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))),
+                    operationID: operationID
+                )
+                completeBootstrapAuthScopeResolution()
+            } else if isCurrentBootstrapOperation(operationID) {
+                try? applyBootstrapState(.offlineStale(currentContentState.copy(
+                    offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil)
+                )), operationID: operationID)
+                failBootstrapAuthScopeResolution()
+            }
         } catch {
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "launch",
                 error: error,
@@ -1867,30 +2236,96 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            apply(.syncFailed(
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
+            try? applyBootstrapState(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "bootstrap", retryAfter: nil), dismissal: nil)),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
-            ))
+            ), operationID: operationID)
+            failBootstrapAuthScopeResolution()
         }
     }
 
+    private func completeBootstrapAuthScopeResolution() {
+        hasResolvedAuthScope = true
+        if let pendingOpenedRoute {
+            self.pendingOpenedRoute = nil
+            restoredRoute = pendingOpenedRoute
+            persistOpenedRoute(pendingOpenedRoute)
+        }
+    }
+
+    private func failBootstrapAuthScopeResolution() {
+        hasResolvedAuthScope = false
+        pendingOpenedRoute = nil
+    }
+
     public func switchEnvironment(_ environment: NativeCacheEnvironment) async {
+        bootstrapOperation?.task.cancel()
+        advanceAuthGeneration(clearCredentials: false)
         cacheEnvironment = environment
         configuration = APIClientConfiguration(baseURL: configuration.baseURL, bearerToken: configuration.bearerToken)
         let authSessionState = currentContentState.authSessionState
         apply(.restoringCache(emptyContent(authSessionState: authSessionState, display: .stale(domain: .accountBootstrap))))
-
+        let transitionGeneration = authGeneration
+        let launch: (operationID: UUID, task: Task<Void, Never>)
         do {
+            launch = try await withLifecycleMutation {
+                await waitForBootstrapEffectCompletion()
+                guard authGeneration == transitionGeneration,
+                      cacheEnvironment == environment else {
+                    throw CancellationError()
+                }
+
+                let operationID = UUID()
+                let task = Task { @MainActor in
+                    await performEnvironmentSwitch(
+                        environment,
+                        authSessionState: authSessionState,
+                        operationID: operationID
+                    )
+                }
+                bootstrapOperation = NativeLiveBootstrapOperation(
+                    id: operationID,
+                    joinContext: currentBootstrapJoinContext,
+                    task: task
+                )
+                return (operationID, task)
+            }
+        } catch {
+            return
+        }
+        await launch.task.value
+        if bootstrapOperation?.id == launch.operationID {
+            bootstrapOperation = nil
+        }
+    }
+
+    private func performEnvironmentSwitch(
+        _ environment: NativeCacheEnvironment,
+        authSessionState: NativeAuthSessionState,
+        operationID: UUID
+    ) async {
+        do {
+            try ensureCurrentBootstrapOperation(operationID)
             guard case .authenticated(let session) = authSessionState else {
-                let content = try await restoreFromCache(authSessionState: authSessionState)
-                apply(.signedOut(content))
+                let content = try await restoreFromCache(
+                    authSessionState: authSessionState,
+                    bootstrapOperationID: operationID
+                )
+                try applyBootstrapState(.signedOut(content), operationID: operationID)
                 return
             }
             try await bootstrapFromLiveAPI(
                 session: session,
-                trigger: NativeSyncTriggerEvent.environmentChanged(environment)
+                trigger: NativeSyncTriggerEvent.environmentChanged(environment),
+                bootstrapOperationID: operationID
             )
         } catch let error as APITransportError where error.isOffline {
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
             NativeLiveAppStoreTelemetry.bootstrapOffline(
                 stage: "environment",
                 error: error,
@@ -1907,9 +2342,20 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            let offlineContent = (try? await restoreFromCache(authSessionState: authSessionState)) ?? currentContentState
-            apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
+            let offlineContent = (try? await restoreFromCache(
+                authSessionState: authSessionState,
+                bootstrapOperationID: operationID
+            )) ?? currentContentState
+            try? applyBootstrapState(
+                .offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))),
+                operationID: operationID
+            )
+        } catch is CancellationError {
+            return
         } catch {
+            guard isCurrentBootstrapOperation(operationID) else {
+                return
+            }
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "environment",
                 error: error,
@@ -1926,10 +2372,10 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            apply(.syncFailed(
+            try? applyBootstrapState(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "environment", retryAfter: nil), dismissal: nil)),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
-            ))
+            ), operationID: operationID)
         }
     }
 
@@ -1946,11 +2392,18 @@ public final class NativeLiveAppStore: ObservableObject {
         currentContentState.searchSurfaceIdentity
     }
 
+    public var allowsLiveEffects: Bool {
+        dependencies.bootstrapMode == .liveFirst
+    }
+
     public func searchSurfaceRepository(context: SearchSurfaceContext) -> any SearchSurfaceRepository {
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
-        )
+        guard allowsLiveEffects else {
+            return RestoreOnlySearchSurfaceRepository(
+                contentState: currentContentState,
+                context: context
+            )
+        }
+        let refresher = makeAPIRefresher()
         return LiveSearchSurfaceRepository(
             transport: dependencies.recipeEditorAPITransport(refresher),
             configuration: configuration,
@@ -2020,63 +2473,72 @@ public final class NativeLiveAppStore: ObservableObject {
             )
         }
 
+        guard let scope = currentMutationScope() else {
+            throw CancellationError()
+        }
         do {
-            let scopedQueue = try await queueForCurrentScope()
-            let queue = scopedQueue.queue
-            let nextQueue = try queue.appending(contentsOf: mutations)
-            let baseShoppingCacheRecords = try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList)
-            for mutation in mutations {
-                try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
-            }
-            try await dependencies.syncStore.saveQueue(
-                nextQueue,
-                accountID: scopedQueue.accountID,
-                environment: scopedQueue.environment,
-                upsertingCachedRecords: baseShoppingCacheRecords,
-                deletingCachedRecordKeys: []
-            )
-            let indicator = OfflineIndicatorState(
-                display: .queuedWork(
-                    count: nextQueue.mutations.count,
-                    oldestClientMutationID: nextQueue.mutations.first?.clientMutationID
-                ),
-                dismissal: nil
-            )
-            let fallbackChef = optimisticRecipeChef
-            let optimisticRecipes = mutations.reduce(currentContentState.recipes) { recipes, mutation in
-                mutation.applyingOptimisticRecipeMutation(
-                    to: recipes,
-                    fallbackChef: fallbackChef,
-                    now: NativeLiveAppStoreClock.isoString(dependencies.now())
+            try await withLifecycleMutation {
+                await waitForBootstrapOperationCompletion()
+                try ensureCurrentMutationScope(scope)
+                let scopedQueue = try await queue(for: scope)
+                let nextQueue = try scopedQueue.queue.appending(contentsOf: mutations)
+                let baseShoppingCacheRecords = try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList)
+                for mutation in mutations {
+                    try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
+                }
+                try await dependencies.syncStore.saveQueue(
+                    nextQueue,
+                    accountID: scopedQueue.accountID,
+                    environment: scopedQueue.environment,
+                    upsertingCachedRecords: baseShoppingCacheRecords,
+                    deletingCachedRecordKeys: []
                 )
-            }
-            let optimisticShoppingList = mutations.reduce(currentContentState.shoppingList) { shoppingList, mutation in
-                mutation.applyingOptimisticShoppingMutation(
-                    to: shoppingList,
+                try ensureCurrentMutationScope(scope)
+                let indicator = OfflineIndicatorState(
+                    display: .queuedWork(
+                        count: nextQueue.mutations.count,
+                        oldestClientMutationID: nextQueue.mutations.first?.clientMutationID
+                    ),
+                    dismissal: nil
+                )
+                let fallbackChef = optimisticRecipeChef
+                let optimisticRecipes = mutations.reduce(currentContentState.recipes) { recipes, mutation in
+                    mutation.applyingOptimisticRecipeMutation(
+                        to: recipes,
+                        fallbackChef: fallbackChef,
+                        now: NativeLiveAppStoreClock.isoString(dependencies.now())
+                    )
+                }
+                let optimisticShoppingList = mutations.reduce(currentContentState.shoppingList) { shoppingList, mutation in
+                    mutation.applyingOptimisticShoppingMutation(
+                        to: shoppingList,
+                        recipes: optimisticRecipes,
+                        fallbackChef: fallbackChef,
+                        now: mutation.createdAt
+                    )
+                }
+                let optimisticCookbooks = mutations.reduce(currentContentState.cookbooks) { cookbooks, mutation in
+                    mutation.applyingOptimisticCookbookMutation(
+                        to: cookbooks,
+                        fallbackChef: fallbackChef,
+                        recipes: optimisticRecipes,
+                        now: mutation.createdAt
+                    )
+                }
+                apply(.queuedWork(currentContentState.copy(
                     recipes: optimisticRecipes,
-                    fallbackChef: fallbackChef,
-                    now: mutation.createdAt
-                )
+                    cookbooks: optimisticCookbooks,
+                    shoppingList: optimisticShoppingList,
+                    queuedMutations: nextQueue.mutations,
+                    offlineIndicatorState: indicator
+                )))
             }
-            let optimisticCookbooks = mutations.reduce(currentContentState.cookbooks) { cookbooks, mutation in
-                mutation.applyingOptimisticCookbookMutation(
-                    to: cookbooks,
-                    fallbackChef: fallbackChef,
-                    recipes: optimisticRecipes,
-                    now: mutation.createdAt
-                )
-            }
-            apply(.queuedWork(currentContentState.copy(
-                recipes: optimisticRecipes,
-                cookbooks: optimisticCookbooks,
-                shoppingList: optimisticShoppingList,
-                queuedMutations: nextQueue.mutations,
-                offlineIndicatorState: indicator
-            )))
             if drainImmediately {
                 await bootstrap()
             }
             return queuedMutationBatchResult(submittedClientMutationIDs: submittedClientMutationIDs)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             apply(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "queue", retryAfter: nil), dismissal: nil)),
@@ -2108,59 +2570,67 @@ public final class NativeLiveAppStore: ObservableObject {
         guard !trimmedClientMutationID.isEmpty else {
             return
         }
-
-        let scopedQueue = try await queueForCurrentScope()
-        guard scopedQueue.queue.mutations.contains(where: { $0.clientMutationID == trimmedClientMutationID }) else {
+        guard let scope = currentMutationScope() else {
             return
         }
+        try await withLifecycleMutation {
+            await waitForBootstrapOperationCompletion()
+            try ensureCurrentMutationScope(scope)
 
-        let existingConflicts = currentContentState.syncConflicts
-        let clientMutationIDsToDiscard = Self.clientMutationIDsToDiscard(
-            from: scopedQueue.queue,
-            startingAt: trimmedClientMutationID
-        )
-        let nextQueue = try scopedQueue.queue.removing(clientMutationIDs: clientMutationIDsToDiscard)
-        try await dependencies.syncStore.saveQueue(
-            nextQueue,
-            accountID: scopedQueue.accountID,
-            environment: scopedQueue.environment
-        )
+            let scopedQueue = try await queue(for: scope)
+            try ensureCurrentMutationScope(scope)
+            guard scopedQueue.queue.mutations.contains(where: { $0.clientMutationID == trimmedClientMutationID }) else {
+                return
+            }
 
-        let restoredContent = try await restoreFromCache(authSessionState: currentContentState.authSessionState)
-        let remainingConflicts = existingConflicts.filter { !clientMutationIDsToDiscard.contains($0.clientMutationID) }
-        let content = restoredContent.copy(syncConflicts: remainingConflicts)
-        if let conflict = remainingConflicts.first {
-            apply(.conflict(content.copy(
-                offlineIndicatorState: OfflineIndicatorState(display: .conflict(recordID: conflict.clientMutationID, mutationID: conflict.clientMutationID), dismissal: nil)
-            )))
-        } else if !content.queuedMutations.isEmpty {
-            apply(.queuedWork(content.copy(
-                offlineIndicatorState: OfflineIndicatorState(
-                    display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID),
-                    dismissal: nil
-                )
-            )))
-        } else {
-            apply(.offlineStale(content))
+            let existingConflicts = currentContentState.syncConflicts
+            let clientMutationIDsToDiscard = Self.clientMutationIDsToDiscard(
+                from: scopedQueue.queue,
+                startingAt: trimmedClientMutationID
+            )
+            let nextQueue = try scopedQueue.queue.removing(clientMutationIDs: clientMutationIDsToDiscard)
+            try await dependencies.syncStore.saveQueue(
+                nextQueue,
+                accountID: scopedQueue.accountID,
+                environment: scopedQueue.environment
+            )
+            try ensureCurrentMutationScope(scope)
+
+            let restoredContent = try await restoreFromCache(authSessionState: scope.authSessionState)
+            try ensureCurrentMutationScope(scope)
+            let remainingConflicts = existingConflicts.filter { !clientMutationIDsToDiscard.contains($0.clientMutationID) }
+            let content = restoredContent.copy(syncConflicts: remainingConflicts)
+            if let conflict = remainingConflicts.first {
+                apply(.conflict(content.copy(
+                    offlineIndicatorState: OfflineIndicatorState(display: .conflict(recordID: conflict.clientMutationID, mutationID: conflict.clientMutationID), dismissal: nil)
+                )))
+            } else if !content.queuedMutations.isEmpty {
+                apply(.queuedWork(content.copy(
+                    offlineIndicatorState: OfflineIndicatorState(
+                        display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID),
+                        dismissal: nil
+                    )
+                )))
+            } else {
+                apply(.offlineStale(content))
+            }
         }
     }
 
     public func executeRecipeEditorRequest(_ request: APIRequestBuilder) async throws {
-        let session = try await dependencies.authSessionRepository.validSession()
-        configuration = APIClientConfiguration(
-            baseURL: dependencies.configuration.baseURL,
-            bearerToken: session.accessToken
-        )
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
+        let authContext = try beginAuthenticatedOperation()
+        let requestConfiguration = try await authenticatedConfiguration(for: authContext)
+        let refresher = makeAPIRefresher(
+            authContext: authContext,
+            expectedConfiguration: requestConfiguration
         )
         let transport = dependencies.recipeEditorAPITransport(refresher)
         _ = try await transport.send(
             request,
-            configuration: configuration,
+            configuration: requestConfiguration,
             decode: JSONValue.self
         )
+        try ensureCurrentAuthOperation(authContext)
         await bootstrap()
     }
 
@@ -2168,14 +2638,11 @@ public final class NativeLiveAppStore: ObservableObject {
         _ request: APIRequestBuilder,
         responseHandling: SettingsActionResponseHandling
     ) async throws -> SettingsActionOutcome? {
-        let session = try await dependencies.authSessionRepository.validSession()
-        configuration = APIClientConfiguration(
-            baseURL: dependencies.configuration.baseURL,
-            bearerToken: session.accessToken
-        )
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
+        let authContext = try beginAuthenticatedOperation()
+        let requestConfiguration = try await authenticatedConfiguration(for: authContext)
+        let refresher = makeAPIRefresher(
+            authContext: authContext,
+            expectedConfiguration: requestConfiguration
         )
         let transport = dependencies.recipeEditorAPITransport(refresher)
 
@@ -2183,38 +2650,38 @@ public final class NativeLiveAppStore: ObservableObject {
         case .refreshOnly:
             _ = try await transport.send(
                 request,
-                configuration: configuration,
+                configuration: requestConfiguration,
                 decode: JSONValue.self
             )
+            try ensureCurrentAuthOperation(authContext)
             await bootstrap()
             return nil
         case .captureCreatedAPIToken:
             let envelope = try await transport.send(
                 request,
-                configuration: configuration,
+                configuration: requestConfiguration,
                 decode: SettingsCreatedAPIToken.self
             )
+            try ensureCurrentAuthOperation(authContext)
             await bootstrap()
             return .createdAPIToken(envelope.data)
         }
     }
 
     public func executeCaptureImportRequest(_ request: APIRequestBuilder) async throws -> RecipeImportResponse {
-        let session = try await dependencies.authSessionRepository.validSession()
-        configuration = APIClientConfiguration(
-            baseURL: dependencies.configuration.baseURL,
-            bearerToken: session.accessToken
-        )
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
+        let authContext = try beginAuthenticatedOperation()
+        let requestConfiguration = try await authenticatedConfiguration(for: authContext)
+        let refresher = makeAPIRefresher(
+            authContext: authContext,
+            expectedConfiguration: requestConfiguration
         )
         let transport = dependencies.recipeEditorAPITransport(refresher)
         let envelope = try await transport.send(
             request,
-            configuration: configuration,
+            configuration: requestConfiguration,
             decode: RecipeImportResponse.self
         )
+        try ensureCurrentAuthOperation(authContext)
         if let recipe = envelope.data.recipe {
             var recipes = currentContentState.recipes.filter { $0.id != recipe.id }
             recipes.insert(recipe, at: 0)
@@ -2224,46 +2691,55 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
-        switch operation {
-        case .logout, .revokeAndLogout:
-            let currentAccountID = accountID
-            let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
+        let sessionContent = currentContentState
+        let sessionEnvironment = cacheEnvironment
+        let currentAccountID = accountID(for: sessionContent.authSessionState)
+        bootstrapOperation?.task.cancel()
+        apply(.signedOut(emptyContent(authSessionState: .signedOut, display: .offline)))
+        restoredRoute = nil
+        pendingOpenedRoute = nil
+        hasResolvedAuthScope = true
+        try await withLifecycleMutation {
+            await waitForBootstrapEffectCompletion()
+            switch operation {
+            case .logout, .revokeAndLogout:
+            let shoppingItemIDs = sessionContent.shoppingList?.activeItems.map(\.id) ?? []
             let makePurgePlan = ShoppingEntityIndexPurgePlan.accountScopePurge(accountID:environment:shoppingItemIDs:)
-            let purgePlan = makePurgePlan(currentAccountID, cacheEnvironment, shoppingItemIDs)
+            let purgePlan = makePurgePlan(currentAccountID, sessionEnvironment, shoppingItemIDs)
             await purgeShoppingEntityIdentifiers(ShoppingEntityCatalog.purgeEntityIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: purgePlan
             ), domainIdentifiers: ShoppingEntityCatalog.purgeDomainIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: purgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
-            let spoonIDs = currentContentState.recipes.flatMap { recipe in
+            ), accountID: currentAccountID, environment: sessionEnvironment)
+            let spoonIDs = sessionContent.recipes.flatMap { recipe in
                 recipe.recentSpoons.compactMap { spoon in
                     spoon.deletedAt == nil ? spoon.id : nil
                 }
             }
             let spoonPurgePlan = SpoonEntityIndexPurgePlan.accountScopePurge(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 spoonIDs: spoonIDs
             )
             await purgeSpoonEntityIdentifiers(SpoonEntityCatalog.purgeEntityIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: spoonPurgePlan
             ), domainIdentifiers: SpoonEntityCatalog.purgeDomainIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: spoonPurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
+            ), accountID: currentAccountID, environment: sessionEnvironment)
             let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
-            let captureDraftSnapshot = currentContentState.captureDraft.map { draft in
+            let captureDraftSnapshot = sessionContent.captureDraft.map { draft in
                 NativeAppSnapshot.bootstrap(
-                    shoppingList: currentContentState.shoppingList,
+                    shoppingList: sessionContent.shoppingList,
                     accountID: currentAccountID,
-                    environment: cacheEnvironment,
+                    environment: sessionEnvironment,
                     savedAt: savedAt
                 ).recordingCaptureDraft(draft, savedAt: savedAt)
             }
@@ -2271,48 +2747,59 @@ public final class NativeLiveAppStore: ObservableObject {
                 appSnapshot: captureDraftSnapshot,
                 cacheSnapshot: nil,
                 accountID: currentAccountID,
-                environment: cacheEnvironment
+                environment: sessionEnvironment
             )
             await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: captureDraftPurgePlan
             ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: captureDraftPurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
-            let chefProfileIDs = currentContentState.cachedProfiles.map(\.profile.id)
+            ), accountID: currentAccountID, environment: sessionEnvironment)
+            let chefProfileIDs = sessionContent.cachedProfiles.map(\.profile.id)
             let chefProfilePurgePlan = ChefProfileEntityIndexPurgePlan.accountScopePurge(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 profileIDs: chefProfileIDs
             )
             await purgeChefProfileEntityIdentifiers(ChefProfileEntityCatalog.purgeEntityIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: chefProfilePurgePlan
             ), domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: chefProfilePurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
+            ), accountID: currentAccountID, environment: sessionEnvironment)
             let recipeCookbookPurgePlan = RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
-                recipeIDs: currentContentState.recipes.map(\.id),
-                cookbookIDs: currentContentState.cookbooks.map(\.id)
+                environment: sessionEnvironment,
+                recipeIDs: sessionContent.recipes.map(\.id),
+                cookbookIDs: sessionContent.cookbooks.map(\.id)
             )
             await purgeRecipeCookbookEntityIdentifiers(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: recipeCookbookPurgePlan
             ), domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
                 accountID: currentAccountID,
-                environment: cacheEnvironment,
+                environment: sessionEnvironment,
                 plan: recipeCookbookPurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
-            try await dependencies.authSessionRepository.revokeAndLogout()
+            ), accountID: currentAccountID, environment: sessionEnvironment)
+                var didRevokeSession = false
+                do {
+                    try await dependencies.authSessionRepository.revokeAndLogout()
+                    didRevokeSession = true
+                    try await clearSyncSnapshotForSessionTransition()
+                } catch {
+                    if didRevokeSession {
+                        apply(.signedOut(emptyContent(authSessionState: .signedOut, display: .offline)))
+                    }
+                    throw error
+                }
+            }
         }
         await bootstrap()
     }
@@ -2447,19 +2934,29 @@ public final class NativeLiveAppStore: ObservableObject {
         })
     }
 
-    private func queueForCurrentScope() async throws -> (queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) {
+    private func queue(
+        for scope: NativeLiveMutationScope
+    ) async throws -> (queue: NativeMutationQueue, accountID: String, environment: NativeCacheEnvironment) {
         let snapshot = try await dependencies.syncStore.loadSnapshot()
-        guard let expectedAccountID = trustedAccountID(for: currentContentState.authSessionState) else {
-            return (NativeMutationQueue(), nil, nil)
+        try ensureCurrentMutationScope(scope)
+        guard snapshot.accountID == scope.accountID,
+              snapshot.environment == scope.environment else {
+            return (NativeMutationQueue(), scope.accountID, scope.environment)
         }
-        guard snapshot.accountID == expectedAccountID,
-              snapshot.environment == cacheEnvironment else {
-            return (NativeMutationQueue(), expectedAccountID, cacheEnvironment)
-        }
-        return (try await dependencies.syncStore.loadQueue(), expectedAccountID, cacheEnvironment)
+        let queue = try await dependencies.syncStore.loadQueue()
+        try ensureCurrentMutationScope(scope)
+        return (queue, scope.accountID, scope.environment)
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {
+        guard hasResolvedAuthScope, !isBootstrapping else {
+            pendingOpenedRoute = route
+            return
+        }
+        persistOpenedRoute(route)
+    }
+
+    private func persistOpenedRoute(_ route: AppRoute) {
         guard let appStateStore = dependencies.appStateStoreProvider() else {
             return
         }
@@ -2572,17 +3069,19 @@ public final class NativeLiveAppStore: ObservableObject {
             }
         }
 
+        let scopedAccountID = accountID
+        let scopedEnvironment = cacheEnvironment
         let cacheDeletePlan = CaptureDraftEntityIndexPurgePlan.cacheDeletePurge(
             deletedRecordDomains: [.captureDraft(id: draft.id)],
-            accountID: accountID,
-            environment: cacheEnvironment
+            accountID: scopedAccountID,
+            environment: scopedEnvironment
         )
         Task {
             await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
-                accountID: accountID,
-                environment: cacheEnvironment,
+                accountID: scopedAccountID,
+                environment: scopedEnvironment,
                 plan: cacheDeletePlan
-            ))
+            ), accountID: scopedAccountID, environment: scopedEnvironment)
         }
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(captureDraft: .some(draft))))
     }
@@ -2801,7 +3300,8 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func restoreFromCache(
         authSessionState: NativeAuthSessionState,
-        optimisticMutations: [NativeQueuedMutation] = []
+        optimisticMutations: [NativeQueuedMutation] = [],
+        bootstrapOperationID: UUID? = nil
     ) async throws -> NativeShellContentState {
         let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
         let preFilterCacheFallback = try NativeDurableCacheSnapshot(
@@ -2822,15 +3322,17 @@ public final class NativeLiveAppStore: ObservableObject {
                 accountID: previousCacheSnapshot.accountID,
                 environment: previousCacheSnapshot.environment
             )
-            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
-                accountID: previousCacheSnapshot.accountID,
-                environment: previousCacheSnapshot.environment,
-                plan: captureDraftPurgePlan
-            ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
-                accountID: previousCacheSnapshot.accountID,
-                environment: previousCacheSnapshot.environment,
-                plan: captureDraftPurgePlan
-            ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+                    accountID: previousCacheSnapshot.accountID,
+                    environment: previousCacheSnapshot.environment,
+                    plan: captureDraftPurgePlan
+                ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+                    accountID: previousCacheSnapshot.accountID,
+                    environment: previousCacheSnapshot.environment,
+                    plan: captureDraftPurgePlan
+                ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            }
             let profileIDs = previousCacheSnapshot.records.compactMap { record -> String? in
                 guard case NativeCacheDomain.profile(let id) = record.metadata.domain else {
                     return nil
@@ -2842,15 +3344,17 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: previousCacheSnapshot.environment,
                 profileIDs: profileIDs
             )
-            await purgeChefProfileEntityIdentifiers(ChefProfileEntityCatalog.purgeEntityIdentifiers(
-                accountID: previousCacheSnapshot.accountID,
-                environment: previousCacheSnapshot.environment,
-                plan: chefProfilePurgePlan
-            ), domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(
-                accountID: previousCacheSnapshot.accountID,
-                environment: previousCacheSnapshot.environment,
-                plan: chefProfilePurgePlan
-            ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeChefProfileEntityIdentifiers(ChefProfileEntityCatalog.purgeEntityIdentifiers(
+                    accountID: previousCacheSnapshot.accountID,
+                    environment: previousCacheSnapshot.environment,
+                    plan: chefProfilePurgePlan
+                ), domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(
+                    accountID: previousCacheSnapshot.accountID,
+                    environment: previousCacheSnapshot.environment,
+                    plan: chefProfilePurgePlan
+                ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            }
             let recipeIDs = previousCacheSnapshot.records.flatMap { record -> [String] in
                 switch record.payload {
                 case .recipeCatalog(let recipeIDs):
@@ -2877,15 +3381,17 @@ public final class NativeLiveAppStore: ObservableObject {
                 recipeIDs: Self.uniquePreservingOrder(recipeIDs),
                 cookbookIDs: Self.uniquePreservingOrder(cookbookIDs)
             )
-            await purgeRecipeCookbookEntityIdentifiers(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
-                accountID: previousCacheSnapshot.accountID,
-                environment: previousCacheSnapshot.environment,
-                plan: recipeCookbookPurgePlan
-            ), domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
-                accountID: previousCacheSnapshot.accountID,
-                environment: previousCacheSnapshot.environment,
-                plan: recipeCookbookPurgePlan
-            ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeRecipeCookbookEntityIdentifiers(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
+                    accountID: previousCacheSnapshot.accountID,
+                    environment: previousCacheSnapshot.environment,
+                    plan: recipeCookbookPurgePlan
+                ), domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+                    accountID: previousCacheSnapshot.accountID,
+                    environment: previousCacheSnapshot.environment,
+                    plan: recipeCookbookPurgePlan
+                ), accountID: previousCacheSnapshot.accountID, environment: previousCacheSnapshot.environment)
+            }
         }
 
         if let appStateStore = dependencies.appStateStoreProvider() {
@@ -2907,25 +3413,33 @@ public final class NativeLiveAppStore: ObservableObject {
                     )
                     let previousAccountID = previousAppSnapshot.accountID ?? ""
                     let previousEnvironment = previousAppSnapshot.environment ?? cacheEnvironment
-                    await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
-                        accountID: previousAccountID,
-                        environment: previousEnvironment,
-                        plan: captureDraftPurgePlan
-                    ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
-                        accountID: previousAccountID,
-                        environment: previousEnvironment,
-                        plan: captureDraftPurgePlan
-                    ), accountID: previousAppSnapshot.accountID, environment: previousAppSnapshot.environment)
+                    try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                        await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+                            accountID: previousAccountID,
+                            environment: previousEnvironment,
+                            plan: captureDraftPurgePlan
+                        ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+                            accountID: previousAccountID,
+                            environment: previousEnvironment,
+                            plan: captureDraftPurgePlan
+                        ), accountID: previousAppSnapshot.accountID, environment: previousAppSnapshot.environment)
+                    }
                 }
             }
         }
 
         let record = try loadOrCreateCacheSnapshot(authSessionState: authSessionState)
         let syncSnapshot = try await scopedSyncSnapshot(authSessionState: authSessionState)
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         let appSnapshot = loadAppSnapshot(
             authSessionState: authSessionState,
             savedAt: savedAt
         )
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         restoredRoute = appSnapshot?.lastOpenedRoute.flatMap(AppRoute.init(stateIdentifier:))
         let display: OfflineIndicatorDisplay
         if !syncSnapshot.queue.mutations.isEmpty {
@@ -2949,7 +3463,6 @@ public final class NativeLiveAppStore: ObservableObject {
             optimisticMutations: optimisticMutations,
             offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: record.value.dismissedIndicators.first)
         )
-        currentContentState = content
         return content
     }
 
@@ -2987,6 +3500,128 @@ public final class NativeLiveAppStore: ObservableObject {
         )
     }
 
+    private func clearSyncSnapshotForSessionTransition() async throws {
+        for _ in 0..<8 {
+            let baseline = try await dependencies.syncStore.loadSnapshot()
+            do {
+                try await dependencies.syncStore.replaceSnapshot(.empty, ifCurrent: baseline)
+                if let stagedMediaDirectory = dependencies.stagedMediaDirectory {
+                    for stageID in baseline.queue.mutations.flatMap(\.stagedMediaUploadStageIDs) {
+                        try? stagedMediaDirectory.delete(localStageID: stageID)
+                    }
+                }
+                return
+            } catch NativeSyncStoreError.staleSnapshot {
+                await Task.yield()
+            }
+        }
+        throw NativeSyncStoreError.staleSnapshot
+    }
+
+    private func validatedStagedSyncExecution(
+        _ staged: NativeLiveStagedSyncExecution,
+        session: AuthSession,
+        baseline: NativeSyncSnapshot
+    ) throws -> NativeLiveStagedSyncExecution {
+        let report = staged.report
+        let snapshot = staged.snapshot
+        let targetAccountID = session.accountID ?? report.accountID ?? snapshot.accountID
+
+        guard report.accountID == nil || report.accountID == targetAccountID,
+              report.environment == nil || report.environment == cacheEnvironment else {
+            throw NativeLiveAppStoreError.invalidStagedSyncSnapshot
+        }
+
+        let purgeScopes = report.shoppingEntityPurgeRequests.map { ($0.accountID, $0.environment) } +
+            report.spoonEntityPurgeRequests.map { ($0.accountID, $0.environment) } +
+            report.captureDraftEntityPurgeRequests.map { ($0.accountID, $0.environment) } +
+            report.chefProfileEntityPurgeRequests.map { ($0.accountID, $0.environment) } +
+            report.recipeCookbookEntityPurgeRequests.map { ($0.accountID, $0.environment) }
+        guard purgeScopes.allSatisfy({ accountID, environment in
+            let isTargetScope = (accountID == nil || accountID == targetAccountID) &&
+                (environment == nil || environment == cacheEnvironment)
+            let isHistoricalBaselineScope = accountID == baseline.accountID &&
+                environment == baseline.environment
+            return isTargetScope || isHistoricalBaselineScope
+        }) else {
+            throw NativeLiveAppStoreError.invalidStagedSyncSnapshot
+        }
+
+        let baselineHasDifferentAccount = baseline.accountID.map { $0 != targetAccountID } ?? false
+        let baselineHasDifferentEnvironment = baseline.environment.map { $0 != cacheEnvironment } ?? false
+        let baselineIsExplicitlyHistorical = baselineHasDifferentAccount || baselineHasDifferentEnvironment
+        let snapshotStillUsesHistoricalScope = snapshot.accountID == baseline.accountID &&
+            snapshot.environment == baseline.environment &&
+            baselineIsExplicitlyHistorical
+        guard snapshotStillUsesHistoricalScope ||
+                ((snapshot.accountID == nil || snapshot.accountID == targetAccountID) &&
+                    (snapshot.environment == nil || snapshot.environment == cacheEnvironment)) else {
+            throw NativeLiveAppStoreError.invalidStagedSyncSnapshot
+        }
+
+        let normalizedSnapshot: NativeSyncSnapshot
+        if snapshotStillUsesHistoricalScope {
+            normalizedSnapshot = NativeSyncSnapshot(
+                accountID: targetAccountID,
+                environment: cacheEnvironment,
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [],
+                tombstones: []
+            )
+        } else {
+            normalizedSnapshot = NativeSyncSnapshot(
+                accountID: targetAccountID,
+                environment: cacheEnvironment,
+                checkpoint: snapshot.checkpoint,
+                queue: snapshot.queue,
+                cachedRecords: snapshot.cachedRecords,
+                tombstones: snapshot.tombstones
+            )
+        }
+
+        return NativeLiveStagedSyncExecution(
+            report: report,
+            snapshot: normalizedSnapshot
+        )
+    }
+
+    private func commitStagedSyncSnapshot(
+        _ staged: NativeSyncSnapshot,
+        replacing baseline: NativeSyncSnapshot,
+        bootstrapOperationID: UUID
+    ) async throws {
+        try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        if baseline.accountID == staged.accountID, baseline.environment == staged.environment {
+            guard staged.tombstones.starts(with: baseline.tombstones) else {
+                throw NativeLiveAppStoreError.invalidStagedSyncSnapshot
+            }
+        }
+        try await dependencies.syncStore.replaceSnapshot(staged, ifCurrent: baseline)
+        try ensureCurrentBootstrapOperation(bootstrapOperationID)
+    }
+
+    private func deleteDrainedStagedMedia(
+        report: NativeSyncReport,
+        baseline: NativeSyncSnapshot,
+        committed: NativeSyncSnapshot
+    ) throws {
+        guard let directory = dependencies.stagedMediaDirectory else {
+            return
+        }
+        let drainedMutationIDs = Set(report.drainedClientMutationIDs)
+        let drainedStageIDs = Set(
+            baseline.queue.mutations
+                .filter { drainedMutationIDs.contains($0.clientMutationID) }
+                .flatMap(\.stagedMediaUploadStageIDs)
+        )
+        for stageID in drainedStageIDs where !committed.queue.mutations.contains(where: {
+            $0.stagedMediaUploadStageIDs.contains(stageID)
+        }) {
+            try directory.delete(localStageID: stageID)
+        }
+    }
+
     private func loadAppSnapshot(authSessionState: NativeAuthSessionState, savedAt: String) -> NativeAppSnapshot? {
         guard let appStateStore = dependencies.appStateStoreProvider() else {
             return nil
@@ -3007,51 +3642,102 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func bootstrapFromLiveAPI(
         session: AuthSession,
-        trigger: NativeSyncTriggerEvent
+        trigger: NativeSyncTriggerEvent,
+        bootstrapOperationID: UUID
     ) async throws {
-        do {
-        let report = try await syncTriggerCoordinator.handle(trigger)
-        for request in report.shoppingEntityPurgeRequests {
-            await purgeShoppingEntityIdentifiers(
-                request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
+        let report: NativeSyncReport
+        let boundAuthState: NativeAuthSessionState
+        let baseline = try await dependencies.syncStore.loadSnapshot()
+        try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        try beginBootstrapEffect(operationID: bootstrapOperationID)
+        defer { endBootstrapEffect(operationID: bootstrapOperationID) }
+        let stagedExecution = try await dependencies.syncStageOperation(
+            baseline,
+            configuration,
+            trigger,
+            NativeSyncExecutionScope(
+                expectedAccountID: session.accountID,
+                environment: cacheEnvironment
             )
+        )
+        try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        let staged = try validatedStagedSyncExecution(
+            stagedExecution,
+            session: session,
+            baseline: baseline
+        )
+        do {
+        report = staged.report
+        boundAuthState = try await authSessionStateByBindingReport(
+            report,
+            session: session,
+            bootstrapOperationID: bootstrapOperationID
+        )
+        try await commitStagedSyncSnapshot(
+            staged.snapshot,
+            replacing: baseline,
+            bootstrapOperationID: bootstrapOperationID
+        )
+        try deleteDrainedStagedMedia(
+            report: report,
+            baseline: baseline,
+            committed: staged.snapshot
+        )
+        try applyBootstrapState(
+            .restoringCache(emptyContent(authSessionState: boundAuthState, display: .synced)),
+            operationID: bootstrapOperationID
+        )
+        for request in report.shoppingEntityPurgeRequests {
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeShoppingEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
         for request in report.spoonEntityPurgeRequests {
-            await purgeSpoonEntityIdentifiers(
-                request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeSpoonEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
         for request in report.captureDraftEntityPurgeRequests {
-            await purgeCaptureDraftEntityIdentifiers(
-                request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeCaptureDraftEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
         for request in report.chefProfileEntityPurgeRequests {
-            await purgeChefProfileEntityIdentifiers(
-                request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeChefProfileEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
         for request in report.recipeCookbookEntityPurgeRequests {
-            await purgeRecipeCookbookEntityIdentifiers(
-                request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+            try await withBootstrapEffect(operationID: bootstrapOperationID) {
+                await purgeRecipeCookbookEntityIdentifiers(
+                    request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
-        let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
+        try ensureCurrentBootstrapOperation(bootstrapOperationID)
         clearDrainedCaptureImports(
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
@@ -3059,8 +3745,14 @@ public final class NativeLiveAppStore: ObservableObject {
         var settingsRefreshError: Error?
         var settingsRefreshResult: SettingsSurfaceResult?
         do {
-            settingsRefreshResult = try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
+            settingsRefreshResult = try await refreshSettingsSurfaceCache(
+                authSessionState: boundAuthState,
+                bootstrapOperationID: bootstrapOperationID
+            )
         } catch {
+            if error is CancellationError {
+                throw error
+            }
             NativeLiveAppStoreTelemetry.settingsRefreshFailed(error)
             settingsRefreshError = error
         }
@@ -3069,7 +3761,8 @@ public final class NativeLiveAppStore: ObservableObject {
         }
         let restoredContent = try await restoreFromCache(
             authSessionState: boundAuthState,
-            optimisticMutations: drainedOverlayMutations
+            optimisticMutations: drainedOverlayMutations,
+            bootstrapOperationID: bootstrapOperationID
         )
         let shouldPreserveRestoredBlocker: Bool
         if case .blocker = restoredContent.offlineIndicatorState.display {
@@ -3115,6 +3808,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: content
             )
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
             apply(.syncFailed(
                 content.copy(offlineIndicatorState: OfflineIndicatorState(
                     display: .syncFailure(
@@ -3136,6 +3830,7 @@ public final class NativeLiveAppStore: ObservableObject {
                     route: restoredRoute,
                     contentState: content
                 )
+                try ensureCurrentBootstrapOperation(bootstrapOperationID)
             }
             if !content.queuedMutations.isEmpty {
                 apply(.queuedWork(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID), dismissal: nil))))
@@ -3145,7 +3840,10 @@ public final class NativeLiveAppStore: ObservableObject {
                 apply(.liveSynced(content))
             }
         }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "liveAPI:\(String(describing: trigger))",
                 error: error,
@@ -3158,7 +3856,10 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
-    private func refreshSettingsSurfaceCache(authSessionState: NativeAuthSessionState) async throws -> SettingsSurfaceResult? {
+    private func refreshSettingsSurfaceCache(
+        authSessionState: NativeAuthSessionState,
+        bootstrapOperationID: UUID? = nil
+    ) async throws -> SettingsSurfaceResult? {
         guard let accountID = trustedAccountID(for: authSessionState),
               let settingsSurfaceFetch = dependencies.settingsSurfaceFetch else {
             return nil
@@ -3172,10 +3873,118 @@ public final class NativeLiveAppStore: ObservableObject {
             NativeDurableCache(records: currentSnapshot.records),
             grantedScopes(for: authSessionState)
         )
+        if let bootstrapOperationID {
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
+        }
         let recordIDs = Set(result.persistedRecords.map(\.id))
         let nextRecords = currentSnapshot.records.filter { !recordIDs.contains($0.id) } + result.persistedRecords
         try dependencies.cacheStore.save(try currentSnapshot.copy(records: nextRecords))
         return result
+    }
+
+    public func recordSearchTelemetry(_ descriptor: NativeSearchTelemetryDescriptor) async {
+        await dependencies.nativeTelemetryReport(
+            descriptor.telemetryEvent(
+                environment: cacheEnvironment.rawValue,
+                metadata: dependencies.nativeTelemetryMetadata
+            ),
+            configuration
+        )
+    }
+
+    public func recordRecipeDetailTelemetry(_ descriptor: NativeRecipeDetailTelemetryDescriptor) async {
+        await dependencies.nativeTelemetryReport(
+            descriptor.telemetryEvent(
+                environment: cacheEnvironment.rawValue,
+                metadata: dependencies.nativeTelemetryMetadata
+            ),
+            configuration
+        )
+    }
+
+    private func makeAPIRefresher(
+        authContext: NativeLiveAuthOperationContext? = nil,
+        expectedConfiguration: APIClientConfiguration? = nil
+    ) -> NativeLiveAppStoreAPIRefresher {
+        let authContext = authContext ?? NativeLiveAuthOperationContext(
+            generation: authGeneration,
+            identity: authIdentity(for: currentContentState.authSessionState)
+        )
+        let expectedConfiguration = expectedConfiguration ?? configuration
+        return NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL,
+            didRefresh: { [weak self] session, refreshedConfiguration in
+                guard let self,
+                      self.authGeneration == authContext.generation,
+                      self.authIdentity(for: self.currentContentState.authSessionState) == authContext.identity,
+                      self.authIdentity(for: session) == authContext.identity,
+                      self.configuration == expectedConfiguration || self.configuration == refreshedConfiguration else {
+                    throw CancellationError()
+                }
+                self.configuration = refreshedConfiguration
+            }
+        )
+    }
+
+    private func beginAuthenticatedOperation() throws -> NativeLiveAuthOperationContext {
+        try Task.checkCancellation()
+        let identity = authIdentity(for: currentContentState.authSessionState)
+        guard identity != .signedOut else {
+            throw CancellationError()
+        }
+        return NativeLiveAuthOperationContext(generation: authGeneration, identity: identity)
+    }
+
+    private func authenticatedConfiguration(
+        for context: NativeLiveAuthOperationContext
+    ) async throws -> APIClientConfiguration {
+        try ensureCurrentAuthOperation(context)
+        let session = try await dependencies.authSessionRepository.validSession()
+        try ensureCurrentAuthOperation(context, session: session)
+        let authenticatedConfiguration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        configuration = authenticatedConfiguration
+        return authenticatedConfiguration
+    }
+
+    private func ensureCurrentAuthOperation(
+        _ context: NativeLiveAuthOperationContext,
+        session: AuthSession? = nil
+    ) throws {
+        try Task.checkCancellation()
+        guard authGeneration == context.generation,
+              authIdentity(for: currentContentState.authSessionState) == context.identity else {
+            throw CancellationError()
+        }
+        if let session, authIdentity(for: session) != context.identity {
+            throw CancellationError()
+        }
+    }
+
+    private func currentMutationScope() -> NativeLiveMutationScope? {
+        guard let accountID = trustedAccountID(for: currentContentState.authSessionState) else {
+            return nil
+        }
+        return NativeLiveMutationScope(
+            authContext: NativeLiveAuthOperationContext(
+                generation: authGeneration,
+                identity: authIdentity(for: currentContentState.authSessionState)
+            ),
+            authSessionState: currentContentState.authSessionState,
+            accountID: accountID,
+            environment: cacheEnvironment
+        )
+    }
+
+    private func ensureCurrentMutationScope(_ scope: NativeLiveMutationScope) throws {
+        guard trustedAccountID(for: currentContentState.authSessionState) == scope.accountID,
+              cacheEnvironment == scope.environment else {
+            throw CancellationError()
+        }
+        try ensureCurrentAuthOperation(scope.authContext)
     }
 
     private func reportNativeTelemetry(
@@ -3270,9 +4079,137 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    private var currentBootstrapJoinContext: NativeLiveBootstrapJoinContext {
+        NativeLiveBootstrapJoinContext(
+            authContext: NativeLiveAuthOperationContext(
+                generation: authGeneration,
+                identity: authIdentity(for: currentContentState.authSessionState)
+            ),
+            accountID: trustedAccountID(for: currentContentState.authSessionState),
+            environment: cacheEnvironment
+        )
+    }
+
+    private func isCurrentBootstrapOperation(_ operationID: UUID) -> Bool {
+        !Task.isCancelled &&
+            bootstrapOperation?.id == operationID &&
+            bootstrapOperation?.joinContext == currentBootstrapJoinContext
+    }
+
+    private func ensureCurrentBootstrapOperation(_ operationID: UUID) throws {
+        guard isCurrentBootstrapOperation(operationID) else {
+            throw CancellationError()
+        }
+    }
+
+    private func updateBootstrapJoinContext(operationID: UUID) {
+        if bootstrapOperation?.id == operationID {
+            bootstrapOperation?.joinContext = currentBootstrapJoinContext
+        }
+    }
+
+    private func waitForBootstrapEffectCompletion() async {
+        while bootstrapEffectOwnership.isActive {
+            await withCheckedContinuation { continuation in
+                bootstrapEffectWaiters.append(continuation)
+            }
+        }
+    }
+
+    private func waitForBootstrapOperationCompletion() async {
+        while let operation = bootstrapOperation {
+            await operation.task.value
+            guard bootstrapOperation?.id != operation.id else { break }
+        }
+        await waitForBootstrapEffectCompletion()
+    }
+
+    private func withLifecycleMutation<Value>(
+        _ operation: () async throws -> Value
+    ) async throws -> Value {
+        try await acquireLifecycleMutation()
+        defer { releaseLifecycleMutation() }
+        return try await operation()
+    }
+
+    private func acquireLifecycleMutation() async throws {
+        while lifecycleMutationIsActive {
+            try Task.checkCancellation()
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        try Task.checkCancellation()
+        lifecycleMutationIsActive = true
+    }
+
+    private func releaseLifecycleMutation() {
+        lifecycleMutationIsActive = false
+    }
+
+    private func beginBootstrapEffect(operationID: UUID) throws {
+        try ensureCurrentBootstrapOperation(operationID)
+        try bootstrapEffectOwnership.begin(operationID: operationID)
+    }
+
+    private func endBootstrapEffect(operationID: UUID) {
+        bootstrapEffectOwnership.end(operationID: operationID)
+        guard !bootstrapEffectOwnership.isActive else {
+            return
+        }
+        let waiters = bootstrapEffectWaiters
+        bootstrapEffectWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+    }
+
+    private func withBootstrapEffect<Value>(
+        operationID: UUID?,
+        operation: () async throws -> Value
+    ) async throws -> Value {
+        guard let operationID else {
+            return try await operation()
+        }
+        try beginBootstrapEffect(operationID: operationID)
+        defer { endBootstrapEffect(operationID: operationID) }
+        return try await operation()
+    }
+
+    private func applyBootstrapState(
+        _ state: NativeAppBootstrapState,
+        operationID: UUID
+    ) throws {
+        try ensureCurrentBootstrapOperation(operationID)
+        apply(state)
+        updateBootstrapJoinContext(operationID: operationID)
+    }
+
     private func apply(_ state: NativeAppBootstrapState) {
+        if authIdentity(for: currentContentState.authSessionState) != authIdentity(for: state.contentState.authSessionState) {
+            advanceAuthGeneration(clearCredentials: state.contentState.authSessionState == .signedOut)
+        }
         currentContentState = state.contentState
         bootstrapState = state
+    }
+
+    private func advanceAuthGeneration(clearCredentials: Bool) {
+        authGeneration &+= 1
+        if clearCredentials {
+            configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
+        }
+    }
+
+    private func authIdentity(for authSessionState: NativeAuthSessionState) -> NativeLiveAuthIdentity {
+        switch authSessionState {
+        case .signedOut:
+            .signedOut
+        case .authenticated(let session), .refreshRequired(let session):
+            authIdentity(for: session)
+        }
+    }
+
+    private func authIdentity(for session: AuthSession) -> NativeLiveAuthIdentity {
+        if let accountID = session.accountID {
+            return .boundSession(clientID: session.clientID, accountID: accountID)
+        }
+        return .unboundSession(clientID: session.clientID, refreshToken: session.refreshToken)
     }
 
     private func stateMatchingCurrentSeverity(with content: NativeShellContentState) -> NativeAppBootstrapState {
@@ -3376,17 +4313,20 @@ public final class NativeLiveAppStore: ObservableObject {
 
     private func authSessionStateByBindingReport(
         _ report: NativeSyncReport,
-        session: AuthSession
+        session: AuthSession,
+        bootstrapOperationID: UUID
     ) async throws -> NativeAuthSessionState {
         guard let accountID = report.accountID else {
             return .authenticated(session)
         }
 
-        if session.accountID == accountID {
+        if session.accountID != nil {
             return .authenticated(session)
         }
 
+        try ensureCurrentBootstrapOperation(bootstrapOperationID)
         let boundSession = try await dependencies.authSessionRepository.bindAccountID(accountID)
+        try ensureCurrentBootstrapOperation(bootstrapOperationID)
         configuration = APIClientConfiguration(
             baseURL: dependencies.configuration.baseURL,
             bearerToken: boundSession.accessToken
@@ -3406,13 +4346,18 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
-    private func authorizedAuthState(from restoredAuthState: NativeAuthSessionState) async throws -> NativeAuthSessionState {
+    private func authorizedAuthState(
+        from restoredAuthState: NativeAuthSessionState,
+        bootstrapOperationID: UUID
+    ) async throws -> NativeAuthSessionState {
         switch restoredAuthState {
         case .signedOut:
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
             configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
             return .signedOut
         case .authenticated, .refreshRequired:
             let session = try await dependencies.authSessionRepository.validSession()
+            try ensureCurrentBootstrapOperation(bootstrapOperationID)
             configuration = APIClientConfiguration(
                 baseURL: dependencies.configuration.baseURL,
                 bearerToken: session.accessToken
@@ -3437,6 +4382,7 @@ public final class NativeLiveAppStore: ObservableObject {
 
 public enum NativeLiveAppStoreError: Error, Equatable, Sendable {
     case fixtureFallbackEnabledInProduction
+    case invalidStagedSyncSnapshot
 }
 
 func nativeGrantedScopes(for authSessionState: NativeAuthSessionState) -> Set<String> {
@@ -3445,6 +4391,28 @@ func nativeGrantedScopes(for authSessionState: NativeAuthSessionState) -> Set<St
         []
     case .authenticated(let session), .refreshRequired(let session):
         Set(session.scope.split(separator: " ").map(String.init))
+    }
+}
+
+private struct RestoreOnlySearchSurfaceRepository: SearchSurfaceRepository, @unchecked Sendable {
+    let contentState: NativeShellContentState
+    let context: SearchSurfaceContext
+
+    func search(request: SearchSurfaceRequest) async throws -> SearchSurfacePage {
+        let state = SearchState(query: request.query, scope: request.scope)
+        let page = contentState.searchSurfacePage(for: state)
+        return SearchSurfacePage(
+            query: page.query,
+            scope: page.scope,
+            limit: request.limit,
+            isAuthenticated: context.isAuthenticated,
+            results: page.results,
+            source: page.source
+        )
+    }
+
+    func recentSearches(limit _: Int) async throws -> [SearchSurfaceRecentQuery] {
+        []
     }
 }
 
@@ -3596,13 +4564,16 @@ private enum NativeLiveAppStoreTelemetry {
 private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {
     let authSessionRepository: NativeAuthSessionRepository
     let baseURL: URL
+    let didRefresh: @MainActor @Sendable (AuthSession, APIClientConfiguration) throws -> Void
 
     func refreshedConfiguration(
         after _: APIError,
         configuration _: APIClientConfiguration
     ) async throws -> APIClientConfiguration {
         let session = try await authSessionRepository.validSession()
-        return APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
+        let configuration = APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
+        try await didRefresh(session, configuration)
+        return configuration
     }
 }
 

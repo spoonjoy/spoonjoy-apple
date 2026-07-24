@@ -2,32 +2,186 @@
 # frozen_string_literal: true
 
 require "json"
+require "digest"
 require "pathname"
+require_relative "lib/screenshot_contrast_evidence"
 
-REQUIRED_FIELDS = [
-  "mobileScreenshot",
-  "desktopScreenshot",
-  "dynamicType",
-  "voiceOverLabels",
-  "keyboardNavigation",
-  "reduceMotion",
-  "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
+SCREENSHOT_ARTIFACTS = {
+  "iosMobile" => "screenshots/ios-mobile.png",
+  "iosXXXL" => "screenshots/ios-mobile-xxxl.png",
+  "iosAccessibility" => "screenshots/ios-mobile-accessibility.png",
+  "iosTablet" => "screenshots/ios-tablet.png",
+  "iosTabletXXXL" => "screenshots/ios-tablet-xxxl.png",
+  "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility.png",
+  "macosDesktop" => "screenshots/macos-desktop.png"
+}.freeze
+DEEP_SCROLL_SCREENSHOT_ARTIFACTS = {
+  "iosMobile" => "screenshots/ios-mobile-deep-scroll.png",
+  "iosXXXL" => "screenshots/ios-mobile-xxxl-deep-scroll.png",
+  "iosAccessibility" => "screenshots/ios-mobile-accessibility-deep-scroll.png",
+  "iosTablet" => "screenshots/ios-tablet-deep-scroll.png",
+  "iosTabletXXXL" => "screenshots/ios-tablet-xxxl-deep-scroll.png",
+  "iosTabletAccessibility" => "screenshots/ios-tablet-accessibility-deep-scroll.png",
+  "macosDesktop" => "screenshots/macos-desktop-deep-scroll.png"
+}.freeze
+COMPACT_DEEP_SCROLL_ROUTES = %w[
+  kitchen recipes saved-recipes recipe-detail recipe-editor recipe-covers cook-mode cook-log
+  cookbooks cookbook-detail shopping-list chefs profile profile-graph search capture settings
 ].freeze
 
-VALID_ROUTES = ["kitchen", "recipes", "saved-recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "chefs", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
+VALID_ROUTES = [
+  "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+  "cook-log", "cook-mode", "shopping-list", "chefs", "profile", "profile-graph", "search",
+  "cookbooks", "cookbook-detail", "capture", "settings", "unknown-link"
+].freeze
+REQUIRED_OBSERVED_IDENTIFIERS = {
+  "recipe-editor" => ["recipe-editor.title", "recipe-editor.save"],
+  "recipe-covers" => [
+    "recipe-covers.photo-picker", "recipe-covers.staged-photo-status", "recipe-covers.clear-photo",
+    "recipe-covers.save-photo", "recipe-covers.archive.cover_primary"
+  ],
+  "profile" => ["profile.header"],
+  "profile-graph" => ["profile-graph.row.chef_jules"],
+  "unknown-link" => ["unknown-link.message"],
+  "cook-mode" => ["cook.current-step", "cook.done", "cook.tools"],
+  "cook-log" => ["cook-log.note", "cook-log.next-time", "cook-log.photo", "cook-log.submit"]
+}.freeze
+REQUIRED_DEEP_SCROLL_TERMINALS = {
+  "kitchen" => "kitchen.cookbook.cookbook_weeknights",
+  "recipes" => "recipes.terminal",
+  "saved-recipes" => "saved-recipes.terminal",
+  "recipe-detail" => "recipe-detail.terminal",
+  "recipe-editor" => "recipe-editor.delete",
+  "recipe-covers" => "recipe-covers.terminal",
+  "cook-mode" => "cook-mode.terminal",
+  "cook-log" => "cook-log.terminal",
+  "cookbooks" => "cookbooks.terminal",
+  "cookbook-detail" => "cookbook-detail.terminal",
+  "shopping-list" => "shopping-list.terminal",
+  "chefs" => "chefs.terminal",
+  "profile" => "profile.graph.kitchen-visitors",
+  "profile-graph" => "profile-graph.row.chef_jules",
+  "search" => "search.terminal",
+  "capture" => "capture.terminal",
+  "settings" => "settings.terminal"
+}.freeze
+REQUIRED_DEEP_SCROLL_TERMINAL_LABELS = {
+  "kitchen" => "Weeknights",
+  "recipes" => "Start your recipe box with the dishes you actually cook.",
+  "saved-recipes" => "Recipes you save to your cookbooks will appear here.",
+  "recipe-detail" => "No cooks logged yet",
+  "recipe-editor" => "Delete Recipe",
+  "recipe-covers" => "Archive",
+  "cook-mode" => "spaghetti, 12 oz",
+  "cook-log" => "No cooks logged yet",
+  "cookbooks" => "Slow Sundays and Long Simmering Suppers, 0 recipes",
+  "cookbook-detail" => "2. Tomato Toast",
+  "shopping-list" => "parmesan, 0.5 cup, Dairy",
+  "chefs" => "ari, Open kitchen profile",
+  "profile" => "1 Kitchen visitors",
+  "profile-graph" => "jules, 1 spoon",
+  "search" => "Shopping item, parmesan, 0.5 cup",
+  "capture" => "New recipes from your Spoonjoy agent will appear here.",
+  "settings" => "Offline"
+}.freeze
+
+def required_deep_scroll_terminal(manifest, route)
+  identifier = REQUIRED_DEEP_SCROLL_TERMINALS.fetch(route)
+  label = REQUIRED_DEEP_SCROLL_TERMINAL_LABELS.fetch(route)
+  interactive = !%w[recipes saved-recipes recipe-detail cook-log settings].include?(route)
+  ios_type = interactive ? "button" : (route == "settings" ? "other" : "staticText")
+  macos_role = interactive ? "AXButton" : (route == "settings" ? "AXGroup" : "AXStaticText")
+
+  if route == "shopping-list"
+    empty = %w[empty all-complete].include?(manifest["shoppingListVariant"])
+    label = empty ? "Add from recipe" : "parmesan, 0.5 cup, Dairy"
+    ios_type = empty ? "button" : "switch"
+    macos_role = empty ? "AXButton" : "AXCheckBox"
+  elsif route == "search"
+    variant = manifest["searchSurfaceVariant"]
+    label = case variant
+            when "typed-results", "scoped-shopping" then "Shopping item, lemons, 2 each"
+            when "scoped-recipes" then "Recipe, Lemon Pantry Pasta, Bright pantry pasta with lemon, garlic, and parmesan."
+            when "scoped-cookbooks" then "Cookbook, Weeknights, 2 recipes"
+            when "scoped-chefs" then "Chef, ari, Chef"
+            when "no-results" then "No Spoonjoy results match \"#{manifest["expectedQuery"]}\"."
+            else "Shopping item, parmesan, 0.5 cup"
+            end
+    interactive = variant != "no-results"
+    ios_type = interactive ? "button" : "staticText"
+    macos_role = interactive ? "AXButton" : "AXStaticText"
+  elsif route == "capture"
+    variant = manifest["captureSurfaceVariant"]
+    if variant == "signed-out"
+      identifier = "native sign-in settings"
+      label = "Settings"
+      interactive = true
+      ios_type = "button"
+      macos_role = "AXButton"
+    elsif variant == "empty"
+      interactive = false
+      ios_type = "staticText"
+      macos_role = "AXStaticText"
+    else
+      label = "Import actions"
+      interactive = true
+      ios_type = "button"
+      macos_role = "AXButton"
+    end
+  elsif route == "cook-mode"
+    ios_type = "switch"
+    macos_role = "AXCheckBox"
+  end
+
+  {
+    "identifier" => identifier,
+    "label" => label,
+    "interactive" => interactive,
+    "iosType" => ios_type,
+    "macosRole" => macos_role
+  }
+end
+
+REQUIRED_IOS_AUDIT_TYPES = %w[contrast dynamicType textClipped hitRegion trait].sort.freeze
+IOS_NATIVE_SIDEBAR_LABELS = [
+  "Kitchen",
+  "My Recipes",
+  "Saved Recipes",
+  "Cookbooks",
+  "Shopping List",
+  "Chefs",
+  "Kitchen Search",
+  "Imports",
+  "Settings"
+].freeze
+IOS_NATIVE_COMPACT_TAB_DESTINATIONS = [
+  { "identifier" => "house", "label" => "Kitchen" },
+  { "identifier" => "book.closed", "label" => "Recipes" },
+  { "identifier" => "bookmark", "label" => "Saved" },
+  { "identifier" => "books.vertical", "label" => "Cookbooks" }
+].freeze
+IOS_NATIVE_BOTTOM_TAB_DESTINATIONS = IOS_NATIVE_COMPACT_TAB_DESTINATIONS + [
+  { "identifier" => "checklist", "label" => "Shopping" }
+].freeze
+IOS_ACTIONABLE_TYPES = %w[button switch textField secureTextField link slider stepper].freeze
+IOS_CHROME_TYPES = %w[navigationBar toolbar tabBar keyboard sheet alert].freeze
+MAC_ACTIONABLE_ROLES = %w[AXButton AXCheckBox AXPopUpButton AXRadioButton AXTextField].freeze
+MAC_NATIVE_CONTROL_SUBROLES = %w[
+  AXCloseButton AXMinimizeButton AXZoomButton AXFullScreenButton AXIncrementArrow
+  AXDecrementArrow AXIncrementPage AXDecrementPage
+].freeze
+MAC_NATIVE_SCROLLBAR_SUBROLES = %w[
+  AXIncrementArrow AXDecrementArrow AXIncrementPage AXDecrementPage
+].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
-EXPECTED_CAPTURE_VARIANTS = ["normal", "empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
-ACCESSIBILITY_FIELDS = [
-  "dynamicType",
-  "voiceOverLabels",
-  "keyboardNavigation",
-  "reduceMotion",
-  "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
-].freeze
+EXPECTED_CAPTURE_VARIANTS = ["empty", "draft", "offline-retry", "provider-blocked", "signed-out"].freeze
+EXPECTED_SHOPPING_VARIANTS = ["normal", "empty", "all-complete", "duplicate", "conflict", "offline-queued"].freeze
+EXPECTED_ROUTE_SURFACE_ANCHORS = {
+  "cook-log" => ["cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
+  "recipe-covers" => ["stagedPhotoActions", "coverMutationActions"],
+  "cookbooks" => ["cookbookShelfStrip", "cookbookLibrarySpread"],
+  "cookbook-detail" => ["cookbookContentsIndex", "cookbookOwnerToolsDisclosure"]
+}.freeze
 EXPECTED_OFFLINE_VISIBLE_STATES = [
   "offline",
   "stale",
@@ -45,6 +199,379 @@ EXPECTED_OFFLINE_SEVERE_STATES = [
   "blocker",
   "destructiveConfirmation"
 ].freeze
+
+def observed_rect!(path, value, label)
+  fail_check("#{path} #{label} must be an exact rectangle") unless value.is_a?(Hash) && value.keys.sort == %w[height width x y]
+  values = value.values
+  fail_check("#{path} #{label} must contain finite numbers") unless values.all? { |item| item.is_a?(Numeric) && item.finite? }
+  fail_check("#{path} #{label} must have positive dimensions") unless value["width"].positive? && value["height"].positive?
+  value
+end
+
+def observed_element_rect!(path, element, index, platform, viewport)
+  frame = element["frame"]
+  label = "element #{index} frame"
+  fail_check("#{path} #{label} must be an exact rectangle") unless frame.is_a?(Hash) && frame.keys.sort == %w[height width x y]
+  fail_check("#{path} #{label} must contain finite numbers") unless frame.values.all? { |item| item.is_a?(Numeric) && item.finite? }
+  return frame if frame["width"].positive? && frame["height"].positive?
+
+  native_splitter_line = platform == "macos" &&
+    element.values_at("role", "subrole", "identifier", "title") == ["AXSplitter", "", "", ""] &&
+    element["enabled"] == false && element["focused"] == false && Array(element["actions"]).empty? &&
+    frame.values_at("width", "height").count(&:zero?) == 1 &&
+    frame.values_at("width", "height").all? { |dimension| dimension >= 0 } &&
+    rect_contains?(viewport, frame)
+  native_scrollbar_primitive = platform == "macos" && element["role"] == "AXButton" &&
+    MAC_NATIVE_SCROLLBAR_SUBROLES.include?(element["subrole"]) &&
+    element.values_at("identifier", "title") == ["", ""] &&
+    element["enabled"] == true && element["focused"] == false && element["actions"] == ["AXPress"] &&
+    frame.values_at("width", "height").any?(&:zero?) &&
+    frame.values_at("width", "height").all? { |dimension| dimension >= 0 } &&
+    rect_contains?(viewport, frame)
+  fail_check("#{path} #{label} must have positive dimensions or be an exact native macOS splitter/scrollbar primitive") unless native_splitter_line || native_scrollbar_primitive
+
+  frame
+end
+
+def rect_contains?(outer, inner, tolerance: 0.5)
+  inner["x"] >= outer["x"] - tolerance &&
+    inner["y"] >= outer["y"] - tolerance &&
+    inner["x"] + inner["width"] <= outer["x"] + outer["width"] + tolerance &&
+    inner["y"] + inner["height"] <= outer["y"] + outer["height"] + tolerance
+end
+
+def rect_intersection(first, second)
+  left = [first["x"], second["x"]].max
+  top = [first["y"], second["y"]].max
+  right = [first["x"] + first["width"], second["x"] + second["width"]].min
+  bottom = [first["y"] + first["height"], second["y"] + second["height"]].min
+  return nil unless right > left && bottom > top
+
+  { "x" => left, "y" => top, "width" => right - left, "height" => bottom - top }
+end
+
+def rect_equal?(first, second, tolerance: 0.5)
+  %w[x y width height].all? { |field| (first[field] - second[field]).abs <= tolerance }
+end
+
+def ios_native_target_exception?(candidate, elements)
+  frame = candidate.fetch("frame")
+  if candidate["type"] == "stepper" || (candidate["type"] == "button" && %w[Decrement Increment].include?(candidate["identifier"]))
+    return elements.any? do |stepper|
+      next false unless stepper["type"] == "stepper" && !stepper["label"].to_s.empty? && stepper["hitRegionAuditVerified"] == true
+
+      controls = %w[Decrement Increment].map do |identifier|
+        elements.find do |element|
+          element["type"] == "button" &&
+            element["identifier"] == identifier &&
+            element["label"] == "#{stepper["label"]}, #{identifier}" &&
+            rect_contains?(stepper.fetch("frame"), element.fetch("frame"), tolerance: 2.5)
+        end
+      end.compact
+      controls.length == 2 && (candidate == stepper || controls.include?(candidate))
+    end
+  end
+  if candidate["type"] == "switch"
+    full_row = lambda do |toggle|
+      toggle["type"] == "switch" && !toggle["label"].to_s.empty? &&
+        toggle["hitRegionAuditVerified"] == true && toggle.dig("frame", "width").to_f + 0.5 >= 88 &&
+        toggle.dig("frame", "height").to_f + 0.5 >= 28
+    end
+    return true if full_row.call(candidate)
+    return candidate["label"].to_s.empty? && elements.any? do |toggle|
+      full_row.call(toggle) && rect_contains?(toggle.fetch("frame"), frame, tolerance: 2.5)
+    end
+  end
+  return true if candidate["type"] == "textField" && !candidate["label"].to_s.empty? &&
+    candidate["hitRegionAuditVerified"] == true && frame["width"] + 0.5 >= 88 && frame["height"] + 0.5 >= 34
+
+  candidate["type"] == "button" && candidate["identifier"] == "recipe-covers.spoon-details" &&
+    candidate["label"] == "Spoon details" && candidate["hitRegionAuditVerified"] == true &&
+    frame["width"] + 0.5 >= 88 && frame["height"] + 0.5 >= 20
+end
+
+def ios_actionable_composite_pair?(first, second, elements)
+  first_frame = first.fetch("frame")
+  second_frame = second.fetch("frame")
+  if rect_contains?(first_frame, second_frame, tolerance: 0)
+    parent = first
+    child = second
+  elsif rect_contains?(second_frame, first_frame, tolerance: 0)
+    parent = second
+    child = first
+  else
+    return false
+  end
+
+  if parent["type"] == "stepper" && parent["hitRegionAuditVerified"] == true && !parent["label"].to_s.empty?
+    composite_children = %w[Decrement Increment].map do |identifier|
+      matches = elements.select do |element|
+        element["type"] == "button" && element["identifier"] == identifier &&
+          element["label"] == "#{parent["label"]}, #{identifier}" &&
+          rect_contains?(parent.fetch("frame"), element.fetch("frame"), tolerance: 0)
+      end
+      return false unless matches.length == 1
+
+      matches.first
+    end
+    return composite_children.include?(child)
+  end
+
+  return false unless parent["type"] == "switch" && parent["hitRegionAuditVerified"] == true &&
+    !parent["label"].to_s.empty? && parent.dig("frame", "width").to_f + 0.5 >= 88 &&
+    parent.dig("frame", "height").to_f + 0.5 >= 28
+
+  composite_children = elements.select do |element|
+    element["type"] == "switch" && element["label"].to_s.empty? &&
+      rect_contains?(parent.fetch("frame"), element.fetch("frame"), tolerance: 0)
+  end
+  composite_children.length == 1 && composite_children.first == child
+end
+
+def ios_action_identity(element)
+  frame = element.fetch("frame")
+  JSON.generate([
+    element["identifier"].to_s,
+    element["type"].to_s,
+    element["label"].to_s,
+    frame["x"],
+    frame["y"],
+    frame["width"],
+    frame["height"]
+  ])
+end
+
+def host_geometry_findings!(proof_path, elements, viewport, platform, route, manifest, include_route_requirements: true, element_bounds: viewport)
+  findings = []
+  by_identifier = Hash.new { |hash, key| hash[key] = [] }
+  elements.each_with_index do |element, index|
+    frame = observed_element_rect!(proof_path, element, index, platform, element_bounds)
+    by_identifier[element["identifier"]] << element unless element["identifier"].to_s.empty?
+    findings << "element #{index} has an invalid frame" unless frame
+  end
+
+  if include_route_requirements
+    REQUIRED_OBSERVED_IDENTIFIERS.fetch(route, []).each do |identifier|
+      findings << "required identifier #{identifier} is missing" if by_identifier[identifier].empty?
+    end
+  end
+
+  visible_texts = elements.select do |element|
+    role = platform == "macos" ? element["role"] : element["type"]
+    text = platform == "macos" ? element["title"] : element["label"]
+    role == (platform == "macos" ? "AXStaticText" : "staticText") &&
+      !text.to_s.empty? && rect_intersection(element.fetch("frame"), viewport)
+  end
+  visible_texts.each_with_index do |first, first_index|
+    visible_texts.drop(first_index + 1).each do |second|
+      overlap = rect_intersection(first.fetch("frame"), second.fetch("frame"))
+      next unless overlap && overlap["width"] * overlap["height"] > 1
+
+      first_name = platform == "macos" ? first["title"] : first["label"]
+      second_name = platform == "macos" ? second["title"] : second["label"]
+      findings << "visible text #{first_name.inspect} overlaps #{second_name.inspect}"
+    end
+  end
+
+  if platform == "macos"
+    elements.each do |element|
+      next unless element["enabled"] == true && rect_intersection(element.fetch("frame"), viewport)
+      next if element["role"] == "AXDisclosureTriangle" || MAC_NATIVE_CONTROL_SUBROLES.include?(element["subrole"])
+      next if Array(element["actions"]).empty? && !MAC_ACTIONABLE_ROLES.include?(element["role"])
+      frame = element.fetch("frame")
+      findings << "macOS action target #{element["identifier"]} is smaller than 20 points" if frame["width"] + 0.5 < 20 || frame["height"] + 0.5 < 20
+    end
+  else
+    elements.each do |element|
+      next unless element["exists"] == true && element["hittable"] == true && element["enabled"] == true
+      next unless IOS_ACTIONABLE_TYPES.include?(element["type"]) && rect_intersection(element.fetch("frame"), viewport)
+      next if ios_native_target_exception?(element, elements)
+      frame = element.fetch("frame")
+      findings << "iOS action target #{element["identifier"]} is smaller than 44 points" if frame["width"] + 0.5 < 44 || frame["height"] + 0.5 < 44
+    end
+
+    actionable = elements.select do |element|
+      element["exists"] == true && element["hittable"] == true && element["enabled"] == true &&
+        IOS_ACTIONABLE_TYPES.include?(element["type"]) && rect_intersection(element.fetch("frame"), viewport)
+    end
+    actionable.each_with_index do |first, first_index|
+      actionable.drop(first_index + 1).each do |second|
+        first_identity = ios_action_identity(first)
+        second_identity = ios_action_identity(second)
+        next if first_identity == second_identity
+        first_frame = first.fetch("frame")
+        second_frame = second.fetch("frame")
+        next if ios_actionable_composite_pair?(first, second, elements)
+        overlap = rect_intersection(first_frame, second_frame)
+        next unless overlap && overlap["width"] * overlap["height"] > 1
+
+        findings << "action peers #{first_identity} and #{second_identity} overlap"
+      end
+    end
+  end
+
+  if route == "settings" && manifest["settingsVisualFocus"] == "notifications"
+    heading = by_identifier["settings.apns.this-device.heading"].first
+    if heading
+      elements.each do |chrome|
+        chrome_kind = platform == "macos" ? chrome["role"] : chrome["type"]
+        next unless platform == "macos" ? %w[AXToolbar AXSheet].include?(chrome_kind) : IOS_CHROME_TYPES.include?(chrome_kind)
+        findings << "This Device intersects #{chrome_kind}" if rect_intersection(heading.fetch("frame"), chrome.fetch("frame"))
+      end
+    end
+  end
+  findings
+end
+
+def validate_ios_pixel_accessibility_binding!(proof_path, evidence, identity, capture_phase)
+  binding = evidence["pixelAccessibilityBinding"]
+  expected_keys = %w[
+    accessibilitySnapshotAfterSHA256 accessibilitySnapshotBeforeSHA256 captureID capturePhase
+    pixelSource schema screenshotSHA256 selectedScrollHierarchyIdentifier
+    selectedScrollHierarchySnapshotAfterSHA256 selectedScrollHierarchySnapshotBeforeSHA256 windowFrame
+  ]
+  fail_check("#{proof_path} #{capture_phase} pixelAccessibilityBinding fields must be exact") unless binding.is_a?(Hash) && binding.keys.sort == expected_keys.sort
+  fail_check("#{proof_path} #{capture_phase} pixel/AX binding schema mismatch") unless binding["schema"] == "iosPixelAccessibilityBindingV1"
+  fail_check("#{proof_path} #{capture_phase} pixel/AX binding capture mismatch") unless binding["captureID"] == identity["captureID"] && binding["capturePhase"] == capture_phase
+  fail_check("#{proof_path} #{capture_phase} pixel source mismatch") unless binding["pixelSource"] == "mainScreen"
+  fail_check("#{proof_path} #{capture_phase} pixel digest mismatch") unless binding["screenshotSHA256"] == identity["screenshotSHA256"]
+  before_digest = binding["accessibilitySnapshotBeforeSHA256"]
+  after_digest = binding["accessibilitySnapshotAfterSHA256"]
+  fail_check("#{proof_path} #{capture_phase} AX snapshot binding is invalid") unless before_digest.is_a?(String) && before_digest.match?(/\A[0-9a-f]{64}\z/) && before_digest == after_digest
+  observed_rect!(proof_path, binding["windowFrame"], "#{capture_phase} pixel/AX window frame")
+  if capture_phase == "initial"
+    fail_check("#{proof_path} initial pixel/AX binding must not claim a scroll hierarchy") unless binding.values_at(
+      "selectedScrollHierarchyIdentifier",
+      "selectedScrollHierarchySnapshotBeforeSHA256",
+      "selectedScrollHierarchySnapshotAfterSHA256"
+    ).all?(&:nil?)
+  else
+    hierarchy_before = binding["selectedScrollHierarchySnapshotBeforeSHA256"]
+    fail_check("#{proof_path} deep-scroll pixel/AX hierarchy binding is invalid") unless binding["selectedScrollHierarchyIdentifier"] == "spoonjoy.page-scroll" && hierarchy_before.is_a?(String) && hierarchy_before.match?(/\A[0-9a-f]{64}\z/) && hierarchy_before == binding["selectedScrollHierarchySnapshotAfterSHA256"]
+  end
+end
+
+def validate_macos_pixel_accessibility_binding!(proof_path, evidence, capture_phase, screenshot_sha256, pid, window_id, window_frame, selected_scroll_identifier: nil)
+  binding = evidence["pixelAccessibilityBinding"]
+  expected_keys = %w[
+    accessibilitySnapshotAfterSHA256 accessibilitySnapshotBeforeSHA256 applicationProcessIdentifier
+    capturePhase pixelSource schema screenshotSHA256 windowFrame windowID
+  ]
+  expected_keys += %w[
+    selectedScrollHierarchyIdentifier selectedScrollHierarchySnapshotAfterSHA256
+    selectedScrollHierarchySnapshotBeforeSHA256
+  ] if capture_phase == "deepScroll"
+  fail_check("#{proof_path} #{capture_phase} macOS pixelAccessibilityBinding fields must be exact") unless binding.is_a?(Hash) && binding.keys.sort == expected_keys.sort
+  fail_check("#{proof_path} #{capture_phase} macOS pixel/AX binding schema mismatch") unless binding["schema"] == "macosPixelAccessibilityBindingV1"
+  fail_check("#{proof_path} #{capture_phase} macOS pixel source mismatch") unless binding["pixelSource"] == "exactCGWindowID"
+  fail_check("#{proof_path} #{capture_phase} macOS screenshot binding mismatch") unless binding["screenshotSHA256"] == screenshot_sha256
+  fail_check("#{proof_path} #{capture_phase} macOS process binding mismatch") unless binding["applicationProcessIdentifier"] == pid
+  fail_check("#{proof_path} #{capture_phase} macOS window binding mismatch") unless binding["windowID"] == window_id
+  binding_frame = observed_rect!(proof_path, binding["windowFrame"], "#{capture_phase} macOS pixel/AX window frame")
+  fail_check("#{proof_path} #{capture_phase} macOS window frame binding mismatch") unless rect_equal?(binding_frame, window_frame)
+  before_digest = binding["accessibilitySnapshotBeforeSHA256"]
+  after_digest = binding["accessibilitySnapshotAfterSHA256"]
+  fail_check("#{proof_path} #{capture_phase} macOS AX snapshot binding is invalid") unless before_digest.is_a?(String) && before_digest.match?(/\A[0-9a-f]{64}\z/) && before_digest == after_digest
+  if capture_phase == "initial"
+    fail_check("#{proof_path} initial macOS pixel/AX binding must not claim a scroll hierarchy") unless binding.values_at(
+      "selectedScrollHierarchyIdentifier",
+      "selectedScrollHierarchySnapshotBeforeSHA256",
+      "selectedScrollHierarchySnapshotAfterSHA256"
+    ).all?(&:nil?)
+  else
+    hierarchy_before = binding["selectedScrollHierarchySnapshotBeforeSHA256"]
+    fail_check("#{proof_path} deep-scroll macOS pixel/AX hierarchy binding is invalid") unless
+      binding["selectedScrollHierarchyIdentifier"] == selected_scroll_identifier &&
+      hierarchy_before.is_a?(String) && hierarchy_before.match?(/\A[0-9a-f]{64}\z/) &&
+      hierarchy_before == binding["selectedScrollHierarchySnapshotAfterSHA256"]
+  end
+end
+
+def macos_contrast_candidate_kind(element, window_frame)
+  frame = element["frame"]
+  return nil unless frame.is_a?(Hash) && frame["width"].to_f.positive? && frame["height"].to_f.positive?
+  return nil unless rect_contains?(window_frame, frame)
+  return "text" if element["role"] == "AXStaticText" && !element["title"].to_s.empty?
+  return nil unless element["enabled"] == true
+  return nil if element["role"] == "AXDisclosureTriangle" || MAC_NATIVE_CONTROL_SUBROLES.include?(element["subrole"])
+  return nil if Array(element["actions"]).empty? && !MAC_ACTIONABLE_ROLES.include?(element["role"])
+
+  element["title"].to_s.empty? ? "control" : "text"
+end
+
+def validate_macos_screenshot_contrast_evidence!(
+  proof_path,
+  evidence,
+  elements,
+  capture_phase,
+  screenshot_sha256,
+  window_frame
+)
+  contrast = evidence["screenshotContrastEvidence"]
+  expected_keys = %w[capturePhase entries schema screenshotSHA256 windowFrame]
+  fail_check("#{proof_path} macOS screenshot contrast evidence fields must be exact") unless
+    contrast.is_a?(Hash) && contrast.keys.sort == expected_keys.sort
+  fail_check("#{proof_path} macOS screenshot contrast schema mismatch") unless
+    contrast["schema"] == "macosScreenshotContrastEvidenceV1"
+  fail_check("#{proof_path} macOS screenshot contrast phase mismatch") unless contrast["capturePhase"] == capture_phase
+  fail_check("#{proof_path} macOS screenshot contrast hash mismatch") unless contrast["screenshotSHA256"] == screenshot_sha256
+  contrast_window = observed_rect!(proof_path, contrast["windowFrame"], "macOS screenshot contrast window frame")
+  fail_check("#{proof_path} macOS screenshot contrast window frame mismatch") unless contrast_window == window_frame
+
+  expected_candidates = elements.each_with_index.each_with_object([]) do |(element, index), result|
+    kind = macos_contrast_candidate_kind(element, window_frame)
+    result << [index, kind, element] if kind
+  end
+  entries = contrast["entries"]
+  fail_check("#{proof_path} macOS screenshot contrast entries must be a non-empty array") unless
+    entries.is_a?(Array) && !entries.empty?
+  fail_check("#{proof_path} macOS screenshot contrast coverage mismatch") unless entries.length == expected_candidates.length
+
+  entries.zip(expected_candidates).each_with_index do |(entry, candidate), evidence_index|
+    fail_check("#{proof_path} macOS screenshot contrast entry #{evidence_index} fields must be exact") unless
+      entry.is_a?(Hash) && entry.keys.sort == %w[element elementIndex kind pixelEvidence]
+    element_index, expected_kind, expected_element = candidate
+    fail_check("#{proof_path} macOS screenshot contrast element index mismatch") unless entry["elementIndex"] == element_index
+    fail_check("#{proof_path} macOS screenshot contrast element kind mismatch") unless entry["kind"] == expected_kind
+
+    reference = entry["element"]
+    expected_reference = expected_element.slice("identifier", "role", "subrole", "title", "frame")
+    fail_check("#{proof_path} macOS screenshot contrast element fields must be exact") unless
+      reference.is_a?(Hash) && reference.keys.sort == %w[frame identifier role subrole title]
+    observed_rect!(proof_path, reference["frame"], "macOS screenshot contrast element frame")
+    fail_check("#{proof_path} macOS screenshot contrast element frame coverage mismatch") unless reference == expected_reference
+
+    expected_ratio = expected_kind == "text" ? 4.5 : 3.0
+    pixels = entry["pixelEvidence"]
+    required_ratio = pixels.is_a?(Hash) ? pixels["requiredContrastRatio"] : nil
+    measured_ratio = pixels.is_a?(Hash) ? pixels["contrastRatio"] : nil
+    fail_check("#{proof_path} macOS screenshot contrast threshold mismatch") unless
+      required_ratio.is_a?(Numeric) && required_ratio.finite? && required_ratio == expected_ratio
+    fail_check("#{proof_path} macOS screenshot contrast ratio does not meet its threshold") unless
+      measured_ratio.is_a?(Numeric) && measured_ratio.finite? && measured_ratio >= required_ratio
+    validate_contrast_pixel_evidence!(
+      proof_path,
+      pixels,
+      screenshot_sha256,
+      "macOS screenshot contrast entry #{evidence_index}",
+      minimum_required_ratio: expected_ratio,
+      frame: reference.fetch("frame"),
+      window_frame: window_frame
+    )
+  end
+end
+
+def validate_host_process_observation!(proof_path, observation)
+  expected_keys = %w[applicationBundleIdentifier applicationProcessIdentifier launchctlLabel sampleCount schema]
+  fail_check("#{proof_path} hostProcessObservation fields must be exact") unless observation.is_a?(Hash) && observation.keys.sort == expected_keys.sort
+  fail_check("#{proof_path} host process schema mismatch") unless observation["schema"] == "iosHostProcessObservationV1"
+  fail_check("#{proof_path} host process bundle mismatch") unless observation["applicationBundleIdentifier"] == "app.spoonjoy"
+  fail_check("#{proof_path} host process launchctl label mismatch") unless observation["launchctlLabel"].is_a?(String) && observation["launchctlLabel"].match?(/\AUIKitApplication:app\.spoonjoy(?:\[[^\]\r\n]+\])*\z/)
+  pid = observation["applicationProcessIdentifier"]
+  fail_check("#{proof_path} host process PID must be positive") unless pid.is_a?(Integer) && pid.positive?
+  fail_check("#{proof_path} host process observation needs two samples") unless observation["sampleCount"].is_a?(Integer) && observation["sampleCount"] >= 2
+  observation
+end
 EXPECTED_ROUTE_EVIDENCE = {
   "kitchen" => {
     "voiceOverLabels" => ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
@@ -95,11 +622,11 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
-    "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
-    "keyboardNavigationTargets" => ["entry point ledger", "saved capture actions", "Retry when online", "offline status dismiss"],
+    "voiceOverLabels" => ["Imports", "Import", "Import actions", "Delete import", "Hide offline status"],
+    "keyboardNavigationTargets" => ["saved import primary action", "import actions menu", "offline status dismiss"],
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
-    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
+    "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
   },
   "capture-signed-out" => {
@@ -165,6 +692,85 @@ def fail_check(message)
   exit 1
 end
 
+def validate_screenshot_artifacts!(manifest_path, manifest)
+  artifacts = manifest["screenshotArtifacts"]
+  fail_check("#{manifest_path} screenshotArtifacts must be an object") unless artifacts.is_a?(Hash)
+  fail_check("#{manifest_path} screenshotArtifacts keys must exactly match the release set") unless artifacts.keys.sort == SCREENSHOT_ARTIFACTS.keys.sort
+
+  artifact_root = manifest_path.dirname.expand_path
+  SCREENSHOT_ARTIFACTS.each do |name, expected_relative_path|
+    artifact = artifacts[name]
+    fail_check("#{manifest_path} screenshot artifact #{name} must be an object") unless artifact.is_a?(Hash)
+    fail_check("#{manifest_path} screenshot artifact #{name} path mismatch") unless artifact["path"] == expected_relative_path
+    fail_check("#{manifest_path} screenshot artifact #{name} path must be relative") if expected_relative_path.start_with?("/")
+    absolute_path = artifact_root.join(expected_relative_path).cleanpath.expand_path
+    unless absolute_path.to_s.start_with?(artifact_root.to_s + File::SEPARATOR)
+      fail_check("#{manifest_path} screenshot artifact #{name} escapes the artifact root")
+    end
+    fail_check("#{manifest_path} screenshot artifact #{name} is missing") unless absolute_path.file?
+    bytes = absolute_path.size
+    fail_check("#{manifest_path} screenshot artifact #{name} must be non-empty") unless bytes.positive?
+    fail_check("#{manifest_path} screenshot artifact #{name} byte count mismatch") unless artifact["bytes"] == bytes
+    digest = Digest::SHA256.file(absolute_path).hexdigest
+    fail_check("#{manifest_path} screenshot artifact #{name} SHA-256 mismatch") unless artifact["sha256"] == digest
+  end
+
+  deep_scroll_artifacts = manifest["deepScrollScreenshotArtifacts"]
+  if COMPACT_DEEP_SCROLL_ROUTES.include?(manifest["screenshotRoute"])
+    unless deep_scroll_artifacts.is_a?(Hash) && deep_scroll_artifacts.keys.sort == DEEP_SCROLL_SCREENSHOT_ARTIFACTS.keys.sort
+      fail_check("#{manifest_path} deepScrollScreenshotArtifacts keys must exactly match the compact deep-scroll release set")
+    end
+    DEEP_SCROLL_SCREENSHOT_ARTIFACTS.each do |name, expected_relative_path|
+      artifact = deep_scroll_artifacts[name]
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} must be an object") unless artifact.is_a?(Hash)
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} path mismatch") unless artifact["path"] == expected_relative_path
+      absolute_path = artifact_root.join(expected_relative_path).cleanpath.expand_path
+      unless absolute_path.to_s.start_with?(artifact_root.to_s + File::SEPARATOR)
+        fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} escapes the artifact root")
+      end
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} is missing") unless absolute_path.file?
+      bytes = absolute_path.size
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} must be non-empty") unless bytes.positive?
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} byte count mismatch") unless artifact["bytes"] == bytes
+      digest = Digest::SHA256.file(absolute_path).hexdigest
+      fail_check("#{manifest_path} deep-scroll screenshot artifact #{name} SHA-256 mismatch") unless artifact["sha256"] == digest
+    end
+  elsif !deep_scroll_artifacts.nil?
+    fail_check("#{manifest_path} non-scrolling route must not claim deepScrollScreenshotArtifacts")
+  end
+end
+
+def validate_exact_settings_sections!(proof_path, sections, visual_focus)
+  fail_check("#{proof_path} visible sections must be an array") unless sections.is_a?(Array)
+  if visual_focus == "notifications"
+    fail_check("#{proof_path} notification sections must exactly match independently observed This Device") unless
+      sections == ["This Device"]
+    return
+  end
+
+  required_sections = if visual_focus == "signed-out"
+                        ["Session", "Environment", "Offline"]
+                      else
+                        ["Profile", "Security"]
+                      end
+  missing_sections = required_sections.reject { |section| sections.include?(section) }
+  fail_check("#{proof_path} visibleSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless
+    missing_sections.empty?
+end
+
+def validate_observed_settings_notification_headings!(proof_path, elements)
+  identifiers = elements.map { |element| element["identifier"] }
+  required = "settings.apns.this-device.heading"
+  fail_check("#{proof_path} missing independently observed APNs heading: #{required}") unless identifiers.include?(required)
+
+  fabricated = identifiers & %w[
+    settings.apns.push-delivery.heading
+    settings.apns.notification-sync.heading
+    settings.apns.agent-access.heading
+  ]
+  fail_check("#{proof_path} contains fabricated APNs section headings: #{fabricated.join(", ")}") unless fabricated.empty?
+end
+
 def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   fail_check("#{manifest_path} settingsSurfaceProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
@@ -175,16 +781,7 @@ def validate_settings_proof!(manifest_path, proof_relative_path, visual_focus)
   fail_check("#{proof_path} visualFocus must be #{visual_focus}") unless proof["visualFocus"] == visual_focus
   fail_check("#{proof_path} source must be SettingsView") unless proof["source"] == "SettingsView"
   sections = proof["visibleSections"]
-  fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
-  required_sections = if visual_focus == "notifications"
-                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
-                      elsif visual_focus == "signed-out"
-                        ["Session", "Environment", "Offline"]
-                      else
-                        ["Profile", "Security"]
-                      end
-  missing_sections = required_sections.reject { |section| sections.include?(section) }
-  fail_check("#{proof_path} visibleSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
+  validate_exact_settings_sections!(proof_path, sections, visual_focus)
 end
 
 def expected_search_proof(variant)
@@ -215,7 +812,10 @@ def expected_search_proof(variant)
       "query" => "weeknights",
       "scope" => "cookbooks",
       "routeIdentifier" => "search:cookbooks:weeknights",
-      "requiredSections" => ["Cookbooks"]
+      "requiredSections" => ["Cookbooks"],
+      "expectedRows" => [
+        {"type" => "cookbook", "id" => "cookbook-cookbook_weeknights", "title" => "Weeknights"}
+      ]
     }
   when "scoped-chefs"
     {
@@ -234,10 +834,16 @@ def expected_search_proof(variant)
   when "no-results"
     {
       "query" => "kumquat",
-      "scope" => "recipes",
-      "routeIdentifier" => "search:recipes:kumquat",
+      "scope" => "all",
+      "routeIdentifier" => "search:all:kumquat",
       "requiredSections" => [],
-      "requiresEmptySections" => true
+      "requiresEmptySections" => true,
+      "expectedRows" => [],
+      "expectedEmptyState" => {
+        "scope" => "all",
+        "title" => "No matches for \"kumquat\"",
+        "message" => "No Spoonjoy results match \"kumquat\"."
+      }
     }
   else
     fail_check("unsupported searchSurfaceVariant #{variant.inspect}")
@@ -257,6 +863,21 @@ def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id, 
   fail_check("#{proof_path} searchScopes must exactly match #{EXPECTED_SEARCH_SCOPES.join(", ")}") unless proof["searchScopes"] == EXPECTED_SEARCH_SCOPES
   fail_check("#{proof_path} accountID must be #{seed_account_id}") unless proof["accountID"] == seed_account_id
   fail_check("#{proof_path} source must be SearchView") unless proof["source"] == "SearchView"
+  fingerprint = proof["renderFingerprint"]
+  fail_check("#{proof_path} renderFingerprint must be an object") unless fingerprint.is_a?(Hash)
+  rows = fingerprint["rows"]
+  fail_check("#{proof_path} renderFingerprint rows must be an array") unless rows.is_a?(Array)
+  rows.each do |row|
+    fail_check("#{proof_path} renderFingerprint rows must contain exact type/id/title fields") unless row.is_a?(Hash) && row.keys.sort == ["id", "title", "type"]
+  end
+  data_source = fingerprint["dataSource"]
+  fail_check("#{proof_path} renderFingerprint dataSource must contain exactly one source") unless data_source.is_a?(Hash) && data_source.length == 1
+  if expected.key?("expectedRows")
+    fail_check("#{proof_path} renderFingerprint rows do not match the exact expected render") unless rows == expected["expectedRows"]
+  end
+  if expected.key?("expectedEmptyState")
+    fail_check("#{proof_path} renderFingerprint emptyState does not match the exact expected render") unless fingerprint["emptyState"] == expected["expectedEmptyState"]
+  end
   sections = proof["visibleSections"]
   fail_check("#{proof_path} visibleSections must be an array") unless sections.is_a?(Array)
   required_sections = expected["requiredSections"]
@@ -265,6 +886,7 @@ def validate_search_proof!(manifest_path, proof_relative_path, seed_account_id, 
   if expected["requiresEmptySections"] && !sections.empty?
     fail_check("#{proof_path} no-results search proof must not include visible result sections: #{sections.join(", ")}")
   end
+  fingerprint
 end
 
 def expected_accessibility_source(route, manifest)
@@ -287,6 +909,10 @@ def expected_accessibility_source(route, manifest)
     "SettingsView"
   when "recipe-detail"
     "RecipeDetailView"
+  when "recipe-editor"
+    "RecipeEditorView"
+  when "recipe-covers"
+    "RecipeCoverControlsView"
   when "cook-log"
     "SpoonCookLogView"
   when "cook-mode"
@@ -295,6 +921,12 @@ def expected_accessibility_source(route, manifest)
     "ShoppingListView"
   when "chefs"
     "ChefsView"
+  when "profile"
+    "ProfileView"
+  when "profile-graph"
+    "ProfileGraphList"
+  when "unknown-link"
+    "ShellPlaceholderView"
   else
     fail_check("unsupported accessibility route #{route}")
   end
@@ -315,16 +947,56 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route, man
   fail_check("#{proof_path} route must be #{route}") unless proof["route"] == route
   expected_source = expected_accessibility_source(route, manifest)
   fail_check("#{proof_path} source must be #{expected_source}") unless proof["source"] == expected_source
+  expected_surface_variant = case route
+                             when "capture" then manifest["captureSurfaceVariant"]
+                             when "shopping-list" then manifest["shoppingListVariant"]
+                             end
+  if expected_surface_variant
+    fail_check("#{proof_path} observedSurfaceVariant must be #{expected_surface_variant}") unless proof["observedSurfaceVariant"] == expected_surface_variant
+  end
+  if route == "recipe-covers"
+    launch_proof = proof["launchEnvironmentProof"]
+    fail_check("#{proof_path} must bind the Photo Studio action-state fixture") unless launch_proof.is_a?(Hash) &&
+      launch_proof["screenshotRecipeCoversFixture"] == "action-states"
+  end
+  if route == "shopping-list" && expected_surface_variant == "offline-queued"
+    surface_state = proof["observedSurfaceState"]
+    fail_check("#{proof_path} observedSurfaceState must describe queued shopping state") unless surface_state.is_a?(Hash)
+    fail_check("#{proof_path} queued shopping status owner must be ShoppingListView") unless surface_state["statusOwner"] == "ShoppingListView"
+    fail_check("#{proof_path} queued shopping connectivity must be offline") unless surface_state["connectivity"] == "offline"
+    fail_check("#{proof_path} queued shopping indicator must be queuedWork") unless surface_state["visibleIndicator"] == "queuedWork"
+    queued_count = surface_state["queuedMutationCount"]
+    fail_check("#{proof_path} queued shopping mutation count must be positive") unless queued_count.is_a?(Integer) && queued_count.positive?
+
+    launch_proof = proof["launchEnvironmentProof"]
+    fail_check("#{proof_path} offline queued state must launch cache-only") unless launch_proof.is_a?(Hash) && launch_proof["screenshotRestoreCacheOnly"] == "1"
+    snapshot_proof = proof["screenshotStateSnapshotProof"]
+    fail_check("#{proof_path} offline queued state must prove a readable shopping queue") unless snapshot_proof.is_a?(Hash) &&
+      snapshot_proof["syncSnapshotQueuedShoppingWorkPresent"] == true &&
+      snapshot_proof["syncSnapshotQueueCount"] == queued_count
+  end
   fail_check("#{proof_path} emittedBy must be SpoonjoyApp") unless proof["emittedBy"] == "SpoonjoyApp"
   fail_check("#{proof_path} bundleIdentifier must be #{expected_bundle_identifier}") unless proof["bundleIdentifier"] == expected_bundle_identifier
+  capture_run_nonce = proof["captureRunNonce"]
+  uuid_pattern = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
+  fail_check("#{proof_path} captureRunNonce must be a UUID") unless capture_run_nonce.is_a?(String) && capture_run_nonce.match?(uuid_pattern)
+  readiness_generation = proof["readinessGeneration"]
+  fail_check("#{proof_path} readinessGeneration must be a non-negative integer") unless readiness_generation.is_a?(Integer) && readiness_generation >= 0
+  legacy_fields = [
+    "dynamicType", "voiceOverLabels", "keyboardNavigation", "reduceMotion", "contrast",
+    "kitchenTableHierarchy", "noOverlap", "minimumTargetSize", "textFits", "noTinyClusters",
+    "routeEvidence", "offlineIndicatorProof"
+  ].select { |field| proof.key?(field) }
+  fail_check("#{proof_path} contains legacy self-attested fields: #{legacy_fields.join(", ")}") unless legacy_fields.empty?
 
-  false_fields = ACCESSIBILITY_FIELDS.reject { |field| proof[field] == true }
-  fail_check("#{proof_path} accessibility fields must all be true: #{false_fields.join(", ")}") unless false_fields.empty?
-  fail_check("#{proof_path} minimumTargetSize must be at least 44") unless proof["minimumTargetSize"].is_a?(Numeric) && proof["minimumTargetSize"] >= 44
-  fail_check("#{proof_path} textFits must be true") unless proof["textFits"] == true
-  fail_check("#{proof_path} noTinyClusters must be true") unless proof["noTinyClusters"] == true
   fail_check("#{proof_path} observedDynamicTypeSize must be a non-empty string") unless proof["observedDynamicTypeSize"].is_a?(String) && !proof["observedDynamicTypeSize"].empty?
   fail_check("#{proof_path} observedReduceMotion must be boolean") unless [true, false].include?(proof["observedReduceMotion"])
+
+  state_proof = proof["screenshotStateSnapshotProof"]
+  fail_check("#{proof_path} screenshotStateSnapshotProof must be an object") unless state_proof.is_a?(Hash)
+  fail_check("#{proof_path} screenshot state directory must resolve") unless state_proof["stateDirectoryResolved"] == true
+  fail_check("#{proof_path} app snapshot must be present and readable") unless state_proof["appSnapshotPresent"] == true && state_proof["appSnapshotJSONReadable"] == true
+  fail_check("#{proof_path} sync snapshot must be present and readable") unless state_proof["syncSnapshotPresent"] == true && state_proof["syncSnapshotJSONReadable"] == true
 
   visual_readiness = proof["visualReadiness"]
   fail_check("#{proof_path} visualReadiness must be an object") unless visual_readiness.is_a?(Hash)
@@ -332,26 +1004,1341 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route, man
   fail_check("#{proof_path} failedMediaCount must be zero") unless visual_readiness["failedMediaCount"] == 0
   fail_check("#{proof_path} blockingIndicatorCount must be zero") unless visual_readiness["blockingIndicatorCount"] == 0
   fail_check("#{proof_path} visualReadiness must be settled") unless visual_readiness["isSettled"] == true
+  fail_check("#{proof_path} visual readiness generation mismatch") unless visual_readiness["generation"] == readiness_generation
+end
 
-  route_evidence = proof["routeEvidence"]
-  fail_check("#{proof_path} routeEvidence must be an object") unless route_evidence.is_a?(Hash)
-  EXPECTED_ROUTE_EVIDENCE.fetch(accessibility_evidence_key(route, manifest)).each do |field, required_values|
-    actual_values = route_evidence[field]
-    fail_check("#{proof_path} routeEvidence.#{field} must be an array") unless actual_values.is_a?(Array)
-    missing_values = required_values.reject { |value| actual_values.include?(value) }
-    fail_check("#{proof_path} routeEvidence.#{field} missing #{missing_values.join(", ")}") unless missing_values.empty?
+def validate_readiness_handshake!(evidence_path, handshake, readiness_binding, route, capture_phase)
+  fail_check("#{evidence_path} #{capture_phase} readinessHandshake must be an object") unless handshake.is_a?(Hash)
+  readiness = readiness_binding.fetch(:proof)
+  generation = readiness["readinessGeneration"]
+  observer_suffix = case readiness["observedDynamicTypeSize"]
+                    when "large" then readiness["platform"]
+                    when "xxxLarge" then "#{readiness["platform"]}-xxxl"
+                    else "#{readiness["platform"]}-ax"
+                    end
+  proof_filename = "native-accessibility-proof.observer-#{observer_suffix}-#{readiness["captureRunNonce"]}.generation-#{generation}.json"
+  expected = {
+    "captureRunNonce" => readiness["captureRunNonce"],
+    "route" => route,
+    "source" => readiness["source"],
+    "readinessGeneration" => generation,
+    "proofFileName" => proof_filename,
+    "proofSHA256" => readiness_binding.fetch(:sha256)
+  }
+  expected.each do |field, value|
+    fail_check("#{evidence_path} #{capture_phase} readiness handshake #{field} mismatch") unless handshake[field] == value
+  end
+  process_identifier = handshake["applicationProcessIdentifier"]
+  fail_check("#{evidence_path} #{capture_phase} readiness handshake applicationProcessIdentifier must be positive") unless process_identifier.is_a?(Integer) && process_identifier.positive?
+end
+
+def validate_capture_identity!(evidence_path, evidence, identity, handshake, host_observation, capture_phase, screenshot_sha256)
+  fail_check("#{evidence_path} #{capture_phase} captureIdentity must be an object") unless identity.is_a?(Hash)
+  expected_keys = %w[
+    applicationBundleIdentifier applicationProcessIdentifier captureID capturePhase captureRunNonce
+    foregroundAfterCapture foregroundBeforeCapture schema screenshotSHA256
+  ]
+  fail_check("#{evidence_path} #{capture_phase} captureIdentity fields must be exact") unless identity.keys.sort == expected_keys.sort
+  uuid_pattern = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
+  fail_check("#{evidence_path} #{capture_phase} capture ID must be a UUID") unless identity["captureID"].is_a?(String) && identity["captureID"].match?(uuid_pattern)
+  fail_check("#{evidence_path} #{capture_phase} capture schema mismatch") unless identity["schema"] == "iosObservedCaptureV1"
+  fail_check("#{evidence_path} #{capture_phase} capture phase mismatch") unless identity["capturePhase"] == capture_phase
+  fail_check("#{evidence_path} #{capture_phase} capture nonce mismatch") unless identity["captureRunNonce"] == handshake["captureRunNonce"]
+  fail_check("#{evidence_path} #{capture_phase} capture bundle mismatch") unless identity["applicationBundleIdentifier"] == "app.spoonjoy"
+  fail_check("#{evidence_path} #{capture_phase} capture process mismatch") unless identity["applicationProcessIdentifier"] == handshake["applicationProcessIdentifier"]
+  fail_check("#{evidence_path} #{capture_phase} capture process was not independently observed") unless identity["applicationProcessIdentifier"] == host_observation["applicationProcessIdentifier"]
+  fail_check("#{evidence_path} #{capture_phase} was not foreground before and after capture") unless identity["foregroundBeforeCapture"] == true && identity["foregroundAfterCapture"] == true
+  fail_check("#{evidence_path} #{capture_phase} capture screenshot SHA-256 mismatch") unless identity["screenshotSHA256"] == screenshot_sha256
+  validate_ios_pixel_accessibility_binding!(evidence_path, evidence, identity, capture_phase)
+end
+
+def validate_ios_audit_types!(proof_path, evidence, capture_phase)
+  audit_types = evidence["auditTypes"]
+  unless audit_types.is_a?(Array) && audit_types.all? { |value| value.is_a?(String) } && audit_types.sort == REQUIRED_IOS_AUDIT_TYPES
+    fail_check("#{proof_path} #{capture_phase} auditTypes must cover contrast, dynamicType, textClipped, hitRegion, and trait")
+  end
+end
+
+def validate_ios_deep_scroll_waypoint_sequence!(proof_path, deep_scroll)
+  swipe_count = deep_scroll["swipeCount"]
+  waypoints = deep_scroll["waypoints"]
+  fail_check("#{proof_path} deep-scroll waypoint count requires a nonnegative swipeCount") unless
+    swipe_count.is_a?(Integer) && swipe_count >= 0
+  fail_check("#{proof_path} must include exactly one waypoint for every scroll action") unless
+    waypoints.is_a?(Array) && waypoints.length == swipe_count
+
+  waypoints.each_with_index do |waypoint, zero_index|
+    index = zero_index + 1
+    phase = "deepScrollWaypoint-#{index}"
+    fail_check("#{proof_path} #{phase} must be an object") unless waypoint.is_a?(Hash)
+    fail_check("#{proof_path} #{phase} index mismatch") unless waypoint["index"] == index
+    fail_check("#{proof_path} #{phase} capture phase mismatch") unless waypoint["capturePhase"] == phase
+    fail_check("#{proof_path} #{phase} contains geometry findings") unless waypoint["findings"] == []
+    fail_check("#{proof_path} #{phase} contains blocking accessibility audit issues") unless waypoint["auditIssues"] == []
+    fail_check("#{proof_path} #{phase} audit scope mismatch") unless waypoint["auditScope"] == "settledScrollWaypoint"
+    validate_ios_audit_types!(proof_path, waypoint, phase)
+
+    viewport = observed_rect!(proof_path, waypoint["contentViewport"], "#{phase} content viewport")
+    coverage = waypoint["coverage"]
+    fail_check("#{proof_path} #{phase} is missing overlapping viewport coverage") unless
+      coverage.is_a?(Hash) && coverage.keys.sort == %w[observedContentDisplacement requestedContentOffset viewportOverlap]
+    coverage_values = coverage.values
+    fail_check("#{proof_path} #{phase} coverage values must be finite numbers") unless
+      coverage_values.all? { |value| value.is_a?(Numeric) && value.finite? }
+    fail_check("#{proof_path} #{phase} did not request a scroll") if coverage["requestedContentOffset"].zero?
+    fail_check("#{proof_path} #{phase} did not prove real content displacement") unless
+      coverage["observedContentDisplacement"] > 1
+    fail_check("#{proof_path} #{phase} did not preserve a 44-point viewport overlap") unless
+      coverage["viewportOverlap"] >= 44
+    reconstructed_height = coverage["observedContentDisplacement"] + coverage["viewportOverlap"]
+    fail_check("#{proof_path} #{phase} overlap coverage does not reconstruct its viewport") unless
+      (reconstructed_height - viewport["height"]).abs <= 1
   end
 
-  offline_proof = proof["offlineIndicatorProof"]
-  fail_check("#{proof_path} offlineIndicatorProof must be an object") unless offline_proof.is_a?(Hash)
-  fail_check("#{proof_path} offlineIndicatorProof source must be OfflineStatusView") unless offline_proof["source"] == "OfflineStatusView"
-  fail_check("#{proof_path} offlineIndicatorProof visibleStates must exactly match #{EXPECTED_OFFLINE_VISIBLE_STATES.join(", ")}") unless offline_proof["visibleStates"] == EXPECTED_OFFLINE_VISIBLE_STATES
-  fail_check("#{proof_path} offlineIndicatorProof dismissibleStates must exactly match #{EXPECTED_OFFLINE_DISMISSIBLE_STATES.join(", ")}") unless offline_proof["dismissibleStates"] == EXPECTED_OFFLINE_DISMISSIBLE_STATES
-  fail_check("#{proof_path} offlineIndicatorProof severeStates must exactly match #{EXPECTED_OFFLINE_SEVERE_STATES.join(", ")}") unless offline_proof["severeStates"] == EXPECTED_OFFLINE_SEVERE_STATES
-  fail_check("#{proof_path} offlineIndicatorProof hiddenStates must exactly match synced, dismissed") unless offline_proof["hiddenStates"] == ["synced", "dismissed"]
-  fail_check("#{proof_path} offlineIndicatorProof voiceOverLabel must be true") unless offline_proof["voiceOverLabel"] == true
-  fail_check("#{proof_path} offlineIndicatorProof dismissButtonLabel must be Hide offline status") unless offline_proof["dismissButtonLabel"] == "Hide offline status"
-  fail_check("#{proof_path} offlineIndicatorProof severityCorrect must be true") unless offline_proof["severityCorrect"] == true
+  waypoints
+end
+
+def validate_ios_deep_scroll_waypoints!(
+  proof_path,
+  deep_scroll,
+  platform,
+  route,
+  manifest,
+  host_observation,
+  content_size_category,
+  initial_elements,
+  initial_screenshot_sha256,
+  initial_capture_id,
+  deep_readiness_binding
+)
+  waypoints = validate_ios_deep_scroll_waypoint_sequence!(proof_path, deep_scroll)
+  expected_keys = %w[
+    index capturePhase coverage contentViewport findings auditIssues auditScope auditTypes
+    verifiedContrastFalsePositives verifiedStaleOffscreenContrastFalsePositives
+    contrastPixelAdjudicationDiagnostics verifiedSystemChromeContrastFalsePositives
+    verifiedNativeSidebarSelectionContrastFalsePositives verifiedTextClippedFalsePositives
+    screenshotArtifactPath screenshotBytes screenshotSHA256 readinessHandshake captureIdentity pixelAccessibilityBinding elements
+    selectedScrollHierarchyElements
+  ].sort
+  prior_elements = initial_elements
+  prior_screenshot_sha256 = initial_screenshot_sha256
+  capture_ids = []
+
+  waypoints.each do |waypoint|
+    phase = waypoint.fetch("capturePhase")
+    fail_check("#{proof_path} #{phase} fields must be exact") unless waypoint.keys.sort == expected_keys
+    screenshot_sha256 = waypoint["screenshotSHA256"]
+    fail_check("#{proof_path} #{phase} screenshot SHA-256 is invalid") unless
+      screenshot_sha256.is_a?(String) && screenshot_sha256.match?(/\A[0-9a-f]{64}\z/)
+    screenshot_artifact_path = waypoint["screenshotArtifactPath"]
+    fail_check("#{proof_path} #{phase} screenshot artifact path must be one safe local PNG name") unless
+      screenshot_artifact_path.is_a?(String) &&
+      screenshot_artifact_path.match?(/\A[A-Za-z0-9._-]+\.png\z/) &&
+      Pathname.new(screenshot_artifact_path).basename.to_s == screenshot_artifact_path
+    screenshot_artifact = Pathname.new(proof_path.to_s).dirname.join(screenshot_artifact_path)
+    fail_check("#{proof_path} #{phase} screenshot artifact is missing") unless screenshot_artifact.file?
+    screenshot_bytes = waypoint["screenshotBytes"]
+    fail_check("#{proof_path} #{phase} screenshot byte count mismatch") unless
+      screenshot_bytes.is_a?(Integer) && screenshot_bytes.positive? && screenshot_artifact.size == screenshot_bytes
+    fail_check("#{proof_path} #{phase} screenshot artifact is not a PNG") unless
+      screenshot_artifact.binread(8) == "\x89PNG\r\n\x1A\n".b
+    fail_check("#{proof_path} #{phase} durable screenshot SHA-256 mismatch") unless
+      Digest::SHA256.file(screenshot_artifact).hexdigest == screenshot_sha256
+    ($observed_screenshot_paths_by_digest ||= {})[screenshot_sha256] = screenshot_artifact
+    handshake = waypoint["readinessHandshake"]
+    validate_readiness_handshake!(
+      proof_path,
+      handshake,
+      deep_readiness_binding,
+      route,
+      phase
+    )
+    validate_capture_identity!(
+      proof_path,
+      waypoint,
+      waypoint["captureIdentity"],
+      handshake,
+      host_observation,
+      phase,
+      screenshot_sha256
+    )
+    capture_ids << waypoint.dig("captureIdentity", "captureID")
+    elements = waypoint["elements"]
+    selected_hierarchy = waypoint["selectedScrollHierarchyElements"]
+    fail_check("#{proof_path} #{phase} elements must be non-empty") unless elements.is_a?(Array) && !elements.empty?
+    fail_check("#{proof_path} #{phase} selected scroll hierarchy must be non-empty") unless
+      selected_hierarchy.is_a?(Array) && !selected_hierarchy.empty?
+    fail_check("#{proof_path} #{phase} must bind spoonjoy.page-scroll") unless
+      waypoint.dig("pixelAccessibilityBinding", "selectedScrollHierarchyIdentifier") == "spoonjoy.page-scroll"
+    viewport = waypoint.fetch("contentViewport")
+    full_findings = host_geometry_findings!(
+      proof_path,
+      elements,
+      viewport,
+      platform,
+      route,
+      manifest,
+      include_route_requirements: false
+    )
+    fail_check("#{proof_path} #{phase} host geometry recomputation failed: #{full_findings.join("; ")}") unless
+      full_findings.empty?
+    hierarchy_findings = host_geometry_findings!(
+      proof_path,
+      selected_hierarchy,
+      viewport,
+      platform,
+      route,
+      manifest,
+      include_route_requirements: false
+    )
+    fail_check("#{proof_path} #{phase} selected-hierarchy geometry failed: #{hierarchy_findings.join("; ")}") unless
+      hierarchy_findings.empty?
+    validate_contrast_pixel_adjudication_diagnostics!(
+      proof_path,
+      waypoint["contrastPixelAdjudicationDiagnostics"],
+      waypoint["auditIssues"],
+      phase,
+      screenshot_sha256
+    )
+    validate_verified_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedContrastFalsePositives"],
+      screenshot_sha256,
+      phase,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame")
+    )
+    validate_verified_stale_offscreen_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedStaleOffscreenContrastFalsePositives"],
+      prior_elements,
+      elements,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame"),
+      prior_screenshot_sha256,
+      screenshot_sha256,
+      capture_phase: phase,
+      prior_capture_phase: waypoints.first.equal?(waypoint) ? "initial" : waypoints[waypoint.fetch("index") - 2].fetch("capturePhase")
+    )
+    validate_verified_system_chrome_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedSystemChromeContrastFalsePositives"],
+      phase,
+      platform,
+      content_size_category,
+      elements,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame"),
+      screenshot_sha256
+    )
+    validate_verified_native_sidebar_selection_contrast_false_positives!(
+      proof_path,
+      waypoint["verifiedNativeSidebarSelectionContrastFalsePositives"],
+      phase,
+      platform,
+      content_size_category,
+      elements,
+      waypoint.dig("pixelAccessibilityBinding", "windowFrame"),
+      screenshot_sha256
+    )
+    validate_verified_text_clipped_false_positives!(
+      proof_path,
+      waypoint["verifiedTextClippedFalsePositives"],
+      phase,
+      platform,
+      content_size_category,
+      elements
+    )
+    prior_elements = elements
+    prior_screenshot_sha256 = screenshot_sha256
+  end
+
+  terminal_capture_id = deep_scroll.dig("captureIdentity", "captureID")
+  all_capture_ids = [initial_capture_id, *capture_ids, terminal_capture_id]
+  fail_check("#{proof_path} initial, waypoint, and terminal capture IDs must all be unique") unless
+    all_capture_ids.all? { |capture_id| capture_id.is_a?(String) && !capture_id.empty? } &&
+      all_capture_ids.uniq.length == all_capture_ids.length
+end
+
+def validate_observed_accessibility_evidence!(manifest_path, proof_relative_path, route, manifest, readiness_bindings, deep_readiness_bindings)
+  fail_check("#{manifest_path} observedAccessibilityEvidenceArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
+  proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
+  fail_check("#{manifest_path} missing observed accessibility evidence #{proof_relative_path}") unless proof_path.file?
+  proof = JSON.parse(proof_path.read)
+  fail_check("#{proof_path} must contain a JSON object") unless proof.is_a?(Hash)
+  platform = proof["platform"]
+  fail_check("#{proof_path} platform must be ios, ipad, or macos") unless ["ios", "ipad", "macos"].include?(platform)
+  fail_check("#{proof_path} route must be #{route}") unless proof["route"] == route
+  elements = proof["elements"]
+  fail_check("#{proof_path} elements must be a non-empty observed accessibility array") unless elements.is_a?(Array) && !elements.empty?
+  required_element_fields = if platform == "macos"
+                              ["identifier", "role", "subrole", "title", "frame", "enabled", "focused", "actions"]
+                            else
+                              ["identifier", "label", "type", "frame", "exists", "hittable", "enabled", "hitRegionAuditVerified"]
+                            end
+  elements.each do |element|
+    fail_check("#{proof_path} observed element must be an object") unless element.is_a?(Hash)
+    missing = required_element_fields.reject { |field| element.key?(field) }
+    fail_check("#{proof_path} observed element missing #{missing.join(", ")}") unless missing.empty?
+  end
+  identifiers = elements.map { |element| element["identifier"] }
+  missing_identifiers = REQUIRED_OBSERVED_IDENTIFIERS.fetch(route, []) - identifiers
+  fail_check("#{proof_path} missing route controls: #{missing_identifiers.join(", ")}") unless missing_identifiers.empty?
+
+  findings = platform == "macos" ? proof["findings"] : proof["geometryFindings"]
+  fail_check("#{proof_path} observed geometry findings must be an empty array") unless findings == []
+  viewport = if platform == "macos"
+               window_frames = proof["windowFrames"]
+               fail_check("#{proof_path} windowFrames must contain the exact observed window") unless window_frames.is_a?(Array) && window_frames.length == 1
+               observed_rect!(proof_path, window_frames.first, "initial window frame")
+             else
+               observed_rect!(proof_path, proof["viewport"], "initial viewport")
+             end
+  host_geometry_findings = host_geometry_findings!(proof_path, elements, viewport, platform, route, manifest)
+  fail_check("#{proof_path} host geometry recomputation failed: #{host_geometry_findings.join("; ")}") unless host_geometry_findings.empty?
+  if platform == "macos"
+    expected_initial_screenshot_sha256 = expected_screenshot_digest!(
+      manifest_path,
+      manifest,
+      platform,
+      nil,
+      "initial"
+    )
+    readiness_binding = readiness_bindings.find { |(binding_platform, _), _| binding_platform == "macos" }&.last
+    fail_check("#{proof_path} has no macOS readiness artifact") unless readiness_binding
+    readiness = readiness_binding.fetch(:proof)
+    fail_check("#{proof_path} captureRunNonce mismatch") unless proof["captureRunNonce"] == readiness["captureRunNonce"]
+    fail_check("#{proof_path} readiness proof SHA-256 mismatch") unless proof["readinessProofSHA256"] == readiness_binding.fetch(:sha256)
+    fail_check("#{proof_path} screenshot SHA-256 mismatch") unless proof["screenshotSHA256"] == expected_initial_screenshot_sha256
+    fail_check("#{proof_path} bundleIdentifier must be app.spoonjoy.mac") unless proof["bundleIdentifier"] == "app.spoonjoy.mac"
+    bundle_path = proof["bundlePath"]
+    executable_path = proof["executablePath"]
+    fail_check("#{proof_path} bundlePath must identify an absolute app bundle") unless bundle_path.is_a?(String) && Pathname.new(bundle_path).absolute? && File.extname(bundle_path) == ".app"
+    expected_executable_path = Pathname.new(bundle_path).join("Contents/MacOS/Spoonjoy").cleanpath.to_s
+    fail_check("#{proof_path} executablePath must identify Spoonjoy inside the observed bundle") unless executable_path.is_a?(String) && Pathname.new(executable_path).cleanpath.to_s == expected_executable_path
+    fail_check("#{proof_path} executableSHA256 must be an exact SHA-256") unless proof["executableSHA256"].is_a?(String) && proof["executableSHA256"].match?(/\A[0-9a-f]{64}\z/)
+    fail_check("#{proof_path} pid must identify the observed app process") unless proof["pid"].is_a?(Integer) && proof["pid"].positive?
+    fail_check("#{proof_path} windowID must identify the exact observed app window") unless proof["windowID"].is_a?(Integer) && proof["windowID"].positive?
+    validate_macos_pixel_accessibility_binding!(
+      proof_path,
+      proof,
+      "initial",
+      expected_initial_screenshot_sha256,
+      proof["pid"],
+      proof["windowID"],
+      viewport
+    )
+    validate_macos_screenshot_contrast_evidence!(
+      proof_path,
+      proof,
+      elements,
+      "initial",
+      expected_initial_screenshot_sha256,
+      viewport
+    )
+  else
+    host_observation = validate_host_process_observation!(proof_path, proof["hostProcessObservation"])
+    validate_contrast_pixel_adjudication_diagnostics!(
+      proof_path,
+      proof["contrastPixelAdjudicationDiagnostics"],
+      proof["auditIssues"],
+      nil,
+      expected_initial_screenshot_sha256
+    )
+    fail_check("#{proof_path} accessibility audit issues must be empty") unless proof["auditIssues"] == []
+    validate_ios_audit_types!(proof_path, proof, "initial")
+    content_size_category = proof["observedContentSizeCategory"]
+    fail_check("#{proof_path} observedContentSizeCategory must be present") unless content_size_category.is_a?(String) && !content_size_category.empty?
+    observed_dynamic_type = proof["observedDynamicTypeSize"]
+    expected_dynamic_type = {
+      "large" => "large",
+      "extra-extra-extra-large" => "xxxLarge",
+      "accessibility-extra-extra-extra-large" => "accessibility5"
+    }[content_size_category]
+    fail_check("#{proof_path} observedContentSizeCategory is unsupported") if expected_dynamic_type.nil?
+    fail_check("#{proof_path} requested and observed Dynamic Type do not match") unless observed_dynamic_type == expected_dynamic_type
+    expected_initial_screenshot_sha256 = expected_screenshot_digest!(
+      manifest_path,
+      manifest,
+      platform,
+      content_size_category,
+      "initial"
+    )
+    fail_check("#{proof_path} initial screenshot SHA-256 mismatch") unless proof["screenshotSHA256"] == expected_initial_screenshot_sha256
+    readiness_binding = readiness_bindings[[platform, observed_dynamic_type]]
+    fail_check("#{proof_path} has no readiness artifact for #{platform}/#{observed_dynamic_type}") unless readiness_binding
+    validate_readiness_handshake!(proof_path, proof["readinessHandshake"], readiness_binding, route, "initial")
+    validate_capture_identity!(
+      proof_path,
+      proof,
+      proof["captureIdentity"],
+      proof["readinessHandshake"],
+      host_observation,
+      "initial",
+      expected_initial_screenshot_sha256
+    )
+    validate_verified_contrast_false_positives!(
+      proof_path,
+      proof["verifiedContrastFalsePositives"],
+      expected_initial_screenshot_sha256,
+      "initial",
+      proof.dig("pixelAccessibilityBinding", "windowFrame")
+    )
+    fail_check("#{proof_path} stale offscreen contrast proof is deep-scroll-only") unless proof["verifiedStaleOffscreenContrastFalsePositives"] == []
+    validate_verified_system_chrome_contrast_false_positives!(
+      proof_path,
+      proof["verifiedSystemChromeContrastFalsePositives"],
+      "initial",
+      platform,
+      content_size_category,
+      elements,
+      proof.dig("pixelAccessibilityBinding", "windowFrame"),
+      expected_initial_screenshot_sha256
+    )
+    validate_verified_native_sidebar_selection_contrast_false_positives!(
+      proof_path,
+      proof.fetch("verifiedNativeSidebarSelectionContrastFalsePositives", []),
+      "initial",
+      platform,
+      content_size_category,
+      elements,
+      proof.dig("pixelAccessibilityBinding", "windowFrame"),
+      expected_initial_screenshot_sha256
+    )
+    validate_verified_text_clipped_false_positives!(
+      proof_path,
+      proof["verifiedTextClippedFalsePositives"],
+      "initial",
+      platform,
+      content_size_category,
+      elements
+    )
+    fail_check("#{proof_path} accessibility audit tool limitations are not release evidence") unless proof.fetch("toolLimitations", []) == []
+  end
+
+  compact_deep_scroll_route = COMPACT_DEEP_SCROLL_ROUTES.include?(route)
+  deep_scroll_required = compact_deep_scroll_route
+  if deep_scroll_required
+    deep_scroll = proof["deepScroll"]
+    fail_check("#{proof_path} missing deep-scroll evidence") unless deep_scroll.is_a?(Hash)
+    fail_check("#{proof_path} deep-scroll route mismatch") unless deep_scroll["route"] == route
+    fail_check("#{proof_path} deep scroll did not reach terminal content") unless deep_scroll["reachedTerminal"] == true
+    fail_check("#{proof_path} deep-scroll findings must be empty") unless deep_scroll["findings"] == []
+    fail_check("#{proof_path} deep scroll missing content viewport") unless deep_scroll["contentViewport"].is_a?(Hash)
+    fail_check("#{proof_path} deep scroll missing terminal element") unless deep_scroll["terminalElement"].is_a?(Hash)
+    terminal_contract = required_deep_scroll_terminal(manifest, route)
+    expected_terminal = terminal_contract.fetch("identifier")
+    expected_terminal_label = terminal_contract.fetch("label")
+    terminal_element = deep_scroll.fetch("terminalElement")
+    terminal_frame = observed_rect!(proof_path, terminal_element["frame"], "deep-scroll terminal frame")
+    deep_viewport = observed_rect!(proof_path, deep_scroll["contentViewport"], "deep-scroll content viewport")
+    fail_check("#{proof_path} deep-scroll terminal is outside the content viewport") unless rect_contains?(deep_viewport, terminal_frame)
+    fail_check("#{proof_path} deep scroll did not prove #{expected_terminal}") unless terminal_element["identifier"] == expected_terminal
+    terminal_label = platform == "macos" ? terminal_element["title"] : terminal_element["label"]
+    fail_check("#{proof_path} deep scroll did not prove terminal label #{expected_terminal_label}") unless terminal_label == expected_terminal_label
+    fail_check("#{proof_path} terminal must remain enabled") unless terminal_element["enabled"] == true
+    if platform == "macos"
+      fail_check("#{proof_path} macOS terminal role mismatch") unless terminal_element["role"] == terminal_contract.fetch("macosRole")
+      required_action = terminal_contract.fetch("interactive") ? "AXPress" : nil
+      actions = terminal_element["actions"]
+      fail_check("#{proof_path} macOS terminal actions must be an array") unless actions.is_a?(Array)
+      if required_action
+        fail_check("#{proof_path} macOS terminal is not actionable") unless actions.include?(required_action)
+      end
+    else
+      fail_check("#{proof_path} iOS terminal type mismatch") unless terminal_element["type"] == terminal_contract.fetch("iosType")
+      if terminal_contract.fetch("interactive")
+        fail_check("#{proof_path} iOS terminal is not hittable") unless terminal_element["hittable"] == true
+      end
+    end
+    if platform == "macos"
+      fail_check("#{proof_path} macOS deep scroll missing route-specific scroll identifier") unless deep_scroll["scrollAreaIdentifier"].is_a?(String) && !deep_scroll["scrollAreaIdentifier"].empty?
+      fail_check("#{proof_path} macOS deep scroll missing initial value") unless deep_scroll["initialScrollValue"].is_a?(Numeric)
+      fail_check("#{proof_path} macOS deep scroll missing final value") unless deep_scroll["finalScrollValue"].is_a?(Numeric)
+      fail_check("#{proof_path} macOS deep scroll moved backwards") if deep_scroll["finalScrollValue"] < deep_scroll["initialScrollValue"]
+      expected_deep_screenshot_sha256 = expected_screenshot_digest!(manifest_path, manifest, platform, nil, "deepScroll")
+      fail_check("#{proof_path} macOS post-scroll screenshot SHA-256 mismatch") unless deep_scroll["postScrollScreenshotSHA256"] == expected_deep_screenshot_sha256
+      fail_check("#{proof_path} macOS post-scroll process binding mismatch") unless deep_scroll["applicationProcessIdentifier"] == proof["pid"]
+      fail_check("#{proof_path} macOS post-scroll window binding mismatch") unless deep_scroll["windowID"] == proof["windowID"]
+      post_scroll_elements = deep_scroll["postScrollElements"]
+      fail_check("#{proof_path} macOS post-scroll elements must be non-empty") unless post_scroll_elements.is_a?(Array) && !post_scroll_elements.empty?
+      post_scroll_terminal = post_scroll_elements.find { |element| element["identifier"] == expected_terminal }
+      fail_check("#{proof_path} macOS post-scroll elements do not contain the exact terminal") unless post_scroll_terminal.is_a?(Hash)
+      fail_check("#{proof_path} macOS post-scroll terminal label changed after capture") unless post_scroll_terminal["title"] == expected_terminal_label
+      fail_check("#{proof_path} macOS post-scroll audit findings must be empty") unless deep_scroll["postScrollAuditFindings"] == []
+      selected_hierarchy = deep_scroll["selectedScrollHierarchyElements"]
+      selected_identifier = deep_scroll["selectedScrollHierarchyIdentifier"]
+      fail_check("#{proof_path} macOS selected scroll hierarchy identifier mismatch") unless selected_identifier == deep_scroll["scrollAreaIdentifier"] && !selected_identifier.to_s.empty?
+      fail_check("#{proof_path} macOS selected scroll hierarchy elements must be non-empty") unless selected_hierarchy.is_a?(Array) && !selected_hierarchy.empty?
+      selected_terminal_matches = selected_hierarchy.select { |element| element.is_a?(Hash) && element["identifier"] == expected_terminal }
+      fail_check("#{proof_path} macOS terminal must occur exactly once inside the selected scroll hierarchy") unless selected_terminal_matches.length == 1
+      %w[identifier role subrole title frame enabled focused actions].each do |field|
+        fail_check("#{proof_path} macOS selected hierarchy terminal #{field} mismatch") unless selected_terminal_matches.first[field] == terminal_element[field]
+      end
+      validate_macos_pixel_accessibility_binding!(
+        proof_path,
+        deep_scroll,
+        "deepScroll",
+        expected_deep_screenshot_sha256,
+        proof["pid"],
+        proof["windowID"],
+        viewport,
+        selected_scroll_identifier: selected_identifier
+      )
+      validate_macos_screenshot_contrast_evidence!(
+        proof_path,
+        deep_scroll,
+        post_scroll_elements,
+        "deepScroll",
+        expected_deep_screenshot_sha256,
+        viewport
+      )
+      deep_geometry_findings = host_geometry_findings!(
+        proof_path,
+        post_scroll_elements,
+        deep_viewport,
+        platform,
+        route,
+        manifest,
+        include_route_requirements: false,
+        element_bounds: viewport
+      )
+      fail_check("#{proof_path} host post-scroll geometry recomputation failed: #{deep_geometry_findings.join("; ")}") unless deep_geometry_findings.empty?
+      selected_geometry_findings = host_geometry_findings!(
+        proof_path,
+        selected_hierarchy,
+        deep_viewport,
+        platform,
+        route,
+        manifest,
+        include_route_requirements: false,
+        element_bounds: viewport
+      )
+      fail_check("#{proof_path} host selected-hierarchy geometry recomputation failed: #{selected_geometry_findings.join("; ")}") unless selected_geometry_findings.empty?
+    else
+      validate_contrast_pixel_adjudication_diagnostics!(
+        proof_path,
+        deep_scroll["contrastPixelAdjudicationDiagnostics"],
+        deep_scroll["auditIssues"],
+        "deepScroll",
+        deep_scroll["screenshotSHA256"]
+      )
+      fail_check("#{proof_path} compact deep-scroll accessibility audit issues must be empty") unless deep_scroll["auditIssues"] == []
+      validate_ios_audit_types!(proof_path, deep_scroll, "deepScroll")
+      swipe_count = deep_scroll["swipeCount"]
+      observed_movement = deep_scroll["observedContentMovement"]
+      content_fits = deep_scroll["contentFitsWithoutScrolling"]
+      fail_check("#{proof_path} compact deep scroll count must be a nonnegative integer") unless swipe_count.is_a?(Integer) && swipe_count >= 0
+      fail_check("#{proof_path} compact deep scroll movement proof must be boolean") unless [true, false].include?(observed_movement)
+      fail_check("#{proof_path} compact deep scroll fit proof must be boolean") unless [true, false].include?(content_fits)
+      if content_fits
+        fail_check("#{proof_path} content that already fits must not be disturbed by a scroll probe") unless swipe_count.zero? && observed_movement == false
+      else
+        fail_check("#{proof_path} scrollable content must prove a real movement") unless swipe_count.positive? && observed_movement == true
+      end
+      deep_readiness_binding = deep_readiness_bindings[[platform, observed_dynamic_type]]
+      fail_check("#{proof_path} has no deep-scroll readiness artifact for #{platform}/#{observed_dynamic_type}") unless deep_readiness_binding
+      validate_ios_deep_scroll_waypoints!(
+        proof_path,
+        deep_scroll,
+        platform,
+        route,
+        manifest,
+        host_observation,
+        proof["observedContentSizeCategory"],
+        elements,
+        expected_initial_screenshot_sha256,
+        proof.dig("captureIdentity", "captureID"),
+        deep_readiness_binding
+      )
+      expected_deep_screenshot_sha256 = expected_screenshot_digest!(
+        manifest_path,
+        manifest,
+        platform,
+        proof["observedContentSizeCategory"],
+        "deepScroll"
+      )
+      fail_check("#{proof_path} deep-scroll screenshot SHA-256 mismatch") unless deep_scroll["screenshotSHA256"] == expected_deep_screenshot_sha256
+      validate_readiness_handshake!(
+        proof_path,
+        deep_scroll["readinessHandshake"],
+        deep_readiness_binding,
+        route,
+        "deep-scroll"
+      )
+      validate_capture_identity!(
+        proof_path,
+        deep_scroll,
+        deep_scroll["captureIdentity"],
+        deep_scroll["readinessHandshake"],
+        host_observation,
+        "deepScroll",
+        expected_deep_screenshot_sha256
+      )
+      initial_capture_identity = proof["captureIdentity"]
+      deep_capture_identity = deep_scroll["captureIdentity"]
+      fail_check("#{proof_path} initial and deep-scroll captures must have distinct capture IDs") unless initial_capture_identity["captureID"] != deep_capture_identity["captureID"]
+      fail_check("#{proof_path} initial and deep-scroll captures must use the same app process") unless initial_capture_identity["applicationProcessIdentifier"] == deep_capture_identity["applicationProcessIdentifier"]
+      selected_hierarchy = deep_scroll["selectedScrollHierarchyElements"]
+      deep_elements = deep_scroll["elements"]
+      fail_check("#{proof_path} deep-scroll elements must be non-empty") unless deep_elements.is_a?(Array) && !deep_elements.empty?
+      fail_check("#{proof_path} selected scroll hierarchy must be spoonjoy.page-scroll") unless deep_scroll["selectedScrollHierarchyIdentifier"] == "spoonjoy.page-scroll"
+      fail_check("#{proof_path} selected scroll hierarchy elements must be non-empty") unless selected_hierarchy.is_a?(Array) && !selected_hierarchy.empty?
+      hierarchy_terminal_matches = selected_hierarchy.select { |element| element.is_a?(Hash) && element["identifier"] == expected_terminal }
+      fail_check("#{proof_path} terminal must occur exactly once inside the selected scroll hierarchy") unless hierarchy_terminal_matches.length == 1
+      hierarchy_terminal = hierarchy_terminal_matches.first
+      %w[identifier label type frame exists hittable enabled].each do |field|
+        fail_check("#{proof_path} selected hierarchy terminal #{field} mismatch") unless hierarchy_terminal[field] == terminal_element[field]
+      end
+      deep_geometry_findings = host_geometry_findings!(proof_path, selected_hierarchy, deep_viewport, platform, route, manifest, include_route_requirements: false)
+      fail_check("#{proof_path} host deep-scroll geometry recomputation failed: #{deep_geometry_findings.join("; ")}") unless deep_geometry_findings.empty?
+      validate_verified_contrast_false_positives!(
+        proof_path,
+        deep_scroll["verifiedContrastFalsePositives"],
+        expected_deep_screenshot_sha256,
+        "deepScroll",
+        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame")
+      )
+      validate_verified_stale_offscreen_contrast_false_positives!(
+        proof_path,
+        deep_scroll["verifiedStaleOffscreenContrastFalsePositives"],
+        elements,
+        deep_elements,
+        proof.dig("pixelAccessibilityBinding", "windowFrame"),
+        expected_initial_screenshot_sha256,
+        expected_deep_screenshot_sha256
+      )
+      validate_verified_system_chrome_contrast_false_positives!(
+        proof_path,
+        deep_scroll["verifiedSystemChromeContrastFalsePositives"],
+        "deepScroll",
+        platform,
+        proof["observedContentSizeCategory"],
+        deep_elements,
+        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame"),
+        expected_deep_screenshot_sha256
+      )
+      validate_verified_native_sidebar_selection_contrast_false_positives!(
+        proof_path,
+        deep_scroll.fetch("verifiedNativeSidebarSelectionContrastFalsePositives", []),
+        "deepScroll",
+        platform,
+        proof["observedContentSizeCategory"],
+        deep_elements,
+        deep_scroll.dig("pixelAccessibilityBinding", "windowFrame"),
+        expected_deep_screenshot_sha256
+      )
+      validate_verified_text_clipped_false_positives!(
+        proof_path,
+        deep_scroll["verifiedTextClippedFalsePositives"],
+        "deepScroll",
+        platform,
+        proof["observedContentSizeCategory"],
+        deep_elements
+      )
+      fail_check("#{proof_path} compact deep-scroll tool limitations are not release evidence") unless deep_scroll.fetch("toolLimitations", []) == []
+    end
+    if platform == "ios"
+      tab_bar_frame = observed_rect!(proof_path, deep_scroll["tabBarFrame"], "deep-scroll tab bar frame")
+      fail_check("#{proof_path} terminal is occluded by the tab bar") if rect_intersection(terminal_frame, tab_bar_frame) || terminal_frame["y"] + terminal_frame["height"] > tab_bar_frame["y"] + 0.5
+    end
+  end
+
+  if route == "settings" && manifest["settingsVisualFocus"] == "notifications"
+    validate_observed_settings_notification_headings!(proof_path, elements)
+  end
+
+  platform
+end
+
+def expected_screenshot_digest!(manifest_path, manifest, platform, content_size_category, capture_phase)
+  key = if platform == "macos"
+          "macosDesktop"
+        elsif platform == "ipad" && content_size_category == "accessibility-extra-extra-extra-large"
+          "iosTabletAccessibility"
+        elsif platform == "ipad" && content_size_category == "extra-extra-extra-large"
+          "iosTabletXXXL"
+        elsif platform == "ipad"
+          "iosTablet"
+        elsif content_size_category == "accessibility-extra-extra-extra-large"
+          "iosAccessibility"
+        elsif content_size_category == "extra-extra-extra-large"
+          "iosXXXL"
+        else
+          "iosMobile"
+        end
+  collection = capture_phase == "deepScroll" ? "deepScrollScreenshotArtifacts" : "screenshotArtifacts"
+  digest = manifest.dig(collection, key, "sha256")
+  fail_check("#{manifest_path} missing #{capture_phase} screenshot digest for #{key}") unless digest.is_a?(String) && digest.match?(/\A[0-9a-f]{64}\z/)
+  digest
+end
+
+def validate_verified_contrast_false_positives!(
+  proof_path,
+  entries,
+  expected_screenshot_sha256,
+  capture_phase,
+  window_frame
+)
+  fail_check("#{proof_path} verified contrast evidence must be an array") unless entries.is_a?(Array)
+  entries.each do |entry|
+    fail_check("#{proof_path} verified contrast entry must be an object") unless entry.is_a?(Hash)
+    fail_check("#{proof_path} verified contrast phase mismatch") unless entry["capturePhase"] == capture_phase
+    issue = entry["issue"]
+    fail_check("#{proof_path} verified contrast issue must be an object") unless issue.is_a?(Hash)
+    fail_check("#{proof_path} verified contrast issue must preserve Apple's contrast category") unless issue["category"] == "contrast"
+    fail_check("#{proof_path} verified contrast issue must identify static text") unless issue["elementType"] == "staticText"
+    frame = issue["elementFrame"]
+    fail_check("#{proof_path} verified contrast issue must preserve a finite positive frame") unless frame.is_a?(Hash) && %w[x y width height].all? { |key| frame[key].is_a?(Numeric) && frame[key].finite? } && frame["width"].positive? && frame["height"].positive?
+
+    validate_contrast_pixel_evidence!(
+      proof_path,
+      entry["pixelEvidence"],
+      expected_screenshot_sha256,
+      "verified contrast",
+      frame: frame,
+      window_frame: window_frame
+    )
+  end
+end
+
+def validate_contrast_pixel_evidence!(
+  proof_path,
+  pixels,
+  expected_screenshot_sha256,
+  label,
+  minimum_required_ratio: 4.5,
+  frame:,
+  window_frame:
+)
+  expected_keys = %w[
+    analyzedPixelCount background backgroundCoverage backgroundPixelCount contrastRatio
+    evaluatedForegroundClusterCount foreground foregroundCoverage foregroundPixelCount
+    ignoredEdgeRulePixelCount ignoredEdgeRuleRowCount method requiredContrastRatio screenshotSHA256
+  ]
+  fail_check("#{proof_path} #{label} pixel evidence must be an object") unless pixels.is_a?(Hash)
+  fail_check("#{proof_path} #{label} pixel evidence fields must be exact") unless pixels.keys.sort == expected_keys.sort
+  fail_check("#{proof_path} #{label} method mismatch") unless pixels["method"] == "screenshotPixelContrastV2"
+  fail_check("#{proof_path} #{label} screenshot SHA-256 mismatch") unless pixels["screenshotSHA256"] == expected_screenshot_sha256
+  required_ratio = pixels["requiredContrastRatio"]
+  measured_ratio = pixels["contrastRatio"]
+  fail_check("#{proof_path} #{label} threshold must be at least #{minimum_required_ratio}") unless
+    required_ratio.is_a?(Numeric) && required_ratio.finite? && required_ratio >= minimum_required_ratio
+  fail_check("#{proof_path} #{label} ratio does not meet its threshold") unless measured_ratio.is_a?(Numeric) && measured_ratio.finite? && measured_ratio >= required_ratio
+  clusters = pixels["evaluatedForegroundClusterCount"]
+  fail_check("#{proof_path} #{label} must evaluate foreground clusters") unless clusters.is_a?(Integer) && clusters.positive?
+
+  analyzed_count = pixels["analyzedPixelCount"]
+  background_count = pixels["backgroundPixelCount"]
+  foreground_count = pixels["foregroundPixelCount"]
+  ignored_rule_pixel_count = pixels["ignoredEdgeRulePixelCount"]
+  ignored_rule_row_count = pixels["ignoredEdgeRuleRowCount"]
+  background_coverage = pixels["backgroundCoverage"]
+  foreground_coverage = pixels["foregroundCoverage"]
+  fail_check("#{proof_path} #{label} pixel counts are invalid") unless analyzed_count.is_a?(Integer) && analyzed_count.positive? && background_count.is_a?(Integer) && background_count.positive? && foreground_count.is_a?(Integer) && foreground_count.positive? && ignored_rule_pixel_count.is_a?(Integer) && ignored_rule_pixel_count >= 0 && ignored_rule_row_count.is_a?(Integer) && ignored_rule_row_count >= 0 && background_count + foreground_count + ignored_rule_pixel_count <= analyzed_count
+  fail_check("#{proof_path} #{label} ignored-rule counts disagree") unless (ignored_rule_pixel_count.zero? && ignored_rule_row_count.zero?) || (ignored_rule_pixel_count.positive? && ignored_rule_row_count.positive?)
+  fail_check("#{proof_path} #{label} background coverage is unstable") unless background_coverage.is_a?(Numeric) && background_coverage.finite? && background_coverage >= 0.6 && background_coverage <= 1
+  fail_check("#{proof_path} #{label} foreground coverage is invalid") unless foreground_coverage.is_a?(Numeric) && foreground_coverage.finite? && foreground_coverage.positive? && foreground_coverage <= 0.4
+  fail_check("#{proof_path} #{label} background count/coverage mismatch") unless (background_coverage - background_count.fdiv(analyzed_count)).abs <= 0.001
+  fail_check("#{proof_path} #{label} foreground count/coverage mismatch") unless (foreground_coverage - foreground_count.fdiv(analyzed_count)).abs <= 0.001
+
+  %w[background foreground].each do |color_name|
+    color = pixels[color_name]
+    valid_color = color.is_a?(Hash) && color.keys.sort == %w[blue green red] && %w[red green blue].all? do |component|
+      color[component].is_a?(Integer) && color[component].between?(0, 255)
+    end
+    fail_check("#{proof_path} #{label} #{color_name} color is invalid") unless valid_color
+  end
+
+  observed_window = observed_rect!(proof_path, window_frame, "#{label} pixel window frame")
+  observed_frame = observed_rect!(proof_path, frame, "#{label} pixel frame")
+  fail_check("#{proof_path} #{label} pixel frame is outside its screenshot window") unless
+    rect_contains?(observed_window, observed_frame, tolerance: 0.01)
+  local_frame = {
+    "x" => observed_frame["x"] - observed_window["x"],
+    "y" => observed_frame["y"] - observed_window["y"],
+    "width" => observed_frame["width"],
+    "height" => observed_frame["height"]
+  }
+  screenshot_path = screenshot_path_for_digest!(proof_path, expected_screenshot_sha256)
+  begin
+    recomputed = ScreenshotContrastEvidence.analyze(
+      screenshot_path: screenshot_path,
+      point_size: {
+        "width" => observed_window["width"],
+        "height" => observed_window["height"]
+      },
+      frame: local_frame,
+      required_contrast_ratio: required_ratio
+    )
+  rescue StandardError => error
+    fail_check("#{proof_path} #{label} pixel recomputation failed: #{error.message}")
+  end
+  fail_check("#{proof_path} #{label} pixel evidence does not match the attested PNG crop") unless recomputed == pixels
+end
+
+def screenshot_path_for_digest!(proof_path, digest)
+  registered = ($observed_screenshot_paths_by_digest ||= {})[digest]
+  return registered if registered&.file? && Digest::SHA256.file(registered).hexdigest == digest
+
+  artifact_root = proof_path.dirname.parent
+  candidates = (SCREENSHOT_ARTIFACTS.values + DEEP_SCROLL_SCREENSHOT_ARTIFACTS.values).uniq.each_with_object([]) do |relative_path, matches|
+    path = artifact_root.join(relative_path).cleanpath
+    next unless path.file?
+    next unless Digest::SHA256.file(path).hexdigest == digest
+
+    matches << path
+  end
+  fail_check("#{proof_path} has no screenshot file for pixel evidence SHA-256 #{digest}") if candidates.empty?
+  candidates.first
+end
+
+def validate_contrast_pixel_adjudication_diagnostics!(proof_path, entries, audit_issues, capture_phase, screenshot_sha256)
+  fail_check("#{proof_path} contrast pixel diagnostics must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} audit issues must be an array before contrast diagnostics") unless audit_issues.is_a?(Array)
+  blocking_contrast = audit_issues.select do |issue|
+    issue.is_a?(Hash) && issue["category"] == "contrast" && issue["elementType"] == "staticText"
+  end
+  fail_check("#{proof_path} every blocking attributed contrast issue requires one diagnostic") unless entries.length == blocking_contrast.length
+
+  entries.zip(blocking_contrast).each do |entry, issue|
+    expected_keys = %w[
+      schema capturePhase issue matchingAttestedElementCount attestedFrame
+      screenshotBufferAvailable screenshotSHA256 screenshotPixelWidth screenshotPixelHeight attempts
+    ]
+    fail_check("#{proof_path} contrast pixel diagnostic fields must be exact") unless entry.is_a?(Hash) && entry.keys.sort == expected_keys.sort
+    fail_check("#{proof_path} contrast pixel diagnostic schema mismatch") unless entry["schema"] == "iosContrastPixelAdjudicationFailureV1"
+    valid_phase = capture_phase ? entry["capturePhase"] == capture_phase : %w[initial deepScroll].include?(entry["capturePhase"])
+    fail_check("#{proof_path} contrast pixel diagnostic phase mismatch") unless valid_phase
+    fail_check("#{proof_path} contrast pixel diagnostic issue mismatch") unless entry["issue"] == issue
+    match_count = entry["matchingAttestedElementCount"]
+    fail_check("#{proof_path} contrast pixel diagnostic match count is invalid") unless match_count.is_a?(Integer) && match_count >= 0
+    if match_count == 1
+      observed_rect!(proof_path, entry["attestedFrame"], "contrast pixel diagnostic attested frame")
+    else
+      fail_check("#{proof_path} ambiguous contrast pixel attestation must not choose a frame") unless entry["attestedFrame"].nil?
+    end
+    fail_check("#{proof_path} contrast pixel screenshot-buffer state must be boolean") unless [true, false].include?(entry["screenshotBufferAvailable"])
+    fail_check("#{proof_path} contrast pixel diagnostic screenshot mismatch") unless entry["screenshotSHA256"] == screenshot_sha256
+    screenshot_dimensions = [entry["screenshotPixelWidth"], entry["screenshotPixelHeight"]]
+    if entry["screenshotBufferAvailable"]
+      fail_check("#{proof_path} available screenshot buffer requires positive pixel dimensions") unless
+        screenshot_dimensions.all? { |value| value.is_a?(Integer) && value.positive? }
+    else
+      fail_check("#{proof_path} unavailable screenshot buffer must encode null pixel dimensions") unless screenshot_dimensions.all?(&:nil?)
+    end
+    attempts = entry["attempts"]
+    fail_check("#{proof_path} contrast pixel attempts must be an array") unless attempts.is_a?(Array)
+    attempts.each do |attempt|
+      attempt_keys = %w[source frame outcome cropWidth cropHeight]
+      fail_check("#{proof_path} contrast pixel attempt fields must be exact") unless attempt.is_a?(Hash) && attempt.keys.sort == attempt_keys.sort
+      fail_check("#{proof_path} contrast pixel attempt source is invalid") unless %w[attested audit].include?(attempt["source"])
+      observed_rect!(proof_path, attempt["frame"], "contrast pixel attempt frame")
+      outcome = attempt["outcome"]
+      fail_check("#{proof_path} successful contrast proof belongs in verified evidence") unless %w[screenshotBufferUnavailable cropUnavailable analyzerRejected].include?(outcome)
+      crop_dimensions = [attempt["cropWidth"], attempt["cropHeight"]]
+      if outcome == "analyzerRejected"
+        fail_check("#{proof_path} analyzer rejection requires positive crop dimensions") unless crop_dimensions.all? { |value| value.is_a?(Integer) && value.positive? }
+        fail_check("#{proof_path} contrast crop exceeds screenshot pixels") unless
+          entry["screenshotBufferAvailable"] &&
+            crop_dimensions[0] <= screenshot_dimensions[0] &&
+            crop_dimensions[1] <= screenshot_dimensions[1]
+      else
+        fail_check("#{proof_path} unavailable contrast crop must encode null dimensions") unless crop_dimensions.all?(&:nil?)
+      end
+    end
+  end
+end
+
+def validate_verified_stale_offscreen_contrast_false_positives!(
+  proof_path,
+  entries,
+  initial_elements,
+  deep_elements,
+  window_frame_value,
+  initial_screenshot_sha256,
+  deep_screenshot_sha256,
+  capture_phase: "deepScroll",
+  prior_capture_phase: "initial"
+)
+  fail_check("#{proof_path} stale offscreen contrast evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} stale offscreen contrast evidence requires observed elements") unless initial_elements.is_a?(Array) && deep_elements.is_a?(Array)
+  window_frame = observed_rect!(proof_path, window_frame_value, "stale offscreen contrast window frame")
+  entries.each do |entry|
+    expected_keys = %w[
+      schema capturePhase reason issue priorElementFrame currentElementFrame
+      priorScreenshotSHA256 currentScreenshotSHA256 priorPixelEvidence
+    ]
+    fail_check("#{proof_path} stale offscreen contrast fields must be exact") unless entry.is_a?(Hash) && entry.keys.sort == expected_keys.sort
+    fail_check("#{proof_path} stale offscreen contrast schema mismatch") unless entry["schema"] == "iosStaleOffscreenContrastFalsePositiveV1"
+    fail_check("#{proof_path} stale offscreen contrast phase mismatch") unless entry["capturePhase"] == capture_phase
+    fail_check("#{proof_path} stale offscreen contrast reason mismatch") unless entry["reason"] == "priorHighContrastPixelsBoundToNowOffscreenAttestedElement"
+    issue = entry["issue"]
+    fail_check("#{proof_path} stale offscreen contrast issue must be attributed static text") unless issue.is_a?(Hash) && issue["category"] == "contrast" && issue["elementType"] == "staticText"
+    issue_frame = observed_rect!(proof_path, issue["elementFrame"], "stale offscreen contrast issue frame")
+    prior_frame = observed_rect!(proof_path, entry["priorElementFrame"], "stale offscreen contrast prior frame")
+    current_frame = observed_rect!(proof_path, entry["currentElementFrame"], "stale offscreen contrast current frame")
+    fail_check("#{proof_path} stale offscreen issue frame must remain inside the captured window") unless rect_contains?(window_frame, issue_frame)
+    fail_check("#{proof_path} stale offscreen prior frame must be visible") unless rect_contains?(window_frame, prior_frame)
+    fail_check("#{proof_path} stale offscreen current frame must be fully outside the window") if rect_intersection(window_frame, current_frame)
+    %w[x width height].each do |field|
+      fail_check("#{proof_path} stale offscreen element geometry changed outside the scroll axis") unless (prior_frame[field] - current_frame[field]).abs <= 0.75
+    end
+    fail_check("#{proof_path} stale offscreen element did not move by a real scroll distance") unless (prior_frame["y"] - current_frame["y"]).abs >= 44
+
+    matching = lambda do |candidate, frame|
+      candidate.is_a?(Hash) &&
+        candidate["exists"] == true &&
+        candidate["identifier"] == issue["elementIdentifier"] &&
+        candidate["label"] == issue["elementLabel"] &&
+        candidate["type"] == issue["elementType"] &&
+        rect_equal?(candidate["frame"], frame, tolerance: 0.01)
+    end
+    fail_check("#{proof_path} stale offscreen prior element must bind uniquely") unless initial_elements.count { |candidate| matching.call(candidate, prior_frame) } == 1
+    fail_check("#{proof_path} stale offscreen current element must bind uniquely") unless deep_elements.count { |candidate| matching.call(candidate, current_frame) } == 1
+    fail_check("#{proof_path} stale offscreen prior screenshot mismatch") unless entry["priorScreenshotSHA256"] == initial_screenshot_sha256
+    fail_check("#{proof_path} stale offscreen current screenshot mismatch") unless entry["currentScreenshotSHA256"] == deep_screenshot_sha256
+    validate_verified_contrast_false_positives!(
+      proof_path,
+      [{
+        "capturePhase" => prior_capture_phase,
+        "issue" => issue.merge("elementFrame" => prior_frame),
+        "pixelEvidence" => entry["priorPixelEvidence"]
+      }],
+      initial_screenshot_sha256,
+      prior_capture_phase,
+      window_frame
+    )
+  end
+end
+
+def validate_verified_system_chrome_contrast_false_positives!(
+  proof_path,
+  entries,
+  capture_phase,
+  platform,
+  content_size_category,
+  elements,
+  window_frame_value,
+  screenshot_sha256
+)
+  fail_check("#{proof_path} verified system-chrome contrast evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} verified system-chrome contrast evidence requires observed elements") unless elements.is_a?(Array)
+  fail_check("#{proof_path} verified system-chrome contrast evidence must contain at most two issues per capture phase") if entries.length > 2
+
+  expected_issue_keys = %w[
+    category compactDescription detailedDescription diagnosticDescription diagnosticMirror
+    elementFrame elementIdentifier elementLabel elementType type
+  ]
+  expected_reference_keys = %w[frame identifier label type]
+  window_frame = entries.empty? ? nil : observed_rect!(proof_path, window_frame_value, "verified system-chrome window frame")
+
+  entries.each do |entry|
+    fail_check("#{proof_path} verified system-chrome contrast entry must be an object") unless entry.is_a?(Hash)
+    compact_variant = entry["schema"] == "iosNativeCompactTabChromeContrastFalsePositiveV2"
+    bottom_variant = entry["schema"] == "iosNativeBottomTabChromeContrastFalsePositiveV3"
+    large_type_bottom_variant = entry["schema"] == "iosNativeLargeTypeBottomTabChromeContrastFalsePositiveV4"
+    ordinary_label_only_bottom_variant = entry["schema"] == "iosNativeLabelOnlyBottomTabChromeContrastFalsePositiveV5"
+    fail_check("#{proof_path} verified system-chrome contrast schema mismatch") unless compact_variant || bottom_variant || large_type_bottom_variant || ordinary_label_only_bottom_variant
+    expected_entry_keys = %w[
+      capturePhase contentSizeCategory destinations issue issueElement navigationBar pixelEvidence
+      reason schema screenshotSHA256
+    ]
+    expected_entry_keys << "tabBar" if bottom_variant || large_type_bottom_variant || ordinary_label_only_bottom_variant
+    fail_check("#{proof_path} verified system-chrome contrast fields must be exact") unless entry.keys.sort == expected_entry_keys.sort
+    if compact_variant
+      fail_check("#{proof_path} compact system-chrome evidence must contain at most one issue per capture phase") if entries.length > 1
+      fail_check("#{proof_path} compact system-chrome evidence is limited to large-type native iPad chrome") unless
+        platform == "ipad" && %w[extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
+      expected_reason = "elementContrastBoundToAttestedNativeCompactTabChrome"
+      expected_destinations = IOS_NATIVE_COMPACT_TAB_DESTINATIONS
+    elsif bottom_variant
+      fail_check("#{proof_path} bottom-tab system-chrome evidence is limited to shipped native iPhone content sizes") unless
+        platform == "ios" && %w[large extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
+      expected_reason = "elementContrastBoundToAttestedNativeBottomTabChrome"
+      expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
+    elsif large_type_bottom_variant
+      fail_check("#{proof_path} label-only bottom-tab evidence is limited to shipped large-type iPhone sizes") unless
+        platform == "ios" && %w[extra-extra-extra-large accessibility-extra-extra-extra-large].include?(content_size_category)
+      expected_reason = "elementContrastBoundToAttestedNativeLargeTypeBottomTabChrome"
+      expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
+    else
+      fail_check("#{proof_path} ordinary label-only bottom-tab evidence is limited to initial shipped iPhone chrome") unless
+        platform == "ios" && content_size_category == "large" && capture_phase == "initial"
+      expected_reason = "elementContrastBoundToAttestedNativeLabelOnlyBottomTabChrome"
+      expected_destinations = IOS_NATIVE_BOTTOM_TAB_DESTINATIONS
+    end
+    fail_check("#{proof_path} verified system-chrome contrast phase mismatch") unless entry["capturePhase"] == capture_phase
+    fail_check("#{proof_path} verified system-chrome contrast reason mismatch") unless entry["reason"] == expected_reason
+    fail_check("#{proof_path} verified system-chrome content-size mismatch") unless entry["contentSizeCategory"] == content_size_category
+    fail_check("#{proof_path} verified system-chrome screenshot mismatch") unless entry["screenshotSHA256"] == screenshot_sha256
+
+    issue = entry["issue"]
+    fail_check("#{proof_path} verified system-chrome issue must be an object") unless issue.is_a?(Hash)
+    fail_check("#{proof_path} verified system-chrome issue fields must be exact") unless issue.keys.sort == expected_issue_keys.sort
+    fail_check("#{proof_path} verified system-chrome issue category mismatch") unless issue["category"] == "contrast"
+    fail_check("#{proof_path} verified system-chrome issue type mismatch") unless issue["type"] == "XCUIAccessibilityAuditType(rawValue: 1)"
+    fail_check("#{proof_path} verified system-chrome compact warning mismatch") unless issue["compactDescription"] == "Contrast failed"
+    fail_check("#{proof_path} verified system-chrome detailed warning mismatch") unless issue["detailedDescription"] == "Contrast failed for SwiftUI.AccessibilityNode"
+    diagnostic = issue["diagnosticDescription"]
+    fail_check("#{proof_path} verified system-chrome issue must identify a concrete element") unless diagnostic.is_a?(String) && !diagnostic.include?("Element:(null)")
+    fail_check("#{proof_path} verified system-chrome diagnostic mirror must be empty") unless issue["diagnosticMirror"] == ""
+    fail_check("#{proof_path} verified system-chrome issue type must identify an element") unless issue["elementType"].is_a?(String) && !issue["elementType"].empty?
+    issue_frame = observed_rect!(proof_path, issue["elementFrame"], "verified system-chrome issue frame")
+
+    navigation_bar = entry["navigationBar"]
+    fail_check("#{proof_path} verified system-chrome navigation bar must be an object") unless navigation_bar.is_a?(Hash)
+    fail_check("#{proof_path} verified system-chrome navigation fields must be exact") unless navigation_bar.keys.sort == expected_reference_keys.sort
+    fail_check("#{proof_path} verified system-chrome navigation type mismatch") unless navigation_bar["type"] == "navigationBar"
+    fail_check("#{proof_path} verified system-chrome navigation identifier missing") unless navigation_bar["identifier"].is_a?(String) && !navigation_bar["identifier"].empty?
+    fail_check("#{proof_path} verified system-chrome navigation label must be empty") unless navigation_bar["label"] == ""
+    navigation_frame = observed_rect!(proof_path, navigation_bar["frame"], "verified system-chrome navigation frame")
+    fail_check("#{proof_path} verified system-chrome navigation is not full-width") unless (navigation_frame["x"] - window_frame["x"]).abs <= 0.75 && ((navigation_frame["x"] + navigation_frame["width"]) - (window_frame["x"] + window_frame["width"])).abs <= 0.75
+    fail_check("#{proof_path} verified system-chrome navigation is not top chrome") unless navigation_frame["y"] >= window_frame["y"] - 0.75 && navigation_frame["y"] + navigation_frame["height"] <= window_frame["y"] + 120 && navigation_frame["height"].between?(44, 80)
+
+    unique_navigation_bars = elements.select do |element|
+      element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true && element["type"] == "navigationBar"
+    end.uniq
+    fail_check("#{proof_path} verified system-chrome requires exactly one live navigation bar") unless unique_navigation_bars.length == 1
+    navigation_matches = unique_navigation_bars.select do |element|
+      element["identifier"] == navigation_bar["identifier"] && element["label"] == navigation_bar["label"] && rect_equal?(element["frame"], navigation_frame)
+    end
+    fail_check("#{proof_path} verified system-chrome navigation must match the attested tree") unless navigation_matches.length == 1
+
+    destination_container = navigation_frame
+    if compact_variant
+      fail_check("#{proof_path} verified system-chrome compact tab state must not contain a tab bar") if elements.any? { |element| element.is_a?(Hash) && element["exists"] == true && element["type"] == "tabBar" }
+    else
+      tab_bar = entry["tabBar"]
+      fail_check("#{proof_path} verified system-chrome tab bar must be an object") unless tab_bar.is_a?(Hash)
+      fail_check("#{proof_path} verified system-chrome tab fields must be exact") unless tab_bar.keys.sort == expected_reference_keys.sort
+      fail_check("#{proof_path} verified system-chrome tab identity mismatch") unless tab_bar["identifier"] == "" && tab_bar["label"] == "Tab Bar" && tab_bar["type"] == "tabBar"
+      tab_frame = observed_rect!(proof_path, tab_bar["frame"], "verified system-chrome tab frame")
+      fail_check("#{proof_path} verified system-chrome tab bar is not full-width bottom chrome") unless
+        (tab_frame["x"] - window_frame["x"]).abs <= 0.75 &&
+        ((tab_frame["x"] + tab_frame["width"]) - (window_frame["x"] + window_frame["width"])).abs <= 0.75 &&
+        ((tab_frame["y"] + tab_frame["height"]) - (window_frame["y"] + window_frame["height"])).abs <= 0.75 &&
+        tab_frame["height"].between?(44, 120)
+      unique_tab_bars = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true &&
+          element["hittable"] == true && element["type"] == "tabBar"
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome requires exactly one live tab bar") unless unique_tab_bars.length == 1
+      fail_check("#{proof_path} verified system-chrome tab bar must match the attested tree") unless
+        unique_tab_bars.first["identifier"] == "" && unique_tab_bars.first["label"] == "Tab Bar" &&
+        rect_equal?(unique_tab_bars.first["frame"], tab_frame)
+      live_tab_buttons = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true &&
+          element["hittable"] == true && element["type"] == "button" &&
+          element["frame"].is_a?(Hash) && rect_contains?(tab_frame, element["frame"], tolerance: 0.75)
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome tab bar destination count mismatch") unless live_tab_buttons.length == expected_destinations.length
+      destination_container = tab_frame
+    end
+
+    destinations = entry["destinations"]
+    fail_check("#{proof_path} verified system-chrome destinations must be an array") unless destinations.is_a?(Array) && destinations.length == expected_destinations.length
+    destinations.zip(expected_destinations).each do |reference, expected|
+      fail_check("#{proof_path} verified system-chrome destination must be an object") unless reference.is_a?(Hash)
+      fail_check("#{proof_path} verified system-chrome destination fields must be exact") unless reference.keys.sort == expected_reference_keys.sort
+      expected_identifier = large_type_bottom_variant || ordinary_label_only_bottom_variant ? "" : expected["identifier"]
+      fail_check("#{proof_path} verified system-chrome destination identity mismatch") unless reference["identifier"] == expected_identifier && reference["label"] == expected["label"] && reference["type"] == "button"
+      destination_frame = observed_rect!(proof_path, reference["frame"], "verified system-chrome destination frame")
+      fail_check("#{proof_path} verified system-chrome destination is outside its native container") unless rect_contains?(destination_container, destination_frame, tolerance: 0.75)
+      matches = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true && element["hittable"] == true &&
+          element["identifier"] == reference["identifier"] && element["label"] == reference["label"] &&
+          element["type"] == reference["type"] && element["frame"].is_a?(Hash) && rect_equal?(element["frame"], destination_frame)
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome destination must match exactly one attested element") unless matches.length == 1
+      conflicting = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["identifier"] == reference["identifier"] &&
+          element["label"] == reference["label"] && element["type"] == reference["type"]
+      end.uniq
+      fail_check("#{proof_path} verified system-chrome destination has conflicting geometry") unless conflicting.length == 1
+    end
+    if large_type_bottom_variant || ordinary_label_only_bottom_variant
+      ordered_destinations = destinations.sort_by { |reference| reference.dig("frame", "x") }
+      fail_check("#{proof_path} label-only native tab order mismatch") unless ordered_destinations.map { |reference| reference["label"] } == expected_destinations.map { |expected| expected["label"] }
+      live_label_only = elements.select do |element|
+        element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true && element["hittable"] == true &&
+          element["type"] == "button" && element["identifier"] == "" &&
+          expected_destinations.any? { |expected| expected["label"] == element["label"] }
+      end.uniq
+      fail_check("#{proof_path} label-only native tab identity must cover exactly five unique buttons") unless live_label_only.length == expected_destinations.length
+    end
+
+    evidence_references = destinations
+    issue_element = entry["issueElement"]
+    fail_check("#{proof_path} verified system-chrome issue element must be an exact reference") unless
+      issue_element.is_a?(Hash) && issue_element.keys.sort == expected_reference_keys.sort
+    expected_issue_reference = {
+      "identifier" => issue["elementIdentifier"],
+      "label" => issue["elementLabel"],
+      "type" => issue["elementType"],
+      "frame" => issue_frame
+    }
+    fail_check("#{proof_path} verified system-chrome issue does not bind to its element reference") unless issue_element == expected_issue_reference
+    fail_check("#{proof_path} verified system-chrome issue element must identify exactly one attested chrome reference") unless
+      evidence_references.count { |reference| reference == issue_element } == 1
+
+    pixel_evidence = entry["pixelEvidence"]
+    fail_check("#{proof_path} verified system-chrome pixel evidence must cover every attested chrome reference") unless
+      pixel_evidence.is_a?(Array) && pixel_evidence.length == evidence_references.length
+    pixel_evidence.zip(evidence_references).each_with_index do |(pixel_entry, reference), index|
+      fail_check("#{proof_path} verified system-chrome pixel entry #{index} must contain exact element, frame, and pixel evidence") unless
+        pixel_entry.is_a?(Hash) && pixel_entry.keys.sort == %w[element pixelEvidence pixelFrame]
+      fail_check("#{proof_path} verified system-chrome pixel entry #{index} reference mismatch") unless pixel_entry["element"] == reference
+      pixel_frame = observed_rect!(proof_path, pixel_entry["pixelFrame"], "verified system-chrome label pixel frame #{index}")
+      reference_frame = reference.fetch("frame")
+      expected_pixel_frame = if compact_variant
+        {
+          "x" => reference_frame["x"] + reference_frame["width"] * 0.28,
+          "y" => reference_frame["y"] + 4,
+          "width" => reference_frame["width"] * 0.68,
+          "height" => reference_frame["height"] - 8
+        }
+      else
+        {
+          "x" => reference_frame["x"] + 2,
+          "y" => reference_frame["y"] + reference_frame["height"] * 0.50,
+          "width" => reference_frame["width"] - 4,
+          "height" => reference_frame["height"] * 0.46
+        }
+      end
+      fail_check("#{proof_path} verified system-chrome pixel entry #{index} must use the exact semantic label crop") unless
+        rect_equal?(pixel_frame, expected_pixel_frame, tolerance: 0.01) &&
+        rect_contains?(reference_frame, pixel_frame) &&
+        !rect_equal?(pixel_frame, reference_frame, tolerance: 0.01)
+      validate_contrast_pixel_evidence!(
+        proof_path,
+        pixel_entry["pixelEvidence"],
+        screenshot_sha256,
+        "verified system-chrome element #{index}",
+        frame: pixel_frame,
+        window_frame: window_frame
+      )
+    end
+  end
+end
+
+def validate_verified_native_sidebar_selection_contrast_false_positives!(
+  proof_path,
+  entries,
+  capture_phase,
+  platform,
+  content_size_category,
+  elements,
+  window_frame_value,
+  screenshot_sha256
+)
+  fail_check("#{proof_path} verified native-sidebar contrast evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} verified native-sidebar contrast evidence requires observed elements") unless elements.is_a?(Array)
+  fail_check("#{proof_path} verified native-sidebar contrast evidence must contain at most two issues per capture phase") if entries.length > 2
+  unless entries.empty? || platform == "ipad" && content_size_category == "large"
+    fail_check("#{proof_path} verified native-sidebar contrast evidence is limited to ordinary-size native iPad split views")
+  end
+  return if entries.empty?
+
+  window_frame = observed_rect!(proof_path, window_frame_value, "verified native-sidebar window frame")
+  expected_entry_keys = %w[
+    capturePhase contentSizeCategory detailNavigationBar issue issueElement issuePixelEvidence reason schema
+    screenshotSHA256 selectedCell
+    selectedCellInteriorFrame selectedCellPixelEvidence selectedLabel selectedLabelTextFrame
+    selectedLabelTextPixelEvidence selectedSymbol selectedSymbolPixelEvidence sidebarCollection
+    sidebarNavigationBar visibleTextPixelEvidence
+  ]
+  expected_issue_keys = %w[
+    category compactDescription detailedDescription diagnosticDescription diagnosticMirror
+    elementFrame elementIdentifier elementLabel elementType type
+  ]
+  expected_reference_keys = %w[frame identifier label type]
+  live_elements = elements.select do |element|
+    element.is_a?(Hash) && element["exists"] == true && element["enabled"] == true
+  end.uniq
+  fail_check("#{proof_path} verified native-sidebar state must not contain a tab bar") if live_elements.any? { |element| element["type"] == "tabBar" }
+  navigation_bars = live_elements.select { |element| element["type"] == "navigationBar" }
+  fail_check("#{proof_path} verified native-sidebar state requires exactly two navigation bars") unless navigation_bars.length == 2
+
+  validate_reference = lambda do |reference, label|
+    fail_check("#{proof_path} #{label} must be an object") unless reference.is_a?(Hash)
+    fail_check("#{proof_path} #{label} fields must be exact") unless reference.keys.sort == expected_reference_keys.sort
+    observed_rect!(proof_path, reference["frame"], "#{label} frame")
+    matches = live_elements.select do |element|
+      element["identifier"] == reference["identifier"] &&
+        element["label"] == reference["label"] &&
+        element["type"] == reference["type"] &&
+        element["frame"].is_a?(Hash) && rect_equal?(element["frame"], reference["frame"], tolerance: 0.01)
+    end
+    fail_check("#{proof_path} #{label} must match exactly one attested element") unless matches.length == 1
+    reference
+  end
+
+  entries.each do |entry|
+    fail_check("#{proof_path} verified native-sidebar contrast entry must be an object") unless entry.is_a?(Hash)
+    fail_check("#{proof_path} verified native-sidebar contrast fields must be exact") unless entry.keys.sort == expected_entry_keys.sort
+    fail_check("#{proof_path} verified native-sidebar contrast schema mismatch") unless entry["schema"] == "iosNativeSidebarSelectionContrastFalsePositiveV3"
+    fail_check("#{proof_path} verified native-sidebar contrast phase mismatch") unless entry["capturePhase"] == capture_phase
+    fail_check("#{proof_path} verified native-sidebar contrast reason mismatch") unless entry["reason"] == "elementContrastBoundToAttestedNativeSidebarSelection"
+    fail_check("#{proof_path} verified native-sidebar content-size mismatch") unless entry["contentSizeCategory"] == content_size_category
+    fail_check("#{proof_path} verified native-sidebar screenshot mismatch") unless entry["screenshotSHA256"] == screenshot_sha256
+
+    issue = entry["issue"]
+    fail_check("#{proof_path} verified native-sidebar issue must be an object") unless issue.is_a?(Hash)
+    fail_check("#{proof_path} verified native-sidebar issue fields must be exact") unless issue.keys.sort == expected_issue_keys.sort
+    fail_check("#{proof_path} verified native-sidebar issue category mismatch") unless issue["category"] == "contrast"
+    fail_check("#{proof_path} verified native-sidebar issue type mismatch") unless issue["type"] == "XCUIAccessibilityAuditType(rawValue: 1)"
+    fail_check("#{proof_path} verified native-sidebar compact warning mismatch") unless issue["compactDescription"] == "Contrast failed"
+    fail_check("#{proof_path} verified native-sidebar detailed warning mismatch") unless issue["detailedDescription"] == "Contrast failed for SwiftUI.AccessibilityNode"
+    fail_check("#{proof_path} verified native-sidebar issue must identify a concrete element") unless issue["diagnosticDescription"].is_a?(String) && !issue["diagnosticDescription"].include?("Element:(null)")
+    fail_check("#{proof_path} verified native-sidebar diagnostic mirror must be empty") unless issue["diagnosticMirror"] == ""
+    fail_check("#{proof_path} verified native-sidebar issue type must identify an element") unless issue["elementType"].is_a?(String) && !issue["elementType"].empty?
+    issue_frame = observed_rect!(proof_path, issue["elementFrame"], "verified native-sidebar issue frame")
+
+    sidebar_navigation = validate_reference.call(entry["sidebarNavigationBar"], "verified native-sidebar navigation")
+    detail_navigation = validate_reference.call(entry["detailNavigationBar"], "verified native detail navigation")
+    sidebar_collection = validate_reference.call(entry["sidebarCollection"], "verified native sidebar collection")
+    selected_cell = validate_reference.call(entry["selectedCell"], "verified native selected cell")
+    selected_label = validate_reference.call(entry["selectedLabel"], "verified native selected label")
+    selected_symbol = validate_reference.call(entry["selectedSymbol"], "verified native selected symbol")
+
+    sidebar_navigation_frame = sidebar_navigation["frame"]
+    detail_navigation_frame = detail_navigation["frame"]
+    collection_frame = sidebar_collection["frame"]
+    selected_cell_frame = selected_cell["frame"]
+    selected_label_frame = selected_label["frame"]
+    selected_symbol_frame = selected_symbol["frame"]
+    fail_check("#{proof_path} verified native sidebar navigation identity mismatch") unless
+      sidebar_navigation["identifier"] == "Spoonjoy" && sidebar_navigation["label"] == "" && sidebar_navigation["type"] == "navigationBar" &&
+      sidebar_navigation_frame["width"].between?(280, 360) && sidebar_navigation_frame["height"].between?(44, 80) &&
+      sidebar_navigation_frame["x"] >= window_frame["x"] && sidebar_navigation_frame["x"] <= window_frame["x"] + 20
+    fail_check("#{proof_path} verified native detail navigation identity mismatch") unless
+      detail_navigation["identifier"] == "Kitchen" && detail_navigation["label"] == "" && detail_navigation["type"] == "navigationBar" &&
+      (detail_navigation_frame["x"] - window_frame["x"]).abs <= 0.75 &&
+      ((detail_navigation_frame["x"] + detail_navigation_frame["width"]) - (window_frame["x"] + window_frame["width"])).abs <= 0.75 &&
+      detail_navigation_frame["height"].between?(80, 120)
+    fail_check("#{proof_path} verified native sidebar collection identity mismatch") unless
+      sidebar_collection["identifier"] == "" && sidebar_collection["label"] == "Sidebar" && sidebar_collection["type"] == "collectionView" &&
+      (collection_frame["x"] - sidebar_navigation_frame["x"]).abs <= 0.75 &&
+      (collection_frame["width"] - sidebar_navigation_frame["width"]).abs <= 0.75 &&
+      rect_contains?(collection_frame, sidebar_navigation_frame)
+    fail_check("#{proof_path} verified native selected cell identity mismatch") unless
+      selected_cell["identifier"] == "" && selected_cell["label"] == "" && selected_cell["type"] == "cell" &&
+      rect_contains?(collection_frame, selected_cell_frame)
+    fail_check("#{proof_path} verified native selected label identity mismatch") unless
+      selected_label["identifier"] == "" && selected_label["label"] == "Kitchen" && selected_label["type"] == "staticText" &&
+      rect_equal?(selected_label_frame, selected_cell_frame, tolerance: 0.01) && selected_label_frame["width"] >= 200 && selected_label_frame["height"] >= 44
+    fail_check("#{proof_path} verified native selected symbol identity mismatch") unless
+      selected_symbol["identifier"] == "house" && selected_symbol["label"] == "Home" && selected_symbol["type"] == "image" &&
+      rect_contains?(selected_cell_frame, selected_symbol_frame)
+
+    issue_element = validate_reference.call(entry["issueElement"], "verified native-sidebar issue element")
+    expected_issue_reference = {
+      "identifier" => issue["elementIdentifier"],
+      "label" => issue["elementLabel"],
+      "type" => issue["elementType"],
+      "frame" => issue_frame
+    }
+    fail_check("#{proof_path} verified native-sidebar issue does not bind to its element reference") unless issue_element == expected_issue_reference
+    issue_candidates = [selected_label, selected_symbol]
+    fail_check("#{proof_path} verified native-sidebar issue must identify exactly one selected element") unless
+      issue_candidates.count { |reference| reference == issue_element } == 1
+
+    interior_frame = observed_rect!(proof_path, entry["selectedCellInteriorFrame"], "verified native selected-cell interior frame")
+    expected_interior = {
+      "x" => selected_cell_frame["x"] + 12,
+      "y" => selected_cell_frame["y"] + 12,
+      "width" => selected_cell_frame["width"] - 24,
+      "height" => selected_cell_frame["height"] - 24
+    }
+    fail_check("#{proof_path} verified native selected-cell crop must be the exact 12-point interior") unless rect_equal?(interior_frame, expected_interior, tolerance: 0.01)
+    label_text_frame = observed_rect!(proof_path, entry["selectedLabelTextFrame"], "verified native selected-label text frame")
+    label_text_x = [selected_symbol_frame["x"] + selected_symbol_frame["width"] + 8, selected_cell_frame["x"] + 8].max
+    expected_label_text_frame = {
+      "x" => label_text_x,
+      "y" => selected_cell_frame["y"] + 8,
+      "width" => selected_cell_frame["x"] + selected_cell_frame["width"] - label_text_x - 8,
+      "height" => selected_cell_frame["height"] - 16
+    }
+    fail_check("#{proof_path} verified native selected-label crop must exclude the selected symbol and cell padding") unless
+      rect_equal?(label_text_frame, expected_label_text_frame, tolerance: 0.01) &&
+      rect_contains?(selected_cell_frame, label_text_frame) &&
+      rect_intersection(label_text_frame, selected_symbol_frame).nil?
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedCellPixelEvidence"], screenshot_sha256, "verified native selected-cell", frame: interior_frame, window_frame: window_frame)
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedLabelTextPixelEvidence"], screenshot_sha256, "verified native selected-label text", frame: label_text_frame, window_frame: window_frame)
+    validate_contrast_pixel_evidence!(proof_path, entry["selectedSymbolPixelEvidence"], screenshot_sha256, "verified native selected-symbol", frame: selected_symbol_frame, window_frame: window_frame)
+    issue_pixel_frame = issue_element == selected_symbol ? selected_symbol_frame : label_text_frame
+    validate_contrast_pixel_evidence!(proof_path, entry["issuePixelEvidence"], screenshot_sha256, "verified native issue element", frame: issue_pixel_frame, window_frame: window_frame)
+    expected_issue_pixels = issue_element == selected_symbol ? entry["selectedSymbolPixelEvidence"] : entry["selectedLabelTextPixelEvidence"]
+    fail_check("#{proof_path} verified native issue pixel evidence does not match its selected-element crop") unless
+      entry["issuePixelEvidence"] == expected_issue_pixels
+
+    visible_text = entry["visibleTextPixelEvidence"]
+    fail_check("#{proof_path} verified native visible-text evidence must contain at least 20 entries") unless visible_text.is_a?(Array) && visible_text.length >= 20
+    expected_visible_text = live_elements.select do |element|
+      element["type"] == "staticText" && !element["label"].to_s.empty? &&
+        element["frame"].is_a?(Hash) && rect_contains?(window_frame, element["frame"])
+    end.sort_by { |element| [element.dig("frame", "y"), element.dig("frame", "x")] }
+    fail_check("#{proof_path} verified native visible-text evidence count mismatch") unless visible_text.length == expected_visible_text.length
+    visible_text.zip(expected_visible_text).each_with_index do |(visible_entry, expected_element), index|
+      fail_check("#{proof_path} verified native visible-text entry #{index} must contain exact element, frame, and pixel evidence") unless
+        visible_entry.is_a?(Hash) && visible_entry.keys.sort == %w[element pixelEvidence pixelFrame]
+      reference = validate_reference.call(visible_entry["element"], "verified native visible text #{index}")
+      expected_reference = expected_element.slice("identifier", "label", "type", "frame")
+      fail_check("#{proof_path} verified native visible-text order or identity mismatch") unless reference == expected_reference
+      expected_pixel_frame = reference == selected_label ? label_text_frame : reference.fetch("frame")
+      fail_check("#{proof_path} verified native visible-text pixel frame #{index} mismatch") unless
+        visible_entry["pixelFrame"].is_a?(Hash) && rect_equal?(visible_entry["pixelFrame"], expected_pixel_frame, tolerance: 0.01)
+      validate_contrast_pixel_evidence!(proof_path, visible_entry["pixelEvidence"], screenshot_sha256, "verified native visible text #{index}", frame: expected_pixel_frame, window_frame: window_frame)
+    end
+  end
+end
+
+def validate_verified_text_clipped_false_positives!(proof_path, entries, capture_phase, platform, content_size_category, elements)
+  fail_check("#{proof_path} verified text-clipped evidence must be an array") unless entries.is_a?(Array)
+  fail_check("#{proof_path} verified text-clipped evidence requires observed elements") unless elements.is_a?(Array)
+  unless entries.empty? || platform == "ipad" && content_size_category == "large"
+    fail_check("#{proof_path} verified text-clipped evidence is limited to ordinary-size native iPad sidebar rows")
+  end
+
+  expected_keys = %w[
+    capturePhase containerFrame containerLabel containerType detailedDescription elementFrame
+    elementIdentifier elementLabel elementType reason schema
+  ]
+  exact_warning = "Text of this SwiftUI.AccessibilityNode may be clipped at larger Dynamic Type sizes."
+  identities = []
+  entries.each do |entry|
+    fail_check("#{proof_path} verified text-clipped entry must be an object") unless entry.is_a?(Hash)
+    fail_check("#{proof_path} verified text-clipped fields must be exact") unless entry.keys.sort == expected_keys.sort
+    fail_check("#{proof_path} verified text-clipped schema mismatch") unless entry["schema"] == "iosNativeSidebarTextClippedFalsePositiveV1"
+    fail_check("#{proof_path} verified text-clipped phase mismatch") unless entry["capturePhase"] == capture_phase
+    fail_check("#{proof_path} verified text-clipped reason mismatch") unless entry["reason"] == "nativeSidebarRowExpandedWithinAttestedContainer"
+    fail_check("#{proof_path} verified text-clipped warning mismatch") unless entry["detailedDescription"] == exact_warning
+    fail_check("#{proof_path} verified text-clipped row type mismatch") unless entry["elementType"] == "staticText"
+    fail_check("#{proof_path} verified text-clipped row label is not a native sidebar destination") unless IOS_NATIVE_SIDEBAR_LABELS.include?(entry["elementLabel"])
+    fail_check("#{proof_path} verified text-clipped container type mismatch") unless entry["containerType"] == "collectionView"
+    fail_check("#{proof_path} verified text-clipped container label mismatch") unless entry["containerLabel"] == "Sidebar"
+
+    element_frame = observed_rect!(proof_path, entry["elementFrame"], "verified text-clipped element frame")
+    container_frame = observed_rect!(proof_path, entry["containerFrame"], "verified text-clipped container frame")
+    fail_check("#{proof_path} verified text-clipped row is outside the Sidebar container") unless rect_contains?(container_frame, element_frame)
+
+    matching_elements = elements.select do |element|
+      next false unless element.is_a?(Hash) && element["exists"] == true
+      identity_matches = if entry["elementIdentifier"].to_s.empty?
+                           element["label"] == entry["elementLabel"]
+                         else
+                           element["identifier"] == entry["elementIdentifier"] && element["label"] == entry["elementLabel"]
+                         end
+      identity_matches && element["type"] == entry["elementType"] && element["frame"].is_a?(Hash) && rect_equal?(element["frame"], element_frame)
+    end
+    fail_check("#{proof_path} verified text-clipped row must match exactly one attested element") unless matching_elements.length == 1
+    matching_containers = elements.select do |element|
+      element.is_a?(Hash) && element["exists"] == true &&
+        element["type"] == entry["containerType"] && element["label"] == entry["containerLabel"] &&
+        element["frame"].is_a?(Hash) && rect_equal?(element["frame"], container_frame)
+    end
+    fail_check("#{proof_path} verified text-clipped Sidebar must match exactly one attested container") unless matching_containers.length == 1
+    identities << [entry["capturePhase"], entry["elementIdentifier"], entry["elementLabel"], entry["elementFrame"]]
+  end
+  fail_check("#{proof_path} verified text-clipped evidence contains duplicates") unless identities.uniq.length == identities.length
 end
 
 path = Pathname.new(ARGV.fetch(0) { fail_check("usage: validate-design-review.rb <design-review.json>") })
@@ -360,18 +2347,17 @@ fail_check("missing #{path}") unless path.file?
 manifest = JSON.parse(path.read)
 fail_check("#{path} must contain a JSON object") unless manifest.is_a?(Hash)
 
-missing_fields = REQUIRED_FIELDS.reject { |field| manifest.key?(field) }
-fail_check("#{path} missing required fields: #{missing_fields.join(", ")}") unless missing_fields.empty?
-
-non_boolean_fields = REQUIRED_FIELDS.reject { |field| [true, false].include?(manifest[field]) }
-fail_check("#{path} fields must be booleans: #{non_boolean_fields.join(", ")}") unless non_boolean_fields.empty?
+legacy_self_attestations = %w[
+  mobileScreenshot desktopScreenshot dynamicType voiceOverLabels keyboardNavigation
+  reduceMotion contrast kitchenTableHierarchy noOverlap
+].select { |field| manifest.key?(field) }
+fail_check("#{path} contains legacy self-attested fields: #{legacy_self_attestations.join(", ")}") unless legacy_self_attestations.empty?
 
 blockers = manifest.fetch("blockers", [])
 fail_check("#{path} blockers must be an array") unless blockers.is_a?(Array)
 fail_check("#{path} blockers must be empty; runtime blockers belong in design-review-blocked.json") unless blockers.empty?
 
-false_fields = REQUIRED_FIELDS.select { |field| manifest[field] == false }
-fail_check("#{path} false fields are not valid in design-review.json: #{false_fields.join(", ")}") unless false_fields.empty?
+validate_screenshot_artifacts!(path, manifest)
 
 route = manifest["screenshotRoute"]
 fail_check("#{path} missing screenshotRoute") if route.nil?
@@ -380,27 +2366,89 @@ fail_check("#{path} screenshotRoute must be one of #{VALID_ROUTES.join(", ")}") 
 
 accessibility_proofs = manifest["accessibilityProofArtifacts"]
 fail_check("#{path} accessibilityProofArtifacts must be an array") unless accessibility_proofs.is_a?(Array)
-fail_check("#{path} accessibilityProofArtifacts must include iPhone, iPad, and macOS proof artifacts") unless accessibility_proofs.length == 3
+fail_check("#{path} accessibilityProofArtifacts must include Large, XXXL, and accessibility XXXL iPhone and iPad plus macOS") unless accessibility_proofs.length == 7
 platforms = []
+readiness_bindings = {}
 accessibility_proofs.each do |proof_relative_path|
   fail_check("#{path} accessibilityProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
   validate_accessibility_proof!(path, proof_relative_path, route, manifest)
   proof_path = path.dirname.join(proof_relative_path).cleanpath
-  platforms << JSON.parse(proof_path.read)["platform"]
+  proof_bytes = proof_path.binread
+  proof = JSON.parse(proof_bytes)
+  platforms << proof["platform"]
+  binding_key = [proof["platform"], proof["observedDynamicTypeSize"]]
+  fail_check("#{path} duplicates readiness proof for #{binding_key.join('/')}") if readiness_bindings.key?(binding_key)
+  readiness_bindings[binding_key] = {
+    proof: proof,
+    sha256: Digest::SHA256.hexdigest(proof_bytes)
+  }
 end
-fail_check("#{path} accessibilityProofArtifacts must include ios, ipad, and macos platforms") unless platforms.sort == ["ios", "ipad", "macos"]
+fail_check("#{path} accessibilityProofArtifacts must include three ios, three ipad, and one macos platform") unless platforms.sort == ["ios", "ios", "ios", "ipad", "ipad", "ipad", "macos"]
+fail_check("#{path} iPhone readiness must include large, xxxLarge, and accessibility5 Dynamic Type") unless readiness_bindings.keys.select { |platform, _| platform == "ios" }.map(&:last).sort == ["accessibility5", "large", "xxxLarge"]
+fail_check("#{path} iPad readiness must include large, xxxLarge, and accessibility5 Dynamic Type") unless readiness_bindings.keys.select { |platform, _| platform == "ipad" }.map(&:last).sort == ["accessibility5", "large", "xxxLarge"]
+
+deep_readiness_bindings = {}
+deep_readiness_proofs = manifest["deepScrollAccessibilityProofArtifacts"]
+if COMPACT_DEEP_SCROLL_ROUTES.include?(route)
+  fail_check("#{path} deepScrollAccessibilityProofArtifacts must include Large, XXXL, and accessibility XXXL iPhone and iPad proofs") unless deep_readiness_proofs.is_a?(Array) && deep_readiness_proofs.length == 6
+  expected_deep_paths = accessibility_proofs.each_with_object([]) do |proof_relative_path, paths|
+    proof = JSON.parse(path.dirname.join(proof_relative_path).cleanpath.read)
+    paths << proof_relative_path.sub(/\.json\z/, "-deep-scroll.json") unless proof["platform"] == "macos"
+  end
+  fail_check("#{path} deepScrollAccessibilityProofArtifacts paths must exactly derive from the three compact initial proofs") unless deep_readiness_proofs == expected_deep_paths
+  deep_readiness_proofs.each do |proof_relative_path|
+    fail_check("#{path} deepScrollAccessibilityProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
+    validate_accessibility_proof!(path, proof_relative_path, route, manifest)
+    proof_path = path.dirname.join(proof_relative_path).cleanpath
+    proof_bytes = proof_path.binread
+    proof = JSON.parse(proof_bytes)
+    binding_key = [proof["platform"], proof["observedDynamicTypeSize"]]
+    fail_check("#{path} deep-scroll readiness proof must be iOS or iPad") if proof["platform"] == "macos"
+    fail_check("#{path} duplicates deep-scroll readiness proof for #{binding_key.join('/')}") if deep_readiness_bindings.key?(binding_key)
+    deep_readiness_bindings[binding_key] = {
+      proof: proof,
+      sha256: Digest::SHA256.hexdigest(proof_bytes)
+    }
+  end
+  expected_deep_binding_keys = [["ios", "large"], ["ios", "xxxLarge"], ["ios", "accessibility5"], ["ipad", "large"], ["ipad", "xxxLarge"], ["ipad", "accessibility5"]]
+  fail_check("#{path} deep-scroll readiness proofs must cover Large, XXXL, and accessibility XXXL iPhone and iPad") unless deep_readiness_bindings.keys.sort == expected_deep_binding_keys.sort
+elsif !deep_readiness_proofs.nil?
+  fail_check("#{path} deepScrollAccessibilityProofArtifacts are only valid for deep-scroll routes")
+end
+
+observed_accessibility_proofs = manifest["observedAccessibilityEvidenceArtifacts"]
+fail_check("#{path} observedAccessibilityEvidenceArtifacts must be an array") unless observed_accessibility_proofs.is_a?(Array)
+fail_check("#{path} observedAccessibilityEvidenceArtifacts must include Large, XXXL, and accessibility XXXL iPhone and iPad plus macOS evidence") unless observed_accessibility_proofs.length == 7
+observed_content_sizes = []
+observed_ipad_content_sizes = []
+observed_platforms = observed_accessibility_proofs.map do |proof_relative_path|
+  fail_check("#{path} observedAccessibilityEvidenceArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
+  platform = validate_observed_accessibility_evidence!(path, proof_relative_path, route, manifest, readiness_bindings, deep_readiness_bindings)
+  proof_path = path.dirname.join(proof_relative_path).cleanpath
+  observed_content_sizes << JSON.parse(proof_path.read)["observedContentSizeCategory"] if platform == "ios"
+  observed_ipad_content_sizes << JSON.parse(proof_path.read)["observedContentSizeCategory"] if platform == "ipad"
+  platform
+end
+fail_check("#{path} observedAccessibilityEvidenceArtifacts must include three ios, three ipad, and one macos platform") unless observed_platforms.sort == ["ios", "ios", "ios", "ipad", "ipad", "ipad", "macos"]
+fail_check("#{path} iPhone evidence must include Large, XXXL, and accessibility XXXL content sizes") unless observed_content_sizes.sort == ["accessibility-extra-extra-extra-large", "extra-extra-extra-large", "large"]
+fail_check("#{path} iPad evidence must include Large, XXXL, and accessibility XXXL content sizes") unless observed_ipad_content_sizes.sort == ["accessibility-extra-extra-extra-large", "extra-extra-extra-large", "large"]
+
+accessibility_screenshot = manifest["accessibilityContentSizeScreenshot"]
+fail_check("#{path} accessibilityContentSizeScreenshot must be a relative path") unless accessibility_screenshot.is_a?(String) && !accessibility_screenshot.empty? && !accessibility_screenshot.start_with?("/")
+fail_check("#{path} missing accessibility content-size screenshot") unless path.dirname.join(accessibility_screenshot).cleanpath.file?
+
+if (expected_surface_anchors = EXPECTED_ROUTE_SURFACE_ANCHORS[route])
+  fail_check("#{path} renderedSurfaceAnchors must exactly match #{expected_surface_anchors.join(", ")}") unless manifest["renderedSurfaceAnchors"] == expected_surface_anchors
+end
 
 case route
 when "kitchen"
-  fail_check("#{path} kitchenSignedInSurface must be true for kitchen captures") unless manifest["kitchenSignedInSurface"] == true
   seed_account_id = manifest["kitchenSeedAccountID"]
   fail_check("#{path} kitchenSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "recipes"
-  fail_check("#{path} recipesNativeSurface must be true for recipes captures") unless manifest["recipesNativeSurface"] == true
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "search"
-  fail_check("#{path} searchNativeSurface must be true for search captures") unless manifest["searchNativeSurface"] == true
   seed_account_id = manifest["searchSeedAccountID"]
   fail_check("#{path} searchSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
   variant = manifest["searchSurfaceVariant"]
@@ -414,59 +2462,59 @@ when "search"
   proof_artifacts = manifest["searchSurfaceProofArtifacts"]
   fail_check("#{path} searchSurfaceProofArtifacts must be an array") unless proof_artifacts.is_a?(Array)
   fail_check("#{path} searchSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
-  proof_artifacts.each do |proof_relative_path|
+  render_fingerprints = proof_artifacts.map do |proof_relative_path|
     fail_check("#{path} searchSurfaceProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
     validate_search_proof!(path, proof_relative_path, seed_account_id, expected)
   end
+  fail_check("#{path} search proof render fingerprints must match across platforms") unless render_fingerprints.uniq.length == 1
 when "recipe-detail"
-  fail_check("#{path} recipeDetailSurface must be true for recipe detail captures") unless manifest["recipeDetailSurface"] == true
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
-when "cook-log"
-  fail_check("#{path} cookLogSurface must be true for cook log captures") unless manifest["cookLogSurface"] == true
+when "recipe-editor"
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
-  fail_check("#{path} cookLogForm must be true") unless manifest["cookLogForm"] == true
-  fail_check("#{path} cookLogPhotoSlot must be true") unless manifest["cookLogPhotoSlot"] == true
-  fail_check("#{path} cookLogActionBar must be true") unless manifest["cookLogActionBar"] == true
+  fail_check("#{path} recipeSeedAccountID must be chef_ari") unless manifest["recipeSeedAccountID"] == "chef_ari"
+when "recipe-covers"
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
+  fail_check("#{path} recipeSeedAccountID must be chef_ari") unless manifest["recipeSeedAccountID"] == "chef_ari"
+  fail_check("#{path} recipeCoverControlsFixture must be action-states") unless manifest["recipeCoverControlsFixture"] == "action-states"
+when "cook-log"
+  fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cook-mode"
-  fail_check("#{path} cookModeSurface must be true for cook mode captures") unless manifest["cookModeSurface"] == true
   fail_check("#{path} recipeID must be recipe_lemon_pantry_pasta") unless manifest["recipeID"] == "recipe_lemon_pantry_pasta"
   seed_account_id = manifest["recipeSeedAccountID"]
   fail_check("#{path} recipeSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "shopping-list"
-  fail_check("#{path} shoppingListSurface must be true for shopping list captures") unless manifest["shoppingListSurface"] == true
+  variant = manifest["shoppingListVariant"]
+  fail_check("#{path} shoppingListVariant must be one of #{EXPECTED_SHOPPING_VARIANTS.join(", ")}") unless EXPECTED_SHOPPING_VARIANTS.include?(variant)
   seed_account_id = manifest["shoppingSeedAccountID"]
   fail_check("#{path} shoppingSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbooks"
-  fail_check("#{path} cookbooksNativeSurface must be true for cookbooks captures") unless manifest["cookbooksNativeSurface"] == true
-  fail_check("#{path} cookbookLibrarySpread must be true for cookbooks captures") unless manifest["cookbookLibrarySpread"] == true
-  fail_check("#{path} cookbookShelfStrip must be true for cookbooks captures") unless manifest["cookbookShelfStrip"] == true
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
 when "cookbook-detail"
-  fail_check("#{path} cookbookDetailSurface must be true for cookbook detail captures") unless manifest["cookbookDetailSurface"] == true
   fail_check("#{path} cookbookID must be cookbook_weeknights") unless manifest["cookbookID"] == "cookbook_weeknights"
-  fail_check("#{path} cookbookContentsIndex must be true for cookbook detail captures") unless manifest["cookbookContentsIndex"] == true
-  fail_check("#{path} cookbookOwnerToolsDisclosure must be true for cookbook detail captures") unless manifest["cookbookOwnerToolsDisclosure"] == true
   seed_account_id = manifest["cookbookSeedAccountID"]
   fail_check("#{path} cookbookSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+when "profile"
+  fail_check("#{path} profileSeedAccountID must be chef_ari") unless manifest["profileSeedAccountID"] == "chef_ari"
+  fail_check("#{path} profileIdentifier must be ari") unless manifest["profileIdentifier"] == "ari"
+when "profile-graph"
+  fail_check("#{path} profileSeedAccountID must be chef_ari") unless manifest["profileSeedAccountID"] == "chef_ari"
+  fail_check("#{path} profileIdentifier must be ari") unless manifest["profileIdentifier"] == "ari"
+  fail_check("#{path} profileGraphDirection must be kitchen-visitors") unless manifest["profileGraphDirection"] == "kitchen-visitors"
+  fail_check("#{path} profileGraphPage must be 1") unless manifest["profileGraphPage"] == 1
 when "capture"
   variant = manifest["captureSurfaceVariant"]
   fail_check("#{path} captureSurfaceVariant must be one of #{EXPECTED_CAPTURE_VARIANTS.join(", ")}") unless EXPECTED_CAPTURE_VARIANTS.include?(variant)
   expected_auth = variant == "signed-out" ? "0" : "1"
   fail_check("#{path} captureScreenshotAuth must be #{expected_auth}") unless manifest["captureScreenshotAuth"] == expected_auth
-  if variant == "signed-out"
-    fail_check("#{path} captureSignedOutSurface must be true for signed-out capture") unless manifest["captureSignedOutSurface"] == true
-    fail_check("#{path} captureNativeSurface must be false for signed-out capture") unless manifest["captureNativeSurface"] == false
-  else
-    fail_check("#{path} captureNativeSurface must be true for signed-in capture captures") unless manifest["captureNativeSurface"] == true
-    fail_check("#{path} captureSignedOutSurface must be false for signed-in capture captures") unless manifest["captureSignedOutSurface"] == false
-  end
   seed_account_id = manifest["captureSeedAccountID"]
   fail_check("#{path} captureSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
+  captureSignedOutSurface = manifest["captureSignedOutSurface"]
+  fail_check("#{path} captureSignedOutSurface must match the signed-out variant") unless captureSignedOutSurface == (variant == "signed-out")
 when "settings"
   seed_account_id = manifest["settingsSeedAccountID"]
   fail_check("#{path} settingsSeedAccountID must be a non-empty string") unless seed_account_id.is_a?(String) && !seed_account_id.empty?
@@ -474,28 +2522,26 @@ when "settings"
   fail_check("#{path} settingsSections must be an array") unless sections.is_a?(Array)
   visual_focus = manifest["settingsVisualFocus"]
   fail_check("#{path} settingsVisualFocus must be profile, notifications, or signed-out") unless ["profile", "notifications", "signed-out"].include?(visual_focus)
+  settingsSignedOutSurface = manifest["settingsSignedOutSurface"]
+  settingsSignedOutHandoffSurface = manifest["settingsSignedOutHandoffSurface"]
+  fail_check("#{path} settingsSignedOutSurface must match signed-out focus") unless settingsSignedOutSurface == (visual_focus == "signed-out")
+  fail_check("#{path} settingsSignedOutHandoffSurface must match signed-out focus") unless settingsSignedOutHandoffSurface == (visual_focus == "signed-out")
   proof_artifacts = manifest["settingsSurfaceProofArtifacts"]
   fail_check("#{path} settingsSurfaceProofArtifacts must be an array") unless proof_artifacts.is_a?(Array)
   fail_check("#{path} settingsSurfaceProofArtifacts must include iOS and macOS proof artifacts") unless proof_artifacts.length >= 2
   required_sections = if visual_focus == "notifications"
-                        fail_check("#{path} settingsSignedInSurface must be true for settings/APNs captures") unless manifest["settingsSignedInSurface"] == true
-                        fail_check("#{path} settingsNotificationAPNsSurface must be true for settings/APNs captures") unless manifest["settingsNotificationAPNsSurface"] == true
                         fail_check("#{path} settingsAPNsPermissionState must be present for APNs captures") unless manifest["settingsAPNsPermissionState"].is_a?(String) && !manifest["settingsAPNsPermissionState"].empty?
                         fail_check("#{path} settingsAPNsRegistrationState must be present for APNs captures") unless manifest["settingsAPNsRegistrationState"].is_a?(String) && !manifest["settingsAPNsRegistrationState"].empty?
-                        ["This Device", "Push Delivery", "Notification Sync", "Agent Access"]
+                        ["This Device"]
                       elsif visual_focus == "signed-out"
-                        fail_check("#{path} settingsSignedInSurface must be false for signed-out settings captures") unless manifest["settingsSignedInSurface"] == false
-                        fail_check("#{path} settingsSignedOutSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutSurface"] == true
-                        fail_check("#{path} settingsSignedOutHandoffSurface must be true for signed-out settings captures") unless manifest["settingsSignedOutHandoffSurface"] == true
                         fail_check("#{path} settingsScreenshotAuth must be 0 for signed-out settings captures") unless manifest["settingsScreenshotAuth"] == "0"
                         ["Session", "Environment", "Offline"]
                       else
-                        fail_check("#{path} settingsSignedInSurface must be true for profile settings captures") unless manifest["settingsSignedInSurface"] == true
-                        fail_check("#{path} settingsProfileSurface must be true for profile settings captures") unless manifest["settingsProfileSurface"] == true
                         ["Profile", "Security"]
                       end
   missing_sections = required_sections.reject { |section| sections.include?(section) }
   fail_check("#{path} settingsSections missing required #{visual_focus} sections: #{missing_sections.join(", ")}") unless missing_sections.empty?
+  validate_exact_settings_sections!(path, sections, visual_focus)
   proof_artifacts.each do |proof_relative_path|
     fail_check("#{path} settingsSurfaceProofArtifacts entries must be strings") unless proof_relative_path.is_a?(String) && !proof_relative_path.empty?
     validate_settings_proof!(path, proof_relative_path, visual_focus)

@@ -16,7 +16,7 @@ enum KitchenTableTheme {
     static let onPhoto = bone // --sj-on-photo
     static let onPhotoMuted = bone.opacity(0.76) // --sj-on-photo-muted
     static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
-    static let photoOverlay = Color.black.opacity(0.28)
+    static let photoOverlay = Color.black.opacity(0.62)
 
     enum Radius {
         static let edge: CGFloat = 0
@@ -29,8 +29,8 @@ enum KitchenTableTheme {
     static let pageSpacing: CGFloat = 24
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
-    static let compactDockReserve: CGFloat = 148
-    static let compactTabBarContentInset: CGFloat = 88
+    static let pageBottomSpacing: CGFloat = 32
+    static let compactTabBarContentInset: CGFloat = 148
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
@@ -54,7 +54,7 @@ struct KitchenTablePage<Content: View>: View {
 
     init(
         maxContentWidth: CGFloat = 720,
-        bottomReserve: CGFloat = KitchenTableTheme.compactDockReserve,
+        bottomReserve: CGFloat = KitchenTableTheme.pageBottomSpacing,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.maxContentWidth = maxContentWidth
@@ -73,6 +73,7 @@ struct KitchenTablePage<Content: View>: View {
             .frame(maxWidth: maxContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .accessibilityIdentifier("spoonjoy.page-scroll")
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 }
@@ -101,41 +102,133 @@ struct KitchenTableHeader<Trailing: View>: View {
     }
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 16) {
-                titleStack
-                Spacer(minLength: 12)
-                trailing()
-            }
-
-            VStack(alignment: .leading, spacing: 12) {
-                titleStack
-                trailing()
-            }
+        KitchenTableHeaderLayout() {
+            titleStack
+            trailing()
         }
     }
 
     private var titleStack: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(eyebrow.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(1.4)
+                .font(.caption2)
+                .fontWeight(.bold)
                 .foregroundStyle(KitchenTableTheme.brass)
+                .accessibilityHidden(true)
+                .fixedSize(horizontal: false, vertical: true)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
                     .font(KitchenTableTheme.displayTitle)
                     .foregroundStyle(KitchenTableTheme.charcoal)
-                    .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
-                    .font(KitchenTableTheme.bodyNote)
+                    .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct KitchenTableHeaderLayout: Layout {
+    private let horizontalSpacing: CGFloat = 16
+    private let verticalSpacing: CGFloat = 12
+
+    func sizeThatFits(
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) -> CGSize {
+        guard let title = subviews.first else {
+            return .zero
+        }
+
+        let availableWidth = finiteWidth(proposal.width)
+        guard subviews.count > 1 else {
+            let titleSize = title.sizeThatFits(ProposedViewSize(width: availableWidth, height: proposal.height))
+            return CGSize(width: availableWidth ?? titleSize.width, height: titleSize.height)
+        }
+
+        let trailing = subviews[1]
+        if let availableWidth, usesHorizontalPlacement(width: availableWidth, title: title, trailing: trailing) {
+            let trailingSize = trailing.sizeThatFits(.unspecified)
+            let titleWidth = max(availableWidth - horizontalSpacing - trailingSize.width, 0)
+            let titleSize = title.sizeThatFits(ProposedViewSize(width: titleWidth, height: proposal.height))
+            return CGSize(width: availableWidth, height: max(titleSize.height, trailingSize.height))
+        }
+
+        let titleSize = title.sizeThatFits(ProposedViewSize(width: availableWidth, height: nil))
+        let trailingSize = trailing.sizeThatFits(ProposedViewSize(width: availableWidth, height: nil))
+        return CGSize(
+            width: availableWidth ?? max(titleSize.width, trailingSize.width),
+            height: titleSize.height + verticalSpacing + trailingSize.height
+        )
+    }
+
+    func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache: inout ()
+    ) {
+        guard let title = subviews.first else {
+            return
+        }
+
+        guard subviews.count > 1 else {
+            title.place(
+                at: bounds.origin,
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: bounds.width, height: bounds.height)
+            )
+            return
+        }
+
+        let trailing = subviews[1]
+        if usesHorizontalPlacement(width: bounds.width, title: title, trailing: trailing) {
+            let trailingSize = trailing.sizeThatFits(.unspecified)
+            let titleWidth = max(bounds.width - horizontalSpacing - trailingSize.width, 0)
+            title.place(
+                at: bounds.origin,
+                anchor: .topLeading,
+                proposal: ProposedViewSize(width: titleWidth, height: bounds.height)
+            )
+            trailing.place(
+                at: CGPoint(x: bounds.maxX, y: bounds.minY),
+                anchor: .topTrailing,
+                proposal: ProposedViewSize(width: trailingSize.width, height: trailingSize.height)
+            )
+            return
+        }
+
+        let childProposal = ProposedViewSize(width: bounds.width, height: nil)
+        let titleSize = title.sizeThatFits(childProposal)
+        title.place(at: bounds.origin, anchor: .topLeading, proposal: childProposal)
+        trailing.place(
+            at: CGPoint(x: bounds.minX, y: bounds.minY + titleSize.height + verticalSpacing),
+            anchor: .topLeading,
+            proposal: childProposal
+        )
+    }
+
+    private func usesHorizontalPlacement(
+        width: CGFloat,
+        title: LayoutSubview,
+        trailing: LayoutSubview
+    ) -> Bool {
+        let titleWidth = title.sizeThatFits(.unspecified).width
+        let trailingWidth = trailing.sizeThatFits(.unspecified).width
+        return titleWidth + horizontalSpacing + trailingWidth <= width
+    }
+
+    private func finiteWidth(_ width: CGFloat?) -> CGFloat? {
+        guard let width, width.isFinite else {
+            return nil
+        }
+        return max(width, 0)
     }
 }
 
@@ -171,11 +264,21 @@ extension EnvironmentValues {
 struct KitchenTableSection<Content: View>: View {
     let title: String
     let subtitle: String?
+    let accessibilityHeaderIdentifier: String?
+    let accessibilitySubtitleIdentifier: String?
     @ViewBuilder let content: () -> Content
 
-    init(title: String, subtitle: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        accessibilityHeaderIdentifier: String? = nil,
+        accessibilitySubtitleIdentifier: String? = nil,
+        @ViewBuilder content: @escaping () -> Content
+    ) {
         self.title = title
         self.subtitle = subtitle
+        self.accessibilityHeaderIdentifier = accessibilityHeaderIdentifier
+        self.accessibilitySubtitleIdentifier = accessibilitySubtitleIdentifier
         self.content = content
     }
 
@@ -189,80 +292,162 @@ struct KitchenTableSection<Content: View>: View {
     private var sectionHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text(title)
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .lineLimit(1)
-                    .layoutPriority(1)
+                sectionTitle
                 Rectangle()
                     .fill(KitchenTableTheme.line.opacity(0.55))
                     .frame(height: 1)
                     .layoutPriority(-1)
+                    .accessibilityHidden(true)
             }
             if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                subtitleText(subtitle)
             }
         }
+    }
+
+    @ViewBuilder private func subtitleText(_ subtitle: String) -> some View {
+        if let accessibilitySubtitleIdentifier {
+            styledSubtitle(subtitle)
+                .accessibilityIdentifier(accessibilitySubtitleIdentifier)
+        } else {
+            styledSubtitle(subtitle)
+        }
+    }
+
+    private func styledSubtitle(_ subtitle: String) -> some View {
+        Text(subtitle)
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(KitchenTableTheme.charcoal)
+    }
+
+    @ViewBuilder private var sectionTitle: some View {
+        if let accessibilityHeaderIdentifier {
+            sectionTitleText
+                .accessibilityIdentifier(accessibilityHeaderIdentifier)
+        } else {
+            sectionTitleText
+        }
+    }
+
+    private var sectionTitleText: some View {
+        Text(title)
+            .font(KitchenTableTheme.sectionTitle)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .layoutPriority(1)
     }
 }
 
 struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let title: String
     let subtitle: String?
+    let showsLeading: Bool
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
     init(
         title: String,
         subtitle: String? = nil,
+        showsLeading: Bool = true,
         @ViewBuilder leading: @escaping () -> Leading,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.title = title
         self.subtitle = subtitle
+        self.showsLeading = showsLeading
         self.leading = leading
         self.trailing = trailing
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            leading()
-                .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-                .accessibilityHidden(true)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(title)
-                    .font(KitchenTableTheme.objectTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let subtitle, !subtitle.isEmpty {
-                    Text(subtitle)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                        .lineLimit(2)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    objectIdentity
+                    trailing()
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                HStack(alignment: .center, spacing: 12) {
+                    objectIdentity
+                    Spacer(minLength: 8)
+                    trailing()
                 }
             }
-
-            Spacer(minLength: 8)
-            trailing()
         }
         .padding(.vertical, 10)
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(KitchenTableTheme.line.opacity(0.35))
                 .frame(height: 1)
+                .accessibilityHidden(true)
         }
         .contentShape(Rectangle())
+    }
+
+    private var objectIdentity: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 8) {
+                    if showsLeading {
+                        objectThumbnail(size: 72)
+                    }
+                    objectText
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    if showsLeading {
+                        objectThumbnail(size: 56)
+                    }
+                    objectText
+                }
+            }
+        }
+    }
+
+    private var objectText: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.headline.weight(.semibold))
+                .fontDesign(.rounded)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineLimit(nil)
+                .multilineTextAlignment(.leading)
+                .layoutPriority(1)
+            if let subtitle, !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.subheadline)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(nil)
+                    .multilineTextAlignment(.leading)
+                    .layoutPriority(1)
+            }
+        }
+    }
+
+    private func objectThumbnail(size: CGFloat) -> some View {
+        leading()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            .accessibilityHidden(true)
     }
 }
 
 extension KitchenTableObjectRow where Trailing == EmptyView {
-    init(title: String, subtitle: String? = nil, @ViewBuilder leading: @escaping () -> Leading) {
-        self.init(title: title, subtitle: subtitle, leading: leading) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        showsLeading: Bool = true,
+        @ViewBuilder leading: @escaping () -> Leading
+    ) {
+        self.init(
+            title: title,
+            subtitle: subtitle,
+            showsLeading: showsLeading,
+            leading: leading
+        ) {
             EmptyView()
         }
     }
@@ -321,13 +506,15 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
 
     let prominence: Prominence
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .lineLimit(1)
-            .minimumScaleFactor(0.74)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 6)
             .padding(.horizontal, 14)
             .foregroundStyle(foreground)
             .background(background(configuration: configuration), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))

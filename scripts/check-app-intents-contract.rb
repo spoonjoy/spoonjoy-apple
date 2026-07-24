@@ -500,22 +500,22 @@ if domain == "shopping"
   require_body_tokens(
     live_store,
     "bootstrapFromLiveAPI consumes sync purge report",
-    /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)/,
+    /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent,\s*bootstrapOperationID: UUID\s*\)/,
     [
-      "let report = try await syncTriggerCoordinator.handle(trigger)",
+      "report = staged.report",
       "report.shoppingEntityPurgeRequests"
     ],
     failures
   )
 
   require_body_tokens(
-    ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"),
-    "foreground sync consumes sync purge report",
-    /\.task\(id: contentState\.environment\.rawValue\)/,
+    ROOT.join("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"),
+    "foreground activation refreshes the live store",
+    /\.onChange\(of: scenePhase\)/,
     [
-      "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-      "report.shoppingEntityPurgeRequests",
-      "purgeShoppingEntityIndexesHandler"
+      "previousPhase != .active",
+      "currentPhase == .active",
+      "await liveStore.refreshForForeground()"
     ],
     failures
   )
@@ -787,22 +787,22 @@ if domain == "spoon"
   require_body_tokens(
     live_store,
     "bootstrapFromLiveAPI consumes spoon sync purge report",
-    /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent\s*\)/,
+    /\bfunc\s+bootstrapFromLiveAPI\(\s*session: AuthSession,\s*trigger: NativeSyncTriggerEvent,\s*bootstrapOperationID: UUID\s*\)/,
     [
-      "let report = try await syncTriggerCoordinator.handle(trigger)",
+      "report = staged.report",
       "report.spoonEntityPurgeRequests"
     ],
     failures
   )
 
   require_body_tokens(
-    platform_navigation,
-    "foreground sync consumes spoon sync purge report",
-    /\.task\(id: contentState\.environment\.rawValue\)/,
+    ROOT.join("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"),
+    "foreground activation refreshes spoon sync through the live store",
+    /\.onChange\(of: scenePhase\)/,
     [
-      "let report = try? await syncTriggerCoordinator.handle(.foreground)",
-      "report.spoonEntityPurgeRequests",
-      "purgeSpoonEntityIndexesHandler"
+      "previousPhase != .active",
+      "currentPhase == .active",
+      "await liveStore.refreshForForeground()"
     ],
     failures
   )
@@ -1246,15 +1246,15 @@ if domain == "capture-draft"
   )
 
   require_body_tokens(live_store, "performSettingsSessionOperation", /func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/, ["CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
-  require_body_tokens(live_store, "restoreFromCache account or environment switch", /func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\]\s*\)/, ["preFilterCacheRecord", "preFilterAppStateRecord", "dependencies.cacheStore.loadOrRecover(fallback:", "appStateStore.loadOrCreate(fallback:", "previousCacheSnapshot", "previousAppSnapshot", "preFilterCacheRecord.value", "preFilterAppStateRecord.value", "previousCacheSnapshot.accountID", "previousCacheSnapshot.environment", "previousAppSnapshot.accountID", "previousAppSnapshot.environment", "CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers", "accountID: previousCacheSnapshot.accountID", "environment: previousCacheSnapshot.environment", "accountID: previousAppSnapshot.accountID", "environment: previousAppSnapshot.environment", "!= accountID(for: authSessionState)", "!= cacheEnvironment"], failures)
+  require_body_tokens(live_store, "restoreFromCache account or environment switch", /func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\],\s*bootstrapOperationID: UUID\? = nil\s*\)/, ["preFilterCacheRecord", "preFilterAppStateRecord", "dependencies.cacheStore.loadOrRecover(fallback:", "appStateStore.loadOrCreate(fallback:", "previousCacheSnapshot", "previousAppSnapshot", "preFilterCacheRecord.value", "preFilterAppStateRecord.value", "previousCacheSnapshot.accountID", "previousCacheSnapshot.environment", "previousAppSnapshot.accountID", "previousAppSnapshot.environment", "CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers", "accountID: previousCacheSnapshot.accountID", "environment: previousCacheSnapshot.environment", "accountID: previousAppSnapshot.accountID", "environment: previousAppSnapshot.environment", "!= accountID(for: authSessionState)", "!= cacheEnvironment"], failures)
   require_body_tokens(live_store, "discardCaptureDraft", /func\s+discardCaptureDraft\(id draftID: String\)/, ["CaptureDraftEntityIndexPurgePlan.draftDiscardPurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
   require_body_tokens(live_store, "recordCaptureDraft", /func\s+recordCaptureDraft\(_ draft: CaptureDraft\)/, ["CaptureDraftEntityIndexPurgePlan.cacheDeletePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
 
   require_tokens(
-    navigation,
+    ROOT.join("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"),
     [
-      "NativeCaptureDraftEntityIndexPurgeRequest",
-      "purgeCaptureDraftEntityIndexesHandler"
+      "recordCaptureDraft: liveStore.recordCaptureDraft",
+      "discardCaptureDraft: liveStore.discardCaptureDraft"
     ],
     failures
   )
@@ -1544,54 +1544,23 @@ if domain == "spotlight-shortcuts"
     failures
   )
 
-  require_nested_body_tokens(
-    root_view,
-    "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
-    "purgeShoppingEntityIndexes",
-    /purgeShoppingEntityIndexes:/,
-    [
-      "accountID: request.accountID",
-      "environment: request.environment"
-    ],
-    failures
-  )
-  require_nested_body_tokens(
-    root_view,
-    "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
-    "purgeSpoonEntityIndexes",
-    /purgeSpoonEntityIndexes:/,
-    [
-      "accountID: request.accountID",
-      "environment: request.environment"
-    ],
-    failures
-  )
-  require_nested_body_tokens(
-    root_view,
-    "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
-    "purgeCaptureDraftEntityIndexes",
-    /purgeCaptureDraftEntityIndexes:/,
-    [
-      "accountID: request.accountID",
-      "environment: request.environment"
-    ],
-    failures
-  )
-  require_nested_body_tokens(
-    root_view,
-    "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
-    "purgeChefProfileEntityIndexes",
-    /purgeChefProfileEntityIndexes:/,
-    [
-      "accountID: request.accountID",
-      "environment: request.environment"
-    ],
-    failures
-  )
+  {
+    "shopping" => "purgeShoppingEntityIdentifiers",
+    "spoon" => "purgeSpoonEntityIdentifiers",
+    "capture draft" => "purgeCaptureDraftEntityIdentifiers",
+    "chef profile" => "purgeChefProfileEntityIdentifiers"
+  }.each do |label, function_name|
+    require_body_tokens(
+      live_store,
+      "#{label} purge retains its explicit source scope",
+      /public\s+func\s+#{function_name}\(/,
+      [
+        "accountID: accountID ?? self.accountID",
+        "environment: environment ?? cacheEnvironment"
+      ],
+      failures
+    )
+  end
 
   shared_source = Dir.glob(ROOT.join("Apps/Spoonjoy/Shared/**/*.swift").to_s).map do |path|
     uncommented_swift(Pathname.new(path).read)

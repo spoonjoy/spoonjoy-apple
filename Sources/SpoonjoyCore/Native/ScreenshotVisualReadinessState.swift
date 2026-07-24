@@ -1,7 +1,55 @@
 import Foundation
 
+public struct ScreenshotVisualReadinessObservedSurfaceState: Equatable, Sendable {
+    public let statusOwner: String
+    public let connectivity: String
+    public let queuedMutationCount: Int
+    public let visibleIndicator: String
+
+    public init(
+        statusOwner: String,
+        connectivity: String,
+        queuedMutationCount: Int,
+        visibleIndicator: String
+    ) {
+        self.statusOwner = statusOwner
+        self.connectivity = connectivity
+        self.queuedMutationCount = queuedMutationCount
+        self.visibleIndicator = visibleIndicator
+    }
+}
+
+public struct ScreenshotVisualReadinessProofIdentity: Equatable, Sendable {
+    public let captureRunNonce: String
+    public let route: String
+    public let source: String
+    public let observedDynamicTypeSize: String
+    public let observedReduceMotion: Bool
+    public let observedSurfaceVariant: String?
+    public let observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState?
+
+    public init(
+        captureRunNonce: String,
+        route: String,
+        source: String,
+        observedDynamicTypeSize: String,
+        observedReduceMotion: Bool,
+        observedSurfaceVariant: String?,
+        observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState?
+    ) {
+        self.captureRunNonce = captureRunNonce
+        self.route = route
+        self.source = source
+        self.observedDynamicTypeSize = observedDynamicTypeSize
+        self.observedReduceMotion = observedReduceMotion
+        self.observedSurfaceVariant = observedSurfaceVariant
+        self.observedSurfaceState = observedSurfaceState
+    }
+}
+
 public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
     public static let settledEmpty = ScreenshotVisualReadinessSnapshot(
+        generation: 0,
         expectedMediaCount: 0,
         loadedMediaCount: 0,
         pendingMediaCount: 0,
@@ -10,6 +58,8 @@ public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
         isSettled: true
     )
 
+    public let generation: Int
+    public let proofIdentity: ScreenshotVisualReadinessProofIdentity?
     public let expectedMediaCount: Int
     public let loadedMediaCount: Int
     public let pendingMediaCount: Int
@@ -18,6 +68,8 @@ public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
     public let isSettled: Bool
 
     public init(
+        generation: Int = 0,
+        proofIdentity: ScreenshotVisualReadinessProofIdentity? = nil,
         expectedMediaCount: Int,
         loadedMediaCount: Int,
         pendingMediaCount: Int,
@@ -25,6 +77,8 @@ public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
         blockingIndicatorCount: Int,
         isSettled: Bool
     ) {
+        self.generation = generation
+        self.proofIdentity = proofIdentity
         self.expectedMediaCount = expectedMediaCount
         self.loadedMediaCount = loadedMediaCount
         self.pendingMediaCount = pendingMediaCount
@@ -55,6 +109,8 @@ public struct ScreenshotVisualReadinessBlockingToken: Hashable, Sendable {
 }
 
 public struct ScreenshotVisualReadinessState: Equatable, Sendable {
+    private var generation = 0
+    private var proofIdentity: ScreenshotVisualReadinessProofIdentity?
     private var expectedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var loadedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var failedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
@@ -62,41 +118,52 @@ public struct ScreenshotVisualReadinessState: Equatable, Sendable {
 
     public init() {}
 
+    public mutating func observeProofIdentity(_ identity: ScreenshotVisualReadinessProofIdentity) {
+        let changed = proofIdentity != identity
+        proofIdentity = identity
+        advanceGeneration(if: changed)
+    }
+
     public mutating func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) {
-        expectedMediaTokens.insert(token)
-        loadedMediaTokens.remove(token)
-        failedMediaTokens.remove(token)
+        var changed = expectedMediaTokens.insert(token).inserted
+        changed = loadedMediaTokens.remove(token) != nil || changed
+        changed = failedMediaTokens.remove(token) != nil || changed
+        advanceGeneration(if: changed)
     }
 
     public mutating func finishMedia(_ token: ScreenshotVisualReadinessMediaToken, succeeded: Bool) {
-        expectedMediaTokens.insert(token)
+        var changed = expectedMediaTokens.insert(token).inserted
         if succeeded {
-            loadedMediaTokens.insert(token)
-            failedMediaTokens.remove(token)
+            changed = loadedMediaTokens.insert(token).inserted || changed
+            changed = failedMediaTokens.remove(token) != nil || changed
         } else {
-            loadedMediaTokens.remove(token)
-            failedMediaTokens.insert(token)
+            changed = loadedMediaTokens.remove(token) != nil || changed
+            changed = failedMediaTokens.insert(token).inserted || changed
         }
+        advanceGeneration(if: changed)
     }
 
     public mutating func removeMedia(_ token: ScreenshotVisualReadinessMediaToken) {
-        expectedMediaTokens.remove(token)
-        loadedMediaTokens.remove(token)
-        failedMediaTokens.remove(token)
+        var changed = expectedMediaTokens.remove(token) != nil
+        changed = loadedMediaTokens.remove(token) != nil || changed
+        changed = failedMediaTokens.remove(token) != nil || changed
+        advanceGeneration(if: changed)
     }
 
     public mutating func beginBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
-        blockingIndicatorTokens.insert(token)
+        advanceGeneration(if: blockingIndicatorTokens.insert(token).inserted)
     }
 
     public mutating func endBlockingIndicator(_ token: ScreenshotVisualReadinessBlockingToken) {
-        blockingIndicatorTokens.remove(token)
+        advanceGeneration(if: blockingIndicatorTokens.remove(token) != nil)
     }
 
     public var snapshot: ScreenshotVisualReadinessSnapshot {
         let pendingMediaTokens = expectedMediaTokens.subtracting(loadedMediaTokens).subtracting(failedMediaTokens)
         let isSettled = pendingMediaTokens.isEmpty && failedMediaTokens.isEmpty && blockingIndicatorTokens.isEmpty
         return ScreenshotVisualReadinessSnapshot(
+            generation: generation,
+            proofIdentity: proofIdentity,
             expectedMediaCount: expectedMediaTokens.count,
             loadedMediaCount: loadedMediaTokens.count,
             pendingMediaCount: pendingMediaTokens.count,
@@ -104,5 +171,11 @@ public struct ScreenshotVisualReadinessState: Equatable, Sendable {
             blockingIndicatorCount: blockingIndicatorTokens.count,
             isSettled: isSettled
         )
+    }
+
+    private mutating func advanceGeneration(if changed: Bool) {
+        if changed {
+            generation += 1
+        }
     }
 }

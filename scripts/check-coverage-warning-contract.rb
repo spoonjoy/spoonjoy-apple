@@ -22,17 +22,20 @@ def run_command(*args)
   [status.success?, stdout, stderr]
 end
 
-def write_coverage_json(path, percent:)
-  covered = percent == 100.0 ? 10 : 9
+def write_coverage_json(path, covered:, total:, uncovered_line: nil)
+  percent = (covered * 100.0) / total
+  segments = [[1, 1, 1, true, true, false]]
+  segments << [uncovered_line, 1, 0, true, true, false] if uncovered_line
   payload = {
     "data" => [
       {
         "files" => [
           {
             "filename" => ROOT.join("Sources/SpoonjoyCore/Foo.swift").to_s,
+            "segments" => segments,
             "summary" => {
               "lines" => {
-                "count" => 10,
+                "count" => total,
                 "covered" => covered,
                 "percent" => percent
               }
@@ -65,9 +68,11 @@ def check_coverage_script_behavior
     dir_path = Pathname.new(dir)
     passing_json = dir_path.join("passing.json")
     failing_json = dir_path.join("failing.json")
+    nearly_passing_json = dir_path.join("nearly-passing.json")
     missing_json = dir_path.join("missing.json")
-    write_coverage_json(passing_json, percent: 100.0)
-    write_coverage_json(failing_json, percent: 90.0)
+    write_coverage_json(passing_json, covered: 10, total: 10)
+    write_coverage_json(failing_json, covered: 9, total: 10, uncovered_line: 10)
+    write_coverage_json(nearly_passing_json, covered: 27_852, total: 27_853, uncovered_line: 84)
 
     passing, = run_command(
       "ruby",
@@ -89,6 +94,23 @@ def check_coverage_script_behavior
       record_failure("coverage script must fail below the minimum threshold")
     elsif !("#{below_stdout}\n#{below_stderr}".match?(/below|threshold|90/i))
       record_failure("coverage script below-threshold failure should explain the measured shortfall")
+    end
+
+    nearly_passing, nearly_stdout, nearly_stderr = run_command(
+      "ruby",
+      COVERAGE_SCRIPT.to_s,
+      "--coverage-json", nearly_passing_json.to_s,
+      "--minimum", "100",
+      "--include", "Sources/SpoonjoyCore"
+    )
+    nearly_output = "#{nearly_stdout}\n#{nearly_stderr}"
+    if nearly_passing
+      record_failure("coverage script must fail when one included line remains uncovered")
+    else
+      record_failure("coverage script must not round a near-100 failure to 100.00%") if nearly_output.include?("100.00%")
+      unless nearly_output.include?("Sources/SpoonjoyCore/Foo.swift:84")
+        record_failure("coverage script must identify the uncovered included source line")
+      end
     end
 
     missing, missing_stdout, missing_stderr = run_command(
@@ -119,12 +141,23 @@ def check_warning_script_behavior
     scaler_diagnostic_log = dir_path.join("scaler-diagnostic.log")
     generic_io_service_diagnostic_log = dir_path.join("generic-io-service-diagnostic.log")
     other_driver_diagnostic_log = dir_path.join("other-driver-diagnostic.log")
+    simulator_launch_metric_log = dir_path.join("simulator-launch-metric.log")
+    spoofed_simulator_launch_metric_log = dir_path.join("spoofed-simulator-launch-metric.log")
     benign_failure_language_log = dir_path.join("benign-failure-language.log")
     clean_log.write("Build complete! (0.20s)\nTest run passed.\n")
     warning_log.write("Sources/SpoonjoyCore/Foo.swift:12:8: warning: variable was never mutated\n")
     scaler_diagnostic_log.write("IOServiceMatchingfailed for: AppleM2ScalerParavirtDriver\n")
     generic_io_service_diagnostic_log.write("IOServiceMatchingfailed\n")
     other_driver_diagnostic_log.write("IOServiceMatchingfailed for: UnexpectedScalerDriver\n")
+    simulator_launch_metric_log.write(<<~LOG)
+      2026-07-21 11:59:33.005687-0700 SpoonjoyUITests-Runner[2491:106082690] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+      2026-07-21 11:59:33.045664-0700 SpoonjoyUITests-Runner[2491:106082691] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+      2026-07-21 20:49:19.199788+0000 SpoonjoyUITests-Runner[11946:43903] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+      2026-07-21 20:49:19.243426+0000 SpoonjoyUITests-Runner[11946:43903] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+    LOG
+    spoofed_simulator_launch_metric_log.write(
+      "2026-07-21 11:59:33.005687-0700 SpoonjoyUITests-Runner[2491:106082690] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.UnexpectedMetric\n"
+    )
     benign_failure_language_log.write("Test \"failed upload remains queued\" passed\n")
 
     clean, = run_command("ruby", WARNING_SCRIPT.to_s, "--log", clean_log.to_s)
@@ -169,6 +202,28 @@ def check_warning_script_behavior
       record_failure("warning script must fail when IOServiceMatchingfailed names another driver")
     elsif !("#{other_driver_stdout}\n#{other_driver_stderr}".include?("UnexpectedScalerDriver"))
       record_failure("warning script failure should report the unexpected IOService driver")
+    end
+
+    simulator_launch_metric, = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      simulator_launch_metric_log.to_s
+    )
+    unless simulator_launch_metric
+      record_failure("warning script must allowlist only the exact UI-test runner launch metric diagnostics")
+    end
+
+    spoofed_launch_metric, spoofed_stdout, spoofed_stderr = run_command(
+      "ruby",
+      WARNING_SCRIPT.to_s,
+      "--log",
+      spoofed_simulator_launch_metric_log.to_s
+    )
+    if spoofed_launch_metric
+      record_failure("warning script must fail on an unrecognized simulator launch metric diagnostic")
+    elsif !("#{spoofed_stdout}\n#{spoofed_stderr}".include?("UnexpectedMetric"))
+      record_failure("warning script failure should report the unrecognized simulator launch metric")
     end
 
     benign_failure_language, = run_command(

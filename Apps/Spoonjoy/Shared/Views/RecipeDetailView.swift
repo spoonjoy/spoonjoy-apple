@@ -2,19 +2,20 @@ import Foundation
 import SpoonjoyCore
 import SwiftUI
 
-private enum RecipeDetailRouteState {
-    case loading(snapshotTitle: String?)
-    case loaded(RecipeDetailScreenViewModel)
-    case missing(message: String)
-    case failed(message: String)
+struct RecipeDetailRouteLoadContext: Equatable, Sendable {
+    let taskIdentity: RecipeDetailLoadIdentity
+    let shellRecipe: Recipe?
 }
 
 struct RecipeDetailRouteView: View {
     let recipeID: String
+    let loadContext: RecipeDetailRouteLoadContext
     let repository: any RecipeCatalogRepository
     let spoonRepository: any SpoonCookLogRepository
     let snapshotViewModel: RecipeDetailScreenViewModel?
     let loadingTitle: String?
+    let onRecipeLoaded: @MainActor @Sendable (Recipe, RecipeDetailRouteLoadContext) -> Void
+    let reportTelemetry: NativeRecipeDetailTelemetryReportOperation
     let actionConnectivity: RecipeActionConnectivity
     let shoppingViewModel: ShoppingSurfaceViewModel
     let context: (Recipe) -> RecipeDetailContext
@@ -29,15 +30,18 @@ struct RecipeDetailRouteView: View {
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
-    @State private var routeState: RecipeDetailRouteState
-    @State private var errorMessage: String?
+    @State private var routeState: NativeOwnedLoadState<RecipeDetailLoadIdentity, RecipeDetailScreenViewModel>
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
         recipeID: String,
+        loadContext: RecipeDetailRouteLoadContext,
         repository: any RecipeCatalogRepository,
         spoonRepository: any SpoonCookLogRepository,
         initialViewModel: RecipeDetailScreenViewModel?,
         loadingTitle: String? = nil,
+        onRecipeLoaded: @escaping @MainActor @Sendable (Recipe, RecipeDetailRouteLoadContext) -> Void = { _, _ in },
+        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation = { _ in },
         actionConnectivity: RecipeActionConnectivity,
         shoppingViewModel: ShoppingSurfaceViewModel,
         context: @escaping (Recipe) -> RecipeDetailContext,
@@ -53,10 +57,13 @@ struct RecipeDetailRouteView: View {
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.recipeID = recipeID
+        self.loadContext = loadContext
         self.repository = repository
         self.spoonRepository = spoonRepository
         snapshotViewModel = initialViewModel
         self.loadingTitle = loadingTitle
+        self.onRecipeLoaded = onRecipeLoaded
+        self.reportTelemetry = reportTelemetry
         self.actionConnectivity = actionConnectivity
         self.shoppingViewModel = shoppingViewModel
         self.context = context
@@ -70,12 +77,16 @@ struct RecipeDetailRouteView: View {
         self.discardSpoonCookLogConflict = discardSpoonCookLogConflict
         self.performShoppingAction = performShoppingAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
-        _routeState = State(initialValue: initialViewModel.map(RecipeDetailRouteState.loaded) ?? .loading(snapshotTitle: loadingTitle))
+        _routeState = State(initialValue: NativeOwnedLoadState(
+            identity: loadContext.taskIdentity,
+            initialValue: initialViewModel,
+            loadingTitle: loadingTitle
+        ))
     }
 
     var body: some View {
         Group {
-            switch routeState {
+            switch routeState.presentation {
             case .loaded(let viewModel):
                 RecipeDetailView(
                     viewModel: viewModel,
@@ -103,90 +114,78 @@ struct RecipeDetailRouteView: View {
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
             }
         }
-        .task(id: recipeID) {
-            await loadRecipe()
+        .task(id: loadContext.taskIdentity) {
+            await loadRecipe(context: loadContext)
         }
-        .onChange(of: snapshotViewModel) { _, nextViewModel in
-            guard let nextViewModel, nextViewModel != routeState.currentViewModel else {
-                return
-            }
-            routeState = .loaded(nextViewModel)
+        .onChange(of: loadContext.taskIdentity) { _, identity in
+            routeState.transition(
+                identity: identity,
+                snapshot: snapshotViewModel,
+                loadingTitle: loadingTitle
+            )
         }
     }
 
-    @MainActor private func loadRecipe() async {
-        errorMessage = nil
-        let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID
-        if !hasVisibleCurrentRecipe {
-            routeState = .loading(snapshotTitle: loadingTitle)
-        }
+    @MainActor private func loadRecipe(context loadContext: RecipeDetailRouteLoadContext) async {
+        let lease = routeState.begin(
+            identity: loadContext.taskIdentity,
+            snapshot: snapshotViewModel,
+            loadingTitle: loadingTitle
+        )
         do {
-            let result = try await repository.recipeDetail(id: recipeID)
-            let detailResult = await detailResultByLoadingFullSpoonList(result)
-            routeState = .loaded(RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe)))
-            errorMessage = nil
+            let loader = RecipeDetailProgressiveLoader(
+                recipeRepository: repository,
+                spoonRepository: spoonRepository,
+                reportTelemetry: reportTelemetry
+            )
+            try await loader.load(recipeID: recipeID) { result in
+                guard !Task.isCancelled,
+                      publishLoadedRecipe(result, lease: lease, loadContext: loadContext) else {
+                    return
+                }
+                onRecipeLoaded(result.recipe, loadContext)
+            }
+        } catch is CancellationError {
+            return
+        } catch let error as APITransportError where error.isCancelled {
+            return
         } catch RecipeCatalogRepositoryError.recipeNotFound {
-            if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't find this recipe."
-                routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
-            }
-        } catch {
-            if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't load this recipe."
-                routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
-            }
-        }
-    }
-
-    private func detailResultByLoadingFullSpoonList(_ result: RecipeCatalogDetailResult) async -> RecipeCatalogDetailResult {
-        do {
-            let cookLog = try await fullCookLog(recipeID: result.recipe.id)
-            return RecipeCatalogDetailResult(
-                recipe: result.recipe.replacingRecentSpoons(cookLog.spoons),
-                source: result.source
+            routeState.markMissing(
+                "We couldn't find this recipe.",
+                lease: lease,
+                currentIdentity: self.loadContext.taskIdentity
             )
         } catch {
-            return result
+            routeState.markFailed(
+                "We couldn't load this recipe.",
+                lease: lease,
+                currentIdentity: self.loadContext.taskIdentity
+            )
         }
     }
 
-    private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {
-        var cursor: PaginationCursor?
-        var seenCursors = Set<String>()
-        var spoons: [RecipeDetailRecentSpoon] = []
-
-        while true {
-            let page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: cursor, limit: 50)
-            spoons.append(contentsOf: page.spoons)
-
-            guard page.hasMore else {
-                return SpoonCookLogData(spoons: spoons, nextCursor: page.nextCursor, hasMore: false)
-            }
-            guard let nextCursor = page.nextCursor else {
-                throw RecipeDetailCookLogPaginationError.missingNextCursor
-            }
-            guard seenCursors.insert(nextCursor.rawValue).inserted else {
-                throw RecipeDetailCookLogPaginationError.repeatedCursor(nextCursor.rawValue)
-            }
-            cursor = nextCursor
+    @MainActor
+    private func publishLoadedRecipe(
+        _ result: RecipeCatalogDetailResult,
+        lease: NativeAsyncOperationLease<RecipeDetailLoadIdentity>,
+        loadContext: RecipeDetailRouteLoadContext
+    ) -> Bool {
+        let viewModel = RecipeDetailScreenViewModel(result: result, context: context(result.recipe))
+        guard routeState.currentIdentity == self.loadContext.taskIdentity,
+              loadContext.taskIdentity == self.loadContext.taskIdentity else {
+            return false
         }
-    }
-}
-
-private extension RecipeDetailRouteState {
-    var currentViewModel: RecipeDetailScreenViewModel? {
-        switch self {
-        case .loaded(let viewModel):
-            viewModel
-        case .loading, .missing, .failed:
-            nil
+        var accepted = false
+        withAnimation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.20)) {
+            accepted = routeState.publish(
+                viewModel,
+                lease: lease,
+                currentIdentity: self.loadContext.taskIdentity
+            )
         }
+        return accepted
     }
-}
 
-private enum RecipeDetailCookLogPaginationError: Error {
-    case missingNextCursor
-    case repeatedCursor(String)
 }
 
 struct RecipeDetailView: View {
@@ -442,24 +441,8 @@ struct RecipeDetailView: View {
 
     private var recipeMastheadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
-            recipePrimaryActions
-            if usesCompactRecipeDock {
-                if hasAction(.logCook) {
-                    recipeMastheadLogCookAction
-                }
-            }
-            if !usesCompactRecipeDock {
-                if hasAction(.logCook) || hasSecondaryRecipeActions {
-                    HStack(spacing: 10) {
-                        if hasAction(.logCook) {
-                            recipeMastheadLogCookAction
-                        }
-                        recipeSecondaryActions
-                    }
-                }
-            }
-            if !usesCompactRecipeDock {
-                ownerTools
+            if hasRecipeActionBar {
+                recipeActionBar
             }
             actionStatus
         }
@@ -498,46 +481,43 @@ struct RecipeDetailView: View {
 #endif
     }
 
-    @ViewBuilder private var recipePrimaryActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if hasAction(.startCooking) {
-                if usesCompactRecipeDock && hasCompactRecipeMenuActions {
-                    HStack(spacing: 10) {
-                        startCookingButton
-                        compactRecipeActionsMenu
-                    }
-                } else {
-                    startCookingButton
-                }
+    private var recipeActionBar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                recipeActionBarPrimaryButton
+                recipeActionBarSecondaryButtons
             }
 
-            if hasRecipeUtilityActions && !usesCompactRecipeDock {
-                HStack(spacing: 10) {
-                    if hasAction(.saveToCookbook) {
-                        Button {
-                            isCookbookSaveSheetPresented = true
-                        } label: {
-                            Label("Save", systemImage: "book.closed")
-                        }
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                    }
-
-                    if hasAction(.addToShoppingList) {
-                        Button {
-                            addRecipeIngredients()
-                        } label: {
-                            Label(
-                                hasIngredientsInShoppingList ? "In list" : "Add to list",
-                                systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
-                            )
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.76)
-                        }
-                        .disabled(hasIngredientsInShoppingList)
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
-                    }
-                }
+            VStack(alignment: .leading, spacing: 10) {
+                recipeActionBarPrimaryButton
+                recipeActionBarSecondaryButtons
             }
+        }
+    }
+
+    @ViewBuilder private var recipeActionBarPrimaryButton: some View {
+        if hasAction(.startCooking) {
+            startCookingButton
+        }
+    }
+
+    private var recipeActionBarSecondaryButtons: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                recipeActionBarSecondaryButtonContent
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                recipeActionBarSecondaryButtonContent
+            }
+        }
+    }
+
+    @ViewBuilder private var recipeActionBarSecondaryButtonContent: some View {
+        if hasAction(.logCook) {
+            recipeMastheadLogCookAction
+        }
+        if hasRecipeMenuActions {
+            recipeActionsMenu
         }
     }
 
@@ -550,7 +530,7 @@ struct RecipeDetailView: View {
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
     }
 
-    private var compactRecipeActionsMenu: some View {
+    private var recipeActionsMenu: some View {
         Menu {
             recipeMenuItems(includeSave: true, includeAddToList: true)
             ownerToolsMenuItems
@@ -559,17 +539,6 @@ struct RecipeDetailView: View {
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
         .accessibilityLabel("Recipe actions")
-    }
-
-    @ViewBuilder private var recipeSecondaryActions: some View {
-        if hasSecondaryRecipeActions {
-            Menu {
-                recipeMenuItems(includeSave: false, includeAddToList: true)
-            } label: {
-                Label("More", systemImage: "ellipsis.circle")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-        }
     }
 
     @ViewBuilder private func recipeMenuItems(includeSave: Bool, includeAddToList: Bool) -> some View {
@@ -605,12 +574,12 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var hasSecondaryRecipeActions: Bool {
-        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList)
+    private var hasRecipeMenuActions: Bool {
+        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible
     }
 
-    private var hasCompactRecipeMenuActions: Bool {
-        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible
+    private var hasRecipeActionBar: Bool {
+        hasAction(.startCooking) || hasAction(.logCook) || hasRecipeMenuActions
     }
 
     private var hasRecipeUtilityActions: Bool {
@@ -763,6 +732,7 @@ struct RecipeDetailView: View {
         SpoonCookLogView(
             viewModel: spoonCookLogViewModel(viewModel, viewModel.spoonSummary),
             showsHeader: showsHeader,
+            terminalAccessibilityIdentifier: showsHeader ? "recipe-detail.terminal" : "cook-log.terminal",
             draft: spoonCookLogDraft(viewModel),
             actionDidPlan: performSpoonCookLogAction,
             draftDidChange: { draft in
@@ -772,31 +742,6 @@ struct RecipeDetailView: View {
             onDismissOfflineIndicator: onDismissOfflineIndicator
         )
         .id(viewModel.id)
-    }
-
-    @ViewBuilder private var ownerTools: some View {
-        if viewModel.ownerTools.isVisible {
-            ownerToolsMenu
-        }
-    }
-
-    private var ownerToolsMenu: some View {
-        Menu {
-            ownerToolsMenuItems
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.headline.weight(.semibold))
-                .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Manage recipe")
-        .accessibilityHint("Opens owner tools for this recipe.")
     }
 
     @ViewBuilder private var ownerToolsMenuItems: some View {
@@ -1128,30 +1073,6 @@ struct RecipeDetailView: View {
     }
 }
 
-private extension Recipe {
-    func replacingRecentSpoons(_ recentSpoons: [RecipeDetailRecentSpoon]) -> Recipe {
-        Recipe(
-            id: id,
-            title: title,
-            description: description,
-            servings: servings,
-            chef: chef,
-            coverImageURL: coverImageURL,
-            coverProvenanceLabel: coverProvenanceLabel,
-            coverSourceType: coverSourceType,
-            coverVariant: coverVariant,
-            href: href,
-            canonicalURL: canonicalURL,
-            attribution: attribution,
-            createdAt: createdAt,
-            updatedAt: updatedAt,
-            steps: steps,
-            cookbooks: cookbooks,
-            recentSpoons: recentSpoons
-        )
-    }
-}
-
 private struct RecipeActionConfirmationDialog {
     let prompt: RecipeActionConfirmationPrompt
     let clientMutationID: String
@@ -1210,6 +1131,9 @@ private struct RecipeScaleSelector: View {
             }
             .frame(maxWidth: .infinity, minHeight: 64)
             .padding(.horizontal, 12)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Yield")
+            .accessibilityValue(displayValue)
 
             scaleButton(systemImage: "plus", label: "Increase scale", isDisabled: scaleFactor >= maximum) {
                 setScaleFactor(min(maximum, rounded(scaleFactor + step)))
@@ -1221,9 +1145,6 @@ private struct RecipeScaleSelector: View {
                 .stroke(KitchenTableTheme.line.opacity(0.72), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Yield")
-        .accessibilityValue(displayValue)
     }
 
     private func scaleButton(

@@ -54,6 +54,16 @@ def included_file?(filename, includes)
   end
 end
 
+def uncovered_lines(file)
+  regions = file.fetch("segments", []).select do |segment|
+    segment.is_a?(Array) && segment.length >= 6 && segment[3] == true && segment[4] == true && segment[5] == false
+  end
+  regions.group_by { |segment| segment[0] }
+    .select { |_, line_regions| line_regions.all? { |segment| segment[2].to_i.zero? } }
+    .keys
+    .sort
+end
+
 files = report.fetch("data", []).flat_map { |entry| entry.fetch("files", []) }
 included = files.select { |file| included_file?(file.fetch("filename"), includes) }
 fail_check("coverage JSON has no files matching include path(s): #{includes.join(", ")}") if included.empty?
@@ -72,10 +82,17 @@ fail_check("included coverage has no measurable lines") if total_lines.zero?
 percent = (covered_lines * 100.0) / total_lines
 
 if percent < minimum
+  uncovered = included.flat_map do |file|
+    filename = normalized_filename(file.fetch("filename"))
+    uncovered_lines(file).map { |line| "#{filename}:#{line}" }
+  end
+  uncovered_details = uncovered.first(20).map { |location| "- #{location}" }
+  uncovered_details << "- ... and #{uncovered.length - 20} more" if uncovered.length > 20
+  diagnostics = uncovered_details.empty? ? "" : "\nUncovered included lines:\n#{uncovered_details.join("\n")}"
   fail_check(
-    "coverage below threshold: #{format("%.2f", percent)}% " \
-    "(#{covered_lines}/#{total_lines}) is below #{format("%.2f", minimum)}%"
+    "coverage below threshold: #{format("%.4f", percent)}% " \
+    "(#{covered_lines}/#{total_lines}) is below #{format("%.4f", minimum)}%#{diagnostics}"
   )
 end
 
-puts "coverage ok: #{format("%.2f", percent)}% (#{covered_lines}/#{total_lines})"
+puts "coverage ok: #{format("%.4f", percent)}% (#{covered_lines}/#{total_lines})"

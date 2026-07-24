@@ -154,7 +154,11 @@ struct NativeAPIExpansionTests {
             intentReturnsValue: false,
             intentQueuedMutationID: "intent-search-1",
             intentQueuedMutationKind: "search.query",
-            intentOpensURL: "spoonjoy://search?q=lemons&scope=recipes"
+            intentOpensURL: "spoonjoy://search?q=lemons&scope=recipes",
+            searchScope: "recipes",
+            searchQueryLength: 6,
+            searchResultCount: 3,
+            durationMilliseconds: 184
         ))
         .urlRequest(configuration: Self.privateConfiguration)
 
@@ -202,7 +206,11 @@ struct NativeAPIExpansionTests {
             "intentReturnsValue": false,
             "intentQueuedMutationId": "intent-search-1",
             "intentQueuedMutationKind": "search.query",
-            "intentOpensUrl": "spoonjoy://search?q=lemons&scope=recipes"
+            "intentOpensUrl": "spoonjoy://search?q=lemons&scope=recipes",
+            "searchScope": "recipes",
+            "searchQueryLength": 6,
+            "searchResultCount": 3,
+            "durationMilliseconds": 184
         ])
         #expect(currentAccount.body == nil)
         #expect(kitchen.body == nil)

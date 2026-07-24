@@ -14,7 +14,7 @@ struct CaptureDraftEntityTests {
                 "Sources/SpoonjoyCore/Native/ScenarioVerifier.swift",
                 "Sources/SpoonjoyCore/Native/NativeIntentAction.swift",
                 "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
-                "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
                 "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
             ],
             requiredTokens: [
@@ -121,9 +121,9 @@ struct CaptureDraftEntityTests {
                     "revokeAndLogout",
                     "cacheEnvironment"
                 ],
-                "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift": [
-                    "NativeCaptureDraftEntityIndexPurgeRequest",
-                    "purgeCaptureDraftEntityIndexesHandler"
+                "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift": [
+                    "@Environment(\\.scenePhase)",
+                    "await liveStore.refreshForForeground()"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift": [
                     "accountID: String? = nil",
@@ -149,7 +149,7 @@ struct CaptureDraftEntityTests {
                 (
                     relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
                     label: "restoreFromCache account or environment switch",
-                    pattern: #"func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\]\s*\)"#,
+                    pattern: #"func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\],\s*bootstrapOperationID: UUID\? = nil\s*\)"#,
                     requiredTokens: [
                         "preFilterCacheRecord",
                         "preFilterAppStateRecord",
@@ -167,6 +167,7 @@ struct CaptureDraftEntityTests {
                         "CaptureDraftEntityCatalog.purgeEntityIdentifiers(",
                         "CaptureDraftEntityCatalog.purgeDomainIdentifiers(",
                         "purgeCaptureDraftEntityIdentifiers",
+                        "ensureCurrentBootstrapOperation(bootstrapOperationID)",
                         "accountID: previousCacheSnapshot.accountID",
                         "environment: previousCacheSnapshot.environment",
                         "accountID: previousAppSnapshot.accountID",

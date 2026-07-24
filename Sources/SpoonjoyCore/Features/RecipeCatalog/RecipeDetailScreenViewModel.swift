@@ -376,3 +376,395 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         return actions
     }
 }
+
+public struct NativeRecipeDetailTelemetryDescriptor: Equatable, Sendable {
+    public let stage: String
+    public let errorType: String
+    public let requestID: String?
+    public let status: Int?
+    public let apiCode: String?
+    public let retry: String?
+    public let hasRenderableCacheContent: Bool
+
+    public static func cookHistoryEnrichmentFailed(error: Error) -> Self {
+        diagnostic(
+            stage: "recipe_detail.cook_history_enrichment",
+            error: error,
+            hasRenderableCacheContent: true
+        )
+    }
+
+    public static func primaryFetchFailed(error: Error) -> Self {
+        diagnostic(
+            stage: "recipe_detail.primary_fetch",
+            error: error,
+            hasRenderableCacheContent: false
+        )
+    }
+
+    public static func primaryFetchFailed(
+        failure: RecipeCatalogPrimaryFetchFailure,
+        hasRenderableCacheContent: Bool
+    ) -> Self {
+        Self(
+            stage: "recipe_detail.primary_fetch",
+            errorType: failure.errorType,
+            requestID: failure.requestID,
+            status: failure.status,
+            apiCode: failure.apiCode,
+            retry: failure.retryDecision.map(retryDescription),
+            hasRenderableCacheContent: hasRenderableCacheContent
+        )
+    }
+
+    public static func primaryFetchCancelled(error: Error, requestID: String? = nil) -> Self {
+        diagnostic(
+            stage: "recipe_detail.primary_fetch",
+            error: error,
+            errorType: "cancelled",
+            requestID: requestID,
+            hasRenderableCacheContent: false
+        )
+    }
+
+    private static func diagnostic(
+        stage: String,
+        error: Error,
+        errorType: String? = nil,
+        requestID: String? = nil,
+        hasRenderableCacheContent: Bool
+    ) -> Self {
+        let transportError = error as? APITransportError
+        return Self(
+            stage: stage,
+            errorType: bounded(errorType ?? String(describing: Swift.type(of: error)), limit: 80),
+            requestID: bounded(
+                requestID ?? transportError?.requestID ?? transportError?.apiError?.requestID,
+                limit: 160
+            ),
+            status: transportError?.statusCode ?? transportError?.apiError?.status,
+            apiCode: bounded(transportError?.apiError?.code, limit: 80),
+            retry: transportError.map { retryDescription($0.retryDecision) },
+            hasRenderableCacheContent: hasRenderableCacheContent
+        )
+    }
+
+    public func telemetryEvent(
+        environment: String,
+        metadata: NativeTelemetryAppMetadata
+    ) -> NativeTelemetryEvent {
+        NativeTelemetryEvent(
+            name: .syncFailed,
+            stage: stage,
+            environment: environment,
+            metadata: metadata,
+            route: "recipe_detail",
+            errorType: errorType,
+            requestID: requestID,
+            status: status,
+            apiCode: apiCode,
+            retry: retry,
+            hasRenderableCacheContent: hasRenderableCacheContent
+        )
+    }
+
+    private static func bounded(_ value: String?, limit: Int) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+        return String(value.prefix(limit))
+    }
+
+    private static func bounded(_ value: String, limit: Int) -> String {
+        String(value.prefix(limit))
+    }
+
+    private static func retryDescription(_ decision: APIRetryDecision) -> String {
+        switch decision {
+        case .retrySameRequest(let seconds):
+            "retry_same_request:\(seconds.map(String.init) ?? "unspecified")"
+        case .refreshAuthentication:
+            "refresh_authentication"
+        case .doNotRetry:
+            "do_not_retry"
+        }
+    }
+}
+
+/// Reporters must promptly finish when their task is cancelled. The deadline requests cancellation,
+/// structured ownership waits for exit, and a fixed task budget caps reporters that violate the contract.
+/// Production satisfies the cooperative-exit contract through URLSession cancellation.
+public typealias NativeRecipeDetailTelemetryReportOperation = @Sendable (
+    NativeRecipeDetailTelemetryDescriptor
+) async -> Void
+
+final class NativeRecipeDetailTelemetryTaskBudget: @unchecked Sendable {
+    static let shared = NativeRecipeDetailTelemetryTaskBudget(capacity: 16)
+
+    private let capacity: Int
+    private let lock = NSLock()
+    private var inFlight = 0
+
+    init(capacity: Int) {
+        self.capacity = max(capacity, 1)
+    }
+
+    func claim() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard inFlight < capacity else {
+            return false
+        }
+        inFlight += 1
+        return true
+    }
+
+    func release() {
+        lock.lock()
+        defer { lock.unlock() }
+        inFlight -= 1
+    }
+
+    func inFlightCount() -> Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return inFlight
+    }
+}
+
+private struct NativeRecipeDetailTelemetryDispatcher: Sendable {
+    private let report: NativeRecipeDetailTelemetryReportOperation
+    private let timeout: Duration
+    private let taskBudget: NativeRecipeDetailTelemetryTaskBudget
+
+    init(
+        report: @escaping NativeRecipeDetailTelemetryReportOperation,
+        timeout: Duration,
+        taskBudget: NativeRecipeDetailTelemetryTaskBudget
+    ) {
+        self.report = report
+        self.timeout = max(timeout, .zero)
+        self.taskBudget = taskBudget
+    }
+
+    func submit(_ descriptor: NativeRecipeDetailTelemetryDescriptor) {
+        guard taskBudget.claim() else {
+            return
+        }
+        let report = report
+        let timeout = timeout
+        let taskBudget = taskBudget
+        Task.detached(priority: .utility) {
+            defer { taskBudget.release() }
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    await report(descriptor)
+                }
+                group.addTask {
+                    try? await Task.sleep(for: timeout)
+                }
+                await group.next()
+                group.cancelAll()
+            }
+        }
+    }
+}
+
+public struct RecipeDetailLoadIdentity: Hashable, Sendable {
+    public let recipeID: String
+    public let shellIdentity: String
+    private let encodedShellRecipe: Data?
+
+    public init(recipeID: String, shellIdentity: String, shellRecipe: Recipe?) {
+        self.recipeID = recipeID
+        self.shellIdentity = shellIdentity
+        encodedShellRecipe = Self.encode(shellRecipe)
+    }
+
+    private static func encode(_ recipe: Recipe?) -> Data? {
+        guard let recipe else {
+            return nil
+        }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return (try? encoder.encode(recipe)) ?? Data(String(reflecting: recipe).utf8)
+    }
+}
+
+public struct RecipeDetailSnapshotCache: Equatable, Sendable {
+    private struct Entry: Equatable, Sendable {
+        let loadedRecipe: Recipe
+        let shellRecipe: Recipe?
+        let shellIdentity: String
+    }
+
+    private var entriesByRecipeID: [String: Entry] = [:]
+
+    public init() {}
+
+    public func recipe(id: String, shellRecipe: Recipe?, shellIdentity: String) -> Recipe? {
+        guard let entry = entriesByRecipeID[id],
+              entry.shellRecipe == shellRecipe,
+              entry.shellIdentity == shellIdentity else {
+            return shellRecipe
+        }
+        return entry.loadedRecipe
+    }
+
+    public mutating func recordLoadedRecipe(_ recipe: Recipe, shellRecipe: Recipe?, shellIdentity: String) {
+        entriesByRecipeID[recipe.id] = Entry(
+            loadedRecipe: recipe,
+            shellRecipe: shellRecipe,
+            shellIdentity: shellIdentity
+        )
+    }
+
+    public mutating func removeAll() {
+        entriesByRecipeID.removeAll()
+    }
+}
+
+public struct RecipeDetailProgressiveLoader: Sendable {
+    private let recipeRepository: any RecipeCatalogRepository
+    private let spoonRepository: any SpoonCookLogRepository
+    private let telemetryDispatcher: NativeRecipeDetailTelemetryDispatcher
+
+    public init(
+        recipeRepository: any RecipeCatalogRepository,
+        spoonRepository: any SpoonCookLogRepository,
+        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation = { _ in },
+        telemetryTimeout: Duration = .seconds(5)
+    ) {
+        self.init(
+            recipeRepository: recipeRepository,
+            spoonRepository: spoonRepository,
+            reportTelemetry: reportTelemetry,
+            telemetryTimeout: telemetryTimeout,
+            telemetryTaskBudget: .shared
+        )
+    }
+
+    init(
+        recipeRepository: any RecipeCatalogRepository,
+        spoonRepository: any SpoonCookLogRepository,
+        reportTelemetry: @escaping NativeRecipeDetailTelemetryReportOperation,
+        telemetryTimeout: Duration,
+        telemetryTaskBudget: NativeRecipeDetailTelemetryTaskBudget
+    ) {
+        self.recipeRepository = recipeRepository
+        self.spoonRepository = spoonRepository
+        telemetryDispatcher = NativeRecipeDetailTelemetryDispatcher(
+            report: reportTelemetry,
+            timeout: telemetryTimeout,
+            taskBudget: telemetryTaskBudget
+        )
+    }
+
+    public func load(
+        recipeID: String,
+        onRecipe: @escaping @MainActor @Sendable (RecipeCatalogDetailResult) -> Void
+    ) async throws {
+        let initialResult: RecipeCatalogDetailResult
+        do {
+            initialResult = try await recipeRepository.recipeDetail(id: recipeID)
+        } catch is CancellationError {
+            telemetryDispatcher.submit(.primaryFetchCancelled(error: CancellationError()))
+            throw CancellationError()
+        } catch let error as APITransportError where error.isCancelled {
+            telemetryDispatcher.submit(.primaryFetchCancelled(error: error))
+            throw CancellationError()
+        } catch {
+            telemetryDispatcher.submit(.primaryFetchFailed(error: error))
+            throw error
+        }
+
+        do {
+            try Task.checkCancellation()
+        } catch {
+            let requestID: String? = if case .live(let requestID, _) = initialResult.source {
+                requestID
+            } else {
+                initialResult.primaryFetchFailure?.requestID
+            }
+            telemetryDispatcher.submit(.primaryFetchCancelled(
+                error: error,
+                requestID: requestID
+            ))
+            throw CancellationError()
+        }
+        if let primaryFetchFailure = initialResult.primaryFetchFailure {
+            telemetryDispatcher.submit(.primaryFetchFailed(
+                failure: primaryFetchFailure,
+                hasRenderableCacheContent: true
+            ))
+        }
+        await onRecipe(initialResult)
+
+        do {
+            let cookLog = try await fullCookLog(recipeID: initialResult.recipe.id)
+            try Task.checkCancellation()
+            let enrichedResult = RecipeCatalogDetailResult(
+                recipe: initialResult.recipe.replacingRecentSpoons(cookLog.spoons),
+                source: initialResult.source,
+                primaryFetchFailure: initialResult.primaryFetchFailure
+            )
+            await onRecipe(enrichedResult)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let error as APITransportError where error.isCancelled {
+            throw CancellationError()
+        } catch {
+            telemetryDispatcher.submit(.cookHistoryEnrichmentFailed(error: error))
+        }
+    }
+
+    private func fullCookLog(recipeID: String) async throws -> SpoonCookLogData {
+        var seenCursors = Set<String>()
+        var spoons: [RecipeDetailRecentSpoon] = []
+        try Task.checkCancellation()
+        var page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: nil, limit: 50)
+        spoons.append(contentsOf: page.spoons)
+
+        while page.hasMore {
+            guard let nextCursor = page.nextCursor else {
+                throw RecipeDetailProgressiveLoadError.missingNextCursor
+            }
+            guard seenCursors.insert(nextCursor.rawValue).inserted else {
+                throw RecipeDetailProgressiveLoadError.repeatedCursor
+            }
+            try Task.checkCancellation()
+            page = try await spoonRepository.fetchCookLog(recipeID: recipeID, cursor: nextCursor, limit: 50)
+            spoons.append(contentsOf: page.spoons)
+        }
+        return SpoonCookLogData(spoons: spoons, nextCursor: page.nextCursor, hasMore: false)
+    }
+}
+
+private enum RecipeDetailProgressiveLoadError: Error {
+    case missingNextCursor
+    case repeatedCursor
+}
+
+private extension Recipe {
+    func replacingRecentSpoons(_ recentSpoons: [RecipeDetailRecentSpoon]) -> Recipe {
+        Recipe(
+            id: id,
+            title: title,
+            description: description,
+            servings: servings,
+            chef: chef,
+            coverImageURL: coverImageURL,
+            coverProvenanceLabel: coverProvenanceLabel,
+            coverSourceType: coverSourceType,
+            coverVariant: coverVariant,
+            href: href,
+            canonicalURL: canonicalURL,
+            attribution: attribution,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+            steps: steps,
+            cookbooks: cookbooks,
+            recentSpoons: recentSpoons
+        )
+    }
+}

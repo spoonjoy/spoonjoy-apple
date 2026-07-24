@@ -1,5 +1,8 @@
 import Foundation
 import Testing
+#if canImport(CryptoKit)
+import CryptoKit
+#endif
 #if canImport(Darwin)
 import Darwin
 #endif
@@ -90,6 +93,68 @@ struct TestFlightAutomationContractTests {
         )
     }
 
+    @Test("Protected pull-request CI runs non-launch native UI geometry regressions")
+    func protectedNativeCIRunsNonLaunchGeometryTests() throws {
+        let workflow = try readTestFlightAutomationRepoFile(".github/workflows/native.yml")
+
+        expectTestFlightAutomationContent(
+            workflow,
+            in: ".github/workflows/native.yml",
+            contains: [
+                "Run non-launch native UI geometry regressions",
+                "xcodebuild test",
+                "simulator_arch=\"$(uname -m)\"",
+                "-destination \"$ios_destination,arch=$simulator_arch\"",
+                "-only-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests",
+                "-skip-testing:SpoonjoyUITests/NativeScreenshotEvidenceTests/testObservedAccessibilityAndGeometry",
+                "GCC_TREAT_WARNINGS_AS_ERRORS=YES",
+                "ruby scripts/fail-on-warning.rb --log \"$ui_geometry_log\""
+            ]
+        )
+    }
+
+    @Test("visual release evidence binds exact-source pending-to-content tests")
+    func visualReleaseEvidenceBindsTransitionTests() throws {
+        let capture = try readTestFlightAutomationRepoFile("scripts/capture-native-transition-evidence.sh")
+        let matrix = try readTestFlightAutomationRepoFile("scripts/capture-native-screenshot-matrix.sh")
+        let sealer = try readTestFlightAutomationRepoFile("scripts/testflight-visual-evidence.rb")
+
+        expectTestFlightAutomationContent(
+            capture,
+            in: "scripts/capture-native-transition-evidence.sh",
+            contains: [
+                "git diff --quiet",
+                "NativeSearchSurfaceTests.pendingSearchSuppressesEmptyState",
+                "RecipeCatalogDetailTests.recipeDetailPublishesBeforeCookHistoryEnrichment",
+                "-Xswiftc -warnings-as-errors",
+                "search-pending-suppresses-empty-state",
+                "recipe-publishes-before-cook-history",
+                "sourceSha",
+                "sourceTree"
+            ]
+        )
+        expectTestFlightAutomationContent(
+            matrix,
+            in: "scripts/capture-native-screenshot-matrix.sh",
+            contains: [
+                "scripts/capture-native-transition-evidence.sh",
+                "transitionEvidenceValidated",
+                "transitionEvidenceSha256",
+                "transitionEvidenceLogSha256"
+            ]
+        )
+        expectTestFlightAutomationContent(
+            sealer,
+            in: "scripts/testflight-visual-evidence.rb",
+            contains: [
+                "TRANSITION_CONTRACT_IDS",
+                "validate_transition_evidence!",
+                "transitionEvidenceLog",
+                "sealed native transition evidence mismatch"
+            ]
+        )
+    }
+
     @Test("Every external workflow action and distribution toolkit revision is immutable")
     func workflowDependenciesAreImmutable() throws {
         let workflowPaths = [
@@ -154,6 +219,12 @@ struct TestFlightAutomationContractTests {
         let timedOutConvergence = try #require(report["timedOutLaunchdConvergence"] as? [String: Any])
         let deadlineConvergence = try #require(report["deadlineLaunchdConvergence"] as? [String: Any])
         let definitionReuse = try #require(report["definitionReuse"] as? [String: Any])
+        let timedOutKickstartInstall = try #require(report["timedOutKickstartInstall"] as? [String: Any])
+        let transientBootstrapInstall = try #require(report["transientBootstrapInstall"] as? [String: Any])
+        let permanentBootstrapFailure = try #require(report["permanentBootstrapFailure"] as? [String: Any])
+        let scheduledExitPublication = try #require(report["scheduledExitPublication"] as? [String: Any])
+        let stateRepairPlans = try #require(report["stateRepairPlans"] as? [String: Any])
+        let neverConvergedKickstartInstall = try #require(report["neverConvergedKickstartInstall"] as? [String: Any])
         let hungSubprocess = try #require(report["hungSubprocess"] as? [String: Any])
         let healthWaitPolicy = try #require(report["healthWaitPolicy"] as? [String: Any])
         let htmlHealthFailure = try #require(report["htmlHealthFailure"] as? [String: Any])
@@ -190,6 +261,49 @@ struct TestFlightAutomationContractTests {
         #expect(deadlineConvergence["timedOut"] as? Bool == true)
         #expect(definitionReuse["ok"] as? Bool == true)
         #expect(definitionReuse["attemptsUsed"] as? Int == 1)
+        #expect(timedOutKickstartInstall["ok"] as? Bool == true)
+        #expect(timedOutKickstartInstall["serviceCount"] as? Int == 3)
+        #expect(timedOutKickstartInstall["launchctlCallCount"] as? Int == 9)
+        #expect(timedOutKickstartInstall["timedOutKickstarts"] as? Int == 1)
+        #expect(timedOutKickstartInstall["remainingServicesRefreshed"] as? Bool == true)
+        #expect(timedOutKickstartInstall["definitionsReused"] as? Bool == true)
+        #expect(transientBootstrapInstall["ok"] as? Bool == true)
+        #expect(transientBootstrapInstall["attemptsUsed"] as? Int == 2)
+        #expect(transientBootstrapInstall["tunnelBootstrapAttempts"] as? Int == 2)
+        #expect(transientBootstrapInstall["tunnelBootoutAttempts"] as? Int == 1)
+        #expect(transientBootstrapInstall["listenerLaunchctlCalls"] as? Int == 3)
+        #expect(transientBootstrapInstall["stateDirectedRepair"] as? Bool == true)
+        #expect(permanentBootstrapFailure["ok"] as? Bool == false)
+        #expect(permanentBootstrapFailure["attemptsUsed"] as? Int == 3)
+        #expect(permanentBootstrapFailure["tunnelBootstrapAttempts"] as? Int == 3)
+        #expect(permanentBootstrapFailure["tunnelBootoutAttempts"] as? Int == 1)
+        #expect(permanentBootstrapFailure["listenerLaunchctlCalls"] as? Int == 3)
+        #expect(permanentBootstrapFailure["stateDirectedRepair"] as? Bool == true)
+        #expect(
+            (permanentBootstrapFailure["issues"] as? [String])?.contains(where: {
+                $0.contains("tunnel") && $0.contains("not loaded")
+            }) == true
+        )
+        #expect(scheduledExitPublication["ok"] as? Bool == true)
+        #expect(scheduledExitPublication["attemptsUsed"] as? Int == 2)
+        #expect(scheduledExitPublication["reconcileLaunchctlCalls"] as? Int == 3)
+        #expect(scheduledExitPublication["observedWithoutRestart"] as? Bool == true)
+        #expect(stateRepairPlans["unloaded"] as? [String] == ["bootstrap", "kickstart"])
+        #expect(stateRepairPlans["staleDefinition"] as? [String] == ["bootout", "bootstrap", "kickstart"])
+        #expect(stateRepairPlans["deadKeepAlive"] as? [String] == ["kickstart"])
+        #expect(stateRepairPlans["scheduledExitPublishing"] as? [String] == [])
+        #expect(stateRepairPlans["failedScheduled"] as? [String] == ["kickstart"])
+        #expect(neverConvergedKickstartInstall["ok"] as? Bool == false)
+        #expect(neverConvergedKickstartInstall["serviceCount"] as? Int == 3)
+        #expect(neverConvergedKickstartInstall["launchctlCallCount"] as? Int == 9)
+        #expect(neverConvergedKickstartInstall["timedOutKickstarts"] as? Int == 1)
+        #expect(neverConvergedKickstartInstall["remainingServicesRefreshed"] as? Bool == true)
+        #expect(neverConvergedKickstartInstall["definitionsReused"] as? Bool == true)
+        #expect(
+            (neverConvergedKickstartInstall["issues"] as? [String])?.contains(where: {
+                $0.contains("listener") && $0.contains("never converged")
+            }) == true
+        )
         #expect(hungSubprocess["timedOut"] as? Bool == true)
         #expect(hungSubprocess["signal"] as? String == "SIGKILL")
         #expect(hungSubprocess["elapsedMilliseconds"] as? Int ?? .max < 1_000)
@@ -214,7 +328,7 @@ struct TestFlightAutomationContractTests {
         #expect(hungLocalHealth["ok"] as? Bool == false)
         #expect(hungLocalHealth["requestSeen"] as? Bool == true)
         #expect(hungLocalHealth["connectionHeader"] as? String == "close")
-        #expect(hungLocalHealth["error"] as? String == "request timed out after 100ms")
+        #expect(hungLocalHealth["error"] as? String == "request timed out after 1000ms")
         #expect(hungLocalHealth["openConnections"] as? Int == 0)
         #expect(hungLocalHealth["forcedCleanup"] as? Bool == false)
         #expect(hungLocalHealth["serverClosed"] as? Bool == true)
@@ -343,6 +457,8 @@ struct TestFlightAutomationContractTests {
             printf 'git %s\n' "$*" >> "$COMMAND_LOG"
             if [[ "$1" == "rev-parse" && "$2" == "HEAD" ]]; then
               cat "$CANDIDATE_FIXTURE/checked-out-sha.txt"
+            elif [[ "$1" == "rev-parse" && "$2" == "HEAD^{tree}" ]]; then
+              cat "$CANDIDATE_FIXTURE/checked-out-tree.txt"
             elif [[ "$1" == "merge-base" && "$2" == "--is-ancestor" ]]; then
               [[ "$(cat "$CANDIDATE_FIXTURE/is-main-ancestor.txt")" == "true" ]]
             else
@@ -362,22 +478,35 @@ struct TestFlightAutomationContractTests {
               case "$endpoint" in
                 repos/*/git/ref/heads/main) cat "$CANDIDATE_FIXTURE/main-ref.json" ;;
                 repos/*/actions/workflows/native.yml/runs) cat "$CANDIDATE_FIXTURE/runs.json" ;;
-                repos/*/actions/runs/4242/jobs) cat "$CANDIDATE_FIXTURE/jobs.json" ;;
+                repos/*/actions/runs/4242/attempts/1/jobs) cat "$CANDIDATE_FIXTURE/jobs.json" ;;
                 repos/*/actions/runs/4242/artifacts) cat "$CANDIDATE_FIXTURE/artifacts.json" ;;
                 *) echo "unexpected fake gh endpoint: $endpoint" >&2; exit 2 ;;
               esac
             elif [[ "$1" == "run" && "$2" == "download" && "$3" == "4242" ]]; then
               destination=""
-              while (( $# > 0 )); do
-                if [[ "$1" == "--dir" ]]; then
-                  destination="$2"
-                  break
+              artifact_name=""
+              index=1
+              while (( index <= $# )); do
+                argument="${!index}"
+                if [[ "$argument" == "--name" ]]; then
+                  next=$((index + 1))
+                  artifact_name="${!next}"
+                elif [[ "$argument" == "--dir" ]]; then
+                  next=$((index + 1))
+                  destination="${!next}"
                 fi
-                shift
+                index=$((index + 1))
               done
-              [[ -n "$destination" ]]
+              [[ -n "$destination" && -n "$artifact_name" ]]
               mkdir -p "$destination"
-              cp "$CANDIDATE_FIXTURE/testflight-release-notes.json" "$destination/"
+              if [[ "$artifact_name" == testflight-release-notes-* ]]; then
+                cp "$CANDIDATE_FIXTURE/testflight-release-notes.json" "$destination/"
+              elif [[ "$artifact_name" == native-visual-evidence-* ]]; then
+                cp -R "$CANDIDATE_FIXTURE/native-visual-evidence/." "$destination/"
+              else
+                echo "unexpected fake artifact: $artifact_name" >&2
+                exit 2
+              fi
             else
               echo "unexpected fake gh arguments: $*" >&2
               exit 2
@@ -394,13 +523,15 @@ struct TestFlightAutomationContractTests {
         #expect(result.status == 0, "live verifier failed: \(result.output)")
         let commands = try String(contentsOf: commandLog, encoding: .utf8)
         #expect(commands.contains("git rev-parse HEAD"))
+        #expect(commands.contains("git rev-parse HEAD^{tree}"))
         #expect(commands.contains("git merge-base --is-ancestor \(currentSHA) \(currentSHA)"))
         #expect(commands.contains("gh api --method GET repos/ourostack/spoonjoy-apple/git/ref/heads/main"))
         #expect(commands.contains("repos/ourostack/spoonjoy-apple/actions/workflows/native.yml/runs -f head_sha=\(currentSHA) -f branch=main -f per_page=100"))
         #expect(!commands.contains("status=completed"))
-        #expect(commands.contains("repos/ourostack/spoonjoy-apple/actions/runs/4242/jobs"))
+        #expect(commands.contains("repos/ourostack/spoonjoy-apple/actions/runs/4242/attempts/1/jobs"))
         #expect(commands.contains("repos/ourostack/spoonjoy-apple/actions/runs/4242/artifacts"))
-        #expect(commands.contains("gh run download 4242 --repo ourostack/spoonjoy-apple --name testflight-release-notes-\(currentSHA)"))
+        #expect(commands.contains("gh run download 4242 --repo ourostack/spoonjoy-apple --name testflight-release-notes-\(currentSHA)-4242-1"))
+        #expect(commands.contains("gh run download 4242 --repo ourostack/spoonjoy-apple --name native-visual-evidence-\(currentSHA)-4242-1"))
     }
 
     @Test("candidate verifier fails closed on unsuccessful or mismatched Native checks")
@@ -510,6 +641,22 @@ struct TestFlightAutomationContractTests {
         )
     }
 
+    @Test("candidate verifier rejects incomplete deep-scroll visual evidence")
+    func verifierRejectsMissingDeepScrollEvidence() throws {
+        let fixture = try makeCandidateFixture(
+            sourceSHA: currentSHA,
+            mainSHA: currentSHA,
+            omitDeepScrollForRoute: "kitchen"
+        )
+        defer { try? FileManager.default.removeItem(at: fixture) }
+
+        try expectVerifierFailure(
+            fixture: fixture,
+            sourceSHA: currentSHA,
+            contains: "route kitchen deep-scroll screenshot set is incomplete"
+        )
+    }
+
     @Test("older main commits require an explicit reasoned rollback")
     func verifierRequiresExplicitRollback() throws {
         let ordinary = try makeCandidateFixture(sourceSHA: rollbackSHA, mainSHA: currentSHA)
@@ -564,22 +711,14 @@ struct TestFlightAutomationContractTests {
             json["artifacts"] = []
         }
         try FileManager.default.removeItem(at: legacy.appendingPathComponent("testflight-release-notes.json"))
-        let legacyResult = try runCandidateVerifier(
+        try expectVerifierFailure(
             fixture: legacy,
             sourceSHA: rollbackSHA,
             allowRollback: true,
             rollbackReason: "Restore pre-containment known-good build",
-            rollbackNotes: "Restores the last known-good native build."
+            rollbackNotes: "Restores the last known-good native build.",
+            contains: "missing required Native job TestFlight release note"
         )
-        #expect(legacyResult.status == 0, "legacy rollback verifier failed: \(legacyResult.output)")
-        let generatedNote = legacy.appendingPathComponent(
-            "output/testflight-release-notes-\(rollbackSHA)/testflight-release-notes.json"
-        )
-        let generatedData = try Data(contentsOf: generatedNote)
-        let generated = try #require(JSONSerialization.jsonObject(with: generatedData) as? [String: Any])
-        #expect(generated["sourceSha"] as? String == rollbackSHA)
-        #expect(generated["nativeRunId"] as? Int == 4242)
-        #expect(generated["notes"] as? String == "Restores the last known-good native build.")
 
         let ordinaryWithRollbackNotes = try makeCandidateFixture(sourceSHA: currentSHA, mainSHA: currentSHA)
         defer { try? FileManager.default.removeItem(at: ordinaryWithRollbackNotes) }
@@ -646,11 +785,52 @@ private struct TestFlightProcessResult {
 }
 
 private let testFlightAutomationRepoURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+private let testFlightVisualSourceTree = String(repeating: "f", count: 40)
+private let testFlightVisualRoutes = [
+    "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+    "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list",
+    "shopping-list-empty", "shopping-list-all-complete", "shopping-list-duplicate",
+    "shopping-list-conflict", "shopping-list-offline-queued", "chefs", "profile", "profile-graph",
+    "search", "search-typed-results", "search-scoped-recipes", "search-scoped-cookbooks",
+    "search-scoped-chefs", "search-scoped-shopping", "search-no-results", "capture", "capture-empty",
+    "capture-draft", "capture-offline-retry", "capture-provider-blocked", "capture-signed-out",
+    "settings", "settings-notifications", "settings-signed-out", "settings-apns-denied",
+    "settings-apns-not-determined", "settings-apns-authorized", "settings-apns-unregistered",
+    "unknown-link"
+]
+private let testFlightRouteVariants: [String: Set<String>] = [
+    "shopping-list": [
+        "shopping-list-empty", "shopping-list-all-complete", "shopping-list-duplicate",
+        "shopping-list-conflict", "shopping-list-offline-queued"
+    ],
+    "search": [
+        "search-typed-results", "search-scoped-recipes", "search-scoped-cookbooks",
+        "search-scoped-chefs", "search-scoped-shopping", "search-no-results"
+    ],
+    "capture": [
+        "capture-empty", "capture-draft", "capture-offline-retry", "capture-provider-blocked",
+        "capture-signed-out"
+    ],
+    "settings": [
+        "settings-notifications", "settings-signed-out", "settings-apns-denied",
+        "settings-apns-not-determined", "settings-apns-authorized", "settings-apns-unregistered"
+    ]
+]
+private let testFlightDeepScrollRoutes: Set<String> = [
+    "kitchen", "recipes", "saved-recipes", "recipe-detail", "recipe-editor", "recipe-covers",
+    "cook-mode", "cook-log", "cookbooks", "cookbook-detail", "shopping-list", "chefs",
+    "profile", "profile-graph", "search", "capture", "settings"
+]
+
+private func testFlightCaptureRoute(for route: String) -> String {
+    testFlightRouteVariants.first { $0.value.contains(route) }?.key ?? route
+}
 private let requiredNativeJobNames = [
     "Swift tests",
     "Native scenario verifier",
     "App bundle",
     "Coverage",
+    "Native visual evidence",
     "TestFlight release note"
 ]
 
@@ -722,7 +902,8 @@ private func expectTestFlightAutomationContent(
 private func makeCandidateFixture(
     sourceSHA: String,
     mainSHA: String,
-    isMainAncestor: Bool = true
+    isMainAncestor: Bool = true,
+    omitDeepScrollForRoute: String? = nil
 ) throws -> URL {
     let fixture = FileManager.default.temporaryDirectory
         .appendingPathComponent("testflight-release-candidate-\(UUID().uuidString)", isDirectory: true)
@@ -730,6 +911,11 @@ private func makeCandidateFixture(
 
     try "\(sourceSHA)\n".write(
         to: fixture.appendingPathComponent("checked-out-sha.txt"),
+        atomically: true,
+        encoding: .utf8
+    )
+    try "\(testFlightVisualSourceTree)\n".write(
+        to: fixture.appendingPathComponent("checked-out-tree.txt"),
         atomically: true,
         encoding: .utf8
     )
@@ -768,29 +954,343 @@ private func makeCandidateFixture(
         ],
         to: fixture.appendingPathComponent("jobs.json")
     )
+    let visualArtifact = try makeVisualEvidenceFixture(
+        fixture: fixture,
+        sourceSHA: sourceSHA,
+        runID: 4242,
+        runAttempt: 1,
+        omitDeepScrollForRoute: omitDeepScrollForRoute
+    )
     try writeJSON(
         [
-            "artifacts": [[
-                "id": 9001,
-                "name": "testflight-release-notes-\(sourceSHA)",
-                "expired": false
-            ]]
+            "artifacts": [
+                [
+                    "id": 9001,
+                    "name": "testflight-release-notes-\(sourceSHA)-4242-1",
+                    "expired": false
+                ],
+                [
+                    "id": 9002,
+                    "name": visualArtifact.name,
+                    "digest": visualArtifact.artifactDigest,
+                    "expired": false
+                ]
+            ]
         ],
         to: fixture.appendingPathComponent("artifacts.json")
     )
     try writeJSON(
         [
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "sourceSha": sourceSHA,
+            "sourceTree": testFlightVisualSourceTree,
             "nativeRunId": 4242,
             "nativeRunAttempt": 1,
             "generatedAt": "2026-07-15T18:18:00Z",
-            "notes": "A precise candidate note for this native revision."
+            "notes": "A precise candidate note for this native revision.",
+            "visualEvidence": [
+                "artifactId": 9002,
+                "artifactName": visualArtifact.name,
+                "artifactDigest": visualArtifact.artifactDigest,
+                "manifestSha256": visualArtifact.manifestDigest,
+                "workflowRunId": 4242,
+                "workflowRunAttempt": 1,
+                "workflowJob": "native-visual-evidence",
+                "jobName": "Native visual evidence"
+            ]
         ],
         to: fixture.appendingPathComponent("testflight-release-notes.json")
     )
 
     return fixture
+}
+
+private struct TestFlightVisualArtifactFixture {
+    let name: String
+    let artifactDigest: String
+    let manifestDigest: String
+}
+
+private func makeVisualEvidenceFixture(
+    fixture: URL,
+    sourceSHA: String,
+    runID: Int,
+    runAttempt: Int,
+    omitDeepScrollForRoute: String?
+) throws -> TestFlightVisualArtifactFixture {
+    let artifact = fixture.appendingPathComponent("native-visual-evidence", isDirectory: true)
+    let payload = artifact.appendingPathComponent("payload", isDirectory: true)
+    try FileManager.default.createDirectory(at: payload, withIntermediateDirectories: true)
+    var fileURLs: [URL] = []
+    var matrixRows: [[String: Any]] = []
+    var manifestRoutes: [[String: Any]] = []
+    let screenshotNames = [
+        "iosMobile": "ios-mobile.png",
+        "iosXXXL": "ios-mobile-xxxl.png",
+        "iosAccessibility": "ios-mobile-accessibility.png",
+        "iosTablet": "ios-tablet.png",
+        "iosTabletXXXL": "ios-tablet-xxxl.png",
+        "iosTabletAccessibility": "ios-tablet-accessibility.png",
+        "macosDesktop": "macos-desktop.png"
+    ]
+    let deepScrollScreenshotNames = [
+        "iosMobile": "ios-mobile-deep-scroll.png",
+        "iosXXXL": "ios-mobile-xxxl-deep-scroll.png",
+        "iosAccessibility": "ios-mobile-accessibility-deep-scroll.png",
+        "iosTablet": "ios-tablet-deep-scroll.png",
+        "iosTabletXXXL": "ios-tablet-xxxl-deep-scroll.png",
+        "iosTabletAccessibility": "ios-tablet-accessibility-deep-scroll.png",
+        "macosDesktop": "macos-desktop-deep-scroll.png"
+    ]
+    let accessibilityProofs = [
+        "accessibility-ios.json", "accessibility-ios-xxxl.json", "accessibility-ios-ax.json",
+        "accessibility-ipad.json", "accessibility-ipad-xxxl.json", "accessibility-ipad-ax.json",
+        "accessibility-macos.json"
+    ]
+    let deepAccessibilityProofs = accessibilityProofs
+        .filter { !$0.contains("macos") }
+        .map { $0.replacingOccurrences(of: ".json", with: "-deep-scroll.json") }
+    let observedProofs = [
+        "observed-ios.json", "observed-ios-xxxl.json", "observed-ios-ax.json",
+        "observed-ipad.json", "observed-ipad-xxxl.json", "observed-ipad-ax.json",
+        "observed-macos.json"
+    ]
+
+    for route in testFlightVisualRoutes {
+        let captureRoute = testFlightCaptureRoute(for: route)
+        let routeDirectory = payload.appendingPathComponent("routes/\(route)", isDirectory: true)
+        let screenshotsDirectory = routeDirectory.appendingPathComponent("screenshots", isDirectory: true)
+        let proofsDirectory = routeDirectory.appendingPathComponent("proofs", isDirectory: true)
+        try FileManager.default.createDirectory(at: screenshotsDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: proofsDirectory, withIntermediateDirectories: true)
+
+        var screenshotReferences: [String: String] = [:]
+        var screenshotRecords: [String: [String: Any]] = [:]
+        for (key, name) in screenshotNames {
+            let url = screenshotsDirectory.appendingPathComponent(name)
+            var bytes = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+            bytes.append(Data("\(route):\(key)".utf8))
+            try bytes.write(to: url)
+            let relative = "screenshots/\(name)"
+            screenshotReferences[key] = "payload/routes/\(route)/\(relative)"
+            screenshotRecords[key] = [
+                "path": relative,
+                "bytes": bytes.count,
+                "sha256": try sha256OfFile(at: url)
+            ]
+            fileURLs.append(url)
+        }
+
+        var deepScrollScreenshotReferences: [String: String] = [:]
+        var deepScrollScreenshotRecords: [String: [String: Any]] = [:]
+        let requiresDeepScroll = testFlightDeepScrollRoutes.contains(captureRoute)
+        if requiresDeepScroll && omitDeepScrollForRoute != route {
+            for (key, name) in deepScrollScreenshotNames {
+                let url = screenshotsDirectory.appendingPathComponent(name)
+                var bytes = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+                bytes.append(Data("\(route):\(key):deep-scroll".utf8))
+                try bytes.write(to: url)
+                let relative = "screenshots/\(name)"
+                deepScrollScreenshotReferences[key] = "payload/routes/\(route)/\(relative)"
+                deepScrollScreenshotRecords[key] = [
+                    "path": relative,
+                    "bytes": bytes.count,
+                    "sha256": try sha256OfFile(at: url)
+                ]
+                fileURLs.append(url)
+            }
+        }
+
+        let proofNames = accessibilityProofs + (requiresDeepScroll ? deepAccessibilityProofs : []) + observedProofs
+        for name in proofNames {
+            let url = proofsDirectory.appendingPathComponent(name)
+            try writeJSON(["route": route, "blocked": false, "proof": name], to: url)
+            fileURLs.append(url)
+        }
+        var designReviewPayload: [String: Any] = [
+            "screenshotRoute": captureRoute,
+            "blockers": [],
+            "screenshotArtifacts": screenshotRecords,
+            "accessibilityProofArtifacts": accessibilityProofs.map { "proofs/\($0)" },
+            "observedAccessibilityEvidenceArtifacts": observedProofs.map { "proofs/\($0)" }
+        ]
+        if requiresDeepScroll && omitDeepScrollForRoute != route {
+            designReviewPayload["deepScrollScreenshotArtifacts"] = deepScrollScreenshotRecords
+        }
+        if requiresDeepScroll {
+            designReviewPayload["deepScrollAccessibilityProofArtifacts"] = deepAccessibilityProofs.map { "proofs/\($0)" }
+        }
+        if captureRoute == "recipe-covers" {
+            designReviewPayload["recipeCoverControlsFixture"] = "action-states"
+            designReviewPayload["renderedSurfaceAnchors"] = ["stagedPhotoActions", "coverMutationActions"]
+        }
+        let designReview = routeDirectory.appendingPathComponent("design-review.json")
+        try writeJSON(designReviewPayload, to: designReview)
+        fileURLs.append(designReview)
+
+        matrixRows.append([
+            "name": route,
+            "route": captureRoute,
+            "status": "pass",
+            "blocked": false,
+            "missingDesignReview": false
+        ])
+        manifestRoutes.append([
+            "name": route,
+            "route": captureRoute,
+            "designReview": "payload/routes/\(route)/design-review.json",
+            "screenshots": screenshotReferences,
+            "deepScrollScreenshots": deepScrollScreenshotReferences,
+            "proofs": proofNames.map { "payload/routes/\(route)/proofs/\($0)" },
+            "waypointScreenshots": []
+        ])
+    }
+
+    let provenance = payload.appendingPathComponent("provenance.json")
+    let provenanceDigest = String(repeating: "d", count: 64)
+    try writeJSON(
+        [
+            "source": ["sha": sourceSHA, "tree": testFlightVisualSourceTree],
+            "manifestSha256": provenanceDigest
+        ],
+        to: provenance
+    )
+    fileURLs.append(provenance)
+
+    let transitionLog = payload.appendingPathComponent("transition-evidence.log")
+    try "2 transition tests passed\n".write(to: transitionLog, atomically: true, encoding: .utf8)
+    let transitionLogDigest = try sha256OfFile(at: transitionLog)
+    fileURLs.append(transitionLog)
+    let transitionEvidence = payload.appendingPathComponent("transition-evidence.json")
+    try writeJSON(
+        [
+            "schemaVersion": 1,
+            "ok": true,
+            "sourceSha": sourceSHA,
+            "sourceTree": testFlightVisualSourceTree,
+            "command": "swift test --filter native-transitions",
+            "log": [
+                "path": "transition-evidence.log",
+                "bytes": try Data(contentsOf: transitionLog).count,
+                "sha256": transitionLogDigest
+            ],
+            "contracts": [
+                ["id": "search-pending-suppresses-empty-state", "test": "NativeSearchSurfaceTests.pendingSearchSuppressesEmptyState", "assertion": "pending"],
+                ["id": "recipe-publishes-before-cook-history", "test": "RecipeCatalogDetailTests.recipeDetailPublishesBeforeCookHistoryEnrichment", "assertion": "progressive"]
+            ],
+            "generatedAt": "2026-07-15T18:17:00Z"
+        ],
+        to: transitionEvidence
+    )
+    let transitionEvidenceDigest = try sha256OfFile(at: transitionEvidence)
+    fileURLs.append(transitionEvidence)
+
+    let matrix = payload.appendingPathComponent("matrix.json")
+    try writeJSON(
+        [
+            "ok": true,
+            "fullyValidated": true,
+            "completeRouteSet": true,
+            "routeCount": testFlightVisualRoutes.count,
+            "expectedRouteCount": testFlightVisualRoutes.count,
+            "expectedRoutes": testFlightVisualRoutes,
+            "selectedRoutes": testFlightVisualRoutes,
+            "buildBlocked": false,
+            "buildBlocker": NSNull(),
+            "provenanceVerifiedBefore": true,
+            "provenanceVerifiedAfter": true,
+            "provenanceManifestSha256": provenanceDigest,
+            "transitionEvidenceValidated": true,
+            "transitionEvidencePath": "transition-evidence.json",
+            "transitionEvidenceSha256": transitionEvidenceDigest,
+            "transitionEvidenceLogPath": "transition-evidence.log",
+            "transitionEvidenceLogSha256": transitionLogDigest,
+            "sourceSha": sourceSHA,
+            "sourceTree": testFlightVisualSourceTree,
+            "routes": matrixRows,
+            "failedRoutes": [],
+            "blockedRoutes": [],
+            "missingDesignReviewRoutes": [],
+            "missingScreenshotRoutes": [],
+            "missingRoutes": [],
+            "duplicateRoutes": [],
+            "unexpectedRoutes": []
+        ],
+        to: matrix
+    )
+    fileURLs.append(matrix)
+
+    let results = payload.appendingPathComponent("matrix.jsonl")
+    let resultLines = try matrixRows.map { row in
+        let data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+        return String(decoding: data, as: UTF8.self)
+    }.joined(separator: "\n") + "\n"
+    try resultLines.write(to: results, atomically: true, encoding: .utf8)
+    fileURLs.append(results)
+
+    let files: [[String: Any]] = try fileURLs.map { url in
+        let data = try Data(contentsOf: url)
+        let relative = url.path.replacingOccurrences(of: artifact.path + "/", with: "")
+        return [
+            "path": relative,
+            "bytes": data.count,
+            "sha256": try sha256OfFile(at: url)
+        ]
+    }.sorted { ($0["path"] as! String) < ($1["path"] as! String) }
+    let manifest = artifact.appendingPathComponent("visual-evidence-manifest.json")
+    try writeJSON(
+        [
+            "schemaVersion": 1,
+            "identity": [
+                "sourceSha": sourceSHA,
+                "sourceTree": testFlightVisualSourceTree,
+                "workflowRunId": runID,
+                "workflowRunAttempt": runAttempt,
+                "workflowJob": "native-visual-evidence"
+            ],
+            "matrix": [
+                "summary": "payload/matrix.json",
+                "results": "payload/matrix.jsonl",
+                "provenance": "payload/provenance.json",
+                "transitionEvidence": "payload/transition-evidence.json",
+                "transitionEvidenceLog": "payload/transition-evidence.log",
+                "expectedRouteCount": testFlightVisualRoutes.count,
+                "routes": manifestRoutes
+            ],
+            "files": files
+        ],
+        to: manifest
+    )
+    return TestFlightVisualArtifactFixture(
+        name: "native-visual-evidence-\(sourceSHA)-\(runID)-\(runAttempt)",
+        artifactDigest: "sha256:\(String(repeating: "e", count: 64))",
+        manifestDigest: try sha256OfFile(at: manifest)
+    )
+}
+
+private func sha256OfFile(at url: URL) throws -> String {
+    #if canImport(CryptoKit)
+    let digest = SHA256.hash(data: try Data(contentsOf: url))
+    return digest.map { String(format: "%02x", $0) }.joined()
+    #else
+    let process = Process()
+    let output = Pipe()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/shasum")
+    process.arguments = ["-a", "256", url.path]
+    process.standardOutput = output
+    process.standardError = output
+    try process.run()
+    process.waitUntilExit()
+    let result = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+    guard process.terminationStatus == 0, let digest = result.split(separator: " ").first else {
+        throw TestFlightVisualFixtureError.hashFailure(result)
+    }
+    return String(digest)
+    #endif
+}
+
+private enum TestFlightVisualFixtureError: Error {
+    case hashFailure(String)
 }
 
 private func runCandidateVerifier(

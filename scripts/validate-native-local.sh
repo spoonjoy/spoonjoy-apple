@@ -49,6 +49,7 @@ rm -f \
   "$apple_dir/matrix-screenshots-xcode-platform-blocker.json" \
   "$apple_dir/matrix-screenshots-core-simulator-blocker.json" \
   "$apple_dir/matrix-screenshots-macos-launch-blocker.json" \
+  "$apple_dir/matrix-screenshots-macos-accessibility-blocker.json" \
   "$apple_dir/matrix-route-matrix.json" \
   "$artifact_root/design-review-blocked.json" \
   "$artifact_root/design-review.json" \
@@ -88,6 +89,8 @@ required_hooks=(
   "scripts/smoke-ios-simulator.sh"
   "scripts/capture-native-screenshots.sh"
   "scripts/capture-native-screenshot-matrix.sh"
+  "scripts/native-screenshot-provenance.rb"
+  "scripts/tests/native_screenshot_provenance_test.rb"
   "scripts/validate-design-review.rb"
   "scripts/validate-design-review-blocker.rb"
   "scripts/validate-aasa.rb"
@@ -147,6 +150,7 @@ validate_blocker_contract() {
       XcodePlatform
       CoreSimulator
       MacOSLaunch
+      MacOSAccessibility
       AASAProductionValidation
       AppIntentsSDK
       AppleDeveloperProgram
@@ -181,7 +185,7 @@ stale_noncanonical_blockers() {
       rescue JSON::ParserError
         next basename
       end
-      %w[XcodePlatform CoreSimulator MacOSLaunch AppIntentsSDK].include?(blocker["capability"]) ? basename : nil
+      %w[XcodePlatform CoreSimulator MacOSLaunch MacOSAccessibility AppIntentsSDK].include?(blocker["capability"]) ? basename : nil
     end.compact
     if stale.any?
       warn "stale noncanonical native blocker(s): #{stale.join(", ")}"
@@ -211,10 +215,40 @@ write_xcode_screenshot_blocker() {
       "sourceBlockerPath" => screenshot_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-mobile-xxxl.png",
+        "screenshots/ios-mobile-accessibility.png",
+        "screenshots/ios-tablet.png",
+        "screenshots/ios-tablet-xxxl.png",
+        "screenshots/ios-tablet-accessibility.png",
+        "screenshots/ios-mobile-deep-scroll.png",
+        "screenshots/ios-mobile-xxxl-deep-scroll.png",
+        "screenshots/ios-mobile-accessibility-deep-scroll.png",
+        "screenshots/ios-tablet-deep-scroll.png",
+        "screenshots/ios-tablet-xxxl-deep-scroll.png",
+        "screenshots/ios-tablet-accessibility-deep-scroll.png",
         "screenshots/macos-desktop.png",
+        "screenshots/macos-desktop-deep-scroll.png",
         "design-review.json",
         "apple/matrix-accessibility-proof-ios.json",
-        "apple/matrix-accessibility-proof-macos.json"
+        "apple/matrix-accessibility-proof-ios-xxxl.json",
+        "apple/matrix-accessibility-proof-ios-ax.json",
+        "apple/matrix-accessibility-proof-ipad.json",
+        "apple/matrix-accessibility-proof-ipad-xxxl.json",
+        "apple/matrix-accessibility-proof-ipad-ax.json",
+        "apple/matrix-accessibility-proof-macos.json",
+        "apple/matrix-accessibility-proof-ios-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ios-xxxl-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ios-ax-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ipad-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ipad-xxxl-deep-scroll.json",
+        "apple/matrix-accessibility-proof-ipad-ax-deep-scroll.json",
+        "apple/matrix-observed-accessibility-ios.json",
+        "apple/matrix-observed-accessibility-ios-xxxl.json",
+        "apple/matrix-observed-accessibility-ios-ax.json",
+        "apple/matrix-observed-accessibility-ipad.json",
+        "apple/matrix-observed-accessibility-ipad-xxxl.json",
+        "apple/matrix-observed-accessibility-ipad-ax.json",
+        "apple/matrix-observed-accessibility-macos.json"
       ],
       "reason" => screenshot_blocker.fetch("reason"),
       "ownerAction" => screenshot_blocker.fetch("ownerAction")
@@ -222,8 +256,9 @@ write_xcode_screenshot_blocker() {
     File.write(design_review_blocked_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$source_blocker" "$screenshot_blocker" "$design_review_blocked"
   rm -f "$artifact_root/design-review.json"
-  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/macos-desktop.png"
-  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
+  rm -f "$artifact_root"/screenshots/*.png
+  rm -f "$artifact_root"/apple/matrix-accessibility-proof-*.json
+  rm -f "$artifact_root"/apple/matrix-observed-accessibility-*.json
 }
 
 run_required() {
@@ -300,6 +335,7 @@ run_required "kitchen surfaces contract" "$apple_dir/matrix-kitchen-surfaces-con
 run_required "cook shopping contract" "$apple_dir/matrix-cook-shopping-contract.log" ruby scripts/check-cook-shopping-surfaces.rb || overall_status=1
 run_required "search capture settings contract" "$apple_dir/matrix-search-capture-contract.log" ruby scripts/check-search-capture-settings-surfaces.rb || overall_status=1
 run_required "launch screenshot contract" "$apple_dir/matrix-launch-screenshot-contract.log" ruby scripts/check-launch-screenshot-contract.rb || overall_status=1
+run_required "native screenshot provenance tests" "$apple_dir/matrix-native-screenshot-provenance-tests.log" ruby scripts/tests/native_screenshot_provenance_test.rb || overall_status=1
 run_required "AASA validation or blocker" "$apple_dir/matrix-aasa.log" ruby scripts/validate-aasa.rb --artifact-root "$artifact_root" || overall_status=1
 run_required "native password dogfood" "$apple_dir/matrix-native-password-dogfood.log" scripts/verify-native-password-dogfood.sh --artifact-root "$artifact_root" --report "$apple_dir/matrix-native-password-dogfood-report.json" --server-log "$apple_dir/matrix-native-password-dogfood-server.log" --vault-file "$apple_dir/matrix-native-password-dogfood-vault.json" || overall_status=1
 
@@ -389,6 +425,7 @@ matrix_warning_logs=(
   "$apple_dir/matrix-cook-shopping-contract.log"
   "$apple_dir/matrix-search-capture-contract.log"
   "$apple_dir/matrix-launch-screenshot-contract.log"
+  "$apple_dir/matrix-native-screenshot-provenance-tests.log"
   "$apple_dir/matrix-aasa.log"
   "$apple_dir/matrix-native-password-dogfood.log"
   "$apple_dir/matrix-native-password-dogfood-server.log"
@@ -423,6 +460,7 @@ ruby -rjson -rtime -e '
     File.join(artifact_root, "apple/matrix-screenshots-xcode-platform-blocker.json"),
     File.join(artifact_root, "apple/matrix-screenshots-core-simulator-blocker.json"),
     File.join(artifact_root, "apple/matrix-screenshots-macos-launch-blocker.json"),
+    File.join(artifact_root, "apple/matrix-screenshots-macos-accessibility-blocker.json"),
     File.join(artifact_root, "apple/apple-developer-program-blocker-apns.json")
   ]
   blocker_paths.concat(Dir[File.join(artifact_root, "apple/appintents-sdk-blocker-*.json")])
@@ -432,6 +470,7 @@ ruby -rjson -rtime -e '
     CoreSimulator
     XcodePlatform
     MacOSLaunch
+    MacOSAccessibility
     AASAProductionValidation
     AppIntentsSDK
     AppleDeveloperProgram
@@ -447,6 +486,7 @@ ruby -rjson -rtime -e '
     when "apple/matrix-xcode-platform-blocker.json", "apple/matrix-screenshots-xcode-platform-blocker.json" then "XcodePlatform"
     when "apple/matrix-smoke-ios-simulator-blocker.json", "apple/matrix-screenshots-core-simulator-blocker.json" then "CoreSimulator"
     when "apple/matrix-smoke-macos-blocker.json", "apple/matrix-screenshots-macos-launch-blocker.json" then "MacOSLaunch"
+    when "apple/matrix-screenshots-macos-accessibility-blocker.json" then "MacOSAccessibility"
     when "apple/apple-developer-program-blocker-apns.json" then "AppleDeveloperProgram"
     when %r{\Aapple/appintents-sdk-blocker-[a-z0-9-]+\.json\z} then "AppIntentsSDK"
     when %r{\Aweb/provider-secret-blocker-[a-z0-9-]+\.json\z} then "ProviderSecret"
@@ -475,7 +515,7 @@ ruby -rjson -rtime -e '
   passed_steps = steps.select { |step| step["status"] == "pass" }
   failed_steps = steps.select { |step| step["status"] == "fail" }
   blocked_steps = steps.select { |step| step["status"] == "blocked" }
-  ok = failed_steps.empty? && blocker_failures.empty?
+  ok = failed_steps.empty? && blocked_steps.empty? && blockers.empty? && blocker_failures.empty?
   fully_validated = ok && blocked_steps.empty? && blockers.empty?
   result = if fully_validated
     "pass"
@@ -501,7 +541,7 @@ ruby -rjson -rtime -e '
     blockerFailures: blocker_failures,
     externalValidationLog: File.join(artifact_root, "apple/unit-26b-native-full-validation-validate-native-local.log")
   }) + "\n")
-  exit(ok ? 0 : 1)
+  exit(fully_validated ? 0 : 1)
 ' "$results_path" "$matrix_path" "$artifact_root" || overall_status=1
 
 printf 'external validation log expected: %s\n' "$apple_dir/$unit_26b_validate_log_name"

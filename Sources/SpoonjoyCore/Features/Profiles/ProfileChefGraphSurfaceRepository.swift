@@ -72,6 +72,7 @@ public struct ProfileRecipeSummary: Codable, Equatable, Sendable {
     public let servings: String?
     public let coverImageURL: URL?
     public let coverProvenanceLabel: String?
+    public let coverSourceType: RecipeCoverSourceType?
     public let href: String
     public let canonicalURL: URL
 
@@ -86,6 +87,7 @@ public struct ProfileRecipeSummary: Codable, Equatable, Sendable {
         servings: String?,
         coverImageURL: URL?,
         coverProvenanceLabel: String?,
+        coverSourceType: RecipeCoverSourceType? = nil,
         href: String,
         canonicalURL: URL
     ) {
@@ -93,10 +95,44 @@ public struct ProfileRecipeSummary: Codable, Equatable, Sendable {
         self.title = title
         self.description = description
         self.servings = servings
-        self.coverImageURL = coverImageURL
-        self.coverProvenanceLabel = coverProvenanceLabel
+        self.coverImageURL = RecipeCoverDisplayPolicy.imageURL(coverImageURL, sourceType: coverSourceType)
+        self.coverProvenanceLabel = RecipeCoverDisplayPolicy.provenanceLabel(
+            coverProvenanceLabel,
+            imageURL: coverImageURL,
+            sourceType: coverSourceType
+        )
+        self.coverSourceType = coverSourceType
         self.href = href
         self.canonicalURL = canonicalURL
+    }
+
+    init(recipe: Recipe) {
+        self.init(
+            id: recipe.id,
+            title: recipe.title,
+            description: recipe.description,
+            servings: recipe.servings,
+            coverImageURL: recipe.displayCoverImageURL,
+            coverProvenanceLabel: recipe.displayCoverProvenanceLabel,
+            coverSourceType: recipe.coverSourceType,
+            href: recipe.href,
+            canonicalURL: recipe.canonicalURL
+        )
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(String.self, forKey: .id),
+            title: try container.decode(String.self, forKey: .title),
+            description: try container.decodeIfPresent(String.self, forKey: .description),
+            servings: try container.decodeIfPresent(String.self, forKey: .servings),
+            coverImageURL: try container.decodeIfPresent(URL.self, forKey: .coverImageURL),
+            coverProvenanceLabel: try container.decodeIfPresent(String.self, forKey: .coverProvenanceLabel),
+            coverSourceType: try container.decodeIfPresent(RecipeCoverSourceType.self, forKey: .coverSourceType),
+            href: try container.decode(String.self, forKey: .href),
+            canonicalURL: try container.decode(URL.self, forKey: .canonicalURL)
+        )
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -106,6 +142,7 @@ public struct ProfileRecipeSummary: Codable, Equatable, Sendable {
         case servings
         case coverImageURL = "coverImageUrl"
         case coverProvenanceLabel
+        case coverSourceType
         case href
         case canonicalURL = "canonicalUrl"
     }
