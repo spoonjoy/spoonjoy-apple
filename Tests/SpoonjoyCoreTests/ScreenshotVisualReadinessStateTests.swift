@@ -154,4 +154,125 @@ struct ScreenshotVisualReadinessStateTests {
         #expect(state.snapshot.loadedMediaCount == 0)
         #expect(state.snapshot.failedMediaCount == 1)
     }
+
+    @Test("surface variants advance readiness without media transitions")
+    func surfaceVariantsAdvanceReadinessWithoutMediaTransitions() {
+        var captureState = ScreenshotVisualReadinessState()
+        let captureEmpty = proofIdentity(route: "capture", source: "CaptureDraftView", variant: "empty")
+        let captureDraft = proofIdentity(route: "capture", source: "CaptureDraftView", variant: "draft")
+
+        captureState.observeProofIdentity(captureEmpty)
+        let emptyGeneration = captureState.snapshot.generation
+        captureState.observeProofIdentity(captureDraft)
+
+        #expect(captureState.snapshot.generation > emptyGeneration)
+        #expect(captureState.snapshot.expectedMediaCount == 0)
+        #expect(captureState.snapshot.isSettled)
+        #expect(captureState.snapshot.proofIdentity == captureDraft)
+
+        var shoppingState = ScreenshotVisualReadinessState()
+        let observedShoppingState = ScreenshotVisualReadinessObservedSurfaceState(
+            statusOwner: "ShoppingListView",
+            connectivity: "online",
+            queuedMutationCount: 0,
+            visibleIndicator: "synced"
+        )
+        let shoppingLoading = proofIdentity(
+            route: "shopping-list",
+            source: "ShoppingListView",
+            variant: "loading",
+            observedSurfaceState: observedShoppingState
+        )
+        let shoppingNormal = proofIdentity(
+            route: "shopping-list",
+            source: "ShoppingListView",
+            variant: "normal",
+            observedSurfaceState: observedShoppingState
+        )
+
+        shoppingState.observeProofIdentity(shoppingLoading)
+        let loadingGeneration = shoppingState.snapshot.generation
+        shoppingState.observeProofIdentity(shoppingLoading)
+        #expect(shoppingState.snapshot.generation == loadingGeneration)
+
+        shoppingState.observeProofIdentity(shoppingNormal)
+        #expect(shoppingState.snapshot.generation > loadingGeneration)
+        #expect(shoppingState.snapshot.expectedMediaCount == 0)
+        #expect(shoppingState.snapshot.isSettled)
+        #expect(shoppingState.snapshot.proofIdentity == shoppingNormal)
+    }
+
+    @Test("every observed proof field participates in readiness identity")
+    func everyObservedProofFieldParticipatesInReadinessIdentity() {
+        let observedState = ScreenshotVisualReadinessObservedSurfaceState(
+            statusOwner: "ShoppingListView",
+            connectivity: "online",
+            queuedMutationCount: 0,
+            visibleIndicator: "synced"
+        )
+        let baseline = proofIdentity(observedSurfaceState: observedState)
+        let changedIdentities = [
+            proofIdentity(captureRunNonce: "nonce-2", observedSurfaceState: observedState),
+            proofIdentity(route: "capture", observedSurfaceState: observedState),
+            proofIdentity(source: "CaptureDraftView", observedSurfaceState: observedState),
+            proofIdentity(observedDynamicTypeSize: "accessibility5", observedSurfaceState: observedState),
+            proofIdentity(observedReduceMotion: true, observedSurfaceState: observedState),
+            proofIdentity(variant: "empty", observedSurfaceState: observedState),
+            proofIdentity(observedSurfaceState: nil),
+            proofIdentity(observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState(
+                statusOwner: "Shell",
+                connectivity: observedState.connectivity,
+                queuedMutationCount: observedState.queuedMutationCount,
+                visibleIndicator: observedState.visibleIndicator
+            )),
+            proofIdentity(observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState(
+                statusOwner: observedState.statusOwner,
+                connectivity: "offline",
+                queuedMutationCount: observedState.queuedMutationCount,
+                visibleIndicator: observedState.visibleIndicator
+            )),
+            proofIdentity(observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState(
+                statusOwner: observedState.statusOwner,
+                connectivity: observedState.connectivity,
+                queuedMutationCount: 1,
+                visibleIndicator: observedState.visibleIndicator
+            )),
+            proofIdentity(observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState(
+                statusOwner: observedState.statusOwner,
+                connectivity: observedState.connectivity,
+                queuedMutationCount: observedState.queuedMutationCount,
+                visibleIndicator: "queuedWork"
+            ))
+        ]
+
+        for changedIdentity in changedIdentities {
+            var state = ScreenshotVisualReadinessState()
+            state.observeProofIdentity(baseline)
+            let baselineGeneration = state.snapshot.generation
+            state.observeProofIdentity(changedIdentity)
+
+            #expect(state.snapshot.generation > baselineGeneration)
+            #expect(state.snapshot.proofIdentity == changedIdentity)
+        }
+    }
+
+    private func proofIdentity(
+        captureRunNonce: String = "nonce-1",
+        route: String = "shopping-list",
+        source: String = "ShoppingListView",
+        observedDynamicTypeSize: String = "large",
+        observedReduceMotion: Bool = false,
+        variant: String? = "normal",
+        observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState? = nil
+    ) -> ScreenshotVisualReadinessProofIdentity {
+        ScreenshotVisualReadinessProofIdentity(
+            captureRunNonce: captureRunNonce,
+            route: route,
+            source: source,
+            observedDynamicTypeSize: observedDynamicTypeSize,
+            observedReduceMotion: observedReduceMotion,
+            observedSurfaceVariant: variant,
+            observedSurfaceState: observedSurfaceState
+        )
+    }
 }

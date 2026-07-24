@@ -128,6 +128,26 @@ struct SettingsAuthSurfaceContractTests {
 
         #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
     }
+
+    @Test("settings notification screenshot proof reports only independently observed sections")
+    func settingsNotificationScreenshotProofReportsOnlyObservedSections() throws {
+        let failures = sourceContractFailures(
+            requiredTokens: [
+                "Apps/Spoonjoy/Shared/Views/SettingsView.swift": [
+                    "visibleSections: observation.visibleSections",
+                    "var visibleSections: [String]",
+                    "return [\"This Device\"]"
+                ]
+            ],
+            forbiddenTokens: [
+                "Apps/Spoonjoy/Shared/Views/SettingsView.swift": [
+                    "visibleSections: [\"This Device\", \"Push Delivery\", \"Notification Sync\", \"Agent Access\"]"
+                ]
+            ]
+        )
+
+        #expect(failures.isEmpty, Comment(rawValue: failures.joined(separator: "\n")))
+    }
 }
 
 private func sourceContractFailures(

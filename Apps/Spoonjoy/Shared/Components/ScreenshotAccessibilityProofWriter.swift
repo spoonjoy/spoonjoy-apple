@@ -38,6 +38,10 @@ actor ScreenshotVisualReadiness {
         await shared.state.snapshot
     }
 
+    static func observeProofIdentity(_ identity: ScreenshotVisualReadinessProofIdentity) async -> Int? {
+        await shared.observeProofIdentity(identity)
+    }
+
     private static func handleTransition(_ generation: Int?) async {
         guard let generation else { return }
         await ScreenshotAccessibilityProofHandshake.revoke(before: generation)
@@ -47,6 +51,12 @@ actor ScreenshotVisualReadiness {
     private func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) -> Int? {
         let previousGeneration = state.snapshot.generation
         state.beginMedia(token)
+        return transitionedGeneration(after: previousGeneration)
+    }
+
+    private func observeProofIdentity(_ identity: ScreenshotVisualReadinessProofIdentity) -> Int? {
+        let previousGeneration = state.snapshot.generation
+        state.observeProofIdentity(identity)
         return transitionedGeneration(after: previousGeneration)
     }
 
@@ -119,13 +129,13 @@ struct ScreenshotObservedSurfaceState {
     let queuedMutationCount: Int
     let visibleIndicator: String
 
-    var dictionary: [String: Any] {
-        [
-            "statusOwner": statusOwner,
-            "connectivity": connectivity,
-            "queuedMutationCount": queuedMutationCount,
-            "visibleIndicator": visibleIndicator
-        ]
+    var proofIdentity: ScreenshotVisualReadinessObservedSurfaceState {
+        ScreenshotVisualReadinessObservedSurfaceState(
+            statusOwner: statusOwner,
+            connectivity: connectivity,
+            queuedMutationCount: queuedMutationCount,
+            visibleIndicator: visibleIndicator
+        )
     }
 }
 
@@ -135,6 +145,7 @@ struct ScreenshotAccessibilityProofReceipt: Equatable, Sendable {
     let source: String
     let applicationProcessIdentifier: Int32
     let readinessGeneration: Int
+    let proofIdentity: ScreenshotVisualReadinessProofIdentity
     let proofFileName: String
     let proofSHA256: String
 
@@ -166,12 +177,14 @@ enum ScreenshotAccessibilityProofHandshake {
         captureRunNonce: String,
         route: String,
         source: String,
-        readinessGeneration: Int
+        readinessGeneration: Int,
+        proofIdentity: ScreenshotVisualReadinessProofIdentity
     ) -> ScreenshotAccessibilityProofReceipt? {
         guard latestReceipt?.captureRunNonce == captureRunNonce,
               latestReceipt?.route == route,
               latestReceipt?.source == source,
-              latestReceipt?.readinessGeneration == readinessGeneration else {
+              latestReceipt?.readinessGeneration == readinessGeneration,
+              latestReceipt?.proofIdentity == proofIdentity else {
             return nil
         }
         return latestReceipt
@@ -200,12 +213,7 @@ enum ScreenshotAccessibilityProofWriter {
 #if DEBUG
     private struct Request {
         let configuredPath: String
-        let captureRunNonce: String
-        let route: String
-        let source: String
-        let runtimeContext: ScreenshotAccessibilityRuntimeContext
-        let observedSurfaceVariant: String?
-        let observedSurfaceState: ScreenshotObservedSurfaceState?
+        let proofIdentity: ScreenshotVisualReadinessProofIdentity
     }
 
     @MainActor private static var activeRequest: Request?
@@ -234,16 +242,20 @@ enum ScreenshotAccessibilityProofWriter {
            expectedRoute != route {
             return
         }
-        let request = Request(
-            configuredPath: rawPath,
+        let proofIdentity = ScreenshotVisualReadinessProofIdentity(
             captureRunNonce: captureRunNonce,
             route: route,
             source: source,
-            runtimeContext: runtimeContext,
+            observedDynamicTypeSize: observedDynamicTypeSize(fallback: runtimeContext.dynamicTypeSize),
+            observedReduceMotion: runtimeContext.reduceMotionEnabled,
             observedSurfaceVariant: observedSurfaceVariant,
-            observedSurfaceState: observedSurfaceState
+            observedSurfaceState: observedSurfaceState?.proofIdentity
         )
+        let request = Request(configuredPath: rawPath, proofIdentity: proofIdentity)
         activeRequest = request
+        if let generation = await ScreenshotVisualReadiness.observeProofIdentity(request.proofIdentity) {
+            ScreenshotAccessibilityProofHandshake.revoke(before: generation)
+        }
         await issueProof(for: request)
 #else
         _ = route
@@ -267,14 +279,17 @@ enum ScreenshotAccessibilityProofWriter {
 #if DEBUG
     @MainActor private static func issueProof(for request: Request) async {
         let visualReadiness = await ScreenshotVisualReadiness.waitForSettled()
-        guard !Task.isCancelled, visualReadiness.isSettled else {
+        guard !Task.isCancelled,
+              visualReadiness.isSettled,
+              visualReadiness.proofIdentity == request.proofIdentity else {
             return
         }
         if ScreenshotAccessibilityProofHandshake.existingReceipt(
-            captureRunNonce: request.captureRunNonce,
-            route: request.route,
-            source: request.source,
-            readinessGeneration: visualReadiness.generation
+            captureRunNonce: request.proofIdentity.captureRunNonce,
+            route: request.proofIdentity.route,
+            source: request.proofIdentity.source,
+            readinessGeneration: visualReadiness.generation,
+            proofIdentity: request.proofIdentity
         ) != nil {
             return
         }
@@ -287,13 +302,8 @@ enum ScreenshotAccessibilityProofWriter {
             generation: visualReadiness.generation
         )
         let payload = basePayload(
-            route: request.route,
-            source: request.source,
-            captureRunNonce: request.captureRunNonce,
-            runtimeContext: request.runtimeContext,
-            visualReadiness: visualReadiness,
-            observedSurfaceVariant: request.observedSurfaceVariant,
-            observedSurfaceState: request.observedSurfaceState
+            proofIdentity: request.proofIdentity,
+            visualReadiness: visualReadiness
         )
         guard JSONSerialization.isValidJSONObject(payload),
               let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
@@ -318,18 +328,20 @@ enum ScreenshotAccessibilityProofWriter {
         let currentReadiness = await ScreenshotVisualReadiness.currentSnapshot()
         guard !Task.isCancelled,
               currentReadiness.isSettled,
-              currentReadiness.generation == visualReadiness.generation else {
+              currentReadiness.generation == visualReadiness.generation,
+              currentReadiness.proofIdentity == request.proofIdentity else {
             return
         }
         let proofSHA256 = SHA256.hash(data: data)
             .map { String(format: "%02x", $0) }
             .joined()
         ScreenshotAccessibilityProofHandshake.publish(ScreenshotAccessibilityProofReceipt(
-            captureRunNonce: request.captureRunNonce,
-            route: request.route,
-            source: request.source,
+            captureRunNonce: request.proofIdentity.captureRunNonce,
+            route: request.proofIdentity.route,
+            source: request.proofIdentity.source,
             applicationProcessIdentifier: ProcessInfo.processInfo.processIdentifier,
             readinessGeneration: visualReadiness.generation,
+            proofIdentity: request.proofIdentity,
             proofFileName: generationOutputURL.lastPathComponent,
             proofSHA256: proofSHA256
         ))
@@ -359,24 +371,19 @@ enum ScreenshotAccessibilityProofWriter {
     }
 
     @MainActor private static func basePayload(
-        route: String,
-        source: String,
-        captureRunNonce: String,
-        runtimeContext: ScreenshotAccessibilityRuntimeContext,
-        visualReadiness: ScreenshotVisualReadinessSnapshot,
-        observedSurfaceVariant: String?,
-        observedSurfaceState: ScreenshotObservedSurfaceState?
+        proofIdentity: ScreenshotVisualReadinessProofIdentity,
+        visualReadiness: ScreenshotVisualReadinessSnapshot
     ) -> [String: Any] {
         var payload: [String: Any] = [
             "platform": platform,
-            "route": route,
-            "source": source,
-            "captureRunNonce": captureRunNonce,
+            "route": proofIdentity.route,
+            "source": proofIdentity.source,
+            "captureRunNonce": proofIdentity.captureRunNonce,
             "readinessGeneration": visualReadiness.generation,
             "launchEnvironmentProof": launchEnvironmentProof,
             "screenshotStateSnapshotProof": screenshotStateSnapshotProof,
-            "observedDynamicTypeSize": observedDynamicTypeSize(fallback: runtimeContext.dynamicTypeSize),
-            "observedReduceMotion": runtimeContext.reduceMotionEnabled,
+            "observedDynamicTypeSize": proofIdentity.observedDynamicTypeSize,
+            "observedReduceMotion": proofIdentity.observedReduceMotion,
             "visualReadiness": [
                 "generation": visualReadiness.generation,
                 "expectedMediaCount": visualReadiness.expectedMediaCount,
@@ -390,11 +397,16 @@ enum ScreenshotAccessibilityProofWriter {
             "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
             "writtenAt": ISO8601DateFormatter().string(from: Date())
         ]
-        if let observedSurfaceVariant {
+        if let observedSurfaceVariant = proofIdentity.observedSurfaceVariant {
             payload["observedSurfaceVariant"] = observedSurfaceVariant
         }
-        if let observedSurfaceState {
-            payload["observedSurfaceState"] = observedSurfaceState.dictionary
+        if let observedSurfaceState = proofIdentity.observedSurfaceState {
+            payload["observedSurfaceState"] = [
+                "statusOwner": observedSurfaceState.statusOwner,
+                "connectivity": observedSurfaceState.connectivity,
+                "queuedMutationCount": observedSurfaceState.queuedMutationCount,
+                "visibleIndicator": observedSurfaceState.visibleIndicator
+            ]
         }
         return payload
     }

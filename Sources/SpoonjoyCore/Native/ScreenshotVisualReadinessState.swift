@@ -1,5 +1,52 @@
 import Foundation
 
+public struct ScreenshotVisualReadinessObservedSurfaceState: Equatable, Sendable {
+    public let statusOwner: String
+    public let connectivity: String
+    public let queuedMutationCount: Int
+    public let visibleIndicator: String
+
+    public init(
+        statusOwner: String,
+        connectivity: String,
+        queuedMutationCount: Int,
+        visibleIndicator: String
+    ) {
+        self.statusOwner = statusOwner
+        self.connectivity = connectivity
+        self.queuedMutationCount = queuedMutationCount
+        self.visibleIndicator = visibleIndicator
+    }
+}
+
+public struct ScreenshotVisualReadinessProofIdentity: Equatable, Sendable {
+    public let captureRunNonce: String
+    public let route: String
+    public let source: String
+    public let observedDynamicTypeSize: String
+    public let observedReduceMotion: Bool
+    public let observedSurfaceVariant: String?
+    public let observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState?
+
+    public init(
+        captureRunNonce: String,
+        route: String,
+        source: String,
+        observedDynamicTypeSize: String,
+        observedReduceMotion: Bool,
+        observedSurfaceVariant: String?,
+        observedSurfaceState: ScreenshotVisualReadinessObservedSurfaceState?
+    ) {
+        self.captureRunNonce = captureRunNonce
+        self.route = route
+        self.source = source
+        self.observedDynamicTypeSize = observedDynamicTypeSize
+        self.observedReduceMotion = observedReduceMotion
+        self.observedSurfaceVariant = observedSurfaceVariant
+        self.observedSurfaceState = observedSurfaceState
+    }
+}
+
 public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
     public static let settledEmpty = ScreenshotVisualReadinessSnapshot(
         generation: 0,
@@ -12,6 +59,7 @@ public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
     )
 
     public let generation: Int
+    public let proofIdentity: ScreenshotVisualReadinessProofIdentity?
     public let expectedMediaCount: Int
     public let loadedMediaCount: Int
     public let pendingMediaCount: Int
@@ -21,6 +69,7 @@ public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
 
     public init(
         generation: Int = 0,
+        proofIdentity: ScreenshotVisualReadinessProofIdentity? = nil,
         expectedMediaCount: Int,
         loadedMediaCount: Int,
         pendingMediaCount: Int,
@@ -29,6 +78,7 @@ public struct ScreenshotVisualReadinessSnapshot: Equatable, Sendable {
         isSettled: Bool
     ) {
         self.generation = generation
+        self.proofIdentity = proofIdentity
         self.expectedMediaCount = expectedMediaCount
         self.loadedMediaCount = loadedMediaCount
         self.pendingMediaCount = pendingMediaCount
@@ -60,12 +110,19 @@ public struct ScreenshotVisualReadinessBlockingToken: Hashable, Sendable {
 
 public struct ScreenshotVisualReadinessState: Equatable, Sendable {
     private var generation = 0
+    private var proofIdentity: ScreenshotVisualReadinessProofIdentity?
     private var expectedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var loadedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var failedMediaTokens: Set<ScreenshotVisualReadinessMediaToken> = []
     private var blockingIndicatorTokens: Set<ScreenshotVisualReadinessBlockingToken> = []
 
     public init() {}
+
+    public mutating func observeProofIdentity(_ identity: ScreenshotVisualReadinessProofIdentity) {
+        let changed = proofIdentity != identity
+        proofIdentity = identity
+        advanceGeneration(if: changed)
+    }
 
     public mutating func beginMedia(_ token: ScreenshotVisualReadinessMediaToken) {
         var changed = expectedMediaTokens.insert(token).inserted
@@ -106,6 +163,7 @@ public struct ScreenshotVisualReadinessState: Equatable, Sendable {
         let isSettled = pendingMediaTokens.isEmpty && failedMediaTokens.isEmpty && blockingIndicatorTokens.isEmpty
         return ScreenshotVisualReadinessSnapshot(
             generation: generation,
+            proofIdentity: proofIdentity,
             expectedMediaCount: expectedMediaTokens.count,
             loadedMediaCount: loadedMediaTokens.count,
             pendingMediaCount: pendingMediaTokens.count,

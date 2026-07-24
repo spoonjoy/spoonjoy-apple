@@ -166,7 +166,7 @@ struct SettingsView: View {
         notificationScreenshotProofWasWritten = true
         Self.writeScreenshotProof(
             visualFocus: .notifications,
-            visibleSections: ["This Device", "Push Delivery", "Notification Sync", "Agent Access"],
+            visibleSections: observation.visibleSections,
             visibilityObservation: observation
         )
         await ScreenshotAccessibilityProofWriter.writeIfNeeded(
@@ -922,6 +922,13 @@ private struct SettingsNotificationVisibilityObservation: Equatable {
         return deviceSectionFrame.minY >= visibleTop
             && deviceSectionFrame.minY <= preferredHeaderBandBottom
             && deviceSectionFrame.minY + headerHeight <= visibleBottom
+    }
+
+    var visibleSections: [String] {
+        guard hasVisibleDeviceHeader else {
+            return []
+        }
+        return ["This Device"]
     }
 }
 
