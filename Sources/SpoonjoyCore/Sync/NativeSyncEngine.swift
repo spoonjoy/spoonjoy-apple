@@ -193,6 +193,7 @@ public struct NativeSyncCheckpoint: Codable, Equatable, Sendable {
 
 public enum NativeSyncStoreError: Error, Equatable, Sendable {
     case missingCheckpoint
+    case staleSnapshot
     case unavailable(String)
 }
 
@@ -309,6 +310,7 @@ public protocol NativeSyncStore: Actor {
     func cachedRecord(kind: NativeSyncEntryKind, resourceID: String) throws -> NativeSyncCachedRecord?
     func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult
     func loadSnapshot() throws -> NativeSyncSnapshot
+    func replaceSnapshot(_ snapshot: NativeSyncSnapshot, ifCurrent current: NativeSyncSnapshot) throws
 }
 
 public actor InMemoryNativeSyncStore: NativeSyncStore {
@@ -454,6 +456,18 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
             cachedRecords: records.values.sorted { $0.cacheKey < $1.cacheKey },
             tombstones: tombstones.entries
         )
+    }
+
+    public func replaceSnapshot(_ snapshot: NativeSyncSnapshot, ifCurrent current: NativeSyncSnapshot) throws {
+        guard loadSnapshot() == current else {
+            throw NativeSyncStoreError.staleSnapshot
+        }
+        accountID = snapshot.accountID
+        environment = snapshot.environment
+        checkpoint = snapshot.checkpoint
+        queue = snapshot.queue
+        records = Dictionary(uniqueKeysWithValues: snapshot.cachedRecords.map { ($0.cacheKey, $0) })
+        tombstones = NativeSyncTombstoneLog(snapshot.tombstones)
     }
 
     private static func isoString(_ date: Date) -> String {
@@ -629,6 +643,23 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         snapshot()
     }
 
+    public func replaceSnapshot(_ snapshot: NativeSyncSnapshot, ifCurrent current: NativeSyncSnapshot) throws {
+        guard self.snapshot() == current else {
+            throw NativeSyncStoreError.staleSnapshot
+        }
+        accountID = snapshot.accountID
+        environment = snapshot.environment
+        checkpoint = snapshot.checkpoint
+        if let mediaResolver {
+            queue = try snapshot.queue.resolvingStagedMedia(using: mediaResolver)
+        } else {
+            queue = snapshot.queue
+        }
+        records = Dictionary(uniqueKeysWithValues: snapshot.cachedRecords.map { ($0.cacheKey, $0) })
+        tombstones = snapshot.tombstones
+        try persist()
+    }
+
     private func persist() throws {
         try store.save(snapshot())
     }
@@ -706,6 +737,10 @@ public actor UnavailableNativeSyncStore: NativeSyncStore {
     }
 
     public func loadSnapshot() throws -> NativeSyncSnapshot {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func replaceSnapshot(_: NativeSyncSnapshot, ifCurrent _: NativeSyncSnapshot) throws {
         throw NativeSyncStoreError.unavailable(message)
     }
 }

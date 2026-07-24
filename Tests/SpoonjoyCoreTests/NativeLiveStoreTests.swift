@@ -460,15 +460,10 @@ struct NativeLiveStoreTests {
             let logout = Task { @MainActor in
                 try await liveStore.performSettingsSessionOperation(.logout)
             }
-            var observedSignedOutBootstrap = false
-            for _ in 0..<200 {
-                if case .signedOut = liveStore.bootstrapState {
-                    observedSignedOutBootstrap = true
-                    break
-                }
+            for _ in 0..<64 {
                 await Task.yield()
             }
-            #expect(observedSignedOutBootstrap)
+            #expect(liveStore.bootstrapState.contentState.authSessionState == .authenticated(account))
 
             await gate.release()
             try await logout.value
@@ -672,6 +667,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { nil },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -748,6 +747,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { nil },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -792,7 +795,11 @@ struct NativeLiveStoreTests {
                     RecipeIngredient(id: "ingredient_lemon", name: "lemons", quantity: 1, unit: "each")
                 ]
             )
-            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"))
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"),
+                accountID: "chef_ari"
+            )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
             let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
@@ -918,7 +925,11 @@ struct NativeLiveStoreTests {
         try await withTemporaryLiveStoreDirectory { directory in
             let vault = try await Self.signedInVault(accountID: "chef_ari")
             let recipe = Self.sampleRecipe(id: "recipe_offline_edit", title: "Offline Pasta")
-            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"))
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"),
+                accountID: "chef_ari"
+            )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
             let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
@@ -1155,7 +1166,8 @@ struct NativeLiveStoreTests {
             let recipe = Self.sampleRecipe(id: "recipe_drain_editor", title: "Server Pasta")
             let syncData = try Self.sampleSyncData(
                 recipe: recipe,
-                shoppingItem: Self.sampleShoppingItem(id: "item_drain", name: "salt")
+                shoppingItem: Self.sampleShoppingItem(id: "item_drain", name: "salt"),
+                accountID: "chef_ari"
             )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let liveStore = Self.liveStore(
@@ -1206,7 +1218,8 @@ struct NativeLiveStoreTests {
             let recipe = Self.sampleRecipe(id: "recipe_shopping_drain", title: "Shopping Drain Pasta")
             let syncData = try Self.sampleSyncData(
                 recipe: recipe,
-                shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt")
+                shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"),
+                accountID: "chef_ari"
             )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let liveStore = Self.liveStore(
@@ -1353,7 +1366,8 @@ struct NativeLiveStoreTests {
             let recipe = Self.sampleRecipe(id: "recipe_drain_structural", title: "Server Pasta")
             let syncData = try Self.sampleSyncData(
                 recipe: recipe,
-                shoppingItem: Self.sampleShoppingItem(id: "item_drain_structural", name: "salt")
+                shoppingItem: Self.sampleShoppingItem(id: "item_drain_structural", name: "salt"),
+                accountID: "chef_ari"
             )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let liveStore = Self.liveStore(
@@ -1425,7 +1439,8 @@ struct NativeLiveStoreTests {
             let recipe = Self.sampleRecipe(id: "recipe_partial_editor", title: "Server Pasta")
             let syncData = try Self.sampleSyncData(
                 recipe: recipe,
-                shoppingItem: Self.sampleShoppingItem(id: "item_partial", name: "salt")
+                shoppingItem: Self.sampleShoppingItem(id: "item_partial", name: "salt"),
+                accountID: "chef_ari"
             )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let liveStore = Self.liveStore(
@@ -1552,7 +1567,11 @@ struct NativeLiveStoreTests {
         try await withTemporaryLiveStoreDirectory { directory in
             let vault = try await Self.signedInVault(accountID: "chef_ari")
             let recipe = Self.sampleRecipe(id: "recipe_noop", title: "No-op Pasta")
-            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_noop", name: "salt"))
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_noop", name: "salt"),
+                accountID: "chef_ari"
+            )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let liveStore = Self.liveStore(
                 directory: directory,
@@ -2087,7 +2106,11 @@ struct NativeLiveStoreTests {
                 accountID: "chef_ari"
             ))
             let recipe = Self.sampleRecipe(id: "recipe_editor_execute", title: "Executed Pasta")
-            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_execute", name: "pepper"))
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_execute", name: "pepper"),
+                accountID: "chef_ari"
+            )
             let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
             let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
             let liveStore = Self.liveStore(
@@ -2855,6 +2878,402 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("settings refresh cancellation exits bootstrap without failure telemetry")
+    func settingsRefreshCancellationExitsBootstrapWithoutFailureTelemetry() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_settings_cancelled"
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw CancellationError()
+                },
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                }
+            )
+
+            await liveStore.bootstrap()
+
+            #expect(await telemetryRecorder.recordedEvents().isEmpty)
+            #expect(await syncStore.loadSnapshot().accountID == accountID)
+            guard case .authenticated(let session) = liveStore.bootstrapState.contentState.authSessionState else {
+                Issue.record("Expected settings cancellation to preserve the authenticated bootstrap state")
+                return
+            }
+            #expect(session.accountID == accountID)
+        }
+    }
+
+    @MainActor
+    @Test("default live sync dependencies construct a staged transport and clock")
+    func defaultLiveSyncDependenciesConstructStagedTransportAndClock() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_default_stage", title: "Default stage"),
+                shoppingItem: nil,
+                accountID: "chef_default_stage"
+            )))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let stageUsingDefaultClock = NativeLiveAppStoreDependencies.stagedSyncOperation(transport: transport)
+
+            let staged = try await stageUsingDefaultClock(
+                .empty,
+                configuration,
+                .launch,
+                .unbound
+            )
+            let dependencies = NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            )
+
+            #expect(staged.snapshot.accountID == "chef_default_stage")
+            #expect(dependencies.cacheEnvironment == .production)
+        }
+    }
+
+    @Test("bootstrap effect ownership rejects collisions and mismatched release")
+    func bootstrapEffectOwnershipRejectsCollisionsAndMismatchedRelease() throws {
+        var ownership = NativeBootstrapEffectOwnership()
+        let operationID = UUID()
+        let otherOperationID = UUID()
+        var waiters = ["waiting"]
+
+        try ownership.begin(operationID: operationID)
+        var rejectedCollision = false
+        do {
+            try ownership.begin(operationID: otherOperationID)
+        } catch is CancellationError {
+            rejectedCollision = true
+        }
+
+        let mismatchedRelease = ownership.end(operationID: otherOperationID, draining: &waiters)
+        #expect(rejectedCollision)
+        #expect(mismatchedRelease.isEmpty)
+        #expect(waiters == ["waiting"])
+        #expect(ownership.isActive)
+        let matchedRelease = ownership.end(operationID: operationID, draining: &waiters)
+        #expect(matchedRelease == ["waiting"])
+        #expect(waiters.isEmpty)
+        #expect(!ownership.isActive)
+    }
+
+    @MainActor
+    @Test("invalid staged tombstone history is rejected before durable sync writes")
+    func invalidStagedTombstoneHistoryIsRejectedBeforeDurableSyncWrites() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_invalid_stage"
+            let vault = try await Self.signedInVault(accountID: accountID)
+            let baselineMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_baseline",
+                clientMutationID: "cm-baseline",
+                title: "Baseline",
+                description: nil,
+                servings: nil,
+                createdAt: Self.isoString(Self.now)
+            )
+            let stagedMutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_staged",
+                clientMutationID: "cm-staged",
+                title: "Staged",
+                description: nil,
+                servings: nil,
+                createdAt: Self.isoString(Self.now)
+            )
+            let baselineTombstone = NativeSyncTombstone(
+                resourceType: .recipe,
+                resourceID: "recipe_removed_baseline",
+                parentResourceID: nil,
+                title: "Baseline removal",
+                deletedAt: Self.isoString(Self.now),
+                updatedAt: Self.isoString(Self.now)
+            )
+            let incompatibleTombstone = NativeSyncTombstone(
+                resourceType: .recipe,
+                resourceID: "recipe_removed_incompatible",
+                parentResourceID: nil,
+                title: "Incompatible removal",
+                deletedAt: Self.isoString(Self.now),
+                updatedAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [baselineMutation])
+            )
+            await syncStore.appendTombstone(baselineTombstone)
+            let baseline = await syncStore.loadSnapshot()
+            let stagedSnapshot = NativeSyncSnapshot(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: try NativeSyncCheckpoint(
+                    globalCursorRaw: "cursor-staged",
+                    shoppingCursorRaw: nil,
+                    updatedAt: Self.isoString(Self.now)
+                ),
+                queue: try NativeMutationQueue(mutations: [stagedMutation]),
+                tombstones: [incompatibleTombstone]
+            )
+            let report = NativeSyncReport(
+                trigger: .launch,
+                bootstrapCursor: nil,
+                accountID: accountID,
+                environment: .production,
+                drainedClientMutationIDs: [],
+                conflicts: [],
+                pausedReason: nil,
+                retryAfterSeconds: nil
+            )
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
+            let configuration = APIClientConfiguration.spoonjoyProduction
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: vault),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: { _, _, _, _ in
+                    NativeLiveStagedSyncExecution(report: report, snapshot: stagedSnapshot)
+                },
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .production,
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            #expect(await syncStore.loadSnapshot() == baseline)
+            guard case .authenticated(let currentSession) = liveStore.bootstrapState.contentState.authSessionState else {
+                Issue.record("Expected the rejected stage to preserve the authenticated session")
+                return
+            }
+            #expect(currentSession.accountID == accountID)
+        }
+    }
+
+    @MainActor
+    @Test("queued work waits for staged sync and cannot be lost by snapshot publication")
+    func queuedWorkWaitsForStagedSyncAndSurvivesSnapshotPublication() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_staged_queue"
+            let gate = NativeLiveStoreSuspensionGate()
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let transport = GatedLiveStoreSyncTransport(
+                gate: gate,
+                result: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_staged_queue", title: "Staged Queue Pasta"),
+                    shoppingItem: nil,
+                    accountID: accountID
+                ))
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: syncStore,
+                transport: transport
+            )
+            let queuedMutation = NativeQueuedMutation.shoppingAddItem(
+                name: "lemons",
+                quantity: 2,
+                unit: "each",
+                categoryKey: "produce",
+                iconKey: "lemon",
+                clientMutationID: "cm-staged-queue",
+                createdAt: Self.isoString(Self.now)
+            )
+
+            let bootstrap = Task { await liveStore.bootstrap() }
+            await gate.waitUntilSuspended()
+            let queueWrite = Task { try await liveStore.queueMutation(queuedMutation) }
+            for _ in 0..<64 {
+                await Task.yield()
+            }
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+
+            await gate.release()
+            await bootstrap.value
+            try await queueWrite.value
+
+            let snapshot = await syncStore.loadSnapshot()
+            #expect(snapshot.cachedRecords.map(\.resourceID) == ["recipe_staged_queue"])
+            #expect(snapshot.queue.mutations == [queuedMutation])
+        }
+    }
+
+    @MainActor
+    @Test("staged sync CAS preserves a concurrent durable writer without partial publication")
+    func stagedSyncCASPreservesConcurrentDurableWriter() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_staged_cas"
+            let gate = NativeLiveStoreSuspensionGate()
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let transport = GatedLiveStoreSyncTransport(
+                gate: gate,
+                result: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_rejected_stage", title: "Rejected Stage"),
+                    shoppingItem: nil,
+                    accountID: accountID
+                ))
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: syncStore,
+                transport: transport
+            )
+            let externalMutation = NativeQueuedMutation.shoppingAddItem(
+                name: "salt",
+                quantity: 1,
+                unit: "box",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm-external-cas",
+                createdAt: Self.isoString(Self.now)
+            )
+
+            let bootstrap = Task { await liveStore.bootstrap() }
+            await gate.waitUntilSuspended()
+            try await syncStore.saveQueue(
+                try NativeMutationQueue(mutations: [externalMutation]),
+                accountID: accountID,
+                environment: .production
+            )
+            await gate.release()
+            await bootstrap.value
+
+            let snapshot = await syncStore.loadSnapshot()
+            #expect(snapshot.queue.mutations == [externalMutation])
+            #expect(snapshot.cachedRecords.isEmpty)
+            guard case .syncFailed = liveStore.bootstrapState else {
+                Issue.record("Expected stale staged CAS to fail without publishing partial state")
+                return
+            }
+        }
+    }
+
+    @MainActor
+    @Test("logout waits for a staged remote mutation before clearing its owned scope")
+    func logoutWaitsForStagedRemoteMutationBeforeClearingOwnedScope() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_remote_effect_owner"
+            let mutation = NativeQueuedMutation.shoppingAddItem(
+                name: "oranges",
+                quantity: 3,
+                unit: "each",
+                categoryKey: "produce",
+                iconKey: "orange",
+                clientMutationID: "cm-owned-remote-effect",
+                createdAt: Self.isoString(Self.now)
+            )
+            let gate = NativeLiveStoreSuspensionGate()
+            let transport = GatedMutationDrainTransport(gate: gate)
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [mutation])
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: syncStore,
+                transport: transport
+            )
+
+            let bootstrap = Task { await liveStore.bootstrap() }
+            await gate.waitUntilSuspended()
+            let logout = Task { try await liveStore.performSettingsSessionOperation(.logout) }
+            for _ in 0..<64 {
+                await Task.yield()
+            }
+            guard case .authenticated(let sessionBeforeRelease) = liveStore.bootstrapState.contentState.authSessionState else {
+                Issue.record("Expected logout to wait while the remote mutation remains owned")
+                await gate.release()
+                await bootstrap.value
+                _ = try? await logout.value
+                return
+            }
+            #expect(sessionBeforeRelease.accountID == accountID)
+            #expect((try await syncStore.loadQueue()).mutations == [mutation])
+
+            await gate.release()
+            await bootstrap.value
+            try await logout.value
+
+            #expect(await transport.recordedMutationIDs() == [mutation.clientMutationID])
+            #expect(liveStore.bootstrapState.contentState.authSessionState == .signedOut)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("bound account rejects a staged response owned by another account")
+    func boundAccountRejectsStagedResponseOwnedByAnotherAccount() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountID = "chef_bound_stage"
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: accountID,
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let baseline = await syncStore.loadSnapshot()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: accountID),
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_other_owner", title: "Other Owner"),
+                    shoppingItem: nil,
+                    accountID: "chef_other_owner"
+                )))
+            )
+
+            await liveStore.bootstrap()
+
+            #expect(await syncStore.loadSnapshot() == baseline)
+            guard case .authenticated(let session) = liveStore.bootstrapState.contentState.authSessionState else {
+                Issue.record("Expected staged owner mismatch to preserve the bound session")
+                return
+            }
+            #expect(session.accountID == accountID)
+        }
+    }
+
+    @MainActor
     @Test("concurrent bootstrap callers join one auth scope resolution")
     func concurrentBootstrapCallersJoinOneAuthScopeResolution() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -2888,6 +3307,212 @@ struct NativeLiveStoreTests {
             await secondBootstrap.value
             #expect(await vault.loadCallCount == 1)
         }
+    }
+
+    @MainActor
+    @Test("superseded account sync cannot overwrite the current durable sync scope")
+    func supersededAccountSyncCannotOverwriteCurrentDurableSyncScope() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let accountA = try Self.sampleSession(accountID: "chef_stale_sync_a")
+            let accountB = try Self.sampleSession(accountID: "chef_stale_sync_b")
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID(accountA.clientID)
+            try await vault.saveSession(accountA)
+            let gate = NativeLiveStoreSuspensionGate()
+            let transport = CancellationIgnoringAccountSyncTransport(
+                firstGate: gate,
+                firstResult: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_stale_a", title: "Stale A"),
+                    shoppingItem: nil,
+                    accountID: "chef_stale_sync_a"
+                )),
+                laterResults: [.syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_current_b", title: "Current B"),
+                    shoppingItem: nil,
+                    accountID: "chef_stale_sync_b"
+                ))]
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: transport
+            )
+
+            let staleBootstrap = Task { await liveStore.bootstrap() }
+            await gate.waitUntilSuspended()
+            let logout = Task { try await liveStore.performSettingsSessionOperation(.logout) }
+            for _ in 0..<64 {
+                await Task.yield()
+            }
+            #expect(await transport.recordedBootstrapCallCount() == 1)
+            await gate.release()
+            await staleBootstrap.value
+            try await logout.value
+            try await vault.saveSession(accountB)
+            await liveStore.bootstrap()
+
+            let snapshot = await syncStore.loadSnapshot()
+            #expect(snapshot.accountID == "chef_stale_sync_b")
+            #expect(snapshot.cachedRecords.map(\.resourceID) == ["recipe_current_b"])
+            #expect(liveStore.bootstrapState.contentState.authSessionState == .authenticated(accountB))
+        }
+    }
+
+    @MainActor
+    @Test("stale account binding cannot persist another session after logout")
+    func staleAccountBindingCannotPersistAnotherSessionAfterLogout() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let unboundSession = try AuthSession(
+                clientID: "client_binding_race",
+                accessToken: "sj_access_binding_race",
+                refreshToken: "sj_refresh_binding_race",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: nil
+            )
+            let vault = BindingRaceTokenVault(session: unboundSession, gatedLoadCall: 3)
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_binding_race", title: "Binding race"),
+                    shoppingItem: nil,
+                    accountID: "chef_binding_target"
+                )))
+            )
+
+            let staleBootstrap = Task { await liveStore.bootstrap() }
+            await vault.waitUntilGatedLoad()
+            let logout = Task { try await liveStore.performSettingsSessionOperation(.logout) }
+            for _ in 0..<32 {
+                await Task.yield()
+            }
+            await vault.releaseGatedLoad()
+            await staleBootstrap.value
+            try await logout.value
+
+            #expect(try await vault.loadSession() == nil)
+            #expect(liveStore.bootstrapState.contentState.authSessionState == .signedOut)
+        }
+    }
+
+    @MainActor
+    @Test("environment transition supersedes an in-flight production bootstrap")
+    func environmentTransitionSupersedesInFlightProductionBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let session = try Self.sampleSession(accountID: "chef_environment_owner")
+            let gate = NativeLiveStoreSuspensionGate()
+            let transport = CancellationIgnoringAccountSyncTransport(
+                firstGate: gate,
+                firstResult: .syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_production_stale", title: "Production stale"),
+                    shoppingItem: nil,
+                    accountID: "chef_environment_owner",
+                    environment: .production
+                )),
+                laterResults: [.syncData(try Self.sampleSyncData(
+                    recipe: Self.sampleRecipe(id: "recipe_local_current", title: "Local current"),
+                    shoppingItem: nil,
+                    accountID: "chef_environment_owner",
+                    environment: .local
+                ))]
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: session.accountID),
+                syncStore: syncStore,
+                transport: transport
+            )
+
+            let staleBootstrap = Task { await liveStore.bootstrap() }
+            await gate.waitUntilSuspended()
+            let environmentSwitch = Task { await liveStore.switchEnvironment(.local) }
+            for _ in 0..<64 {
+                await Task.yield()
+            }
+            #expect(await transport.recordedBootstrapCallCount() == 1)
+            await gate.release()
+            await staleBootstrap.value
+            await environmentSwitch.value
+
+            let snapshot = await syncStore.loadSnapshot()
+            #expect(snapshot.environment == .local)
+            #expect(snapshot.cachedRecords.map(\.resourceID) == ["recipe_local_current"])
+            #expect(liveStore.bootstrapState.contentState.environment == .local)
+        }
+    }
+
+    @MainActor
+    @Test("superseded cache restore cannot finish purging after logout indexes")
+    func supersededCacheRestoreCannotFinishPurgingAfterLogoutIndexes() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "chef_previous_cache",
+                environment: .production,
+                createdAt: Self.now,
+                records: [],
+                dismissedIndicators: []
+            ))
+            let purgeRecorder = GatedCaptureDraftPurgeRecorder()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: "chef_current_cache"),
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                captureDraftEntityIndexPurge: { request in
+                    await purgeRecorder.purge(request)
+                },
+                bootstrapMode: .restoreCacheOnly
+            )
+
+            let staleRestore = Task { await liveStore.bootstrap() }
+            await purgeRecorder.waitUntilFirstPurgeSuspends()
+            let logout = Task { try await liveStore.performSettingsSessionOperation(.logout) }
+            for _ in 0..<32 {
+                await Task.yield()
+            }
+            #expect(await purgeRecorder.startedPurgeCount() == 1)
+            await purgeRecorder.releaseFirstPurge()
+            await staleRestore.value
+            try await logout.value
+
+            #expect(liveStore.bootstrapState.contentState.authSessionState == .signedOut)
+        }
+    }
+
+    @MainActor
+    @Test("offline bootstrap catch rejects supersession before and after telemetry")
+    func offlineBootstrapCatchRejectsSupersessionBeforeAndAfterTelemetry() async throws {
+        let offlineError = APITransportError(
+            kind: .offline,
+            requestID: "req-offline-bootstrap",
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .doNotRetry
+        )
+        try await Self.exerciseSupersededBootstrapCatch(error: offlineError, suspendTelemetry: false)
+        try await Self.exerciseSupersededBootstrapCatch(error: offlineError, suspendTelemetry: true)
+    }
+
+    @MainActor
+    @Test("generic bootstrap catch rejects supersession before and after telemetry")
+    func genericBootstrapCatchRejectsSupersessionBeforeAndAfterTelemetry() async throws {
+        try await Self.exerciseSupersededBootstrapCatch(
+            error: NativeLiveStoreTestError.bootstrapAuthFailure,
+            suspendTelemetry: false
+        )
+        try await Self.exerciseSupersededBootstrapCatch(
+            error: NativeLiveStoreTestError.bootstrapAuthFailure,
+            suspendTelemetry: true
+        )
     }
 
     @MainActor
@@ -3140,6 +3765,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: syncEngine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: syncTransport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { appStateStore },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -3726,6 +4355,14 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: syncRunner, configuration: configuration),
+                syncStageOperation: { baseline, configuration, trigger, scope in
+                    let report = try await NativeSyncTriggerCoordinator(
+                        runner: syncRunner,
+                        configuration: configuration,
+                        scope: scope
+                    ).handle(trigger)
+                    return NativeLiveStagedSyncExecution(report: report, snapshot: baseline)
+                },
                 appStateStoreProvider: { nil },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -3929,6 +4566,10 @@ struct NativeLiveStoreTests {
             syncStore: syncStore,
             syncEngine: engine,
             syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: .spoonjoyProduction),
+            syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                transport: transport,
+                clock: { Self.now }
+            ),
             appStateStoreProvider: { nil },
             configuration: .spoonjoyProduction,
             cacheEnvironment: .production,
@@ -4016,6 +4657,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { nil },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -4100,6 +4745,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { appStateStore },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -4622,6 +5271,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { appStateStore },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -4682,6 +5335,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { appStateStore },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -4752,6 +5409,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { nil },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -4845,6 +5506,10 @@ struct NativeLiveStoreTests {
                 syncStore: syncStore,
                 syncEngine: engine,
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
+                ),
                 appStateStoreProvider: { nil },
                 configuration: configuration,
                 cacheEnvironment: .production,
@@ -5848,12 +6513,13 @@ struct NativeLiveStoreTests {
                 apiError: nil,
                 retryDecision: .retrySameRequest(afterSeconds: nil)
             )
+            let transport = ScriptedLiveStoreSyncTransport(bootstraps: [
+                .failure(offlineError),
+                .failure(offlineError)
+            ])
             let engine = NativeSyncEngine(
                 store: flakyRestoreSyncStore,
-                transport: ScriptedLiveStoreSyncTransport(bootstraps: [
-                    .failure(offlineError),
-                    .failure(offlineError)
-                ]),
+                transport: transport,
                 clock: { Self.now }
             )
             let offlineFallbackStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
@@ -5864,6 +6530,10 @@ struct NativeLiveStoreTests {
                 syncTriggerCoordinator: NativeSyncTriggerCoordinator(
                     runner: engine,
                     configuration: configuration
+                ),
+                syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                    transport: transport,
+                    clock: { Self.now }
                 ),
                 appStateStoreProvider: { nil },
                 configuration: configuration,
@@ -7503,6 +8173,15 @@ private actor FlakyRestoreNativeSyncStore: NativeSyncStore {
         }
         return .empty
     }
+
+    func replaceSnapshot(_ snapshot: NativeSyncSnapshot, ifCurrent current: NativeSyncSnapshot) throws {
+        guard current == .empty else {
+            throw NativeSyncStoreError.staleSnapshot
+        }
+        guard snapshot == .empty else {
+            throw NativeSyncStoreError.unavailable("flaky store is read-only")
+        }
+    }
 }
 
 private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
@@ -7556,6 +8235,66 @@ private actor GatedLiveStoreSyncTransport: NativeSyncTransport {
 
     func bootstrapCallCount() -> Int {
         callCount
+    }
+}
+
+private actor CancellationIgnoringAccountSyncTransport: NativeSyncTransport {
+    private let firstGate: NativeLiveStoreSuspensionGate
+    private let firstResult: NativeSyncBootstrapResult
+    private var laterResults: [NativeSyncBootstrapResult]
+    private var bootstrapCallCount = 0
+
+    init(
+        firstGate: NativeLiveStoreSuspensionGate,
+        firstResult: NativeSyncBootstrapResult,
+        laterResults: [NativeSyncBootstrapResult]
+    ) {
+        self.firstGate = firstGate
+        self.firstResult = firstResult
+        self.laterResults = laterResults
+    }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        bootstrapCallCount += 1
+        if bootstrapCallCount == 1 {
+            await firstGate.suspend()
+            return firstResult
+        }
+        guard !laterResults.isEmpty else {
+            return .success(cursor: nil, tombstones: [])
+        }
+        return laterResults.removeFirst()
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        .success(serverRevision: .updatedAt(mutation.createdAt))
+    }
+
+    func recordedBootstrapCallCount() -> Int {
+        bootstrapCallCount
+    }
+}
+
+private actor GatedMutationDrainTransport: NativeSyncTransport {
+    private let gate: NativeLiveStoreSuspensionGate
+    private var mutationIDs: [String] = []
+
+    init(gate: NativeLiveStoreSuspensionGate) {
+        self.gate = gate
+    }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        .success(cursor: nil, tombstones: [])
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        mutationIDs.append(mutation.clientMutationID)
+        await gate.suspend()
+        return .success(serverRevision: .updatedAt(mutation.createdAt))
+    }
+
+    func recordedMutationIDs() -> [String] {
+        mutationIDs
     }
 }
 
@@ -7614,6 +8353,36 @@ private actor CapturingCaptureDraftEntityIndexPurge {
 
     func requests() -> [NativeCaptureDraftEntityIndexPurgeRequest] {
         recordedRequests
+    }
+}
+
+private actor GatedCaptureDraftPurgeRecorder {
+    private let firstGate = NativeLiveStoreSuspensionGate()
+    private var callCount = 0
+    private var completedScopes: [String?] = []
+
+    func purge(_ request: NativeCaptureDraftEntityIndexPurgeRequest) async {
+        callCount += 1
+        if callCount == 1 {
+            await firstGate.suspend()
+        }
+        completedScopes.append(request.accountID)
+    }
+
+    func waitUntilFirstPurgeSuspends() async {
+        await firstGate.waitUntilSuspended()
+    }
+
+    func releaseFirstPurge() async {
+        await firstGate.release()
+    }
+
+    func completedAccountIDs() -> [String?] {
+        completedScopes
+    }
+
+    func startedPurgeCount() -> Int {
+        callCount
     }
 }
 
@@ -8136,6 +8905,19 @@ private actor BlockingSaveNativeSyncStore: NativeSyncStore {
             tombstones: tombstones.entries
         )
     }
+
+    func replaceSnapshot(_ snapshot: NativeSyncSnapshot, ifCurrent current: NativeSyncSnapshot) throws {
+        saveGate.blockIfArmed()
+        guard try loadSnapshot() == current else {
+            throw NativeSyncStoreError.staleSnapshot
+        }
+        accountID = snapshot.accountID
+        environment = snapshot.environment
+        checkpoint = snapshot.checkpoint
+        queue = snapshot.queue
+        records = Dictionary(uniqueKeysWithValues: snapshot.cachedRecords.map { ($0.cacheKey, $0) })
+        tombstones = NativeSyncTombstoneLog(snapshot.tombstones)
+    }
 }
 
 private struct CaptureImportAPITransport: SpoonjoyAPITransport {
@@ -8362,6 +9144,103 @@ private actor BootstrapControlledTokenVault: TokenVault {
     }
 }
 
+private actor BindingRaceTokenVault: TokenVault {
+    private struct PendingLoad {
+        let continuation: CheckedContinuation<AuthSession?, Never>
+        let session: AuthSession?
+    }
+
+    private var clientID: String?
+    private var session: AuthSession?
+    private let gatedLoadCall: Int
+    private var loadCallCount = 0
+    private var pendingLoad: PendingLoad?
+    private var gatedLoadWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init(session: AuthSession, gatedLoadCall: Int) {
+        self.clientID = session.clientID
+        self.session = session
+        self.gatedLoadCall = gatedLoadCall
+    }
+
+    func loadClientID() async throws -> String? {
+        clientID
+    }
+
+    func saveClientID(_ clientID: String) async throws {
+        self.clientID = clientID
+    }
+
+    func clearClientID() async throws {
+        clientID = nil
+    }
+
+    func loadSession() async throws -> AuthSession? {
+        loadCallCount += 1
+        guard loadCallCount == gatedLoadCall else {
+            return session
+        }
+        let capturedSession = session
+        gatedLoadWaiters.forEach { $0.resume() }
+        gatedLoadWaiters.removeAll()
+        return await withCheckedContinuation { continuation in
+            pendingLoad = PendingLoad(continuation: continuation, session: capturedSession)
+        }
+    }
+
+    func saveSession(_ session: AuthSession) async throws {
+        self.session = session
+    }
+
+    func clearSession() async throws {
+        session = nil
+    }
+
+    func waitUntilGatedLoad() async {
+        if pendingLoad != nil {
+            return
+        }
+        await withCheckedContinuation { continuation in
+            gatedLoadWaiters.append(continuation)
+        }
+    }
+
+    func releaseGatedLoad() {
+        let load = pendingLoad
+        pendingLoad = nil
+        load?.continuation.resume(returning: load?.session)
+    }
+}
+
+private actor BootstrapFailureTokenVault: TokenVault {
+    private let error: any Error & Sendable
+    private let suspensionGate: NativeLiveStoreSuspensionGate?
+
+    init(error: any Error & Sendable, suspensionGate: NativeLiveStoreSuspensionGate?) {
+        self.error = error
+        self.suspensionGate = suspensionGate
+    }
+
+    func loadClientID() async throws -> String? {
+        nil
+    }
+
+    func saveClientID(_: String) async throws {}
+
+    func clearClientID() async throws {}
+
+    func loadSession() async throws -> AuthSession? {
+        if let suspensionGate {
+            await suspensionGate.suspend()
+        }
+        throw error
+    }
+
+    func saveSession(_: AuthSession) async throws {}
+
+    func clearSession() async throws {}
+}
+
 private enum NativeLiveStoreTestError: Error, CustomStringConvertible, Sendable {
     case missingFile(String)
     case processFailed(String)
@@ -8399,6 +9278,39 @@ private func withTemporaryLiveStoreDirectory<T>(_ body: @MainActor (URL) async t
 
 private extension NativeLiveStoreTests {
     @MainActor
+    static func exerciseSupersededBootstrapCatch(
+        error: any Error & Sendable,
+        suspendTelemetry: Bool
+    ) async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let suspensionGate = NativeLiveStoreSuspensionGate()
+            let vault = BootstrapFailureTokenVault(
+                error: error,
+                suspensionGate: suspendTelemetry ? nil : suspensionGate
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                nativeTelemetryReport: { _, _ in
+                    if suspendTelemetry {
+                        await suspensionGate.suspend()
+                    }
+                }
+            )
+
+            let staleBootstrap = Task { await liveStore.bootstrap() }
+            await suspensionGate.waitUntilSuspended()
+            await liveStore.switchEnvironment(.local)
+            await suspensionGate.release()
+            await staleBootstrap.value
+
+            #expect(liveStore.bootstrapState.contentState.environment == .local)
+        }
+    }
+
+    @MainActor
     static func liveStore(
         directory: URL,
         vault: any TokenVault,
@@ -8431,6 +9343,10 @@ private extension NativeLiveStoreTests {
             syncStore: syncStore,
             syncEngine: engine,
             syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+            syncStageOperation: NativeLiveAppStoreDependencies.stagedSyncOperation(
+                transport: transport,
+                clock: { Self.now }
+            ),
             appStateStoreProvider: appStateStoreProvider,
             configuration: configuration,
             cacheEnvironment: cacheEnvironment,
