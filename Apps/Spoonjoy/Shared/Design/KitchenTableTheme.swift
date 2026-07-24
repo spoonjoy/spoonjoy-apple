@@ -73,7 +73,6 @@ struct KitchenTablePage<Content: View>: View {
             .frame(maxWidth: maxContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .scrollEdgeEffectStyle(.hard, for: .bottom)
         .accessibilityIdentifier("spoonjoy.page-scroll")
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }

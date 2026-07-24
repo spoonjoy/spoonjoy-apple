@@ -89,12 +89,12 @@ struct NativeMobileDesignContractTests {
             in: themePath,
             contains: [
                 "static let compactTabBarContentInset: CGFloat = 148",
-                ".scrollEdgeEffectStyle(.hard, for: .bottom)",
                 "@Environment(\\.dynamicTypeSize) private var dynamicTypeSize",
                 ".padding(.vertical, dynamicTypeSize.isAccessibilitySize ? 4 : 6)"
             ],
             forbids: [
-                "static let compactTabBarBackdropHeight"
+                "static let compactTabBarBackdropHeight",
+                ".scrollEdgeEffectStyle(.hard, for: .bottom)"
             ],
         )
         expectContent(
@@ -2710,12 +2710,15 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "ScreenshotRouteContainer(identifier: \"screenshot.route.\\(route.stateIdentifier)\")",
                 "private struct ScreenshotRouteContainer<Content: View>: View",
-                ".accessibilityElement(children: .contain)",
+                "ScreenshotRouteMarker(identifier: identifier)",
+                "private struct ScreenshotRouteMarker: View",
+                ".accessibilityElement(children: .ignore)",
                 ".accessibilityIdentifier(identifier)"
             ],
             forbids: [
                 "Group {\n        switch route",
-                "}\n        .accessibilityIdentifier(\"screenshot.route.\\(route.stateIdentifier)\")"
+                "}\n        .accessibilityIdentifier(\"screenshot.route.\\(route.stateIdentifier)\")",
+                ".accessibilityElement(children: .contain)\n        .accessibilityIdentifier(identifier)"
             ]
         )
     }

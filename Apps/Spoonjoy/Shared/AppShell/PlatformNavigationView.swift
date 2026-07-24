@@ -2259,8 +2259,22 @@ private struct ScreenshotRouteContainer<Content: View>: View {
         ZStack {
             content()
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier(identifier)
+        .overlay(alignment: .topLeading) {
+            ScreenshotRouteMarker(identifier: identifier)
+        }
+    }
+}
+
+private struct ScreenshotRouteMarker: View {
+    let identifier: String
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Current route")
+            .accessibilityIdentifier(identifier)
+            .allowsHitTesting(false)
     }
 }
 
