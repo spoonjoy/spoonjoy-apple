@@ -3166,7 +3166,7 @@ struct NativeLiveStoreTests {
 
             let bootstrap = Task { await liveStore.bootstrap() }
             await gate.waitUntilSuspended()
-            try await syncStore.saveQueue(
+            await syncStore.saveQueue(
                 try NativeMutationQueue(mutations: [externalMutation]),
                 accountID: accountID,
                 environment: .production
