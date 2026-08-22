@@ -1577,6 +1577,189 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("mixed recovery final-state evidence covers superseded check delete and clear operations")
+    func mixedRecoveryFinalStateEvidenceTable() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+
+        func expectSettled(
+            _ plans: [ShoppingSurfaceMutationPlan],
+            finalState: ShoppingListState,
+            initialState: ShoppingListState? = nil,
+            submissionStates: [ShoppingListState]? = nil,
+            label: String
+        ) async throws {
+            let initialState = initialState ?? baseline
+            var writes = 0
+            var reads = 0
+            var feedback: ShoppingMutationFeedback?
+            let coordinator = ShoppingMutationCoordinator(
+                persistAlreadyApplied: { _ in },
+                executeRemote: { _ in
+                    writes += 1
+                    if writes <= plans.count { throw cancelled }
+                    Issue.record("\(label) final-state proof replayed transport")
+                },
+                fetchShoppingList: {
+                    reads += 1
+                    if reads <= plans.count {
+                        return submissionStates?[reads - 1] ?? initialState
+                    }
+                    return finalState
+                },
+                recordShoppingList: { _ in },
+                recordFeedback: { feedback = $0 }
+            )
+            for plan in plans {
+                #expect(try await coordinator.submit(plan) == .recovering, Comment(rawValue: label))
+            }
+            #expect(try await coordinator.retryCurrentRecovery() == .synced, Comment(rawValue: label))
+            #expect(feedback == nil, Comment(rawValue: label))
+            #expect(writes == plans.count, Comment(rawValue: label))
+        }
+
+        let checkAdd = try viewModel(baseline).plan(.addItem(name: "table check mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_table_check_add"))
+        let check = try viewModel(try #require(checkAdd.updatedShoppingList)).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_table_check"))
+        let checkOverlap = try viewModel(try #require(check.updatedShoppingList)).plan(.addItem(name: "table check mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_table_check_overlap"))
+        let uncheck = try viewModel(try #require(checkOverlap.updatedShoppingList)).plan(.setItemChecked(itemID: "item_lemons", checked: false, clientMutationID: "cm_table_uncheck"))
+        try await expectSettled(
+            [checkAdd, check, checkOverlap, uncheck],
+            finalState: try #require(uncheck.updatedShoppingList),
+            submissionStates: [baseline, baseline, baseline, try #require(checkOverlap.updatedShoppingList)],
+            label: "check/uncheck"
+        )
+
+        let deleteAdd = try viewModel(baseline).plan(.addItem(name: "table delete mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_table_delete_add"))
+        let delete = try viewModel(try #require(deleteAdd.updatedShoppingList)).plan(.deleteItem(itemID: "item_lemons", clientMutationID: "cm_table_delete", confirmation: .confirmed))
+        let restore = try viewModel(try #require(delete.updatedShoppingList)).plan(.addItem(name: "lemons", quantity: 2, unit: "each", categoryKey: "produce", iconKey: "lemon", clientMutationID: "cm_table_restore"))
+        try await expectSettled([deleteAdd, delete, restore], finalState: try #require(restore.updatedShoppingList), label: "delete/restore")
+
+        let clearAdd = try viewModel(baseline).plan(.addItem(name: "table clear mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_table_clear_add"))
+        let clear = try viewModel(try #require(clearAdd.updatedShoppingList)).plan(.clearAll(clientMutationID: "cm_table_clear", confirmation: .confirmed))
+        let clearRestore = try viewModel(try #require(clear.updatedShoppingList)).plan(.addItem(name: "table clear mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_table_clear_restore"))
+        try await expectSettled([clearAdd, clear, clearRestore], finalState: try #require(clearRestore.updatedShoppingList), label: "clear/restore")
+
+        let checkedBaseline = try baseline.settingChecked(true, itemID: "item_lemons", checkedAt: baseline.updatedAt, updatedAt: baseline.updatedAt, nextSortIndex: baseline.items.count)
+        let completedAdd = try viewModel(checkedBaseline).plan(.addItem(name: "table completed mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_table_completed_add"))
+        let clearCompleted = try viewModel(try #require(completedAdd.updatedShoppingList)).plan(.clearCompleted(clientMutationID: "cm_table_completed_clear", confirmation: .confirmed))
+        let completedRestore = try viewModel(try #require(clearCompleted.updatedShoppingList)).plan(.addItem(name: "lemons", quantity: 2, unit: "each", categoryKey: "produce", iconKey: "lemon", clientMutationID: "cm_table_completed_restore"))
+        try await expectSettled(
+            [completedAdd, clearCompleted, completedRestore],
+            finalState: try #require(completedRestore.updatedShoppingList),
+            initialState: checkedBaseline,
+            label: "clear-completed/restore"
+        )
+    }
+
+    @MainActor
+    @Test("clear and restore recovery settles only the exact reflected prefix")
+    func clearRestoreRecoverySettlesExactPrefix() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var feedback: ShoppingMutationFeedback?
+        var visible = baseline
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "clear partial mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_clear_partial_a"))
+        let clear = try viewModel(try #require(first.updatedShoppingList)).plan(.clearAll(clientMutationID: "cm_clear_partial_x", confirmation: .confirmed))
+        let reflectedPrefix = try #require(clear.updatedShoppingList)
+        let restore = try viewModel(reflectedPrefix).plan(.addItem(name: "clear partial mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_clear_partial_b"))
+        let expectedRestoredQuantity = try #require(restore.updatedShoppingList?.receiptItems.first { $0.name == "clear partial mint" }?.quantity)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 3 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 3 ? baseline : reflectedPrefix
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(clear) == .recovering)
+        #expect(try await coordinator.submit(restore) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback?.identity == restore.identity)
+        #expect(visible.receiptItems.count == 1)
+        #expect(visible.receiptItems.first?.name == "clear partial mint")
+        #expect(visible.receiptItems.first?.quantity == expectedRestoredQuantity)
+    }
+
+    @MainActor
+    @Test("clear and restore recovery fails closed when cleared rows remain active")
+    func clearRestoreRecoveryFailsClosedWhenClearIsAbsent() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "clear impossible mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_clear_impossible_a"))
+        let clear = try viewModel(try #require(first.updatedShoppingList)).plan(.clearAll(clientMutationID: "cm_clear_impossible_x", confirmation: .confirmed))
+        let restore = try viewModel(try #require(clear.updatedShoppingList)).plan(.addItem(name: "clear impossible mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_clear_impossible_b"))
+        let serverWithoutClear = try #require(try viewModel(baseline).plan(.addItem(name: "clear impossible mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_clear_impossible_server")).updatedShoppingList)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 3 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 3 ? baseline : serverWithoutClear
+            },
+            recordShoppingList: { _ in },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(clear) == .recovering)
+        #expect(try await coordinator.submit(restore) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .recovering)
+        #expect(feedback?.identity == first.identity)
+        #expect(writes == 4)
+    }
+
+    @MainActor
+    @Test("actionless recovery fails closed from composite proof and settles only by exact state")
+    func actionlessRecoveryUsesExactStateInsteadOfCompositeProof() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let add = try viewModel(baseline).plan(.addItem(name: "actionless composite mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_actionless_composite_add"))
+        let target = try #require(add.updatedShoppingList)
+        let actionless = ShoppingSurfaceMutationPlan(
+            remoteRequestBuilder: add.remoteRequestBuilder,
+            originalShoppingList: baseline,
+            updatedShoppingList: target
+        )
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 2 ? baseline : target
+            },
+            recordShoppingList: { _ in },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(add) == .recovering)
+        #expect(try await coordinator.submit(actionless) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback == nil)
+        #expect(writes == 2)
+    }
+
+    @MainActor
     @Test("dependent local item mutations wait and rebind after add recovery")
     func dependentMutationWaitsForRecoveryAndRebinds() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()

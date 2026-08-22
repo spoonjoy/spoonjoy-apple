@@ -636,10 +636,8 @@ public final class ShoppingMutationCoordinator {
             guard !keys.isEmpty,
                   let expected = pendingRecoveries[index].plan.updatedShoppingList
             else { return false }
-            let nonAdditivePlansAreReflected = prefix.allSatisfy { recovery in
-                !affectedProductKeys(for: recovery.plan).isEmpty || mutationIsReflected(recovery.plan, in: reconciled)
-            }
-            return nonAdditivePlansAreReflected && productEvidenceMatches(expected, in: reconciled, keys: keys)
+            return cumulativeNonAdditiveEvidenceMatches(prefix.map(\.plan), expected: expected, in: reconciled) &&
+                productEvidenceMatches(expected, in: reconciled, keys: keys)
         }) {
             let prefix = Array(pendingRecoveries[...endIndex])
             if rebindDependentEntries(createdBy: prefix.map(\.plan), cumulativelyIn: reconciled) {
@@ -840,6 +838,35 @@ public final class ShoppingMutationCoordinator {
         case .clearAll:
             let receiptIDs = plan.originalShoppingList?.receiptItems.map(\.id) ?? []
             return receiptIDs.allSatisfy { shoppingList.item(id: $0)?.deletedAt != nil || shoppingList.item(id: $0) == nil }
+        }
+    }
+
+    private func cumulativeNonAdditiveEvidenceMatches(
+        _ plans: [ShoppingSurfaceMutationPlan],
+        expected: ShoppingListState,
+        in reconciled: ShoppingListState
+    ) -> Bool {
+        var itemIDs = Set<String>()
+        for plan in plans {
+            switch plan.action {
+            case .setItemChecked(let itemID, _, _), .deleteItem(let itemID, _, _):
+                itemIDs.insert(itemID)
+            case .clearCompleted, .clearAll:
+                itemIDs.formUnion(expected.items.filter { $0.deletedAt != nil }.map(\.id))
+            case .addItem, .addRecipeIngredients:
+                break
+            case .none:
+                return false
+            }
+        }
+        return itemIDs.allSatisfy { itemID in
+            let expectedItem = expected.item(id: itemID)
+            let reconciledItem = reconciled.item(id: itemID)
+            let expectedIsActive = expectedItem?.deletedAt == nil && expectedItem != nil
+            let reconciledIsActive = reconciledItem?.deletedAt == nil && reconciledItem != nil
+            guard expectedIsActive == reconciledIsActive else { return false }
+            guard expectedIsActive else { return true }
+            return expectedItem?.isEffectivelyChecked == reconciledItem?.isEffectivelyChecked
         }
     }
 
