@@ -52,7 +52,7 @@ struct SpoonjoyRootView: View {
                             shoppingList: Self.shoppingUITestState,
                             queuedMutations: [],
                             conflicts: [],
-                            connectivity: .online,
+                            connectivity: Self.truthy("SPOONJOY_SHOPPING_UI_TEST_OFFLINE", in: ProcessInfo.processInfo.environment) ? .offline : .online,
                             now: { "2026-08-21T20:00:00.000Z" }
                         ),
                         actionDidPlan: { _ in

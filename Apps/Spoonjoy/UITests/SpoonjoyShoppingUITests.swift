@@ -27,10 +27,13 @@ final class SpoonjoyShoppingUITests: XCTestCase {
 
     func testPendingAndRetryStatesStayLocalizedToTheShoppingSurface() {
         XCUIDevice.shared.orientation = .portrait
-        var app = launchShopping(variant: "pending")
+        var app = launchShopping(variant: "pending", offline: true)
         let pendingItem = app.descendants(matching: .any)["shopping.item.item_lemons.pending"]
         XCTAssertTrue(pendingItem.waitForExistence(timeout: 8))
         XCTAssertFalse(pendingItem.isEnabled)
+        let hideOfflineStatus = app.buttons["Hide offline status"]
+        XCTAssertTrue(hideOfflineStatus.isHittable)
+        hideOfflineStatus.tap()
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].exists)
         app.terminate()
 
@@ -184,6 +187,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         outcome: String? = nil,
         noRecipes: Bool = false,
         platformFixture: Bool = false,
+        offline: Bool = false,
         stateJSON: String? = nil,
         omitState: Bool = false,
         mode: String = "all"
@@ -201,6 +205,9 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         }
         if platformFixture {
             app.launchEnvironment["SPOONJOY_SHOPPING_UI_TEST_PLATFORM"] = "1"
+        }
+        if offline {
+            app.launchEnvironment["SPOONJOY_SHOPPING_UI_TEST_OFFLINE"] = "1"
         }
         app.launchEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"] = variant
         app.launchEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_MODE"] = mode
