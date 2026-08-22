@@ -283,6 +283,8 @@ public final class ShoppingMutationCoordinator {
     private let recordShoppingList: RecordShoppingList
     private var entries: [Entry] = []
     private var isDraining = false
+    private var isPersistingAfterOfflineTransition = false
+    private var latestShoppingList: ShoppingListState?
 
     public init(
         persistAlreadyApplied: @escaping PersistAlreadyApplied,
@@ -300,7 +302,8 @@ public final class ShoppingMutationCoordinator {
         if let blockedReason = plan.blockedReason {
             throw ShoppingMutationCoordinatorError.blocked(blockedReason)
         }
-        if let updatedShoppingList = plan.updatedShoppingList {
+        if let updatedShoppingList = optimisticShoppingList(for: plan) {
+            latestShoppingList = updatedShoppingList
             recordShoppingList(updatedShoppingList)
         }
 
@@ -319,6 +322,7 @@ public final class ShoppingMutationCoordinator {
             await perform(entry)
             entries.removeFirst()
         }
+        isPersistingAfterOfflineTransition = false
         isDraining = false
     }
 
@@ -326,7 +330,14 @@ public final class ShoppingMutationCoordinator {
         let plan = entry.plan
         do {
             if let queuedMutation = plan.queuedMutation {
+                isPersistingAfterOfflineTransition = true
                 try await persistAlreadyApplied(queuedMutation)
+                entry.continuation.resume(returning: .queuedForSync)
+                return
+            }
+
+            if isPersistingAfterOfflineTransition, let fallback = plan.offlineFallbackMutation {
+                try await persistAlreadyApplied(fallback)
                 entry.continuation.resume(returning: .queuedForSync)
                 return
             }
@@ -340,24 +351,69 @@ public final class ShoppingMutationCoordinator {
                 try await executeRemote(remoteRequest)
             } catch let error as APITransportError where error.isOffline {
                 guard let fallback = plan.offlineFallbackMutation else { throw error }
+                isPersistingAfterOfflineTransition = true
                 try await persistAlreadyApplied(fallback)
                 entry.continuation.resume(returning: .queuedForSync)
                 return
             }
 
             if let reconciled = try? await fetchShoppingList(), entries.count == 1 {
+                latestShoppingList = reconciled
                 recordShoppingList(reconciled)
             }
             entry.continuation.resume(returning: .synced)
         } catch {
             if entries.count == 1 {
                 if let original = plan.originalShoppingList {
+                    latestShoppingList = original
                     recordShoppingList(original)
                 }
             } else {
                 _ = try? await fetchShoppingList()
             }
             entry.continuation.resume(throwing: error)
+        }
+    }
+
+    private func optimisticShoppingList(for plan: ShoppingSurfaceMutationPlan) -> ShoppingListState? {
+        guard let action = plan.action,
+              let baseline = latestShoppingList ?? plan.originalShoppingList else {
+            return plan.updatedShoppingList
+        }
+
+        switch action {
+        case .addItem(let name, let quantity, let unit, let categoryKey, let iconKey, let clientMutationID):
+            return try? baseline.addingOrRestoringItem(
+                name: name,
+                quantity: quantity,
+                unit: unit,
+                categoryKey: categoryKey,
+                iconKey: iconKey,
+                clientMutationID: clientMutationID
+            ).shoppingList
+        case .setItemChecked(let itemID, let checked, _):
+            let plannedItem = plan.updatedShoppingList?.item(id: itemID)
+            let timestamp = plannedItem?.updatedAt ?? baseline.updatedAt
+            let nextSortIndex = (baseline.activeItems.map(\.sortIndex).max() ?? -1) + 1
+            return try? baseline.settingChecked(
+                checked,
+                itemID: itemID,
+                checkedAt: checked ? timestamp : nil,
+                updatedAt: timestamp,
+                nextSortIndex: nextSortIndex
+            )
+        case .deleteItem(let itemID, _, _):
+            let deletedAt = plan.updatedShoppingList?.item(id: itemID)?.deletedAt ?? baseline.updatedAt
+            return try? baseline.removingItem(id: itemID, deletedAt: deletedAt)
+        case .addRecipeIngredients(let recipeID, let scaleFactor, let recipeIngredients, let clientMutationID):
+            return try? baseline.addingRecipeIngredients(
+                recipeID: recipeID,
+                scaleFactor: scaleFactor,
+                recipeIngredients: recipeIngredients,
+                clientMutationID: clientMutationID
+            )
+        case .clearCompleted, .clearAll:
+            return plan.updatedShoppingList
         }
     }
 }

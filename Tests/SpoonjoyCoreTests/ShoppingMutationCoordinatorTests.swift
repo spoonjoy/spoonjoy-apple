@@ -152,6 +152,96 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("rapid plans from the same rendered snapshot compose optimism monotonically")
+    func rapidPlansFromSameSnapshotComposeMonotonically() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let gate = ShoppingMutationTestGate()
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in try await gate.wait() },
+            fetchShoppingList: { visible },
+            recordShoppingList: { visible = $0 }
+        )
+        let staleViewModel = viewModel(baseline)
+        let first = try staleViewModel.plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_rapid_a"
+        ))
+        let second = try staleViewModel.plan(.addItem(
+            name: "mint",
+            quantity: nil,
+            unit: nil,
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_rapid_b"
+        ))
+
+        let firstTask = Task { try await coordinator.submit(first) }
+        await gate.waitUntilEntered(count: 1)
+        let secondTask = Task { try await coordinator.submit(second) }
+        await Task.yield()
+
+        #expect(visible.item(id: "item_lemons")?.checked == true)
+        #expect(visible.item(id: "item_local_cm_rapid_b")?.name == "mint")
+
+        await gate.resumeNext()
+        await gate.waitUntilEntered(count: 2)
+        await gate.resumeNext()
+        _ = try await firstTask.value
+        _ = try await secondTask.value
+    }
+
+    @MainActor
+    @Test("offline transition queues later optimistic work without another remote write")
+    func offlineTransitionQueuesLaterWorkWithoutRemoteWrite() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var remoteCount = 0
+        var persistedIDs: [String] = []
+        let offline = APITransportError(
+            kind: .offline,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: nil)
+        )
+        let gate = ShoppingMutationTestGate(firstResult: .failure(offline))
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { mutation in persistedIDs.append(mutation.clientMutationID) },
+            executeRemote: { _ in
+                remoteCount += 1
+                try await gate.wait()
+            },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 }
+        )
+        let first = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_offline_a"
+        ))
+        let firstTask = Task { try await coordinator.submit(first) }
+        await gate.waitUntilEntered(count: 1)
+        let second = try viewModel(visible).plan(.addItem(
+            name: "mint",
+            quantity: nil,
+            unit: nil,
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_offline_b"
+        ))
+        let secondTask = Task { try await coordinator.submit(second) }
+        await gate.resumeNext()
+
+        #expect(try await firstTask.value == .queuedForSync)
+        #expect(try await secondTask.value == .queuedForSync)
+        #expect(remoteCount == 1)
+        #expect(persistedIDs == ["cm_offline_a", "cm_offline_b"])
+    }
+
+    @MainActor
     private func viewModel(_ shoppingList: ShoppingListState) -> ShoppingSurfaceViewModel {
         ShoppingSurfaceViewModel(
             shoppingList: shoppingList,
