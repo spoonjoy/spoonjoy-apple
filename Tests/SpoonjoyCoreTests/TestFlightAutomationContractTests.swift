@@ -46,6 +46,7 @@ struct TestFlightAutomationContractTests {
                 "name: Upload verified candidate note",
                 "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
                 "node-version: 22.17.1",
+                "ref: 4b15c446f1d525221feb20d00c8ee081d528e8b6",
                 "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45",
                 "actual_dist_sha256",
                 "apple-distribution-kit dist checksum mismatch",
