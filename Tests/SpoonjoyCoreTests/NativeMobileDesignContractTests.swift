@@ -1208,8 +1208,8 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("shopping workflow is an authored receipt, not a generic form and toggle stack")
-    func shoppingWorkflowIsAuthoredReceiptNotGenericFormAndToggleStack() throws {
+    @Test("shopping workflow is an authored market receipt, not a generic form and toggle stack")
+    func shoppingWorkflowIsAuthoredMarketReceiptNotGenericFormAndToggleStack() throws {
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
         let viewModelPath = "Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift"
@@ -1251,8 +1251,8 @@ struct NativeMobileDesignContractTests {
                 "List {",
                 "Section {",
                 "private struct ShoppingReceiptRow",
-                "sourceLine",
-                "duplicateCountLabel",
+                "ShoppingPresentationSection",
+                "already in basket",
                 ".accessibilityHint",
                 ".toggleStyle(.largeCheck)",
                 ".swipeActions"
@@ -1289,7 +1289,8 @@ struct NativeMobileDesignContractTests {
                 "\"List {\"",
                 "\"Section {\"",
                 "\"ShoppingReceiptRow\"",
-                "\"shoppingReceiptState\""
+                "\"shoppingModeStrip\"",
+                "\"shoppingCategoryFilters\""
             ],
             forbids: [
                 "\"List\", \"Section\""
