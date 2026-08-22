@@ -110,8 +110,13 @@ struct TestFlightAutomationContractTests {
         }
 
         let testFlightWorkflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
+        let expectedToolkitRevision = "4b15c446f1d525221feb20d00c8ee081d528e8b6"
         let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit[\s\S]*?ref:\s+([0-9a-f]{40})/
-        #expect(testFlightWorkflow.firstMatch(of: toolkitRefPattern) != nil)
+        let toolkitRevisions = testFlightWorkflow.matches(of: toolkitRefPattern).map { String($0.1) }
+        #expect(
+            toolkitRevisions == [expectedToolkitRevision],
+            "TestFlight must have one toolkit checkout pinned to the audited revision: \(toolkitRevisions)"
+        )
     }
 
     @Test("Artifact uploads use the audited Node 24 action revision")
