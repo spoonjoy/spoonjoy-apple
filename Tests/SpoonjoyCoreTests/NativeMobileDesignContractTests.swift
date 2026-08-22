@@ -1324,6 +1324,41 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("shopping mutations expose localized pending retry recipe and accessibility behavior")
+    func shoppingMutationFeedbackIsLocalizedAndAccessible() throws {
+        let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
+        let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
+        let receipt = uncommentedSwift(try readRepoFile(receiptPath))
+
+        expectContent(
+            shopping,
+            in: shoppingPath,
+            contains: [
+                "@State private var pendingItemIDs: Set<String>",
+                "shoppingMutationFeedback: ShoppingMutationFeedback?",
+                "Button(\"Retry\"",
+                "@FocusState private var isRetryButtonFocused: Bool",
+                "hasRecipes ? addFromRecipeButton : createRecipeButton",
+                "Label(\"Create a recipe\", systemImage: \"square.and.pencil\")"
+            ],
+            forbids: [
+                "private var addFromRecipeButton: some View {\n        Button(action: openSearch)"
+            ]
+        )
+
+        expectContent(
+            receipt,
+            in: receiptPath,
+            contains: [
+                "pendingItemIDs: Set<String>",
+                "ProgressView()",
+                "AccessibilityNotification.Announcement",
+                "isEffectivelyChecked"
+            ]
+        )
+    }
+
     @Test("compact primary routes are native tab bar sections")
     func compactPrimaryRoutesAreNativeTabBarSections() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
