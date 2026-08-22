@@ -38,6 +38,9 @@ matching_rows = rows.select { |row| row["name"] == name }
 fail_check("#{results_path} must contain exactly one row for #{name}") unless matching_rows.length == 1
 row = matching_rows.first
 
+expected_command_route = name.start_with?("settings-") ? "settings" : name
+fail_check("#{name} row route does not match canonical matrix route") unless row["route"] == expected_command_route
+
 canonical_root = name == "kitchen" ? artifact_root : artifact_root.join("screenshot-routes", name)
 fail_check("#{name} artifactRoot is not canonical") unless Pathname.new(row.fetch("artifactRoot", "")).expand_path == canonical_root
 fail_check("#{name} row is not a clean pass") unless row["status"] == "pass" && row["blocked"] == false && row["missingDesignReview"] == false
@@ -65,6 +68,37 @@ end
 expected.each { |field, path| validate_artifact.call(field, path, row[field]) }
 
 design_review_manifest = JSON.parse(expected.fetch("designReview").read)
+expected_manifest_route, variant_field, expected_variant, focus_field, expected_focus = case name
+when "shopping-list-empty", "shopping-list-all-complete", "shopping-list-duplicate", "shopping-list-conflict", "shopping-list-offline-queued"
+  ["shopping-list", "shoppingListVariant", name.delete_prefix("shopping-list-"), nil, nil]
+when "shopping-list"
+  ["shopping-list", "shoppingListVariant", "normal", nil, nil]
+when "search-typed-results", "search-scoped-recipes", "search-scoped-cookbooks", "search-scoped-chefs", "search-scoped-shopping", "search-no-results"
+  ["search", "searchSurfaceVariant", name.delete_prefix("search-"), nil, nil]
+when "search"
+  ["search", "searchSurfaceVariant", "blank", nil, nil]
+when "capture-empty", "capture-draft", "capture-offline-retry", "capture-provider-blocked", "capture-signed-out"
+  ["capture", "captureSurfaceVariant", name.delete_prefix("capture-"), nil, nil]
+when "capture"
+  ["capture", "captureSurfaceVariant", "normal", nil, nil]
+when "settings-notifications"
+  ["settings", "settingsCaptureVariant", "profile", "settingsVisualFocus", "notifications"]
+when "settings-signed-out"
+  ["settings", "settingsCaptureVariant", "signed-out", "settingsVisualFocus", "signed-out"]
+when "settings-apns-denied", "settings-apns-not-determined", "settings-apns-authorized", "settings-apns-unregistered"
+  ["settings", "settingsCaptureVariant", name.delete_prefix("settings-"), "settingsVisualFocus", "notifications"]
+when "settings"
+  ["settings", "settingsCaptureVariant", "profile", "settingsVisualFocus", "profile"]
+else
+  [name, nil, nil, nil, nil]
+end
+fail_check("#{name} design review route does not match canonical matrix route") unless design_review_manifest["screenshotRoute"] == expected_manifest_route
+if variant_field
+  fail_check("#{name} design review variant does not match canonical matrix variant") unless design_review_manifest[variant_field] == expected_variant
+end
+if focus_field
+  fail_check("#{name} design review focus does not match canonical matrix variant") unless design_review_manifest[focus_field] == expected_focus
+end
 proof_paths = design_review_manifest.fetch("accessibilityProofArtifacts", [])
 proof_metadata = row["accessibilityProofs"]
 fail_check("#{name} accessibilityProofs must match design review") unless proof_metadata.is_a?(Array) && proof_metadata.length == proof_paths.length

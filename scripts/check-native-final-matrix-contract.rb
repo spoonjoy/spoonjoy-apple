@@ -121,6 +121,20 @@ Dir.mktmpdir("spoonjoy-native-route-evidence-contract") do |directory|
   _stdout, stderr, status = Open3.capture3("ruby", validator.to_s, "--artifact-root", artifact_root.to_s, "--name", "recipes", "--results-jsonl", results.to_s, "--checkpoint", checkpoint.to_s)
   failures << "route evidence validator must reject a non-PNG screenshot: #{stderr.inspect}" if status.success?
 
+  row["route"] = "settings"
+  results.write(JSON.generate(row) + "\n")
+  checkpoint.write(JSON.generate("schemaVersion" => 2, "completedRouteDigests" => { "recipes" => Digest::SHA256.hexdigest(JSON.generate(row)) }))
+  _stdout, stderr, status = Open3.capture3("ruby", validator.to_s, "--artifact-root", artifact_root.to_s, "--name", "recipes", "--results-jsonl", results.to_s, "--checkpoint", checkpoint.to_s)
+  failures << "route evidence validator must bind canonical row route independently: #{stderr.inspect}" unless !status.success? && stderr.include?("row route does not match")
+  row["route"] = "recipes"
+
+  route_root.join("design-review.json").write(JSON.generate("screenshotRoute" => "settings") + "\n")
+  row["designReview"] = artifact.call(route_root.join("design-review.json"))
+  results.write(JSON.generate(row) + "\n")
+  checkpoint.write(JSON.generate("schemaVersion" => 2, "completedRouteDigests" => { "recipes" => Digest::SHA256.hexdigest(JSON.generate(row)) }))
+  _stdout, stderr, status = Open3.capture3("ruby", validator.to_s, "--artifact-root", artifact_root.to_s, "--name", "recipes", "--results-jsonl", results.to_s, "--checkpoint", checkpoint.to_s)
+  failures << "route evidence validator must bind design route independently: #{stderr.inspect}" unless !status.success? && stderr.include?("design review route does not match")
+
   row["iosScreenshot"]["path"] = "/etc/hosts"
   results.write(JSON.generate(row) + "\n")
   _stdout, stderr, status = Open3.capture3("ruby", validator.to_s, "--artifact-root", artifact_root.to_s, "--name", "recipes", "--results-jsonl", results.to_s, "--checkpoint", checkpoint.to_s)
