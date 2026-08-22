@@ -48,10 +48,10 @@ public struct ShoppingPresentationModel: Equatable, Sendable {
         activeCategory requestedCategory: String = "all"
     ) {
         let allItems = Self.marketItems(from: shoppingList)
-        let checkedCount = allItems.lazy.filter { $0.item.checked || $0.item.checkedAt != nil }.count
+        let checkedCount = allItems.lazy.filter { $0.item.isEffectivelyChecked }.count
         let uncheckedCount = allItems.count - checkedCount
         let modeItems = allItems.filter { presentationItem in
-            let isChecked = presentationItem.item.checked || presentationItem.item.checkedAt != nil
+            let isChecked = presentationItem.item.isEffectivelyChecked
             return switch mode {
             case .need: !isChecked
             case .basket: isChecked

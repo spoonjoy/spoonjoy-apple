@@ -29,7 +29,7 @@ struct ReceiptListView: View {
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(KitchenTableTheme.bone)
-                        .accessibilityHint(item.checked ? "Double tap to move this item back to Need." : "Double tap to move this item to Basket.")
+                        .accessibilityHint(item.isEffectivelyChecked ? "Double tap to move this item back to Need." : "Double tap to move this item to Basket.")
                         .modifier(ReceiptDeleteSwipeModifier {
                             deleteItem(item)
                         })
@@ -58,7 +58,7 @@ struct ReceiptListView: View {
 
     private func checkedBinding(for item: ShoppingListItem) -> Binding<Bool> {
         Binding(
-            get: { item.checked },
+            get: { item.isEffectivelyChecked },
             set: { checked in setChecked(item, checked) }
         )
     }
@@ -87,14 +87,14 @@ private struct ShoppingReceiptRow: View {
                 Text(item.item.name)
                     .font(KitchenTableTheme.objectTitle)
                     .foregroundStyle(KitchenTableTheme.charcoal)
-                    .strikethrough(item.item.checked, color: KitchenTableTheme.inkMuted)
+                    .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.inkMuted)
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
                     if !item.item.displayQuantity.isEmpty {
                         Text(item.item.displayQuantity)
                     }
-                    if item.item.checked {
+                    if item.item.isEffectivelyChecked {
                         Text("already in basket")
                     }
                 }
@@ -133,7 +133,7 @@ private struct ShoppingReceiptRow: View {
 
     private func accessibilityText(for item: ShoppingListItem) -> String {
         let quantity = item.displayQuantity.isEmpty ? "" : ", \(item.displayQuantity)"
-        let basket = item.checked ? ", already in basket" : ""
+        let basket = item.isEffectivelyChecked ? ", already in basket" : ""
         return "\(item.name)\(quantity)\(basket)"
     }
 }
