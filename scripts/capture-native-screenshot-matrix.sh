@@ -3,6 +3,8 @@ set -euo pipefail
 
 artifact_root="${SPOONJOY_NATIVE_ARTIFACT_ROOT:-artifacts/apple/native-screenshot-matrix}"
 unit_slug="matrix"
+resume_matrix=0
+batch_size="${SPOONJOY_SCREENSHOT_MATRIX_BATCH_SIZE:-0}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -12,6 +14,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --unit-slug)
       unit_slug="$2"
+      shift 2
+      ;;
+    --resume)
+      resume_matrix=1
+      shift
+      ;;
+    --batch-size)
+      batch_size="$2"
       shift 2
       ;;
     *)
@@ -26,6 +36,7 @@ routes_dir="$artifact_root/screenshot-routes"
 shared_build_dir="$artifact_root/shared-builds"
 results_path="$apple_dir/${unit_slug}-route-matrix.jsonl"
 summary_path="$apple_dir/${unit_slug}-route-matrix.json"
+checkpoint_path="$apple_dir/${unit_slug}-route-matrix-checkpoint.json"
 route_timeout_seconds="${SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS:-420}"
 matrix_build_timeout_seconds="${SPOONJOY_SCREENSHOT_MATRIX_BUILD_TIMEOUT_SECONDS:-900}"
 reset_simulator_between_routes="${SPOONJOY_SCREENSHOT_RESET_SIMULATOR_BETWEEN_ROUTES:-0}"
@@ -38,20 +49,38 @@ ios_install_marker="$apple_dir/${unit_slug}-ios-installed.marker"
 configured_ios_install_marker="${SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER:-$ios_install_marker}"
 matrix_routes="${matrix_routes//[[:space:]]/}"
 
+if ! [[ "$batch_size" =~ ^[0-9]+$ ]]; then
+  printf 'Batch size must be a non-negative integer: %s\n' "$batch_size" >&2
+  exit 2
+fi
+
+if [[ "$resume_matrix" == "1" ]]; then
+  [[ -f "$checkpoint_path" ]] || { printf 'Cannot resume without checkpoint: %s\n' "$checkpoint_path" >&2; exit 1; }
+  if [[ -z "$shared_ios_app_path" && -d "$shared_build_dir/AppBundles/iOS/Spoonjoy.app" ]]; then
+    shared_ios_app_path="$shared_build_dir/AppBundles/iOS/Spoonjoy.app"
+  fi
+  if [[ -z "$shared_macos_app_path" && -d "$shared_build_dir/AppBundles/macOS/Spoonjoy.app" ]]; then
+    shared_macos_app_path="$shared_build_dir/AppBundles/macOS/Spoonjoy.app"
+  fi
+fi
+
 mkdir -p "$apple_dir" "$routes_dir"
-rm -rf "$routes_dir"
-mkdir -p "$routes_dir"
-rm -f \
-  "$results_path" \
-  "$summary_path" \
-  "$shared_build_blocker" \
-  "$shared_xcode_blocker" \
-  "$ios_install_marker" \
-  "$ios_install_marker-iphone" \
-  "$ios_install_marker-ipad" \
-  "$configured_ios_install_marker" \
-  "$configured_ios_install_marker-iphone" \
-  "$configured_ios_install_marker-ipad"
+if [[ "$resume_matrix" != "1" ]]; then
+  rm -rf "$routes_dir" "$shared_build_dir"
+  mkdir -p "$routes_dir"
+  rm -f \
+    "$results_path" \
+    "$summary_path" \
+    "$checkpoint_path" \
+    "$shared_build_blocker" \
+    "$shared_xcode_blocker" \
+    "$ios_install_marker" \
+    "$ios_install_marker-iphone" \
+    "$ios_install_marker-ipad" \
+    "$configured_ios_install_marker" \
+    "$configured_ios_install_marker-iphone" \
+    "$configured_ios_install_marker-ipad"
+fi
 
 write_shared_build_blocker() {
   local platform="$1"
@@ -116,6 +145,14 @@ prepare_shared_builds() {
     write_shared_build_blocker "ios" "SPOONJOY_SCREENSHOT_IOS_APP_PATH=$shared_ios_app_path" "$apple_dir/${unit_slug}-shared-ios-xcodebuild.log" "The shared iOS simulator app bundle is missing."
     return 1
   fi
+  if [[ "$shared_ios_app_path" == "$shared_build_dir"/DerivedData-* || "$shared_ios_app_path" == "$artifact_root"/validation-builds/DerivedData-* ]]; then
+    local compact_ios="$shared_build_dir/AppBundles/iOS/Spoonjoy.app"
+    mkdir -p "$(dirname "$compact_ios")"
+    rm -rf "$compact_ios"
+    ditto "$shared_ios_app_path" "$compact_ios"
+    shared_ios_app_path="$compact_ios"
+    rm -rf "$shared_build_dir/DerivedData-iOS" "$artifact_root/validation-builds/DerivedData-iOS"
+  fi
 
   if [[ -z "$shared_macos_app_path" ]]; then
     local macos_derived="$shared_build_dir/DerivedData-macOS"
@@ -153,6 +190,14 @@ prepare_shared_builds() {
     write_shared_build_blocker "macos" "SPOONJOY_SCREENSHOT_MACOS_APP_PATH=$shared_macos_app_path" "$apple_dir/${unit_slug}-shared-macos-xcodebuild.log" "The shared macOS app bundle is missing."
     return 1
   fi
+  if [[ "$shared_macos_app_path" == "$shared_build_dir"/DerivedData-* || "$shared_macos_app_path" == "$artifact_root"/validation-builds/DerivedData-* ]]; then
+    local compact_macos="$shared_build_dir/AppBundles/macOS/Spoonjoy.app"
+    mkdir -p "$(dirname "$compact_macos")"
+    rm -rf "$compact_macos"
+    ditto "$shared_macos_app_path" "$compact_macos"
+    shared_macos_app_path="$compact_macos"
+    rm -rf "$shared_build_dir/DerivedData-macOS" "$artifact_root/validation-builds/DerivedData-macOS"
+  fi
 
   export SPOONJOY_SCREENSHOT_IOS_APP_PATH="$shared_ios_app_path"
   export SPOONJOY_SCREENSHOT_MACOS_APP_PATH="$shared_macos_app_path"
@@ -160,6 +205,101 @@ prepare_shared_builds() {
   export SPOONJOY_SCREENSHOT_IOS_INSTALL_MARKER="$configured_ios_install_marker"
   printf 'route matrix using shared iOS app: %s\n' "$SPOONJOY_SCREENSHOT_IOS_APP_PATH"
   printf 'route matrix using shared macOS app: %s\n' "$SPOONJOY_SCREENSHOT_MACOS_APP_PATH"
+}
+
+source_identity() {
+  if [[ -n "${SPOONJOY_SCREENSHOT_MATRIX_BUILD_IDENTITY:-}" ]]; then
+    printf '%s' "$SPOONJOY_SCREENSHOT_MATRIX_BUILD_IDENTITY"
+    return
+  fi
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git diff --quiet && git diff --cached --quiet || {
+      printf 'Screenshot matrix requires a clean tracked worktree for an exact build identity.\n' >&2
+      return 1
+    }
+    git rev-parse HEAD
+    return
+  fi
+  shasum -a 256 scripts/capture-native-screenshot-matrix.sh | awk '{print $1}'
+}
+
+bundle_digest() {
+  local bundle_path="$1"
+  find "$bundle_path" -type f -print0 \
+    | sort -z \
+    | xargs -0 shasum -a 256 \
+    | shasum -a 256 \
+    | awk '{print $1}'
+}
+
+matrix_build_identity() {
+  local source_id="$1"
+  local ios_digest macos_digest
+  ios_digest="$(bundle_digest "$shared_ios_app_path")"
+  macos_digest="$(bundle_digest "$shared_macos_app_path")"
+  printf '%s\n%s\n%s\n' "$source_id" "$ios_digest" "$macos_digest" | shasum -a 256 | awk '{print $1}'
+}
+
+write_or_validate_checkpoint() {
+  local source_id="$1"
+  local build_id="$2"
+  local expected_routes="$3"
+  ruby -rjson -rtime -e '
+    path, resume_value, source_id, build_id, expected_csv = ARGV
+    expected = expected_csv.split(",").reject(&:empty?)
+    if resume_value == "1"
+      checkpoint = JSON.parse(File.read(path))
+      abort("checkpoint source identity changed") unless checkpoint["sourceIdentity"] == source_id
+      abort("checkpoint build identity changed") unless checkpoint["buildIdentity"] == build_id
+      abort("checkpoint route selection changed") unless checkpoint["expectedRoutes"] == expected
+    else
+      checkpoint = {
+        "schemaVersion" => 1,
+        "sourceIdentity" => source_id,
+        "buildIdentity" => build_id,
+        "expectedRoutes" => expected,
+        "completedRoutes" => [],
+        "createdAt" => Time.now.utc.iso8601
+      }
+      File.write(path, JSON.pretty_generate(checkpoint) + "\n")
+    end
+  ' "$checkpoint_path" "$resume_matrix" "$source_id" "$build_id" "$expected_routes"
+}
+
+route_is_complete() {
+  local name="$1"
+  ruby -rjson -e '
+    results_path, name = ARGV
+    exit 1 unless File.file?(results_path)
+    rows = File.readlines(results_path).map { |line| JSON.parse(line) rescue nil }.compact
+    row = rows.reverse.find { |candidate| candidate["name"] == name }
+    exit 1 unless row && row["status"] == "pass" && !row["blocked"] && !row["missingDesignReview"]
+    artifacts = %w[designReview iosScreenshot iosTabletScreenshot macosScreenshot]
+    valid = artifacts.all? do |field|
+      path = row.dig(field, "path")
+      path && File.file?(path) && File.size(path).positive?
+    end
+    exit(valid ? 0 : 1)
+  ' "$results_path" "$name"
+}
+
+update_checkpoint_progress() {
+  ruby -rjson -rtime -e '
+    checkpoint_path, results_path = ARGV
+    checkpoint = JSON.parse(File.read(checkpoint_path))
+    rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) rescue nil }.compact : []
+    checkpoint["completedRoutes"] = rows.select { |row| row["status"] == "pass" }.map { |row| row["name"] }.uniq
+    checkpoint["updatedAt"] = Time.now.utc.iso8601
+    File.write(checkpoint_path, JSON.pretty_generate(checkpoint) + "\n")
+  ' "$checkpoint_path" "$results_path"
+}
+
+prune_task_transients() {
+  find "$routes_dir" -type d -name 'DerivedData-*' -prune -exec rm -rf {} +
+  rm -f \
+    "$configured_ios_install_marker" \
+    "$configured_ios_install_marker-iphone" \
+    "$configured_ios_install_marker-ipad"
 }
 
 record_route() {
@@ -194,7 +334,10 @@ record_route() {
       "iosTabletScreenshot" => artifact(route_root, "screenshots/ios-tablet.png"),
       "macosScreenshot" => artifact(route_root, "screenshots/macos-desktop.png")
     }
-    File.open(results_path, "a") { |file| file.puts(JSON.generate(row)) }
+    rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) rescue nil }.compact : []
+    rows.reject! { |candidate| candidate["name"] == name }
+    rows << row
+    File.write(results_path, rows.map { |candidate| JSON.generate(candidate) }.join("\n") + "\n")
   ' "$results_path" "$name" "$route" "$route_root" "$status" "$command"
 }
 
@@ -290,27 +433,51 @@ PY
 
 summarize_routes() {
   ruby -rjson -rtime -e '
-    results_path, summary_path, shared_build_blocker_path = ARGV
+    results_path, summary_path, shared_build_blocker_path, expected_csv, build_identity = ARGV
+    expected = expected_csv.split(",").reject(&:empty?)
     rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) } : []
+    rows.select! { |row| expected.include?(row["name"]) }
     missing = rows.select { |row| row["missingDesignReview"] }
     blocked = rows.select { |row| row["blocked"] }
     failed = rows.select { |row| row["status"] != "pass" }
+    required_artifacts = %w[designReview iosScreenshot iosTabletScreenshot macosScreenshot]
+    invalid_evidence = rows.select do |row|
+      required_artifacts.any? do |field|
+        artifact = row[field] || {}
+        !artifact["exists"] || !artifact["bytes"].is_a?(Integer) || artifact["bytes"] <= 0
+      end
+    end
+    names = rows.map { |row| row["name"] }
+    name_counts = names.each_with_object(Hash.new(0)) { |name, counts| counts[name] += 1 }
+    duplicate_names = name_counts.select { |_, count| count != 1 }.keys
+    missing_routes = expected - names
+    unexpected_routes = names - expected
+    incomplete = missing_routes.any?
     build_blocker = File.file?(shared_build_blocker_path) ? JSON.parse(File.read(shared_build_blocker_path)) : nil
-    ok = !rows.empty? && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty?
+    exact_manifest = duplicate_names.empty? && missing_routes.empty? && unexpected_routes.empty? && rows.length == expected.length
+    ok = !rows.empty? && exact_manifest && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty? && invalid_evidence.empty?
     File.write(summary_path, JSON.pretty_generate({
       "ok" => ok,
       "fullyValidated" => ok,
+      "incomplete" => incomplete,
       "generatedAt" => Time.now.utc.iso8601,
+      "buildIdentity" => build_identity,
       "routeCount" => rows.length,
+      "expectedRouteCount" => expected.length,
+      "expectedRoutes" => expected,
+      "missingRoutes" => missing_routes,
+      "duplicateRoutes" => duplicate_names,
+      "unexpectedRoutes" => unexpected_routes,
       "buildBlocked" => !build_blocker.nil?,
       "buildBlocker" => build_blocker,
       "routes" => rows,
       "failedRoutes" => failed.map { |row| row["name"] },
+      "invalidEvidenceRoutes" => invalid_evidence.map { |row| row["name"] },
       "blockedRoutes" => blocked.map { |row| row["name"] },
       "missingDesignReviewRoutes" => missing.map { |row| row["name"] }
     }) + "\n")
-    exit(ok ? 0 : 1)
-  ' "$results_path" "$summary_path" "$shared_build_blocker"
+    exit(ok ? 0 : (incomplete && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty? && invalid_evidence.empty? ? 75 : 1))
+  ' "$results_path" "$summary_path" "$shared_build_blocker" "$expected_route_names" "$build_identity"
 }
 
 capture_route() {
@@ -344,6 +511,7 @@ capture_route() {
   fi
 
   record_route "$name" "$route" "$route_root" "$status" "$command"
+  update_checkpoint_progress
   find "$route_root" -maxdepth 1 -type d -name 'DerivedData-*' -prune -exec rm -rf {} +
 
   [[ "$status" == "pass" ]]
@@ -398,16 +566,53 @@ routes=(
   "settings-apns-unregistered|settings|$routes_dir/settings-apns-unregistered|$unit_slug-settings-apns-unregistered"
 )
 
+selected_routes=()
+expected_route_names=""
+for entry in "${routes[@]}"; do
+  IFS="|" read -r name route _route_root _route_slug <<< "$entry"
+  route_is_selected "$name" "$route" || continue
+  selected_routes+=("$entry")
+  expected_route_names="${expected_route_names:+$expected_route_names,}$name"
+done
+
+if [[ "${#selected_routes[@]}" -eq 0 ]]; then
+  printf 'Screenshot route selection matched no canonical routes.\n' >&2
+  exit 1
+fi
+
+source_id="$(source_identity)"
+build_identity=""
 if prepare_shared_builds; then
-  for entry in "${routes[@]}"; do
+  build_identity="$(matrix_build_identity "$source_id")"
+  write_or_validate_checkpoint "$source_id" "$build_identity" "$expected_route_names"
+  captured_in_batch=0
+  for entry in "${selected_routes[@]}"; do
     IFS="|" read -r name route route_root route_slug <<< "$entry"
-    route_is_selected "$name" "$route" || continue
+    if route_is_complete "$name"; then
+      printf 'reusing checkpointed route evidence %s (%s)\n' "$name" "$route"
+      continue
+    fi
     capture_route "$name" "$route" "$route_root" "$route_slug" || overall_status=1
+    captured_in_batch=$((captured_in_batch + 1))
+    if [[ "$batch_size" -gt 0 && "$captured_in_batch" -ge "$batch_size" ]]; then
+      break
+    fi
   done
+  prune_task_transients
 else
   overall_status=1
 fi
 
-summarize_routes || overall_status=1
+summary_status=0
+summarize_routes || summary_status=$?
+if [[ "$summary_status" -eq 75 && "$overall_status" -eq 0 ]]; then
+  printf 'native screenshot route matrix batch checkpointed: %s\n' "$checkpoint_path"
+  exit 75
+fi
+if [[ "$summary_status" -ne 0 ]]; then
+  overall_status=1
+else
+  rm -rf "$shared_build_dir" "$artifact_root/validation-builds"
+fi
 printf 'native screenshot route matrix complete: %s\n' "$summary_path"
 exit "$overall_status"

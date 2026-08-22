@@ -239,8 +239,12 @@ SCRIPT_CONTRACTS = {
       "set -euo pipefail",
       "--artifact-root",
       "--unit-slug",
+      "--resume",
+      "--batch-size",
       "record_route",
       "summarize_routes",
+      "route-matrix-checkpoint.json",
+      "buildIdentity",
       "design-review.json",
       "design-review-blocked.json",
       "SPOONJOY_SCREENSHOT_ROUTE_TIMEOUT_SECONDS",
@@ -756,6 +760,79 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
     record_failure("screenshot matrix timeout blocker missing timeoutSeconds") unless blocked_review["timeoutSeconds"].is_a?(Integer)
     record_failure("screenshot matrix timeout blocker missing ownerAction") unless blocked_review["ownerAction"].is_a?(String) && !blocked_review["ownerAction"].empty?
     record_failure("screenshot matrix timeout blocker missing sourceBlockerPath") unless blocked_review["sourceBlockerPath"].is_a?(String) && !blocked_review["sourceBlockerPath"].empty?
+  end
+end
+
+Dir.mktmpdir("spoonjoy-screenshot-matrix-resume-contract") do |directory|
+  temp_root = Pathname.new(directory)
+  script_root = temp_root.join("matrix-fixture")
+  artifact_root = temp_root.join("artifacts")
+  prebuilt_ios_app = temp_root.join("prebuilt-ios/Spoonjoy.app")
+  prebuilt_macos_app = temp_root.join("prebuilt-macos/Spoonjoy.app")
+  calls_path = temp_root.join("calls.txt")
+  script_root.join("scripts").mkpath
+  prebuilt_ios_app.mkpath
+  prebuilt_macos_app.mkpath
+  prebuilt_ios_app.join("Spoonjoy").write("ios-app\n")
+  prebuilt_macos_app.join("Spoonjoy").write("macos-app\n")
+  FileUtils.cp(ROOT.join("scripts/capture-native-screenshot-matrix.sh"), script_root.join("scripts/capture-native-screenshot-matrix.sh"))
+
+  write_executable(script_root.join("scripts/capture-native-screenshots.sh"), <<~'SH')
+    #!/usr/bin/env bash
+    set -euo pipefail
+    artifact_root=""
+    route=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --artifact-root) artifact_root="$2"; shift 2 ;;
+        --unit-slug) shift 2 ;;
+        --route) route="$2"; shift 2 ;;
+        *) exit 2 ;;
+      esac
+    done
+    printf '%s\n' "$route" >> "$SPOONJOY_MATRIX_CALLS_PATH"
+    mkdir -p "$artifact_root/apple" "$artifact_root/screenshots"
+    printf 'image\n' > "$artifact_root/screenshots/ios-mobile.png"
+    printf 'image\n' > "$artifact_root/screenshots/ios-tablet.png"
+    printf 'image\n' > "$artifact_root/screenshots/macos-desktop.png"
+    ruby -rjson -e 'File.write(ARGV[0], JSON.generate({"screenshotRoute" => ARGV[1], "blockers" => []}) + "\n")' \
+      "$artifact_root/design-review.json" "$route"
+  SH
+
+  common_env = {
+    "PATH" => ENV.fetch("PATH"),
+    "SPOONJOY_SCREENSHOT_MATRIX_ROUTES" => "recipes,cookbooks",
+    "SPOONJOY_SCREENSHOT_IOS_APP_PATH" => prebuilt_ios_app.to_s,
+    "SPOONJOY_SCREENSHOT_MACOS_APP_PATH" => prebuilt_macos_app.to_s,
+    "SPOONJOY_SCREENSHOT_MATRIX_BUILD_IDENTITY" => "contract-head",
+    "SPOONJOY_MATRIX_CALLS_PATH" => calls_path.to_s
+  }
+  command = [
+    "bash", "scripts/capture-native-screenshot-matrix.sh",
+    "--artifact-root", artifact_root.to_s,
+    "--unit-slug", "unit-contract",
+    "--batch-size", "1"
+  ]
+  first_stdout, first_stderr, first_status = run_status(*command, env: common_env, chdir: script_root)
+  unless first_status.exitstatus == 75
+    record_failure("first screenshot matrix batch must report resumable status 75\nSTDOUT:\n#{first_stdout}\nSTDERR:\n#{first_stderr}")
+  end
+  first_summary = assert_json(artifact_root.join("apple/unit-contract-route-matrix.json"), "partial screenshot matrix summary")
+  record_failure("partial screenshot matrix summary must be incomplete") unless first_summary["incomplete"] == true && first_summary["routeCount"] == 1
+
+  second_stdout, second_stderr, second_status = run_status(*command, "--resume", env: common_env, chdir: script_root)
+  unless second_status.success?
+    record_failure("resumed screenshot matrix batch must complete\nSTDOUT:\n#{second_stdout}\nSTDERR:\n#{second_stderr}")
+  end
+  final_summary = assert_json(artifact_root.join("apple/unit-contract-route-matrix.json"), "resumed screenshot matrix summary")
+  record_failure("resumed screenshot matrix must require the exact two-route manifest") unless final_summary["ok"] == true && final_summary["routeCount"] == 2 && final_summary["expectedRouteCount"] == 2
+  calls = calls_path.file? ? calls_path.readlines.map(&:strip) : []
+  record_failure("resume must not recapture completed route evidence: #{calls.inspect}") unless calls == %w[recipes cookbooks]
+
+  changed_env = common_env.merge("SPOONJOY_SCREENSHOT_MATRIX_BUILD_IDENTITY" => "different-head")
+  changed_stdout, changed_stderr, changed_status = run_status(*command, "--resume", env: changed_env, chdir: script_root)
+  if changed_status.success?
+    record_failure("resume must fail closed when source/build identity changes\nSTDOUT:\n#{changed_stdout}\nSTDERR:\n#{changed_stderr}")
   end
 end
 
@@ -2142,13 +2219,15 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
     "-rtimeout",
     "-e",
     PROCESS_TIMEOUT_WRAPPER,
-    "10",
+    "30",
     "bash",
     "scripts/capture-native-screenshots.sh",
     "--artifact-root",
     artifact_root,
     "--unit-slug",
     "unit-contract-ios-launch-timeout",
+    "--capture-platform",
+    "iphone",
     env: {
       "HOME" => script_root.join("home").to_s,
       "PATH" => "#{bin_dir}:#{ENV.fetch("PATH")}",
