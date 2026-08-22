@@ -3,6 +3,19 @@ import Testing
 
 @Suite("Shopping market presentation")
 struct ShoppingPresentationModelTests {
+    @Test("checkedAt is canonical legacy checked state even when checked is false")
+    func effectiveCheckedStateIncludesLegacyCheckedAt() {
+        let legacy = item(
+            "legacy-checked",
+            "Legacy basket item",
+            category: "pantry",
+            checkedAt: "2026-08-21T20:00:00.000Z",
+            sort: 0
+        )
+
+        #expect(legacy.isEffectivelyChecked)
+    }
+
     @Test("starts in All and exposes Need Basket All counts")
     func startsInAllWithCounts() throws {
         let state = try mixedState()
@@ -99,6 +112,7 @@ struct ShoppingPresentationModelTests {
         _ name: String,
         category: String?,
         checked: Bool = false,
+        checkedAt: String? = nil,
         sort: Int
     ) -> ShoppingListItem {
         ShoppingListItem(
@@ -107,7 +121,7 @@ struct ShoppingPresentationModelTests {
             quantity: nil,
             unit: nil,
             checked: checked,
-            checkedAt: checked ? "2026-08-21T20:00:00.000Z" : nil,
+            checkedAt: checkedAt ?? (checked ? "2026-08-21T20:00:00.000Z" : nil),
             deletedAt: nil,
             categoryKey: category,
             iconKey: nil,
