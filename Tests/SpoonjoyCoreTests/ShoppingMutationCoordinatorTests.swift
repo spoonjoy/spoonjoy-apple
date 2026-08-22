@@ -89,6 +89,7 @@ struct ShoppingMutationCoordinatorTests {
         let baseline = try ShoppingListState.decodeFromBundle()
         var visible = baseline
         var readCount = 0
+        var feedback: ShoppingMutationFeedback?
         let gate = ShoppingMutationTestGate(firstResult: .failure(ShoppingMutationCoordinatorTestError.rejected))
         let coordinator = ShoppingMutationCoordinator(
             persistAlreadyApplied: { _ in },
@@ -97,7 +98,8 @@ struct ShoppingMutationCoordinatorTests {
                 readCount += 1
                 return baseline
             },
-            recordShoppingList: { visible = $0 }
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
         )
         let first = try viewModel(visible).plan(.setItemChecked(
             itemID: "item_lemons",
@@ -129,6 +131,57 @@ struct ShoppingMutationCoordinatorTests {
 
         await gate.resumeNext()
         #expect(try await secondTask.value == .synced)
+        #expect(feedback?.identity == first.identity)
+        #expect(feedback?.state == .failed)
+    }
+
+    @MainActor
+    @Test("rejection blocks later work that targets its optimistic local item")
+    func rejectionBlocksDependentLocalItemWorkBeforeRemote() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var readCount = 0
+        var remotePaths: [String] = []
+        let gate = ShoppingMutationTestGate(firstResult: .failure(ShoppingMutationCoordinatorTestError.rejected))
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { request in
+                remotePaths.append(request.pathComponents.joined(separator: "/"))
+                try await gate.wait()
+            },
+            fetchShoppingList: {
+                readCount += 1
+                return baseline
+            },
+            recordShoppingList: { visible = $0 }
+        )
+        let add = try viewModel(baseline).plan(.addItem(
+            name: "mint",
+            quantity: 1,
+            unit: "bunch",
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_dependency_a"
+        ))
+        let addTask = Task { try await coordinator.submit(add) }
+        await gate.waitUntilEntered(count: 1)
+        let check = try viewModel(visible).plan(.setItemChecked(
+            itemID: "item_local_cm_dependency_a",
+            checked: true,
+            clientMutationID: "cm_dependency_b"
+        ))
+        let checkTask = Task { try await coordinator.submit(check) }
+        await gate.resumeNext()
+
+        await #expect(throws: ShoppingMutationCoordinatorTestError.rejected) {
+            try await addTask.value
+        }
+        await #expect(throws: ShoppingMutationCoordinatorError.dependencyRejected(check.identity)) {
+            try await checkTask.value
+        }
+        #expect(readCount == 1)
+        #expect(remotePaths == ["api/v1/shopping-list/items"])
+        #expect(visible.item(id: "item_local_cm_dependency_a") == nil)
     }
 
     @MainActor
@@ -571,20 +624,43 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
-    @Test("indeterminate success and incomplete offline fallback settle deterministically")
+    @Test("indeterminate reads verify the mutation before reporting sync")
     func indeterminateSuccessAndIncompleteOfflineFallback() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
         var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        var writes = 0
+        var reads = 0
         let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let plan = try viewModel(baseline).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_cancel_reconciled"))
+        let applied = try baseline.settingChecked(
+            true,
+            itemID: "item_lemons",
+            checkedAt: "2026-08-21T20:00:00.000Z",
+            updatedAt: "2026-08-21T20:00:00.000Z",
+            nextSortIndex: 10
+        )
         let recovered = ShoppingMutationCoordinator(
             persistAlreadyAppliedBatch: { _ in },
-            executeRemote: { _ in throw cancelled },
-            fetchShoppingList: { baseline },
-            recordShoppingList: { visible = $0 }
+            executeRemote: { _ in
+                writes += 1
+                if writes == 1 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads < 3 ? baseline : applied
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
         )
-        let plan = try viewModel(baseline).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_cancel_reconciled"))
-        #expect(try await recovered.submit(plan) == .synced)
-        #expect(visible == baseline)
+        #expect(try await recovered.submit(plan) == .recovering)
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+        #expect(feedback?.retryIntent == .reconcileThenReplaySameID(plan.identity))
+        #expect(try await recovered.retryCurrentRecovery() == .synced)
+        #expect(writes == 2)
+        #expect(reads == 3)
+        #expect(visible == applied)
+        #expect(feedback == nil)
 
         let definiteTransportError = APITransportError(
             kind: .networkFailure,
