@@ -371,6 +371,106 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("cancelled transport stays optimistic and exposes hidden same-ID recovery")
+    func cancellationStaysOptimisticForSameIDRecovery() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(
+            kind: .cancelled,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .doNotRetry
+        )
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in throw cancelled },
+            fetchShoppingList: { throw ShoppingMutationCoordinatorTestError.readFailed },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+        let plan = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_cancelled"
+        ))
+
+        #expect(try await coordinator.submit(plan) == .recovering)
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+        #expect(feedback?.state == .recovering)
+        #expect(feedback?.retryIntent == .reconcileThenReplaySameID(plan.identity))
+    }
+
+    @MainActor
+    @Test("failed atomic persistence retries only the identical batch")
+    func persistenceFailureRetriesOnlyIdenticalBatch() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var attempts: [[String]] = []
+        var shouldFail = true
+        var remoteCount = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { batch in
+                attempts.append(batch.map(\.clientMutationID))
+                if shouldFail {
+                    shouldFail = false
+                    throw ShoppingMutationCoordinatorTestError.persistenceFailed
+                }
+            },
+            executeRemote: { _ in remoteCount += 1 },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { _ in }
+        )
+        let offlinePlan = try ShoppingSurfaceViewModel(
+            shoppingList: baseline,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .offline,
+            now: { "2026-08-21T20:00:00.000Z" }
+        ).plan(.addItem(
+            name: "sage",
+            quantity: nil,
+            unit: nil,
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_persist_retry"
+        ))
+
+        await #expect(throws: ShoppingMutationCoordinatorTestError.persistenceFailed) {
+            try await coordinator.submit(offlinePlan)
+        }
+        #expect(try await coordinator.retryPendingPersistence() == .queuedForSync)
+        #expect(attempts == [["cm_persist_retry"], ["cm_persist_retry"]])
+        #expect(remoteCount == 0)
+    }
+
+    @MainActor
+    @Test("scope reset cancels in-flight work before another environment can emit")
+    func scopeResetCancelsInFlightJournal() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let gate = ShoppingMutationTestGate()
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in try await gate.wait() },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { _ in }
+        )
+        let plan = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_scope_reset"
+        ))
+        let task = Task { try await coordinator.submit(plan) }
+        await gate.waitUntilEntered(count: 1)
+
+        coordinator.resetScope()
+        await #expect(throws: CancellationError.self) {
+            try await task.value
+        }
+        await gate.resumeNext()
+    }
+
+    @MainActor
     private func viewModel(_ shoppingList: ShoppingListState) -> ShoppingSurfaceViewModel {
         ShoppingSurfaceViewModel(
             shoppingList: shoppingList,
@@ -385,6 +485,7 @@ struct ShoppingMutationCoordinatorTests {
 private enum ShoppingMutationCoordinatorTestError: Error {
     case rejected
     case readFailed
+    case persistenceFailed
 }
 
 private actor ShoppingMutationTestGate {
