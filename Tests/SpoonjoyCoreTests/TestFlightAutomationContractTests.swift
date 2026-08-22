@@ -119,6 +119,26 @@ struct TestFlightAutomationContractTests {
             toolkitCheckoutCount == 1 && toolkitRevisions == [expectedToolkitRevision],
             "TestFlight must have one toolkit checkout pinned to the audited revision: \(toolkitRevisions)"
         )
+
+        let sourceRubyBundlePattern = /- name: Install pinned source Ruby bundle\n\s+uses: ruby\/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1\n\s+with:\n\s+ruby-version: '3\.3'\n\s+bundler-cache: true\n\s+working-directory: release-source/
+        let sourceRubyBundleMatches = testFlightWorkflow.matches(of: sourceRubyBundlePattern)
+        #expect(
+            sourceRubyBundleMatches.count == 1,
+            "TestFlight must install the selected source Gemfile.lock through pinned ruby/setup-ruby before publish"
+        )
+        let candidateVerification = testFlightWorkflow.range(of: "- name: Verify exact Native release evidence")
+        let sourceRubyBundle = testFlightWorkflow.range(of: "- name: Install pinned source Ruby bundle")
+        let candidatePublish = testFlightWorkflow.range(of: "- name: Publish exact candidate to Spoonjoy Internal")
+        let sourceBundleIsContained = if let candidateVerification, let sourceRubyBundle, let candidatePublish {
+            candidateVerification.lowerBound < sourceRubyBundle.lowerBound &&
+                sourceRubyBundle.lowerBound < candidatePublish.lowerBound
+        } else {
+            false
+        }
+        #expect(
+            sourceBundleIsContained,
+            "TestFlight must verify the selected source before installing its locked bundle and publishing it"
+        )
     }
 
     @Test("Artifact uploads use the audited Node 24 action revision")
