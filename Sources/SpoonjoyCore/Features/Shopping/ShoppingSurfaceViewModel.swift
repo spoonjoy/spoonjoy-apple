@@ -447,7 +447,9 @@ public final class ShoppingMutationCoordinator {
         }
         entries.removeFirst()
         do {
-            baselineShoppingList = try await fetchShoppingList()
+            let reconciled = try await fetchShoppingList()
+            baselineShoppingList = reconciled
+            settleReflectedRecoveries(in: reconciled)
             reprojectVisibleState()
             clearRetainedFailureResolved(by: plan)
             entry.continuation.resume(returning: .synced)
@@ -609,6 +611,21 @@ public final class ShoppingMutationCoordinator {
         clearRetainedFeedback(matching: plan.identity)
         publishCurrentFeedback()
         return true
+    }
+
+    private func settleReflectedRecoveries(in reconciled: ShoppingListState) {
+        var didSettle = false
+        while let recovery = pendingRecoveries.first,
+              mutationIsReflected(recovery.plan, in: reconciled),
+              rebindDependentEntries(createdBy: recovery.plan, in: reconciled) {
+            pendingRecoveries.removeFirst()
+            clearRetainedFeedback(matching: recovery.plan.identity)
+            didSettle = true
+        }
+        if didSettle {
+            signalRecoveryChange()
+            publishCurrentFeedback()
+        }
     }
 
     private func retain(_ feedback: ShoppingMutationFeedback) {
