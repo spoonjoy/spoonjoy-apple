@@ -244,18 +244,25 @@ run_required() {
 
 run_screenshot_matrix_batched() {
   local batch_size="${SPOONJOY_SCREENSHOT_MATRIX_BATCH_SIZE:-5}"
-  local resume_args=()
+  local resume_matrix=0
   while true; do
     set +e
-    scripts/capture-native-screenshot-matrix.sh \
-      --artifact-root "$artifact_root" \
-      --unit-slug "matrix" \
-      --batch-size "$batch_size" \
-      "${resume_args[@]}"
+    if [[ "$resume_matrix" == "1" ]]; then
+      scripts/capture-native-screenshot-matrix.sh \
+        --artifact-root "$artifact_root" \
+        --unit-slug "matrix" \
+        --batch-size "$batch_size" \
+        --resume
+    else
+      scripts/capture-native-screenshot-matrix.sh \
+        --artifact-root "$artifact_root" \
+        --unit-slug "matrix" \
+        --batch-size "$batch_size"
+    fi
     local status=$?
     set -e
     if [[ "$status" -eq 75 ]]; then
-      resume_args=(--resume)
+      resume_matrix=1
       continue
     fi
     rm -rf "$validation_build_dir/DerivedData-iOS" "$validation_build_dir/DerivedData-macOS"

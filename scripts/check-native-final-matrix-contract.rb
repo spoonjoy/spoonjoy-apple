@@ -60,7 +60,7 @@ REQUIRED_SOURCE_TOKENS = [
   "scripts/verify-native-password-dogfood.sh",
   "scripts/capture-native-screenshot-matrix.sh",
   "run_screenshot_matrix_batched",
-  'resume_args=(--resume)',
+  'resume_matrix=1',
   '"$status" -eq 75',
   '--batch-size "$batch_size"',
   'run_required "native password dogfood"',
