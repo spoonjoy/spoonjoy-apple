@@ -481,8 +481,16 @@ public final class ShoppingMutationCoordinator {
         }
         guard let pendingRecovery = pendingRecoveries.first else { return .synced }
         let plan = pendingRecovery.plan
-        if let preflight = try? await fetchShoppingList(), mutationIsReflected(plan, in: preflight) {
-            return settleRecovery(plan, with: preflight) ? .synced : .recovering
+        if let preflight = try? await fetchShoppingList() {
+            baselineShoppingList = preflight
+            settleReflectedRecoveries(in: preflight)
+            if !pendingRecoveries.contains(where: { $0.plan.identity == plan.identity }) {
+                reprojectVisibleState()
+                return .synced
+            }
+            if mutationIsReflected(plan, in: preflight) {
+                return settleRecovery(plan, with: preflight) ? .synced : .recovering
+            }
         }
         if pendingRecovery.requiresReplay, let request = plan.remoteRequestBuilder {
             try await executeRemote(request)
@@ -615,6 +623,19 @@ public final class ShoppingMutationCoordinator {
 
     private func settleReflectedRecoveries(in reconciled: ShoppingListState) {
         var didSettle = false
+        if let endIndex = pendingRecoveries.indices.reversed().first(where: { index in
+            let keys = affectedProductKeys(for: pendingRecoveries[index].plan)
+            return !keys.isEmpty &&
+                pendingRecoveries[...index].allSatisfy { affectedProductKeys(for: $0.plan) == keys } &&
+                mutationIsReflected(pendingRecoveries[index].plan, in: reconciled)
+        }) {
+            let prefix = Array(pendingRecoveries[...endIndex])
+            if prefix.allSatisfy({ rebindDependentEntries(createdBy: $0.plan, in: reconciled) }) {
+                pendingRecoveries.removeFirst(endIndex + 1)
+                prefix.forEach { clearRetainedFeedback(matching: $0.plan.identity) }
+                didSettle = true
+            }
+        }
         while let recovery = pendingRecoveries.first,
               mutationIsReflected(recovery.plan, in: reconciled),
               rebindDependentEntries(createdBy: recovery.plan, in: reconciled) {
@@ -824,6 +845,48 @@ public final class ShoppingMutationCoordinator {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
 
+    private func affectedProductKeys(for plan: ShoppingSurfaceMutationPlan) -> Set<String> {
+        switch plan.action {
+        case .addItem(let name, _, let unit, _, _, _):
+            return ["\(normalized(name))|\(normalized(unit))"]
+        case .addRecipeIngredients(_, _, let ingredients, _):
+            return Set(ingredients.map { "\(normalized($0.name))|\(normalized($0.unit))" })
+        case .setItemChecked, .deleteItem, .clearCompleted, .clearAll, .none:
+            return []
+        }
+    }
+
+    private func projectingProductTargets(
+        from plan: ShoppingSurfaceMutationPlan,
+        onto baseline: ShoppingListState
+    ) -> ShoppingListState? {
+        let keys = affectedProductKeys(for: plan)
+        guard !keys.isEmpty, let expected = plan.updatedShoppingList else { return nil }
+        let currentMatches = baseline.receiptItems.filter { keys.contains("\(normalized($0.name))|\(normalized($0.unit))") }
+        let expectedMatches = expected.receiptItems.filter { keys.contains("\(normalized($0.name))|\(normalized($0.unit))") }
+        var items = baseline.items.filter { item in
+            item.deletedAt != nil || !keys.contains("\(normalized(item.name))|\(normalized(item.unit))")
+        }
+        items += expectedMatches.enumerated().map { index, item in
+            guard currentMatches.indices.contains(index) else { return item }
+            let current = currentMatches[index]
+            return ShoppingListItem(
+                id: current.id,
+                name: item.name,
+                quantity: item.quantity,
+                unit: item.unit,
+                checked: item.checked,
+                checkedAt: item.checkedAt,
+                deletedAt: item.deletedAt,
+                categoryKey: item.categoryKey,
+                iconKey: item.iconKey,
+                sortIndex: item.sortIndex,
+                updatedAt: item.updatedAt
+            )
+        }
+        return ShoppingListState(id: baseline.id, chef: baseline.chef, items: items, nextCursor: baseline.nextCursor, updatedAt: baseline.updatedAt)
+    }
+
     private func productEvidenceMatches(
         _ plan: ShoppingSurfaceMutationPlan,
         in shoppingList: ShoppingListState,
@@ -861,11 +924,21 @@ public final class ShoppingMutationCoordinator {
 
     private func reprojectVisibleState() {
         var visible = baselineShoppingList
-        for recovery in pendingRecoveries {
-            if let current = visible, mutationIsReflected(recovery.plan, in: current) {
+        let fetchedBaseline = baselineShoppingList
+        for (index, recovery) in pendingRecoveries.enumerated() {
+            let keys = affectedProductKeys(for: recovery.plan)
+            let isSuperseded = !keys.isEmpty && pendingRecoveries.dropFirst(index + 1).contains { affectedProductKeys(for: $0.plan) == keys }
+            if isSuperseded {
                 continue
             }
-            visible = optimisticShoppingList(for: recovery.plan, baseline: visible) ?? visible
+            if let fetchedBaseline, mutationIsReflected(recovery.plan, in: fetchedBaseline) {
+                continue
+            }
+            if let current = visible, let targeted = projectingProductTargets(from: recovery.plan, onto: current) {
+                visible = targeted
+            } else {
+                visible = optimisticShoppingList(for: recovery.plan, baseline: visible) ?? visible
+            }
         }
         visible = projectedState(from: visible, applying: entries.map(\.plan))
         guard let visible else { return }

@@ -1154,6 +1154,140 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("same-product additive recoveries project their latest cumulative target when neither is reflected")
+    func sameProductRecoveriesProjectLatestTargetWhenNeitherReflected() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "cumulative thyme", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_neither_a"))
+        let firstTarget = try #require(first.updatedShoppingList)
+        let second = try viewModel(firstTarget).plan(.addItem(name: "cumulative thyme", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_neither_b"))
+        var writes = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                throw cancelled
+            },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(second) == .recovering)
+        #expect(visible.receiptItems.first { $0.name == "cumulative thyme" }?.quantity == 3)
+        #expect(feedback?.identity == first.identity)
+        #expect(writes == 2)
+    }
+
+    @MainActor
+    @Test("same-product additive recoveries settle only the reflected FIFO prefix")
+    func sameProductRecoveriesSettleOnlyReflectedPrefix() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "cumulative thyme", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_prefix_a"))
+        let firstTarget = try #require(first.updatedShoppingList)
+        let second = try viewModel(firstTarget).plan(.addItem(name: "cumulative thyme", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_prefix_b"))
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 2 ? baseline : firstTarget
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(second) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback?.identity == second.identity)
+        #expect(visible.receiptItems.first { $0.name == "cumulative thyme" }?.quantity == 3)
+        #expect(writes == 2)
+    }
+
+    @MainActor
+    @Test("same-product additive recoveries settle together when the cumulative target is reflected")
+    func sameProductRecoveriesSettleCumulativePrefix() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "cumulative thyme", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_final_a"))
+        let firstTarget = try #require(first.updatedShoppingList)
+        let second = try viewModel(firstTarget).plan(.addItem(name: "cumulative thyme", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_final_b"))
+        let cumulativeTarget = try #require(second.updatedShoppingList)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+                Issue.record("Reflected cumulative recovery must not replay transport")
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 2 ? baseline : cumulativeTarget
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(second) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback == nil)
+        #expect(visible.receiptItems.first { $0.name == "cumulative thyme" }?.quantity == 3)
+        #expect(writes == 2)
+    }
+
+    @MainActor
+    @Test("same-product additive recovery fails closed for an impossible partial quantity")
+    func sameProductRecoveriesFailClosedForImpossiblePartialState() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "cumulative thyme", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_impossible_a"))
+        let firstTarget = try #require(first.updatedShoppingList)
+        let second = try viewModel(firstTarget).plan(.addItem(name: "cumulative thyme", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_impossible_b"))
+        let misleading = try #require(try viewModel(baseline).plan(.addItem(name: "cumulative thyme", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_same_key_impossible_server")).updatedShoppingList)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 2 ? baseline : misleading
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(second) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .recovering)
+        #expect(feedback?.identity == first.identity)
+        #expect(visible.receiptItems.first { $0.name == "cumulative thyme" }?.quantity == 3)
+        #expect(writes == 3)
+    }
+
+    @MainActor
     @Test("dependent local item mutations wait and rebind after add recovery")
     func dependentMutationWaitsForRecoveryAndRebinds() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
