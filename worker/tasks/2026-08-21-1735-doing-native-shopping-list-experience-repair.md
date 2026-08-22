@@ -164,3 +164,4 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 - 2026-08-21 17:44 Created from reviewer-approved planning doc.
 - 2026-08-21 20:02 Execution unlocked after two consecutive provenance-locked CLEAN scrutiny verdicts at `44d70752`; Unit 0 started.
 - 2026-08-21 20:08 Unit 0 complete: fresh branch/toolchain/source-fidelity baseline recorded; 13 shopping parity tests and release capability preflight passed; Desk evidence pushed.
+- 2026-08-21 20:59 Unit 1 coordination slice pushed at `c9b429b5`: shopping mutations now apply optimism immediately, serialize remote writes FIFO, avoid shell bootstrap, reconcile with a targeted shopping read, preserve later optimistic work across rejection, and retain confirmed writes when the reconciliation read fails. Four coordinator tests, 13 shopping parity tests, 74 live-store tests, and the iOS app-target build are green; recovery-intent/journal coverage remains in progress.
