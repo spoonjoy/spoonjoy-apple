@@ -700,7 +700,33 @@ write_app_state() {
                         ]
                       }
                     end
-    if route == "shopping-list" && shopping_variant == "all-complete" && shopping_list
+    if route == "shopping-list" && shopping_variant == "normal" && shopping_list
+      visual_items = [
+        ["item_tomatoes", "heirloom tomatoes for summer salad", 4, "each", false, "produce", "carrot"],
+        ["item_basil", "fresh basil", 1, "bunch", false, "produce", "leaf"],
+        ["item_salmon", "salmon fillets", 2, "each", false, "protein", "fish"],
+        ["item_eggs", "large brown eggs", 12, "each", true, "protein", "egg"],
+        ["item_sourdough", "crusty sourdough loaf", 1, "loaf", false, "bakery", "sandwich"],
+        ["item_paprika", "smoked paprika", 1, "jar", false, "spices", "pot"],
+        ["item_cumin", "whole cumin seeds", 1, "jar", true, "spices", "pot"],
+        ["item_peas", "frozen peas", 16, "oz", true, "frozen", nil],
+        ["item_parchment", "recycled parchment paper sheets", 1, "box", false, "other", nil]
+      ]
+      retained = shopping_list.fetch("items").reject { |item| item["deletedAt"] }
+      retained = retained.map do |item|
+        checked = item.fetch("id") == "item_parmesan"
+        item.merge("checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:00.000Z" : nil)
+      end
+      additions = visual_items.each_with_index.map do |(id, name, quantity, unit, checked, category, icon), index|
+        {
+          "id" => id, "name" => name, "quantity" => quantity, "unit" => unit,
+          "checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:#{format("%02d", index + 1)}.000Z" : nil,
+          "deletedAt" => nil, "categoryKey" => category, "iconKey" => icon,
+          "sortIndex" => retained.length + index, "updatedAt" => "2026-06-16T12:06:#{format("%02d", index + 1)}.000Z"
+        }
+      end
+      shopping_list["items"] = retained + additions
+    elsif route == "shopping-list" && shopping_variant == "all-complete" && shopping_list
       shopping_list["items"] = shopping_list.fetch("items").each_with_index.map do |item, index|
         item.merge(
           "checked" => true,
@@ -918,7 +944,33 @@ write_sync_store() {
                    ]
                  }
                end
-    if shopping_variant == "all-complete"
+    if shopping_variant == "normal"
+      visual_items = [
+        ["item_tomatoes", "heirloom tomatoes for summer salad", 4, "each", false, "produce", "carrot"],
+        ["item_basil", "fresh basil", 1, "bunch", false, "produce", "leaf"],
+        ["item_salmon", "salmon fillets", 2, "each", false, "protein", "fish"],
+        ["item_eggs", "large brown eggs", 12, "each", true, "protein", "egg"],
+        ["item_sourdough", "crusty sourdough loaf", 1, "loaf", false, "bakery", "sandwich"],
+        ["item_paprika", "smoked paprika", 1, "jar", false, "spices", "pot"],
+        ["item_cumin", "whole cumin seeds", 1, "jar", true, "spices", "pot"],
+        ["item_peas", "frozen peas", 16, "oz", true, "frozen", nil],
+        ["item_parchment", "recycled parchment paper sheets", 1, "box", false, "other", nil]
+      ]
+      retained = shopping.fetch("items").reject { |item| item["deletedAt"] }
+      retained = retained.map do |item|
+        checked = item.fetch("id") == "item_parmesan"
+        item.merge("checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:00.000Z" : nil)
+      end
+      additions = visual_items.each_with_index.map do |(id, name, quantity, unit, checked, category, icon), index|
+        {
+          "id" => id, "name" => name, "quantity" => quantity, "unit" => unit,
+          "checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:#{format("%02d", index + 1)}.000Z" : nil,
+          "deletedAt" => nil, "categoryKey" => category, "iconKey" => icon,
+          "sortIndex" => retained.length + index, "updatedAt" => "2026-06-16T12:06:#{format("%02d", index + 1)}.000Z"
+        }
+      end
+      shopping["items"] = retained + additions
+    elsif shopping_variant == "all-complete"
       shopping["items"] = shopping.fetch("items").each_with_index.map do |item, index|
         item.merge(
           "checked" => true,

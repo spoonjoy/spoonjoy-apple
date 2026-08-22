@@ -165,16 +165,23 @@ struct ShoppingListView: View {
                 clearAll()
             }
         } label: {
-            Label("Receipt actions", systemImage: "ellipsis.circle")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .padding(.horizontal, 12)
-                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                .background(KitchenTableTheme.paper, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            Group {
+                if isAccessibilityLayout {
+                    Image(systemName: "ellipsis.circle")
+                        .accessibilityLabel("Receipt actions")
+                } else {
+                    Label("Receipt actions", systemImage: "ellipsis.circle")
                 }
+            }
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .padding(.horizontal, 12)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .background(KitchenTableTheme.paper, in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -189,64 +196,100 @@ struct ShoppingListView: View {
 
     @ViewBuilder private var shoppingModeStrip: some View {
         if let presentation = shoppingPresentation {
-            HStack(spacing: 0) {
-                ForEach(presentation.modeOptions, id: \.mode) { option in
-                    Button {
-                        viewMode = option.mode
-                        activeCategory = "all"
-                    } label: {
-                        Text(option.label)
-                            .font(KitchenTableTheme.uiLabel)
-                            .textCase(.uppercase)
-                            .tracking(1.2)
-                            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
-                            .foregroundStyle(viewMode == option.mode ? KitchenTableTheme.paper : KitchenTableTheme.inkMuted)
-                            .background(viewMode == option.mode ? KitchenTableTheme.charcoal : Color.clear)
+            if isAccessibilityLayout {
+                Menu {
+                    ForEach(presentation.modeOptions, id: \.mode) { option in
+                        Button(option.label) {
+                            viewMode = option.mode
+                            activeCategory = "all"
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(viewMode == option.mode ? .isSelected : [])
+                } label: {
+                    Label(selectedModeLabel(in: presentation), systemImage: "line.3.horizontal.decrease.circle")
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityLabel("Shopping view, \(selectedModeLabel(in: presentation)) selected")
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(presentation.modeOptions, id: \.mode) { option in
+                        Button {
+                            viewMode = option.mode
+                            activeCategory = "all"
+                        } label: {
+                            Text(option.label)
+                                .font(KitchenTableTheme.uiLabel)
+                                .textCase(.uppercase)
+                                .tracking(1.2)
+                                .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+                                .foregroundStyle(viewMode == option.mode ? KitchenTableTheme.paper : KitchenTableTheme.inkMuted)
+                                .background(viewMode == option.mode ? KitchenTableTheme.charcoal : Color.clear)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(viewMode == option.mode ? .isSelected : [])
+                    }
+                }
+                .overlay(alignment: .top) { Divider() }
+                .overlay(alignment: .bottom) { Divider() }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Shopping view")
             }
-            .overlay(alignment: .top) { Divider() }
-            .overlay(alignment: .bottom) { Divider() }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Shopping view")
         }
     }
 
     @ViewBuilder private var shoppingCategoryFilters: some View {
         if let presentation = shoppingPresentation {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+            if isAccessibilityLayout {
+                Menu {
                     ForEach(presentation.categoryOptions, id: \.self) { category in
-                        let isSelected = presentation.activeCategory == category
-                        Button {
+                        Button(categoryLabel(category)) {
                             activeCategory = category
-                        } label: {
-                            Text(category == "all" ? "All aisles" : category)
-                                .font(KitchenTableTheme.uiLabel)
-                                .padding(.horizontal, 14)
-                                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                                .foregroundStyle(isSelected ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
-                                .background(isSelected ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
-                                .overlay {
-                                    Capsule().strokeBorder(KitchenTableTheme.line.opacity(0.6), lineWidth: isSelected ? 0 : 1)
-                                }
                         }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    }
+                } label: {
+                    Label(categoryLabel(presentation.activeCategory), systemImage: "basket")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityLabel("Aisle filter, \(categoryLabel(presentation.activeCategory)) selected")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(presentation.categoryOptions, id: \.self) { category in
+                            let isSelected = presentation.activeCategory == category
+                            Button {
+                                activeCategory = category
+                            } label: {
+                                Text(categoryLabel(category))
+                                    .font(KitchenTableTheme.uiLabel)
+                                    .padding(.horizontal, 14)
+                                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                                    .foregroundStyle(isSelected ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
+                                    .background(isSelected ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
+                                    .overlay {
+                                        Capsule().strokeBorder(KitchenTableTheme.line.opacity(0.6), lineWidth: isSelected ? 0 : 1)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(isSelected ? .isSelected : [])
+                        }
                     }
                 }
+                .accessibilityLabel("Aisle filter")
             }
-            .accessibilityLabel("Aisle filter")
         }
     }
 
     private var shoppingReceiptComposer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            if isAccessibilityLayout {
                 itemNameField
-                compactAddItemButton
+                addItemButton
+            } else {
+                HStack(spacing: 8) {
+                    itemNameField
+                    compactAddItemButton
+                }
             }
             recipeActionButton
         }
@@ -336,11 +379,35 @@ struct ShoppingListView: View {
     }
 
     @ViewBuilder private var recipeActionButton: some View {
-        if hasRecipes {
+        if isAccessibilityLayout && hasRecipes {
+            Button(action: openSearch) {
+                Label("Recipes", systemImage: "book")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .accessibilityLabel("Add from recipe")
+        } else if isAccessibilityLayout {
+            Button(action: createRecipe) {
+                Label("New recipe", systemImage: "square.and.pencil")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .accessibilityLabel("Create a recipe")
+        } else if hasRecipes {
             addFromRecipeButton
         } else {
             createRecipeButton
         }
+    }
+
+    private var isAccessibilityLayout: Bool {
+        dynamicTypeSize.isAccessibilitySize
+    }
+
+    private func selectedModeLabel(in presentation: ShoppingPresentationModel) -> String {
+        presentation.modeOptions.first { $0.mode == viewMode }?.label ?? "All"
+    }
+
+    private func categoryLabel(_ category: String) -> String {
+        category == "all" ? "All aisles" : category
     }
 
     @ViewBuilder private var shoppingReceiptState: some View {
