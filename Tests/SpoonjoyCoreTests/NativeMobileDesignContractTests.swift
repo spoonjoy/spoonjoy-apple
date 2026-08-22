@@ -172,8 +172,8 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("shopping duplicates become a review section and completion uses the success role")
-    func shoppingDuplicatesBecomeAReviewSectionAndCompletionUsesTheSuccessRole() throws {
+    @Test("shopping uses web-parity market controls and keeps its composer reachable")
+    func shoppingUsesMarketControlsAndKeepsComposerReachable() throws {
         let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let receipt = uncommentedSwift(try readRepoFile(receiptPath))
@@ -183,14 +183,15 @@ struct NativeMobileDesignContractTests {
             receipt,
             in: receiptPath,
             contains: [
-                "Duplicates to review",
-                "duplicateItemIDs",
-                "Review duplicate",
-                "Remove duplicate",
+                "ShoppingPresentationSection",
+                "already in basket",
                 ".contextMenu",
                 "ReceiptDeleteSwipeModifier {"
             ],
             forbids: [
+                "Duplicates to review",
+                "duplicateItemIDs",
+                "Review duplicate",
                 "return matchCount > 1 ? \"\\(matchCount) on receipt\" : nil",
                 "isEnabled: !isDuplicateReview"
             ]
@@ -199,7 +200,15 @@ struct NativeMobileDesignContractTests {
             shopping,
             in: shoppingPath,
             contains: [
+                "@State private var viewMode: ShoppingListViewMode = .all",
+                "shoppingModeStrip",
+                "shoppingCategoryFilters",
+                "shoppingReceiptComposer",
+                "viewModel.presentation(mode: viewMode, activeCategory: activeCategory)",
                 "state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass"
+            ],
+            forbids: [
+                "if viewModel.shoppingReceiptState == nil {\n                shoppingReceiptComposer"
             ]
         )
     }
