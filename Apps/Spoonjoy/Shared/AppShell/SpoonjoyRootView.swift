@@ -26,6 +26,62 @@ struct SpoonjoyRootView: View {
 #endif
     }
 
+#if DEBUG
+    private static var shoppingUITestFixtureEnabled: Bool {
+        truthy("SPOONJOY_SHOPPING_UI_TEST_FIXTURE", in: ProcessInfo.processInfo.environment)
+    }
+
+    private static var shoppingUITestState: ShoppingListState? {
+        guard let encoded = ProcessInfo.processInfo.environment["SPOONJOY_SHOPPING_UI_TEST_STATE"] else {
+            return nil
+        }
+        return try? JSONDecoder().decode(ShoppingListState.self, from: Data(encoded.utf8))
+    }
+
+    private static func shoppingUITestNavigationNoOp() {}
+
+    private var shoppingUITestFixture: some View {
+        Group {
+            if Self.truthy("SPOONJOY_SHOPPING_UI_TEST_PLATFORM", in: ProcessInfo.processInfo.environment),
+               let shoppingList = Self.shoppingUITestState {
+                platformNavigation(contentState: .debugShoppingFixture(shoppingList))
+            } else {
+                NavigationStack {
+                    ShoppingListView(
+                        viewModel: ShoppingSurfaceViewModel(
+                            shoppingList: Self.shoppingUITestState,
+                            queuedMutations: [],
+                            conflicts: [],
+                            connectivity: .online,
+                            now: { "2026-08-21T20:00:00.000Z" }
+                        ),
+                        actionDidPlan: { _ in
+                            switch ProcessInfo.processInfo.environment["SPOONJOY_SHOPPING_UI_TEST_OUTCOME"] {
+                            case "queued": .queuedForSync
+                            case "recovering": .recovering
+                            case "failed": throw ShoppingUITestError.forcedFailure
+                            default: .synced
+                            }
+                        },
+                        shoppingMutationFeedback: nil,
+                        retryShoppingMutationRecovery: { .synced },
+                        hasRecipes: !Self.truthy("SPOONJOY_SHOPPING_UI_TEST_NO_RECIPES", in: ProcessInfo.processInfo.environment),
+                        openSearch: Self.shoppingUITestNavigationNoOp,
+                        createRecipe: Self.shoppingUITestNavigationNoOp,
+                        onDismissOfflineIndicator: Self.shoppingUITestNavigationNoOp
+                    )
+                    .navigationTitle("Shopping")
+                }
+            }
+        }
+        .accessibilityIdentifier("shopping.ui-test.root")
+    }
+
+    private enum ShoppingUITestError: Error {
+        case forcedFailure
+    }
+#endif
+
     @ViewBuilder
     var body: some View {
         Group {
@@ -59,60 +115,6 @@ struct SpoonjoyRootView: View {
             }
 #endif
     }
-
-#if DEBUG
-    private static var shoppingUITestFixtureEnabled: Bool {
-        truthy("SPOONJOY_SHOPPING_UI_TEST_FIXTURE", in: ProcessInfo.processInfo.environment)
-    }
-
-    private static var shoppingUITestState: ShoppingListState? {
-        guard let encoded = ProcessInfo.processInfo.environment["SPOONJOY_SHOPPING_UI_TEST_STATE"] else {
-            return nil
-        }
-        return try? JSONDecoder().decode(ShoppingListState.self, from: Data(encoded.utf8))
-    }
-
-    private var shoppingUITestFixture: some View {
-        Group {
-            if Self.truthy("SPOONJOY_SHOPPING_UI_TEST_PLATFORM", in: ProcessInfo.processInfo.environment),
-               let shoppingList = Self.shoppingUITestState {
-                platformNavigation(contentState: .debugShoppingFixture(shoppingList))
-            } else {
-                NavigationStack {
-                    ShoppingListView(
-                        viewModel: ShoppingSurfaceViewModel(
-                            shoppingList: Self.shoppingUITestState,
-                            queuedMutations: [],
-                            conflicts: [],
-                            connectivity: .online,
-                            now: { "2026-08-21T20:00:00.000Z" }
-                        ),
-                        actionDidPlan: { _ in
-                            switch ProcessInfo.processInfo.environment["SPOONJOY_SHOPPING_UI_TEST_OUTCOME"] {
-                            case "queued": .queuedForSync
-                            case "recovering": .recovering
-                            case "failed": throw ShoppingUITestError.forcedFailure
-                            default: .synced
-                            }
-                        },
-                        shoppingMutationFeedback: nil,
-                        retryShoppingMutationRecovery: { .synced },
-                        hasRecipes: !Self.truthy("SPOONJOY_SHOPPING_UI_TEST_NO_RECIPES", in: ProcessInfo.processInfo.environment),
-                        openSearch: {},
-                        createRecipe: {},
-                        onDismissOfflineIndicator: {}
-                    )
-                    .navigationTitle("Shopping")
-                }
-            }
-        }
-        .accessibilityIdentifier("shopping.ui-test.root")
-    }
-
-    private enum ShoppingUITestError: Error {
-        case forcedFailure
-    }
-#endif
 
     @ViewBuilder private var rootContent: some View {
         switch liveStore.bootstrapState {
@@ -232,9 +234,7 @@ struct SpoonjoyRootView: View {
                 try await liveStore.performShoppingMutation(plan)
             },
             shoppingMutationFeedback: liveStore.shoppingMutationFeedback,
-            retryShoppingMutationRecovery: {
-                try await liveStore.retryShoppingMutationRecovery()
-            },
+            retryShoppingMutationRecovery: liveStore.retryShoppingMutationRecovery,
             performSettingsSessionOperation: { operation in
                 try await liveStore.performSettingsSessionOperation(operation)
             },

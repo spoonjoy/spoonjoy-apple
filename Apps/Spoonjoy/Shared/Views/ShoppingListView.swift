@@ -679,9 +679,15 @@ struct ShoppingListView: View {
 }
 
 private struct ShoppingConfirmationDialog: Identifiable {
-    let id = UUID()
+    let id: UUID
     let prompt: ShoppingActionConfirmationPrompt
     let confirmedAction: ShoppingSurfaceAction
+
+    init(prompt: ShoppingActionConfirmationPrompt, confirmedAction: ShoppingSurfaceAction) {
+        self.id = UUID()
+        self.prompt = prompt
+        self.confirmedAction = confirmedAction
+    }
 }
 
 private struct ShoppingReceiptStateView: View {
