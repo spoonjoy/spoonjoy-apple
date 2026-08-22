@@ -26,7 +26,7 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 - [ ] All tests pass
 - [ ] No warnings
 - [ ] `visual-qa-dogfood` evidence is captured from installed/running builds, the absurdity ledger is closed, and automated visual metrics still pass.
-- [ ] Focused PR is merged; required checks are green for exact merged `main`; internal TestFlight build is attached to Spoonjoy Internal and reaches `IN_BETA_TESTING`; branch/worktree cleanup is complete.
+- [ ] Focused PR is merged; `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` are green for exact merged `main`; internal TestFlight build is attached to Spoonjoy Internal and reaches `IN_BETA_TESTING`; branch/worktree cleanup is complete.
 
 ## Code Coverage Requirements
 **MANDATORY: 100% coverage on all new code.**
@@ -71,7 +71,7 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 
 ### ⬜ Unit 2a: Market modes and category semantics — tests
 **What**: Add failing pure-model tests in `Tests/SpoonjoyCoreTests/ShoppingPresentationModelTests.swift` for `ShoppingPresentationModel`: Need/Basket/All counts, fixed market rank, stable same-category order, explicit category validation, name fallback, completed sections, invalid-filter reset data, duplicate handling, and empty/all-complete variants.
-**Output**: Red tests in `ShoppingSurfaceParityTests.swift` and/or a focused shopping presentation test file.
+**Output**: Red tests in `Tests/SpoonjoyCoreTests/ShoppingPresentationModelTests.swift`.
 **Acceptance**: Tests fail on missing presentation model behavior and precisely match web helper/route semantics.
 
 ### ⬜ Unit 2b: Market modes and category semantics — implementation
@@ -125,9 +125,9 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: Branch is clean, pushed, green, and reviewer-converged against current main.
 
 ### ⬜ Unit 4b: PR, CI, review, and merge
-**What**: Open the focused PR, repair review/CI findings, verify required checks, and merge under repository policy.
+**What**: Open the focused PR, repair review/CI findings, verify `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`, and merge under repository policy.
 **Output**: Merged PR URL and merged SHA.
-**Acceptance**: PR is merged with required checks green on its reviewed head.
+**Acceptance**: PR is merged with `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` green on its reviewed head.
 
 ### ⬜ Unit 4c: Exact-main and internal TestFlight verification
 **What**: Create a temporary exact-main worktree with `git worktree add --detach <tmp> <merged-sha>`; rerun Unit 3d commands there. Write `<artifacts>/testflight-release-notes.json` with schema `{sourceSha,notes}`. From that worktree run `SPOONJOY_TESTFLIGHT_SOURCE_SHA=<merged-sha> SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH=<notes-json> SPOONJOY_TESTFLIGHT_ARTIFACT_DIR=<artifacts>/ci-testflight scripts/ci-publish-testflight.sh`; it reads the existing App Store Connect config/kit and resolves build number. Accept only `testflight-publish-summary.json` proving group `Spoonjoy Internal`, testerCount > 0, and internalBuildState `IN_BETA_TESTING`.
