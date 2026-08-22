@@ -278,6 +278,22 @@ write_or_validate_checkpoint() {
   ' "$checkpoint_path" "$resume_matrix" "$source_id" "$build_id" "$expected_routes"
 }
 
+resume_completed_checkpoint_identity() {
+  local source_id="$1"
+  local expected_routes="$2"
+  ruby -rjson -e '
+    path, source_id, expected_csv = ARGV
+    expected = expected_csv.split(",").reject(&:empty?)
+    checkpoint = JSON.parse(File.read(path))
+    abort("checkpoint schema changed") unless checkpoint["schemaVersion"] == 2
+    abort("checkpoint source identity changed") unless checkpoint["sourceIdentity"] == source_id
+    abort("checkpoint route selection changed") unless checkpoint["expectedRoutes"] == expected
+    exit(75) unless checkpoint["completedRoutes"] == expected
+    abort("checkpoint build identity is missing") if checkpoint["buildIdentity"].to_s.empty?
+    puts checkpoint.fetch("buildIdentity")
+  ' "$checkpoint_path" "$source_id" "$expected_routes"
+}
+
 route_is_complete() {
   local name="$1"
   ruby scripts/validate-native-route-evidence.rb \
@@ -614,7 +630,22 @@ fi
 
 source_id="$(source_identity)"
 build_identity=""
-if prepare_shared_builds; then
+completed_resume=0
+if [[ "$resume_matrix" == "1" ]]; then
+  set +e
+  build_identity="$(resume_completed_checkpoint_identity "$source_id" "$expected_route_names")"
+  completed_resume=$?
+  set -e
+  if [[ "$completed_resume" -eq 0 ]]; then
+    rm -f "$shared_build_blocker" "$shared_xcode_blocker"
+  elif [[ "$completed_resume" -ne 75 ]]; then
+    exit "$completed_resume"
+  fi
+fi
+
+if [[ "$completed_resume" -eq 0 && "$resume_matrix" == "1" ]]; then
+  : # Terminal evidence can be re-summarized after its shared app bundles are pruned.
+elif prepare_shared_builds; then
   build_identity="$(matrix_build_identity "$source_id")"
   write_or_validate_checkpoint "$source_id" "$build_identity" "$expected_route_names"
   captured_in_batch=0

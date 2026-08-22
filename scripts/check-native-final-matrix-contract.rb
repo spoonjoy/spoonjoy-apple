@@ -161,6 +161,17 @@ matrix_content = MATRIX_SCRIPT_PATH.read
   failures << "capture-native-screenshot-matrix.sh missing fail-closed resume token #{token.inspect}" unless matrix_content.include?(token)
 end
 
+[
+  "resume_completed_checkpoint_identity",
+  'checkpoint["sourceIdentity"] == source_id',
+  'checkpoint["expectedRoutes"] == expected',
+  'checkpoint["completedRoutes"] == expected',
+  'checkpoint["buildIdentity"].to_s.empty?',
+  'rm -f "$shared_build_blocker" "$shared_xcode_blocker"'
+].each do |token|
+  failures << "capture-native-screenshot-matrix.sh missing terminal-resume contract #{token.inspect}" unless matrix_content.include?(token)
+end
+
 REQUIRED_SOURCE_TOKENS.each do |token|
   failures << "validate-native-local.sh missing required final-matrix token #{token.inspect}" unless content.include?(token)
 end
