@@ -111,10 +111,12 @@ struct TestFlightAutomationContractTests {
 
         let testFlightWorkflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
         let expectedToolkitRevision = "4b15c446f1d525221feb20d00c8ee081d528e8b6"
-        let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit[\s\S]*?ref:\s+([0-9a-f]{40})/
+        let toolkitRepositoryPattern = /repository:\s+ourostack\/apple-distribution-kit/
+        let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit\n\s+ref:\s+([0-9a-f]{40})/
+        let toolkitCheckoutCount = testFlightWorkflow.matches(of: toolkitRepositoryPattern).count
         let toolkitRevisions = testFlightWorkflow.matches(of: toolkitRefPattern).map { String($0.1) }
         #expect(
-            toolkitRevisions == [expectedToolkitRevision],
+            toolkitCheckoutCount == 1 && toolkitRevisions == [expectedToolkitRevision],
             "TestFlight must have one toolkit checkout pinned to the audited revision: \(toolkitRevisions)"
         )
     }
