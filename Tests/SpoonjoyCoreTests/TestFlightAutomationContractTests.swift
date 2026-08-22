@@ -46,6 +46,7 @@ struct TestFlightAutomationContractTests {
                 "name: Upload verified candidate note",
                 "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
                 "node-version: 22.17.1",
+                "ref: 4b15c446f1d525221feb20d00c8ee081d528e8b6",
                 "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45",
                 "actual_dist_sha256",
                 "apple-distribution-kit dist checksum mismatch",
@@ -109,8 +110,15 @@ struct TestFlightAutomationContractTests {
         }
 
         let testFlightWorkflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
-        let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit[\s\S]*?ref:\s+([0-9a-f]{40})/
-        #expect(testFlightWorkflow.firstMatch(of: toolkitRefPattern) != nil)
+        let expectedToolkitRevision = "4b15c446f1d525221feb20d00c8ee081d528e8b6"
+        let toolkitRepositoryPattern = /repository:\s+ourostack\/apple-distribution-kit/
+        let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit\n\s+ref:\s+([0-9a-f]{40})/
+        let toolkitCheckoutCount = testFlightWorkflow.matches(of: toolkitRepositoryPattern).count
+        let toolkitRevisions = testFlightWorkflow.matches(of: toolkitRefPattern).map { String($0.1) }
+        #expect(
+            toolkitCheckoutCount == 1 && toolkitRevisions == [expectedToolkitRevision],
+            "TestFlight must have one toolkit checkout pinned to the audited revision: \(toolkitRevisions)"
+        )
     }
 
     @Test("Artifact uploads use the audited Node 24 action revision")
