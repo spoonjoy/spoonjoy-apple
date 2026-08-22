@@ -710,6 +710,14 @@ public final class ShoppingMutationCoordinator {
         }
     }
 
+    private func additiveTargetItemIDs(for plan: ShoppingSurfaceMutationPlan) -> Set<String> {
+        let keys = affectedProductKeys(for: plan)
+        var itemIDs = locallyCreatedItemIDs(for: plan)
+        guard !keys.isEmpty, let updated = plan.updatedShoppingList else { return itemIDs }
+        itemIDs.formUnion(updated.receiptItems.filter { keys.contains(productKey(for: $0)) }.map(\.id))
+        return itemIDs
+    }
+
     private func dependsOnRejectedItem(
         _ plan: ShoppingSurfaceMutationPlan,
         rejectedLocalItemIDs: Set<String>
@@ -725,7 +733,7 @@ public final class ShoppingMutationCoordinator {
 
     private func dependsOnPendingRecovery(_ plan: ShoppingSurfaceMutationPlan) -> Bool {
         pendingRecoveries.contains { recovery in
-            dependsOnRejectedItem(plan, rejectedLocalItemIDs: locallyCreatedItemIDs(for: recovery.plan))
+            dependsOnRejectedItem(plan, rejectedLocalItemIDs: additiveTargetItemIDs(for: recovery.plan))
         }
     }
 

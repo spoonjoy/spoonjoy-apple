@@ -1850,6 +1850,96 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("dependent work waits when an indeterminate add restores a deleted server item")
+    func dependentWorkWaitsForDeletedServerItemRestore() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let restore = try viewModel(baseline).plan(.addItem(name: "basil", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "herb", clientMutationID: "cm_restore_deleted_basil"))
+        let serverRestored = try #require(restore.updatedShoppingList)
+        let restoredID = "item_removed_basil"
+        #expect(serverRestored.item(id: restoredID)?.deletedAt == nil)
+        let serverChecked = try serverRestored.settingChecked(true, itemID: restoredID, checkedAt: serverRestored.updatedAt, updatedAt: serverRestored.updatedAt, nextSortIndex: serverRestored.items.count)
+        let serverDeleted = try serverChecked.removingItem(id: restoredID, deletedAt: serverChecked.updatedAt)
+        var paths: [String] = []
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { request in
+                paths.append(request.pathComponents.joined(separator: "/"))
+                if paths.count == 1 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return switch reads {
+                case 1: baseline
+                case 2: serverRestored
+                case 3: serverChecked
+                default: serverDeleted
+                }
+            },
+            recordShoppingList: { visible = $0 }
+        )
+
+        #expect(try await coordinator.submit(restore) == .recovering)
+        let check = try viewModel(visible).plan(.setItemChecked(itemID: restoredID, checked: true, clientMutationID: "cm_restore_deleted_check"))
+        let checkTask = Task { try await coordinator.submit(check) }
+        await Task.yield()
+        let delete = try viewModel(visible).plan(.deleteItem(itemID: restoredID, clientMutationID: "cm_restore_deleted_delete", confirmation: .confirmed))
+        let deleteTask = Task { try await coordinator.submit(delete) }
+        await Task.yield()
+        #expect(paths.count == 1)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(try await checkTask.value == .synced)
+        #expect(try await deleteTask.value == .synced)
+        #expect(paths.count == 3)
+        #expect(paths[1].contains(restoredID))
+        #expect(paths[2].contains(restoredID))
+        #expect(visible.item(id: restoredID)?.deletedAt != nil)
+    }
+
+    @MainActor
+    @Test("dependent final check waits when an indeterminate add restores a checked server item")
+    func dependentCheckWaitsForCheckedServerItemRestore() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let checkedBaseline = try baseline.settingChecked(true, itemID: "item_lemons", checkedAt: baseline.updatedAt, updatedAt: baseline.updatedAt, nextSortIndex: baseline.items.count)
+        var visible = checkedBaseline
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let restore = try viewModel(checkedBaseline).plan(.addItem(name: "lemons", quantity: 2, unit: "each", categoryKey: "produce", iconKey: "lemon", clientMutationID: "cm_restore_checked_lemons"))
+        let serverRestored = try #require(restore.updatedShoppingList)
+        #expect(serverRestored.item(id: "item_lemons")?.isEffectivelyChecked == false)
+        let serverFinal = try serverRestored.settingChecked(true, itemID: "item_lemons", checkedAt: serverRestored.updatedAt, updatedAt: serverRestored.updatedAt, nextSortIndex: serverRestored.items.count)
+        var paths: [String] = []
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { request in
+                paths.append(request.pathComponents.joined(separator: "/"))
+                if paths.count == 1 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return switch reads {
+                case 1: checkedBaseline
+                case 2: serverRestored
+                default: serverFinal
+                }
+            },
+            recordShoppingList: { visible = $0 }
+        )
+
+        #expect(try await coordinator.submit(restore) == .recovering)
+        let finalCheck = try viewModel(visible).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_restore_checked_final"))
+        let finalCheckTask = Task { try await coordinator.submit(finalCheck) }
+        await Task.yield()
+        #expect(paths.count == 1)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(try await finalCheckTask.value == .synced)
+        #expect(paths.count == 2)
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+    }
+
+    @MainActor
     @Test("ambiguous recipe recovery retains dependent local work")
     func ambiguousRecipeRecoveryRetainsDependentWork() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
