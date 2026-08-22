@@ -50,7 +50,8 @@ REQUIRED_TOKENS = {
   ],
   "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift" => [
     "ReceiptListView",
-    "ShoppingListReceiptSection",
+    "ShoppingPresentationSection",
+    "ShoppingPresentationItem",
     "ShoppingListItem",
     "List",
     "Section",
@@ -167,7 +168,7 @@ end
 fail_check("PlatformNavigationView.swift missing ShoppingListView(") unless platform_navigation.include?("ShoppingListView(")
 [
   "ShoppingSurfaceViewModel",
-  "ShoppingSurfaceMutationExecutor.perform",
+  "performShoppingMutationHandler",
   "RecipeShoppingListCoverage.hasAllRecipeIngredients",
   "shoppingViewModel: shoppingViewModel",
   "performShoppingAction",

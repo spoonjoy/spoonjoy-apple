@@ -73,8 +73,10 @@ CONTRACTS = {
   ],
   "scripts/validate-design-review-blocker.rb" => [
     'apple/#{unit_slug}-accessibility-proof-ios.json',
+    'apple/#{unit_slug}-accessibility-proof-ipad.json',
     'apple/#{unit_slug}-accessibility-proof-macos.json',
     "screenshots/ios-mobile.png",
+    "screenshots/ios-tablet.png",
     "screenshots/macos-desktop.png",
     "design-review.json",
     "stale success artifact",
@@ -82,6 +84,7 @@ CONTRACTS = {
   ],
   "scripts/capture-native-screenshots.sh" => [
     "accessibility_proof_ios",
+    "accessibility_proof_ipad",
     "accessibility_proof_macos",
     "wait_for_accessibility_proof",
     "accessibilityProofArtifacts",
@@ -94,8 +97,9 @@ CONTRACTS = {
     "severeStates",
     "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
     "apple/${unit_slug}-accessibility-proof-ios.json",
+    "apple/${unit_slug}-accessibility-proof-ipad.json",
     "apple/${unit_slug}-accessibility-proof-macos.json",
-    "rm -f \"$accessibility_proof_ios\" \"$accessibility_proof_macos\""
+    "rm -f \"$accessibility_proof_ios\" \"$accessibility_proof_ipad\" \"$accessibility_proof_macos\""
   ],
   "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift" => [
     "ScreenshotAccessibilityProofWriter",
@@ -120,6 +124,7 @@ CONTRACTS = {
     "matrix-design-accessibility-contract.log",
     "conflicting design review success and blocker artifacts",
     "apple/matrix-accessibility-proof-ios.json",
+    "apple/matrix-accessibility-proof-ipad.json",
     "apple/matrix-accessibility-proof-macos.json",
     "design-review-blocked.json"
   ],
@@ -197,6 +202,7 @@ def base_design_review
     "kitchenSeedAccountID" => "chef_kitchen_capture",
     "accessibilityProofArtifacts" => [
       "apple/unit-contract-accessibility-proof-ios.json",
+      "apple/unit-contract-accessibility-proof-ipad.json",
       "apple/unit-contract-accessibility-proof-macos.json"
     ]
   )
@@ -214,6 +220,12 @@ def accessibility_proof(platform)
     "noTinyClusters" => true,
     "observedDynamicTypeSize" => "large",
     "observedReduceMotion" => false,
+    "visualReadiness" => {
+      "pendingMediaCount" => 0,
+      "failedMediaCount" => 0,
+      "blockingIndicatorCount" => 0,
+      "isSettled" => true
+    },
     "routeEvidence" => {
       "voiceOverLabels" => ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
       "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
@@ -258,7 +270,7 @@ Dir.mktmpdir("spoonjoy-design-accessibility-contract") do |directory|
   validator = ROOT.join("scripts/validate-design-review.rb")
   blocker_validator = ROOT.join("scripts/validate-design-review-blocker.rb")
 
-  base_design_review.fetch("accessibilityProofArtifacts").zip(["ios", "macos"]).each do |relative_path, platform|
+  base_design_review.fetch("accessibilityProofArtifacts").zip(["ios", "ipad", "macos"]).each do |relative_path, platform|
     path = temp_root.join(relative_path)
     path.dirname.mkpath
     path.write(JSON.pretty_generate(accessibility_proof(platform)) + "\n")
@@ -303,9 +315,11 @@ Dir.mktmpdir("spoonjoy-design-accessibility-contract") do |directory|
     "sourceBlockerPath" => canonical_blocker.to_s,
     "skippedArtifacts" => [
       "screenshots/ios-mobile.png",
+      "screenshots/ios-tablet.png",
       "screenshots/macos-desktop.png",
       "design-review.json",
       "apple/unit-contract-accessibility-proof-ios.json",
+      "apple/unit-contract-accessibility-proof-ipad.json",
       "apple/unit-contract-accessibility-proof-macos.json"
     ],
     "reason" => "Screenshot capture was blocked by CoreSimulator.",
@@ -340,8 +354,10 @@ Dir.mktmpdir("spoonjoy-design-accessibility-contract") do |directory|
   temp_root.join("design-review.json").write(JSON.pretty_generate(base_design_review) + "\n")
   temp_root.join("screenshots").mkpath
   temp_root.join("screenshots/ios-mobile.png").write("stale")
+  temp_root.join("screenshots/ios-tablet.png").write("stale")
   temp_root.join("screenshots/macos-desktop.png").write("stale")
   temp_root.join("apple/unit-contract-accessibility-proof-ios.json").write("{}\n")
+  temp_root.join("apple/unit-contract-accessibility-proof-ipad.json").write("{}\n")
   temp_root.join("apple/unit-contract-accessibility-proof-macos.json").write("{}\n")
   assert_status(
     false,
