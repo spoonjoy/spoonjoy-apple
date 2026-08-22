@@ -60,7 +60,7 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: New tests fail for the intended absent coordinator/reconciliation behavior while pre-existing shopping tests remain green.
 
 ### ⬜ Unit 1b: Localized mutation coordination — implementation
-**What**: Implement `NativeShoppingMutationCoordinator` and `ShoppingMutationFeedback` in `Sources/SpoonjoyCore/Features/Shopping/ShoppingMutationCoordinator.swift`; `NativeLiveAppStore` owns one coordinator and exposes feedback. Assign generation before enqueue; serialize mutation+read; derive online optimistic state by applying the plan's `offlineFallbackMutation` to current state; snapshot immediately before applying. `queueMutation` remains sole owner for queued/fallback optimism. On definite failure restore the snapshot only when generation is latest; with later generation, or on indeterminate failure, issue a targeted read and apply it only when its generation is latest. If that read fails, retain optimism and expose retryable item/action error; retry reruns the original action with a new client mutation ID. Wire `PlatformNavigationView.swift` feedback/action closure; cancellation clears pending silently.
+**What**: Implement `NativeShoppingMutationCoordinator` and `ShoppingMutationFeedback` in `Sources/SpoonjoyCore/Features/Shopping/ShoppingMutationCoordinator.swift`; `NativeLiveAppStore` owns one coordinator and exposes feedback. Assign generation before enqueue; serialize mutation+read; derive online optimistic state by applying the plan's `offlineFallbackMutation` to current state; snapshot immediately before applying. `queueMutation` remains sole owner for queued/fallback optimism. On definite failure restore the snapshot only when generation is latest; with later generation, or on indeterminate failure, issue a targeted read and apply it only when its generation is latest. If that read fails, retain optimism and expose retryable error. `setItemChecked`/`deleteItem` use `itemErrors` plus `retryActionsByItemID`; add/add-from-recipe/clear actions use `actionError` plus `retryAction`; the coordinator retains those original `ShoppingSurfaceAction` payloads and retry replaces only `clientMutationID` with a fresh UUID. Wire `PlatformNavigationView.swift` feedback/retry closures; cancellation clears pending silently.
 **Output**: Online writes rebase optimistically on latest store state, avoid `bootstrap()`, perform targeted shopping read reconciliation, and expose localized reconciliation/failure state.
 **Acceptance**: Unit 1a passes; captured outbound requests are exact; no ordinary shopping mutation applies `.restoringCache`; builds have no warnings.
 
@@ -100,32 +100,37 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: Adaptation tests turn red then green; no web-style custom navigation or decorative-card regression; builds have no warnings.
 
 ### ⬜ Unit 3d: Native shopping surface — coverage, build, and scenario verification
-**What**: Run `scripts/generate-xcode-project.rb`, `swift test`, `swift test --enable-code-coverage`, `ruby scripts/enforce-swift-coverage.rb .build/debug/codecov/default.profdata .build/debug/SpoonjoyApplePackageTests.xctest/Contents/MacOS/SpoonjoyApplePackageTests`, `scripts/verify-native-scenarios.sh --stage final --output <artifacts>/scenario-final.json`, `scripts/bundle-check.sh`, and `scripts/validate-native-local.sh --artifact-root <artifacts>/native-local`. The local matrix owns warning-as-error and exact iPhone/iPad/macOS BootstrapDebug builds.
+**What**: Run `scripts/generate-xcode-project.rb`, `swift test`, `swift test --enable-code-coverage`, capture `coverage_json="$(swift test --show-codecov-path)"`, then `ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include Sources/SpoonjoyCore`; run `scripts/verify-native-scenarios.sh --stage final --output <artifacts>/scenario-final.json`, `scripts/bundle-check.sh`, and `scripts/validate-native-local.sh --artifact-root <artifacts>/native-local`. The local matrix owns warning-as-error and exact iPhone/iPad/macOS BootstrapDebug builds.
 **Output**: Validation logs in artifacts.
 **Acceptance**: Required local checks are green, modified/new logic is fully covered, and all three platform layouts compile without warnings.
 
-### ⬜ Unit 3e: iPhone visual capture
-**What**: Extend `scripts/capture-native-screenshots.sh` fixtures only when required, then run it with `--route shopping-list`, `--artifact-root <artifacts>/visual/<state>-<size>`, and state-specific `--unit-slug`. Canonical fixture is `Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json`; deterministic variants are normal, empty, all-complete, duplicate, conflict, offline-queued, plus new pending and row-error fixture flags. Capture iPhone portrait at default and accessibility5 Dynamic Type for populated Need/Basket/All, Produce-filtered, empty, all-complete, pending, row-error, queued, conflict, and duplicate states.
-**Output**: iPhone screenshot manifest, accessibility proofs, and initial ledger entries.
-**Acceptance**: Every named state/size is captured uncropped from the installed app and recorded in the ledger.
+### ⬜ Unit 3e: Shopping screenshot harness — tests
+**What**: Add failing cases to `scripts/check-launch-screenshot-contract.rb` for new `capture-native-screenshots.sh` arguments: `--shopping-variant normal|empty|all-complete|duplicate|conflict|offline-queued|pending|row-error`, `--shopping-mode need|basket|all`, `--shopping-category all|Produce`, `--dynamic-type default|accessibility5`, `--ios-form-factor phone|tablet`, `--ios-orientation portrait|landscape`, and `--macos-window 900x620|1440x900`. Assert each option reaches launch environment/state fixture and manifest metadata.
+**Output**: Red screenshot-contract tests covering every new option and invalid value.
+**Acceptance**: Contract suite fails because the exact CLI/state wiring is absent.
 
-### ⬜ Unit 3f: iPad and macOS visual capture
-**What**: Use the same harness/fixtures for iPad 11-inch portrait 834x1194 and landscape 1194x834 and macOS windows 900x620 and 1440x900. Capture normal Need/Basket/All, Produce-filtered, pending, row-error, queued, conflict, and duplicate on each platform/size; empty/all-complete once per platform. Dense content means at least 12 visible/live items across at least five categories, including two two-line names.
-**Output**: iPad/macOS screenshot manifests, accessibility proofs, and ledger entries.
-**Acceptance**: Every named platform/state/size is captured uncropped and recorded in the ledger.
+### ⬜ Unit 3f: Shopping screenshot harness — implementation
+**What**: Implement the exact Unit 3e arguments in `scripts/capture-native-screenshots.sh`; canonical data is `Sources/SpoonjoyCore/Fixtures/shopping-list-fixture.json`, with generated deterministic state/cache/sync overlays for each variant. Persist selected mode/category/dynamic-type/form-factor/orientation/window in `design-review.json` and screenshot logs.
+**Output**: Deterministic installed-app capture controls.
+**Acceptance**: Unit 3e turns green; invalid options fail closed; existing route captures remain green.
 
-### ⬜ Unit 3g: Visual remediation, recapture, and cold review
+### ⬜ Unit 3g: iPhone, iPad, and macOS visual capture
+**What**: Invoke the harness once per matrix cell using the exact arguments from Unit 3e. iPhone portrait uses default and accessibility5 for normal Need/Basket/All, Produce, empty, all-complete, pending, row-error, queued, conflict, duplicate. iPad tablet uses portrait 834x1194 and landscape 1194x834; macOS uses 900x620 and 1440x900. Each iPad/macOS size captures normal Need/Basket/All, Produce, pending, row-error, queued, conflict, duplicate; empty/all-complete once per platform. Dense normal fixture has >=12 items, >=5 categories, and two two-line names.
+**Output**: Per-cell screenshot directories with PNG, design-review manifest, accessibility proof, and logs; initial ledger entries.
+**Acceptance**: Every named matrix cell is captured uncropped from the installed app and recorded in the ledger.
+
+### ⬜ Unit 3h: Visual remediation, recapture, and cold review
 **What**: Inspect all PNGs with `view_image`, record each in `<artifacts>/visual-qa-ledger.md`, fix every in-scope finding, rerun `ruby scripts/validate-design-review.rb <artifact-root>/design-review.json` plus `ruby scripts/check-launch-screenshot-contract.rb`, recapture fixed surfaces, and obtain a cold visual PASS. Preserve each harness-produced `design-review.json`, `apple/*accessibility-proof*.json`, screenshot manifest/log, and final PNG.
 **Output**: Final screenshots, design-review manifests, closed `visual-qa-ledger.md`, and reviewer verdict.
 **Acceptance**: No ledger item remains `ready` or `needs reviewer gate`; automated metrics pass; cold reviewer returns PASS.
 
 ### ⬜ Unit 4a: Pre-PR sync and branch validation
-**What**: `git fetch origin main`, merge `origin/main`, resolve conflicts, then rerun Unit 3d exact commands and `gh pr checks` after opening; cold-review `git diff origin/main...HEAD` plus all validation artifacts.
+**What**: `git fetch origin main`, merge `origin/main`, resolve conflicts, then rerun Unit 3d exact commands; cold-review `git diff origin/main...HEAD` plus all validation artifacts.
 **Output**: Synced branch, complete validation evidence, reviewer verdict.
 **Acceptance**: Branch is clean, pushed, green, and reviewer-converged against current main.
 
 ### ⬜ Unit 4b: PR, CI, review, and merge
-**What**: Open the focused PR, repair review/CI findings, verify `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`, and merge under repository policy.
+**What**: Open the focused PR, run `gh pr checks <pr> --watch`, repair review/CI findings, verify `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage`, and merge under repository policy.
 **Output**: Merged PR URL and merged SHA.
 **Acceptance**: PR is merged with `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` green on its reviewed head.
 
@@ -135,7 +140,7 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: Required checks are green for merged SHA and the internal build is available in beta testing.
 
 ### ⬜ Unit 4d: Cleanup and durable closure
-**What**: After merge/TestFlight verification, remove the detached exact-main worktree, remove `/Users/arimendelow/Projects/spoonjoy-apple-native-shopping-list-experience-repair`, delete local `worker/native-shopping-list-experience-repair`, and delete its remote branch only if GitHub has not auto-deleted it. Retain merged git history, PR/CI/TestFlight evidence, and durable task docs; update planning/doing/task status and push desk `main`.
+**What**: Before cleanup, commit/push visual manifests, proofs, ledger, and final PNGs under `worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair/`, and copy exact-main/TestFlight summaries into `/Users/arimendelow/desk/spoonjoy/native-shopping-list-experience-repair/artifacts/` for desk commit/push. From the task worktree run `git worktree remove /Users/arimendelow/Projects/spoonjoy-apple-native-shopping-list-experience-repair`; after it disappears, use `/Users/arimendelow/Projects/spoonjoy-apple` to delete local `worker/native-shopping-list-experience-repair` and delete its remote branch only if GitHub has not auto-deleted it. Retain merged history, PR/CI/TestFlight evidence, and durable task docs; update planning/doing/task status and push desk `main`.
 **Output**: Cleanup log and terminal durable task records.
 **Acceptance**: No task-owned branch/worktree residue remains; all task docs accurately report terminal state and are pushed.
 
