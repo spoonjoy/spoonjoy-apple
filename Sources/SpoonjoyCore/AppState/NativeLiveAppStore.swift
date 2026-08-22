@@ -1892,6 +1892,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func switchEnvironment(_ environment: NativeCacheEnvironment) async {
+        shoppingMutationCoordinator.resetScope()
         cacheEnvironment = environment
         configuration = APIClientConfiguration(baseURL: configuration.baseURL, bearerToken: configuration.bearerToken)
         let authSessionState = currentContentState.authSessionState
@@ -2303,6 +2304,7 @@ public final class NativeLiveAppStore: ObservableObject {
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
         case .logout, .revokeAndLogout:
+            shoppingMutationCoordinator.resetScope()
             let currentAccountID = accountID
             let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
             let makePurgePlan = ShoppingEntityIndexPurgePlan.accountScopePurge(accountID:environment:shoppingItemIDs:)

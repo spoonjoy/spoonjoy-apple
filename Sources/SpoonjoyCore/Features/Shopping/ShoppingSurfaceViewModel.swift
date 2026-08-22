@@ -277,6 +277,7 @@ public final class ShoppingMutationCoordinator {
     private struct Entry {
         let plan: ShoppingSurfaceMutationPlan
         let generation: UInt64
+        let scopeEpoch: UInt64
         let continuation: CheckedContinuation<ShoppingSurfaceMutationOutcome, Error>
     }
 
@@ -289,6 +290,8 @@ public final class ShoppingMutationCoordinator {
     private var isDraining = false
     private var baselineShoppingList: ShoppingListState?
     private var nextGeneration: UInt64 = 0
+    private var scopeEpoch: UInt64 = 0
+    private var drainTask: Task<Void, Never>?
     private var pendingPersistenceBatch: [NativeQueuedMutation] = []
 
     public init(
@@ -334,21 +337,42 @@ public final class ShoppingMutationCoordinator {
                 baselineShoppingList = plan.originalShoppingList
             }
             nextGeneration &+= 1
-            entries.append(Entry(plan: plan, generation: nextGeneration, continuation: continuation))
+            entries.append(Entry(
+                plan: plan,
+                generation: nextGeneration,
+                scopeEpoch: scopeEpoch,
+                continuation: continuation
+            ))
             reprojectVisibleState()
             guard !isDraining else { return }
             isDraining = true
-            Task { @MainActor [weak self] in
-                await self?.drain()
+            let drainEpoch = scopeEpoch
+            drainTask = Task { @MainActor [weak self] in
+                await self?.drain(scopeEpoch: drainEpoch)
             }
         }
     }
 
-    private func drain() async {
-        while !entries.isEmpty {
+    public func resetScope() {
+        scopeEpoch &+= 1
+        drainTask?.cancel()
+        drainTask = nil
+        let cancelledEntries = entries
+        entries.removeAll()
+        baselineShoppingList = nil
+        pendingPersistenceBatch = []
+        isDraining = false
+        recordFeedback(nil)
+        cancelledEntries.forEach { $0.continuation.resume(throwing: CancellationError()) }
+    }
+
+    private func drain(scopeEpoch drainEpoch: UInt64) async {
+        while drainEpoch == scopeEpoch, !entries.isEmpty, !Task.isCancelled {
             await performFirstEntry()
         }
+        guard drainEpoch == scopeEpoch else { return }
         baselineShoppingList = nil
+        drainTask = nil
         isDraining = false
     }
 
@@ -371,16 +395,20 @@ public final class ShoppingMutationCoordinator {
         do {
             try await executeRemote(remoteRequest)
         } catch let error as APITransportError where error.isOffline {
+            guard isCurrent(entry) else { return }
             await persistOfflineRemainder(error: error)
             return
         } catch let error as APITransportError where Self.isIndeterminate(error) {
+            guard isCurrent(entry) else { return }
             await recoverIndeterminate(entry, error: error)
             return
         } catch {
+            guard isCurrent(entry) else { return }
             await rejectDefinite(entry, error: error)
             return
         }
 
+        guard isCurrent(entry) else { return }
         entries.removeFirst()
         do {
             baselineShoppingList = try await fetchShoppingList()
@@ -490,6 +518,10 @@ public final class ShoppingMutationCoordinator {
     private func reprojectVisibleState() {
         guard let visible = projectedState(from: baselineShoppingList, applying: entries.map(\.plan)) else { return }
         recordShoppingList(visible)
+    }
+
+    private func isCurrent(_ entry: Entry) -> Bool {
+        entry.scopeEpoch == scopeEpoch && entries.first?.generation == entry.generation
     }
 
     private func projectedState(
