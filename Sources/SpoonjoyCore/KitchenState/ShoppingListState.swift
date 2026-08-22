@@ -36,6 +36,10 @@ public struct ShoppingListItem: Codable, Equatable, Sendable {
     public let sortIndex: Int
     public let updatedAt: String
 
+    public var isEffectivelyChecked: Bool {
+        checked || checkedAt != nil
+    }
+
     public var displayQuantity: String {
         guard let quantity else {
             return unit ?? ""
@@ -193,11 +197,11 @@ public struct ShoppingListState: Codable, Equatable, Sendable {
     }
 
     public var activeItems: [ShoppingListItem] {
-        receiptItems.filter { !$0.checked && $0.checkedAt == nil }
+        receiptItems.filter { !$0.isEffectivelyChecked }
     }
 
     public var completedItems: [ShoppingListItem] {
-        receiptItems.filter { $0.checked || $0.checkedAt != nil }
+        receiptItems.filter(\.isEffectivelyChecked)
     }
 
     public var duplicateItemIDs: [String] {

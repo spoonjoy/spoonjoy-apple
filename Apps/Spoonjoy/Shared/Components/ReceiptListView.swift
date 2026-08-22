@@ -2,16 +2,19 @@ import SpoonjoyCore
 import SwiftUI
 
 struct ReceiptListView: View {
-    let sections: [ShoppingListReceiptSection]
+    let sections: [ShoppingPresentationSection]
+    let pendingItemIDs: Set<String>
     let setChecked: (ShoppingListItem, Bool) -> Void
     let deleteItem: (ShoppingListItem) -> Void
 
     init(
-        sections: [ShoppingListReceiptSection],
+        sections: [ShoppingPresentationSection],
+        pendingItemIDs: Set<String> = [],
         setChecked: @escaping (ShoppingListItem, Bool) -> Void,
         deleteItem: @escaping (ShoppingListItem) -> Void = { _ in }
     ) {
         self.sections = sections
+        self.pendingItemIDs = pendingItemIDs
         self.setChecked = setChecked
         self.deleteItem = deleteItem
     }
@@ -20,38 +23,23 @@ struct ReceiptListView: View {
         List {
             ForEach(sections, id: \.id) { section in
                 Section {
-                    ForEach(section.items, id: \.id) { item in
-                        let isDuplicateReview = section.duplicateItemIDs.contains(item.id)
-                        HStack(spacing: 8) {
-                            Toggle(isOn: checkedBinding(for: item)) {
-                                ShoppingReceiptRow(
-                                    item: item,
-                                    sourceLine: sourceLine(for: section, item: item),
-                                    duplicateCountLabel: duplicateCountLabel(for: item, in: section)
-                                )
-                            }
-                            .toggleStyle(.largeCheck)
-
-                            if isDuplicateReview {
-                                Button(role: .destructive) {
-                                    deleteItem(item)
-                                } label: {
-                                    Image(systemName: "trash")
-                                        .frame(width: 44, height: 44)
-                                }
-                                .buttonStyle(.borderless)
-                                .accessibilityLabel("Remove duplicate \(item.name)")
-                                .help("Remove duplicate")
-                            }
+                    ForEach(section.items) { presentationItem in
+                        let item = presentationItem.item
+                        Toggle(isOn: checkedBinding(for: item)) {
+                            ShoppingReceiptRow(
+                                item: presentationItem,
+                                isPending: pendingItemIDs.contains(item.id)
+                            )
                         }
+                        .toggleStyle(.largeCheck)
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(KitchenTableTheme.bone)
-                        .accessibilityHint(
-                            isDuplicateReview
-                                ? "Review this duplicate, then remove it or check it off."
-                                : "Double tap to check off this item."
-                        )
+                        .accessibilityHint(item.isEffectivelyChecked ? "Double tap to move this item back to Need." : "Double tap to move this item to Basket.")
+                        .accessibilityIdentifier(pendingItemIDs.contains(item.id)
+                            ? "shopping.item.\(item.id).pending"
+                            : "shopping.item.\(item.id)")
+                        .disabled(pendingItemIDs.contains(item.id))
                         .modifier(ReceiptDeleteSwipeModifier {
                             deleteItem(item)
                         })
@@ -68,9 +56,7 @@ struct ReceiptListView: View {
                         .tracking(1.6)
                         .foregroundStyle(KitchenTableTheme.brass)
                         .padding(.top, 8)
-                        .accessibilityLabel(
-                            section.role == .duplicateReview ? "Duplicates to review" : section.title
-                        )
+                        .accessibilityLabel(section.title)
                 }
             }
         }
@@ -82,8 +68,13 @@ struct ReceiptListView: View {
 
     private func checkedBinding(for item: ShoppingListItem) -> Binding<Bool> {
         Binding(
-            get: { item.checked },
-            set: { checked in setChecked(item, checked) }
+            get: { item.isEffectivelyChecked },
+            set: { checked in
+                setChecked(item, checked)
+                AccessibilityNotification.Announcement(
+                    checked ? "Moved \(item.name) to Basket." : "Moved \(item.name) to Need."
+                ).post()
+            }
         )
     }
 
@@ -94,58 +85,33 @@ struct ReceiptListView: View {
         return min(max(estimated, 260), 680)
     }
 
-    private func sourceLine(for section: ShoppingListReceiptSection, item: ShoppingListItem) -> String? {
-        if section.role == .duplicateReview {
-            return categoryLine(for: item.categoryKey)
-        }
-
-        return section.title == "Other" ? nil : section.title
-    }
-
-    private func duplicateCountLabel(for item: ShoppingListItem, in section: ShoppingListReceiptSection) -> String? {
-        section.duplicateItemIDs.contains(item.id) ? "Review duplicate" : nil
-    }
-
-    private func categoryLine(for categoryKey: String?) -> String? {
-        guard let categoryKey, !categoryKey.isEmpty else {
-            return nil
-        }
-
-        return categoryKey
-            .split(separator: "-")
-            .map { word in word.prefix(1).uppercased() + word.dropFirst() }
-            .joined(separator: " ")
-    }
 }
 
 private struct ShoppingReceiptRow: View {
-    let item: ShoppingListItem
-    let sourceLine: String?
-    let duplicateCountLabel: String?
+    let item: ShoppingPresentationItem
+    let isPending: Bool
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
-            Image(systemName: symbol(for: item))
+            Image(systemName: symbol(for: item.iconKey))
                 .font(.body.weight(.semibold))
                 .foregroundStyle(KitchenTableTheme.brass)
                 .frame(width: 24)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.name)
+                Text(item.item.name)
                     .font(KitchenTableTheme.objectTitle)
                     .foregroundStyle(KitchenTableTheme.charcoal)
+                    .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.inkMuted)
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
-                    if !item.displayQuantity.isEmpty {
-                        Text(item.displayQuantity)
+                    if !item.item.displayQuantity.isEmpty {
+                        Text(item.item.displayQuantity)
                     }
-                    if let sourceLine {
-                        Text(sourceLine)
-                    }
-                    if let duplicateCountLabel {
-                        Text(duplicateCountLabel)
+                    if item.item.isEffectivelyChecked {
+                        Text("already in basket")
                     }
                 }
                 .font(KitchenTableTheme.uiLabel)
@@ -153,31 +119,44 @@ private struct ShoppingReceiptRow: View {
                 .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isPending {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Saving \(item.item.name)")
+            }
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityText(for: item))
+        .accessibilityLabel(accessibilityText(for: item.item))
     }
 
-    private func symbol(for item: ShoppingListItem) -> String {
-        switch item.iconKey {
-        case "lemon":
-            "circle.lefthalf.filled"
-        case "pasta":
-            "fork.knife"
-        case "cheese":
-            "square.stack.3d.down.forward"
-        case "herb":
+    private func symbol(for iconKey: String) -> String {
+        switch iconKey {
+        case "leaf":
             "leaf"
+        case "carrot":
+            "carrot"
+        case "citrus", "apple":
+            "apple.logo"
+        case "drumstick", "beef", "fish", "egg":
+            "fork.knife"
+        case "milk":
+            "fork.knife"
+        case "wheat", "sandwich":
+            "takeoutbag.and.cup.and.straw"
+        case "droplets":
+            "drop"
+        case "pot":
+            "flame"
         default:
-            "cart"
+            "shippingbox"
         }
     }
 
     private func accessibilityText(for item: ShoppingListItem) -> String {
         let quantity = item.displayQuantity.isEmpty ? "" : ", \(item.displayQuantity)"
-        let source = sourceLine.map { ", \($0)" } ?? ""
-        let duplicate = duplicateCountLabel.map { ", \($0)" } ?? ""
-        return "\(item.name)\(quantity)\(source)\(duplicate)"
+        let basket = item.isEffectivelyChecked ? ", already in basket" : ""
+        return "\(item.name)\(quantity)\(basket)"
     }
 }
 

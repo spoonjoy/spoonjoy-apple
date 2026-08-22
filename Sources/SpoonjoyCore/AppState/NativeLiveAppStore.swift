@@ -1119,6 +1119,17 @@ public struct NativeShellContentState {
         )
     }
 
+#if DEBUG
+    public static func debugShoppingFixture(_ shoppingList: ShoppingListState) -> NativeShellContentState {
+        empty(
+            authSessionState: .signedOut,
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        ).copy(shoppingList: shoppingList)
+    }
+#endif
+
     static func restored(
         cacheSnapshot: NativeDurableCacheSnapshot,
         syncSnapshot: NativeSyncSnapshot,
@@ -1764,11 +1775,29 @@ public struct NativeShellContentState {
 public final class NativeLiveAppStore: ObservableObject {
     @Published public private(set) var bootstrapState: NativeAppBootstrapState
     @Published public private(set) var restoredRoute: AppRoute?
+    @Published public private(set) var shoppingMutationFeedback: ShoppingMutationFeedback?
 
     private let dependencies: NativeLiveAppStoreDependencies
     private var configuration: APIClientConfiguration
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
+    private lazy var shoppingMutationCoordinator = ShoppingMutationCoordinator(
+        persistAlreadyAppliedBatch: { [unowned self] mutations in
+            try await self.persistAlreadyAppliedShoppingBatch(mutations)
+        },
+        executeRemote: { [unowned self] request in
+            try await self.executeShoppingMutationRequest(request)
+        },
+        fetchShoppingList: { [unowned self] in
+            return try await self.fetchShoppingListForReconciliation()
+        },
+        recordShoppingList: { [weak self] shoppingList in
+            self?.recordShoppingList(shoppingList)
+        },
+        recordFeedback: { [weak self] feedback in
+            self?.shoppingMutationFeedback = feedback
+        }
+    )
 
     public var authSessionRepository: NativeAuthSessionRepository {
         dependencies.authSessionRepository
@@ -1800,6 +1829,7 @@ public final class NativeLiveAppStore: ObservableObject {
         )
         self.currentContentState = initialContent
         self.bootstrapState = .restoringCache(initialContent)
+        self.shoppingMutationFeedback = nil
     }
 
     public func bootstrap() async {
@@ -1875,6 +1905,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func switchEnvironment(_ environment: NativeCacheEnvironment) async {
+        shoppingMutationCoordinator.resetScope()
         cacheEnvironment = environment
         configuration = APIClientConfiguration(baseURL: configuration.baseURL, bearerToken: configuration.bearerToken)
         let authSessionState = currentContentState.authSessionState
@@ -2006,6 +2037,40 @@ public final class NativeLiveAppStore: ObservableObject {
 
     public func queueMutation(_ mutation: NativeQueuedMutation) async throws {
         try await queueMutations([mutation])
+    }
+
+    public func performShoppingMutation(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
+        try await shoppingMutationCoordinator.submit(plan)
+    }
+
+    public func retryShoppingMutationRecovery() async throws -> ShoppingSurfaceMutationOutcome {
+        try await shoppingMutationCoordinator.retryCurrentRecovery()
+    }
+
+    private func persistAlreadyAppliedShoppingBatch(_ mutations: [NativeQueuedMutation]) async throws {
+        let scopedQueue = try await queueForCurrentScope()
+        let nextQueue = try scopedQueue.queue.appending(contentsOf: mutations)
+        for mutation in mutations {
+            try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
+        }
+        try await dependencies.syncStore.saveQueue(
+            nextQueue,
+            accountID: scopedQueue.accountID,
+            environment: scopedQueue.environment,
+            upsertingCachedRecords: try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList),
+            deletingCachedRecordKeys: []
+        )
+        let indicator = OfflineIndicatorState(
+            display: .queuedWork(
+                count: nextQueue.mutations.count,
+                oldestClientMutationID: nextQueue.mutations.first?.clientMutationID
+            ),
+            dismissal: nil
+        )
+        apply(.queuedWork(currentContentState.copy(
+            queuedMutations: nextQueue.mutations,
+            offlineIndicatorState: indicator
+        )))
     }
 
     @discardableResult
@@ -2164,6 +2229,36 @@ public final class NativeLiveAppStore: ObservableObject {
         await bootstrap()
     }
 
+    private func executeShoppingMutationRequest(_ request: APIRequestBuilder) async throws {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+        _ = try await transport.send(request, configuration: configuration, decode: JSONValue.self)
+    }
+
+    private func fetchShoppingListForReconciliation() async throws -> ShoppingListState {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        return try await LiveShoppingSurfaceRepository(
+            transport: dependencies.recipeEditorAPITransport(refresher),
+            configuration: configuration
+        ).fetchShoppingList()
+    }
+
     public func executeSettingsActionRequest(
         _ request: APIRequestBuilder,
         responseHandling: SettingsActionResponseHandling
@@ -2226,6 +2321,7 @@ public final class NativeLiveAppStore: ObservableObject {
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
         case .logout, .revokeAndLogout:
+            shoppingMutationCoordinator.resetScope()
             let currentAccountID = accountID
             let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
             let makePurgePlan = ShoppingEntityIndexPurgePlan.accountScopePurge(accountID:environment:shoppingItemIDs:)

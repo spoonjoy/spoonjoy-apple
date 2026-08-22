@@ -6,6 +6,7 @@ require "English"
 require "fileutils"
 require "optparse"
 require "pathname"
+require_relative "shopping-visual-matrix"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 
@@ -314,7 +315,8 @@ def repo_generated_artifact_root?(path)
   path.start_with?("apple/") ||
     path.start_with?("tasks/") ||
     path.start_with?("codex-native/tasks/") ||
-    path.start_with?("slugger/tasks/")
+    path.start_with?("slugger/tasks/") ||
+    path.start_with?("worker/tasks/")
 end
 
 def durable_markdown?(path)
@@ -335,6 +337,14 @@ def allowed_image_fixture?(path)
 end
 
 def allowed_repo_hygiene_path?(path)
+  if path == ShoppingVisualMatrix::CANONICAL_RELATIVE_PATH
+    begin
+      ShoppingVisualMatrix.load!(ROOT.join(path), repository_root: ROOT)
+      return true
+    rescue ShoppingVisualMatrix::ValidationError
+      return false
+    end
+  end
   durable_markdown?(path) ||
     path.end_with?("/.gitkeep") ||
     allowed_app_asset?(path) ||
@@ -348,6 +358,8 @@ def generated_hygiene_category(path)
 
   basename = File.basename(path)
   extension = File.extname(path).downcase
+  return "tracked unvalidated YAML" if [".yaml", ".yml"].include?(extension)
+  return "tracked worker task artifact" if path.start_with?("worker/tasks/")
   return "tracked environment backup" if basename.match?(/env-backup|\.env|backup|bak|moved-aside/i) || extension == ".env"
   return "tracked validation log" if extension == ".log"
   return "tracked generated JSON" if [".json", ".jsonl"].include?(extension)

@@ -4,6 +4,13 @@ set -euo pipefail
 artifact_root="${SPOONJOY_NATIVE_ARTIFACT_ROOT:-artifacts/apple/native-screenshots}"
 unit_slug="capture-native-screenshots"
 requested_route=""
+capture_platform="all"
+requested_shopping_variant=""
+requested_shopping_mode="all"
+requested_shopping_category="all"
+requested_dynamic_type="default"
+requested_ios_orientation="portrait"
+requested_macos_window="900x620"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --artifact-root)
@@ -18,12 +25,49 @@ while [[ $# -gt 0 ]]; do
       requested_route="$2"
       shift 2
       ;;
+    --capture-platform)
+      capture_platform="$2"
+      shift 2
+      ;;
+    --shopping-variant)
+      requested_shopping_variant="$2"
+      shift 2
+      ;;
+    --shopping-mode)
+      requested_shopping_mode="$2"
+      shift 2
+      ;;
+    --shopping-category)
+      requested_shopping_category="$2"
+      shift 2
+      ;;
+    --dynamic-type)
+      requested_dynamic_type="$2"
+      shift 2
+      ;;
+    --ios-orientation)
+      requested_ios_orientation="$2"
+      shift 2
+      ;;
+    --macos-window)
+      requested_macos_window="$2"
+      shift 2
+      ;;
     *)
       printf 'Unknown argument: %s\n' "$1" >&2
       exit 2
       ;;
   esac
 done
+
+case "$capture_platform" in all|iphone|ipad|macos) ;; *) printf 'Unsupported capture platform: %s\n' "$capture_platform" >&2; exit 2 ;; esac
+case "$requested_shopping_variant" in ""|normal|empty|all-complete|pending|row-error|offline-queued|conflict|duplicate) ;; *) printf 'Unsupported shopping variant: %s\n' "$requested_shopping_variant" >&2; exit 2 ;; esac
+case "$requested_shopping_mode" in need|basket|all) ;; *) printf 'Unsupported shopping mode: %s\n' "$requested_shopping_mode" >&2; exit 2 ;; esac
+case "$requested_dynamic_type" in default|accessibility5) ;; *) printf 'Unsupported dynamic type: %s\n' "$requested_dynamic_type" >&2; exit 2 ;; esac
+case "$requested_ios_orientation" in portrait|landscape) ;; *) printf 'Unsupported iOS orientation: %s\n' "$requested_ios_orientation" >&2; exit 2 ;; esac
+if [[ "$capture_platform" != "all" ]]; then
+  requested_route="shopping-list"
+fi
 
 apple_dir="$artifact_root/apple"
 mkdir -p "$artifact_root/screenshots" "$apple_dir"
@@ -78,6 +122,9 @@ settings_capture_variant="profile"
 settings_apns_permission_state=""
 settings_apns_registration_state=""
 screenshot_auth_enabled="1"
+if [[ -n "$requested_shopping_variant" ]]; then
+  shopping_capture_variant="$requested_shopping_variant"
+fi
 expected_accessibility_source=""
 if [[ -n "$requested_route" ]]; then
   screenshot_route="$requested_route"
@@ -653,7 +700,33 @@ write_app_state() {
                         ]
                       }
                     end
-    if route == "shopping-list" && shopping_variant == "all-complete" && shopping_list
+    if route == "shopping-list" && shopping_variant == "normal" && shopping_list
+      visual_items = [
+        ["item_tomatoes", "heirloom tomatoes for summer salad", 4, "each", false, "produce", "carrot"],
+        ["item_basil", "fresh basil", 1, "bunch", false, "produce", "leaf"],
+        ["item_salmon", "salmon fillets", 2, "each", false, "protein", "fish"],
+        ["item_eggs", "large brown eggs", 12, "each", true, "protein", "egg"],
+        ["item_sourdough", "crusty sourdough loaf", 1, "loaf", false, "bakery", "sandwich"],
+        ["item_paprika", "smoked paprika", 1, "jar", false, "spices", "pot"],
+        ["item_cumin", "whole cumin seeds", 1, "jar", true, "spices", "pot"],
+        ["item_peas", "frozen peas", 16, "oz", true, "frozen", nil],
+        ["item_parchment", "recycled parchment paper sheets", 1, "box", false, "other", nil]
+      ]
+      retained = shopping_list.fetch("items").reject { |item| item["deletedAt"] }
+      retained = retained.map do |item|
+        checked = item.fetch("id") == "item_parmesan"
+        item.merge("checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:00.000Z" : nil)
+      end
+      additions = visual_items.each_with_index.map do |(id, name, quantity, unit, checked, category, icon), index|
+        {
+          "id" => id, "name" => name, "quantity" => quantity, "unit" => unit,
+          "checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:#{format("%02d", index + 1)}.000Z" : nil,
+          "deletedAt" => nil, "categoryKey" => category, "iconKey" => icon,
+          "sortIndex" => retained.length + index, "updatedAt" => "2026-06-16T12:06:#{format("%02d", index + 1)}.000Z"
+        }
+      end
+      shopping_list["items"] = retained + additions
+    elsif route == "shopping-list" && shopping_variant == "all-complete" && shopping_list
       shopping_list["items"] = shopping_list.fetch("items").each_with_index.map do |item, index|
         item.merge(
           "checked" => true,
@@ -871,7 +944,33 @@ write_sync_store() {
                    ]
                  }
                end
-    if shopping_variant == "all-complete"
+    if shopping_variant == "normal"
+      visual_items = [
+        ["item_tomatoes", "heirloom tomatoes for summer salad", 4, "each", false, "produce", "carrot"],
+        ["item_basil", "fresh basil", 1, "bunch", false, "produce", "leaf"],
+        ["item_salmon", "salmon fillets", 2, "each", false, "protein", "fish"],
+        ["item_eggs", "large brown eggs", 12, "each", true, "protein", "egg"],
+        ["item_sourdough", "crusty sourdough loaf", 1, "loaf", false, "bakery", "sandwich"],
+        ["item_paprika", "smoked paprika", 1, "jar", false, "spices", "pot"],
+        ["item_cumin", "whole cumin seeds", 1, "jar", true, "spices", "pot"],
+        ["item_peas", "frozen peas", 16, "oz", true, "frozen", nil],
+        ["item_parchment", "recycled parchment paper sheets", 1, "box", false, "other", nil]
+      ]
+      retained = shopping.fetch("items").reject { |item| item["deletedAt"] }
+      retained = retained.map do |item|
+        checked = item.fetch("id") == "item_parmesan"
+        item.merge("checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:00.000Z" : nil)
+      end
+      additions = visual_items.each_with_index.map do |(id, name, quantity, unit, checked, category, icon), index|
+        {
+          "id" => id, "name" => name, "quantity" => quantity, "unit" => unit,
+          "checked" => checked, "checkedAt" => checked ? "2026-06-16T12:07:#{format("%02d", index + 1)}.000Z" : nil,
+          "deletedAt" => nil, "categoryKey" => category, "iconKey" => icon,
+          "sortIndex" => retained.length + index, "updatedAt" => "2026-06-16T12:06:#{format("%02d", index + 1)}.000Z"
+        }
+      end
+      shopping["items"] = retained + additions
+    elsif shopping_variant == "all-complete"
       shopping["items"] = shopping.fetch("items").each_with_index.map do |item, index|
         item.merge(
           "checked" => true,
@@ -1189,6 +1288,9 @@ ios_launch_app() {
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE="$settings_apns_permission_state" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE="$settings_apns_registration_state" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_VARIANT="$shopping_capture_variant" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_MODE="$requested_shopping_mode" \
+      SIMCTL_CHILD_SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY="$requested_shopping_category" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SIMCTL_CHILD_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
@@ -1208,6 +1310,9 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE="$settings_apns_permission_state" \
       SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE="$settings_apns_registration_state" \
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
+      SPOONJOY_SCREENSHOT_SHOPPING_VARIANT="$shopping_capture_variant" \
+      SPOONJOY_SCREENSHOT_SHOPPING_MODE="$requested_shopping_mode" \
+      SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY="$requested_shopping_category" \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
@@ -1231,6 +1336,9 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE \
       SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE \
       SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID \
+      SPOONJOY_SCREENSHOT_SHOPPING_VARIANT \
+      SPOONJOY_SCREENSHOT_SHOPPING_MODE \
+      SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY \
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
@@ -1254,6 +1362,9 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE "$settings_apns_permission_state"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE "$settings_apns_registration_state"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID "$shopping_conflict_launch_client_mutation_id"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_VARIANT "$shopping_capture_variant"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_MODE "$requested_shopping_mode"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY "$requested_shopping_category"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
@@ -1293,6 +1404,9 @@ clear_macos_launch_environment() {
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_VARIANT >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_MODE >/dev/null 2>&1 || true
+  launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_PROOF_PATH >/dev/null 2>&1 || true
   launchctl asuser "$uid" launchctl unsetenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH >/dev/null 2>&1 || true
@@ -1824,6 +1938,14 @@ capture_ios_app() {
     printf 'Recovered simulator boot before capture: %s\n' "$udid" >> "$capture_log"
   fi
   rm -f "$bootstatus_log"
+  if [[ "$requested_dynamic_type" == "accessibility5" ]]; then
+    xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large >> "$capture_log" 2>&1
+  else
+    xcrun simctl ui "$udid" content_size large >> "$capture_log" 2>&1
+  fi
+  if [[ "$expected_platform" == "ipad" ]]; then
+    set_simulator_orientation "$udid" "$requested_ios_orientation" || return 1
+  fi
   if ! data_container="$(resolve_ios_data_container "$udid")"; then
     printf 'unable to resolve simulator app data container for app.spoonjoy on %s\n' "$udid" >> "$capture_log"
     return 1
@@ -1869,6 +1991,9 @@ capture_ios_app() {
     return 1
   fi
   xcrun simctl io "$udid" screenshot "$screenshot_output" >> "$capture_log" 2>&1
+  if [[ "$expected_platform" == "ipad" && "$requested_ios_orientation" == "landscape" ]]; then
+    sips -r 90 "$screenshot_output" >> "$capture_log" 2>&1
+  fi
   if ! wait_for_ios_foreground "$udid"; then
     printf 'Spoonjoy stopped being the front display during screenshot capture\n' >> "$capture_log"
     rm -f "$screenshot_output"
@@ -1876,6 +2001,42 @@ capture_ios_app() {
   fi
   [[ -f "$screenshot_output" && -s "$screenshot_output" ]]
   validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1
+}
+
+set_simulator_orientation() {
+  local udid="$1"
+  local orientation="$2"
+  local device_name
+  device_name="$(xcrun simctl list devices | ruby -e '
+    udid = ARGV.fetch(0)
+    line = STDIN.each_line.find { |candidate| candidate.include?("(#{udid})") }
+    abort("simulator not found") unless line
+    puts line.strip.sub(/\s*\([^()]+\)\s*\([^()]+\)\s*$/, "")
+  ' "$udid")"
+  local menu_orientation="Portrait"
+  if [[ "$orientation" == "landscape" ]]; then
+    menu_orientation="Landscape Right"
+  fi
+  osascript - "$device_name" "$menu_orientation" <<'APPLESCRIPT' >> "$capture_log" 2>&1
+on run argv
+  set targetDevice to item 1 of argv
+  set targetOrientation to item 2 of argv
+  tell application "Simulator" to activate
+  tell application "System Events"
+    tell process "Simulator"
+      repeat with candidate in menu items of menu "Window" of menu bar 1
+        if name of candidate starts with targetDevice then
+          click candidate
+          exit repeat
+        end if
+      end repeat
+      delay 0.5
+      click menu item targetOrientation of menu 1 of menu item "Orientation" of menu "Device" of menu bar 1
+    end tell
+  end tell
+end run
+APPLESCRIPT
+  sleep 1
 }
 
 capture_ios_app_with_retries() {
@@ -1917,6 +2078,10 @@ capture_macos_window() {
   if [[ -z "$window_id" ]]; then
     return 1
   fi
+  local requested_width="${requested_macos_window%x*}"
+  local requested_height="${requested_macos_window#*x}"
+  osascript -e "tell application \"System Events\" to tell process \"Spoonjoy\" to set size of front window to {$requested_width, $requested_height}" >> "$capture_log" 2>&1 || true
+  sleep 0.5
   screencapture -x -l "$window_id" "$macos_screenshot" >> "$capture_log" 2>&1
   [[ -f "$macos_screenshot" && -s "$macos_screenshot" ]]
 }
@@ -2018,15 +2183,17 @@ rm -f "$design_review_blocked"
 rm -f "$design_review"
 rm -f "$xcode_blocker" "$ios_blocker" "$ipad_blocker" "$macos_blocker"
 
-run_ios_smoke "iPhone simulator" "iphone" "$ios_smoke_log" "$ios_blocker"
-if [[ ! -f "$xcode_blocker" ]]; then
+if [[ "$capture_platform" == "all" || "$capture_platform" == "iphone" ]]; then
+  run_ios_smoke "iPhone simulator" "iphone" "$ios_smoke_log" "$ios_blocker"
+fi
+if [[ ! -f "$xcode_blocker" && ( "$capture_platform" == "all" || "$capture_platform" == "ipad" ) ]]; then
   run_ios_smoke "iPad simulator" "ipad" "$ipad_smoke_log" "$ipad_blocker"
 fi
-if [[ ! -f "$xcode_blocker" ]]; then
+if [[ ! -f "$xcode_blocker" && ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) ]]; then
   run_smoke "macOS launch" "$macos_smoke_log" "$macos_blocker" scripts/smoke-macos.sh
 fi
 
-if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
+if [[ ( "$capture_platform" == "all" || "$capture_platform" == "iphone" ) && ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
   ios_udid="$(ios_udid_from_smoke_log "$ios_smoke_log" || true)"
   if [[ -z "$ios_udid" ]] || ! capture_ios_app_with_retries "$ios_udid" "ios" "$ios_screenshot" "$ios_proof_artifact" "$accessibility_proof_ios_abs"; then
     write_blocker \
@@ -2039,7 +2206,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$ios_blocker" ]]; then
   fi
 fi
 
-if [[ ! -f "$xcode_blocker" && ! -f "$ipad_blocker" ]]; then
+if [[ ( "$capture_platform" == "all" || "$capture_platform" == "ipad" ) && ! -f "$xcode_blocker" && ! -f "$ipad_blocker" ]]; then
   ipad_udid="$(ios_udid_from_smoke_log "$ipad_smoke_log" || true)"
   if [[ -z "$ipad_udid" ]] || ! capture_ios_app_with_retries "$ipad_udid" "ipad" "$ios_tablet_screenshot" "$ipad_proof_artifact" "$accessibility_proof_ipad_abs"; then
     write_blocker \
@@ -2052,7 +2219,7 @@ if [[ ! -f "$xcode_blocker" && ! -f "$ipad_blocker" ]]; then
   fi
 fi
 
-if [[ ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
+if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f "$xcode_blocker" && ! -f "$macos_blocker" ]]; then
   state_had_backup=false
   mkdir -p "$(dirname "$state_file")"
   if [[ -f "$state_file" ]]; then
@@ -2315,16 +2482,33 @@ elif [[ -f "$ipad_blocker" ]]; then
 elif [[ -f "$macos_blocker" ]]; then
   write_design_review_blocked "$macos_blocker"
 else
-  if [[ ! -s "$ios_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$macos_screenshot" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS screenshots\n' >&2
-    exit 1
+  if [[ "$capture_platform" == "all" ]]; then
+    if [[ ! -s "$ios_screenshot" || ! -s "$ios_tablet_screenshot" || ! -s "$macos_screenshot" ]]; then
+      printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS screenshots\n' >&2
+      exit 1
+    fi
+    if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_ipad_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
+      printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS accessibility proofs\n' >&2
+      exit 1
+    fi
+    write_design_review_success
+    rm -f "$design_review_blocked"
+  else
+    selected_screenshot="$ios_screenshot"
+    selected_proof="$accessibility_proof_ios_abs"
+    if [[ "$capture_platform" == "ipad" ]]; then
+      selected_screenshot="$ios_tablet_screenshot"
+      selected_proof="$accessibility_proof_ipad_abs"
+    elif [[ "$capture_platform" == "macos" ]]; then
+      selected_screenshot="$macos_screenshot"
+      selected_proof="$accessibility_proof_macos_abs"
+    fi
+    if [[ ! -s "$selected_screenshot" || ! -s "$selected_proof" ]]; then
+      printf 'Selected-platform screenshot capture produced incomplete evidence for %s\n' "$capture_platform" >&2
+      exit 1
+    fi
+    cp "$capture_log" "$matrix_log"
   fi
-  if [[ ! -s "$accessibility_proof_ios_abs" || ! -s "$accessibility_proof_ipad_abs" || ! -s "$accessibility_proof_macos_abs" ]]; then
-    printf 'Screenshot capture produced no blocker but did not produce iPhone, iPad, and macOS accessibility proofs\n' >&2
-    exit 1
-  fi
-  write_design_review_success
-  rm -f "$design_review_blocked"
 fi
 
 if [[ -f "$design_review_blocked" && -f "$design_review" ]]; then
@@ -2335,7 +2519,9 @@ fi
 if [[ -f "$design_review_blocked" ]]; then
   ruby scripts/validate-design-review-blocker.rb "$design_review_blocked" --artifact-root "$artifact_root" --unit-slug "$unit_slug"
   printf 'native screenshot capture blocked: %s\n' "$design_review_blocked"
-else
+elif [[ "$capture_platform" == "all" ]]; then
   ruby scripts/validate-design-review.rb "$design_review"
   printf 'native screenshot capture complete: %s\n' "$design_review"
+else
+  printf 'native selected-platform screenshot capture complete: %s\n' "$capture_platform"
 fi

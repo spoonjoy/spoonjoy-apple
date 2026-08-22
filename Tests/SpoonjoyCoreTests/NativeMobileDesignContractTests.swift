@@ -172,8 +172,8 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("shopping duplicates become a review section and completion uses the success role")
-    func shoppingDuplicatesBecomeAReviewSectionAndCompletionUsesTheSuccessRole() throws {
+    @Test("shopping uses web-parity market controls and keeps its composer reachable")
+    func shoppingUsesMarketControlsAndKeepsComposerReachable() throws {
         let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let receipt = uncommentedSwift(try readRepoFile(receiptPath))
@@ -183,14 +183,15 @@ struct NativeMobileDesignContractTests {
             receipt,
             in: receiptPath,
             contains: [
-                "Duplicates to review",
-                "duplicateItemIDs",
-                "Review duplicate",
-                "Remove duplicate",
+                "ShoppingPresentationSection",
+                "already in basket",
                 ".contextMenu",
                 "ReceiptDeleteSwipeModifier {"
             ],
             forbids: [
+                "Duplicates to review",
+                "duplicateItemIDs",
+                "Review duplicate",
                 "return matchCount > 1 ? \"\\(matchCount) on receipt\" : nil",
                 "isEnabled: !isDuplicateReview"
             ]
@@ -199,7 +200,15 @@ struct NativeMobileDesignContractTests {
             shopping,
             in: shoppingPath,
             contains: [
+                "@State private var viewMode: ShoppingListViewMode = .all",
+                "shoppingModeStrip",
+                "shoppingCategoryFilters",
+                "shoppingReceiptComposer",
+                "viewModel.presentation(mode: viewMode, activeCategory: activeCategory)",
                 "state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass"
+            ],
+            forbids: [
+                "if viewModel.shoppingReceiptState == nil {\n                shoppingReceiptComposer"
             ]
         )
     }
@@ -1199,8 +1208,8 @@ struct NativeMobileDesignContractTests {
         )
     }
 
-    @Test("shopping workflow is an authored receipt, not a generic form and toggle stack")
-    func shoppingWorkflowIsAuthoredReceiptNotGenericFormAndToggleStack() throws {
+    @Test("shopping workflow is an authored market receipt, not a generic form and toggle stack")
+    func shoppingWorkflowIsAuthoredMarketReceiptNotGenericFormAndToggleStack() throws {
         let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
         let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
         let viewModelPath = "Sources/SpoonjoyCore/Features/Shopping/ShoppingSurfaceViewModel.swift"
@@ -1242,8 +1251,8 @@ struct NativeMobileDesignContractTests {
                 "List {",
                 "Section {",
                 "private struct ShoppingReceiptRow",
-                "sourceLine",
-                "duplicateCountLabel",
+                "ShoppingPresentationSection",
+                "already in basket",
                 ".accessibilityHint",
                 ".toggleStyle(.largeCheck)",
                 ".swipeActions"
@@ -1280,7 +1289,8 @@ struct NativeMobileDesignContractTests {
                 "\"List {\"",
                 "\"Section {\"",
                 "\"ShoppingReceiptRow\"",
-                "\"shoppingReceiptState\""
+                "\"shoppingModeStrip\"",
+                "\"shoppingCategoryFilters\""
             ],
             forbids: [
                 "\"List\", \"Section\""
@@ -1310,6 +1320,38 @@ struct NativeMobileDesignContractTests {
             ],
             forbids: [
                 "\"voiceOverLabels\" => [\"Shopping\", \"Kitchen\", \"List Actions\", \"Add\", \"Clear checked\"]"
+            ]
+        )
+    }
+
+    @Test("shopping mutations expose localized pending retry recipe and accessibility behavior")
+    func shoppingMutationFeedbackIsLocalizedAndAccessible() throws {
+        let shoppingPath = "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift"
+        let receiptPath = "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift"
+        let shopping = uncommentedSwift(try readRepoFile(shoppingPath))
+        let receipt = uncommentedSwift(try readRepoFile(receiptPath))
+
+        expectContent(
+            shopping,
+            in: shoppingPath,
+            contains: [
+                "@State private var pendingItemIDs: Set<String>",
+                "shoppingMutationFeedback: ShoppingMutationFeedback?",
+                "Button(\"Retry\"",
+                "@FocusState private var isRetryButtonFocused: Bool",
+                "if hasRecipes",
+                "Label(\"Create a recipe\", systemImage: \"square.and.pencil\")"
+            ]
+        )
+
+        expectContent(
+            receipt,
+            in: receiptPath,
+            contains: [
+                "pendingItemIDs: Set<String>",
+                "ProgressView()",
+                "AccessibilityNotification.Announcement",
+                "isEffectivelyChecked"
             ]
         )
     }

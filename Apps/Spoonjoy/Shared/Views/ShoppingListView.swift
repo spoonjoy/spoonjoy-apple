@@ -10,33 +10,68 @@ struct ShoppingListView: View {
     @State private var actionStatusMessage: String?
     @State private var actionErrorMessage: String?
     @State private var activeConfirmationDialog: ShoppingConfirmationDialog?
+    @State private var pendingItemIDs: Set<String> = []
+    @State private var lastFailedAction: ShoppingSurfaceAction?
+    @State private var viewMode: ShoppingListViewMode = .all
+    @State private var activeCategory = "all"
     @FocusState private var isItemFieldFocused: Bool
+    @FocusState private var isRetryButtonFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     private let viewModel: ShoppingSurfaceViewModel
     private let actionDidPlan: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    private let shoppingMutationFeedback: ShoppingMutationFeedback?
+    private let retryShoppingMutationRecovery: @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome
+    private let hasRecipes: Bool
     private let openSearch: () -> Void
+    private let createRecipe: () -> Void
     private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     init(
         viewModel: ShoppingSurfaceViewModel,
-        actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
-        openSearch: @escaping () -> Void = {},
-        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
+        actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
+        shoppingMutationFeedback: ShoppingMutationFeedback?,
+        retryShoppingMutationRecovery: @escaping @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome,
+        hasRecipes: Bool,
+        openSearch: @escaping () -> Void,
+        createRecipe: @escaping () -> Void,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void
     ) {
+        let screenshotEnvironment = ProcessInfo.processInfo.environment
+        let initialMode: ShoppingListViewMode
+        if let rawMode = screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_MODE"],
+           let configuredMode = ShoppingListViewMode(rawValue: rawMode) {
+            initialMode = configuredMode
+        } else {
+            initialMode = .all
+        }
+        let initialCategory: String
+        if let configuredCategory = screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY"] {
+            initialCategory = configuredCategory
+        } else {
+            initialCategory = "all"
+        }
+        let initialPendingItemIDs: Set<String> = screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"] == "pending" ? ["item_lemons"] : []
         self.viewModel = viewModel
-        self.actionDidPlan = actionDidPlan
-        self.openSearch = openSearch
+        (_viewMode, _activeCategory, _pendingItemIDs) = (
+            State(initialValue: initialMode),
+            State(initialValue: initialCategory),
+            State(initialValue: initialPendingItemIDs)
+        )
+        (self.actionDidPlan, self.shoppingMutationFeedback, self.retryShoppingMutationRecovery) = (
+            actionDidPlan, shoppingMutationFeedback, retryShoppingMutationRecovery
+        )
+        (self.hasRecipes, self.openSearch, self.createRecipe) = (hasRecipes, openSearch, createRecipe)
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
 
     var body: some View {
         KitchenTablePage(maxContentWidth: 760) {
             shoppingRunHeader
-            if viewModel.shoppingReceiptState == nil {
-                shoppingReceiptComposer
-            }
+            shoppingReceiptComposer
+            shoppingModeStrip
+            shoppingCategoryFilters
             statusBanner
             shoppingReceiptState
         }
@@ -140,16 +175,23 @@ struct ShoppingListView: View {
                 clearAll()
             }
         } label: {
-            Label("Receipt actions", systemImage: "ellipsis.circle")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .padding(.horizontal, 12)
-                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                .background(KitchenTableTheme.paper, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            Group {
+                if isAccessibilityLayout {
+                    Image(systemName: "ellipsis.circle")
+                        .accessibilityLabel("Receipt actions")
+                } else {
+                    Label("Receipt actions", systemImage: "ellipsis.circle")
                 }
+            }
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .padding(.horizontal, 12)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .background(KitchenTableTheme.paper, in: Capsule())
+            .overlay {
+                Capsule()
+                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+            }
         }
         .buttonStyle(.plain)
     }
@@ -158,13 +200,108 @@ struct ShoppingListView: View {
         viewModel.shoppingList
     }
 
+    private var shoppingPresentation: ShoppingPresentationModel? {
+        viewModel.presentation(mode: viewMode, activeCategory: activeCategory)
+    }
+
+    @ViewBuilder private var shoppingModeStrip: some View {
+        if let presentation = shoppingPresentation {
+            if isAccessibilityLayout {
+                Menu {
+                    ForEach(presentation.modeOptions, id: \.mode) { option in
+                        Button(option.label) {
+                            viewMode = option.mode
+                            activeCategory = "all"
+                        }
+                    }
+                } label: {
+                    Label(selectedModeLabel(in: presentation), systemImage: "line.3.horizontal.decrease.circle")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityLabel("Shopping view, \(selectedModeLabel(in: presentation)) selected")
+            } else {
+                HStack(spacing: 0) {
+                    ForEach(presentation.modeOptions, id: \.mode) { option in
+                        Button {
+                            viewMode = option.mode
+                            activeCategory = "all"
+                        } label: {
+                            Text(option.label)
+                                .font(KitchenTableTheme.uiLabel)
+                                .textCase(.uppercase)
+                                .tracking(1.2)
+                                .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+                                .foregroundStyle(viewMode == option.mode ? KitchenTableTheme.paper : KitchenTableTheme.inkMuted)
+                                .background(viewMode == option.mode ? KitchenTableTheme.charcoal : Color.clear)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(viewMode == option.mode ? .isSelected : [])
+                    }
+                }
+                .overlay(alignment: .top) { Divider() }
+                .overlay(alignment: .bottom) { Divider() }
+                .accessibilityElement(children: .contain)
+                .accessibilityLabel("Shopping view")
+            }
+        }
+    }
+
+    @ViewBuilder private var shoppingCategoryFilters: some View {
+        if let presentation = shoppingPresentation {
+            if isAccessibilityLayout {
+                Menu {
+                    ForEach(presentation.categoryOptions, id: \.self) { category in
+                        Button(categoryLabel(category)) {
+                            activeCategory = category
+                        }
+                    }
+                } label: {
+                    Label(categoryLabel(presentation.activeCategory), systemImage: "basket")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityLabel("Aisle filter, \(categoryLabel(presentation.activeCategory)) selected")
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(presentation.categoryOptions, id: \.self) { category in
+                            let isSelected = presentation.activeCategory == category
+                            Button {
+                                activeCategory = category
+                            } label: {
+                                Text(categoryLabel(category))
+                                    .font(KitchenTableTheme.uiLabel)
+                                    .padding(.horizontal, 14)
+                                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                                    .foregroundStyle(isSelected ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
+                                    .background(isSelected ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
+                                    .overlay {
+                                        Capsule().strokeBorder(KitchenTableTheme.line.opacity(0.6), lineWidth: isSelected ? 0 : 1)
+                                    }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(isSelected ? .isSelected : [])
+                        }
+                    }
+                }
+                .accessibilityLabel("Aisle filter")
+            }
+        }
+    }
+
     private var shoppingReceiptComposer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+            if isAccessibilityLayout {
                 itemNameField
-                compactAddItemButton
+                addItemButton
+            } else {
+                HStack(spacing: 8) {
+                    itemNameField
+                    compactAddItemButton
+                }
             }
-            addFromRecipeButton
+            recipeActionButton
         }
     }
 
@@ -244,8 +381,59 @@ struct ShoppingListView: View {
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
     }
 
+    private var createRecipeButton: some View {
+        Button(action: createRecipe) {
+            Label("Create a recipe", systemImage: "square.and.pencil")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+    }
+
+    @ViewBuilder private var recipeActionButton: some View {
+        if isAccessibilityLayout && hasRecipes {
+            Button(action: openSearch) {
+                Label("Recipes", systemImage: "book")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .accessibilityLabel("Add from recipe")
+        } else if isAccessibilityLayout {
+            Button(action: createRecipe) {
+                Label("New recipe", systemImage: "square.and.pencil")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .accessibilityLabel("Create a recipe")
+        } else if hasRecipes {
+            addFromRecipeButton
+        } else {
+            createRecipeButton
+        }
+    }
+
+    private var isAccessibilityLayout: Bool {
+        dynamicTypeSize.isAccessibilitySize
+    }
+
+    private func selectedModeLabel(in presentation: ShoppingPresentationModel) -> String {
+        presentation.modeOptions.first { $0.mode == viewMode }!.label
+    }
+
+    private func categoryLabel(_ category: String) -> String {
+        category == "all" ? "All aisles" : category
+    }
+
     @ViewBuilder private var shoppingReceiptState: some View {
-        if let receiptState = viewModel.shoppingReceiptState {
+        if let presentation = shoppingPresentation, let emptyTitle = presentation.emptyTitle {
+            shoppingMarketEmptyState(
+                title: emptyTitle,
+                message: presentation.emptyMessage!
+            )
+        } else if let presentation = shoppingPresentation {
+            ReceiptListView(
+                sections: presentation.sections,
+                pendingItemIDs: pendingItemIDs,
+                setChecked: settingChecked,
+                deleteItem: deleteItem
+            )
+        } else if let receiptState = viewModel.shoppingReceiptState {
             ShoppingReceiptStateView(
                 state: receiptState,
                 primaryAction: {
@@ -255,15 +443,25 @@ struct ShoppingListView: View {
                         focusAddItem()
                     }
                 },
-                addFromRecipeAction: openSearch
-            )
-        } else {
-            ReceiptListView(
-                sections: viewModel.sections,
-                setChecked: settingChecked,
-                deleteItem: deleteItem
+                recipeActionTitle: hasRecipes ? "Add from recipe" : "Create a recipe",
+                addFromRecipeAction: hasRecipes ? openSearch : createRecipe
             )
         }
+    }
+
+    private func shoppingMarketEmptyState(title: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text(message)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+        }
+        .padding(.vertical, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { Divider() }
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -282,9 +480,16 @@ struct ShoppingListView: View {
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.herb)
             } else if let visibleActionErrorMessage {
-                Label(visibleActionErrorMessage, systemImage: "exclamationmark.triangle")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.tomato)
+                HStack(alignment: .center, spacing: 10) {
+                    Label(visibleActionErrorMessage, systemImage: "exclamationmark.triangle")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                    Spacer(minLength: 8)
+                    Button("Retry", action: retryFailedAction)
+                        .font(KitchenTableTheme.uiLabel.weight(.semibold))
+                        .focused($isRetryButtonFocused)
+                        .accessibilityHint("Retries only the failed shopping action.")
+                }
             }
         }
     }
@@ -294,7 +499,30 @@ struct ShoppingListView: View {
     }
 
     private var visibleActionErrorMessage: String? {
-        actionErrorMessage ?? addItemForm.actionErrorMessage
+        effectiveShoppingMutationFeedback?.message ?? actionErrorMessage ?? addItemForm.actionErrorMessage
+    }
+
+    private var effectiveShoppingMutationFeedback: ShoppingMutationFeedback? {
+        if let shoppingMutationFeedback {
+            return shoppingMutationFeedback
+        }
+#if DEBUG
+        guard ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"] == "row-error" else {
+            return nil
+        }
+        return ShoppingMutationFeedback(
+            identity: ShoppingSurfaceMutationIdentity(
+                kind: .setItemChecked,
+                clientMutationID: "screenshot-row-error",
+                itemID: "item_lemons"
+            ),
+            state: .failed,
+            message: "Couldn't update lemons. Try again.",
+            retryIntent: .resubmitWithNewID(nil)
+        )
+#else
+        return nil
+#endif
     }
 
     private func focusAddItem() {
@@ -320,7 +548,7 @@ struct ShoppingListView: View {
             itemID: item.id,
             checked: checked,
             clientMutationID: clientMutationID(prefix: checked ? "shopping-check" : "shopping-uncheck")
-        ))
+        ), pendingItemID: item.id)
     }
 
     private func deleteItem(_ item: ShoppingListItem) {
@@ -328,7 +556,7 @@ struct ShoppingListView: View {
             itemID: item.id,
             clientMutationID: clientMutationID(prefix: "shopping-delete"),
             confirmation: .required
-        ))
+        ), pendingItemID: item.id)
     }
 
     private func clearCompleted() {
@@ -345,13 +573,33 @@ struct ShoppingListView: View {
         ))
     }
 
-    private func runAction(_ action: ShoppingSurfaceAction) {
+    private func runAction(
+        _ action: ShoppingSurfaceAction,
+        pendingItemID: String? = nil,
+        clearsFailedActionOnSuccess: Bool = false
+    ) {
         Task {
-            await perform(action)
+            await perform(
+                action,
+                pendingItemID: pendingItemID,
+                clearsFailedActionOnSuccess: clearsFailedActionOnSuccess
+            )
         }
     }
 
-    @MainActor private func perform(_ action: ShoppingSurfaceAction) async {
+    @MainActor private func perform(
+        _ action: ShoppingSurfaceAction,
+        pendingItemID: String? = nil,
+        clearsFailedActionOnSuccess: Bool = false
+    ) async {
+        if let pendingItemID {
+            pendingItemIDs.insert(pendingItemID)
+        }
+        defer {
+            if let pendingItemID {
+                pendingItemIDs.remove(pendingItemID)
+            }
+        }
         do {
             let plan = try viewModel.plan(action)
             if let prompt = plan.confirmationPrompt {
@@ -367,15 +615,62 @@ struct ShoppingListView: View {
                 return
             }
             let outcome = try await actionDidPlan(plan)
-            actionStatusMessage = outcome == .queuedForSync ? "Saved for sync" : "Shopping list updated"
+            switch outcome {
+            case .queuedForSync:
+                actionStatusMessage = "Saved for sync"
+            case .recovering:
+                actionStatusMessage = "Confirming shopping change…"
+            case .synced:
+                actionStatusMessage = "Shopping list updated"
+            }
             actionErrorMessage = nil
+            if clearsFailedActionOnSuccess {
+                lastFailedAction = nil
+            }
             addItemForm.actionStatusMessage = nil
             addItemForm.actionErrorMessage = nil
         } catch {
             actionErrorMessage = "Shopping action failed."
             actionStatusMessage = nil
+            lastFailedAction = action
+            isRetryButtonFocused = true
             addItemForm.actionStatusMessage = nil
             addItemForm.actionErrorMessage = nil
+        }
+    }
+
+    private func retryFailedAction() {
+        if let lastFailedAction {
+            runAction(resubmittedAction(lastFailedAction), clearsFailedActionOnSuccess: true)
+            return
+        }
+        Task { @MainActor in
+            do {
+                let outcome = try await retryShoppingMutationRecovery()
+                actionStatusMessage = outcome == .queuedForSync ? "Saved for sync" : "Shopping list updated"
+                actionErrorMessage = nil
+                isRetryButtonFocused = false
+            } catch {
+                actionErrorMessage = "Shopping action failed."
+                isRetryButtonFocused = true
+            }
+        }
+    }
+
+    private func resubmittedAction(_ action: ShoppingSurfaceAction) -> ShoppingSurfaceAction {
+        switch action {
+        case .addItem(let name, let quantity, let unit, let categoryKey, let iconKey, _):
+            .addItem(name: name, quantity: quantity, unit: unit, categoryKey: categoryKey, iconKey: iconKey, clientMutationID: clientMutationID(prefix: "shopping-add-retry"))
+        case .setItemChecked(let itemID, let checked, _):
+            .setItemChecked(itemID: itemID, checked: checked, clientMutationID: clientMutationID(prefix: "shopping-check-retry"))
+        case .deleteItem(let itemID, _, let confirmation):
+            .deleteItem(itemID: itemID, clientMutationID: clientMutationID(prefix: "shopping-delete-retry"), confirmation: confirmation)
+        case .addRecipeIngredients(let recipeID, let scaleFactor, let recipeIngredients, _):
+            .addRecipeIngredients(recipeID: recipeID, scaleFactor: scaleFactor, recipeIngredients: recipeIngredients, clientMutationID: clientMutationID(prefix: "shopping-recipe-retry"))
+        case .clearCompleted(_, let confirmation):
+            .clearCompleted(clientMutationID: clientMutationID(prefix: "shopping-clear-completed-retry"), confirmation: confirmation)
+        case .clearAll(_, let confirmation):
+            .clearAll(clientMutationID: clientMutationID(prefix: "shopping-clear-all-retry"), confirmation: confirmation)
         }
     }
 
@@ -398,15 +693,27 @@ struct ShoppingListView: View {
 }
 
 private struct ShoppingConfirmationDialog: Identifiable {
-    let id = UUID()
+    let id: UUID
     let prompt: ShoppingActionConfirmationPrompt
     let confirmedAction: ShoppingSurfaceAction
+
+    init(prompt: ShoppingActionConfirmationPrompt, confirmedAction: ShoppingSurfaceAction) {
+        self.id = UUID()
+        self.prompt = prompt
+        self.confirmedAction = confirmedAction
+    }
 }
 
 private struct ShoppingReceiptStateView: View {
     let state: ShoppingReceiptState
     let primaryAction: () -> Void
+    let recipeActionTitle: String
     let addFromRecipeAction: () -> Void
+
+    init(state: ShoppingReceiptState, primaryAction: @escaping () -> Void, recipeActionTitle: String, addFromRecipeAction: @escaping () -> Void) {
+        (self.state, self.primaryAction) = (state, primaryAction)
+        (self.recipeActionTitle, self.addFromRecipeAction) = (recipeActionTitle, addFromRecipeAction)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -434,7 +741,7 @@ private struct ShoppingReceiptStateView: View {
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
 
                 Button(action: addFromRecipeAction) {
-                    Label("Add from recipe", systemImage: "book")
+                    Label(recipeActionTitle, systemImage: recipeActionTitle == "Add from recipe" ? "book" : "square.and.pencil")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             }

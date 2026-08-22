@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "fileutils"
+require "digest"
 require "optparse"
 require "pathname"
 require "bundler/setup"
@@ -11,8 +12,10 @@ ROOT = Pathname.new(__dir__).join("..").expand_path
 PROJECT_NAME = "Spoonjoy"
 IOS_SCHEME_NAME = "Spoonjoy iOS"
 MAC_SCHEME_NAME = "Spoonjoy macOS"
+UI_TEST_TARGET_NAME = "SpoonjoyShoppingUITests"
 IOS_BUNDLE_ID = "app.spoonjoy"
 MAC_BUNDLE_ID = "app.spoonjoy.mac"
+UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
 INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
 ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
@@ -31,6 +34,7 @@ end
 SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/Shared").freeze
 IOS_SWIFT = swift_sources_under("Apps/Spoonjoy/iOS").freeze
 MAC_SWIFT = swift_sources_under("Apps/Spoonjoy/macOS").freeze
+UI_TEST_SWIFT = swift_sources_under("Apps/Spoonjoy/UITests").freeze
 
 options = {
   output_dir: nil
@@ -135,6 +139,7 @@ end
 
 ios_target = project.new_target(:application, "#{PROJECT_NAME} iOS", :ios, "26.5")
 mac_target = project.new_target(:application, "#{PROJECT_NAME} macOS", :osx, "26.2")
+ui_test_target = project.new_target(:ui_test_bundle, UI_TEST_TARGET_NAME, :ios, "26.5")
 ios_target.frameworks_build_phase.files.clear
 mac_target.frameworks_build_phase.files.clear
 project.files
@@ -152,6 +157,18 @@ apply_common_settings(
     "BootstrapDebug" => "26.5"
   }
 )
+
+CONFIGURATIONS.each do |configuration|
+  build_configuration = ui_test_target.build_configuration_list[configuration]
+  build_configuration.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = UI_TEST_BUNDLE_ID
+  build_configuration.build_settings["PRODUCT_NAME"] = "$(TARGET_NAME)"
+  build_configuration.build_settings["SWIFT_VERSION"] = "6.0"
+  build_configuration.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+  build_configuration.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+  build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "YES"
+  build_configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "26.5"
+  build_configuration.build_settings["TEST_TARGET_NAME"] = "#{PROJECT_NAME} iOS"
+end
 
 apply_common_settings(
   mac_target,
@@ -172,18 +189,38 @@ add_resources(project, ios_target, [ASSET_CATALOG])
 add_resources(project, mac_target, [ASSET_CATALOG])
 add_package_product(project, ios_target, "SpoonjoyCore")
 add_package_product(project, mac_target, "SpoonjoyCore")
+add_sources(project, ui_test_target, UI_TEST_SWIFT)
+ui_test_target.add_dependency(ios_target)
+ui_test_dependency = ui_test_target.dependencies[0]
+ui_test_dependency_proxy = ui_test_dependency.target_proxy
 
 project.sort
 project.predictabilize_uuids
 
-def save_app_scheme(project_path, scheme_name, target)
+def assign_stable_uuid(project, object, key)
+  previous_uuid = object.uuid
+  stable_uuid = Digest::MD5.hexdigest("Spoonjoy/#{key}").upcase
+  project.objects_by_uuid.delete(previous_uuid)
+  object.instance_variable_set(:@uuid, stable_uuid)
+  project.objects_by_uuid[stable_uuid] = object
+end
+
+# xcodeproj's UUID walker cannot traverse the proxy UUID attributes created by
+# PBXTargetDependency, so stabilize these two generated objects explicitly.
+assign_stable_uuid(project, ui_test_dependency_proxy, "SpoonjoyShoppingUITests/app-proxy")
+assign_stable_uuid(project, ui_test_dependency, "SpoonjoyShoppingUITests/app-dependency")
+ui_test_dependency.target_proxy = ui_test_dependency_proxy
+
+def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme = Xcodeproj::XCScheme.new
   scheme.add_build_target(target)
   scheme.set_launch_target(target)
+  test_targets.each { |test_target| scheme.add_test_target(test_target) }
+  scheme.test_action.build_configuration = "BootstrapDebug" unless test_targets.empty?
   scheme.save_as(project_path, scheme_name, true)
 end
 
-save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target)
+save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target])
 save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
 
 project.save

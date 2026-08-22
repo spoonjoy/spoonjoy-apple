@@ -2,10 +2,15 @@
 set -euo pipefail
 
 artifact_root="${SPOONJOY_NATIVE_ARTIFACT_ROOT:-artifacts/apple/native-local}"
+screenshot_batch_size="${SPOONJOY_SCREENSHOT_MATRIX_BATCH_SIZE:-5}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --artifact-root)
       artifact_root="$2"
+      shift 2
+      ;;
+    --screenshot-batch-size)
+      screenshot_batch_size="$2"
       shift 2
       ;;
     *)
@@ -15,7 +20,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if ! [[ "$screenshot_batch_size" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'Screenshot batch size must be a positive integer: %s\n' "$screenshot_batch_size" >&2
+  exit 2
+fi
+
 apple_dir="$artifact_root/apple"
+validation_build_dir="$artifact_root/validation-builds"
+validation_ios_app="$validation_build_dir/AppBundles/iOS/Spoonjoy.app"
+validation_macos_app="$validation_build_dir/AppBundles/macOS/Spoonjoy.app"
 mkdir -p "$artifact_root" "$apple_dir"
 matrix_path="$apple_dir/validation-matrix.json"
 results_path="$apple_dir/validation-matrix.jsonl"
@@ -211,9 +224,11 @@ write_xcode_screenshot_blocker() {
       "sourceBlockerPath" => screenshot_path,
       "skippedArtifacts" => [
         "screenshots/ios-mobile.png",
+        "screenshots/ios-tablet.png",
         "screenshots/macos-desktop.png",
         "design-review.json",
         "apple/matrix-accessibility-proof-ios.json",
+        "apple/matrix-accessibility-proof-ipad.json",
         "apple/matrix-accessibility-proof-macos.json"
       ],
       "reason" => screenshot_blocker.fetch("reason"),
@@ -222,8 +237,8 @@ write_xcode_screenshot_blocker() {
     File.write(design_review_blocked_path, JSON.pretty_generate(design_review_blocked) + "\n")
   ' "$source_blocker" "$screenshot_blocker" "$design_review_blocked"
   rm -f "$artifact_root/design-review.json"
-  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/macos-desktop.png"
-  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
+  rm -f "$artifact_root/screenshots/ios-mobile.png" "$artifact_root/screenshots/ios-tablet.png" "$artifact_root/screenshots/macos-desktop.png"
+  rm -f "$artifact_root/apple/matrix-accessibility-proof-ios.json" "$artifact_root/apple/matrix-accessibility-proof-ipad.json" "$artifact_root/apple/matrix-accessibility-proof-macos.json"
 }
 
 run_required() {
@@ -237,6 +252,34 @@ run_required() {
     record_step "$name" "fail" "$command" "$output_path" "true"
     return 1
   fi
+}
+
+run_screenshot_matrix_batched() {
+  local batch_size="$screenshot_batch_size"
+  local resume_matrix=0
+  while true; do
+    set +e
+    if [[ "$resume_matrix" == "1" ]]; then
+      scripts/capture-native-screenshot-matrix.sh \
+        --artifact-root "$artifact_root" \
+        --unit-slug "matrix" \
+        --batch-size "$batch_size" \
+        --resume
+    else
+      scripts/capture-native-screenshot-matrix.sh \
+        --artifact-root "$artifact_root" \
+        --unit-slug "matrix" \
+        --batch-size "$batch_size"
+    fi
+    local status=$?
+    set -e
+    if [[ "$status" -eq 75 ]]; then
+      resume_matrix=1
+      continue
+    fi
+    rm -rf "$validation_build_dir/DerivedData-iOS" "$validation_build_dir/DerivedData-macOS"
+    return "$status"
+  done
 }
 
 run_script_with_blocker_policy() {
@@ -328,12 +371,18 @@ run_script_with_blocker_policy \
   --blocker "$apple_dir/matrix-xcode-platform-blocker.json" \
   --timeout-seconds 180 \
   -- \
-  xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
+  xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "generic/platform=iOS Simulator" -derivedDataPath "$validation_build_dir/DerivedData-iOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
 
 if [[ -f "$apple_dir/matrix-xcode-platform-blocker.json" ]]; then
   printf 'macOS app bundle skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-xcodebuild-macos.log"
   record_step "macOS app bundle" "blocked" "skipped after iOS XcodePlatform blocker" "$apple_dir/matrix-xcodebuild-macos.log" "true" "$apple_dir/matrix-xcode-platform-blocker.json"
 else
+  if [[ -d "$validation_build_dir/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app" ]]; then
+    mkdir -p "$(dirname "$validation_ios_app")"
+    rm -rf "$validation_ios_app"
+    ditto "$validation_build_dir/DerivedData-iOS/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app" "$validation_ios_app"
+    rm -rf "$validation_build_dir/DerivedData-iOS"
+  fi
   run_script_with_blocker_policy \
     "macOS app bundle" \
     "$apple_dir/matrix-xcodebuild-macos.log" \
@@ -344,10 +393,17 @@ else
     --blocker "$apple_dir/matrix-xcode-platform-blocker.json" \
     --timeout-seconds 180 \
     -- \
-    xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
+    xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination "generic/platform=macOS" -derivedDataPath "$validation_build_dir/DerivedData-macOS" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build || overall_status=1
+  if [[ ! -f "$apple_dir/matrix-xcode-platform-blocker.json" && -d "$validation_build_dir/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app" ]]; then
+    mkdir -p "$(dirname "$validation_macos_app")"
+    rm -rf "$validation_macos_app"
+    ditto "$validation_build_dir/DerivedData-macOS/Build/Products/BootstrapDebug/Spoonjoy.app" "$validation_macos_app"
+    rm -rf "$validation_build_dir/DerivedData-macOS"
+  fi
 fi
 
 if [[ -f "$apple_dir/matrix-xcode-platform-blocker.json" ]]; then
+  rm -rf "$validation_build_dir"
   write_xcode_screenshot_blocker "$apple_dir/matrix-xcode-platform-blocker.json"
   printf 'macOS launch smoke skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-smoke-macos.log"
   printf 'macOS launch smoke inner skipped because shared XcodePlatform blocker already exists\n' > "$apple_dir/matrix-smoke-macos-inner.log"
@@ -359,9 +415,11 @@ if [[ -f "$apple_dir/matrix-xcode-platform-blocker.json" ]]; then
   record_step "screenshots and design review" "blocked" "skipped after XcodePlatform blocker" "$apple_dir/matrix-capture.log" "true" "$apple_dir/matrix-screenshots-xcode-platform-blocker.json"
   run_required "design review validation" "$apple_dir/matrix-design-review.log" ruby scripts/validate-design-review-blocker.rb "$artifact_root/design-review-blocked.json" --artifact-root "$artifact_root" --unit-slug "matrix" || overall_status=1
 else
+  export SPOONJOY_SCREENSHOT_IOS_APP_PATH="$validation_ios_app"
+  export SPOONJOY_SCREENSHOT_MACOS_APP_PATH="$validation_macos_app"
   run_script_with_blocker_policy "macOS launch smoke" "$apple_dir/matrix-smoke-macos.log" "$apple_dir/matrix-smoke-macos-blocker.json" "MacOSLaunch" scripts/smoke-macos.sh --artifact-root "$artifact_root" --log "$apple_dir/matrix-smoke-macos-inner.log" --blocker "$apple_dir/matrix-smoke-macos-blocker.json" || overall_status=1
   run_script_with_blocker_policy "iOS simulator smoke" "$apple_dir/matrix-smoke-ios.log" "$apple_dir/matrix-smoke-ios-simulator-blocker.json" "CoreSimulator" scripts/smoke-ios-simulator.sh --artifact-root "$artifact_root" --log "$apple_dir/matrix-smoke-ios-inner.log" --blocker "$apple_dir/matrix-smoke-ios-simulator-blocker.json" || overall_status=1
-  run_required "screenshots and design review" "$apple_dir/matrix-capture.log" scripts/capture-native-screenshot-matrix.sh --artifact-root "$artifact_root" --unit-slug "matrix" || overall_status=1
+  run_required "screenshots and design review" "$apple_dir/matrix-capture.log" run_screenshot_matrix_batched || overall_status=1
   if [[ -f "$artifact_root/design-review-blocked.json" && -f "$artifact_root/design-review.json" ]]; then
     printf 'conflicting design review success and blocker artifacts\n' > "$apple_dir/matrix-design-review.log"
     overall_status=1

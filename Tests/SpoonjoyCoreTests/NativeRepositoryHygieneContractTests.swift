@@ -3,6 +3,42 @@ import Testing
 
 @Suite("Native repository hygiene guard contract")
 struct NativeRepositoryHygieneContractTests {
+    @Test("worker task evidence is rejected except the validated canonical shopping matrix")
+    func workerTaskEvidenceRequiresCanonicalSafeMatrix() throws {
+        let canonicalMatrix = "worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair/shopping-visual-matrix.yaml"
+        try withRepositoryHygieneFixture(
+            trackedFiles: [
+                canonicalMatrix,
+                "worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair.md",
+                "worker/tasks/another-task/notes.md"
+            ],
+            changedFiles: [],
+            prBody: ""
+        ) { fixture in
+            let result = try runRepositoryHygieneAudit(fixture: fixture)
+            #expect(result.status == 0, Comment(rawValue: result.output))
+        }
+
+        for generatedPath in [
+            "worker/tasks/another-task/evidence.json",
+            "worker/tasks/another-task/capture.log",
+            "worker/tasks/another-task/screenshot.png",
+            "worker/tasks/another-task/validation.txt",
+            "worker/tasks/another-task/matrix.yml",
+            "worker/tasks/another-task/matrix.yaml"
+        ] {
+            try withRepositoryHygieneFixture(
+                trackedFiles: [generatedPath],
+                changedFiles: [],
+                prBody: ""
+            ) { fixture in
+                let result = try runRepositoryHygieneAudit(fixture: fixture)
+                #expect(result.status != 0, Comment(rawValue: "\(generatedPath): \(result.output)"))
+                #expect(result.output.contains(generatedPath), Comment(rawValue: result.output))
+            }
+        }
+    }
+
     @Test("audit rejects tracked generated validation evidence while preserving durable source")
     func auditRejectsTrackedGeneratedEvidenceWhilePreservingDurableSource() throws {
         try withRepositoryHygieneFixture(
