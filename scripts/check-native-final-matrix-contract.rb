@@ -2,6 +2,8 @@
 # frozen_string_literal: true
 
 require "pathname"
+require "open3"
+require "tmpdir"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 SCRIPT_PATH = ROOT.join("scripts/validate-native-local.sh")
@@ -63,6 +65,9 @@ REQUIRED_SOURCE_TOKENS = [
   'resume_matrix=1',
   '"$status" -eq 75',
   '--batch-size "$batch_size"',
+  'screenshot_batch_size="${SPOONJOY_SCREENSHOT_MATRIX_BATCH_SIZE:-5}"',
+  "--screenshot-batch-size",
+  "Screenshot batch size must be a positive integer",
   'run_required "native password dogfood"',
   "stale_noncanonical_blockers",
   'record_step "stale noncanonical blocker scan"',
@@ -107,6 +112,22 @@ end
 
 unless content.scan("scripts/run-xcodebuild-with-blocker.sh").size >= 2
   failures << "validate-native-local.sh must route both app-bundle builds through scripts/run-xcodebuild-with-blocker.sh"
+end
+
+if content.include?("--screenshot-batch-size") && content.include?("Screenshot batch size must be a positive integer")
+  Dir.mktmpdir("spoonjoy-native-final-matrix-contract") do |directory|
+    ["0", "not-a-number"].each do |invalid_batch_size|
+      stdout, stderr, status = Open3.capture3(
+        SCRIPT_PATH.to_s,
+        "--artifact-root", File.join(directory, invalid_batch_size),
+        "--screenshot-batch-size", invalid_batch_size,
+        chdir: ROOT.to_s
+      )
+      unless status.exitstatus == 2 && stderr.include?("Screenshot batch size must be a positive integer")
+        failures << "validate-native-local.sh must reject screenshot batch size #{invalid_batch_size.inspect} before validation; stdout=#{stdout.inspect} stderr=#{stderr.inspect} status=#{status.exitstatus.inspect}"
+      end
+    end
+  end
 end
 
 if failures.any?

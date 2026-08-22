@@ -2,10 +2,15 @@
 set -euo pipefail
 
 artifact_root="${SPOONJOY_NATIVE_ARTIFACT_ROOT:-artifacts/apple/native-local}"
+screenshot_batch_size="${SPOONJOY_SCREENSHOT_MATRIX_BATCH_SIZE:-5}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --artifact-root)
       artifact_root="$2"
+      shift 2
+      ;;
+    --screenshot-batch-size)
+      screenshot_batch_size="$2"
       shift 2
       ;;
     *)
@@ -14,6 +19,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+if ! [[ "$screenshot_batch_size" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'Screenshot batch size must be a positive integer: %s\n' "$screenshot_batch_size" >&2
+  exit 2
+fi
 
 apple_dir="$artifact_root/apple"
 validation_build_dir="$artifact_root/validation-builds"
@@ -245,7 +255,7 @@ run_required() {
 }
 
 run_screenshot_matrix_batched() {
-  local batch_size="${SPOONJOY_SCREENSHOT_MATRIX_BATCH_SIZE:-5}"
+  local batch_size="$screenshot_batch_size"
   local resume_matrix=0
   while true; do
     set +e
