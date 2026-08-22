@@ -5,7 +5,7 @@ import Testing
 struct ShoppingPresentationModelTests {
     @Test("starts in All and exposes Need Basket All counts")
     func startsInAllWithCounts() throws {
-        let state = try ShoppingListState.decodeFromBundle()
+        let state = try mixedState()
         let model = ShoppingPresentationModel(shoppingList: state)
 
         #expect(model.mode == .all)
@@ -15,7 +15,7 @@ struct ShoppingPresentationModelTests {
 
     @Test("modes retain checked rows in ordinary market categories")
     func modesAndOrdinaryCategories() throws {
-        let state = try ShoppingListState.decodeFromBundle()
+        let state = try mixedState()
         let need = ShoppingPresentationModel(shoppingList: state, mode: .need)
         let basket = ShoppingPresentationModel(shoppingList: state, mode: .basket)
 
@@ -81,6 +81,16 @@ struct ShoppingPresentationModelTests {
             items: items,
             nextCursor: state.nextCursor,
             updatedAt: state.updatedAt
+        )
+    }
+
+    private func mixedState() throws -> ShoppingListState {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        return replacingItems(
+            in: baseline,
+            with: baseline.receiptItems + [
+                item("basket-yogurt", "Yogurt", category: "dairy", checked: true, sort: 4)
+            ]
         )
     }
 

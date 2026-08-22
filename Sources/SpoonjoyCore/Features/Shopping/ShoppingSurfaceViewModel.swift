@@ -504,6 +504,19 @@ public struct ShoppingSurfaceViewModel {
         return "\(activeCount) active"
     }
 
+    public func presentation(
+        mode: ShoppingListViewMode = .all,
+        activeCategory: String = "all"
+    ) -> ShoppingPresentationModel? {
+        shoppingList.map {
+            ShoppingPresentationModel(
+                shoppingList: $0,
+                mode: mode,
+                activeCategory: activeCategory
+            )
+        }
+    }
+
     public var shoppingReceiptState: ShoppingReceiptState? {
         guard let shoppingList else {
             return emptyReceiptState
