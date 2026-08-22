@@ -184,6 +184,7 @@ public struct ShoppingSurfaceMutationPlan: Equatable {
 public enum ShoppingSurfaceMutationOutcome: Equatable, Sendable {
     case synced
     case queuedForSync
+    case recovering
 }
 
 public enum RecipeShoppingListCoverage {
@@ -267,48 +268,74 @@ public enum ShoppingSurfaceMutationExecutor {
 
 @MainActor
 public final class ShoppingMutationCoordinator {
-    public typealias PersistAlreadyApplied = @MainActor (NativeQueuedMutation) async throws -> Void
+    public typealias PersistAlreadyAppliedBatch = @MainActor ([NativeQueuedMutation]) async throws -> Void
     public typealias ExecuteRemote = @MainActor (APIRequestBuilder) async throws -> Void
     public typealias FetchShoppingList = @MainActor () async throws -> ShoppingListState
     public typealias RecordShoppingList = @MainActor (ShoppingListState) -> Void
+    public typealias RecordFeedback = @MainActor (ShoppingMutationFeedback?) -> Void
 
     private struct Entry {
         let plan: ShoppingSurfaceMutationPlan
+        let generation: UInt64
         let continuation: CheckedContinuation<ShoppingSurfaceMutationOutcome, Error>
     }
 
-    private let persistAlreadyApplied: PersistAlreadyApplied
+    private let persistAlreadyAppliedBatch: PersistAlreadyAppliedBatch
     private let executeRemote: ExecuteRemote
     private let fetchShoppingList: FetchShoppingList
     private let recordShoppingList: RecordShoppingList
+    private let recordFeedback: RecordFeedback
     private var entries: [Entry] = []
     private var isDraining = false
-    private var isPersistingAfterOfflineTransition = false
-    private var latestShoppingList: ShoppingListState?
+    private var baselineShoppingList: ShoppingListState?
+    private var nextGeneration: UInt64 = 0
+    private var pendingPersistenceBatch: [NativeQueuedMutation] = []
 
     public init(
-        persistAlreadyApplied: @escaping PersistAlreadyApplied,
+        persistAlreadyAppliedBatch: @escaping PersistAlreadyAppliedBatch,
         executeRemote: @escaping ExecuteRemote,
         fetchShoppingList: @escaping FetchShoppingList,
-        recordShoppingList: @escaping RecordShoppingList
+        recordShoppingList: @escaping RecordShoppingList,
+        recordFeedback: @escaping RecordFeedback = { _ in }
     ) {
-        self.persistAlreadyApplied = persistAlreadyApplied
+        self.persistAlreadyAppliedBatch = persistAlreadyAppliedBatch
         self.executeRemote = executeRemote
         self.fetchShoppingList = fetchShoppingList
         self.recordShoppingList = recordShoppingList
+        self.recordFeedback = recordFeedback
+    }
+
+    public convenience init(
+        persistAlreadyApplied: @escaping @MainActor (NativeQueuedMutation) async throws -> Void,
+        executeRemote: @escaping ExecuteRemote,
+        fetchShoppingList: @escaping FetchShoppingList,
+        recordShoppingList: @escaping RecordShoppingList,
+        recordFeedback: @escaping RecordFeedback = { _ in }
+    ) {
+        self.init(
+            persistAlreadyAppliedBatch: { batch in
+                for mutation in batch {
+                    try await persistAlreadyApplied(mutation)
+                }
+            },
+            executeRemote: executeRemote,
+            fetchShoppingList: fetchShoppingList,
+            recordShoppingList: recordShoppingList,
+            recordFeedback: recordFeedback
+        )
     }
 
     public func submit(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
         if let blockedReason = plan.blockedReason {
             throw ShoppingMutationCoordinatorError.blocked(blockedReason)
         }
-        if let updatedShoppingList = optimisticShoppingList(for: plan) {
-            latestShoppingList = updatedShoppingList
-            recordShoppingList(updatedShoppingList)
-        }
-
         return try await withCheckedThrowingContinuation { continuation in
-            entries.append(Entry(plan: plan, continuation: continuation))
+            if entries.isEmpty {
+                baselineShoppingList = plan.originalShoppingList
+            }
+            nextGeneration &+= 1
+            entries.append(Entry(plan: plan, generation: nextGeneration, continuation: continuation))
+            reprojectVisibleState()
             guard !isDraining else { return }
             isDraining = true
             Task { @MainActor [weak self] in
@@ -318,66 +345,167 @@ public final class ShoppingMutationCoordinator {
     }
 
     private func drain() async {
-        while let entry = entries.first {
-            await perform(entry)
-            entries.removeFirst()
+        while !entries.isEmpty {
+            await performFirstEntry()
         }
-        isPersistingAfterOfflineTransition = false
+        baselineShoppingList = nil
         isDraining = false
     }
 
-    private func perform(_ entry: Entry) async {
+    private func performFirstEntry() async {
+        guard let entry = entries.first else { return }
         let plan = entry.plan
+        if plan.queuedMutation != nil {
+            await persistQueuedPrefix()
+            return
+        }
+
+        guard let remoteRequest = plan.remoteRequestBuilder else {
+            entries.removeFirst()
+            commitPlanToBaseline(plan)
+            reprojectVisibleState()
+            entry.continuation.resume(returning: .synced)
+            return
+        }
+
         do {
-            if let queuedMutation = plan.queuedMutation {
-                isPersistingAfterOfflineTransition = true
-                try await persistAlreadyApplied(queuedMutation)
-                entry.continuation.resume(returning: .queuedForSync)
-                return
-            }
+            try await executeRemote(remoteRequest)
+        } catch let error as APITransportError where error.isOffline {
+            await persistOfflineRemainder(error: error)
+            return
+        } catch let error as APITransportError where Self.isIndeterminate(error) {
+            await recoverIndeterminate(entry, error: error)
+            return
+        } catch {
+            await rejectDefinite(entry, error: error)
+            return
+        }
 
-            if isPersistingAfterOfflineTransition, let fallback = plan.offlineFallbackMutation {
-                try await persistAlreadyApplied(fallback)
-                entry.continuation.resume(returning: .queuedForSync)
-                return
-            }
-
-            guard let remoteRequest = plan.remoteRequestBuilder else {
-                entry.continuation.resume(returning: .synced)
-                return
-            }
-
-            do {
-                try await executeRemote(remoteRequest)
-            } catch let error as APITransportError where error.isOffline {
-                guard let fallback = plan.offlineFallbackMutation else { throw error }
-                isPersistingAfterOfflineTransition = true
-                try await persistAlreadyApplied(fallback)
-                entry.continuation.resume(returning: .queuedForSync)
-                return
-            }
-
-            if let reconciled = try? await fetchShoppingList(), entries.count == 1 {
-                latestShoppingList = reconciled
-                recordShoppingList(reconciled)
-            }
+        entries.removeFirst()
+        do {
+            baselineShoppingList = try await fetchShoppingList()
+            reprojectVisibleState()
+            recordFeedback(nil)
             entry.continuation.resume(returning: .synced)
         } catch {
-            if entries.count == 1 {
-                if let original = plan.originalShoppingList {
-                    latestShoppingList = original
-                    recordShoppingList(original)
-                }
-            } else {
-                _ = try? await fetchShoppingList()
-            }
-            entry.continuation.resume(throwing: error)
+            commitPlanToBaseline(plan)
+            reprojectVisibleState()
+            recordFeedback(ShoppingMutationFeedback(
+                identity: plan.identity,
+                state: .recovering,
+                message: "Saved. Refresh the shopping list to confirm the latest server state.",
+                retryIntent: .reconcileOnly(plan.identity)
+            ))
+            entry.continuation.resume(returning: .recovering)
         }
     }
 
-    private func optimisticShoppingList(for plan: ShoppingSurfaceMutationPlan) -> ShoppingListState? {
-        guard let action = plan.action,
-              let baseline = latestShoppingList ?? plan.originalShoppingList else {
+    public func retryPendingPersistence() async throws -> ShoppingSurfaceMutationOutcome {
+        guard !pendingPersistenceBatch.isEmpty else { return .synced }
+        let batch = pendingPersistenceBatch
+        try await persistAlreadyAppliedBatch(batch)
+        pendingPersistenceBatch = []
+        recordFeedback(nil)
+        return .queuedForSync
+    }
+
+    private func persistQueuedPrefix() async {
+        let queuedEntries = entries.prefix { $0.plan.queuedMutation != nil }
+        let batch = queuedEntries.compactMap(\.plan.queuedMutation)
+        await persist(batch: batch, entryCount: queuedEntries.count)
+    }
+
+    private func persistOfflineRemainder(error: Error) async {
+        let batch = entries.compactMap { $0.plan.offlineFallbackMutation ?? $0.plan.queuedMutation }
+        guard batch.count == entries.count else {
+            await rejectDefinite(entries[0], error: error)
+            return
+        }
+        await persist(batch: batch, entryCount: entries.count)
+    }
+
+    private func persist(batch: [NativeQueuedMutation], entryCount: Int) async {
+        let persistedEntries = Array(entries.prefix(entryCount))
+        do {
+            try await persistAlreadyAppliedBatch(batch)
+            entries.removeFirst(entryCount)
+            baselineShoppingList = projectedState(from: baselineShoppingList, applying: persistedEntries.map(\.plan))
+            reprojectVisibleState()
+            recordFeedback(nil)
+            persistedEntries.forEach { $0.continuation.resume(returning: .queuedForSync) }
+        } catch {
+            pendingPersistenceBatch = batch
+            entries.removeFirst(entryCount)
+            baselineShoppingList = projectedState(from: baselineShoppingList, applying: persistedEntries.map(\.plan))
+            reprojectVisibleState()
+            recordFeedback(ShoppingMutationFeedback(
+                identity: persistedEntries.first?.plan.identity,
+                state: .failed,
+                message: "Couldn't save queued shopping changes. Try again.",
+                retryIntent: .persistAlreadyAppliedBatch(batch.map(\.clientMutationID))
+            ))
+            persistedEntries.forEach { $0.continuation.resume(throwing: error) }
+        }
+    }
+
+    private func rejectDefinite(_ entry: Entry, error: Error) async {
+        entries.removeFirst()
+        if !entries.isEmpty, let reconciled = try? await fetchShoppingList() {
+            baselineShoppingList = reconciled
+        }
+        reprojectVisibleState()
+        recordFeedback(ShoppingMutationFeedback(
+            identity: entry.plan.identity,
+            state: .failed,
+            message: "Couldn't update this shopping item. Try again.",
+            retryIntent: .resubmitWithNewID(entry.plan.identity)
+        ))
+        entry.continuation.resume(throwing: error)
+    }
+
+    private func recoverIndeterminate(_ entry: Entry, error: Error) async {
+        entries.removeFirst()
+        if let reconciled = try? await fetchShoppingList() {
+            baselineShoppingList = reconciled
+            reprojectVisibleState()
+            recordFeedback(nil)
+            entry.continuation.resume(returning: .synced)
+            return
+        }
+        commitPlanToBaseline(entry.plan)
+        reprojectVisibleState()
+        recordFeedback(ShoppingMutationFeedback(
+            identity: entry.plan.identity,
+            state: .recovering,
+            message: "Confirming this shopping change…",
+            retryIntent: .reconcileThenReplaySameID(entry.plan.identity)
+        ))
+        entry.continuation.resume(returning: .recovering)
+    }
+
+    private func commitPlanToBaseline(_ plan: ShoppingSurfaceMutationPlan) {
+        baselineShoppingList = projectedState(from: baselineShoppingList, applying: [plan])
+    }
+
+    private func reprojectVisibleState() {
+        guard let visible = projectedState(from: baselineShoppingList, applying: entries.map(\.plan)) else { return }
+        recordShoppingList(visible)
+    }
+
+    private func projectedState(
+        from baseline: ShoppingListState?,
+        applying plans: [ShoppingSurfaceMutationPlan]
+    ) -> ShoppingListState? {
+        plans.reduce(baseline) { partial, plan in
+            optimisticShoppingList(for: plan, baseline: partial) ?? partial
+        }
+    }
+
+    private func optimisticShoppingList(
+        for plan: ShoppingSurfaceMutationPlan,
+        baseline: ShoppingListState?
+    ) -> ShoppingListState? {
+        guard let action = plan.action, let baseline else {
             return plan.updatedShoppingList
         }
 
@@ -412,14 +540,68 @@ public final class ShoppingMutationCoordinator {
                 recipeIngredients: recipeIngredients,
                 clientMutationID: clientMutationID
             )
-        case .clearCompleted, .clearAll:
-            return plan.updatedShoppingList
+        case .clearCompleted:
+            return clearingItems(in: baseline, where: { $0.checked || $0.checkedAt != nil }, plan: plan)
+        case .clearAll:
+            return clearingItems(in: baseline, where: { $0.deletedAt == nil }, plan: plan)
         }
+    }
+
+    private func clearingItems(
+        in baseline: ShoppingListState,
+        where shouldClear: (ShoppingListItem) -> Bool,
+        plan: ShoppingSurfaceMutationPlan
+    ) -> ShoppingListState {
+        let deletedAt = plan.updatedShoppingList?.updatedAt ?? baseline.updatedAt
+        return ShoppingListState(
+            id: baseline.id,
+            chef: baseline.chef,
+            items: baseline.items.map { shouldClear($0) ? $0.removing(deletedAt: deletedAt) : $0 },
+            nextCursor: baseline.nextCursor,
+            updatedAt: deletedAt
+        )
+    }
+
+    private static func isIndeterminate(_ error: APITransportError) -> Bool {
+        if error.isCancelled { return true }
+        if case .retrySameRequest = error.retryDecision { return true }
+        return false
     }
 }
 
 public enum ShoppingMutationCoordinatorError: Error, Equatable, Sendable {
     case blocked(String)
+}
+
+public enum ShoppingMutationFeedbackState: Equatable, Sendable {
+    case recovering
+    case failed
+}
+
+public enum ShoppingMutationRetryIntent: Equatable, Sendable {
+    case resubmitWithNewID(ShoppingSurfaceMutationIdentity?)
+    case reconcileThenReplaySameID(ShoppingSurfaceMutationIdentity?)
+    case reconcileOnly(ShoppingSurfaceMutationIdentity?)
+    case persistAlreadyAppliedBatch([String])
+}
+
+public struct ShoppingMutationFeedback: Equatable, Sendable {
+    public let identity: ShoppingSurfaceMutationIdentity?
+    public let state: ShoppingMutationFeedbackState
+    public let message: String
+    public let retryIntent: ShoppingMutationRetryIntent
+
+    public init(
+        identity: ShoppingSurfaceMutationIdentity?,
+        state: ShoppingMutationFeedbackState,
+        message: String,
+        retryIntent: ShoppingMutationRetryIntent
+    ) {
+        self.identity = identity
+        self.state = state
+        self.message = message
+        self.retryIntent = retryIntent
+    }
 }
 
 public struct ShoppingAddItemFormState: Equatable, Sendable {

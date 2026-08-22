@@ -1770,9 +1770,9 @@ public final class NativeLiveAppStore: ObservableObject {
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
     private lazy var shoppingMutationCoordinator = ShoppingMutationCoordinator(
-        persistAlreadyApplied: { [weak self] mutation in
+        persistAlreadyAppliedBatch: { [weak self] mutations in
             guard let self else { return }
-            try await self.persistAlreadyAppliedShoppingMutation(mutation)
+            try await self.persistAlreadyAppliedShoppingBatch(mutations)
         },
         executeRemote: { [weak self] request in
             guard let self else { return }
@@ -2029,10 +2029,12 @@ public final class NativeLiveAppStore: ObservableObject {
         try await shoppingMutationCoordinator.submit(plan)
     }
 
-    private func persistAlreadyAppliedShoppingMutation(_ mutation: NativeQueuedMutation) async throws {
+    private func persistAlreadyAppliedShoppingBatch(_ mutations: [NativeQueuedMutation]) async throws {
         let scopedQueue = try await queueForCurrentScope()
-        let nextQueue = try scopedQueue.queue.appending(mutation)
-        try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
+        let nextQueue = try scopedQueue.queue.appending(contentsOf: mutations)
+        for mutation in mutations {
+            try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
+        }
         try await dependencies.syncStore.saveQueue(
             nextQueue,
             accountID: scopedQueue.accountID,

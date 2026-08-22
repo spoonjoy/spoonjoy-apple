@@ -148,7 +148,7 @@ struct ShoppingMutationCoordinatorTests {
             clientMutationID: "cm_confirmed_read_failed"
         ))
 
-        #expect(try await coordinator.submit(plan) == .synced)
+        #expect(try await coordinator.submit(plan) == .recovering)
         #expect(visible.item(id: "item_lemons")?.checked == true)
     }
 
