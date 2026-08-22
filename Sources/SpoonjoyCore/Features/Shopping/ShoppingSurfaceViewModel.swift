@@ -293,6 +293,8 @@ public final class ShoppingMutationCoordinator {
     private var scopeEpoch: UInt64 = 0
     private var drainTask: Task<Void, Never>?
     private var pendingPersistenceBatch: [NativeQueuedMutation] = []
+    private var pendingRecoveryPlan: ShoppingSurfaceMutationPlan?
+    private var pendingRecoveryRequiresReplay = false
 
     public init(
         persistAlreadyAppliedBatch: @escaping PersistAlreadyAppliedBatch,
@@ -361,6 +363,8 @@ public final class ShoppingMutationCoordinator {
         entries.removeAll()
         baselineShoppingList = nil
         pendingPersistenceBatch = []
+        pendingRecoveryPlan = nil
+        pendingRecoveryRequiresReplay = false
         isDraining = false
         recordFeedback(nil)
         cancelledEntries.forEach { $0.continuation.resume(throwing: CancellationError()) }
@@ -413,11 +417,15 @@ public final class ShoppingMutationCoordinator {
         do {
             baselineShoppingList = try await fetchShoppingList()
             reprojectVisibleState()
+            pendingRecoveryPlan = nil
+            pendingRecoveryRequiresReplay = false
             recordFeedback(nil)
             entry.continuation.resume(returning: .synced)
         } catch {
             commitPlanToBaseline(plan)
             reprojectVisibleState()
+            pendingRecoveryPlan = plan
+            pendingRecoveryRequiresReplay = false
             recordFeedback(ShoppingMutationFeedback(
                 identity: plan.identity,
                 state: .recovering,
@@ -435,6 +443,24 @@ public final class ShoppingMutationCoordinator {
         pendingPersistenceBatch = []
         recordFeedback(nil)
         return .queuedForSync
+    }
+
+    public func retryCurrentRecovery() async throws -> ShoppingSurfaceMutationOutcome {
+        if !pendingPersistenceBatch.isEmpty {
+            return try await retryPendingPersistence()
+        }
+        guard let plan = pendingRecoveryPlan else { return .synced }
+        if pendingRecoveryRequiresReplay, let request = plan.remoteRequestBuilder {
+            _ = try? await fetchShoppingList()
+            try await executeRemote(request)
+        }
+        let reconciled = try await fetchShoppingList()
+        baselineShoppingList = reconciled
+        recordShoppingList(reconciled)
+        pendingRecoveryPlan = nil
+        pendingRecoveryRequiresReplay = false
+        recordFeedback(nil)
+        return .synced
     }
 
     private func persistQueuedPrefix() async {
@@ -502,6 +528,8 @@ public final class ShoppingMutationCoordinator {
         }
         commitPlanToBaseline(entry.plan)
         reprojectVisibleState()
+        pendingRecoveryPlan = entry.plan
+        pendingRecoveryRequiresReplay = true
         recordFeedback(ShoppingMutationFeedback(
             identity: entry.plan.identity,
             state: .recovering,

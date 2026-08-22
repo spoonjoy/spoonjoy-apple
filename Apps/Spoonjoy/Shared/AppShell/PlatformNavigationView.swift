@@ -31,6 +31,8 @@ struct PlatformNavigationView: View {
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
     private let performShoppingMutationHandler: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    private let shoppingMutationFeedback: ShoppingMutationFeedback?
+    private let retryShoppingMutationRecovery: @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome
     private let performSettingsSessionOperation: @MainActor @Sendable (SettingsSessionOperation) async throws -> Void
     private let retrySync: @MainActor @Sendable () async -> Void
     private let requestNotificationPermission: @MainActor @Sendable () async throws -> APNsPermissionState
@@ -66,6 +68,8 @@ struct PlatformNavigationView: View {
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
         performShoppingMutation: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
+        shoppingMutationFeedback: ShoppingMutationFeedback?,
+        retryShoppingMutationRecovery: @escaping @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome,
         performSettingsSessionOperation: @escaping @MainActor @Sendable (SettingsSessionOperation) async throws -> Void,
         retrySync: @escaping @MainActor @Sendable () async -> Void,
         requestNotificationPermission: @escaping @MainActor @Sendable () async throws -> APNsPermissionState,
@@ -100,6 +104,8 @@ struct PlatformNavigationView: View {
         self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
         self.performShoppingMutationHandler = performShoppingMutation
+        self.shoppingMutationFeedback = shoppingMutationFeedback
+        self.retryShoppingMutationRecovery = retryShoppingMutationRecovery
         self.performSettingsSessionOperation = performSettingsSessionOperation
         self.retrySync = retrySync
         self.requestNotificationPermission = requestNotificationPermission
@@ -599,7 +605,11 @@ struct PlatformNavigationView: View {
             ShoppingListView(
                 viewModel: shoppingViewModel,
                 actionDidPlan: performShoppingAction,
+                shoppingMutationFeedback: shoppingMutationFeedback,
+                retryShoppingMutationRecovery: retryShoppingMutationRecovery,
+                hasRecipes: !contentState.recipes.isEmpty,
                 openSearch: openSearchFromDock,
+                createRecipe: { openRoute(.recipeEditor(id: nil)) },
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .search(let query, let scope):

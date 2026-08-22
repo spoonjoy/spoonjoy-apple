@@ -3,15 +3,18 @@ import SwiftUI
 
 struct ReceiptListView: View {
     let sections: [ShoppingPresentationSection]
+    let pendingItemIDs: Set<String>
     let setChecked: (ShoppingListItem, Bool) -> Void
     let deleteItem: (ShoppingListItem) -> Void
 
     init(
         sections: [ShoppingPresentationSection],
+        pendingItemIDs: Set<String> = [],
         setChecked: @escaping (ShoppingListItem, Bool) -> Void,
         deleteItem: @escaping (ShoppingListItem) -> Void = { _ in }
     ) {
         self.sections = sections
+        self.pendingItemIDs = pendingItemIDs
         self.setChecked = setChecked
         self.deleteItem = deleteItem
     }
@@ -23,13 +26,17 @@ struct ReceiptListView: View {
                     ForEach(section.items) { presentationItem in
                         let item = presentationItem.item
                         Toggle(isOn: checkedBinding(for: item)) {
-                            ShoppingReceiptRow(item: presentationItem)
+                            ShoppingReceiptRow(
+                                item: presentationItem,
+                                isPending: pendingItemIDs.contains(item.id)
+                            )
                         }
                         .toggleStyle(.largeCheck)
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(KitchenTableTheme.bone)
                         .accessibilityHint(item.isEffectivelyChecked ? "Double tap to move this item back to Need." : "Double tap to move this item to Basket.")
+                        .disabled(pendingItemIDs.contains(item.id))
                         .modifier(ReceiptDeleteSwipeModifier {
                             deleteItem(item)
                         })
@@ -59,7 +66,12 @@ struct ReceiptListView: View {
     private func checkedBinding(for item: ShoppingListItem) -> Binding<Bool> {
         Binding(
             get: { item.isEffectivelyChecked },
-            set: { checked in setChecked(item, checked) }
+            set: { checked in
+                setChecked(item, checked)
+                AccessibilityNotification.Announcement(
+                    checked ? "Moved \(item.name) to Basket." : "Moved \(item.name) to Need."
+                ).post()
+            }
         )
     }
 
@@ -74,6 +86,7 @@ struct ReceiptListView: View {
 
 private struct ShoppingReceiptRow: View {
     let item: ShoppingPresentationItem
+    let isPending: Bool
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -103,6 +116,12 @@ private struct ShoppingReceiptRow: View {
                 .lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+
+            if isPending {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Saving \(item.item.name)")
+            }
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText(for: item.item))

@@ -10,26 +10,41 @@ struct ShoppingListView: View {
     @State private var actionStatusMessage: String?
     @State private var actionErrorMessage: String?
     @State private var activeConfirmationDialog: ShoppingConfirmationDialog?
+    @State private var pendingItemIDs: Set<String> = []
+    @State private var lastFailedAction: ShoppingSurfaceAction?
     @State private var viewMode: ShoppingListViewMode = .all
     @State private var activeCategory = "all"
     @FocusState private var isItemFieldFocused: Bool
+    @FocusState private var isRetryButtonFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     private let viewModel: ShoppingSurfaceViewModel
     private let actionDidPlan: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
+    private let shoppingMutationFeedback: ShoppingMutationFeedback?
+    private let retryShoppingMutationRecovery: @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome
+    private let hasRecipes: Bool
     private let openSearch: () -> Void
+    private let createRecipe: () -> Void
     private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
 
     init(
         viewModel: ShoppingSurfaceViewModel,
         actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
+        shoppingMutationFeedback: ShoppingMutationFeedback? = nil,
+        retryShoppingMutationRecovery: @escaping @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome = { .synced },
+        hasRecipes: Bool = true,
         openSearch: @escaping () -> Void = {},
+        createRecipe: @escaping () -> Void = {},
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         self.viewModel = viewModel
         self.actionDidPlan = actionDidPlan
+        self.shoppingMutationFeedback = shoppingMutationFeedback
+        self.retryShoppingMutationRecovery = retryShoppingMutationRecovery
+        self.hasRecipes = hasRecipes
         self.openSearch = openSearch
+        self.createRecipe = createRecipe
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
 
@@ -225,7 +240,7 @@ struct ShoppingListView: View {
                 itemNameField
                 compactAddItemButton
             }
-            addFromRecipeButton
+            recipeActionButton
         }
     }
 
@@ -305,6 +320,21 @@ struct ShoppingListView: View {
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
     }
 
+    private var createRecipeButton: some View {
+        Button(action: createRecipe) {
+            Label("Create a recipe", systemImage: "square.and.pencil")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+    }
+
+    @ViewBuilder private var recipeActionButton: some View {
+        if hasRecipes {
+            addFromRecipeButton
+        } else {
+            createRecipeButton
+        }
+    }
+
     @ViewBuilder private var shoppingReceiptState: some View {
         if let presentation = shoppingPresentation, let emptyTitle = presentation.emptyTitle {
             shoppingMarketEmptyState(
@@ -314,6 +344,7 @@ struct ShoppingListView: View {
         } else if let presentation = shoppingPresentation {
             ReceiptListView(
                 sections: presentation.sections,
+                pendingItemIDs: pendingItemIDs,
                 setChecked: settingChecked,
                 deleteItem: deleteItem
             )
@@ -327,7 +358,8 @@ struct ShoppingListView: View {
                         focusAddItem()
                     }
                 },
-                addFromRecipeAction: openSearch
+                recipeActionTitle: hasRecipes ? "Add from recipe" : "Create a recipe",
+                addFromRecipeAction: hasRecipes ? openSearch : createRecipe
             )
         } else {
             shoppingMarketEmptyState(
@@ -368,9 +400,16 @@ struct ShoppingListView: View {
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.herb)
             } else if let visibleActionErrorMessage {
-                Label(visibleActionErrorMessage, systemImage: "exclamationmark.triangle")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.tomato)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Label(visibleActionErrorMessage, systemImage: "exclamationmark.triangle")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                    Spacer(minLength: 8)
+                    Button("Retry", action: retryFailedAction)
+                        .font(KitchenTableTheme.uiLabel.weight(.semibold))
+                        .focused($isRetryButtonFocused)
+                        .accessibilityHint("Retries only the failed shopping action.")
+                }
             }
         }
     }
@@ -380,7 +419,7 @@ struct ShoppingListView: View {
     }
 
     private var visibleActionErrorMessage: String? {
-        actionErrorMessage ?? addItemForm.actionErrorMessage
+        shoppingMutationFeedback?.message ?? actionErrorMessage ?? addItemForm.actionErrorMessage
     }
 
     private func focusAddItem() {
@@ -406,7 +445,7 @@ struct ShoppingListView: View {
             itemID: item.id,
             checked: checked,
             clientMutationID: clientMutationID(prefix: checked ? "shopping-check" : "shopping-uncheck")
-        ))
+        ), pendingItemID: item.id)
     }
 
     private func deleteItem(_ item: ShoppingListItem) {
@@ -414,7 +453,7 @@ struct ShoppingListView: View {
             itemID: item.id,
             clientMutationID: clientMutationID(prefix: "shopping-delete"),
             confirmation: .required
-        ))
+        ), pendingItemID: item.id)
     }
 
     private func clearCompleted() {
@@ -431,13 +470,21 @@ struct ShoppingListView: View {
         ))
     }
 
-    private func runAction(_ action: ShoppingSurfaceAction) {
+    private func runAction(_ action: ShoppingSurfaceAction, pendingItemID: String? = nil) {
         Task {
-            await perform(action)
+            await perform(action, pendingItemID: pendingItemID)
         }
     }
 
-    @MainActor private func perform(_ action: ShoppingSurfaceAction) async {
+    @MainActor private func perform(_ action: ShoppingSurfaceAction, pendingItemID: String? = nil) async {
+        if let pendingItemID {
+            pendingItemIDs.insert(pendingItemID)
+        }
+        defer {
+            if let pendingItemID {
+                pendingItemIDs.remove(pendingItemID)
+            }
+        }
         do {
             let plan = try viewModel.plan(action)
             if let prompt = plan.confirmationPrompt {
@@ -453,15 +500,60 @@ struct ShoppingListView: View {
                 return
             }
             let outcome = try await actionDidPlan(plan)
-            actionStatusMessage = outcome == .queuedForSync ? "Saved for sync" : "Shopping list updated"
+            switch outcome {
+            case .queuedForSync:
+                actionStatusMessage = "Saved for sync"
+            case .recovering:
+                actionStatusMessage = "Confirming shopping change…"
+            case .synced:
+                actionStatusMessage = "Shopping list updated"
+            }
             actionErrorMessage = nil
+            lastFailedAction = nil
             addItemForm.actionStatusMessage = nil
             addItemForm.actionErrorMessage = nil
         } catch {
             actionErrorMessage = "Shopping action failed."
             actionStatusMessage = nil
+            lastFailedAction = action
+            isRetryButtonFocused = true
             addItemForm.actionStatusMessage = nil
             addItemForm.actionErrorMessage = nil
+        }
+    }
+
+    private func retryFailedAction() {
+        if let lastFailedAction {
+            runAction(resubmittedAction(lastFailedAction))
+            return
+        }
+        Task { @MainActor in
+            do {
+                let outcome = try await retryShoppingMutationRecovery()
+                actionStatusMessage = outcome == .queuedForSync ? "Saved for sync" : "Shopping list updated"
+                actionErrorMessage = nil
+                isRetryButtonFocused = false
+            } catch {
+                actionErrorMessage = "Shopping action failed."
+                isRetryButtonFocused = true
+            }
+        }
+    }
+
+    private func resubmittedAction(_ action: ShoppingSurfaceAction) -> ShoppingSurfaceAction {
+        switch action {
+        case .addItem(let name, let quantity, let unit, let categoryKey, let iconKey, _):
+            .addItem(name: name, quantity: quantity, unit: unit, categoryKey: categoryKey, iconKey: iconKey, clientMutationID: clientMutationID(prefix: "shopping-add-retry"))
+        case .setItemChecked(let itemID, let checked, _):
+            .setItemChecked(itemID: itemID, checked: checked, clientMutationID: clientMutationID(prefix: "shopping-check-retry"))
+        case .deleteItem(let itemID, _, let confirmation):
+            .deleteItem(itemID: itemID, clientMutationID: clientMutationID(prefix: "shopping-delete-retry"), confirmation: confirmation)
+        case .addRecipeIngredients(let recipeID, let scaleFactor, let recipeIngredients, _):
+            .addRecipeIngredients(recipeID: recipeID, scaleFactor: scaleFactor, recipeIngredients: recipeIngredients, clientMutationID: clientMutationID(prefix: "shopping-recipe-retry"))
+        case .clearCompleted(_, let confirmation):
+            .clearCompleted(clientMutationID: clientMutationID(prefix: "shopping-clear-completed-retry"), confirmation: confirmation)
+        case .clearAll(_, let confirmation):
+            .clearAll(clientMutationID: clientMutationID(prefix: "shopping-clear-all-retry"), confirmation: confirmation)
         }
     }
 
@@ -492,6 +584,7 @@ private struct ShoppingConfirmationDialog: Identifiable {
 private struct ShoppingReceiptStateView: View {
     let state: ShoppingReceiptState
     let primaryAction: () -> Void
+    let recipeActionTitle: String
     let addFromRecipeAction: () -> Void
 
     var body: some View {
@@ -520,7 +613,7 @@ private struct ShoppingReceiptStateView: View {
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
 
                 Button(action: addFromRecipeAction) {
-                    Label("Add from recipe", systemImage: "book")
+                    Label(recipeActionTitle, systemImage: recipeActionTitle == "Add from recipe" ? "book" : "square.and.pencil")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             }

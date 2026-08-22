@@ -1339,11 +1339,8 @@ struct NativeMobileDesignContractTests {
                 "shoppingMutationFeedback: ShoppingMutationFeedback?",
                 "Button(\"Retry\"",
                 "@FocusState private var isRetryButtonFocused: Bool",
-                "hasRecipes ? addFromRecipeButton : createRecipeButton",
+                "if hasRecipes",
                 "Label(\"Create a recipe\", systemImage: \"square.and.pencil\")"
-            ],
-            forbids: [
-                "private var addFromRecipeButton: some View {\n        Button(action: openSearch)"
             ]
         )
 

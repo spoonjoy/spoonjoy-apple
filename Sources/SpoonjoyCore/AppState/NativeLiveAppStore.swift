@@ -1764,6 +1764,7 @@ public struct NativeShellContentState {
 public final class NativeLiveAppStore: ObservableObject {
     @Published public private(set) var bootstrapState: NativeAppBootstrapState
     @Published public private(set) var restoredRoute: AppRoute?
+    @Published public private(set) var shoppingMutationFeedback: ShoppingMutationFeedback?
 
     private let dependencies: NativeLiveAppStoreDependencies
     private var configuration: APIClientConfiguration
@@ -1784,6 +1785,9 @@ public final class NativeLiveAppStore: ObservableObject {
         },
         recordShoppingList: { [weak self] shoppingList in
             self?.recordShoppingList(shoppingList)
+        },
+        recordFeedback: { [weak self] feedback in
+            self?.shoppingMutationFeedback = feedback
         }
     )
 
@@ -1817,6 +1821,7 @@ public final class NativeLiveAppStore: ObservableObject {
         )
         self.currentContentState = initialContent
         self.bootstrapState = .restoringCache(initialContent)
+        self.shoppingMutationFeedback = nil
     }
 
     public func bootstrap() async {
@@ -2028,6 +2033,10 @@ public final class NativeLiveAppStore: ObservableObject {
 
     public func performShoppingMutation(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
         try await shoppingMutationCoordinator.submit(plan)
+    }
+
+    public func retryShoppingMutationRecovery() async throws -> ShoppingSurfaceMutationOutcome {
+        try await shoppingMutationCoordinator.retryCurrentRecovery()
     }
 
     private func persistAlreadyAppliedShoppingBatch(_ mutations: [NativeQueuedMutation]) async throws {

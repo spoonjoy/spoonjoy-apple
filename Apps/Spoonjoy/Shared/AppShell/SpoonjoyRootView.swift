@@ -161,6 +161,10 @@ struct SpoonjoyRootView: View {
             performShoppingMutation: { plan in
                 try await liveStore.performShoppingMutation(plan)
             },
+            shoppingMutationFeedback: liveStore.shoppingMutationFeedback,
+            retryShoppingMutationRecovery: {
+                try await liveStore.retryShoppingMutationRecovery()
+            },
             performSettingsSessionOperation: { operation in
                 try await liveStore.performSettingsSessionOperation(operation)
             },
