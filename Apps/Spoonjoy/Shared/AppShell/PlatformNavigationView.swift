@@ -30,6 +30,7 @@ struct PlatformNavigationView: View {
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
+    private let performShoppingMutationHandler: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     private let performSettingsSessionOperation: @MainActor @Sendable (SettingsSessionOperation) async throws -> Void
     private let retrySync: @MainActor @Sendable () async -> Void
     private let requestNotificationPermission: @MainActor @Sendable () async throws -> APNsPermissionState
@@ -64,6 +65,7 @@ struct PlatformNavigationView: View {
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
+        performShoppingMutation: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
         performSettingsSessionOperation: @escaping @MainActor @Sendable (SettingsSessionOperation) async throws -> Void,
         retrySync: @escaping @MainActor @Sendable () async -> Void,
         requestNotificationPermission: @escaping @MainActor @Sendable () async throws -> APNsPermissionState,
@@ -97,6 +99,7 @@ struct PlatformNavigationView: View {
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
         self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
+        self.performShoppingMutationHandler = performShoppingMutation
         self.performSettingsSessionOperation = performSettingsSessionOperation
         self.retrySync = retrySync
         self.requestNotificationPermission = requestNotificationPermission
@@ -1791,12 +1794,7 @@ struct PlatformNavigationView: View {
     }
 
     private func performShoppingAction(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
-        try await ShoppingSurfaceMutationExecutor.perform(
-            plan,
-            queueMutation: queueMutation,
-            executeRemoteRequest: executeRecipeEditorRequest,
-            recordShoppingList: recordShoppingList
-        )
+        try await performShoppingMutationHandler(plan)
     }
 
     private func discardRecipeEditorLocalChange(_ conflict: RecipeEditorConflict) async throws {

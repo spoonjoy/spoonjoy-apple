@@ -126,25 +126,55 @@ public enum ShoppingSurfaceAction: Equatable, Sendable {
     case clearAll(clientMutationID: String, confirmation: ShoppingActionConfirmation)
 }
 
+public enum ShoppingSurfaceMutationKind: String, Equatable, Sendable {
+    case addItem
+    case setItemChecked
+    case deleteItem
+    case addRecipeIngredients
+    case clearCompleted
+    case clearAll
+}
+
+public struct ShoppingSurfaceMutationIdentity: Equatable, Sendable {
+    public let kind: ShoppingSurfaceMutationKind
+    public let clientMutationID: String
+    public let itemID: String?
+
+    public init(kind: ShoppingSurfaceMutationKind, clientMutationID: String, itemID: String? = nil) {
+        self.kind = kind
+        self.clientMutationID = clientMutationID
+        self.itemID = itemID
+    }
+}
+
 public struct ShoppingSurfaceMutationPlan: Equatable {
+    public let identity: ShoppingSurfaceMutationIdentity?
+    public let action: ShoppingSurfaceAction?
     public let remoteRequestBuilder: APIRequestBuilder?
     public let queuedMutation: NativeQueuedMutation?
     public let offlineFallbackMutation: NativeQueuedMutation?
+    public let originalShoppingList: ShoppingListState?
     public let updatedShoppingList: ShoppingListState?
     public let blockedReason: String?
     public let confirmationPrompt: ShoppingActionConfirmationPrompt?
 
     public init(
+        identity: ShoppingSurfaceMutationIdentity? = nil,
+        action: ShoppingSurfaceAction? = nil,
         remoteRequestBuilder: APIRequestBuilder? = nil,
         queuedMutation: NativeQueuedMutation? = nil,
         offlineFallbackMutation: NativeQueuedMutation? = nil,
+        originalShoppingList: ShoppingListState? = nil,
         updatedShoppingList: ShoppingListState? = nil,
         blockedReason: String? = nil,
         confirmationPrompt: ShoppingActionConfirmationPrompt? = nil
     ) {
+        self.identity = identity
+        self.action = action
         self.remoteRequestBuilder = remoteRequestBuilder
         self.queuedMutation = queuedMutation
         self.offlineFallbackMutation = offlineFallbackMutation
+        self.originalShoppingList = originalShoppingList
         self.updatedShoppingList = updatedShoppingList
         self.blockedReason = blockedReason
         self.confirmationPrompt = confirmationPrompt
@@ -233,6 +263,107 @@ public enum ShoppingSurfaceMutationExecutor {
 
         return .synced
     }
+}
+
+@MainActor
+public final class ShoppingMutationCoordinator {
+    public typealias PersistAlreadyApplied = @MainActor (NativeQueuedMutation) async throws -> Void
+    public typealias ExecuteRemote = @MainActor (APIRequestBuilder) async throws -> Void
+    public typealias FetchShoppingList = @MainActor () async throws -> ShoppingListState
+    public typealias RecordShoppingList = @MainActor (ShoppingListState) -> Void
+
+    private struct Entry {
+        let plan: ShoppingSurfaceMutationPlan
+        let continuation: CheckedContinuation<ShoppingSurfaceMutationOutcome, Error>
+    }
+
+    private let persistAlreadyApplied: PersistAlreadyApplied
+    private let executeRemote: ExecuteRemote
+    private let fetchShoppingList: FetchShoppingList
+    private let recordShoppingList: RecordShoppingList
+    private var entries: [Entry] = []
+    private var isDraining = false
+
+    public init(
+        persistAlreadyApplied: @escaping PersistAlreadyApplied,
+        executeRemote: @escaping ExecuteRemote,
+        fetchShoppingList: @escaping FetchShoppingList,
+        recordShoppingList: @escaping RecordShoppingList
+    ) {
+        self.persistAlreadyApplied = persistAlreadyApplied
+        self.executeRemote = executeRemote
+        self.fetchShoppingList = fetchShoppingList
+        self.recordShoppingList = recordShoppingList
+    }
+
+    public func submit(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
+        if let blockedReason = plan.blockedReason {
+            throw ShoppingMutationCoordinatorError.blocked(blockedReason)
+        }
+        if let updatedShoppingList = plan.updatedShoppingList {
+            recordShoppingList(updatedShoppingList)
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            entries.append(Entry(plan: plan, continuation: continuation))
+            guard !isDraining else { return }
+            isDraining = true
+            Task { @MainActor [weak self] in
+                await self?.drain()
+            }
+        }
+    }
+
+    private func drain() async {
+        while let entry = entries.first {
+            await perform(entry)
+            entries.removeFirst()
+        }
+        isDraining = false
+    }
+
+    private func perform(_ entry: Entry) async {
+        let plan = entry.plan
+        do {
+            if let queuedMutation = plan.queuedMutation {
+                try await persistAlreadyApplied(queuedMutation)
+                entry.continuation.resume(returning: .queuedForSync)
+                return
+            }
+
+            guard let remoteRequest = plan.remoteRequestBuilder else {
+                entry.continuation.resume(returning: .synced)
+                return
+            }
+
+            do {
+                try await executeRemote(remoteRequest)
+            } catch let error as APITransportError where error.isOffline {
+                guard let fallback = plan.offlineFallbackMutation else { throw error }
+                try await persistAlreadyApplied(fallback)
+                entry.continuation.resume(returning: .queuedForSync)
+                return
+            }
+
+            if let reconciled = try? await fetchShoppingList(), entries.count == 1 {
+                recordShoppingList(reconciled)
+            }
+            entry.continuation.resume(returning: .synced)
+        } catch {
+            if entries.count == 1 {
+                if let original = plan.originalShoppingList {
+                    recordShoppingList(original)
+                }
+            } else {
+                _ = try? await fetchShoppingList()
+            }
+            entry.continuation.resume(throwing: error)
+        }
+    }
+}
+
+public enum ShoppingMutationCoordinatorError: Error, Equatable, Sendable {
+    case blocked(String)
 }
 
 public struct ShoppingAddItemFormState: Equatable, Sendable {
@@ -502,6 +633,7 @@ public struct ShoppingSurfaceViewModel {
                 clientMutationID: clientMutationID
             ).shoppingList
             return try mutationPlan(
+                action: action,
                 online: ShoppingListRequests.addItem(
                     name: normalizedName,
                     quantity: quantity,
@@ -531,6 +663,7 @@ public struct ShoppingSurfaceViewModel {
                 nextSortIndex: nextActiveSortIndex()
             )
             return try mutationPlan(
+                action: action,
                 online: ShoppingListRequests.setItemChecked(
                     id: itemID,
                     checked: checked,
@@ -550,6 +683,7 @@ public struct ShoppingSurfaceViewModel {
             }
             let plannedAt = now()
             return try mutationPlan(
+                action: action,
                 online: ShoppingListRequests.deleteItem(
                     id: itemID,
                     clientMutationID: clientMutationID,
@@ -565,6 +699,7 @@ public struct ShoppingSurfaceViewModel {
         case .addRecipeIngredients(let recipeID, let scaleFactor, let recipeIngredients, let clientMutationID):
             let plannedAt = now()
             return try mutationPlan(
+                action: action,
                 online: ShoppingListRequests.addIngredientsFromRecipe(
                     recipeID: recipeID,
                     scaleFactor: scaleFactor,
@@ -590,6 +725,7 @@ public struct ShoppingSurfaceViewModel {
             }
             let plannedAt = now()
             return try mutationPlan(
+                action: action,
                 online: ShoppingListRequests.clearCompleted(clientMutationID: clientMutationID),
                 offline: NativeQueuedMutation.shoppingClearCompleted(
                     clientMutationID: clientMutationID,
@@ -603,6 +739,7 @@ public struct ShoppingSurfaceViewModel {
             }
             let plannedAt = now()
             return try mutationPlan(
+                action: action,
                 online: ShoppingListRequests.clearAll(clientMutationID: clientMutationID),
                 offline: NativeQueuedMutation.shoppingClearAll(
                     clientMutationID: clientMutationID,
@@ -630,13 +767,18 @@ public struct ShoppingSurfaceViewModel {
     }
 
     private func mutationPlan(
+        action: ShoppingSurfaceAction,
         online: APIRequestBuilder,
         offline: NativeQueuedMutation,
         updatedShoppingList: ShoppingListState?
     ) -> ShoppingSurfaceMutationPlan {
+        let identity = Self.mutationIdentity(for: action)
         if !shoppingQueuedMutations.isEmpty {
             return ShoppingSurfaceMutationPlan(
+                identity: identity,
+                action: action,
                 queuedMutation: offline,
+                originalShoppingList: shoppingList,
                 updatedShoppingList: updatedShoppingList
             )
         }
@@ -644,15 +786,38 @@ public struct ShoppingSurfaceViewModel {
         switch connectivity {
         case .online:
             return ShoppingSurfaceMutationPlan(
+                identity: identity,
+                action: action,
                 remoteRequestBuilder: online,
                 offlineFallbackMutation: offline,
+                originalShoppingList: shoppingList,
                 updatedShoppingList: updatedShoppingList
             )
         case .offline:
             return ShoppingSurfaceMutationPlan(
+                identity: identity,
+                action: action,
                 queuedMutation: offline,
+                originalShoppingList: shoppingList,
                 updatedShoppingList: updatedShoppingList
             )
+        }
+    }
+
+    private static func mutationIdentity(for action: ShoppingSurfaceAction) -> ShoppingSurfaceMutationIdentity {
+        switch action {
+        case .addItem(_, _, _, _, _, let clientMutationID):
+            ShoppingSurfaceMutationIdentity(kind: .addItem, clientMutationID: clientMutationID)
+        case .setItemChecked(let itemID, _, let clientMutationID):
+            ShoppingSurfaceMutationIdentity(kind: .setItemChecked, clientMutationID: clientMutationID, itemID: itemID)
+        case .deleteItem(let itemID, let clientMutationID, _):
+            ShoppingSurfaceMutationIdentity(kind: .deleteItem, clientMutationID: clientMutationID, itemID: itemID)
+        case .addRecipeIngredients(_, _, _, let clientMutationID):
+            ShoppingSurfaceMutationIdentity(kind: .addRecipeIngredients, clientMutationID: clientMutationID)
+        case .clearCompleted(let clientMutationID, _):
+            ShoppingSurfaceMutationIdentity(kind: .clearCompleted, clientMutationID: clientMutationID)
+        case .clearAll(let clientMutationID, _):
+            ShoppingSurfaceMutationIdentity(kind: .clearAll, clientMutationID: clientMutationID)
         }
     }
 

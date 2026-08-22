@@ -158,6 +158,9 @@ struct SpoonjoyRootView: View {
             executeCaptureImportRequest: { request in
                 try await liveStore.executeCaptureImportRequest(request)
             },
+            performShoppingMutation: { plan in
+                try await liveStore.performShoppingMutation(plan)
+            },
             performSettingsSessionOperation: { operation in
                 try await liveStore.performSettingsSessionOperation(operation)
             },

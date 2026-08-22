@@ -1769,6 +1769,23 @@ public final class NativeLiveAppStore: ObservableObject {
     private var configuration: APIClientConfiguration
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
+    private lazy var shoppingMutationCoordinator = ShoppingMutationCoordinator(
+        persistAlreadyApplied: { [weak self] mutation in
+            guard let self else { return }
+            try await self.persistAlreadyAppliedShoppingMutation(mutation)
+        },
+        executeRemote: { [weak self] request in
+            guard let self else { return }
+            try await self.executeShoppingMutationRequest(request)
+        },
+        fetchShoppingList: { [weak self] in
+            guard let self else { throw ShoppingMutationCoordinatorError.blocked("Shopping store unavailable.") }
+            return try await self.fetchShoppingListForReconciliation()
+        },
+        recordShoppingList: { [weak self] shoppingList in
+            self?.recordShoppingList(shoppingList)
+        }
+    )
 
     public var authSessionRepository: NativeAuthSessionRepository {
         dependencies.authSessionRepository
@@ -2008,6 +2025,34 @@ public final class NativeLiveAppStore: ObservableObject {
         try await queueMutations([mutation])
     }
 
+    public func performShoppingMutation(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
+        try await shoppingMutationCoordinator.submit(plan)
+    }
+
+    private func persistAlreadyAppliedShoppingMutation(_ mutation: NativeQueuedMutation) async throws {
+        let scopedQueue = try await queueForCurrentScope()
+        let nextQueue = try scopedQueue.queue.appending(mutation)
+        try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
+        try await dependencies.syncStore.saveQueue(
+            nextQueue,
+            accountID: scopedQueue.accountID,
+            environment: scopedQueue.environment,
+            upsertingCachedRecords: try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList),
+            deletingCachedRecordKeys: []
+        )
+        let indicator = OfflineIndicatorState(
+            display: .queuedWork(
+                count: nextQueue.mutations.count,
+                oldestClientMutationID: nextQueue.mutations.first?.clientMutationID
+            ),
+            dismissal: nil
+        )
+        apply(.queuedWork(currentContentState.copy(
+            queuedMutations: nextQueue.mutations,
+            offlineIndicatorState: indicator
+        )))
+    }
+
     @discardableResult
     public func queueMutations(_ mutations: [NativeQueuedMutation], drainImmediately: Bool = false) async throws -> NativeQueuedMutationBatchResult {
         let submittedClientMutationIDs = mutations.map(\.clientMutationID)
@@ -2162,6 +2207,36 @@ public final class NativeLiveAppStore: ObservableObject {
             decode: JSONValue.self
         )
         await bootstrap()
+    }
+
+    private func executeShoppingMutationRequest(_ request: APIRequestBuilder) async throws {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+        _ = try await transport.send(request, configuration: configuration, decode: JSONValue.self)
+    }
+
+    private func fetchShoppingListForReconciliation() async throws -> ShoppingListState {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        return try await LiveShoppingSurfaceRepository(
+            transport: dependencies.recipeEditorAPITransport(refresher),
+            configuration: configuration
+        ).fetchShoppingList()
     }
 
     public func executeSettingsActionRequest(

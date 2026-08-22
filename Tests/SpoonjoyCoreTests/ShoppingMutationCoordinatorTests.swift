@@ -9,12 +9,12 @@ struct ShoppingMutationCoordinatorTests {
     func optimismIsImmediateAndRemoteWritesStayFIFO() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
         var visible = baseline
-        var remoteIDs: [String] = []
+        var remotePaths: [String] = []
         let gate = ShoppingMutationTestGate()
         let coordinator = ShoppingMutationCoordinator(
             persistAlreadyApplied: { _ in },
             executeRemote: { request in
-                remoteIDs.append(request.headers["Idempotency-Key"] ?? "missing")
+                remotePaths.append(request.pathComponents.joined(separator: "/"))
                 try await gate.wait()
             },
             fetchShoppingList: { baseline },
@@ -41,11 +41,14 @@ struct ShoppingMutationCoordinatorTests {
         let secondTask = Task { try await coordinator.submit(second) }
         await Task.yield()
         #expect(visible.item(id: "item_local_cm_fifo_b")?.name == "mint")
-        #expect(remoteIDs == ["cm_fifo_a"])
+        #expect(remotePaths == ["api/v1/shopping-list/items/item_lemons"])
 
         await gate.resumeNext()
         await gate.waitUntilEntered(count: 2)
-        #expect(remoteIDs == ["cm_fifo_a", "cm_fifo_b"])
+        #expect(remotePaths == [
+            "api/v1/shopping-list/items/item_lemons",
+            "api/v1/shopping-list/items"
+        ])
         await gate.resumeNext()
 
         #expect(try await firstTask.value == .synced)
@@ -128,6 +131,27 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("confirmed write with failed reconciliation keeps optimistic state")
+    func confirmedWriteWithFailedReconciliationKeepsOptimisticState() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in },
+            fetchShoppingList: { throw ShoppingMutationCoordinatorTestError.readFailed },
+            recordShoppingList: { visible = $0 }
+        )
+        let plan = try viewModel(visible).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_confirmed_read_failed"
+        ))
+
+        #expect(try await coordinator.submit(plan) == .synced)
+        #expect(visible.item(id: "item_lemons")?.checked == true)
+    }
+
+    @MainActor
     private func viewModel(_ shoppingList: ShoppingListState) -> ShoppingSurfaceViewModel {
         ShoppingSurfaceViewModel(
             shoppingList: shoppingList,
@@ -141,6 +165,7 @@ struct ShoppingMutationCoordinatorTests {
 
 private enum ShoppingMutationCoordinatorTestError: Error {
     case rejected
+    case readFailed
 }
 
 private actor ShoppingMutationTestGate {
