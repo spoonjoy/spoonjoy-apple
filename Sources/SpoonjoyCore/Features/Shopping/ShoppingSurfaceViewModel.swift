@@ -476,9 +476,7 @@ public final class ShoppingMutationCoordinator {
                 identity: plan.identity,
                 state: .recovering,
                 message: "Confirming this shopping change…",
-                retryIntent: pendingRecoveryRequiresReplay
-                    ? .reconcileThenReplaySameID(plan.identity)
-                    : .reconcileOnly(plan.identity)
+                retryIntent: .reconcileOnly(plan.identity)
             ))
             return .recovering
         }

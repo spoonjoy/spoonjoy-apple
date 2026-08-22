@@ -828,6 +828,266 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("reconciliation evidence covers every shopping action shape")
+    func reconciliationEvidenceCoversEveryActionShape() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let cancelled = APITransportError(
+            kind: .cancelled,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .doNotRetry
+        )
+
+        func reconcile(
+            _ plan: ShoppingSurfaceMutationPlan,
+            against fetched: ShoppingListState
+        ) async throws -> ShoppingSurfaceMutationOutcome {
+            let coordinator = ShoppingMutationCoordinator(
+                persistAlreadyApplied: { _ in },
+                executeRemote: { _ in throw cancelled },
+                fetchShoppingList: { fetched },
+                recordShoppingList: { _ in }
+            )
+            return try await coordinator.submit(plan)
+        }
+
+        let add = try viewModel(baseline).plan(.addItem(
+            name: "  Mint  ",
+            quantity: 1,
+            unit: nil,
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_evidence_add"
+        ))
+        #expect(try await reconcile(add, against: try #require(add.updatedShoppingList)) == .synced)
+        #expect(try await reconcile(add, against: baseline) == .recovering)
+
+        let delete = try viewModel(baseline).plan(.deleteItem(
+            itemID: "item_lemons",
+            clientMutationID: "cm_evidence_delete",
+            confirmation: .confirmed
+        ))
+        #expect(try await reconcile(delete, against: try #require(delete.updatedShoppingList)) == .synced)
+        let withoutLemons = ShoppingListState(
+            id: baseline.id,
+            chef: baseline.chef,
+            items: baseline.items.filter { $0.id != "item_lemons" },
+            nextCursor: baseline.nextCursor,
+            updatedAt: baseline.updatedAt
+        )
+        #expect(try await reconcile(delete, against: withoutLemons) == .synced)
+        #expect(try await reconcile(delete, against: baseline) == .recovering)
+
+        let ingredients = [
+            RecipeIngredient(id: "ingredient_mint", name: "mint", quantity: 1, unit: nil),
+            RecipeIngredient(id: "ingredient_salt", name: "salt", quantity: 1, unit: "tsp")
+        ]
+        let recipe = try viewModel(baseline).plan(.addRecipeIngredients(
+            recipeID: "recipe_evidence",
+            scaleFactor: 1,
+            recipeIngredients: ingredients,
+            clientMutationID: "cm_evidence_recipe"
+        ))
+        #expect(try await reconcile(recipe, against: try #require(recipe.updatedShoppingList)) == .synced)
+        #expect(try await reconcile(recipe, against: baseline) == .recovering)
+
+        let checked = try baseline.settingChecked(
+            true,
+            itemID: "item_lemons",
+            checkedAt: baseline.updatedAt,
+            updatedAt: baseline.updatedAt,
+            nextSortIndex: 10
+        )
+        let clearCompleted = try viewModel(checked).plan(.clearCompleted(
+            clientMutationID: "cm_evidence_completed",
+            confirmation: .confirmed
+        ))
+        let clearCompletedEvidence = ShoppingSurfaceMutationPlan(
+            identity: clearCompleted.identity,
+            action: .clearCompleted(clientMutationID: "cm_evidence_completed", confirmation: .confirmed),
+            remoteRequestBuilder: clearCompleted.remoteRequestBuilder,
+            originalShoppingList: checked,
+            updatedShoppingList: clearCompleted.updatedShoppingList
+        )
+        #expect(try await reconcile(clearCompletedEvidence, against: try #require(clearCompleted.updatedShoppingList)) == .synced)
+        #expect(try await reconcile(clearCompletedEvidence, against: checked) == .recovering)
+
+        let clearAll = try viewModel(baseline).plan(.clearAll(
+            clientMutationID: "cm_evidence_all",
+            confirmation: .confirmed
+        ))
+        let clearAllEvidence = ShoppingSurfaceMutationPlan(
+            identity: clearAll.identity,
+            action: .clearAll(clientMutationID: "cm_evidence_all", confirmation: .confirmed),
+            remoteRequestBuilder: clearAll.remoteRequestBuilder,
+            originalShoppingList: baseline,
+            updatedShoppingList: clearAll.updatedShoppingList
+        )
+        #expect(try await reconcile(clearAllEvidence, against: try #require(clearAll.updatedShoppingList)) == .synced)
+        #expect(try await reconcile(clearAllEvidence, against: baseline) == .recovering)
+
+        let clearCompletedWithoutOriginal = ShoppingSurfaceMutationPlan(
+            action: .clearCompleted(clientMutationID: "cm_evidence_completed_partial", confirmation: .confirmed),
+            remoteRequestBuilder: clearCompleted.remoteRequestBuilder,
+            updatedShoppingList: baseline
+        )
+        #expect(try await reconcile(clearCompletedWithoutOriginal, against: baseline) == .synced)
+        let clearAllWithoutOriginal = ShoppingSurfaceMutationPlan(
+            action: .clearAll(clientMutationID: "cm_evidence_all_partial", confirmation: .confirmed),
+            remoteRequestBuilder: clearAll.remoteRequestBuilder,
+            updatedShoppingList: baseline
+        )
+        #expect(try await reconcile(clearAllWithoutOriginal, against: baseline) == .synced)
+
+        let seedRequest = try #require(add.remoteRequestBuilder)
+        let localOnlyShape = ShoppingSurfaceMutationPlan(
+            remoteRequestBuilder: seedRequest,
+            originalShoppingList: baseline,
+            updatedShoppingList: baseline
+        )
+        #expect(try await reconcile(localOnlyShape, against: baseline) == .synced)
+    }
+
+    @MainActor
+    @Test("recovery remains pending until a post-replay read proves the write")
+    func recoveryRequiresPostReplayEvidence() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let applied = try baseline.settingChecked(
+            true,
+            itemID: "item_lemons",
+            checkedAt: baseline.updatedAt,
+            updatedAt: baseline.updatedAt,
+            nextSortIndex: 10
+        )
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes == 1 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads < 4 ? baseline : applied
+            },
+            recordShoppingList: { _ in }
+        )
+        let plan = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_post_replay_evidence"
+        ))
+
+        #expect(try await coordinator.submit(plan) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .recovering)
+        #expect(writes == 2)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(writes == 2)
+    }
+
+    @MainActor
+    @Test("a retained failure survives an unrelated recovery settling")
+    func retainedFailureSurvivesUnrelatedRecoverySettlement() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        var writes = 0
+        var reads = 0
+        var feedback: ShoppingMutationFeedback?
+        let add = try viewModel(baseline).plan(.addItem(
+            name: "mint",
+            quantity: 1,
+            unit: "bunch",
+            categoryKey: "produce",
+            iconKey: nil,
+            clientMutationID: "cm_retained_recovery"
+        ))
+        let applied = try #require(add.updatedShoppingList)
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes == 1 { throw ShoppingMutationCoordinatorTestError.rejected }
+                throw cancelled
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads == 1 ? baseline : applied
+            },
+            recordShoppingList: { _ in },
+            recordFeedback: { feedback = $0 }
+        )
+        let failed = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_retained_failure"
+        ))
+        await #expect(throws: ShoppingMutationCoordinatorTestError.rejected) {
+            try await coordinator.submit(failed)
+        }
+        #expect(try await coordinator.submit(add) == .recovering)
+        #expect(feedback?.identity == failed.identity)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback?.identity == failed.identity)
+    }
+
+    @MainActor
+    @Test("dependency analysis covers recipe-created and actionless journal entries")
+    func dependencyAnalysisCoversRecipeAndActionlessEntries() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let ingredients = [RecipeIngredient(id: "ingredient_mint", name: "mint", quantity: 1, unit: "bunch")]
+        var visible = baseline
+        let recipeGate = ShoppingMutationTestGate(firstResult: .failure(ShoppingMutationCoordinatorTestError.rejected))
+        let recipeCoordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in try await recipeGate.wait() },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 }
+        )
+        let recipe = try viewModel(baseline).plan(.addRecipeIngredients(
+            recipeID: "recipe_dependency",
+            scaleFactor: 1,
+            recipeIngredients: ingredients,
+            clientMutationID: "cm_recipe_dependency"
+        ))
+        let recipeTask = Task { try await recipeCoordinator.submit(recipe) }
+        await recipeGate.waitUntilEntered(count: 1)
+        let dependent = try viewModel(visible).plan(.deleteItem(
+            itemID: "item_local_cm_recipe_dependency-ingredient-1",
+            clientMutationID: "cm_recipe_dependency_delete",
+            confirmation: .confirmed
+        ))
+        let dependentTask = Task { try await recipeCoordinator.submit(dependent) }
+        await recipeGate.resumeNext()
+        await #expect(throws: ShoppingMutationCoordinatorTestError.rejected) { try await recipeTask.value }
+        await #expect(throws: ShoppingMutationCoordinatorError.dependencyRejected(dependent.identity)) { try await dependentTask.value }
+
+        let request = try #require(recipe.remoteRequestBuilder)
+        let actionlessGate = ShoppingMutationTestGate(firstResult: .failure(ShoppingMutationCoordinatorTestError.rejected))
+        let actionlessCoordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in try await actionlessGate.wait() },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { _ in }
+        )
+        let actionless = ShoppingSurfaceMutationPlan(
+            remoteRequestBuilder: request,
+            originalShoppingList: baseline,
+            updatedShoppingList: baseline
+        )
+        let firstTask = Task { try await actionlessCoordinator.submit(actionless) }
+        await actionlessGate.waitUntilEntered(count: 1)
+        let secondTask = Task { try await actionlessCoordinator.submit(actionless) }
+        await actionlessGate.resumeNext()
+        await #expect(throws: ShoppingMutationCoordinatorTestError.rejected) { try await firstTask.value }
+        await actionlessGate.waitUntilEntered(count: 2)
+        await actionlessGate.resumeNext()
+        #expect(try await secondTask.value == .synced)
+    }
+
+    @MainActor
     private func viewModel(_ shoppingList: ShoppingListState) -> ShoppingSurfaceViewModel {
         ShoppingSurfaceViewModel(
             shoppingList: shoppingList,
