@@ -5383,6 +5383,163 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store executes and reconciles an online shopping mutation")
+    func liveStoreExecutesAndReconcilesOnlineShoppingMutation() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let item = Self.sampleShoppingItem(id: "item_online_check", name: "lemons")
+            let checkedItem = Self.checkedShoppingItem(item)
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_online_check", title: "Lemon Pasta"),
+                shoppingItem: item
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let recorder = ShoppingMutationAPITransportRecorder(readItems: [checkedItem])
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                recipeEditorAPITransport: { _ in RecordingShoppingMutationAPITransport(recorder: recorder) }
+            )
+
+            await liveStore.bootstrap()
+            guard case .liveSynced(let content) = liveStore.bootstrapState,
+                  let shoppingList = content.shoppingList else {
+                Issue.record("Expected a synced shopping list before the mutation.")
+                return
+            }
+            let plan = try Self.shoppingViewModel(shoppingList, connectivity: .online).plan(.setItemChecked(
+                itemID: item.id,
+                checked: true,
+                clientMutationID: "cm_live_online_check"
+            ))
+
+            #expect(try await liveStore.performShoppingMutation(plan) == .synced)
+            guard case .liveSynced(let reconciled) = liveStore.bootstrapState else {
+                Issue.record("Expected the reconciled store to remain live synced.")
+                return
+            }
+            #expect(reconciled.shoppingList?.item(id: item.id)?.checked == true)
+            #expect(await recorder.requests().map(\.path) == [
+                "/api/v1/shopping-list/items/item_online_check",
+                "/api/v1/shopping-list"
+            ])
+        }
+    }
+
+    @MainActor
+    @Test("live store persists an already-applied offline shopping plan")
+    func liveStorePersistsAlreadyAppliedOfflineShoppingPlan() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let item = Self.sampleShoppingItem(id: "item_offline_baseline", name: "salt")
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_offline_plan", title: "Offline Pasta"),
+                shoppingItem: item
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            )
+
+            await liveStore.bootstrap()
+            guard case .liveSynced(let content) = liveStore.bootstrapState,
+                  let shoppingList = content.shoppingList else {
+                Issue.record("Expected a synced shopping list before the offline mutation.")
+                return
+            }
+            let plan = try Self.shoppingViewModel(shoppingList, connectivity: .offline).plan(.addItem(
+                name: "mint",
+                quantity: 2,
+                unit: "bunches",
+                categoryKey: "produce",
+                iconKey: "leaf",
+                clientMutationID: "cm_live_offline_add"
+            ))
+
+            #expect(try await liveStore.performShoppingMutation(plan) == .queuedForSync)
+            let persisted = try await syncStore.loadQueue()
+            #expect(persisted.mutations.map(\.clientMutationID) == ["cm_live_offline_add"])
+            guard case .queuedWork(let queuedContent) = liveStore.bootstrapState else {
+                Issue.record("Expected queued work after persisting the offline plan.")
+                return
+            }
+            #expect(queuedContent.shoppingList?.activeItems.contains { $0.name == "mint" } == true)
+            #expect(queuedContent.offlineIndicatorState.display == .queuedWork(
+                count: 1,
+                oldestClientMutationID: "cm_live_offline_add"
+            ))
+        }
+    }
+
+    @MainActor
+    @Test("live store retries shopping reconciliation without replaying a confirmed write")
+    func liveStoreRetriesShoppingReconciliationWithoutReplayingConfirmedWrite() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let item = Self.sampleShoppingItem(id: "item_recovery_check", name: "parsley")
+            let checkedItem = Self.checkedShoppingItem(item)
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_recovery_check", title: "Parsley Pasta"),
+                shoppingItem: item
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue()
+            )
+            let recorder = ShoppingMutationAPITransportRecorder(
+                readItems: [checkedItem],
+                readFailuresRemaining: 1
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                recipeEditorAPITransport: { _ in RecordingShoppingMutationAPITransport(recorder: recorder) }
+            )
+
+            await liveStore.bootstrap()
+            guard case .liveSynced(let content) = liveStore.bootstrapState,
+                  let shoppingList = content.shoppingList else {
+                Issue.record("Expected a synced shopping list before recovery.")
+                return
+            }
+            let plan = try Self.shoppingViewModel(shoppingList, connectivity: .online).plan(.setItemChecked(
+                itemID: item.id,
+                checked: true,
+                clientMutationID: "cm_live_recovery_check"
+            ))
+
+            #expect(try await liveStore.performShoppingMutation(plan) == .recovering)
+            #expect(liveStore.shoppingMutationFeedback?.retryIntent == .reconcileOnly(plan.identity))
+            #expect(try await liveStore.retryShoppingMutationRecovery() == .synced)
+            #expect(liveStore.shoppingMutationFeedback == nil)
+            #expect(await recorder.requests().map(\.path) == [
+                "/api/v1/shopping-list/items/item_recovery_check",
+                "/api/v1/shopping-list",
+                "/api/v1/shopping-list"
+            ])
+        }
+    }
+
+    @MainActor
     private func assertSyncOutcome(
         sendResult: NativeSyncMutationResult,
         expectedState: String,
@@ -6244,6 +6401,96 @@ private struct ThrowingLiveStoreSyncTransport: NativeSyncTransport {
     }
 }
 
+private struct ShoppingMutationAPIRequest: Equatable, Sendable {
+    let method: APIRequestMethod
+    let path: String
+    let bearerToken: String?
+}
+
+private actor ShoppingMutationAPITransportRecorder {
+    private let readItems: [ShoppingListItem]
+    private var readFailuresRemaining: Int
+    private var recordedRequests: [ShoppingMutationAPIRequest] = []
+
+    init(readItems: [ShoppingListItem], readFailuresRemaining: Int = 0) {
+        self.readItems = readItems
+        self.readFailuresRemaining = readFailuresRemaining
+    }
+
+    func record(_ request: ShoppingMutationAPIRequest) {
+        recordedRequests.append(request)
+    }
+
+    func consumeReadFailure() -> Bool {
+        guard readFailuresRemaining > 0 else { return false }
+        readFailuresRemaining -= 1
+        return true
+    }
+
+    func items() -> [ShoppingListItem] {
+        readItems
+    }
+
+    func requests() -> [ShoppingMutationAPIRequest] {
+        recordedRequests
+    }
+}
+
+private struct RecordingShoppingMutationAPITransport: SpoonjoyAPITransport {
+    let recorder: ShoppingMutationAPITransportRecorder
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let apiRequest = try request.urlRequest(configuration: configuration)
+        await recorder.record(ShoppingMutationAPIRequest(
+            method: apiRequest.method,
+            path: apiRequest.url.path,
+            bearerToken: configuration.bearerToken
+        ))
+        guard configuration.bearerToken == "sj_access_current" else {
+            throw NativeLiveStoreTestError.unexpectedBearerToken(configuration.bearerToken)
+        }
+
+        if Value.self == JSONValue.self,
+           let value = JSONValue.object(["saved": .bool(true)]) as? Value {
+            return APIEnvelope(requestID: "shopping-mutation-ok", data: value)
+        }
+        if Value.self == ShoppingListReadData.self {
+            if await recorder.consumeReadFailure() {
+                throw NativeLiveStoreTestError.unexpectedRequest
+            }
+            let payload = EncodableShoppingListReadData(
+                shoppingList: EncodableShoppingListResponse(
+                    id: "shopping_chef_ari",
+                    chef: ChefSummary(id: "chef_ari", username: "ari"),
+                    items: await recorder.items(),
+                    updatedAt: "2026-08-21T12:00:00.000Z"
+                ),
+                nextCursor: "shopping_cursor_reconciled"
+            )
+            let value = try JSONDecoder().decode(Value.self, from: JSONEncoder().encode(payload))
+            return APIEnvelope(requestID: "shopping-read-ok", data: value)
+        }
+
+        throw NativeLiveStoreTestError.unexpectedEnvelopeType
+    }
+}
+
+private struct EncodableShoppingListReadData: Encodable {
+    let shoppingList: EncodableShoppingListResponse
+    let nextCursor: String
+}
+
+private struct EncodableShoppingListResponse: Encodable {
+    let id: String
+    let chef: ChefSummary
+    let items: [ShoppingListItem]
+    let updatedAt: String
+}
+
 private struct RefreshingRecipeEditorAPITransport: SpoonjoyAPITransport {
     let refresher: any APIAuthenticationRefresher
     let expectedMethod: APIRequestMethod
@@ -6701,6 +6948,35 @@ private extension NativeLiveStoreTests {
             iconKey: "lemon",
             sortIndex: 0,
             updatedAt: isoString(now)
+        )
+    }
+
+    static func checkedShoppingItem(_ item: ShoppingListItem) -> ShoppingListItem {
+        ShoppingListItem(
+            id: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            checked: true,
+            checkedAt: isoString(now),
+            deletedAt: item.deletedAt,
+            categoryKey: item.categoryKey,
+            iconKey: item.iconKey,
+            sortIndex: item.sortIndex,
+            updatedAt: isoString(now)
+        )
+    }
+
+    static func shoppingViewModel(
+        _ shoppingList: ShoppingListState,
+        connectivity: ShoppingSurfaceConnectivity
+    ) -> ShoppingSurfaceViewModel {
+        ShoppingSurfaceViewModel(
+            shoppingList: shoppingList,
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: connectivity,
+            now: { isoString(now) }
         )
     }
 

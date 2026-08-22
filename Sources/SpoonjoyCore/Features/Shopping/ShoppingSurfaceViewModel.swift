@@ -381,7 +381,7 @@ public final class ShoppingMutationCoordinator {
     }
 
     private func performFirstEntry() async {
-        guard let entry = entries.first else { return }
+        let entry = entries[0]
         let plan = entry.plan
         if plan.queuedMutation != nil {
             await persistQueuedPrefix()
@@ -396,23 +396,26 @@ public final class ShoppingMutationCoordinator {
             return
         }
 
+        var remoteError: Error?
         do {
             try await executeRemote(remoteRequest)
-        } catch let error as APITransportError where error.isOffline {
-            guard isCurrent(entry) else { return }
-            await persistOfflineRemainder(error: error)
-            return
-        } catch let error as APITransportError where Self.isIndeterminate(error) {
-            guard isCurrent(entry) else { return }
-            await recoverIndeterminate(entry, error: error)
-            return
         } catch {
-            guard isCurrent(entry) else { return }
-            await rejectDefinite(entry, error: error)
-            return
+            remoteError = error
         }
 
         guard isCurrent(entry) else { return }
+        if let error = remoteError as? APITransportError, error.isOffline {
+            await persistOfflineRemainder(error: error)
+            return
+        }
+        if let error = remoteError as? APITransportError, Self.isIndeterminate(error) {
+            await recoverIndeterminate(entry, error: error)
+            return
+        }
+        if let remoteError {
+            await rejectDefinite(entry, error: remoteError)
+            return
+        }
         entries.removeFirst()
         do {
             baselineShoppingList = try await fetchShoppingList()

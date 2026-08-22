@@ -70,6 +70,25 @@ struct ShoppingPresentationModelTests {
         #expect(model.visibleItems.map(\.categoryLabel) == ["Produce", "Dairy"])
     }
 
+    @Test("active category filters rows and Basket empty copy matches the web market")
+    func activeCategoryAndEmptyBasketCopy() throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let state = replacingItems(in: baseline, with: [
+            item("produce", "Basil", category: "produce", sort: 0),
+            item("pantry", "Rice", category: "pantry", sort: 1),
+        ])
+
+        let produce = ShoppingPresentationModel(
+            shoppingList: state,
+            activeCategory: "Produce"
+        )
+        #expect(produce.visibleItems.map(\.item.id) == ["produce"])
+
+        let basket = ShoppingPresentationModel(shoppingList: state, mode: .basket)
+        #expect(basket.visibleItems.isEmpty)
+        #expect(basket.emptyTitle == "Nothing in the basket yet")
+    }
+
     @Test("all-complete list is empty only in Need")
     func allCompleteModeCopy() throws {
         let baseline = try ShoppingListState.decodeFromBundle()
@@ -85,6 +104,33 @@ struct ShoppingPresentationModelTests {
         #expect(need.emptyTitle == "Nothing left in this view")
         #expect(basket.visibleItems.count == completed.receiptItems.count)
         #expect(all.visibleItems.count == completed.receiptItems.count)
+    }
+
+    @Test("empty model identifiers and explicit icons are observable")
+    func emptyIdentifiersAndExplicitIcons() throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let empty = ShoppingPresentationModel(shoppingList: replacingItems(in: baseline, with: []))
+        #expect(empty.emptyTitle == "Your shopping list is empty")
+        #expect(empty.emptyMessage == "Add items manually or add all ingredients from a recipe.")
+
+        let explicit = ShoppingPresentationModel(shoppingList: replacingItems(in: baseline, with: [
+            ShoppingListItem(
+                id: "explicit-icon",
+                name: "mystery ingredient",
+                quantity: nil,
+                unit: nil,
+                checked: false,
+                checkedAt: nil,
+                deletedAt: nil,
+                categoryKey: "other",
+                iconKey: "leaf",
+                sortIndex: 0,
+                updatedAt: baseline.updatedAt
+            )
+        ]))
+        #expect(explicit.visibleItems.first?.id == "explicit-icon")
+        #expect(explicit.visibleItems.first?.iconKey == "leaf")
+        #expect(explicit.sections.first?.id == "Other")
     }
 
     private func replacingItems(in state: ShoppingListState, with items: [ShoppingListItem]) -> ShoppingListState {

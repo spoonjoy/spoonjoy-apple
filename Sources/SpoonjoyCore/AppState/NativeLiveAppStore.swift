@@ -1771,16 +1771,13 @@ public final class NativeLiveAppStore: ObservableObject {
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
     private lazy var shoppingMutationCoordinator = ShoppingMutationCoordinator(
-        persistAlreadyAppliedBatch: { [weak self] mutations in
-            guard let self else { return }
+        persistAlreadyAppliedBatch: { [unowned self] mutations in
             try await self.persistAlreadyAppliedShoppingBatch(mutations)
         },
-        executeRemote: { [weak self] request in
-            guard let self else { return }
+        executeRemote: { [unowned self] request in
             try await self.executeShoppingMutationRequest(request)
         },
-        fetchShoppingList: { [weak self] in
-            guard let self else { throw ShoppingMutationCoordinatorError.blocked("Shopping store unavailable.") }
+        fetchShoppingList: { [unowned self] in
             return try await self.fetchShoppingListForReconciliation()
         },
         recordShoppingList: { [weak self] shoppingList in

@@ -126,8 +126,8 @@ public struct ShoppingPresentationModel: Equatable, Sendable {
                 ))
             }
             .sorted { left, right in
-                let leftRank = categoryRank[left.1.categoryLabel] ?? 99
-                let rightRank = categoryRank[right.1.categoryLabel] ?? 99
+                let leftRank = categoryRank[left.1.categoryLabel]!
+                let rightRank = categoryRank[right.1.categoryLabel]!
                 return leftRank == rightRank ? left.0 < right.0 : leftRank < rightRank
             }
             .map(\.1)
@@ -150,7 +150,7 @@ public struct ShoppingPresentationModel: Equatable, Sendable {
         let inferred = inferredAffordance(for: item.name)
         let categoryKey = item.categoryKey.flatMap { categoryLabels[$0] == nil ? nil : $0 } ?? inferred.categoryKey
         let iconKey = validSpecificIcon(item.iconKey) ?? inferred.iconKey
-        return (categoryKey, categoryLabels[categoryKey] ?? "Other", iconKey)
+        return (categoryKey, categoryLabels[categoryKey]!, iconKey)
     }
 
     private static func validSpecificIcon(_ iconKey: String?) -> String? {

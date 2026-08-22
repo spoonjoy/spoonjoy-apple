@@ -439,7 +439,8 @@ struct ShoppingMutationCoordinatorTests {
         await #expect(throws: ShoppingMutationCoordinatorTestError.persistenceFailed) {
             try await coordinator.submit(offlinePlan)
         }
-        #expect(try await coordinator.retryPendingPersistence() == .queuedForSync)
+        #expect(try await coordinator.retryCurrentRecovery() == .queuedForSync)
+        #expect(try await coordinator.retryPendingPersistence() == .synced)
         #expect(attempts == [["cm_persist_retry"], ["cm_persist_retry"]])
         #expect(remoteCount == 0)
     }
@@ -468,6 +469,243 @@ struct ShoppingMutationCoordinatorTests {
             try await task.value
         }
         await gate.resumeNext()
+    }
+
+    @MainActor
+    @Test("blocked and local-only plans fail or settle without transport")
+    func blockedAndLocalOnlyPlans() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in Issue.record("Local-only plan must not execute transport") },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 }
+        )
+
+        await #expect(throws: ShoppingMutationCoordinatorError.blocked("Not allowed")) {
+            try await coordinator.submit(ShoppingSurfaceMutationPlan(blockedReason: "Not allowed"))
+        }
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+
+        let updated = try baseline.settingChecked(
+            true,
+            itemID: "item_lemons",
+            checkedAt: "2026-08-21T20:00:00.000Z",
+            updatedAt: "2026-08-21T20:00:00.000Z",
+            nextSortIndex: 10
+        )
+        let outcome = try await coordinator.submit(ShoppingSurfaceMutationPlan(
+            originalShoppingList: baseline,
+            updatedShoppingList: updated
+        ))
+        #expect(outcome == .synced)
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+        #expect(viewModel(ShoppingListState(id: baseline.id, chef: baseline.chef, items: [], nextCursor: baseline.nextCursor, updatedAt: baseline.updatedAt)).presentation() != nil)
+        #expect(ShoppingSurfaceViewModel(shoppingList: nil, queuedMutations: [], conflicts: [], connectivity: .online, now: { "now" }).presentation() == nil)
+        #expect(try await coordinator.submit(ShoppingSurfaceMutationPlan()) == .synced)
+    }
+
+    @MainActor
+    @Test("recovery retry reconciles confirmed and indeterminate writes")
+    func recoveryRetryReconcilesAndReplays() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var reads = 0
+        var writes = 0
+        var feedback: ShoppingMutationFeedback?
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in writes += 1 },
+            fetchShoppingList: {
+                reads += 1
+                if reads == 1 { throw ShoppingMutationCoordinatorTestError.readFailed }
+                return baseline
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+        let confirmed = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_reconcile_retry"
+        ))
+        #expect(try await coordinator.submit(confirmed) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(reads == 2)
+        #expect(writes == 1)
+        #expect(visible == baseline)
+        #expect(feedback == nil)
+
+        let retrySameRequest = APITransportError(
+            kind: .networkFailure,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .retrySameRequest(afterSeconds: nil)
+        )
+        var replayReads = 0
+        var replayWrites = 0
+        let replayCoordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in
+                replayWrites += 1
+                if replayWrites == 1 { throw retrySameRequest }
+            },
+            fetchShoppingList: {
+                replayReads += 1
+                if replayReads <= 2 { throw ShoppingMutationCoordinatorTestError.readFailed }
+                return baseline
+            },
+            recordShoppingList: { visible = $0 }
+        )
+        let replay = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_replay_retry"
+        ))
+        #expect(try await replayCoordinator.submit(replay) == .recovering)
+        #expect(try await replayCoordinator.retryCurrentRecovery() == .synced)
+        #expect(replayWrites == 2)
+        #expect(replayReads == 3)
+    }
+
+    @MainActor
+    @Test("indeterminate success and incomplete offline fallback settle deterministically")
+    func indeterminateSuccessAndIncompleteOfflineFallback() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let recovered = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in throw cancelled },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 }
+        )
+        let plan = try viewModel(baseline).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_cancel_reconciled"))
+        #expect(try await recovered.submit(plan) == .synced)
+        #expect(visible == baseline)
+
+        let definiteTransportError = APITransportError(
+            kind: .networkFailure,
+            requestID: nil,
+            statusCode: nil,
+            apiError: nil,
+            retryDecision: .doNotRetry
+        )
+        let definite = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in throw definiteTransportError },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 }
+        )
+        await #expect(throws: APITransportError.self) {
+            try await definite.submit(plan)
+        }
+
+        let offline = APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let incomplete = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in throw offline },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 }
+        )
+        let noFallback = ShoppingSurfaceMutationPlan(
+            identity: plan.identity,
+            action: plan.action,
+            remoteRequestBuilder: plan.remoteRequestBuilder,
+            originalShoppingList: baseline,
+            updatedShoppingList: plan.updatedShoppingList
+        )
+        await #expect(throws: APITransportError.self) {
+            try await incomplete.submit(noFallback)
+        }
+        #expect(visible == baseline)
+    }
+
+    @MainActor
+    @Test("local projection covers delete recipe and clear-all action shapes")
+    func localProjectionCoversStructuralActions() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in Issue.record("Local projection must not execute transport") },
+            fetchShoppingList: { visible },
+            recordShoppingList: { visible = $0 }
+        )
+        func local(_ plan: ShoppingSurfaceMutationPlan) -> ShoppingSurfaceMutationPlan {
+            ShoppingSurfaceMutationPlan(
+                identity: plan.identity,
+                action: plan.action,
+                originalShoppingList: plan.originalShoppingList,
+                updatedShoppingList: plan.updatedShoppingList
+            )
+        }
+
+        let delete = try viewModel(visible).plan(.deleteItem(itemID: "item_lemons", clientMutationID: "cm_local_delete", confirmation: .confirmed))
+        #expect(try await coordinator.submit(local(delete)) == .synced)
+        #expect(visible.item(id: "item_lemons")?.deletedAt != nil)
+
+        let ingredients = [RecipeIngredient(id: "ingredient_mint", name: "mint", quantity: 1, unit: "bunch")]
+        let recipe = try viewModel(visible).plan(.addRecipeIngredients(recipeID: "recipe_mint", scaleFactor: 1, recipeIngredients: ingredients, clientMutationID: "cm_local_recipe"))
+        #expect(try await coordinator.submit(local(recipe)) == .synced)
+        #expect(visible.activeItems.contains { $0.name == "mint" })
+
+        let clear = try viewModel(visible).plan(.clearAll(clientMutationID: "cm_local_clear", confirmation: .confirmed))
+        #expect(try await coordinator.submit(local(clear)) == .synced)
+        #expect(visible.activeItems.isEmpty)
+    }
+
+    @MainActor
+    @Test("local projection falls back to baseline metadata for partial plans")
+    func localProjectionFallsBackForPartialPlans() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = ShoppingListState(
+            id: baseline.id,
+            chef: baseline.chef,
+            items: [],
+            nextCursor: baseline.nextCursor,
+            updatedAt: baseline.updatedAt
+        )
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyAppliedBatch: { _ in },
+            executeRemote: { _ in Issue.record("Partial local plans must not execute transport") },
+            fetchShoppingList: { visible },
+            recordShoppingList: { visible = $0 }
+        )
+        let incompleteCheck = ShoppingSurfaceMutationPlan(
+            action: .setItemChecked(
+                itemID: "missing-item",
+                checked: false,
+                clientMutationID: "cm_partial_check"
+            ),
+            originalShoppingList: visible
+        )
+        #expect(try await coordinator.submit(incompleteCheck) == .synced)
+
+        visible = baseline
+        let incompleteDelete = ShoppingSurfaceMutationPlan(
+            action: .deleteItem(
+                itemID: "item_lemons",
+                clientMutationID: "cm_partial_delete",
+                confirmation: .confirmed
+            ),
+            originalShoppingList: baseline
+        )
+        #expect(try await coordinator.submit(incompleteDelete) == .synced)
+        #expect(visible.item(id: "item_lemons")?.deletedAt == baseline.updatedAt)
+
+        visible = baseline
+        let incompleteClear = ShoppingSurfaceMutationPlan(
+            action: .clearAll(
+                clientMutationID: "cm_partial_clear",
+                confirmation: .confirmed
+            ),
+            originalShoppingList: baseline
+        )
+        #expect(try await coordinator.submit(incompleteClear) == .synced)
+        #expect(visible.activeItems.isEmpty)
     }
 
     @MainActor
