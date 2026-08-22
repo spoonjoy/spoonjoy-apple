@@ -22,6 +22,22 @@ struct SpoonjoyRootView: View {
     }
 
     var body: some View {
+        fixtureOrLiveContent
+    }
+
+    @ViewBuilder private var fixtureOrLiveContent: some View {
+#if DEBUG
+        if Self.shoppingUITestFixtureEnabled {
+            shoppingUITestFixture
+        } else {
+            liveContent
+        }
+#else
+        liveContent
+#endif
+    }
+
+    private var liveContent: some View {
         rootContent
             .task {
                 await liveStore.bootstrap()
@@ -43,6 +59,28 @@ struct SpoonjoyRootView: View {
             }
 #endif
     }
+
+#if DEBUG
+    private static var shoppingUITestFixtureEnabled: Bool {
+        truthy("SPOONJOY_SHOPPING_UI_TEST_FIXTURE", in: ProcessInfo.processInfo.environment)
+    }
+
+    private var shoppingUITestFixture: some View {
+        NavigationStack {
+            ShoppingListView(
+                viewModel: ShoppingSurfaceViewModel(
+                    shoppingList: try? ShoppingListState.decodeFromBundle(),
+                    queuedMutations: [],
+                    conflicts: [],
+                    connectivity: .online,
+                    now: { "2026-08-21T20:00:00.000Z" }
+                )
+            )
+            .navigationTitle("Shopping")
+        }
+        .accessibilityIdentifier("shopping.ui-test.root")
+    }
+#endif
 
     @ViewBuilder private var rootContent: some View {
         switch liveStore.bootstrapState {

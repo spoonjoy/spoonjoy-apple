@@ -10,6 +10,7 @@ require "xcodeproj"
 ROOT = Pathname.new(__dir__).join("..").expand_path
 GENERATOR = ROOT.join("scripts/generate-xcode-project.rb")
 UI_TEST_SOURCE = ROOT.join("Apps/Spoonjoy/UITests/SpoonjoyShoppingUITests.swift")
+RECEIPT_LIST_SOURCE = ROOT.join("Apps/Spoonjoy/Shared/Components/ReceiptListView.swift")
 TARGET_NAME = "SpoonjoyShoppingUITests"
 
 def fail_check(message)
@@ -32,6 +33,7 @@ source = UI_TEST_SOURCE.read
   "keyboards.firstMatch",
   "isHittable"
 ].each { |token| fail_check("UI test source missing #{token}") unless source.include?(token) }
+fail_check("receipt list missing stable pending-item accessibility identifier") unless RECEIPT_LIST_SOURCE.read.include?("shopping.item.\\(item.id).pending")
 
 Dir.mktmpdir("spoonjoy-shopping-ui-target") do |directory|
   stdout, stderr, status = Open3.capture3(
@@ -58,6 +60,7 @@ Dir.mktmpdir("spoonjoy-shopping-ui-target") do |directory|
   scheme = project_path.join("xcshareddata/xcschemes/Spoonjoy iOS.xcscheme")
   scheme_text = scheme.read
   fail_check("Spoonjoy iOS scheme does not run #{TARGET_NAME}") unless scheme_text.include?(TARGET_NAME) && scheme_text.include?("<TestAction")
+  fail_check("Spoonjoy iOS UI tests must use BootstrapDebug so installed simulator runtimes remain eligible") unless scheme_text.match?(/<TestAction\s+buildConfiguration = "BootstrapDebug"/m)
 end
 
 puts "shopping UI test target contract ok"

@@ -36,6 +36,9 @@ struct ReceiptListView: View {
                         .listRowSeparator(.hidden)
                         .listRowBackground(KitchenTableTheme.bone)
                         .accessibilityHint(item.isEffectivelyChecked ? "Double tap to move this item back to Need." : "Double tap to move this item to Basket.")
+                        .accessibilityIdentifier(pendingItemIDs.contains(item.id)
+                            ? "shopping.item.\(item.id).pending"
+                            : "shopping.item.\(item.id)")
                         .disabled(pendingItemIDs.contains(item.id))
                         .modifier(ReceiptDeleteSwipeModifier {
                             deleteItem(item)

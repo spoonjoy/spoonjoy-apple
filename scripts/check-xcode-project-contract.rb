@@ -24,11 +24,14 @@ MAC_BUNDLE_ID = "app.spoonjoy.mac"
 ASSOCIATED_DOMAIN = "applinks:spoonjoy.app"
 URL_SCHEME = "spoonjoy"
 PACKAGE_PRODUCT = "SpoonjoyCore"
+UI_TEST_TARGET = "SpoonjoyShoppingUITests"
+UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 
 EXPECTED_FILES = [
   APP_ROOT.join("Shared/SpoonjoyApp.swift"),
   APP_ROOT.join("iOS/SpoonjoyiOSApp.swift"),
   APP_ROOT.join("macOS/SpoonjoyMacApp.swift"),
+  APP_ROOT.join("UITests/SpoonjoyShoppingUITests.swift"),
   APP_ROOT.join("Shared/Assets.xcassets"),
   INFO_PLIST,
   ENTITLEMENTS
@@ -152,6 +155,15 @@ project = Xcodeproj::Project.open(PROJECT_PATH.to_s)
 target_by_name = project.targets.each_with_object({}) { |target, index| index[target.name] = target }
 ios_target = target_by_name[IOS_TARGET] || fail_check("missing target #{IOS_TARGET}")
 mac_target = target_by_name[MAC_TARGET] || fail_check("missing target #{MAC_TARGET}")
+ui_test_target = target_by_name[UI_TEST_TARGET] || fail_check("missing target #{UI_TEST_TARGET}")
+fail_check("#{UI_TEST_TARGET} must be a UI test bundle") unless ui_test_target.symbol_type == :ui_test_bundle
+fail_check("#{UI_TEST_TARGET} must depend on #{IOS_TARGET}") unless ui_test_target.dependencies.map { |dependency| dependency.target&.name }.compact == [IOS_TARGET]
+ui_test_target.build_configuration_list.build_configurations.each do |configuration|
+  settings = configuration.build_settings
+  assert_setting(settings, "PRODUCT_BUNDLE_IDENTIFIER", UI_TEST_BUNDLE_ID, "#{UI_TEST_TARGET} #{configuration.name}")
+  assert_setting(settings, "TEST_TARGET_NAME", IOS_TARGET, "#{UI_TEST_TARGET} #{configuration.name}")
+  assert_setting(settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", "#{UI_TEST_TARGET} #{configuration.name}")
+end
 
 {
   IOS_SCHEME => { required: IOS_TARGET, forbidden: MAC_TARGET },
@@ -223,7 +235,9 @@ end
 
 ios_sources = target_source_paths(ios_target)
 mac_sources = target_source_paths(mac_target)
-app_swift_files = APP_ROOT.find.select { |path| path.file? && path.extname == ".swift" }.map(&:to_s)
+app_swift_files = APP_ROOT.find.select do |path|
+  path.file? && path.extname == ".swift" && !path.to_s.start_with?("#{APP_ROOT.join("UITests")}/")
+end.map(&:to_s)
 
 app_swift_files.each do |source|
   rel = relative(source)
