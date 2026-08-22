@@ -1119,6 +1119,17 @@ public struct NativeShellContentState {
         )
     }
 
+#if DEBUG
+    public static func debugShoppingFixture(_ shoppingList: ShoppingListState) -> NativeShellContentState {
+        empty(
+            authSessionState: .signedOut,
+            environment: .production,
+            configuration: .spoonjoyProduction,
+            offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)
+        ).copy(shoppingList: shoppingList)
+    }
+#endif
+
     static func restored(
         cacheSnapshot: NativeDurableCacheSnapshot,
         syncSnapshot: NativeSyncSnapshot,

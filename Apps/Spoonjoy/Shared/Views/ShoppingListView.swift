@@ -30,29 +30,39 @@ struct ShoppingListView: View {
 
     init(
         viewModel: ShoppingSurfaceViewModel,
-        actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
-        shoppingMutationFeedback: ShoppingMutationFeedback? = nil,
-        retryShoppingMutationRecovery: @escaping @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome = { .synced },
-        hasRecipes: Bool = true,
-        openSearch: @escaping () -> Void = {},
-        createRecipe: @escaping () -> Void = {},
-        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
+        actionDidPlan: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
+        shoppingMutationFeedback: ShoppingMutationFeedback?,
+        retryShoppingMutationRecovery: @escaping @MainActor @Sendable () async throws -> ShoppingSurfaceMutationOutcome,
+        hasRecipes: Bool,
+        openSearch: @escaping () -> Void,
+        createRecipe: @escaping () -> Void,
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void
     ) {
         let screenshotEnvironment = ProcessInfo.processInfo.environment
+        let initialMode: ShoppingListViewMode
+        if let rawMode = screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_MODE"],
+           let configuredMode = ShoppingListViewMode(rawValue: rawMode) {
+            initialMode = configuredMode
+        } else {
+            initialMode = .all
+        }
+        let initialCategory: String
+        if let configuredCategory = screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY"] {
+            initialCategory = configuredCategory
+        } else {
+            initialCategory = "all"
+        }
+        let initialPendingItemIDs: Set<String> = screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"] == "pending" ? ["item_lemons"] : []
         self.viewModel = viewModel
-        _viewMode = State(initialValue: ShoppingListViewMode(
-            rawValue: screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_MODE"] ?? ""
-        ) ?? .all)
-        _activeCategory = State(initialValue: screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY"] ?? "all")
-        _pendingItemIDs = State(initialValue: screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"] == "pending"
-            ? ["item_lemons"]
-            : [])
-        self.actionDidPlan = actionDidPlan
-        self.shoppingMutationFeedback = shoppingMutationFeedback
-        self.retryShoppingMutationRecovery = retryShoppingMutationRecovery
-        self.hasRecipes = hasRecipes
-        self.openSearch = openSearch
-        self.createRecipe = createRecipe
+        (_viewMode, _activeCategory, _pendingItemIDs) = (
+            State(initialValue: initialMode),
+            State(initialValue: initialCategory),
+            State(initialValue: initialPendingItemIDs)
+        )
+        (self.actionDidPlan, self.shoppingMutationFeedback, self.retryShoppingMutationRecovery) = (
+            actionDidPlan, shoppingMutationFeedback, retryShoppingMutationRecovery
+        )
+        (self.hasRecipes, self.openSearch, self.createRecipe) = (hasRecipes, openSearch, createRecipe)
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
 
@@ -403,7 +413,7 @@ struct ShoppingListView: View {
     }
 
     private func selectedModeLabel(in presentation: ShoppingPresentationModel) -> String {
-        presentation.modeOptions.first { $0.mode == viewMode }?.label ?? "All"
+        presentation.modeOptions.first { $0.mode == viewMode }!.label
     }
 
     private func categoryLabel(_ category: String) -> String {
@@ -414,7 +424,7 @@ struct ShoppingListView: View {
         if let presentation = shoppingPresentation, let emptyTitle = presentation.emptyTitle {
             shoppingMarketEmptyState(
                 title: emptyTitle,
-                message: presentation.emptyMessage ?? "Switch views to see the rest of your list."
+                message: presentation.emptyMessage!
             )
         } else if let presentation = shoppingPresentation {
             ReceiptListView(
@@ -435,11 +445,6 @@ struct ShoppingListView: View {
                 },
                 recipeActionTitle: hasRecipes ? "Add from recipe" : "Create a recipe",
                 addFromRecipeAction: hasRecipes ? openSearch : createRecipe
-            )
-        } else {
-            shoppingMarketEmptyState(
-                title: "Your shopping list is empty",
-                message: "Add an item above or bring ingredients over from a recipe."
             )
         }
     }
@@ -684,6 +689,11 @@ private struct ShoppingReceiptStateView: View {
     let primaryAction: () -> Void
     let recipeActionTitle: String
     let addFromRecipeAction: () -> Void
+
+    init(state: ShoppingReceiptState, primaryAction: @escaping () -> Void, recipeActionTitle: String, addFromRecipeAction: @escaping () -> Void) {
+        (self.state, self.primaryAction) = (state, primaryAction)
+        (self.recipeActionTitle, self.addFromRecipeAction) = (recipeActionTitle, addFromRecipeAction)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {

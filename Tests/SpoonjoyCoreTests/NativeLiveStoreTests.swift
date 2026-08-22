@@ -94,6 +94,24 @@ struct NativeLiveStoreTests {
         }
     }
 
+    @Test("debug shopping fixture creates an isolated synced shell")
+    func debugShoppingFixtureCreatesIsolatedSyncedShell() {
+        let item = Self.sampleShoppingItem(id: "item_debug_fixture", name: "thyme")
+        let shoppingList = ShoppingListState(
+            id: "shopping_debug_fixture",
+            chef: ChefSummary(id: "chef_debug", username: "debug"),
+            items: [item],
+            nextCursor: "debug_cursor",
+            updatedAt: Self.isoString(Self.now)
+        )
+
+        let content = NativeShellContentState.debugShoppingFixture(shoppingList)
+
+        #expect(content.shoppingList == shoppingList)
+        #expect(content.recipes.isEmpty)
+        #expect(content.offlineIndicatorState.display == .synced)
+    }
+
     @MainActor
     @Test("live store queueMutation persists mutations through native sync store")
     func liveStoreQueueMutationPersistsMutationsThroughNativeSyncStore() async throws {

@@ -19,26 +19,26 @@ struct SpoonjoyRootView: View {
     ) {
         self.router = router
         _liveStore = StateObject(wrappedValue: liveStore)
-    }
-
-    var body: some View {
-        fixtureOrLiveContent
-    }
-
-    @ViewBuilder private var fixtureOrLiveContent: some View {
 #if DEBUG
         if Self.shoppingUITestFixtureEnabled {
-            shoppingUITestFixture
-        } else {
-            liveContent
+            _navigation = State(initialValue: AppNavigationState(route: .shoppingList))
         }
-#else
-        liveContent
 #endif
     }
 
-    private var liveContent: some View {
-        rootContent
+    @ViewBuilder
+    var body: some View {
+        Group {
+#if DEBUG
+            if Self.shoppingUITestFixtureEnabled {
+                shoppingUITestFixture
+            } else {
+                rootContent
+            }
+#else
+            rootContent
+#endif
+        }
             .task {
                 await liveStore.bootstrap()
                 applyRestoredRouteIfNeeded()
@@ -62,7 +62,7 @@ struct SpoonjoyRootView: View {
 
 #if DEBUG
     private static var shoppingUITestFixtureEnabled: Bool {
-        truthy("SPOONJOY_SHOPPING_UI_TEST_FIXTURE", in: ProcessInfo.processInfo.environment) && shoppingUITestState != nil
+        truthy("SPOONJOY_SHOPPING_UI_TEST_FIXTURE", in: ProcessInfo.processInfo.environment)
     }
 
     private static var shoppingUITestState: ShoppingListState? {
@@ -73,19 +73,44 @@ struct SpoonjoyRootView: View {
     }
 
     private var shoppingUITestFixture: some View {
-        NavigationStack {
-            ShoppingListView(
-                viewModel: ShoppingSurfaceViewModel(
-                    shoppingList: Self.shoppingUITestState,
-                    queuedMutations: [],
-                    conflicts: [],
-                    connectivity: .online,
-                    now: { "2026-08-21T20:00:00.000Z" }
-                )
-            )
-            .navigationTitle("Shopping")
+        Group {
+            if Self.truthy("SPOONJOY_SHOPPING_UI_TEST_PLATFORM", in: ProcessInfo.processInfo.environment),
+               let shoppingList = Self.shoppingUITestState {
+                platformNavigation(contentState: .debugShoppingFixture(shoppingList))
+            } else {
+                NavigationStack {
+                    ShoppingListView(
+                        viewModel: ShoppingSurfaceViewModel(
+                            shoppingList: Self.shoppingUITestState,
+                            queuedMutations: [],
+                            conflicts: [],
+                            connectivity: .online,
+                            now: { "2026-08-21T20:00:00.000Z" }
+                        ),
+                        actionDidPlan: { _ in
+                            switch ProcessInfo.processInfo.environment["SPOONJOY_SHOPPING_UI_TEST_OUTCOME"] {
+                            case "queued": .queuedForSync
+                            case "recovering": .recovering
+                            case "failed": throw ShoppingUITestError.forcedFailure
+                            default: .synced
+                            }
+                        },
+                        shoppingMutationFeedback: nil,
+                        retryShoppingMutationRecovery: { .synced },
+                        hasRecipes: !Self.truthy("SPOONJOY_SHOPPING_UI_TEST_NO_RECIPES", in: ProcessInfo.processInfo.environment),
+                        openSearch: {},
+                        createRecipe: {},
+                        onDismissOfflineIndicator: {}
+                    )
+                    .navigationTitle("Shopping")
+                }
+            }
         }
         .accessibilityIdentifier("shopping.ui-test.root")
+    }
+
+    private enum ShoppingUITestError: Error {
+        case forcedFailure
     }
 #endif
 
