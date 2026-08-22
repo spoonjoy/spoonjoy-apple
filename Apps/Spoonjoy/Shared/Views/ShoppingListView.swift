@@ -10,6 +10,8 @@ struct ShoppingListView: View {
     @State private var actionStatusMessage: String?
     @State private var actionErrorMessage: String?
     @State private var activeConfirmationDialog: ShoppingConfirmationDialog?
+    @State private var viewMode: ShoppingListViewMode = .all
+    @State private var activeCategory = "all"
     @FocusState private var isItemFieldFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -34,9 +36,9 @@ struct ShoppingListView: View {
     var body: some View {
         KitchenTablePage(maxContentWidth: 760) {
             shoppingRunHeader
-            if viewModel.shoppingReceiptState == nil {
-                shoppingReceiptComposer
-            }
+            shoppingReceiptComposer
+            shoppingModeStrip
+            shoppingCategoryFilters
             statusBanner
             shoppingReceiptState
         }
@@ -158,6 +160,65 @@ struct ShoppingListView: View {
         viewModel.shoppingList
     }
 
+    private var shoppingPresentation: ShoppingPresentationModel? {
+        viewModel.presentation(mode: viewMode, activeCategory: activeCategory)
+    }
+
+    @ViewBuilder private var shoppingModeStrip: some View {
+        if let presentation = shoppingPresentation {
+            HStack(spacing: 0) {
+                ForEach(presentation.modeOptions, id: \.mode) { option in
+                    Button {
+                        viewMode = option.mode
+                        activeCategory = "all"
+                    } label: {
+                        Text(option.label)
+                            .font(KitchenTableTheme.uiLabel)
+                            .textCase(.uppercase)
+                            .tracking(1.2)
+                            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+                            .foregroundStyle(viewMode == option.mode ? KitchenTableTheme.paper : KitchenTableTheme.inkMuted)
+                            .background(viewMode == option.mode ? KitchenTableTheme.charcoal : Color.clear)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(viewMode == option.mode ? .isSelected : [])
+                }
+            }
+            .overlay(alignment: .top) { Divider() }
+            .overlay(alignment: .bottom) { Divider() }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Shopping view")
+        }
+    }
+
+    @ViewBuilder private var shoppingCategoryFilters: some View {
+        if let presentation = shoppingPresentation {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(presentation.categoryOptions, id: \.self) { category in
+                        let isSelected = presentation.activeCategory == category
+                        Button {
+                            activeCategory = category
+                        } label: {
+                            Text(category == "all" ? "All aisles" : category)
+                                .font(KitchenTableTheme.uiLabel)
+                                .padding(.horizontal, 14)
+                                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                                .foregroundStyle(isSelected ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
+                                .background(isSelected ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
+                                .overlay {
+                                    Capsule().strokeBorder(KitchenTableTheme.line.opacity(0.6), lineWidth: isSelected ? 0 : 1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    }
+                }
+            }
+            .accessibilityLabel("Aisle filter")
+        }
+    }
+
     private var shoppingReceiptComposer: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -245,7 +306,18 @@ struct ShoppingListView: View {
     }
 
     @ViewBuilder private var shoppingReceiptState: some View {
-        if let receiptState = viewModel.shoppingReceiptState {
+        if let presentation = shoppingPresentation, let emptyTitle = presentation.emptyTitle {
+            shoppingMarketEmptyState(
+                title: emptyTitle,
+                message: presentation.emptyMessage ?? "Switch views to see the rest of your list."
+            )
+        } else if let presentation = shoppingPresentation {
+            ReceiptListView(
+                sections: presentation.sections,
+                setChecked: settingChecked,
+                deleteItem: deleteItem
+            )
+        } else if let receiptState = viewModel.shoppingReceiptState {
             ShoppingReceiptStateView(
                 state: receiptState,
                 primaryAction: {
@@ -258,12 +330,26 @@ struct ShoppingListView: View {
                 addFromRecipeAction: openSearch
             )
         } else {
-            ReceiptListView(
-                sections: viewModel.sections,
-                setChecked: settingChecked,
-                deleteItem: deleteItem
+            shoppingMarketEmptyState(
+                title: "Your shopping list is empty",
+                message: "Add an item above or bring ingredients over from a recipe."
             )
         }
+    }
+
+    private func shoppingMarketEmptyState(title: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title)
+                .font(KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+            Text(message)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+        }
+        .padding(.vertical, 22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { Divider() }
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     @ViewBuilder private var statusBanner: some View {

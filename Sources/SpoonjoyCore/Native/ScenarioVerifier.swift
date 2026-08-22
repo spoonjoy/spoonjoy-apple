@@ -364,17 +364,17 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "shopping surface source",
-                    detail: "Shopping surface includes native edit mode, authored receipt state, add/remove/clear controls, and ShoppingSurfaceViewModel behavior.",
+                    detail: "Shopping surface includes web-parity market modes, aisle filters, an always-reachable composer, add/remove/clear controls, and ShoppingSurfaceViewModel behavior.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/ShoppingListView.swift",
-                    tokens: ["ShoppingListView", "ShoppingSurfaceViewModel", "ShoppingListState", "ReceiptListView", "shoppingReceiptComposer", "shoppingReceiptState", "receiptActionsMenu", "Add from recipe", "clearAll"]
+                    tokens: ["ShoppingListView", "ShoppingSurfaceViewModel", "ShoppingListViewMode", "ReceiptListView", "shoppingReceiptComposer", "shoppingModeStrip", "shoppingCategoryFilters", "receiptActionsMenu", "Add from recipe", "clearAll"]
                 ),
                 sourceCheck(
                     name: "receipt controls source",
-                    detail: "Receipt list uses native list sections, source-aware rows, large check toggles, and swipe actions.",
+                    detail: "Receipt list uses market-category sections, basket-aware rows, large check toggles, and native delete actions.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Components/ReceiptListView.swift",
-                    tokens: ["ReceiptListView", "ShoppingListReceiptSection", "ShoppingListItem", "List {", "Section {", "ShoppingReceiptRow", "sourceLine", "duplicateCountLabel", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
+                    tokens: ["ReceiptListView", "ShoppingPresentationSection", "ShoppingPresentationItem", "List {", "Section {", "ShoppingReceiptRow", "already in basket", "Toggle", ".toggleStyle(.largeCheck)", "LargeCheckToggleStyle", "minimumCheckTarget", "checkmark.circle.fill", "swipeActions", "deleteItem", "trash"]
                 ),
                 sourceCheck(
                     name: "kitchen safe controls source",
@@ -941,7 +941,7 @@ public enum ScenarioVerifier {
             return ScenarioCheck(
                 name: "shopping checkoff",
                 status: status,
-                detail: "Shopping list checkoff uses ShoppingSurfaceViewModel, removes checked rows from active sections, and preserves receipt history."
+                detail: "Shopping list checkoff uses ShoppingSurfaceViewModel and preserves checked rows for Basket and All presentation modes."
             )
         } catch {
             return ScenarioCheck(
