@@ -1,6 +1,6 @@
 schemaVersion: 1
 expectedRows: 62
-expectedArtifactsPerKind: { png: 62, designReview: 62, accessibilityProof: 62, screenshotLog: 62 }
+expectedArtifactsPerKind: { png: 62, visualCellManifest: 62, accessibilityProof: 62, screenshotLog: 62 }
 baseCommand: scripts/capture-native-screenshots.sh
 rows:
   - { id: ip-need-default, platform: iphone, variant: normal, mode: need, category: all, dynamicType: default, orientation: portrait, window: none, unitSlug: shopping-ip-need-default, artifactRoot: visual/ip-need-default, args: [--capture-platform, iphone, --shopping-variant, normal, --shopping-mode, need, --shopping-category, all, --dynamic-type, default, --ios-orientation, portrait] }

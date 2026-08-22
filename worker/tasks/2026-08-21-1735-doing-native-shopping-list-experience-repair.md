@@ -20,7 +20,7 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 - [ ] Shopping checkoff, uncheck, add, delete, clear-checked, and clear-all never publish `.restoringCache` or replace the app shell.
 - [ ] Online mutations are serialized, optimistically rebase on the latest store state, reconcile only shopping-list state after successful remote writes, and ignore stale reconciliation responses; offline/already-queued/fallback mutations retain FIFO with exactly one optimistic application.
 - [ ] A definite non-offline mutation failure rolls back when no later mutation exists; otherwise a targeted read reconciles without clobbering newer state. Indeterminate reconciliation failure retains the optimistic row with a row/action retry error and never triggers root bootstrap.
-- [ ] Need/Basket/All counts and category filters match the current web route's product semantics across active, completed, empty, all-complete, duplicate, queued, conflict, and failure states.
+- [ ] The surface launches in All; Need/Basket/All counts, category grouping/order, filters, and mode-specific empty states match web semantics across active, completed, empty, all-complete, duplicate-data, queued, conflict, and failure states.
 - [ ] Installed-app screenshots cover iPhone portrait at default and accessibility Dynamic Type, iPad portrait/landscape, and macOS at narrow/wide windows for populated Need/Basket/All, category-filtered, empty, all-complete, pending, row-error, queued, conflict, and duplicate states; the ledger has no clipping, overlap, tiny primary targets, unexplained blank region larger than one row, or open `ready` finding.
 - [ ] 100% test coverage on all new code
 - [ ] All tests pass
@@ -70,7 +70,7 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: 100% coverage on new mutation coordination code; all Swift tests and native scenario checks remain green.
 
 ### ⬜ Unit 2a: Market modes and category semantics — tests
-**What**: Add failing pure-model tests in `Tests/SpoonjoyCoreTests/ShoppingPresentationModelTests.swift` for `ShoppingPresentationModel`: Need/Basket/All counts, fixed market rank, stable same-category order, explicit category validation, name fallback, completed sections, invalid-filter reset data, duplicate handling, and empty/all-complete variants.
+**What**: Add failing tests for `ShoppingPresentationModel`: initial All; Need/Basket/All counts; fixed category rank/stable source order; explicit category/name fallback; checked rows in ordinary category sections; invalid-filter reset; duplicates staying in ordinary category order; and mode-specific empty/all-complete behavior. With every item checked, Need is empty while Basket/All retain checked rows and clear-checked.
 **Output**: Red tests in `Tests/SpoonjoyCoreTests/ShoppingPresentationModelTests.swift`.
 **Acceptance**: Tests fail on missing presentation model behavior and precisely match web helper/route semantics.
 
@@ -80,17 +80,17 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: Unit 2a passes with minimal implementation; existing duplicate/offline semantics stay green.
 
 ### ⬜ Unit 2c: Market modes and category semantics — coverage and refactor
-**What**: Cover invalid explicit keys, every name-fallback category/icon branch, empty modes, stable ordering ties, duplicate interaction, and category-filter boundaries; refactor with tests green.
+**What**: Cover invalid keys, every fallback branch, initial All, empty/filter-empty, all-complete Need/Basket/All, stable ties, duplicate-data non-section behavior, and filter boundaries; refactor green.
 **Output**: Coverage, full-test, and build logs.
 **Acceptance**: 100% coverage on the new presentation model; all tests/builds pass without warnings.
 
 ### ⬜ Unit 3a: Native shopping surface contract — tests
-**What**: Add failing observable behavior/accessibility tests for title/count semantics, three-mode selection, category selection/reset, >=44pt target metrics, visible-row pending labels, sticky mutation banner/error/retry semantics (including check/delete rows absent from the mode), delete accessibility actions, and absence of shell takeover. Restrict source contracts to forbidden regressions only.
+**What**: Add failing observable/accessibility tests for title/count, launch selection All with VoiceOver selected value, category reset, >=44pt targets, visible-row pending, sticky retry including absent rows, delete actions, and no shell takeover. Empty/filter-empty/all-complete require a working visible/revealable composer and reachable Add from Recipe. All-complete Need is empty while Basket/All render rows. When check/delete hides focus, post an accessibility announcement or transfer focus to an action-specific labelled/hinted retry banner with keyboard-focusable Retry on iPadOS/macOS.
 **Output**: Red behavior/accessibility contracts and minimal regression-source checks.
 **Acceptance**: Tests fail on missing user-observable shopping behavior, not implementation spelling.
 
 ### ⬜ Unit 3b: Native shopping surface — core implementation
-**What**: Redesign the two views around the tested model with Need/Basket/All, category filters, stable ruled rows, compact composer/actions, visible-row pending state, and a sticky localized mutation status/error/retry banner that remains reachable when optimistic filtering/removal hides a row.
+**What**: Redesign around initial All, mode-specific receipt/empty states, category-only stable ruled rows (no separate completed/duplicate-review sections), a working composer and Add from Recipe in every empty state, visible-row pending, and sticky retry with accessibility announcement/focus transfer when a row disappears.
 **Output**: Core shared SwiftUI receipt surface and reachable interaction feedback.
 **Acceptance**: Unit 3a core anchors pass; large check targets and native swipe/context deletion remain intact.
 
@@ -110,23 +110,23 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: Required local checks are green, modified/new logic is fully covered, and all three platform layouts compile without warnings.
 
 ### ⬜ Unit 3f: Shopping screenshot harness — tests
-**What**: Add failing cases to `scripts/check-launch-screenshot-contract.rb` for new `capture-native-screenshots.sh` arguments: `--capture-platform iphone|ipad|macos`, `--shopping-variant normal|empty|all-complete|duplicate|conflict|offline-queued|pending|row-error`, `--shopping-mode need|basket|all`, `--shopping-category all|Produce`, `--dynamic-type default|accessibility5`, `--ios-orientation portrait|landscape`, and `--macos-window 900x620|1440x900`. Add failing `scripts/check-shopping-visual-matrix-contract.rb` tests for canonical manifest `worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair/shopping-visual-matrix.yaml` and absent runner `scripts/run-shopping-visual-matrix.rb`. Tests require `Psych.safe_load(..., permitted_classes: [], permitted_symbols: [], aliases: false)`, schemaVersion 1, expectedRows 62, four expectedArtifactsPerKind values of 62, platform counts 22/20/20, required row keys, allowed values, unique IDs/slugs/roots, and argv byte-for-byte equality with arguments recomputed from row fields.
-**Output**: Red screenshot/manifest runner contract tests covering every option, invalid YAML/schema/row/count/duplicate/argv case, dry-run command emission, and capture/validate modes.
-**Acceptance**: Both contract suites fail because the exact CLI/state wiring and safe manifest runner/validator are absent.
+**What**: Add failing launch/matrix contracts for the argument set and canonical YAML. Add `scripts/check-shopping-visual-cell-validator-contract.rb` tests for new `scripts/validate-shopping-visual-cell.rb`: a one-platform `shopping-visual-cell.json` must name exactly its selected platform, PNG, accessibility proof, log, state, and size without absent-platform claims. Do not weaken/reuse `validate-design-review.rb`; its cross-platform manifest stays owned by `validate-native-local.sh`. Matrix tests require safe YAML, schema/counts 22/20/20, keys/values/uniqueness/recomputed argv, and artifact kinds `png`, `visualCellManifest`, `accessibilityProof`, `screenshotLog` each 62.
+**Output**: Red launch, safe matrix runner, and per-cell validator contracts covering malformed/missing/extra/cross-platform-fabrication cases.
+**Acceptance**: Contract suites fail because CLI, runner, and separate per-cell validator are absent.
 
 ### ⬜ Unit 3g: Shopping screenshot harness — implementation
-**What**: Implement the exact Unit 3f arguments in `scripts/capture-native-screenshots.sh`; `--capture-platform` launches/captures only that row's platform. Implement the sole safe matrix parser/runner, enforce every Unit 3f invariant before execution, recompute argv, confine roots beneath doing artifacts, and support dry-run/capture/validate. Capture invokes the harness with row args/slug/root; validate checks four exact artifacts and design review. Canonical fixture data remains the shopping fixture with deterministic overlays.
+**What**: Implement arguments, safe matrix runner, and separate per-cell validator. Each capture writes one `shopping-visual-cell.json`; runner validate checks four exact row artifacts and invokes only `validate-shopping-visual-cell.rb`. `validate-native-local.sh` separately produces/validates the existing all-platform `design-review.json`. Enforce every Unit 3f invariant, root confinement, and dry-run/capture/validate.
 **Output**: Deterministic installed-app capture controls and fail-closed safe manifest runner/validator.
 **Acceptance**: Both Unit 3f suites turn green; malformed/aliased/unknown/duplicate/mismatched manifests fail before subprocess execution; existing route captures remain green.
 
 ### ⬜ Unit 3h: iPhone, iPad, and macOS visual capture
 **What**: Run `ruby scripts/run-shopping-visual-matrix.rb --manifest worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair/shopping-visual-matrix.yaml --artifact-base worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair --mode dry-run`, inspect 62 commands, then rerun with `--mode capture`. The manifest encodes 22 iPhone, 20 iPad, and 20 macOS rows with unique slug/root and one selected platform. Dense normal fixture has >=12 items, >=5 categories, and two two-line names.
-**Output**: Per-cell screenshot directories with PNG, design-review manifest, accessibility proof, and logs; initial ledger entries.
-**Acceptance**: All 62 row commands exit green and produce exactly 62 PNGs, 62 `design-review.json` manifests, 62 platform accessibility proofs, and 62 screenshot logs at the row-declared unique roots; IDs/slugs/roots are unique and every capture is recorded in the ledger.
+**Output**: Per-cell directories with PNG, `shopping-visual-cell.json`, selected-platform accessibility proof, log, and ledger entry.
+**Acceptance**: All 62 commands produce exactly 62 of each declared artifact kind at unique roots; no per-cell manifest claims another platform.
 
 ### ⬜ Unit 3i: Visual remediation, recapture, and cold review
-**What**: First run `ruby scripts/run-shopping-visual-matrix.rb --manifest worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair/shopping-visual-matrix.yaml --artifact-base worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair --mode validate`. Inspect all 62 runner-declared PNGs with `view_image`, record each in the ledger, fix every in-scope finding, rerun the validator plus both Unit 3f contract suites, recapture fixed rows through runner capture mode, and obtain a cold visual PASS. Runner validation fails on missing, duplicate, extra, or mismatched PNG/manifest/proof/log. Preserve and commit the canonical matrix, all 62 artifacts of each kind, and ledger before Unit 4a.
-**Output**: Final screenshots, design-review manifests, closed `visual-qa-ledger.md`, and reviewer verdict.
+**What**: Run matrix validate, inspect 62 PNGs, ledger/fix/recapture, rerun launch/matrix/per-cell contracts, and obtain cold PASS. Runner fails on missing/duplicate/extra/mismatched PNG/cell-manifest/proof/log. Preserve matrix, 62 artifacts of each kind, cross-platform local-validation manifest, and ledger before Unit 4a.
+**Output**: Final screenshots, per-cell manifests, cross-platform design-review manifest, closed ledger, and reviewer verdict.
 **Acceptance**: Exactly 62 manifests and their proofs validate; no ledger item remains `ready` or `needs reviewer gate`; automated metrics pass; cold reviewer returns PASS; the branch commit containing all visual evidence is pushed before PR sync/review.
 
 ### ⬜ Unit 4a: Pre-PR sync and branch validation
@@ -140,9 +140,9 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: PR is merged with `Swift tests`, `Native scenario verifier`, `App bundle`, and `Coverage` green on its reviewed head.
 
 ### ⬜ Unit 4c: Exact-main and internal TestFlight verification
-**What**: From persistent base checkout, preflight base/task clean and create exact-main worktree at the named path/SHA; verify clean exact HEAD. Rerun Unit 3e there. Write Desk release notes, run the pinned TestFlight script/env from exact-main, and accept only summary proving Spoonjoy Internal, testerCount > 0, and `IN_BETA_TESTING`.
-**Output**: Exact-main logs and TestFlight publish summary.
-**Acceptance**: Required checks are green for merged SHA and the internal build is available in beta testing.
+**What**: From persistent base checkout, require base/task clean, fetch merged `origin/main`, and create `/Users/arimendelow/Projects/spoonjoy-apple-native-shopping-list-experience-repair-exact-main` detached at the exact 40-character merged SHA; require clean status and exact `HEAD`. Rerun every Unit 3e command in that worktree. In the Desk artifact root write `testflight-release-notes.json` with exactly `{ "schemaVersion": 1, "sourceSha": "<merged-sha>", "notes": "<non-empty shopping-list release notes, at most 4000 characters>" }`. From exact-main run `SPOONJOY_TESTFLIGHT_SOURCE_SHA=<merged-sha> SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH=<desk-artifacts>/testflight-release-notes.json SPOONJOY_TESTFLIGHT_ARTIFACT_DIR=<desk-artifacts>/ci-testflight scripts/ci-publish-testflight.sh`.
+**Output**: Exact-main logs, exact-schema release notes, and `<desk-artifacts>/ci-testflight/testflight-publish-summary.json`.
+**Acceptance**: Required checks are green at exact `HEAD == sourceSha == merged SHA`; publish summary has that exact `sourceSha`, numeric `buildNumber`, non-empty `buildId` and `buildBetaDetailId`, `groupName == "Spoonjoy Internal"`, numeric `testerCount > 0`, and `internalBuildState == "IN_BETA_TESTING"`.
 
 ### ⬜ Unit 4d: Cleanup and durable closure
 **What**: Treat product planning/doing files in merged SHA as immutable execution snapshots; Desk task/card/artifacts are the sole post-merge terminal/evidence state (no second product PR). Preflight from `/Users/arimendelow/Projects/spoonjoy-apple`: base, task, and exact-main worktrees all clean; exact-main HEAD equals merged SHA; Unit 3i evidence commit is ancestor of merged SHA; Desk exact-main/TestFlight artifacts exist and are committed/pushed. Then, in order from the base checkout, remove `/Users/arimendelow/Projects/spoonjoy-apple-native-shopping-list-experience-repair-exact-main`, remove `/Users/arimendelow/Projects/spoonjoy-apple-native-shopping-list-experience-repair`, delete local task branch, conditionally delete remote task branch, and run `git worktree list` plus local/remote ref scans. Finally mark only the Desk task terminal and push Desk `main`.
