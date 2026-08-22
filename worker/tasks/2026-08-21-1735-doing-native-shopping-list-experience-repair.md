@@ -50,7 +50,7 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 ### Legend
 ⬜ Not started · 🔄 In progress · ✅ Done · ❌ Blocked
 
-### ⬜ Unit 0: Setup and source-fidelity baseline
+### ✅ Unit 0: Setup and source-fidelity baseline
 **What**: Record fresh-main SHA, toolchain/simulator inventory, web shopping/category semantics, baseline targeted tests, native justification fit, and TestFlight capability preflight in the artifacts directory.
 **Output**: Baseline log and source-fidelity matrix citing `ShoppingListState.swift`, `ShoppingSurfaceViewModel.swift`, `NativeLiveAppStore.swift`, `PlatformNavigationView.swift`, the web route, and web ingredient affordances.
 **Acceptance**: Branch/worktree isolation is proven; baseline targeted suite is green; release credentials/config are checked without publishing.
@@ -163,3 +163,4 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 ## Progress Log
 - 2026-08-21 17:44 Created from reviewer-approved planning doc.
 - 2026-08-21 20:02 Execution unlocked after two consecutive provenance-locked CLEAN scrutiny verdicts at `44d70752`; Unit 0 started.
+- 2026-08-21 20:08 Unit 0 complete: fresh branch/toolchain/source-fidelity baseline recorded; 13 shopping parity tests and release capability preflight passed; Desk evidence pushed.
