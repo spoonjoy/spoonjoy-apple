@@ -475,7 +475,7 @@ struct ShoppingListView: View {
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.herb)
             } else if let visibleActionErrorMessage {
-                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                HStack(alignment: .center, spacing: 10) {
                     Label(visibleActionErrorMessage, systemImage: "exclamationmark.triangle")
                         .font(KitchenTableTheme.uiLabel)
                         .foregroundStyle(KitchenTableTheme.tomato)

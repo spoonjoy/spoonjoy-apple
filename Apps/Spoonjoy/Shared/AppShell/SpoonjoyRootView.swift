@@ -62,14 +62,21 @@ struct SpoonjoyRootView: View {
 
 #if DEBUG
     private static var shoppingUITestFixtureEnabled: Bool {
-        truthy("SPOONJOY_SHOPPING_UI_TEST_FIXTURE", in: ProcessInfo.processInfo.environment)
+        truthy("SPOONJOY_SHOPPING_UI_TEST_FIXTURE", in: ProcessInfo.processInfo.environment) && shoppingUITestState != nil
+    }
+
+    private static var shoppingUITestState: ShoppingListState? {
+        guard let encoded = ProcessInfo.processInfo.environment["SPOONJOY_SHOPPING_UI_TEST_STATE"] else {
+            return nil
+        }
+        return try? JSONDecoder().decode(ShoppingListState.self, from: Data(encoded.utf8))
     }
 
     private var shoppingUITestFixture: some View {
         NavigationStack {
             ShoppingListView(
                 viewModel: ShoppingSurfaceViewModel(
-                    shoppingList: try? ShoppingListState.decodeFromBundle(),
+                    shoppingList: Self.shoppingUITestState,
                     queuedMutations: [],
                     conflicts: [],
                     connectivity: .online,
