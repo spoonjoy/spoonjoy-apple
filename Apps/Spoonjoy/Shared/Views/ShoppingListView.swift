@@ -38,7 +38,15 @@ struct ShoppingListView: View {
         createRecipe: @escaping () -> Void = {},
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
+        let screenshotEnvironment = ProcessInfo.processInfo.environment
         self.viewModel = viewModel
+        _viewMode = State(initialValue: ShoppingListViewMode(
+            rawValue: screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_MODE"] ?? ""
+        ) ?? .all)
+        _activeCategory = State(initialValue: screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY"] ?? "all")
+        _pendingItemIDs = State(initialValue: screenshotEnvironment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"] == "pending"
+            ? ["item_lemons"]
+            : [])
         self.actionDidPlan = actionDidPlan
         self.shoppingMutationFeedback = shoppingMutationFeedback
         self.retryShoppingMutationRecovery = retryShoppingMutationRecovery
@@ -419,7 +427,30 @@ struct ShoppingListView: View {
     }
 
     private var visibleActionErrorMessage: String? {
-        shoppingMutationFeedback?.message ?? actionErrorMessage ?? addItemForm.actionErrorMessage
+        effectiveShoppingMutationFeedback?.message ?? actionErrorMessage ?? addItemForm.actionErrorMessage
+    }
+
+    private var effectiveShoppingMutationFeedback: ShoppingMutationFeedback? {
+        if let shoppingMutationFeedback {
+            return shoppingMutationFeedback
+        }
+#if DEBUG
+        guard ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_SHOPPING_VARIANT"] == "row-error" else {
+            return nil
+        }
+        return ShoppingMutationFeedback(
+            identity: ShoppingSurfaceMutationIdentity(
+                kind: .setItemChecked,
+                clientMutationID: "screenshot-row-error",
+                itemID: "item_lemons"
+            ),
+            state: .failed,
+            message: "Couldn't update lemons. Try again.",
+            retryIntent: .resubmitWithNewID(nil)
+        )
+#else
+        return nil
+#endif
     }
 
     private func focusAddItem() {
