@@ -1593,6 +1593,7 @@ struct ShoppingMutationCoordinatorTests {
             var writes = 0
             var reads = 0
             var feedback: ShoppingMutationFeedback?
+            var visible = initialState
             let coordinator = ShoppingMutationCoordinator(
                 persistAlreadyApplied: { _ in },
                 executeRemote: { _ in
@@ -1607,12 +1608,20 @@ struct ShoppingMutationCoordinatorTests {
                     }
                     return finalState
                 },
-                recordShoppingList: { _ in },
+                recordShoppingList: { visible = $0 },
                 recordFeedback: { feedback = $0 }
             )
             for plan in plans {
                 #expect(try await coordinator.submit(plan) == .recovering, Comment(rawValue: label))
             }
+            let visibleReceipt = visible.receiptItems.map { "\($0.id)|\($0.name)|\($0.quantity ?? 0)|\($0.unit ?? "")|\($0.isEffectivelyChecked)" }.sorted()
+            let expectedReceipt = finalState.receiptItems.map { "\($0.id)|\($0.name)|\($0.quantity ?? 0)|\($0.unit ?? "")|\($0.isEffectivelyChecked)" }.sorted()
+            #expect(visibleReceipt == expectedReceipt, Comment(rawValue: "\(label) pending receipt projection"))
+            #expect(
+                Set(visible.items.filter { $0.deletedAt != nil }.map(\.id)) == Set(finalState.items.filter { $0.deletedAt != nil }.map(\.id)),
+                Comment(rawValue: "\(label) pending tombstone projection")
+            )
+            #expect(Set(visible.items.map(\.id)).count == visible.items.count, Comment(rawValue: "\(label) stable item IDs"))
             #expect(try await coordinator.retryCurrentRecovery() == .synced, Comment(rawValue: label))
             #expect(feedback == nil, Comment(rawValue: label))
             #expect(writes == plans.count, Comment(rawValue: label))

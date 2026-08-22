@@ -899,17 +899,17 @@ public final class ShoppingMutationCoordinator {
         onto baseline: ShoppingListState
     ) -> ShoppingListState? {
         guard !keys.isEmpty, let expected = plan.updatedShoppingList else { return nil }
-        let currentMatches = baseline.receiptItems.filter { keys.contains(productKey(for: $0)) }
+        let matchingItems = baseline.items.filter { keys.contains(productKey(for: $0)) }
+        let currentMatches = matchingItems.filter { $0.deletedAt == nil } + matchingItems.filter { $0.deletedAt != nil }
         let expectedMatches = expected.receiptItems.filter { keys.contains(productKey(for: $0)) }
         var currentByKey = Dictionary(grouping: currentMatches, by: productKey(for:))
-        var items = baseline.items.filter { item in
-            item.deletedAt != nil || !keys.contains(productKey(for: item))
-        }
-        items += expectedMatches.map { item in
+        var replacedIDs = Set<String>()
+        let projectedMatches = expectedMatches.map { item in
             let key = productKey(for: item)
             guard var matches = currentByKey[key], !matches.isEmpty else { return item }
             let current = matches.removeFirst()
             currentByKey[key] = matches
+            replacedIDs.insert(current.id)
             return ShoppingListItem(
                 id: current.id,
                 name: item.name,
@@ -924,6 +924,10 @@ public final class ShoppingMutationCoordinator {
                 updatedAt: item.updatedAt
             )
         }
+        var items = baseline.items.filter { item in
+            !replacedIDs.contains(item.id) && (item.deletedAt != nil || !keys.contains(productKey(for: item)))
+        }
+        items += projectedMatches
         return ShoppingListState(id: baseline.id, chef: baseline.chef, items: items, nextCursor: baseline.nextCursor, updatedAt: baseline.updatedAt)
     }
 
@@ -992,9 +996,6 @@ public final class ShoppingMutationCoordinator {
                    let targeted = projectingProductTargets(from: recovery.plan, keys: projectionKeys, onto: current) {
                     visible = targeted
                 }
-                continue
-            }
-            if let fetchedBaseline, mutationIsReflected(recovery.plan, in: fetchedBaseline) {
                 continue
             }
             visible = optimisticShoppingList(for: recovery.plan, baseline: visible) ?? visible
