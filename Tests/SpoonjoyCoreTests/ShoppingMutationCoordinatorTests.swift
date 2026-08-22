@@ -1940,6 +1940,77 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("definite restore rejection rejects rapid dependent work on the restored server ID")
+    func definiteRestoreRejectionRejectsRapidDependents() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let gate = ShoppingMutationTestGate(firstResult: .failure(ShoppingMutationCoordinatorTestError.rejected))
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in try await gate.wait() },
+            fetchShoppingList: { baseline },
+            recordShoppingList: { visible = $0 }
+        )
+        let restore = try viewModel(baseline).plan(.addItem(name: "basil", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "herb", clientMutationID: "cm_reject_restored_basil"))
+        let restoreTask = Task { try await coordinator.submit(restore) }
+        await gate.waitUntilEntered(count: 1)
+        let restoredID = "item_removed_basil"
+        #expect(visible.item(id: restoredID)?.deletedAt == nil)
+        let check = try viewModel(visible).plan(.setItemChecked(itemID: restoredID, checked: true, clientMutationID: "cm_reject_restored_check"))
+        let checkTask = Task { try await coordinator.submit(check) }
+        await Task.yield()
+        let delete = try viewModel(visible).plan(.deleteItem(itemID: restoredID, clientMutationID: "cm_reject_restored_delete", confirmation: .confirmed))
+        let deleteTask = Task { try await coordinator.submit(delete) }
+        await Task.yield()
+
+        await gate.resumeNext()
+        await #expect(throws: ShoppingMutationCoordinatorTestError.rejected) { try await restoreTask.value }
+        await #expect(throws: ShoppingMutationCoordinatorError.self) { try await checkTask.value }
+        await #expect(throws: ShoppingMutationCoordinatorError.self) { try await deleteTask.value }
+        #expect(visible.item(id: restoredID)?.deletedAt != nil)
+    }
+
+    @MainActor
+    @Test("duplicate-key recovery blocks only the row actually changed by the additive plan")
+    func duplicateKeyRecoveryDoesNotBlockUnaffectedRow() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let lemons = try #require(baseline.item(id: "item_lemons"))
+        let duplicateID = "item_duplicate_lemons"
+        let duplicate = ShoppingListItem(id: duplicateID, name: lemons.name, quantity: lemons.quantity, unit: lemons.unit, checked: lemons.checked, checkedAt: lemons.checkedAt, deletedAt: lemons.deletedAt, categoryKey: lemons.categoryKey, iconKey: lemons.iconKey, sortIndex: lemons.sortIndex + 10, updatedAt: lemons.updatedAt)
+        let duplicateBaseline = ShoppingListState(id: baseline.id, chef: baseline.chef, items: baseline.items + [duplicate], nextCursor: baseline.nextCursor, updatedAt: baseline.updatedAt)
+        let add = try viewModel(duplicateBaseline).plan(.addItem(name: "lemons", quantity: 1, unit: "each", categoryKey: "produce", iconKey: "lemon", clientMutationID: "cm_duplicate_key_add"))
+        let serverChecked = try duplicateBaseline.settingChecked(true, itemID: duplicateID, checkedAt: duplicateBaseline.updatedAt, updatedAt: duplicateBaseline.updatedAt, nextSortIndex: duplicateBaseline.items.count)
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        var paths: [String] = []
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { request in
+                paths.append(request.pathComponents.joined(separator: "/"))
+                if paths.count == 1 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads == 1 ? duplicateBaseline : serverChecked
+            },
+            recordShoppingList: { _ in }
+        )
+
+        #expect(try await coordinator.submit(add) == .recovering)
+        let check = try viewModel(duplicateBaseline).plan(.setItemChecked(itemID: duplicateID, checked: true, clientMutationID: "cm_duplicate_key_check"))
+        let checkTask = Task { try await coordinator.submit(check) }
+        for _ in 0..<10 where paths.count < 2 { await Task.yield() }
+        #expect(paths.count == 2)
+        if paths.count < 2 {
+            coordinator.resetScope()
+            await #expect(throws: CancellationError.self) { try await checkTask.value }
+        } else {
+            #expect(try await checkTask.value == .synced)
+            #expect(paths[1].contains(duplicateID))
+        }
+    }
+
+    @MainActor
     @Test("ambiguous recipe recovery retains dependent local work")
     func ambiguousRecipeRecoveryRetainsDependentWork() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()

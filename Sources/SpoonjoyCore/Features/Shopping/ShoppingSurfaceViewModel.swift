@@ -562,7 +562,7 @@ public final class ShoppingMutationCoordinator {
         if hadLaterEntries, let reconciled = try? await fetchShoppingList() {
             baselineShoppingList = reconciled
         }
-        let rejectedLocalItemIDs = locallyCreatedItemIDs(for: entry.plan)
+        let rejectedLocalItemIDs = availabilityCreatedItemIDs(for: entry.plan)
         let dependentEntries = entries.filter { dependsOnRejectedItem($0.plan, rejectedLocalItemIDs: rejectedLocalItemIDs) }
         entries.removeAll { candidate in
             dependentEntries.contains { $0.generation == candidate.generation }
@@ -713,8 +713,28 @@ public final class ShoppingMutationCoordinator {
     private func additiveTargetItemIDs(for plan: ShoppingSurfaceMutationPlan) -> Set<String> {
         let keys = affectedProductKeys(for: plan)
         var itemIDs = locallyCreatedItemIDs(for: plan)
-        guard !keys.isEmpty, let updated = plan.updatedShoppingList else { return itemIDs }
-        itemIDs.formUnion(updated.receiptItems.filter { keys.contains(productKey(for: $0)) }.map(\.id))
+        guard !keys.isEmpty,
+              let original = plan.originalShoppingList,
+              let updated = plan.updatedShoppingList
+        else { return itemIDs }
+        itemIDs.formUnion(updated.receiptItems.filter { item in
+            keys.contains(productKey(for: item)) && original.item(id: item.id) != item
+        }.map(\.id))
+        return itemIDs
+    }
+
+    private func availabilityCreatedItemIDs(for plan: ShoppingSurfaceMutationPlan) -> Set<String> {
+        let keys = affectedProductKeys(for: plan)
+        var itemIDs = locallyCreatedItemIDs(for: plan)
+        guard !keys.isEmpty,
+              let original = plan.originalShoppingList,
+              let updated = plan.updatedShoppingList
+        else { return itemIDs }
+        itemIDs.formUnion(updated.receiptItems.filter { item in
+            guard keys.contains(productKey(for: item)) else { return false }
+            let originalItem = original.item(id: item.id)
+            return originalItem == nil || originalItem?.deletedAt != nil
+        }.map(\.id))
         return itemIDs
     }
 
