@@ -299,6 +299,11 @@ public final class ShoppingMutationCoordinator {
         }
     }
 
+    private struct ProductKey: Hashable {
+        let name: String
+        let unit: String
+    }
+
     private let persistAlreadyAppliedBatch: PersistAlreadyAppliedBatch
     private let executeRemote: ExecuteRemote
     private let fetchShoppingList: FetchShoppingList
@@ -624,13 +629,17 @@ public final class ShoppingMutationCoordinator {
     private func settleReflectedRecoveries(in reconciled: ShoppingListState) {
         var didSettle = false
         if let endIndex = pendingRecoveries.indices.reversed().first(where: { index in
-            let keys = affectedProductKeys(for: pendingRecoveries[index].plan)
-            return !keys.isEmpty &&
-                pendingRecoveries[...index].allSatisfy { affectedProductKeys(for: $0.plan) == keys } &&
-                mutationIsReflected(pendingRecoveries[index].plan, in: reconciled)
+            let prefix = pendingRecoveries[...index]
+            guard prefix.allSatisfy({ !affectedProductKeys(for: $0.plan).isEmpty }),
+                  let expected = pendingRecoveries[index].plan.updatedShoppingList
+            else { return false }
+            let keys = prefix.reduce(into: Set<ProductKey>()) { result, recovery in
+                result.formUnion(affectedProductKeys(for: recovery.plan))
+            }
+            return productEvidenceMatches(expected, in: reconciled, keys: keys)
         }) {
             let prefix = Array(pendingRecoveries[...endIndex])
-            if prefix.allSatisfy({ rebindDependentEntries(createdBy: $0.plan, in: reconciled) }) {
+            if rebindDependentEntries(createdBy: prefix.map(\.plan), cumulativelyIn: reconciled) {
                 pendingRecoveries.removeFirst(endIndex + 1)
                 prefix.forEach { clearRetainedFeedback(matching: $0.plan.identity) }
                 didSettle = true
@@ -720,7 +729,16 @@ public final class ShoppingMutationCoordinator {
     }
 
     private func rebindDependentEntries(createdBy creator: ShoppingSurfaceMutationPlan, in reconciled: ShoppingListState) -> Bool {
-        let localIDs = locallyCreatedItemIDs(for: creator)
+        rebindDependentEntries(createdBy: [creator], cumulativelyIn: reconciled)
+    }
+
+    private func rebindDependentEntries(
+        createdBy creators: [ShoppingSurfaceMutationPlan],
+        cumulativelyIn reconciled: ShoppingListState
+    ) -> Bool {
+        let localIDs = creators.reduce(into: Set<String>()) { result, creator in
+            result.formUnion(locallyCreatedItemIDs(for: creator))
+        }
         let targetedIDs = Set(entries.compactMap { entry -> String? in
             switch entry.plan.action {
             case .setItemChecked(let itemID, _, _), .deleteItem(let itemID, _, _):
@@ -729,42 +747,23 @@ public final class ShoppingMutationCoordinator {
                 return nil
             }
         })
-        let mappings = resolvedItemIDMappings(createdBy: creator, in: reconciled)
+        var mappings: [String: String] = [:]
+        for creator in creators {
+            guard let expected = creator.updatedShoppingList else { continue }
+            for localID in locallyCreatedItemIDs(for: creator) where targetedIDs.contains(localID) {
+                guard let expectedItem = expected.item(id: localID) else { continue }
+                let key = productKey(name: expectedItem.name, unit: expectedItem.unit)
+                let candidates = reconciled.receiptItems.filter { productKey(for: $0) == key }
+                if candidates.count == 1, let resolvedID = candidates.first?.id {
+                    mappings[localID] = resolvedID
+                }
+            }
+        }
         guard targetedIDs.isSubset(of: Set(mappings.keys)) else { return false }
         for index in entries.indices {
             entries[index].plan = rebound(entries[index].plan, using: mappings, in: reconciled)
         }
         return true
-    }
-
-    private func resolvedItemIDMappings(
-        createdBy plan: ShoppingSurfaceMutationPlan,
-        in reconciled: ShoppingListState
-    ) -> [String: String] {
-        guard let expected = plan.updatedShoppingList else { return [:] }
-        var mappings: [String: String] = [:]
-        for localID in locallyCreatedItemIDs(for: plan) {
-            guard let expectedItem = expected.item(id: localID) else { continue }
-            let candidates = reconciled.receiptItems.filter { item in
-                normalized(item.name) == normalized(expectedItem.name) &&
-                    normalized(item.unit) == normalized(expectedItem.unit) &&
-                    ProductEvidence(
-                        quantity: item.quantity,
-                        categoryKey: normalized(item.categoryKey),
-                        iconKey: normalized(item.iconKey),
-                        isChecked: item.isEffectivelyChecked
-                    ) == ProductEvidence(
-                        quantity: expectedItem.quantity,
-                        categoryKey: normalized(expectedItem.categoryKey),
-                        iconKey: normalized(expectedItem.iconKey),
-                        isChecked: expectedItem.isEffectivelyChecked
-                    )
-            }
-            if candidates.count == 1, let resolvedID = candidates.first?.id {
-                mappings[localID] = resolvedID
-            }
-        }
-        return mappings
     }
 
     private func rebound(
@@ -845,12 +844,20 @@ public final class ShoppingMutationCoordinator {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
 
-    private func affectedProductKeys(for plan: ShoppingSurfaceMutationPlan) -> Set<String> {
+    private func productKey(name: String?, unit: String?) -> ProductKey {
+        ProductKey(name: normalized(name), unit: normalized(unit))
+    }
+
+    private func productKey(for item: ShoppingListItem) -> ProductKey {
+        productKey(name: item.name, unit: item.unit)
+    }
+
+    private func affectedProductKeys(for plan: ShoppingSurfaceMutationPlan) -> Set<ProductKey> {
         switch plan.action {
         case .addItem(let name, _, let unit, _, _, _):
-            return ["\(normalized(name))|\(normalized(unit))"]
+            return [productKey(name: name, unit: unit)]
         case .addRecipeIngredients(_, _, let ingredients, _):
-            return Set(ingredients.map { "\(normalized($0.name))|\(normalized($0.unit))" })
+            return Set(ingredients.map { productKey(name: $0.name, unit: $0.unit) })
         case .setItemChecked, .deleteItem, .clearCompleted, .clearAll, .none:
             return []
         }
@@ -858,18 +865,21 @@ public final class ShoppingMutationCoordinator {
 
     private func projectingProductTargets(
         from plan: ShoppingSurfaceMutationPlan,
+        keys: Set<ProductKey>,
         onto baseline: ShoppingListState
     ) -> ShoppingListState? {
-        let keys = affectedProductKeys(for: plan)
         guard !keys.isEmpty, let expected = plan.updatedShoppingList else { return nil }
-        let currentMatches = baseline.receiptItems.filter { keys.contains("\(normalized($0.name))|\(normalized($0.unit))") }
-        let expectedMatches = expected.receiptItems.filter { keys.contains("\(normalized($0.name))|\(normalized($0.unit))") }
+        let currentMatches = baseline.receiptItems.filter { keys.contains(productKey(for: $0)) }
+        let expectedMatches = expected.receiptItems.filter { keys.contains(productKey(for: $0)) }
+        var currentByKey = Dictionary(grouping: currentMatches, by: productKey(for:))
         var items = baseline.items.filter { item in
-            item.deletedAt != nil || !keys.contains("\(normalized(item.name))|\(normalized(item.unit))")
+            item.deletedAt != nil || !keys.contains(productKey(for: item))
         }
-        items += expectedMatches.enumerated().map { index, item in
-            guard currentMatches.indices.contains(index) else { return item }
-            let current = currentMatches[index]
+        items += expectedMatches.map { item in
+            let key = productKey(for: item)
+            guard var matches = currentByKey[key], !matches.isEmpty else { return item }
+            let current = matches.removeFirst()
+            currentByKey[key] = matches
             return ShoppingListItem(
                 id: current.id,
                 name: item.name,
@@ -893,10 +903,21 @@ public final class ShoppingMutationCoordinator {
         keys: [(String, String)]
     ) -> Bool {
         guard let expectedShoppingList = plan.updatedShoppingList else { return false }
-        let uniqueKeys = Dictionary(grouping: keys, by: { "\($0.0)|\($0.1)" }).compactMap(\.value.first)
-        return uniqueKeys.allSatisfy { name, unit in
-            productEvidence(in: expectedShoppingList, name: name, unit: unit) ==
-                productEvidence(in: shoppingList, name: name, unit: unit)
+        return productEvidenceMatches(
+            expectedShoppingList,
+            in: shoppingList,
+            keys: Set(keys.map { ProductKey(name: $0.0, unit: $0.1) })
+        )
+    }
+
+    private func productEvidenceMatches(
+        _ expected: ShoppingListState,
+        in shoppingList: ShoppingListState,
+        keys: Set<ProductKey>
+    ) -> Bool {
+        keys.allSatisfy { key in
+            productEvidence(in: expected, name: key.name, unit: key.unit) ==
+                productEvidence(in: shoppingList, name: key.name, unit: key.unit)
         }
     }
 
@@ -927,18 +948,26 @@ public final class ShoppingMutationCoordinator {
         let fetchedBaseline = baselineShoppingList
         for (index, recovery) in pendingRecoveries.enumerated() {
             let keys = affectedProductKeys(for: recovery.plan)
-            let isSuperseded = !keys.isEmpty && pendingRecoveries.dropFirst(index + 1).contains { affectedProductKeys(for: $0.plan) == keys }
-            if isSuperseded {
+            if !keys.isEmpty, let expected = recovery.plan.updatedShoppingList {
+                let laterKeys = pendingRecoveries.dropFirst(index + 1).reduce(into: Set<ProductKey>()) { result, later in
+                    result.formUnion(affectedProductKeys(for: later.plan))
+                }
+                var projectionKeys = keys.subtracting(laterKeys)
+                if let fetchedBaseline {
+                    projectionKeys = projectionKeys.filter { key in
+                        !productEvidenceMatches(expected, in: fetchedBaseline, keys: [key])
+                    }
+                }
+                if let current = visible,
+                   let targeted = projectingProductTargets(from: recovery.plan, keys: projectionKeys, onto: current) {
+                    visible = targeted
+                }
                 continue
             }
             if let fetchedBaseline, mutationIsReflected(recovery.plan, in: fetchedBaseline) {
                 continue
             }
-            if let current = visible, let targeted = projectingProductTargets(from: recovery.plan, onto: current) {
-                visible = targeted
-            } else {
-                visible = optimisticShoppingList(for: recovery.plan, baseline: visible) ?? visible
-            }
+            visible = optimisticShoppingList(for: recovery.plan, baseline: visible) ?? visible
         }
         visible = projectedState(from: visible, applying: entries.map(\.plan))
         guard let visible else { return }

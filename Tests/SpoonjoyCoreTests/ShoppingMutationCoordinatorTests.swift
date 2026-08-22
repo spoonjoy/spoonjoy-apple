@@ -1288,6 +1288,180 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("overlapping recipe and interleaved additive recoveries settle from union evidence")
+    func overlappingInterleavedRecoveriesSettleFromUnionEvidence() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let recipe = try viewModel(baseline).plan(.addRecipeIngredients(
+            recipeID: "recipe_cumulative_overlap",
+            scaleFactor: 1,
+            recipeIngredients: [
+                RecipeIngredient(id: "ingredient_overlap_thyme", name: "overlap thyme", quantity: 1, unit: "bunch"),
+                RecipeIngredient(id: "ingredient_overlap_sage", name: "overlap sage", quantity: 1, unit: "bunch")
+            ],
+            clientMutationID: "cm_overlap_recipe"
+        ))
+        let recipeTarget = try #require(recipe.updatedShoppingList)
+        let interleaved = try viewModel(recipeTarget).plan(.addItem(name: "overlap parsley", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_overlap_interleaved"))
+        let interleavedTarget = try #require(interleaved.updatedShoppingList)
+        let overlapping = try viewModel(interleavedTarget).plan(.addItem(name: "overlap thyme", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_overlap_final"))
+        let cumulativeTarget = try #require(overlapping.updatedShoppingList)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 3 { throw cancelled }
+                Issue.record("Union-reflected recoveries must not replay transport")
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 3 ? baseline : cumulativeTarget
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(recipe) == .recovering)
+        #expect(try await coordinator.submit(interleaved) == .recovering)
+        #expect(try await coordinator.submit(overlapping) == .recovering)
+        #expect(visible.receiptItems.first { $0.name == "overlap thyme" }?.quantity == 3)
+        #expect(visible.receiptItems.first { $0.name == "overlap sage" }?.quantity == 1)
+        #expect(visible.receiptItems.first { $0.name == "overlap parsley" }?.quantity == 1)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback == nil)
+        #expect(writes == 3)
+    }
+
+    @MainActor
+    @Test("cumulative recovery atomically rebinds dependent work to the server item")
+    func cumulativeRecoveryRebindsDependentWork() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "dependent cumulative thyme", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_cumulative_dependency_a"))
+        let firstTarget = try #require(first.updatedShoppingList)
+        let localID = try #require(firstTarget.receiptItems.first { $0.name == "dependent cumulative thyme" }?.id)
+        let second = try viewModel(firstTarget).plan(.addItem(name: "dependent cumulative thyme", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_cumulative_dependency_b"))
+        let localFinal = try #require(second.updatedShoppingList)
+        let serverID = "item_server_cumulative_thyme"
+        let serverFinal = ShoppingListState(
+            id: localFinal.id,
+            chef: localFinal.chef,
+            items: localFinal.items.map { item in
+                guard item.id == localID else { return item }
+                return ShoppingListItem(id: serverID, name: item.name, quantity: item.quantity, unit: item.unit, checked: item.checked, checkedAt: item.checkedAt, deletedAt: item.deletedAt, categoryKey: item.categoryKey, iconKey: item.iconKey, sortIndex: item.sortIndex, updatedAt: item.updatedAt)
+            },
+            nextCursor: localFinal.nextCursor,
+            updatedAt: localFinal.updatedAt
+        )
+        let serverChecked = try serverFinal.settingChecked(true, itemID: serverID, checkedAt: serverFinal.updatedAt, updatedAt: serverFinal.updatedAt, nextSortIndex: serverFinal.items.count)
+        var paths: [String] = []
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { request in
+                paths.append(request.pathComponents.joined(separator: "/"))
+                if paths.count <= 2 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return switch reads {
+                case 1, 2: baseline
+                case 3: serverFinal
+                default: serverChecked
+                }
+            },
+            recordShoppingList: { visible = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(second) == .recovering)
+        let dependentPlan = try viewModel(visible).plan(.setItemChecked(itemID: localID, checked: true, clientMutationID: "cm_cumulative_dependency_check"))
+        let dependent = Task { try await coordinator.submit(dependentPlan) }
+        await Task.yield()
+        #expect(paths.count == 2)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(try await dependent.value == .synced)
+        #expect(paths.count == 3)
+        #expect(paths[2].contains(serverID))
+        #expect(!paths[2].contains(localID))
+        #expect(visible.item(id: serverID)?.isEffectivelyChecked == true)
+    }
+
+    @MainActor
+    @Test("product evidence keeps delimiter-bearing name and unit pairs distinct")
+    func productEvidenceKeysDoNotCollide() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "a|b", quantity: 1, unit: "c", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_key_collision_a"))
+        let secondOnly = try viewModel(baseline).plan(.addItem(name: "a", quantity: 1, unit: "b|c", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_key_collision_b_server"))
+        let serverSecond = try #require(secondOnly.updatedShoppingList)
+        let second = try viewModel(try #require(first.updatedShoppingList)).plan(.addItem(name: "a", quantity: 1, unit: "b|c", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_key_collision_b"))
+        let refresh = try viewModel(serverSecond).plan(.addItem(name: "collision parsley", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_key_collision_refresh"))
+        let serverRefresh = try #require(refresh.updatedShoppingList)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 2 ? baseline : serverRefresh
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(second) == .recovering)
+        #expect(try await coordinator.submit(refresh) == .synced)
+        #expect(feedback?.identity == first.identity)
+        #expect(visible.receiptItems.first { $0.name == "a|b" && $0.unit == "c" }?.quantity == 1)
+        #expect(visible.receiptItems.first { $0.name == "a" && $0.unit == "b|c" }?.quantity == 1)
+    }
+
+    @MainActor
+    @Test("later reflected non-additive recovery is not projected behind an absent head")
+    func laterReflectedNonAdditiveRecoverySkipsProjection() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "nonadd head mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_nonadd_head"))
+        let later = try viewModel(try #require(first.updatedShoppingList)).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_nonadd_later"))
+        let serverChecked = try baseline.settingChecked(true, itemID: "item_lemons", checkedAt: baseline.updatedAt, updatedAt: baseline.updatedAt, nextSortIndex: baseline.items.count)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 2 ? baseline : serverChecked
+            },
+            recordShoppingList: { visible = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(later) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .recovering)
+        #expect(visible.receiptItems.contains { $0.name == "nonadd head mint" })
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+        #expect(writes == 3)
+    }
+
+    @MainActor
     @Test("dependent local item mutations wait and rebind after add recovery")
     func dependentMutationWaitsForRecoveryAndRebinds() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
