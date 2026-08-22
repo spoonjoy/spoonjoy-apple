@@ -630,13 +630,16 @@ public final class ShoppingMutationCoordinator {
         var didSettle = false
         if let endIndex = pendingRecoveries.indices.reversed().first(where: { index in
             let prefix = pendingRecoveries[...index]
-            guard prefix.allSatisfy({ !affectedProductKeys(for: $0.plan).isEmpty }),
-                  let expected = pendingRecoveries[index].plan.updatedShoppingList
-            else { return false }
             let keys = prefix.reduce(into: Set<ProductKey>()) { result, recovery in
                 result.formUnion(affectedProductKeys(for: recovery.plan))
             }
-            return productEvidenceMatches(expected, in: reconciled, keys: keys)
+            guard !keys.isEmpty,
+                  let expected = pendingRecoveries[index].plan.updatedShoppingList
+            else { return false }
+            let nonAdditivePlansAreReflected = prefix.allSatisfy { recovery in
+                !affectedProductKeys(for: recovery.plan).isEmpty || mutationIsReflected(recovery.plan, in: reconciled)
+            }
+            return nonAdditivePlansAreReflected && productEvidenceMatches(expected, in: reconciled, keys: keys)
         }) {
             let prefix = Array(pendingRecoveries[...endIndex])
             if rebindDependentEntries(createdBy: prefix.map(\.plan), cumulativelyIn: reconciled) {

@@ -1462,6 +1462,121 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("mixed additive and non-additive recovery prefix settles when every postcondition is reflected")
+    func mixedRecoveryPrefixSettlesFromCompositeEvidence() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "mixed prefix mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_mixed_prefix_a"))
+        let firstTarget = try #require(first.updatedShoppingList)
+        let middle = try viewModel(firstTarget).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_mixed_prefix_x"))
+        let middleTarget = try #require(middle.updatedShoppingList)
+        let last = try viewModel(middleTarget).plan(.addItem(name: "mixed prefix mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_mixed_prefix_b"))
+        let finalTarget = try #require(last.updatedShoppingList)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 3 { throw cancelled }
+                Issue.record("Composite-reflected recovery must not replay transport")
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 3 ? baseline : finalTarget
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(middle) == .recovering)
+        #expect(try await coordinator.submit(last) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback == nil)
+        #expect(visible.receiptItems.first { $0.name == "mixed prefix mint" }?.quantity == 3)
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+        #expect(writes == 3)
+    }
+
+    @MainActor
+    @Test("mixed recovery settles only its reflected additive and non-additive prefix")
+    func mixedRecoverySettlesOnlyReflectedCompositePrefix() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "mixed partial mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_mixed_partial_a"))
+        let middle = try viewModel(try #require(first.updatedShoppingList)).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_mixed_partial_x"))
+        let reflectedPrefix = try #require(middle.updatedShoppingList)
+        let last = try viewModel(reflectedPrefix).plan(.addItem(name: "mixed partial mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_mixed_partial_b"))
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 3 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 3 ? baseline : reflectedPrefix
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(middle) == .recovering)
+        #expect(try await coordinator.submit(last) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback?.identity == last.identity)
+        #expect(visible.receiptItems.first { $0.name == "mixed partial mint" }?.quantity == 3)
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+        #expect(writes == 3)
+    }
+
+    @MainActor
+    @Test("mixed recovery fails closed when cumulative additive evidence omits the middle postcondition")
+    func mixedRecoveryFailsClosedWhenMiddlePostconditionIsAbsent() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let first = try viewModel(baseline).plan(.addItem(name: "mixed impossible mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_mixed_impossible_a"))
+        let firstTarget = try #require(first.updatedShoppingList)
+        let middle = try viewModel(firstTarget).plan(.setItemChecked(itemID: "item_lemons", checked: true, clientMutationID: "cm_mixed_impossible_x"))
+        let last = try viewModel(try #require(middle.updatedShoppingList)).plan(.addItem(name: "mixed impossible mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_mixed_impossible_b"))
+        let additiveOnlyFinal = try #require(try viewModel(firstTarget).plan(.addItem(name: "mixed impossible mint", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_mixed_impossible_server")).updatedShoppingList)
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 3 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 3 ? baseline : additiveOnlyFinal
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(first) == .recovering)
+        #expect(try await coordinator.submit(middle) == .recovering)
+        #expect(try await coordinator.submit(last) == .recovering)
+        #expect(try await coordinator.retryCurrentRecovery() == .recovering)
+        #expect(feedback?.identity == first.identity)
+        #expect(visible.receiptItems.first { $0.name == "mixed impossible mint" }?.quantity == 3)
+        #expect(visible.item(id: "item_lemons")?.isEffectivelyChecked == true)
+        #expect(writes == 4)
+    }
+
+    @MainActor
     @Test("dependent local item mutations wait and rebind after add recovery")
     func dependentMutationWaitsForRecoveryAndRebinds() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
