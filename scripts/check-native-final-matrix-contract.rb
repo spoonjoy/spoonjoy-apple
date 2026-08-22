@@ -4,9 +4,13 @@
 require "pathname"
 require "open3"
 require "tmpdir"
+require "digest"
+require "json"
+require "fileutils"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 SCRIPT_PATH = ROOT.join("scripts/validate-native-local.sh")
+MATRIX_SCRIPT_PATH = ROOT.join("scripts/capture-native-screenshot-matrix.sh")
 
 APP_INTENTS_DOMAINS = [
   "recipe-cookbook",
@@ -87,10 +91,61 @@ def fail_check(message)
   exit 1
 end
 
+failures = []
+
+Dir.mktmpdir("spoonjoy-native-route-evidence-contract") do |directory|
+  artifact_root = Pathname.new(directory)
+  route_root = artifact_root.join("screenshot-routes/recipes")
+  route_root.join("screenshots").mkpath
+  route_root.join("design-review.json").write("{}\n")
+  %w[ios-mobile.png ios-tablet.png macos-desktop.png].each do |name|
+    route_root.join("screenshots", name).binwrite("not-a-png")
+  end
+  artifact = lambda do |path|
+    { "path" => path.to_s, "exists" => true, "bytes" => path.size, "sha256" => Digest::SHA256.file(path).hexdigest }
+  end
+  row = {
+    "name" => "recipes", "route" => "recipes", "artifactRoot" => route_root.to_s,
+    "status" => "pass", "blocked" => false, "missingDesignReview" => false,
+    "designReview" => artifact.call(route_root.join("design-review.json")),
+    "iosScreenshot" => artifact.call(route_root.join("screenshots/ios-mobile.png")),
+    "iosTabletScreenshot" => artifact.call(route_root.join("screenshots/ios-tablet.png")),
+    "macosScreenshot" => artifact.call(route_root.join("screenshots/macos-desktop.png"))
+  }
+  results = artifact_root.join("matrix.jsonl")
+  results.write(JSON.generate(row) + "\n")
+  checkpoint = artifact_root.join("checkpoint.json")
+  checkpoint.write(JSON.generate("schemaVersion" => 2, "completedRouteDigests" => { "recipes" => Digest::SHA256.hexdigest(JSON.generate(row)) }))
+  validator = ROOT.join("scripts/validate-native-route-evidence.rb")
+
+  _stdout, stderr, status = Open3.capture3("ruby", validator.to_s, "--artifact-root", artifact_root.to_s, "--name", "recipes", "--results-jsonl", results.to_s, "--checkpoint", checkpoint.to_s)
+  failures << "route evidence validator must reject a non-PNG screenshot: #{stderr.inspect}" if status.success?
+
+  row["iosScreenshot"]["path"] = "/etc/hosts"
+  results.write(JSON.generate(row) + "\n")
+  _stdout, stderr, status = Open3.capture3("ruby", validator.to_s, "--artifact-root", artifact_root.to_s, "--name", "recipes", "--results-jsonl", results.to_s, "--checkpoint", checkpoint.to_s)
+  failures << "route evidence validator must reject a noncanonical JSONL path: #{stderr.inspect}" if status.success?
+
+  results.write("{\"name\":")
+  _stdout, stderr, status = Open3.capture3("ruby", validator.to_s, "--artifact-root", artifact_root.to_s, "--name", "recipes", "--results-jsonl", results.to_s, "--checkpoint", checkpoint.to_s)
+  failures << "route evidence validator must reject truncated JSONL: #{stderr.inspect}" if status.success?
+end
+
 fail_check("missing #{SCRIPT_PATH}") unless SCRIPT_PATH.file?
 
 content = SCRIPT_PATH.read
-failures = []
+matrix_content = MATRIX_SCRIPT_PATH.read
+
+[
+  "scripts/validate-native-route-evidence.rb",
+  "completedRouteDigests",
+  '"schemaVersion" => 2',
+  '"sha256"',
+  "accessibilityProofs",
+  "git ls-files --others --exclude-standard"
+].each do |token|
+  failures << "capture-native-screenshot-matrix.sh missing fail-closed resume token #{token.inspect}" unless matrix_content.include?(token)
+end
 
 REQUIRED_SOURCE_TOKENS.each do |token|
   failures << "validate-native-local.sh missing required final-matrix token #{token.inspect}" unless content.include?(token)

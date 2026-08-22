@@ -776,6 +776,11 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-resume-contract") do |directory|
   prebuilt_ios_app.join("Spoonjoy").write("ios-app\n")
   prebuilt_macos_app.join("Spoonjoy").write("macos-app\n")
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshot-matrix.sh"), script_root.join("scripts/capture-native-screenshot-matrix.sh"))
+  FileUtils.cp(ROOT.join("scripts/validate-native-route-evidence.rb"), script_root.join("scripts/validate-native-route-evidence.rb"))
+  write_executable(script_root.join("scripts/validate-design-review.rb"), <<~'RUBY')
+    #!/usr/bin/env ruby
+    exit 0
+  RUBY
 
   write_executable(script_root.join("scripts/capture-native-screenshots.sh"), <<~'SH')
     #!/usr/bin/env bash
@@ -791,11 +796,15 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-resume-contract") do |directory|
       esac
     done
     printf '%s\n' "$route" >> "$SPOONJOY_MATRIX_CALLS_PATH"
-    mkdir -p "$artifact_root/apple" "$artifact_root/screenshots"
-    printf 'image\n' > "$artifact_root/screenshots/ios-mobile.png"
-    printf 'image\n' > "$artifact_root/screenshots/ios-tablet.png"
-    printf 'image\n' > "$artifact_root/screenshots/macos-desktop.png"
-    ruby -rjson -e 'File.write(ARGV[0], JSON.generate({"screenshotRoute" => ARGV[1], "blockers" => []}) + "\n")' \
+    mkdir -p "$artifact_root/apple" "$artifact_root/screenshots" "$artifact_root/accessibility"
+    ruby -rbase64 -e 'png = Base64.decode64("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="); ARGV.each { |path| File.binwrite(path, png) }' \
+      "$artifact_root/screenshots/ios-mobile.png" \
+      "$artifact_root/screenshots/ios-tablet.png" \
+      "$artifact_root/screenshots/macos-desktop.png"
+    printf '{}\n' > "$artifact_root/accessibility/ios-mobile.json"
+    printf '{}\n' > "$artifact_root/accessibility/ios-tablet.json"
+    printf '{}\n' > "$artifact_root/accessibility/macos-desktop.json"
+    ruby -rjson -e 'File.write(ARGV[0], JSON.generate({"screenshotRoute" => ARGV[1], "blockers" => [], "accessibilityProofArtifacts" => ["accessibility/ios-mobile.json", "accessibility/ios-tablet.json", "accessibility/macos-desktop.json"]}) + "\n")' \
       "$artifact_root/design-review.json" "$route"
   SH
 

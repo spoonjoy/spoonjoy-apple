@@ -217,6 +217,10 @@ source_identity() {
       printf 'Screenshot matrix requires a clean tracked worktree for an exact build identity.\n' >&2
       return 1
     }
+    if [[ -n "$(git ls-files --others --exclude-standard -- Sources Apps Tests scripts Package.swift Project.swift Project.yml)" ]]; then
+      printf 'Screenshot matrix requires source and validation paths to contain no untracked files.\n' >&2
+      return 1
+    fi
     git rev-parse HEAD
     return
   fi
@@ -249,49 +253,61 @@ write_or_validate_checkpoint() {
     expected = expected_csv.split(",").reject(&:empty?)
     if resume_value == "1"
       checkpoint = JSON.parse(File.read(path))
+      expected_keys = %w[schemaVersion sourceIdentity buildIdentity expectedRoutes completedRoutes completedRouteDigests createdAt updatedAt]
+      abort("checkpoint schema changed") unless checkpoint["schemaVersion"] == 2
+      abort("checkpoint fields changed") unless checkpoint.keys.sort == expected_keys.sort
+      abort("checkpoint completedRouteDigests must be an object") unless checkpoint["completedRouteDigests"].is_a?(Hash)
       abort("checkpoint source identity changed") unless checkpoint["sourceIdentity"] == source_id
       abort("checkpoint build identity changed") unless checkpoint["buildIdentity"] == build_id
       abort("checkpoint route selection changed") unless checkpoint["expectedRoutes"] == expected
     else
       checkpoint = {
-        "schemaVersion" => 1,
+        "schemaVersion" => 2,
         "sourceIdentity" => source_id,
         "buildIdentity" => build_id,
         "expectedRoutes" => expected,
         "completedRoutes" => [],
-        "createdAt" => Time.now.utc.iso8601
+        "completedRouteDigests" => {},
+        "createdAt" => Time.now.utc.iso8601,
+        "updatedAt" => Time.now.utc.iso8601
       }
-      File.write(path, JSON.pretty_generate(checkpoint) + "\n")
+      temporary = "#{path}.tmp-#{Process.pid}"
+      File.write(temporary, JSON.pretty_generate(checkpoint) + "\n")
+      File.rename(temporary, path)
     end
   ' "$checkpoint_path" "$resume_matrix" "$source_id" "$build_id" "$expected_routes"
 }
 
 route_is_complete() {
   local name="$1"
-  ruby -rjson -e '
-    results_path, name = ARGV
-    exit 1 unless File.file?(results_path)
-    rows = File.readlines(results_path).map { |line| JSON.parse(line) rescue nil }.compact
-    row = rows.reverse.find { |candidate| candidate["name"] == name }
-    exit 1 unless row && row["status"] == "pass" && !row["blocked"] && !row["missingDesignReview"]
-    artifacts = %w[designReview iosScreenshot iosTabletScreenshot macosScreenshot]
-    valid = artifacts.all? do |field|
-      path = row.dig(field, "path")
-      path && File.file?(path) && File.size(path).positive?
-    end
-    exit(valid ? 0 : 1)
-  ' "$results_path" "$name"
+  ruby scripts/validate-native-route-evidence.rb \
+    --artifact-root "$artifact_root" \
+    --name "$name" \
+    --results-jsonl "$results_path" \
+    --checkpoint "$checkpoint_path" >/dev/null 2>&1
 }
 
 update_checkpoint_progress() {
-  ruby -rjson -rtime -e '
-    checkpoint_path, results_path = ARGV
+  local name="$1"
+  ruby -rdigest -rjson -rtime -e '
+    checkpoint_path, results_path, name = ARGV
     checkpoint = JSON.parse(File.read(checkpoint_path))
-    rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) rescue nil }.compact : []
-    checkpoint["completedRoutes"] = rows.select { |row| row["status"] == "pass" }.map { |row| row["name"] }.uniq
+    rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) } : []
+    matching = rows.select { |row| row["name"] == name }
+    abort("results must contain exactly one row for #{name}") unless matching.length == 1
+    row = matching.first
+    digests = checkpoint.fetch("completedRouteDigests")
+    if row["status"] == "pass"
+      digests[name] = Digest::SHA256.hexdigest(JSON.generate(row))
+    else
+      digests.delete(name)
+    end
+    checkpoint["completedRoutes"] = checkpoint.fetch("expectedRoutes").select { |route_name| digests.key?(route_name) }
     checkpoint["updatedAt"] = Time.now.utc.iso8601
-    File.write(checkpoint_path, JSON.pretty_generate(checkpoint) + "\n")
-  ' "$checkpoint_path" "$results_path"
+    temporary = "#{checkpoint_path}.tmp-#{Process.pid}"
+    File.write(temporary, JSON.pretty_generate(checkpoint) + "\n")
+    File.rename(temporary, checkpoint_path)
+  ' "$checkpoint_path" "$results_path" "$name"
 }
 
 prune_task_transients() {
@@ -308,18 +324,26 @@ record_route() {
   local route_root="$3"
   local status="$4"
   local command="$5"
-  ruby -rjson -e '
+  ruby -rdigest -rjson -e '
     results_path, name, route, route_root, status, command = ARGV
     def artifact(path, relative_path)
       absolute = File.join(path, relative_path)
       {
         "path" => absolute,
         "exists" => File.file?(absolute),
-        "bytes" => File.file?(absolute) ? File.size(absolute) : nil
+        "bytes" => File.file?(absolute) ? File.size(absolute) : nil,
+        "sha256" => File.file?(absolute) ? Digest::SHA256.file(absolute).hexdigest : nil
       }
     end
     design_review = artifact(route_root, "design-review.json")
     design_review_blocked = artifact(route_root, "design-review-blocked.json")
+    accessibility_proofs = if design_review.fetch("exists")
+      JSON.parse(File.read(design_review.fetch("path"))).fetch("accessibilityProofArtifacts", []).map do |relative_path|
+        artifact(route_root, relative_path)
+      end
+    else
+      []
+    end
     row = {
       "name" => name,
       "route" => route,
@@ -330,14 +354,17 @@ record_route() {
       "missingDesignReview" => !design_review.fetch("exists") && !design_review_blocked.fetch("exists"),
       "designReview" => design_review,
       "designReviewBlocked" => design_review_blocked,
+      "accessibilityProofs" => accessibility_proofs,
       "iosScreenshot" => artifact(route_root, "screenshots/ios-mobile.png"),
       "iosTabletScreenshot" => artifact(route_root, "screenshots/ios-tablet.png"),
       "macosScreenshot" => artifact(route_root, "screenshots/macos-desktop.png")
     }
-    rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) rescue nil }.compact : []
+    rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) } : []
     rows.reject! { |candidate| candidate["name"] == name }
     rows << row
-    File.write(results_path, rows.map { |candidate| JSON.generate(candidate) }.join("\n") + "\n")
+    temporary = "#{results_path}.tmp-#{Process.pid}"
+    File.write(temporary, rows.map { |candidate| JSON.generate(candidate) }.join("\n") + "\n")
+    File.rename(temporary, results_path)
   ' "$results_path" "$name" "$route" "$route_root" "$status" "$command"
 }
 
@@ -433,19 +460,21 @@ PY
 
 summarize_routes() {
   ruby -rjson -rtime -e '
-    results_path, summary_path, shared_build_blocker_path, expected_csv, build_identity = ARGV
+    results_path, summary_path, shared_build_blocker_path, expected_csv, build_identity, artifact_root, checkpoint_path = ARGV
     expected = expected_csv.split(",").reject(&:empty?)
     rows = File.file?(results_path) ? File.readlines(results_path).map { |line| JSON.parse(line) } : []
-    rows.select! { |row| expected.include?(row["name"]) }
     missing = rows.select { |row| row["missingDesignReview"] }
     blocked = rows.select { |row| row["blocked"] }
     failed = rows.select { |row| row["status"] != "pass" }
-    required_artifacts = %w[designReview iosScreenshot iosTabletScreenshot macosScreenshot]
     invalid_evidence = rows.select do |row|
-      required_artifacts.any? do |field|
-        artifact = row[field] || {}
-        !artifact["exists"] || !artifact["bytes"].is_a?(Integer) || artifact["bytes"] <= 0
-      end
+      !system(
+        "ruby", "scripts/validate-native-route-evidence.rb",
+        "--artifact-root", artifact_root,
+        "--name", row.fetch("name", ""),
+        "--results-jsonl", results_path,
+        "--checkpoint", checkpoint_path,
+        out: File::NULL, err: File::NULL
+      )
     end
     names = rows.map { |row| row["name"] }
     name_counts = names.each_with_object(Hash.new(0)) { |name, counts| counts[name] += 1 }
@@ -456,7 +485,7 @@ summarize_routes() {
     build_blocker = File.file?(shared_build_blocker_path) ? JSON.parse(File.read(shared_build_blocker_path)) : nil
     exact_manifest = duplicate_names.empty? && missing_routes.empty? && unexpected_routes.empty? && rows.length == expected.length
     ok = !rows.empty? && exact_manifest && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty? && invalid_evidence.empty?
-    File.write(summary_path, JSON.pretty_generate({
+    summary = JSON.pretty_generate({
       "ok" => ok,
       "fullyValidated" => ok,
       "incomplete" => incomplete,
@@ -475,9 +504,12 @@ summarize_routes() {
       "invalidEvidenceRoutes" => invalid_evidence.map { |row| row["name"] },
       "blockedRoutes" => blocked.map { |row| row["name"] },
       "missingDesignReviewRoutes" => missing.map { |row| row["name"] }
-    }) + "\n")
+    }) + "\n"
+    temporary = "#{summary_path}.tmp-#{Process.pid}"
+    File.write(temporary, summary)
+    File.rename(temporary, summary_path)
     exit(ok ? 0 : (incomplete && build_blocker.nil? && missing.empty? && blocked.empty? && failed.empty? && invalid_evidence.empty? ? 75 : 1))
-  ' "$results_path" "$summary_path" "$shared_build_blocker" "$expected_route_names" "$build_identity"
+  ' "$results_path" "$summary_path" "$shared_build_blocker" "$expected_route_names" "$build_identity" "$artifact_root" "$checkpoint_path"
 }
 
 capture_route() {
@@ -511,7 +543,7 @@ capture_route() {
   fi
 
   record_route "$name" "$route" "$route_root" "$status" "$command"
-  update_checkpoint_progress
+  update_checkpoint_progress "$name"
   find "$route_root" -maxdepth 1 -type d -name 'DerivedData-*' -prune -exec rm -rf {} +
 
   [[ "$status" == "pass" ]]

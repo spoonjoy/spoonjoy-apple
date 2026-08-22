@@ -281,6 +281,24 @@ public final class ShoppingMutationCoordinator {
         let continuation: CheckedContinuation<ShoppingSurfaceMutationOutcome, Error>
     }
 
+    private struct PendingRecovery {
+        let plan: ShoppingSurfaceMutationPlan
+        var requiresReplay: Bool
+        var feedback: ShoppingMutationFeedback
+    }
+
+    private struct ProductEvidence: Equatable {
+        let quantity: Double?
+        let categoryKey: String
+        let iconKey: String
+        let isChecked: Bool
+
+        var sortKey: String {
+            let quantityKey = quantity.map { String($0) } ?? "nil"
+            return "\(quantityKey)|\(categoryKey)|\(iconKey)|\(isChecked)"
+        }
+    }
+
     private let persistAlreadyAppliedBatch: PersistAlreadyAppliedBatch
     private let executeRemote: ExecuteRemote
     private let fetchShoppingList: FetchShoppingList
@@ -294,8 +312,7 @@ public final class ShoppingMutationCoordinator {
     private var drainTask: Task<Void, Never>?
     private var pendingPersistenceBatch: [NativeQueuedMutation] = []
     private var pendingPersistenceIdentity: ShoppingSurfaceMutationIdentity?
-    private var pendingRecoveryPlan: ShoppingSurfaceMutationPlan?
-    private var pendingRecoveryRequiresReplay = false
+    private var pendingRecoveries: [PendingRecovery] = []
     private var retainedFeedback: ShoppingMutationFeedback?
 
     public init(
@@ -366,8 +383,7 @@ public final class ShoppingMutationCoordinator {
         baselineShoppingList = nil
         pendingPersistenceBatch = []
         pendingPersistenceIdentity = nil
-        pendingRecoveryPlan = nil
-        pendingRecoveryRequiresReplay = false
+        pendingRecoveries = []
         retainedFeedback = nil
         isDraining = false
         recordFeedback(nil)
@@ -425,16 +441,12 @@ public final class ShoppingMutationCoordinator {
         do {
             baselineShoppingList = try await fetchShoppingList()
             reprojectVisibleState()
-            pendingRecoveryPlan = nil
-            pendingRecoveryRequiresReplay = false
             clearRetainedFailureResolved(by: plan)
             entry.continuation.resume(returning: .synced)
         } catch {
             commitPlanToBaseline(plan)
             reprojectVisibleState()
-            pendingRecoveryPlan = plan
-            pendingRecoveryRequiresReplay = false
-            retain(ShoppingMutationFeedback(
+            enqueueRecovery(plan, requiresReplay: false, feedback: ShoppingMutationFeedback(
                 identity: plan.identity,
                 state: .recovering,
                 message: "Saved. Refresh the shopping list to confirm the latest server state.",
@@ -458,26 +470,28 @@ public final class ShoppingMutationCoordinator {
         if !pendingPersistenceBatch.isEmpty {
             return try await retryPendingPersistence()
         }
-        guard let plan = pendingRecoveryPlan else { return .synced }
+        guard let pendingRecovery = pendingRecoveries.first else { return .synced }
+        let plan = pendingRecovery.plan
         if let preflight = try? await fetchShoppingList(), mutationIsReflected(plan, in: preflight) {
             settleRecovery(plan, with: preflight)
             return .synced
         }
-        if pendingRecoveryRequiresReplay, let request = plan.remoteRequestBuilder {
+        if pendingRecovery.requiresReplay, let request = plan.remoteRequestBuilder {
             try await executeRemote(request)
-            pendingRecoveryRequiresReplay = false
+            pendingRecoveries[0].requiresReplay = false
+            pendingRecoveries[0].feedback = ShoppingMutationFeedback(
+                identity: plan.identity,
+                state: .recovering,
+                message: "Confirming this shopping change…",
+                retryIntent: .reconcileOnly(plan.identity)
+            )
         }
         let reconciled = try await fetchShoppingList()
         guard mutationIsReflected(plan, in: reconciled) else {
             baselineShoppingList = reconciled
             commitPlanToBaseline(plan)
             reprojectVisibleState()
-            retain(ShoppingMutationFeedback(
-                identity: plan.identity,
-                state: .recovering,
-                message: "Confirming this shopping change…",
-                retryIntent: .reconcileOnly(plan.identity)
-            ))
+            publishCurrentFeedback()
             return .recovering
         }
         settleRecovery(plan, with: reconciled)
@@ -559,9 +573,7 @@ public final class ShoppingMutationCoordinator {
         }
         commitPlanToBaseline(entry.plan)
         reprojectVisibleState()
-        pendingRecoveryPlan = entry.plan
-        pendingRecoveryRequiresReplay = true
-        retain(ShoppingMutationFeedback(
+        enqueueRecovery(entry.plan, requiresReplay: true, feedback: ShoppingMutationFeedback(
             identity: entry.plan.identity,
             state: .recovering,
             message: "Confirming this shopping change…",
@@ -572,24 +584,38 @@ public final class ShoppingMutationCoordinator {
 
     private func settleRecovery(_ plan: ShoppingSurfaceMutationPlan, with reconciled: ShoppingListState) {
         baselineShoppingList = reconciled
-        recordShoppingList(reconciled)
-        pendingRecoveryPlan = nil
-        pendingRecoveryRequiresReplay = false
+        pendingRecoveries.removeAll { $0.plan.identity == plan.identity }
+        let visible = projectedState(from: reconciled, applying: pendingRecoveries.map(\.plan))
+        recordShoppingList(visible)
         clearRetainedFeedback(matching: plan.identity)
+        publishCurrentFeedback()
     }
 
     private func retain(_ feedback: ShoppingMutationFeedback) {
-        if retainedFeedback?.state == .failed {
-            return
+        if feedback.state == .failed, retainedFeedback?.state != .failed {
+            retainedFeedback = feedback
         }
-        retainedFeedback = feedback
-        recordFeedback(feedback)
+        publishCurrentFeedback()
+    }
+
+    private func enqueueRecovery(
+        _ plan: ShoppingSurfaceMutationPlan,
+        requiresReplay: Bool,
+        feedback: ShoppingMutationFeedback
+    ) {
+        guard !pendingRecoveries.contains(where: { $0.plan.identity == plan.identity }) else { return }
+        pendingRecoveries.append(PendingRecovery(plan: plan, requiresReplay: requiresReplay, feedback: feedback))
+        publishCurrentFeedback()
+    }
+
+    private func publishCurrentFeedback() {
+        recordFeedback(retainedFeedback ?? pendingRecoveries.first?.feedback)
     }
 
     private func clearRetainedFeedback(matching identity: ShoppingSurfaceMutationIdentity?) {
         guard retainedFeedback?.identity == identity else { return }
         retainedFeedback = nil
-        recordFeedback(nil)
+        publishCurrentFeedback()
     }
 
     private func clearRetainedFailureResolved(by plan: ShoppingSurfaceMutationPlan) {
@@ -601,7 +627,7 @@ public final class ShoppingMutationCoordinator {
             failedIdentity.itemID == successfulIdentity.itemID
         else { return }
         retainedFeedback = nil
-        recordFeedback(nil)
+        publishCurrentFeedback()
     }
 
     private func locallyCreatedItemIDs(for plan: ShoppingSurfaceMutationPlan) -> Set<String> {
@@ -635,22 +661,14 @@ public final class ShoppingMutationCoordinator {
         }
         switch action {
         case .addItem(let name, _, let unit, _, _, _):
-            return shoppingList.receiptItems.contains { item in
-                normalized(item.name) == normalized(name) && normalized(item.unit) == normalized(unit)
-            }
+            return productEvidenceMatches(plan, in: shoppingList, keys: [(normalized(name), normalized(unit))])
         case .setItemChecked(let itemID, let checked, _):
             return shoppingList.item(id: itemID)?.isEffectivelyChecked == checked
         case .deleteItem(let itemID, _, _):
             return shoppingList.item(id: itemID)?.deletedAt != nil || shoppingList.item(id: itemID) == nil
         case .addRecipeIngredients(_, _, let ingredients, _):
-            var available = shoppingList.receiptItems
-            for ingredient in ingredients {
-                guard let index = available.firstIndex(where: {
-                    normalized($0.name) == normalized(ingredient.name) && normalized($0.unit) == normalized(ingredient.unit)
-                }) else { return false }
-                available.remove(at: index)
-            }
-            return true
+            let keys = ingredients.map { (normalized($0.name), normalized($0.unit)) }
+            return productEvidenceMatches(plan, in: shoppingList, keys: keys)
         case .clearCompleted:
             let completedIDs = plan.originalShoppingList?.completedItems.map(\.id) ?? []
             return completedIDs.allSatisfy { shoppingList.item(id: $0)?.deletedAt != nil || shoppingList.item(id: $0) == nil }
@@ -664,6 +682,37 @@ public final class ShoppingMutationCoordinator {
         value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
 
+    private func productEvidenceMatches(
+        _ plan: ShoppingSurfaceMutationPlan,
+        in shoppingList: ShoppingListState,
+        keys: [(String, String)]
+    ) -> Bool {
+        guard let expectedShoppingList = plan.updatedShoppingList else { return false }
+        let uniqueKeys = Dictionary(grouping: keys, by: { "\($0.0)|\($0.1)" }).compactMap(\.value.first)
+        return uniqueKeys.allSatisfy { name, unit in
+            productEvidence(in: expectedShoppingList, name: name, unit: unit) ==
+                productEvidence(in: shoppingList, name: name, unit: unit)
+        }
+    }
+
+    private func productEvidence(
+        in shoppingList: ShoppingListState,
+        name: String,
+        unit: String
+    ) -> [ProductEvidence] {
+        shoppingList.receiptItems
+            .filter { normalized($0.name) == name && normalized($0.unit) == unit }
+            .map {
+                ProductEvidence(
+                    quantity: $0.quantity,
+                    categoryKey: normalized($0.categoryKey),
+                    iconKey: normalized($0.iconKey),
+                    isChecked: $0.isEffectivelyChecked
+                )
+            }
+            .sorted { $0.sortKey < $1.sortKey }
+    }
+
     private func commitPlanToBaseline(_ plan: ShoppingSurfaceMutationPlan) {
         baselineShoppingList = projectedState(from: baselineShoppingList, applying: [plan])
     }
@@ -675,6 +724,15 @@ public final class ShoppingMutationCoordinator {
 
     private func isCurrent(_ entry: Entry) -> Bool {
         entry.scopeEpoch == scopeEpoch && entries.first?.generation == entry.generation
+    }
+
+    private func projectedState(
+        from baseline: ShoppingListState,
+        applying plans: [ShoppingSurfaceMutationPlan]
+    ) -> ShoppingListState {
+        plans.reduce(baseline) { partial, plan in
+            optimisticShoppingList(for: plan, baseline: partial) ?? partial
+        }
     }
 
     private func projectedState(

@@ -989,6 +989,185 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("independent indeterminate mutations retain ordered recovery obligations")
+    func independentIndeterminateMutationsRetainOrderedRecoveries() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        let checked = try baseline.settingChecked(
+            true,
+            itemID: "item_lemons",
+            checkedAt: baseline.updatedAt,
+            updatedAt: baseline.updatedAt,
+            nextSortIndex: 10
+        )
+        let add = try viewModel(checked).plan(.addItem(
+            name: "mint",
+            quantity: 2,
+            unit: "bunch",
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_multi_recovery_b"
+        ))
+        let appliedBoth = try #require(add.updatedShoppingList)
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        var writes = 0
+        var reads = 0
+        var feedback: ShoppingMutationFeedback?
+        var visible = baseline
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+                Issue.record("Reflected recovery must not replay transport")
+            },
+            fetchShoppingList: {
+                reads += 1
+                return switch reads {
+                case 1, 2: baseline
+                case 3: checked
+                default: appliedBoth
+                }
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+        let check = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_multi_recovery_a"
+        ))
+
+        #expect(try await coordinator.submit(check) == .recovering)
+        #expect(try await coordinator.submit(add) == .recovering)
+        #expect(feedback?.identity == check.identity)
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback?.identity == add.identity)
+        #expect(visible.receiptItems.contains { $0.name == "mint" && $0.quantity == 2 })
+        #expect(try await coordinator.retryCurrentRecovery() == .synced)
+        #expect(feedback == nil)
+        #expect(writes == 2)
+    }
+
+    @MainActor
+    @Test("matching add names do not prove unapplied quantities or recipe scaling")
+    func addEvidenceRequiresExactPlannedProductState() async throws {
+        let fixture = try ShoppingListState.decodeFromBundle()
+        let baseline = try fixture.addingOrRestoringItem(
+            name: "mint",
+            quantity: 1,
+            unit: "bunch",
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_existing_mint"
+        ).shoppingList
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+
+        func reconcile(_ plan: ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome {
+            let coordinator = ShoppingMutationCoordinator(
+                persistAlreadyApplied: { _ in },
+                executeRemote: { _ in throw cancelled },
+                fetchShoppingList: { baseline },
+                recordShoppingList: { _ in }
+            )
+            return try await coordinator.submit(plan)
+        }
+
+        let add = try viewModel(baseline).plan(.addItem(
+            name: "mint",
+            quantity: 3,
+            unit: "bunch",
+            categoryKey: "spices",
+            iconKey: "pot",
+            clientMutationID: "cm_add_proof"
+        ))
+        #expect(try await reconcile(add) == .recovering)
+
+        let recipe = try viewModel(baseline).plan(.addRecipeIngredients(
+            recipeID: "recipe_scaled_mint",
+            scaleFactor: 2,
+            recipeIngredients: [RecipeIngredient(id: "ingredient_mint", name: "mint", quantity: 2, unit: "bunch")],
+            clientMutationID: "cm_recipe_proof"
+        ))
+        #expect(try await reconcile(recipe) == .recovering)
+
+        let existingMint = try #require(baseline.receiptItems.first { $0.name == "mint" })
+        let duplicateMint = ShoppingListItem(
+            id: "item_duplicate_mint",
+            name: " MINT ",
+            quantity: nil,
+            unit: " BUNCH ",
+            checked: false,
+            checkedAt: nil,
+            deletedAt: nil,
+            categoryKey: "produce",
+            iconKey: "leaf",
+            sortIndex: existingMint.sortIndex + 1,
+            updatedAt: existingMint.updatedAt
+        )
+        let duplicateBaseline = ShoppingListState(
+            id: baseline.id,
+            chef: baseline.chef,
+            items: baseline.items + [duplicateMint],
+            nextCursor: baseline.nextCursor,
+            updatedAt: baseline.updatedAt
+        )
+        let duplicatePlan = try viewModel(duplicateBaseline).plan(.addItem(
+            name: "mint",
+            quantity: 1,
+            unit: "bunch",
+            categoryKey: "produce",
+            iconKey: "leaf",
+            clientMutationID: "cm_duplicate_proof"
+        ))
+        let duplicateCoordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in throw cancelled },
+            fetchShoppingList: { duplicateBaseline },
+            recordShoppingList: { _ in }
+        )
+        #expect(try await duplicateCoordinator.submit(duplicatePlan) == .recovering)
+        #expect(try await duplicateCoordinator.submit(duplicatePlan) == .recovering)
+
+        let incompletePlan = ShoppingSurfaceMutationPlan(
+            action: .addItem(
+                name: "mint",
+                quantity: 1,
+                unit: "bunch",
+                categoryKey: "produce",
+                iconKey: "leaf",
+                clientMutationID: "cm_incomplete_proof"
+            ),
+            remoteRequestBuilder: add.remoteRequestBuilder,
+            originalShoppingList: baseline
+        )
+        #expect(try await reconcile(incompletePlan) == .recovering)
+
+        var fallbackReads = 0
+        let appliedAdd = try #require(add.updatedShoppingList)
+        let fallbackCoordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in throw cancelled },
+            fetchShoppingList: {
+                fallbackReads += 1
+                return fallbackReads <= 2 ? baseline : appliedAdd
+            },
+            recordShoppingList: { _ in }
+        )
+        let invalidProjection = ShoppingSurfaceMutationPlan(
+            action: .setItemChecked(
+                itemID: "missing-item",
+                checked: true,
+                clientMutationID: "cm_invalid_projection"
+            ),
+            remoteRequestBuilder: add.remoteRequestBuilder,
+            originalShoppingList: baseline
+        )
+        #expect(try await fallbackCoordinator.submit(add) == .recovering)
+        #expect(try await fallbackCoordinator.submit(invalidProjection) == .recovering)
+        #expect(try await fallbackCoordinator.retryCurrentRecovery() == .synced)
+    }
+
+    @MainActor
     @Test("a retained failure survives an unrelated recovery settling")
     func retainedFailureSurvivesUnrelatedRecoverySettlement() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
