@@ -61,9 +61,22 @@ begin
       root = Pathname.new(contract.dig("manifest", "artifactRoot"))
       FileUtils.mkdir_p(root)
       raise ShoppingVisualMatrix::ValidationError, "artifact root resolved outside artifact base" unless root.realpath.to_s.start_with?("#{artifact_base.realpath}/")
+      cell_path = Pathname.new(contract.fetch("cellManifestPath"))
+      if cell_path.file?
+        resume_validator_argv = [
+          "ruby", VALIDATOR.to_s,
+          "--manifest", Pathname.new(options.fetch(:manifest)).expand_path.to_s,
+          "--row-id", row.fetch("id"),
+          "--artifact-base", artifact_base.to_s,
+          "--cell-manifest", cell_path.to_s
+        ]
+        if system(*resume_validator_argv, chdir: ROOT.to_s)
+          puts "shopping visual cell #{row.fetch("id")} resumed"
+          next
+        end
+      end
       argv = contract.dig("manifest", "argv")
       raise ShoppingVisualMatrix::ValidationError, "capture failed for #{row.fetch("id")}" unless system(*argv, chdir: ROOT.to_s)
-      cell_path = Pathname.new(contract.fetch("cellManifestPath"))
       cell_path.write(JSON.pretty_generate(contract.fetch("manifest")) + "\n")
       validator_argv = [
         "ruby", VALIDATOR.to_s,

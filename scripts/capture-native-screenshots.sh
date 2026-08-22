@@ -1892,11 +1892,7 @@ capture_ios_app() {
     xcrun simctl ui "$udid" content_size large >> "$capture_log" 2>&1
   fi
   if [[ "$expected_platform" == "ipad" ]]; then
-    if [[ "$requested_ios_orientation" == "landscape" ]]; then
-      xcrun simctl io "$udid" screenConfig geometry 1194x834 >> "$capture_log" 2>&1 || true
-    else
-      xcrun simctl io "$udid" screenConfig geometry 834x1194 >> "$capture_log" 2>&1 || true
-    fi
+    set_simulator_orientation "$udid" "$requested_ios_orientation" || return 1
   fi
   if ! data_container="$(resolve_ios_data_container "$udid")"; then
     printf 'unable to resolve simulator app data container for app.spoonjoy on %s\n' "$udid" >> "$capture_log"
@@ -1943,6 +1939,9 @@ capture_ios_app() {
     return 1
   fi
   xcrun simctl io "$udid" screenshot "$screenshot_output" >> "$capture_log" 2>&1
+  if [[ "$expected_platform" == "ipad" && "$requested_ios_orientation" == "landscape" ]]; then
+    sips -r 90 "$screenshot_output" >> "$capture_log" 2>&1
+  fi
   if ! wait_for_ios_foreground "$udid"; then
     printf 'Spoonjoy stopped being the front display during screenshot capture\n' >> "$capture_log"
     rm -f "$screenshot_output"
@@ -1950,6 +1949,42 @@ capture_ios_app() {
   fi
   [[ -f "$screenshot_output" && -s "$screenshot_output" ]]
   validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1
+}
+
+set_simulator_orientation() {
+  local udid="$1"
+  local orientation="$2"
+  local device_name
+  device_name="$(xcrun simctl list devices | ruby -e '
+    udid = ARGV.fetch(0)
+    line = STDIN.each_line.find { |candidate| candidate.include?("(#{udid})") }
+    abort("simulator not found") unless line
+    puts line.strip.sub(/\s*\([^()]+\)\s*\([^()]+\)\s*$/, "")
+  ' "$udid")"
+  local menu_orientation="Portrait"
+  if [[ "$orientation" == "landscape" ]]; then
+    menu_orientation="Landscape Right"
+  fi
+  osascript - "$device_name" "$menu_orientation" <<'APPLESCRIPT' >> "$capture_log" 2>&1
+on run argv
+  set targetDevice to item 1 of argv
+  set targetOrientation to item 2 of argv
+  tell application "Simulator" to activate
+  tell application "System Events"
+    tell process "Simulator"
+      repeat with candidate in menu items of menu "Window" of menu bar 1
+        if name of candidate starts with targetDevice then
+          click candidate
+          exit repeat
+        end if
+      end repeat
+      delay 0.5
+      click menu item targetOrientation of menu 1 of menu item "Orientation" of menu "Device" of menu bar 1
+    end tell
+  end tell
+end run
+APPLESCRIPT
+  sleep 1
 }
 
 capture_ios_app_with_retries() {

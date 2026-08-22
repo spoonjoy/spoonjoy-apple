@@ -3,6 +3,7 @@
 
 require "json"
 require "optparse"
+require "open3"
 require "pathname"
 require_relative "shopping-visual-matrix"
 
@@ -36,6 +37,18 @@ begin
   contract.fetch("artifactPaths").each do |kind, path_string|
     path = Pathname.new(path_string)
     raise ShoppingVisualMatrix::ValidationError, "missing or empty #{kind} artifact #{path}" unless path.file? && path.size.positive? && !path.symlink?
+  end
+  png_path = contract.dig("artifactPaths", "png")
+  if File.binread(png_path, 8) == "\x89PNG\r\n\x1A\n".b
+    dimensions, status = Open3.capture2("sips", "-g", "pixelWidth", "-g", "pixelHeight", png_path)
+    raise ShoppingVisualMatrix::ValidationError, "unable to inspect PNG dimensions" unless status.success?
+    width = dimensions[/pixelWidth:\s*(\d+)/, 1]&.to_i
+    height = dimensions[/pixelHeight:\s*(\d+)/, 1]&.to_i
+    raise ShoppingVisualMatrix::ValidationError, "PNG dimensions are missing" unless width&.positive? && height&.positive?
+    expected_landscape = row.fetch("platform") == "macos" || row.fetch("orientation") == "landscape"
+    if expected_landscape ? width <= height : width >= height
+      raise ShoppingVisualMatrix::ValidationError, "PNG orientation mismatch for #{row.fetch("id")}: #{width}x#{height}"
+    end
   end
   puts "shopping visual cell #{row.fetch("id")} ok"
 rescue JSON::ParserError, ShoppingVisualMatrix::ValidationError => error
