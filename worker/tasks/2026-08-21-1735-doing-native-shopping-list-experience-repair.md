@@ -120,9 +120,9 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: Every named matrix cell is captured uncropped from the installed app and recorded in the ledger.
 
 ### ⬜ Unit 3h: Visual remediation, recapture, and cold review
-**What**: Inspect all PNGs with `view_image`, record each in `<artifacts>/visual-qa-ledger.md`, fix every in-scope finding, rerun `ruby scripts/validate-design-review.rb <artifact-root>/design-review.json` plus `ruby scripts/check-launch-screenshot-contract.rb`, recapture fixed surfaces, and obtain a cold visual PASS. Preserve each harness-produced `design-review.json`, `apple/*accessibility-proof*.json`, screenshot manifest/log, and final PNG.
+**What**: Inspect all PNGs with `view_image`, record each in `<artifacts>/visual-qa-ledger.md`, fix every in-scope finding, run `ruby scripts/validate-design-review.rb` for every per-cell `design-review.json` plus `ruby scripts/check-launch-screenshot-contract.rb`, recapture fixed surfaces, and obtain a cold visual PASS. The matrix contains exactly 62 cell roots (22 iPhone + 20 iPad + 20 macOS); fail when discovered/validated manifest or proof counts differ from 62. Preserve each harness-produced manifest, `apple/*accessibility-proof*.json`, screenshot log, and final PNG, then commit/push all product-repo visual evidence before Unit 4a.
 **Output**: Final screenshots, design-review manifests, closed `visual-qa-ledger.md`, and reviewer verdict.
-**Acceptance**: No ledger item remains `ready` or `needs reviewer gate`; automated metrics pass; cold reviewer returns PASS.
+**Acceptance**: Exactly 62 manifests and their proofs validate; no ledger item remains `ready` or `needs reviewer gate`; automated metrics pass; cold reviewer returns PASS; the branch commit containing all visual evidence is pushed before PR sync/review.
 
 ### ⬜ Unit 4a: Pre-PR sync and branch validation
 **What**: `git fetch origin main`, merge `origin/main`, resolve conflicts, then rerun Unit 3d exact commands; cold-review `git diff origin/main...HEAD` plus all validation artifacts.
@@ -140,9 +140,9 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 **Acceptance**: Required checks are green for merged SHA and the internal build is available in beta testing.
 
 ### ⬜ Unit 4d: Cleanup and durable closure
-**What**: Before cleanup, commit/push visual manifests, proofs, ledger, and final PNGs under `worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair/`, and copy exact-main/TestFlight summaries into `/Users/arimendelow/desk/spoonjoy/native-shopping-list-experience-repair/artifacts/` for desk commit/push. From the task worktree run `git worktree remove /Users/arimendelow/Projects/spoonjoy-apple-native-shopping-list-experience-repair`; after it disappears, use `/Users/arimendelow/Projects/spoonjoy-apple` to delete local `worker/native-shopping-list-experience-repair` and delete its remote branch only if GitHub has not auto-deleted it. Retain merged history, PR/CI/TestFlight evidence, and durable task docs; update planning/doing/task status and push desk `main`.
+**What**: Copy post-merge exact-main/TestFlight summaries into `/Users/arimendelow/desk/spoonjoy/native-shopping-list-experience-repair/artifacts/` for desk commit/push; do not add post-merge commits to the product branch. Preflight that both worktrees are clean, Unit 3h evidence commit is an ancestor of `<merged-sha>`, and Desk copies exist. Run every cleanup command from `/Users/arimendelow/Projects/spoonjoy-apple`: remove the detached exact-main worktree, remove `/Users/arimendelow/Projects/spoonjoy-apple-native-shopping-list-experience-repair`, delete local `worker/native-shopping-list-experience-repair`, and delete its remote branch only if GitHub has not auto-deleted it. Retain merged history, PR/CI/TestFlight evidence, and durable task docs; update planning/doing/task status and push desk `main`.
 **Output**: Cleanup log and terminal durable task records.
-**Acceptance**: No task-owned branch/worktree residue remains; all task docs accurately report terminal state and are pushed.
+**Acceptance**: Clean/evidence preflight passed; all product-repo visual evidence is contained in merged SHA; post-merge evidence is pushed in Desk; no task-owned branch/worktree residue remains; all task docs accurately report terminal state and are pushed.
 
 ## Execution
 - **TDD strictly enforced**: tests → red → implement → green → refactor
