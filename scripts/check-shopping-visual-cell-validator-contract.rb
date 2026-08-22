@@ -59,6 +59,26 @@ Dir.mktmpdir("shopping-cell-contract") do |directory|
   assert(!status.success?, "swapped row manifest must fail")
   first_path.write(JSON.pretty_generate(first_manifest) + "\n")
 
+  malformed = "{not-json\n"
+  first_path.write(malformed)
+  _stdout, _stderr, malformed_status = run_validator(first_id, artifact_base, first_path)
+  assert(!malformed_status.success?, "malformed cell manifest must fail")
+  first_path.write(JSON.pretty_generate(first_manifest) + "\n")
+
+  missing_key = Marshal.load(Marshal.dump(first_manifest))
+  missing_key.delete("pngPath")
+  first_path.write(JSON.pretty_generate(missing_key) + "\n")
+  _stdout, _stderr, missing_key_status = run_validator(first_id, artifact_base, first_path)
+  assert(!missing_key_status.success?, "missing cell field must fail")
+  first_path.write(JSON.pretty_generate(first_manifest) + "\n")
+
+  png_path = Pathname.new(first_manifest.fetch("pngPath"))
+  png_bytes = png_path.binread
+  png_path.delete
+  _stdout, _stderr, missing_artifact_status = run_validator(first_id, artifact_base, first_path)
+  assert(!missing_artifact_status.success?, "missing selected-platform artifact must fail")
+  png_path.binwrite(png_bytes)
+
   mutations = {
     "row id" => ->(value) { value["rowID"] = second_id },
     "unit slug" => ->(value) { value["unitSlug"] += "-wrong" },

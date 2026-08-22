@@ -21,7 +21,8 @@ require LIBRARY.to_s
 
 matrix = ShoppingVisualMatrix.load!(CANONICAL, repository_root: ROOT)
 assert(matrix.fetch("rows").length == 62, "canonical matrix must contain 62 rows")
-assert(matrix.fetch("rows").tally { |row| row.fetch("platform") } == { "iphone" => 22, "ipad" => 20, "macos" => 20 }, "platform counts drifted")
+platform_counts = matrix.fetch("rows").group_by { |row| row.fetch("platform") }.transform_values(&:length)
+assert(platform_counts == { "iphone" => 22, "ipad" => 20, "macos" => 20 }, "platform counts drifted")
 
 def rejected?(source, canonical_source, label)
   Dir.mktmpdir("shopping-matrix-contract") do |directory|
@@ -67,6 +68,38 @@ Dir.mktmpdir("shopping-matrix-artifacts") do |artifact_base|
   commands = stdout.lines.grep(/^scripts\/capture-native-screenshots\.sh /)
   assert(commands.length == 62, "dry-run must emit exactly 62 capture commands")
   assert(Dir.children(artifact_base).empty?, "dry-run must not write artifacts")
+end
+
+Dir.mktmpdir("shopping-matrix-validation") do |artifact_base_string|
+  artifact_base = Pathname.new(artifact_base_string)
+  matrix.fetch("rows").each do |row|
+    contract = ShoppingVisualMatrix.cell_contract(row, matrix: matrix, artifact_base: artifact_base)
+    contract.fetch("artifactPaths").each_value do |path_string|
+      path = Pathname.new(path_string)
+      path.dirname.mkpath
+      path.binwrite(path.extname == ".png" ? "png" : "evidence\n")
+    end
+    Pathname.new(contract.fetch("cellManifestPath")).write(JSON.pretty_generate(contract.fetch("manifest")) + "\n")
+  end
+  _stdout, stderr, status = Open3.capture3(
+    "ruby", RUNNER.to_s,
+    "--manifest", CANONICAL.to_s,
+    "--artifact-base", artifact_base.to_s,
+    "--mode", "validate",
+    chdir: ROOT.to_s
+  )
+  assert(status.success?, "complete 62-cell validation failed: #{stderr}")
+
+  extra_png = artifact_base.join("visual/ip-need-default/screenshots/absent-platform.png")
+  extra_png.binwrite("extra")
+  _stdout, _stderr, extra_status = Open3.capture3(
+    "ruby", RUNNER.to_s,
+    "--manifest", CANONICAL.to_s,
+    "--artifact-base", artifact_base.to_s,
+    "--mode", "validate",
+    chdir: ROOT.to_s
+  )
+  assert(!extra_status.success?, "extra platform screenshot must fail exact artifact counts")
 end
 
 puts "shopping visual matrix contract ok"
