@@ -573,13 +573,25 @@ struct ShoppingListView: View {
         ))
     }
 
-    private func runAction(_ action: ShoppingSurfaceAction, pendingItemID: String? = nil) {
+    private func runAction(
+        _ action: ShoppingSurfaceAction,
+        pendingItemID: String? = nil,
+        clearsFailedActionOnSuccess: Bool = false
+    ) {
         Task {
-            await perform(action, pendingItemID: pendingItemID)
+            await perform(
+                action,
+                pendingItemID: pendingItemID,
+                clearsFailedActionOnSuccess: clearsFailedActionOnSuccess
+            )
         }
     }
 
-    @MainActor private func perform(_ action: ShoppingSurfaceAction, pendingItemID: String? = nil) async {
+    @MainActor private func perform(
+        _ action: ShoppingSurfaceAction,
+        pendingItemID: String? = nil,
+        clearsFailedActionOnSuccess: Bool = false
+    ) async {
         if let pendingItemID {
             pendingItemIDs.insert(pendingItemID)
         }
@@ -612,7 +624,9 @@ struct ShoppingListView: View {
                 actionStatusMessage = "Shopping list updated"
             }
             actionErrorMessage = nil
-            lastFailedAction = nil
+            if clearsFailedActionOnSuccess {
+                lastFailedAction = nil
+            }
             addItemForm.actionStatusMessage = nil
             addItemForm.actionErrorMessage = nil
         } catch {
@@ -627,7 +641,7 @@ struct ShoppingListView: View {
 
     private func retryFailedAction() {
         if let lastFailedAction {
-            runAction(resubmittedAction(lastFailedAction))
+            runAction(resubmittedAction(lastFailedAction), clearsFailedActionOnSuccess: true)
             return
         }
         Task { @MainActor in

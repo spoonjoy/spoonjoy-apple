@@ -293,8 +293,10 @@ public final class ShoppingMutationCoordinator {
     private var scopeEpoch: UInt64 = 0
     private var drainTask: Task<Void, Never>?
     private var pendingPersistenceBatch: [NativeQueuedMutation] = []
+    private var pendingPersistenceIdentity: ShoppingSurfaceMutationIdentity?
     private var pendingRecoveryPlan: ShoppingSurfaceMutationPlan?
     private var pendingRecoveryRequiresReplay = false
+    private var retainedFeedback: ShoppingMutationFeedback?
 
     public init(
         persistAlreadyAppliedBatch: @escaping PersistAlreadyAppliedBatch,
@@ -363,8 +365,10 @@ public final class ShoppingMutationCoordinator {
         entries.removeAll()
         baselineShoppingList = nil
         pendingPersistenceBatch = []
+        pendingPersistenceIdentity = nil
         pendingRecoveryPlan = nil
         pendingRecoveryRequiresReplay = false
+        retainedFeedback = nil
         isDraining = false
         recordFeedback(nil)
         cancelledEntries.forEach { $0.continuation.resume(throwing: CancellationError()) }
@@ -392,6 +396,7 @@ public final class ShoppingMutationCoordinator {
             entries.removeFirst()
             commitPlanToBaseline(plan)
             reprojectVisibleState()
+            clearRetainedFailureResolved(by: plan)
             entry.continuation.resume(returning: .synced)
             return
         }
@@ -422,14 +427,14 @@ public final class ShoppingMutationCoordinator {
             reprojectVisibleState()
             pendingRecoveryPlan = nil
             pendingRecoveryRequiresReplay = false
-            recordFeedback(nil)
+            clearRetainedFailureResolved(by: plan)
             entry.continuation.resume(returning: .synced)
         } catch {
             commitPlanToBaseline(plan)
             reprojectVisibleState()
             pendingRecoveryPlan = plan
             pendingRecoveryRequiresReplay = false
-            recordFeedback(ShoppingMutationFeedback(
+            retain(ShoppingMutationFeedback(
                 identity: plan.identity,
                 state: .recovering,
                 message: "Saved. Refresh the shopping list to confirm the latest server state.",
@@ -444,7 +449,8 @@ public final class ShoppingMutationCoordinator {
         let batch = pendingPersistenceBatch
         try await persistAlreadyAppliedBatch(batch)
         pendingPersistenceBatch = []
-        recordFeedback(nil)
+        clearRetainedFeedback(matching: pendingPersistenceIdentity)
+        pendingPersistenceIdentity = nil
         return .queuedForSync
     }
 
@@ -453,16 +459,30 @@ public final class ShoppingMutationCoordinator {
             return try await retryPendingPersistence()
         }
         guard let plan = pendingRecoveryPlan else { return .synced }
+        if let preflight = try? await fetchShoppingList(), mutationIsReflected(plan, in: preflight) {
+            settleRecovery(plan, with: preflight)
+            return .synced
+        }
         if pendingRecoveryRequiresReplay, let request = plan.remoteRequestBuilder {
-            _ = try? await fetchShoppingList()
             try await executeRemote(request)
+            pendingRecoveryRequiresReplay = false
         }
         let reconciled = try await fetchShoppingList()
-        baselineShoppingList = reconciled
-        recordShoppingList(reconciled)
-        pendingRecoveryPlan = nil
-        pendingRecoveryRequiresReplay = false
-        recordFeedback(nil)
+        guard mutationIsReflected(plan, in: reconciled) else {
+            baselineShoppingList = reconciled
+            commitPlanToBaseline(plan)
+            reprojectVisibleState()
+            retain(ShoppingMutationFeedback(
+                identity: plan.identity,
+                state: .recovering,
+                message: "Confirming this shopping change…",
+                retryIntent: pendingRecoveryRequiresReplay
+                    ? .reconcileThenReplaySameID(plan.identity)
+                    : .reconcileOnly(plan.identity)
+            ))
+            return .recovering
+        }
+        settleRecovery(plan, with: reconciled)
         return .synced
     }
 
@@ -488,14 +508,14 @@ public final class ShoppingMutationCoordinator {
             entries.removeFirst(entryCount)
             baselineShoppingList = projectedState(from: baselineShoppingList, applying: persistedEntries.map(\.plan))
             reprojectVisibleState()
-            recordFeedback(nil)
             persistedEntries.forEach { $0.continuation.resume(returning: .queuedForSync) }
         } catch {
             pendingPersistenceBatch = batch
+            pendingPersistenceIdentity = persistedEntries.first?.plan.identity
             entries.removeFirst(entryCount)
             baselineShoppingList = projectedState(from: baselineShoppingList, applying: persistedEntries.map(\.plan))
             reprojectVisibleState()
-            recordFeedback(ShoppingMutationFeedback(
+            retain(ShoppingMutationFeedback(
                 identity: persistedEntries.first?.plan.identity,
                 state: .failed,
                 message: "Couldn't save queued shopping changes. Try again.",
@@ -507,39 +527,143 @@ public final class ShoppingMutationCoordinator {
 
     private func rejectDefinite(_ entry: Entry, error: Error) async {
         entries.removeFirst()
-        if !entries.isEmpty, let reconciled = try? await fetchShoppingList() {
+        let hadLaterEntries = !entries.isEmpty
+        if hadLaterEntries, let reconciled = try? await fetchShoppingList() {
             baselineShoppingList = reconciled
         }
+        let rejectedLocalItemIDs = locallyCreatedItemIDs(for: entry.plan)
+        let dependentEntries = entries.filter { dependsOnRejectedItem($0.plan, rejectedLocalItemIDs: rejectedLocalItemIDs) }
+        entries.removeAll { candidate in
+            dependentEntries.contains { $0.generation == candidate.generation }
+        }
         reprojectVisibleState()
-        recordFeedback(ShoppingMutationFeedback(
+        retain(ShoppingMutationFeedback(
             identity: entry.plan.identity,
             state: .failed,
             message: "Couldn't update this shopping item. Try again.",
             retryIntent: .resubmitWithNewID(entry.plan.identity)
         ))
         entry.continuation.resume(throwing: error)
+        dependentEntries.forEach {
+            $0.continuation.resume(throwing: ShoppingMutationCoordinatorError.dependencyRejected($0.plan.identity))
+        }
     }
 
     private func recoverIndeterminate(_ entry: Entry, error: Error) async {
         entries.removeFirst()
         if let reconciled = try? await fetchShoppingList() {
             baselineShoppingList = reconciled
-            reprojectVisibleState()
-            recordFeedback(nil)
-            entry.continuation.resume(returning: .synced)
-            return
+            if mutationIsReflected(entry.plan, in: reconciled) {
+                reprojectVisibleState()
+                entry.continuation.resume(returning: .synced)
+                return
+            }
         }
         commitPlanToBaseline(entry.plan)
         reprojectVisibleState()
         pendingRecoveryPlan = entry.plan
         pendingRecoveryRequiresReplay = true
-        recordFeedback(ShoppingMutationFeedback(
+        retain(ShoppingMutationFeedback(
             identity: entry.plan.identity,
             state: .recovering,
             message: "Confirming this shopping change…",
             retryIntent: .reconcileThenReplaySameID(entry.plan.identity)
         ))
         entry.continuation.resume(returning: .recovering)
+    }
+
+    private func settleRecovery(_ plan: ShoppingSurfaceMutationPlan, with reconciled: ShoppingListState) {
+        baselineShoppingList = reconciled
+        recordShoppingList(reconciled)
+        pendingRecoveryPlan = nil
+        pendingRecoveryRequiresReplay = false
+        clearRetainedFeedback(matching: plan.identity)
+    }
+
+    private func retain(_ feedback: ShoppingMutationFeedback) {
+        if retainedFeedback?.state == .failed {
+            return
+        }
+        retainedFeedback = feedback
+        recordFeedback(feedback)
+    }
+
+    private func clearRetainedFeedback(matching identity: ShoppingSurfaceMutationIdentity?) {
+        guard retainedFeedback?.identity == identity else { return }
+        retainedFeedback = nil
+        recordFeedback(nil)
+    }
+
+    private func clearRetainedFailureResolved(by plan: ShoppingSurfaceMutationPlan) {
+        guard
+            retainedFeedback?.state == .failed,
+            let failedIdentity = retainedFeedback?.identity,
+            let successfulIdentity = plan.identity,
+            failedIdentity.kind == successfulIdentity.kind,
+            failedIdentity.itemID == successfulIdentity.itemID
+        else { return }
+        retainedFeedback = nil
+        recordFeedback(nil)
+    }
+
+    private func locallyCreatedItemIDs(for plan: ShoppingSurfaceMutationPlan) -> Set<String> {
+        guard let action = plan.action else { return [] }
+        switch action {
+        case .addItem(_, _, _, _, _, let clientMutationID):
+            return ["item_local_\(clientMutationID)"]
+        case .addRecipeIngredients(_, _, let ingredients, let clientMutationID):
+            return Set(ingredients.indices.map { "item_local_\(clientMutationID)-ingredient-\($0 + 1)" })
+        case .setItemChecked, .deleteItem, .clearCompleted, .clearAll:
+            return []
+        }
+    }
+
+    private func dependsOnRejectedItem(
+        _ plan: ShoppingSurfaceMutationPlan,
+        rejectedLocalItemIDs: Set<String>
+    ) -> Bool {
+        guard let action = plan.action else { return false }
+        switch action {
+        case .setItemChecked(let itemID, _, _), .deleteItem(let itemID, _, _):
+            return rejectedLocalItemIDs.contains(itemID)
+        case .addItem, .addRecipeIngredients, .clearCompleted, .clearAll:
+            return false
+        }
+    }
+
+    private func mutationIsReflected(_ plan: ShoppingSurfaceMutationPlan, in shoppingList: ShoppingListState) -> Bool {
+        guard let action = plan.action else {
+            return plan.updatedShoppingList == shoppingList
+        }
+        switch action {
+        case .addItem(let name, _, let unit, _, _, _):
+            return shoppingList.receiptItems.contains { item in
+                normalized(item.name) == normalized(name) && normalized(item.unit) == normalized(unit)
+            }
+        case .setItemChecked(let itemID, let checked, _):
+            return shoppingList.item(id: itemID)?.isEffectivelyChecked == checked
+        case .deleteItem(let itemID, _, _):
+            return shoppingList.item(id: itemID)?.deletedAt != nil || shoppingList.item(id: itemID) == nil
+        case .addRecipeIngredients(_, _, let ingredients, _):
+            var available = shoppingList.receiptItems
+            for ingredient in ingredients {
+                guard let index = available.firstIndex(where: {
+                    normalized($0.name) == normalized(ingredient.name) && normalized($0.unit) == normalized(ingredient.unit)
+                }) else { return false }
+                available.remove(at: index)
+            }
+            return true
+        case .clearCompleted:
+            let completedIDs = plan.originalShoppingList?.completedItems.map(\.id) ?? []
+            return completedIDs.allSatisfy { shoppingList.item(id: $0)?.deletedAt != nil || shoppingList.item(id: $0) == nil }
+        case .clearAll:
+            let receiptIDs = plan.originalShoppingList?.receiptItems.map(\.id) ?? []
+            return receiptIDs.allSatisfy { shoppingList.item(id: $0)?.deletedAt != nil || shoppingList.item(id: $0) == nil }
+        }
+    }
+
+    private func normalized(_ value: String?) -> String {
+        value?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
     }
 
     private func commitPlanToBaseline(_ plan: ShoppingSurfaceMutationPlan) {
@@ -634,6 +758,7 @@ public final class ShoppingMutationCoordinator {
 
 public enum ShoppingMutationCoordinatorError: Error, Equatable, Sendable {
     case blocked(String)
+    case dependencyRejected(ShoppingSurfaceMutationIdentity?)
 }
 
 public enum ShoppingMutationFeedbackState: Equatable, Sendable {

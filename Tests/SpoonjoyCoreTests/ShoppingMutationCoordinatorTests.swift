@@ -206,6 +206,42 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("a successful retry clears only the matching retained failure")
+    func successfulRetryClearsMatchingRetainedFailure() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var attempts = 0
+        var feedback: ShoppingMutationFeedback?
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                attempts += 1
+                if attempts == 1 { throw ShoppingMutationCoordinatorTestError.rejected }
+            },
+            fetchShoppingList: { visible },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+        let failed = try viewModel(baseline).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_retry_target_failed"
+        ))
+        await #expect(throws: ShoppingMutationCoordinatorTestError.rejected) {
+            try await coordinator.submit(failed)
+        }
+        #expect(feedback?.state == .failed)
+
+        let retry = try viewModel(visible).plan(.setItemChecked(
+            itemID: "item_lemons",
+            checked: true,
+            clientMutationID: "cm_retry_target_succeeded"
+        ))
+        #expect(try await coordinator.submit(retry) == .synced)
+        #expect(feedback == nil)
+    }
+
+    @MainActor
     @Test("rapid plans from the same rendered snapshot compose optimism monotonically")
     func rapidPlansFromSameSnapshotComposeMonotonically() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()
@@ -567,13 +603,20 @@ struct ShoppingMutationCoordinatorTests {
         var reads = 0
         var writes = 0
         var feedback: ShoppingMutationFeedback?
+        let confirmedApplied = try baseline.settingChecked(
+            true,
+            itemID: "item_lemons",
+            checkedAt: "2026-08-21T20:00:00.000Z",
+            updatedAt: "2026-08-21T20:00:00.000Z",
+            nextSortIndex: 10
+        )
         let coordinator = ShoppingMutationCoordinator(
             persistAlreadyAppliedBatch: { _ in },
             executeRemote: { _ in writes += 1 },
             fetchShoppingList: {
                 reads += 1
                 if reads == 1 { throw ShoppingMutationCoordinatorTestError.readFailed }
-                return baseline
+                return confirmedApplied
             },
             recordShoppingList: { visible = $0 },
             recordFeedback: { feedback = $0 }
@@ -587,7 +630,7 @@ struct ShoppingMutationCoordinatorTests {
         #expect(try await coordinator.retryCurrentRecovery() == .synced)
         #expect(reads == 2)
         #expect(writes == 1)
-        #expect(visible == baseline)
+        #expect(visible == confirmedApplied)
         #expect(feedback == nil)
 
         let retrySameRequest = APITransportError(
@@ -608,7 +651,7 @@ struct ShoppingMutationCoordinatorTests {
             fetchShoppingList: {
                 replayReads += 1
                 if replayReads <= 2 { throw ShoppingMutationCoordinatorTestError.readFailed }
-                return baseline
+                return confirmedApplied
             },
             recordShoppingList: { visible = $0 }
         )
