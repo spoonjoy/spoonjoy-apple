@@ -1116,6 +1116,44 @@ struct ShoppingMutationCoordinatorTests {
     }
 
     @MainActor
+    @Test("later reflected additive recovery is not doubled behind an absent head")
+    func laterReflectedRecoverySkipsProjectionWithoutReorderingFeedback() async throws {
+        let baseline = try ShoppingListState.decodeFromBundle()
+        var visible = baseline
+        var feedback: ShoppingMutationFeedback?
+        let cancelled = APITransportError(kind: .cancelled, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+        let addMint = try viewModel(baseline).plan(.addItem(name: "mint", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_head_absent"))
+        let addBasil = try viewModel(try #require(addMint.updatedShoppingList)).plan(.addItem(name: "basil", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_later_reflected"))
+        let serverBasil = try #require(try viewModel(baseline).plan(.addItem(name: "basil", quantity: 2, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_later_reflected")).updatedShoppingList)
+        let addParsley = try viewModel(serverBasil).plan(.addItem(name: "parsley", quantity: 1, unit: "bunch", categoryKey: "produce", iconKey: "leaf", clientMutationID: "cm_refresh_success"))
+        let serverBasilParsley = try #require(addParsley.updatedShoppingList)
+        let expectedServerBasilQuantity = serverBasil.receiptItems.first { $0.name == "basil" }?.quantity
+        var writes = 0
+        var reads = 0
+        let coordinator = ShoppingMutationCoordinator(
+            persistAlreadyApplied: { _ in },
+            executeRemote: { _ in
+                writes += 1
+                if writes <= 2 { throw cancelled }
+            },
+            fetchShoppingList: {
+                reads += 1
+                return reads <= 2 ? baseline : serverBasilParsley
+            },
+            recordShoppingList: { visible = $0 },
+            recordFeedback: { feedback = $0 }
+        )
+
+        #expect(try await coordinator.submit(addMint) == .recovering)
+        #expect(try await coordinator.submit(addBasil) == .recovering)
+        #expect(try await coordinator.submit(addParsley) == .synced)
+        #expect(visible.receiptItems.first { $0.name == "mint" }?.quantity == 1)
+        #expect(visible.receiptItems.first { $0.name == "basil" }?.quantity == expectedServerBasilQuantity)
+        #expect(visible.receiptItems.contains { $0.name == "parsley" })
+        #expect(feedback?.identity == addMint.identity)
+    }
+
+    @MainActor
     @Test("dependent local item mutations wait and rebind after add recovery")
     func dependentMutationWaitsForRecoveryAndRebinds() async throws {
         let baseline = try ShoppingListState.decodeFromBundle()

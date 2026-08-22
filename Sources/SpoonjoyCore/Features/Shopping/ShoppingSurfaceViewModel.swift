@@ -860,8 +860,15 @@ public final class ShoppingMutationCoordinator {
     }
 
     private func reprojectVisibleState() {
-        let plans = pendingRecoveries.map(\.plan) + entries.map(\.plan)
-        guard let visible = projectedState(from: baselineShoppingList, applying: plans) else { return }
+        var visible = baselineShoppingList
+        for recovery in pendingRecoveries {
+            if let current = visible, mutationIsReflected(recovery.plan, in: current) {
+                continue
+            }
+            visible = optimisticShoppingList(for: recovery.plan, baseline: visible) ?? visible
+        }
+        visible = projectedState(from: visible, applying: entries.map(\.plan))
+        guard let visible else { return }
         recordShoppingList(visible)
     }
 
