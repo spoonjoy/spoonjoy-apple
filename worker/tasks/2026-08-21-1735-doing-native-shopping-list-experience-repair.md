@@ -77,32 +77,67 @@ Make ordinary shopping-list mutations immediate and localized, and redesign the 
 ### ⬜ Unit 2b: Market modes and category semantics — implementation
 **What**: Add the minimal Sendable/Equatable shopping presentation model in `ShoppingSurfaceViewModel.swift` and/or `ShoppingListState.swift`, preserving server data and stable receipt ordering.
 **Output**: Tested modes, counts, category choices, filtered sections, category/icon affordances, and state-specific empty copy.
-**Acceptance**: Unit 2a passes with 100% new-code coverage; existing duplicate/offline semantics stay green.
+**Acceptance**: Unit 2a passes with minimal implementation; existing duplicate/offline semantics stay green.
+
+### ⬜ Unit 2c: Market modes and category semantics — coverage and refactor
+**What**: Cover invalid explicit keys, every name-fallback category/icon branch, empty modes, stable ordering ties, duplicate interaction, and category-filter boundaries; refactor with tests green.
+**Output**: Coverage, full-test, and build logs.
+**Acceptance**: 100% coverage on the new presentation model; all tests/builds pass without warnings.
 
 ### ⬜ Unit 3a: Native shopping surface contract — tests
 **What**: Add failing source/runtime contracts for editorial title/count hierarchy, three-mode native selection, horizontal category controls, ruled rows, >=44pt targets, row pending/error indicators, compact actions, native swipe/context deletion, and absence of full-shell progress UI.
 **Output**: Red design/source contract tests with exact SwiftUI anchors.
 **Acceptance**: Tests fail on the current shopping view for intended missing UI behavior.
 
-### ⬜ Unit 3b: Native shopping surface — implementation
-**What**: Redesign `ShoppingListView.swift` and `ReceiptListView.swift` around the tested presentation model using native controls and responsive iPhone/iPad/macOS layout, with per-item pending/error state and stable rows.
-**Output**: Need/Basket/All, category filters, receipt hierarchy, compact composer/actions, localized feedback, and accessible interaction.
-**Acceptance**: Unit 3a passes; Dynamic Type and VoiceOver contracts pass; no warning; no web-style custom navigation or decorative card regression.
+### ⬜ Unit 3b: Native shopping surface — core implementation
+**What**: Redesign `ShoppingListView.swift` and `ReceiptListView.swift` around the tested presentation model with Need/Basket/All, category filters, stable ruled rows, compact composer/actions, and per-item pending/error state.
+**Output**: Core shared SwiftUI receipt surface and interaction states.
+**Acceptance**: Unit 3a core anchors pass; large check targets and native swipe/context deletion remain intact.
 
-### ⬜ Unit 3c: Native shopping surface — coverage, build, and scenario verification
+### ⬜ Unit 3c: Platform and accessibility adaptations — tests and implementation
+**What**: Add failing contracts for Dynamic Type, VoiceOver, iPhone/iPad/macOS responsive layout and keyboard behavior, then implement the minimal platform adaptations.
+**Output**: Tested platform-specific layout and accessibility behavior.
+**Acceptance**: Adaptation tests turn red then green; no web-style custom navigation or decorative-card regression; builds have no warnings.
+
+### ⬜ Unit 3d: Native shopping surface — coverage, build, and scenario verification
 **What**: Regenerate project files if required; run full Swift tests, coverage, scenario verifier, iOS/iPadOS simulator builds, macOS build, bundle checks, and warning checks.
 **Output**: Validation logs in artifacts.
 **Acceptance**: Required local checks are green, modified/new logic is fully covered, and all three platform layouts compile without warnings.
 
-### ⬜ Unit 3d: Native shopping surface — visual QA dogfood
-**What**: Capture installed/running iPhone, iPad, and macOS screenshots for the completion-criteria state matrix; inspect every image, maintain the absurdity ledger, fix all in-scope findings, re-capture, and pass a cold visual reviewer.
-**Output**: Final screenshots, accessibility proofs, design-review manifests, and closed `visual-qa-ledger.md` in artifacts.
-**Acceptance**: No ledger item remains `ready` or `needs reviewer gate`; automated visual metrics pass; cold reviewer returns PASS.
+### ⬜ Unit 3e: iPhone visual capture
+**What**: Capture installed/running iPhone portrait screenshots at default and accessibility Dynamic Type for populated Need/Basket/All, category-filtered, empty, all-complete, pending, row-error, queued, conflict, and duplicate states.
+**Output**: iPhone screenshot manifest, accessibility proofs, and initial ledger entries.
+**Acceptance**: Every named state/size is captured uncropped from the installed app and recorded in the ledger.
 
-### ⬜ Unit 4: PR, exact-main validation, TestFlight, and cleanup
-**What**: Sync origin/main, resolve/retest, run cold branch review, open a focused PR, converge review/CI, merge under repo policy, verify exact merged main, create release notes pinned to merged SHA, publish via `ci-publish-testflight.sh`, verify Spoonjoy Internal attachment and `IN_BETA_TESTING`, then remove the local worktree/branch and update durable task state.
-**Output**: Merged PR URL/SHA, exact-main check evidence, TestFlight build summary, and cleanup evidence.
-**Acceptance**: PR merged; required checks green on merged SHA; internal build available to non-empty tester group; no task-owned worktree/branch residue; desk task terminal and pushed.
+### ⬜ Unit 3f: iPad and macOS visual capture
+**What**: Capture installed/running iPad portrait/landscape and macOS narrow/wide screenshots for the same state matrix, using representative dense content.
+**Output**: iPad/macOS screenshot manifests, accessibility proofs, and ledger entries.
+**Acceptance**: Every named platform/state/size is captured uncropped and recorded in the ledger.
+
+### ⬜ Unit 3g: Visual remediation, recapture, and cold review
+**What**: Inspect all captures, fix every in-scope finding, rerun affected tests/metrics, recapture fixed surfaces, close the ledger, and obtain a cold visual PASS.
+**Output**: Final screenshots, design-review manifests, closed `visual-qa-ledger.md`, and reviewer verdict.
+**Acceptance**: No ledger item remains `ready` or `needs reviewer gate`; automated metrics pass; cold reviewer returns PASS.
+
+### ⬜ Unit 4a: Pre-PR sync and branch validation
+**What**: Fetch/merge current origin/main, resolve conflicts, rerun full validation, and obtain a cold branch review.
+**Output**: Synced branch, complete validation evidence, reviewer verdict.
+**Acceptance**: Branch is clean, pushed, green, and reviewer-converged against current main.
+
+### ⬜ Unit 4b: PR, CI, review, and merge
+**What**: Open the focused PR, repair review/CI findings, verify required checks, and merge under repository policy.
+**Output**: Merged PR URL and merged SHA.
+**Acceptance**: PR is merged with required checks green on its reviewed head.
+
+### ⬜ Unit 4c: Exact-main and internal TestFlight verification
+**What**: Check out exact merged main, rerun required verification, create release notes pinned to merged SHA, publish with `ci-publish-testflight.sh`, and verify Spoonjoy Internal attachment, non-empty tester group, and `IN_BETA_TESTING`.
+**Output**: Exact-main logs and TestFlight publish summary.
+**Acceptance**: Required checks are green for merged SHA and the internal build is available in beta testing.
+
+### ⬜ Unit 4d: Cleanup and durable closure
+**What**: Remove task-owned local/remote branch and worktree where policy permits, update planning/doing/task status and evidence, commit/push durable desk state, and scan for task-owned residue.
+**Output**: Cleanup log and terminal durable task records.
+**Acceptance**: No task-owned branch/worktree residue remains; all task docs accurately report terminal state and are pushed.
 
 ## Execution
 - **TDD strictly enforced**: tests → red → implement → green → refactor
