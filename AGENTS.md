@@ -49,14 +49,10 @@ The app must feel native and still unmistakably Spoonjoy.
 
 ## Validation
 
-Before merging native app work, run the most specific local checks available, then the full protected checks in GitHub.
+Spoonjoy is built for agentic developers end to end, and so is its validation.
 
-Expected validation grows with the app:
-
-- Swift unit tests.
-- Native scenario verification for core user flows.
-- App bundle build for iOS and macOS targets.
-- Coverage reporting.
-- Simulator validation on mobile and desktop-class layouts.
-- Manual screenshot review for the Spoonjoy design language.
-
+- **App behaviour is validated in CI, against the web QA mirror, not on your machine.** The QA mirror is `spoonjoy-v2-qa` (`https://spoonjoy-v2-qa.mendelow-studio.workers.dev`): its own Worker, D1, R2 and Durable Objects, in production mode. Native UI journeys run as XCUITests on GitHub's macOS runners with the app pointed at QA, signing in with the permanent QA personas (`qa_kitchen_chef`, `qa_kitchen_friend`, `qa_kitchen_newbie`) that the web repo's `scripts/seed-qa-kitchen.mjs` resets on every run with fresh passwords. Local simulator runs are for writing code, not for proving it works.
+- **Test outcomes, not source text.** A check passes only when a real user action produces a result that survives relaunching the app or shows up on another screen. Scripts that only confirm a type name or string exists in a source file are not validation; replace them with behaviour tests as journeys land. Flaky is failing: no retry loops around taps.
+- **Every bug becomes a failing journey step first**, then a fix. Read failures from the CI artifacts (`.xcresult` bundles and screenshots).
+- **Coverage is not validation.** Coverage reporting stays, but green coverage says nothing about whether a user can use the app.
+- The native journey harness is being built after the web harness (tracked on Ari's desk as `spoonjoy/real-validation-layer`). Until it lands, the protected checks (`Swift tests`, `Native scenario verifier`, `App bundle`, `Coverage`) remain required, and new work should add XCUITest behaviour coverage rather than more source-text contract scripts.
