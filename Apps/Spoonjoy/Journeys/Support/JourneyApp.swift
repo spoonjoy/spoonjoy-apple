@@ -154,6 +154,7 @@ final class JourneyApp {
     func enterText(_ text: String, into id: String, file: StaticString = #filePath, line: UInt = #line) {
         tap(id, file: file, line: line)
         let field = element(id)
+        assertKeyboardFocus(field, named: id, file: file, line: line)
         field.typeText(text)
         XCTAssertEqual(field.value as? String, text, "\(id) does not hold exactly the typed text.", file: file, line: line)
     }
@@ -207,6 +208,7 @@ final class JourneyApp {
         let current = field.value as? String ?? ""
         let existing = current == field.placeholderValue ? "" : current
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
+        assertKeyboardFocus(field, named: name, file: file, line: line)
         if !existing.isEmpty {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
         }
@@ -214,6 +216,21 @@ final class JourneyApp {
         XCTAssertTrue(cleared.isEmpty || cleared == field.placeholderValue, "\(name) still holds text after clearing it.", file: file, line: line)
         field.typeText(text)
         XCTAssertEqual(field.value as? String, text, "\(name) does not hold exactly the typed text.", file: file, line: line)
+    }
+
+    /// Fails when a tapped field did not take keyboard focus, naming the element that holds it instead,
+    /// so a swallowed tap is reported as that rather than as a failed keystroke.
+    private func assertKeyboardFocus(_ field: XCUIElement, named name: String, file: StaticString, line: UInt) {
+        let focused = NSPredicate(format: "hasKeyboardFocus == true")
+        let result = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: focused, object: field)], timeout: Self.interactionTimeout)
+        let holder = app.descendants(matching: .any).matching(focused).firstMatch
+        XCTAssertEqual(
+            result,
+            .completed,
+            "\(name) did not take keyboard focus after a tap. Keyboard shown: \(app.keyboards.firstMatch.exists). Focus is on: \(holder.exists ? holder.debugDescription : "nothing")",
+            file: file,
+            line: line
+        )
     }
 
     /// A system edit-menu item (system copy, so it is matched by label).
