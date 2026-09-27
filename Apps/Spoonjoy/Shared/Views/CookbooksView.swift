@@ -1089,6 +1089,8 @@ private struct CookbookRecipeIndexRow: View {
                 }
                 .buttonStyle(.borderless)
                 .accessibilityLabel(removeAccessibilityLabel)
+                // One identifier for every row; a journey picks the row by the label, which names the recipe.
+                .accessibilityIdentifier("cookbook.recipe.remove")
             }
         }
         .overlay(alignment: .bottom) {
