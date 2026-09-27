@@ -86,6 +86,7 @@ struct RecipeEditorView: View {
                                 Label("Delete Step", systemImage: "trash")
                             }
                             .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
                             .disabled(isSubmitting)
                         }
 
@@ -126,6 +127,7 @@ struct RecipeEditorView: View {
                                     Label("Delete Ingredient", systemImage: "minus.circle")
                                 }
                                 .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
                                 .disabled(isSubmitting)
                             }
                         }
@@ -135,6 +137,9 @@ struct RecipeEditorView: View {
                         } label: {
                             Label("Add Ingredient", systemImage: "plus.circle")
                         }
+                        // A step is one form row. Borderless buttons keep the row from turning into a
+                        // single tap target, so taps reach its text fields.
+                        .buttonStyle(.borderless)
                         .disabled(isSubmitting)
                         .accessibilityIdentifier("editor.step.\(step.stepNum).addIngredient")
                     }
