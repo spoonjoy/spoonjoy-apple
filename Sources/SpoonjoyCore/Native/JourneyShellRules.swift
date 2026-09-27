@@ -1,8 +1,8 @@
 import Foundation
 
 /// Checks workflow and shell text for ways to retry, skip or soften journeys: xcodebuild retry flags,
-/// loops that re-run xcodebuild or a script, `cmd || cmd` re-runs, retry wrappers, `continue-on-error`,
-/// and test selection that drops journeys.
+/// loops that re-run xcodebuild or a script, `cmd || cmd` re-runs, `||` after a test command, `set +e`,
+/// retry wrappers, `continue-on-error`, and test selection that drops journeys. The check is lexical.
 struct JourneyShellRuleScanner {
     static let allowedTestTargets: Set<String> = ["SpoonjoyJourneys", "SpoonjoyShoppingUITests"]
     static let loopKeywords: Set<String> = ["for", "while", "until"]
@@ -36,7 +36,7 @@ struct JourneyShellRuleScanner {
                 } else if first == "done" {
                     _ = loops.popLast()
                 }
-                if let index = loops.indices.last, !loops[index].reported, let runner = Self.runner(words) {
+                if let index = loops.indices.last, !loops[index].reported, let runner = Self.runner(words, anyWord: true) {
                     loops[index].reported = true
                     violations.append(violation(loops[index].line, .noRetryConfig, "a shell loop re-runs `\(runner)`; flaky is failing"))
                 }
@@ -50,8 +50,14 @@ struct JourneyShellRuleScanner {
         var found = JourneyHouseRules.retryWorkflowFlags.filter { text.contains($0) }.map { flag in
             violation(logical.line, .noRetryConfig, "`\(flag)` retries or repeats tests; flaky is failing")
         }
+        let runsTests = Self.commands(in: text).contains { Self.runner(Self.words($0), anyWord: true) != nil }
         if text.components(separatedBy: "xcodebuild").count > 2 || Self.hasRepeatedAlternative(text) {
             found.append(violation(logical.line, .noRetryConfig, "a command is re-run after it fails; flaky is failing"))
+        } else if runsTests && text.contains("||") {
+            found.append(violation(logical.line, .noSkippedJourneys, "`||` on a line that runs tests hides their failure"))
+        }
+        if Self.commands(in: text).contains(where: Self.disablesErrexit) {
+            found.append(violation(logical.line, .noSkippedJourneys, "`set +e` lets a failing journey command pass"))
         }
         if Self.hasRetryWrapper(text) {
             found.append(violation(logical.line, .noRetryConfig, "a retry wrapper re-runs a failing step; flaky is failing"))
@@ -114,15 +120,31 @@ struct JourneyShellRuleScanner {
     }
 
     static let launchers: Set<String> = ["bash", "sh", "zsh", "xcrun", "exec", "env", "time", "command"]
+    static let wordDecoration = CharacterSet(charactersIn: "\"'()$`{}")
+
+    static func words(_ command: String) -> [String] {
+        command.split(whereSeparator: \.isWhitespace).map(String.init)
+    }
+
+    /// `set +e` (or `+o errexit`, or any `+…e…` flag group) turns off fail-fast for what follows.
+    static func disablesErrexit(_ command: String) -> Bool {
+        let words = words(command)
+        return words.first == "set" && words.dropFirst().contains { $0 == "errexit" || ($0.hasPrefix("+") && $0.contains("e")) }
+    }
 
     /// The word naming a command that builds or runs tests: xcodebuild, a `*.sh` script, or a command named
     /// for journeys, run directly or through a launcher such as `bash` or `xcrun`. Nil for anything else.
-    static func runner(_ words: [String]) -> String? {
-        let words = words.first == "!" ? Array(words.dropFirst()) : words
+    /// With `anyWord`, xcodebuild or a `*.sh` anywhere in the command also counts, which catches
+    /// `if xcodebuild …`, `( xcodebuild … )`, `$(xcodebuild …)` and `bash -c "xcodebuild …"`.
+    static func runner(_ words: [String], anyWord: Bool = false) -> String? {
+        let words = (words.first == "!" ? Array(words.dropFirst()) : words).map {
+            $0.trimmingCharacters(in: wordDecoration)
+        }
         let candidates = launchers.contains(words.first ?? "") ? Array(words.prefix(2)) : Array(words.prefix(1))
-        return candidates.first { word in
+        let named = candidates.first { word in
             word.contains("xcodebuild") || word.hasSuffix(".sh") || word.lowercased().contains("journey")
         }
+        return named ?? (anyWord ? words.first { $0.contains("xcodebuild") || $0.hasSuffix(".sh") } : nil)
     }
 
     /// `cmd … || cmd …`: the command after `||` starts the same way as the one before it.
@@ -163,7 +185,7 @@ struct JourneyShellRuleScanner {
     static func onlyTestingTargets(in text: String) -> [String] {
         text.components(separatedBy: "-only-testing").dropFirst().map { rest in
             let value = rest.drop { $0 == ":" || $0 == " " || $0 == "=" }
-            return String(value.prefix { !$0.isWhitespace && $0 != "\\" })
+            return String(value.prefix { !$0.isWhitespace && !"\\;&|)".contains($0) })
                 .trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
         }
     }

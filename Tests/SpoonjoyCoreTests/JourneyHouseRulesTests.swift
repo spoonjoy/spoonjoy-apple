@@ -323,6 +323,40 @@ struct JourneyHouseRulesTests {
         #expect(found.dropFirst(8).first?.message == "a shell loop re-runs `scripts/run-journeys.sh`; flaky is failing")
     }
 
+    @Test("retries hidden in conditions, subshells and bash -c, soft failures and set +e are reported (round-2 probes)")
+    func hiddenRetryAndSoftFailureProbes() {
+        let workflow = """
+        jobs:
+          j:
+            steps:
+              - run: |
+                  for attempt in 1 2; do
+                    if xcodebuild test-without-building -only-testing:SpoonjoyJourneys; then break; fi
+                  done
+              - run: for i in 1 2; do ( xcodebuild test-without-building ) && break; done
+              - run: |
+                  while true; do
+                    bash -c "xcodebuild test-without-building" && break
+                  done
+              - run: xcodebuild test-without-building 2>&1 | tee log || true
+              - run: xcodebuild test-without-building || echo "flaky"
+              - run: scripts/run-journeys.sh || :
+              - run: |
+                  set +e
+                  xcodebuild test-without-building
+              - run: set +o errexit
+              - run: xcodebuild test -only-testing:SpoonjoyJourneys; echo done
+        """
+        let found = JourneyHouseRules.check(fileName: "journeys.yml", source: workflow, kind: .workflow)
+        #expect(found.map(\.line) == [5, 8, 10, 13, 14, 15, 17, 19])
+        #expect(found.map(\.rule) == [
+            .noRetryConfig, .noRetryConfig, .noRetryConfig,
+            .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys
+        ])
+        #expect(found.dropFirst(3).first?.message == "`||` on a line that runs tests hides their failure")
+        #expect(found.dropFirst(6).first?.message == "`set +e` lets a failing journey command pass")
+    }
+
     @Test("ordinary workflow and script shell is not mistaken for a retry or skip")
     func cleanShellIsAccepted() {
         let workflow = #"""
@@ -347,6 +381,8 @@ struct JourneyHouseRulesTests {
                     xcrun xcresulttool get test-results activities --test-id "$test_id"
                   done <<< "$ids"
                   scripts/journey-qa-accounts.sh rotate --base-url "$QA"
+                  set -x
+                  xcodebuild test -only-testing:SpoonjoyJourneys;
         """#
         #expect(JourneyHouseRules.check(fileName: "journeys.yml", source: workflow, kind: .workflow).isEmpty)
     }
