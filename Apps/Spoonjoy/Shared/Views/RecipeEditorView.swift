@@ -66,9 +66,11 @@ struct RecipeEditorView: View {
 
             Section("Recipe") {
                 TextField("Title", text: $draft.title)
+                    .accessibilityIdentifier("editor.title")
                 TextEditor(text: descriptionText)
                     .frame(minHeight: 88)
                 TextField("Servings", text: servingsText)
+                    .accessibilityIdentifier("editor.servings")
             }
 
             Section("Steps") {
@@ -88,8 +90,10 @@ struct RecipeEditorView: View {
                         }
 
                         TextField("Step title", text: optionalText($step.title))
+                            .accessibilityIdentifier("editor.step.\(step.stepNum).title")
                         TextEditor(text: $step.description)
                             .frame(minHeight: 72)
+                            .accessibilityIdentifier("editor.step.\(step.stepNum).description")
                         Stepper(value: durationBinding($step.duration), in: 0...720, step: 1) {
                             Text("Duration \(step.duration ?? 0) minutes")
                         }
@@ -107,11 +111,15 @@ struct RecipeEditorView: View {
                         }
 
                         ForEach($step.ingredients) { $ingredient in
+                            let ingredientID = "editor.step.\(step.stepNum).ingredient.\(ingredientNumber(ingredient.id, in: step))"
                             HStack {
                                 TextField("Ingredient", text: $ingredient.name)
+                                    .accessibilityIdentifier("\(ingredientID).name")
                                 TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
                                     .frame(minWidth: 72)
+                                    .accessibilityIdentifier("\(ingredientID).quantity")
                                 TextField("Unit", text: optionalText($ingredient.unit))
+                                    .accessibilityIdentifier("\(ingredientID).unit")
                                 Button(role: .destructive) {
                                     removeIngredient(id: ingredient.id, from: step.id)
                                 } label: {
@@ -128,6 +136,7 @@ struct RecipeEditorView: View {
                             Label("Add Ingredient", systemImage: "plus.circle")
                         }
                         .disabled(isSubmitting)
+                        .accessibilityIdentifier("editor.step.\(step.stepNum).addIngredient")
                     }
                     .padding(.vertical, 6)
                 }
@@ -142,6 +151,7 @@ struct RecipeEditorView: View {
                     Label("Add Step", systemImage: "plus.circle")
                 }
                 .disabled(isSubmitting)
+                .accessibilityIdentifier("editor.addStep")
             }
 
             Section {
@@ -157,6 +167,7 @@ struct RecipeEditorView: View {
                     }
                 }
                 .disabled(!activeViewModel.updatingDraft(draft).canSubmit || isSubmitting)
+                .accessibilityIdentifier("editor.save")
 
                 if draft.recipeID != nil {
                     Button(role: .destructive) {
@@ -384,6 +395,11 @@ struct RecipeEditorView: View {
             quantity: 1,
             unit: nil
         ))
+    }
+
+    /// The ingredient's 1-based position in its step, for accessibility identifiers.
+    private func ingredientNumber(_ ingredientID: String, in step: RecipeEditorStepDraft) -> Int {
+        (step.ingredients.firstIndex { $0.id == ingredientID } ?? step.ingredients.count) + 1
     }
 
     private func removeIngredient(id: String, from stepID: String) {

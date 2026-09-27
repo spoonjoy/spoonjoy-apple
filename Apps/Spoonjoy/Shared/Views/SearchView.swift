@@ -87,6 +87,8 @@ struct SearchView: View {
                 await searchTask(search)
             }
         }
+        // A container keeps the page identifier off the result rows, which carry their own.
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier(SearchSurfaceContract.typedRows)
         .accessibilityHint(SearchSurfaceContract.searchableScopes)
         .accessibilityValue(searchableScopeOrder.map(\.rawValue).joined(separator: ", "))
@@ -255,6 +257,7 @@ private struct SearchSurfaceSectionView: View {
                     SearchSurfaceRowView(row: row)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("search.result")
             }
         }
     }

@@ -54,6 +54,13 @@ final class JourneyApp {
             .firstMatch
     }
 
+    /// An element inside the element `id` whose label contains `text`, for data a journey created.
+    func element(_ id: String, descendantLabelContaining text: String) -> XCUIElement {
+        element(id).descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS %@", text))
+            .firstMatch
+    }
+
     /// Finds user-visible copy the journey asserts. Only for `JourneyCopy` values.
     func copy(_ text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", text)).firstMatch
@@ -115,6 +122,59 @@ final class JourneyApp {
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: Self.launchTimeout), "The app did not come back after the web sign-out handoff.", file: file, line: line)
     }
 
+    /// Selects a tab bar item. Tab items cannot carry identifiers, so the tab is found by its
+    /// `JourneyCopy` title, and only among the tab bar's buttons.
+    func openTab(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        let tab = app.tabBars.buttons.matching(NSPredicate(format: "label == %@", title)).firstMatch
+        XCTAssertTrue(tab.waitForExistence(timeout: Self.launchTimeout), "The \(title) tab is missing.", file: file, line: line)
+        tab.tap()
+    }
+
+    /// Opens Search from the signed-in shell's "More" menu and waits for its search field.
+    func openSearch(file: StaticString = #filePath, line: UInt = #line) {
+        tap(JourneyID.shellMore, file: file, line: line)
+        tap(JourneyID.shellMoreSearch, file: file, line: line)
+        XCTAssertTrue(searchField.waitForExistence(timeout: Self.launchTimeout), "Search has no search field.", file: file, line: line)
+    }
+
+    /// Replaces the text in Search's field with `query`. Results follow as the user types.
+    func search(for query: String, file: StaticString = #filePath, line: UInt = #line) {
+        replaceText(of: searchField, named: "The search field", with: query, file: file, line: line)
+    }
+
+    /// Opens the recipe whose row `listID` has a label containing `title`, and waits for its detail page.
+    func openRecipe(titled title: String, from listID: String, file: StaticString = #filePath, line: UInt = #line) {
+        let row = element(listID, labelContaining: title)
+        XCTAssertTrue(row.waitForExistence(timeout: Self.networkTimeout), "No \(listID) row shows \(title).", file: file, line: line)
+        row.tap()
+        waitFor(JourneyID.recipeDetailTitle, timeout: Self.networkTimeout, "The recipe detail page did not open.", file: file, line: line)
+    }
+
+    /// Types into an empty field and reads the value back.
+    func enterText(_ text: String, into id: String, file: StaticString = #filePath, line: UInt = #line) {
+        tap(id, file: file, line: line)
+        let field = element(id)
+        field.typeText(text)
+        XCTAssertEqual(field.value as? String, text, "\(id) does not hold exactly the typed text.", file: file, line: line)
+    }
+
+    /// Replaces the text in a field that already holds a value.
+    func replaceText(in id: String, with text: String, file: StaticString = #filePath, line: UInt = #line) {
+        waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear.", file: file, line: line)
+        replaceText(of: element(id), named: id, with: text, file: file, line: line)
+    }
+
+    /// Saves the recipe editor. Save sits below the steps in a lazily built form, so its row does not
+    /// exist until the form is scrolled to its end; two swipes reach the end of a two-step recipe.
+    func saveRecipeEditor(file: StaticString = #filePath, line: UInt = #line) {
+        app.swipeUp()
+        app.swipeUp()
+        let save = element(JourneyID.editorSave)
+        XCTAssertTrue(save.waitForExistence(timeout: Self.interactionTimeout), "The editor's Save button is missing.", file: file, line: line)
+        XCTAssertTrue(save.isEnabled, "Save is disabled, so the editor rejected the draft.", file: file, line: line)
+        save.tap()
+    }
+
     /// Asserts the visible Settings screen's Environment row names the QA mirror.
     func assertQAEnvironment(file: StaticString = #filePath, line: UInt = #line) {
         let value = element(JourneyID.settingsEnvironmentValue)
@@ -135,6 +195,25 @@ final class JourneyApp {
 
     private func waitFor(_ id: String, timeout: TimeInterval, _ message: String, file: StaticString, line: UInt) {
         XCTAssertTrue(element(id).waitForExistence(timeout: timeout), message, file: file, line: line)
+    }
+
+    private var searchField: XCUIElement {
+        app.searchFields.firstMatch
+    }
+
+    /// Taps past the end of the text so the caret lands after it, deletes exactly that many characters,
+    /// proves the field is empty, types the text and reads it back. No edit menu is involved.
+    private func replaceText(of field: XCUIElement, named name: String, with text: String, file: StaticString, line: UInt) {
+        let current = field.value as? String ?? ""
+        let existing = current == field.placeholderValue ? "" : current
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
+        if !existing.isEmpty {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
+        }
+        let cleared = field.value as? String ?? ""
+        XCTAssertTrue(cleared.isEmpty || cleared == field.placeholderValue, "\(name) still holds text after clearing it.", file: file, line: line)
+        field.typeText(text)
+        XCTAssertEqual(field.value as? String, text, "\(name) does not hold exactly the typed text.", file: file, line: line)
     }
 
     /// A system edit-menu item (system copy, so it is matched by label).
