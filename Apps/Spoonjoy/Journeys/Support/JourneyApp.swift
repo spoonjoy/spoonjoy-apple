@@ -175,6 +175,17 @@ final class JourneyApp {
         XCTAssertTrue(save.waitForExistence(timeout: Self.interactionTimeout), "The editor's Save button is missing.", file: file, line: line)
         XCTAssertTrue(save.isEnabled, "Save is disabled, so the editor rejected the draft.", file: file, line: line)
         save.tap()
+        XCTAssertTrue(
+            save.waitForNonExistence(timeout: Self.networkTimeout),
+            "The editor did not close after Save. Screen: \(screen)",
+            file: file,
+            line: line
+        )
+    }
+
+    /// The app's current accessibility hierarchy, for failure messages only.
+    var screen: String {
+        app.debugDescription
     }
 
     /// Asserts the visible Settings screen's Environment row names the QA mirror.

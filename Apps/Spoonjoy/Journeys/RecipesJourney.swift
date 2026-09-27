@@ -47,7 +47,7 @@ final class RecipesJourney: JourneyTestCase {
         journey.saveRecipeEditor()
         XCTAssertTrue(
             journey.element(JourneyID.recipesRow, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "My Recipes does not list the new recipe after saving it."
+            "My Recipes does not list the new recipe after saving it. Screen: \(journey.screen)"
         )
 
         journey.openTab(JourneyCopy.kitchenTab)
