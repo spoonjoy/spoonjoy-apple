@@ -63,10 +63,13 @@ final class JourneyApp {
     func signIn(as identifier: String, password: String, file: StaticString = #filePath, line: UInt = #line) {
         let field = element(JourneyID.signInIdentifier)
         waitFor(JourneyID.signInIdentifier, timeout: Self.interactionTimeout, "The email or username field is missing.", file: file, line: line)
-        field.tap()
         let current = field.value as? String ?? ""
         let existing = current == field.placeholderValue ? "" : current
-        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count) + identifier)
+        if existing != identifier {
+            // Tap at the trailing edge so the cursor lands after any existing text, then replace it.
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count) + identifier)
+        }
 
         pastePassword(password, file: file, line: line)
         tap(JourneyID.passwordSignIn, file: file, line: line)
