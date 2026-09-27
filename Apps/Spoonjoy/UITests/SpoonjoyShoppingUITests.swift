@@ -59,13 +59,13 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         let app = launchShopping(variant: "normal")
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
 
-        app.buttons["Need 1"].tap()
-        app.buttons["Basket 1"].tap()
-        app.buttons["All 2"].tap()
-        app.buttons["Produce"].tap()
-        app.buttons["All aisles"].tap()
+        tapWhenReady(app.buttons["Need 1"], named: "Need 1", in: app)
+        tapWhenReady(app.buttons["Basket 1"], named: "Basket 1", in: app)
+        tapWhenReady(app.buttons["All 2"], named: "All 2", in: app)
+        tapWhenReady(app.buttons["Produce"], named: "Produce", in: app)
+        tapWhenReady(app.buttons["All aisles"], named: "All aisles", in: app)
 
-        app.descendants(matching: .any)["shopping.item.item_lemons"].tap()
+        tapWhenReady(app.descendants(matching: .any)["shopping.item.item_lemons"], named: "The lemons row", in: app)
         XCTAssertTrue(app.staticTexts["Shopping list updated"].waitForExistence(timeout: 3))
 
         let itemField = app.textFields["Add an item"]
@@ -74,22 +74,23 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         app.buttons["Add item"].tap()
         XCTAssertTrue(app.staticTexts["Shopping list updated"].waitForExistence(timeout: 3))
 
-        app.buttons["Receipt actions"].tap()
-        app.buttons["Clear checked"].tap()
-        XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3))
-        app.sheets.firstMatch.buttons["Clear Completed"].tap()
+        tapWhenReady(app.buttons["Receipt actions"], named: "Receipt actions", in: app)
+        tapWhenReady(app.buttons["Clear checked"], named: "Clear checked", in: app)
+        tapWhenReady(app.sheets.firstMatch.buttons["Clear Completed"], named: "Clear Completed", in: app)
+        waitForNoSheet(in: app)
 
-        app.buttons["Receipt actions"].tap()
-        app.buttons["Clear all"].tap()
-        XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3))
-        app.sheets.firstMatch.buttons["Clear All"].tap()
+        tapWhenReady(app.buttons["Receipt actions"], named: "Receipt actions", in: app)
+        tapWhenReady(app.buttons["Clear all"], named: "Clear all", in: app)
+        tapWhenReady(app.sheets.firstMatch.buttons["Clear All"], named: "Clear All", in: app)
+        waitForNoSheet(in: app)
 
+        // The row must have settled after the confirmation closed before a long press can open its context
+        // menu (runs 36333893304 and 36341886285 pressed too early and no menu appeared).
         let lemons = app.descendants(matching: .any)["shopping.item.item_lemons"]
+        waitUntilReady(lemons, named: "The lemons row", in: app)
         lemons.press(forDuration: 1)
-        XCTAssertTrue(app.buttons["Remove"].waitForExistence(timeout: 3))
-        app.buttons["Remove"].tap()
-        XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3))
-        app.sheets.firstMatch.buttons["Remove Item"].tap()
+        tapWhenReady(app.buttons["Remove"], named: "The row's Remove menu item", in: app)
+        tapWhenReady(app.sheets.firstMatch.buttons["Remove Item"], named: "Remove Item", in: app)
     }
 
     func testAccessibilityMenusAndRecipeFallbacksAreInteractive() {
@@ -100,14 +101,21 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         let modeMenu = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH[c] 'Shopping view, All '")).firstMatch
         XCTAssertTrue(modeMenu.waitForExistence(timeout: 8))
-        modeMenu.tap()
-        app.buttons["Need 1"].tap()
+        tapWhenReady(modeMenu, named: "The shopping view menu", in: app)
+        tapWhenReady(app.buttons["Need 1"], named: "The menu's Need 1 item", in: app)
+        // The menu's label names the chosen view once the menu has closed and the choice applied.
+        let needSelected = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Shopping view, Need 1 selected'")).firstMatch
+        XCTAssertTrue(needSelected.waitForExistence(timeout: 10), "Choosing Need 1 did not update the shopping view menu. \(app.debugDescription)")
 
         let categoryMenu = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH[c] 'Aisle filter, All aisles'")).firstMatch
-        categoryMenu.tap()
-        app.buttons["Produce"].tap()
-        app.buttons["Add from recipe"].tap()
+        tapWhenReady(categoryMenu, named: "The aisle filter menu", in: app)
+        tapWhenReady(app.buttons["Produce"], named: "The menu's Produce item", in: app)
+        let produceSelected = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == 'Aisle filter, Produce selected'")).firstMatch
+        XCTAssertTrue(produceSelected.waitForExistence(timeout: 10), "Choosing Produce did not update the aisle filter menu. \(app.debugDescription)")
+        tapWhenReady(app.buttons["Add from recipe"], named: "Add from recipe", in: app)
         app.terminate()
 
         app = launchShopping(
@@ -180,6 +188,49 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(platformItem.exists)
         platformItem.tap()
         app.buttons["Create a recipe"].tap()
+    }
+
+    /// Waits for `element` to exist and be hittable and enabled, so a tap or long press reaches it rather than
+    /// a sheet or menu that is still closing. Fails with the screen if it does not settle. Nothing is retried.
+    private func waitUntilReady(
+        _ element: XCUIElement,
+        named name: String,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let ready = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND isHittable == true AND isEnabled == true"),
+            object: element
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [ready], timeout: 10),
+            .completed,
+            "\(name) did not become hittable. \(app.debugDescription)",
+            file: file,
+            line: line
+        )
+    }
+
+    private func tapWhenReady(
+        _ element: XCUIElement,
+        named name: String,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        waitUntilReady(element, named: name, in: app, file: file, line: line)
+        element.tap()
+    }
+
+    /// Waits for a confirmation sheet to finish closing.
+    private func waitForNoSheet(in app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(
+            app.sheets.firstMatch.waitForNonExistence(timeout: 10),
+            "A confirmation sheet did not close. \(app.debugDescription)",
+            file: file,
+            line: line
+        )
     }
 
     private func launchShopping(
