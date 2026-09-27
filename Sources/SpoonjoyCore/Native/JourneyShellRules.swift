@@ -2,7 +2,8 @@ import Foundation
 
 /// Checks workflow and shell text for ways to retry, skip or soften journeys: xcodebuild retry flags,
 /// loops that re-run xcodebuild or a script, `cmd || cmd` re-runs, `||` after a test command, `set +e`,
-/// retry wrappers, `continue-on-error`, and test selection that drops journeys. The check is lexical.
+/// `if`/`!` conditions and `&&` lists that swallow a test command's failure, `xargs` re-runs, retry
+/// wrappers, `continue-on-error`, and test selection that drops journeys. The check is lexical.
 struct JourneyShellRuleScanner {
     static let allowedTestTargets: Set<String> = ["SpoonjoyJourneys", "SpoonjoyShoppingUITests"]
     static let loopKeywords: Set<String> = ["for", "while", "until"]
@@ -42,7 +43,10 @@ struct JourneyShellRuleScanner {
                 }
             }
         }
-        return violations
+        // A loop is reported when its body runs a test command, after that line's own findings; order by line.
+        return violations.enumerated()
+            .sorted { ($0.element.line, $0.offset) < ($1.element.line, $1.offset) }
+            .map(\.element)
     }
 
     private func lineViolations(_ logical: LogicalLine) -> [JourneyRuleViolation] {
@@ -55,6 +59,15 @@ struct JourneyShellRuleScanner {
             found.append(violation(logical.line, .noRetryConfig, "a command is re-run after it fails; flaky is failing"))
         } else if runsTests && text.contains("||") {
             found.append(violation(logical.line, .noSkippedJourneys, "`||` on a line that runs tests hides their failure"))
+        }
+        if Self.commands(in: text).contains(where: Self.conditionRunsTests) {
+            found.append(violation(logical.line, .noSkippedJourneys, "a test command used as an `if` or `!` condition cannot fail the step"))
+        }
+        if Self.runsTestsBeforeAnd(text) {
+            found.append(violation(logical.line, .noSkippedJourneys, "`&&` after a test command stops its failure from failing the step"))
+        }
+        if let runner = Self.commands(in: text).lazy.compactMap(Self.xargsRunner).first {
+            found.append(violation(logical.line, .noRetryConfig, "`xargs` re-runs `\(runner)`; flaky is failing"))
         }
         if Self.commands(in: text).contains(where: Self.disablesErrexit) {
             found.append(violation(logical.line, .noSkippedJourneys, "`set +e` lets a failing journey command pass"))
@@ -124,6 +137,37 @@ struct JourneyShellRuleScanner {
 
     static func words(_ command: String) -> [String] {
         command.split(whereSeparator: \.isWhitespace).map(String.init)
+    }
+
+    /// `if cmd`, `elif cmd` or `! cmd` where cmd builds or runs tests: bash suspends `errexit` for a
+    /// condition, so its failure only picks a branch. A `[[`/`[`/`test` condition is not a test command.
+    static func conditionRunsTests(_ command: String) -> Bool {
+        var words = words(command)
+        guard let first = words.first, ["if", "elif", "!"].contains(first) else {
+            return false
+        }
+        words = Array(words.drop { $0 == "if" || $0 == "elif" || $0 == "!" })
+        guard let head = words.first, !["[[", "[", "test"].contains(head) else {
+            return false
+        }
+        return runner(words, anyWord: true) != nil
+    }
+
+    /// `cmd && …` where cmd builds or runs tests: bash suspends `errexit` for every command in an `&&`
+    /// list but the last, so a failing run no longer stops the step.
+    static func runsTestsBeforeAnd(_ text: String) -> Bool {
+        text.components(separatedBy: "&&").dropLast().contains { part in
+            commands(in: part).contains { runner(words($0), anyWord: true) != nil }
+        }
+    }
+
+    /// The test command an `xargs` invocation runs once per input (`seq 3 | xargs -I{} xcodebuild …`), or nil.
+    static func xargsRunner(_ command: String) -> String? {
+        let words = words(command)
+        guard let index = words.firstIndex(of: "xargs") else {
+            return nil
+        }
+        return runner(Array(words[(index + 1)...]), anyWord: true)
     }
 
     /// `set +e` (or `+o errexit`, or any `+…e…` flag group) turns off fail-fast for what follows.
