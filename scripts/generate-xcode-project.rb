@@ -13,9 +13,11 @@ PROJECT_NAME = "Spoonjoy"
 IOS_SCHEME_NAME = "Spoonjoy iOS"
 MAC_SCHEME_NAME = "Spoonjoy macOS"
 UI_TEST_TARGET_NAME = "SpoonjoyShoppingUITests"
+JOURNEYS_TARGET_NAME = "SpoonjoyJourneys"
 IOS_BUNDLE_ID = "app.spoonjoy"
 MAC_BUNDLE_ID = "app.spoonjoy.mac"
 UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
+JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
 INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
 ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
@@ -35,6 +37,7 @@ SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/Shared").freeze
 IOS_SWIFT = swift_sources_under("Apps/Spoonjoy/iOS").freeze
 MAC_SWIFT = swift_sources_under("Apps/Spoonjoy/macOS").freeze
 UI_TEST_SWIFT = swift_sources_under("Apps/Spoonjoy/UITests").freeze
+JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys").freeze
 
 options = {
   output_dir: nil
@@ -140,6 +143,7 @@ end
 ios_target = project.new_target(:application, "#{PROJECT_NAME} iOS", :ios, "26.5")
 mac_target = project.new_target(:application, "#{PROJECT_NAME} macOS", :osx, "26.2")
 ui_test_target = project.new_target(:ui_test_bundle, UI_TEST_TARGET_NAME, :ios, "26.5")
+journeys_target = project.new_target(:ui_test_bundle, JOURNEYS_TARGET_NAME, :ios, "26.5")
 ios_target.frameworks_build_phase.files.clear
 mac_target.frameworks_build_phase.files.clear
 project.files
@@ -158,17 +162,25 @@ apply_common_settings(
   }
 )
 
-CONFIGURATIONS.each do |configuration|
-  build_configuration = ui_test_target.build_configuration_list[configuration]
-  build_configuration.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = UI_TEST_BUNDLE_ID
-  build_configuration.build_settings["PRODUCT_NAME"] = "$(TARGET_NAME)"
-  build_configuration.build_settings["SWIFT_VERSION"] = "6.0"
-  build_configuration.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
-  build_configuration.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
-  build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "YES"
-  build_configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "26.5"
-  build_configuration.build_settings["TEST_TARGET_NAME"] = "#{PROJECT_NAME} iOS"
+def apply_ui_test_settings(target, bundle_id:)
+  CONFIGURATIONS.each do |configuration|
+    build_configuration = target.build_configuration_list[configuration]
+    build_configuration.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = bundle_id
+    build_configuration.build_settings["PRODUCT_NAME"] = "$(TARGET_NAME)"
+    build_configuration.build_settings["SWIFT_VERSION"] = "6.0"
+    build_configuration.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+    build_configuration.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
+    build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "YES"
+    build_configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "26.5"
+    build_configuration.build_settings["TEST_TARGET_NAME"] = "#{PROJECT_NAME} iOS"
+    # UI-test bundles declare no App Intents. Skipping extraction avoids the extractor's
+    # "no AppIntents.framework dependency found" warning, which the warnings-as-errors log gate rejects.
+    build_configuration.build_settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
+  end
 end
+
+apply_ui_test_settings(ui_test_target, bundle_id: UI_TEST_BUNDLE_ID)
+apply_ui_test_settings(journeys_target, bundle_id: JOURNEYS_BUNDLE_ID)
 
 apply_common_settings(
   mac_target,
@@ -193,6 +205,11 @@ add_sources(project, ui_test_target, UI_TEST_SWIFT)
 ui_test_target.add_dependency(ios_target)
 ui_test_dependency = ui_test_target.dependencies[0]
 ui_test_dependency_proxy = ui_test_dependency.target_proxy
+add_sources(project, journeys_target, JOURNEYS_SWIFT)
+add_package_product(project, journeys_target, "SpoonjoyCore")
+journeys_target.add_dependency(ios_target)
+journeys_dependency = journeys_target.dependencies[0]
+journeys_dependency_proxy = journeys_dependency.target_proxy
 
 project.sort
 project.predictabilize_uuids
@@ -210,6 +227,9 @@ end
 assign_stable_uuid(project, ui_test_dependency_proxy, "SpoonjoyShoppingUITests/app-proxy")
 assign_stable_uuid(project, ui_test_dependency, "SpoonjoyShoppingUITests/app-dependency")
 ui_test_dependency.target_proxy = ui_test_dependency_proxy
+assign_stable_uuid(project, journeys_dependency_proxy, "SpoonjoyJourneys/app-proxy")
+assign_stable_uuid(project, journeys_dependency, "SpoonjoyJourneys/app-dependency")
+journeys_dependency.target_proxy = journeys_dependency_proxy
 
 def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme = Xcodeproj::XCScheme.new
@@ -220,7 +240,7 @@ def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme.save_as(project_path, scheme_name, true)
 end
 
-save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target])
+save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target])
 save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
 
 project.save

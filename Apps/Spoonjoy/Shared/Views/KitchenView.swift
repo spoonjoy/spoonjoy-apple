@@ -22,6 +22,8 @@ struct KitchenView: View {
 
             kitchenContent
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("kitchen.root")
         .task {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "kitchen",

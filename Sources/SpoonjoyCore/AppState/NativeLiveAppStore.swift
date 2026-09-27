@@ -387,7 +387,7 @@ public struct NativeShellContentState {
                 queuedMutations: queuedMutations,
                 conflicts: syncConflicts,
                 connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
-                secureHandoffRoutes: .spoonjoyApp,
+                secureHandoffRoutes: SettingsSecureHandoffRoutes(baseURL: configuration.baseURL),
                 now: Date.init
             )
         }
@@ -396,7 +396,7 @@ public struct NativeShellContentState {
             return SettingsSurfaceViewModel.signedOut(
                 environment: environment,
                 offline: offlineState,
-                secureHandoffRoutes: .spoonjoyApp
+                secureHandoffRoutes: SettingsSecureHandoffRoutes(baseURL: configuration.baseURL)
             )
         }
 
@@ -414,7 +414,7 @@ public struct NativeShellContentState {
             queuedMutations: queuedMutations,
             conflicts: syncConflicts,
             connectivity: offlineIndicatorState.display == .offline ? .offline : .online,
-            secureHandoffRoutes: .spoonjoyApp,
+            secureHandoffRoutes: SettingsSecureHandoffRoutes(baseURL: configuration.baseURL),
             now: Date.init,
             showsPrimaryAuthActionWhenSignedOut: false
         )

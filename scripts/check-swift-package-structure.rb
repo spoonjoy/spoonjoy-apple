@@ -19,9 +19,11 @@ package = PACKAGE.read
   '.library(name: "SpoonjoyCore"',
   '.executable(name: "SpoonjoyNativeDogfood"',
   '.executable(name: "SpoonjoyScenarioVerifier"',
+  '.executable(name: "SpoonjoyJourneyRules"',
   '.target(name: "SpoonjoyCore"',
   '.executableTarget(name: "SpoonjoyNativeDogfood"',
   '.executableTarget(name: "SpoonjoyScenarioVerifier"',
+  '.executableTarget(name: "SpoonjoyJourneyRules"',
   '.testTarget(name: "SpoonjoyCoreTests"',
   'resources: [.copy("Fixtures")]'
 ].each do |needle|
@@ -37,6 +39,7 @@ required_paths = [
   "Sources/SpoonjoyCore/Fixtures/offline-snapshot-fixture.json",
   "Sources/SpoonjoyNativeDogfood/main.swift",
   "Sources/SpoonjoyScenarioVerifier/main.swift",
+  "Sources/SpoonjoyJourneyRules/main.swift",
   "Tests/SpoonjoyCoreTests/SpoonjoyCoreBootstrapTests.swift"
 ]
 

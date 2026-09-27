@@ -193,6 +193,8 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         mode: String = "all"
     ) -> XCUIApplication {
         let app = XCUIApplication()
+        // The fixture root still bootstraps the live store; keep that off production.
+        app.launchEnvironment["SPOONJOY_API_BASE_URL"] = "https://spoonjoy-v2-qa.mendelow-studio.workers.dev"
         app.launchEnvironment["SPOONJOY_SHOPPING_UI_TEST_FIXTURE"] = "1"
         if !omitState {
             app.launchEnvironment["SPOONJOY_SHOPPING_UI_TEST_STATE"] = stateJSON ?? Self.shoppingStateJSON

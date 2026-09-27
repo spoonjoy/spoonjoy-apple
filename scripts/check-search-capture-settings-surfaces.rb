@@ -130,7 +130,6 @@ REQUIRED_TOKENS = {
     "Connections",
     "Passkeys",
     "Password",
-    "Sign Out",
     "SettingsOnlineOnlyReason",
     "SettingsSecureHandoff",
     "PendingSettingsDestructiveAction",
@@ -232,8 +231,7 @@ REQUIRED_TOKENS = {
     "NativeOfflineMutationPolicy.decision",
     "TokenCredentialRequests.createToken",
     "TokenCredentialRequests.revokeToken",
-    "PrivateAccountRequests.disconnectConnection",
-    "SecureAuthWebHandoff.logout"
+    "PrivateAccountRequests.disconnectConnection"
   ]
 }.freeze
 

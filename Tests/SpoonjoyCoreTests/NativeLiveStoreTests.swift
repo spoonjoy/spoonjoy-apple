@@ -113,6 +113,41 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("settings sign-out hands off to the host the app is configured for")
+    func settingsSignOutHandsOffToConfiguredHost() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let engine = NativeSyncEngine(
+                store: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                clock: { Self.now }
+            )
+            let configuration = APIClientConfiguration(baseURL: URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev")!)
+            let liveStore = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+                authSessionRepository: Self.authRepository(vault: InMemoryTokenVault()),
+                cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+                syncStore: syncStore,
+                syncEngine: engine,
+                syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+                appStateStoreProvider: { nil },
+                configuration: configuration,
+                cacheEnvironment: .preview(host: "spoonjoy-v2-qa.mendelow-studio.workers.dev"),
+                now: { Self.now }
+            ))
+
+            await liveStore.bootstrap()
+
+            guard case .signedOut(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected a signed-out store; got \(liveStore.bootstrapState)")
+                return
+            }
+            let logout = try content.settingsSurfaceViewModel.actionPlanner.plan(.logout)
+            #expect(logout.secureHandoff?.url.absoluteString == "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/logout")
+            #expect(SettingsSecureHandoffRoutes.spoonjoyApp.handoff(target: .logout).url.absoluteString == "https://spoonjoy.app/logout")
+        }
+    }
+
+    @MainActor
     @Test("live store queueMutation persists mutations through native sync store")
     func liveStoreQueueMutationPersistsMutationsThroughNativeSyncStore() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

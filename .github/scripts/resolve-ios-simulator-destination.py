@@ -34,13 +34,23 @@ try:
     raw = subprocess.check_output(
         ["xcrun", "simctl", "list", "devices", "available", "--json"],
         text=True,
-        timeout=30,
+        # The first simctl call on a fresh hosted runner starts CoreSimulator and can take over 30 seconds.
+        timeout=120,
     )
 except Exception as exc:
     print(f"Unable to list available iOS simulators: {exc}", file=sys.stderr)
     sys.exit(1)
 
 data = json.loads(raw)
+# A simulator UDID matches one destination per architecture (arm64 and x86_64 under Rosetta). Pin the
+# host architecture so xcodebuild resolves exactly one destination instead of warning and picking the first.
+simulator_arch = os.environ.get("SPOONJOY_IOS_SIMULATOR_ARCH", "").strip() or os.uname().machine
+
+
+def destination(udid: str) -> str:
+    return f"platform=iOS Simulator,arch={simulator_arch},id={udid}"
+
+
 preferred_udid = os.environ.get("SPOONJOY_IOS_SIMULATOR_UDID", "").strip()
 preferred_name = os.environ.get("SPOONJOY_IOS_SIMULATOR_NAME", "").strip()
 preferred_family = os.environ.get("SPOONJOY_IOS_SIMULATOR_FAMILY", "iphone").strip().lower()
@@ -72,7 +82,7 @@ if not all_available_ios_devices:
 if preferred_udid:
     for _, _, name, udid, _ in all_available_ios_devices:
         if udid == preferred_udid:
-            print(f"platform=iOS Simulator,id={udid}")
+            print(destination(udid))
             sys.exit(0)
     print(f"Requested iOS simulator UDID is not available: {preferred_udid}", file=sys.stderr)
     sys.exit(1)
@@ -83,7 +93,7 @@ if preferred_name:
         print(f"Requested iOS simulator name is not available: {preferred_name}", file=sys.stderr)
         sys.exit(1)
     _, _, _, selected_udid, _ = sorted(named_matches, reverse=True)[0]
-    print(f"platform=iOS Simulator,id={selected_udid}")
+    print(destination(selected_udid))
     sys.exit(0)
 
 if not default_family_matches:
@@ -95,4 +105,4 @@ _, _, _, selected_udid, _ = sorted(
     key=lambda match: (match[0], match[1], family_device_rank(match[2], preferred_family), match[2]),
     reverse=True,
 )[0]
-print(f"platform=iOS Simulator,id={selected_udid}")
+print(destination(selected_udid))

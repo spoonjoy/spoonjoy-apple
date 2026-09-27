@@ -116,14 +116,10 @@ REQUIRED_SOURCE_TOKENS = {
     "NativeAuthSessionRepository",
     "SignInWithAppleButton",
     "NativeAppleSignInCredential",
-    "NativePasswordSignInCredential",
     "handleAppleSignInCredential",
-    "handlePasswordSignInCredential",
     "restoreState",
     "revokeAndLogout",
     "isSigningIn",
-    "emailOrUsername",
-    "native password sign-in",
     "Button"
   ],
   "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [

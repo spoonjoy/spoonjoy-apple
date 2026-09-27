@@ -109,7 +109,9 @@ SCRIPT_CONTRACTS = {
       "default_family_matches",
       "state_rank",
       "os.environ",
-      "state"
+      "state",
+      "SPOONJOY_IOS_SIMULATOR_ARCH",
+      "arch={simulator_arch}"
     ]
   },
   "scripts/capture-native-screenshots.sh" => {
@@ -596,10 +598,11 @@ Dir.mktmpdir("spoonjoy-simulator-resolver-contract") do |directory|
     "-i",
     "PATH=#{bin_dir}:#{ENV.fetch("PATH")}",
     "SPOONJOY_IOS_SIMULATOR_UDID=DOGFOOD-UDID",
+    "SPOONJOY_IOS_SIMULATOR_ARCH=arm64",
     "python3",
     ROOT.join(".github/scripts/resolve-ios-simulator-destination.py"),
   )
-  unless explicit_status.success? && explicit_stdout.strip == "platform=iOS Simulator,id=DOGFOOD-UDID"
+  unless explicit_status.success? && explicit_stdout.strip == "platform=iOS Simulator,arch=arm64,id=DOGFOOD-UDID"
     record_failure(
       "simulator resolver must honor explicit available UDIDs even when the simulator name is not prefixed with iPhone\n" \
       "STDOUT:\n#{explicit_stdout}\nSTDERR:\n#{explicit_stderr}"
@@ -613,7 +616,8 @@ Dir.mktmpdir("spoonjoy-simulator-resolver-contract") do |directory|
     "python3",
     ROOT.join(".github/scripts/resolve-ios-simulator-destination.py"),
   )
-  unless default_status.success? && default_stdout.strip == "platform=iOS Simulator,id=IPHONE-UDID"
+  host_arch = `uname -m`.strip
+  unless default_status.success? && default_stdout.strip == "platform=iOS Simulator,arch=#{host_arch},id=IPHONE-UDID"
     record_failure(
       "simulator resolver default path must keep selecting ordinary iPhone simulator names\n" \
       "STDOUT:\n#{default_stdout}\nSTDERR:\n#{default_stderr}"
@@ -625,10 +629,11 @@ Dir.mktmpdir("spoonjoy-simulator-resolver-contract") do |directory|
     "-i",
     "PATH=#{bin_dir}:#{ENV.fetch("PATH")}",
     "SPOONJOY_IOS_SIMULATOR_FAMILY=ipad",
+    "SPOONJOY_IOS_SIMULATOR_ARCH=x86_64",
     "python3",
     ROOT.join(".github/scripts/resolve-ios-simulator-destination.py"),
   )
-  unless ipad_status.success? && ipad_stdout.strip == "platform=iOS Simulator,id=IPAD-UDID"
+  unless ipad_status.success? && ipad_stdout.strip == "platform=iOS Simulator,arch=x86_64,id=IPAD-UDID"
     record_failure(
       "simulator resolver must select an iPad for the tablet capture family\n" \
       "STDOUT:\n#{ipad_stdout}\nSTDERR:\n#{ipad_stderr}"

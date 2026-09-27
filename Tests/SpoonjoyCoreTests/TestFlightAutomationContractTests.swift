@@ -95,7 +95,8 @@ struct TestFlightAutomationContractTests {
     func workflowDependenciesAreImmutable() throws {
         let workflowPaths = [
             ".github/workflows/native.yml",
-            ".github/workflows/testflight.yml"
+            ".github/workflows/testflight.yml",
+            ".github/workflows/journeys.yml"
         ]
         let actionPattern = /uses:\s+[^\s@]+@([^\s#]+)/
 
@@ -147,7 +148,8 @@ struct TestFlightAutomationContractTests {
         let uploadPattern = /actions\/upload-artifact@([0-9a-f]{40})/
         let workflowPaths = [
             ".github/workflows/native.yml",
-            ".github/workflows/testflight.yml"
+            ".github/workflows/testflight.yml",
+            ".github/workflows/journeys.yml"
         ]
 
         for path in workflowPaths {

@@ -26,12 +26,15 @@ URL_SCHEME = "spoonjoy"
 PACKAGE_PRODUCT = "SpoonjoyCore"
 UI_TEST_TARGET = "SpoonjoyShoppingUITests"
 UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
+JOURNEYS_TARGET = "SpoonjoyJourneys"
+JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 
 EXPECTED_FILES = [
   APP_ROOT.join("Shared/SpoonjoyApp.swift"),
   APP_ROOT.join("iOS/SpoonjoyiOSApp.swift"),
   APP_ROOT.join("macOS/SpoonjoyMacApp.swift"),
   APP_ROOT.join("UITests/SpoonjoyShoppingUITests.swift"),
+  APP_ROOT.join("Journeys/SignInJourney.swift"),
   APP_ROOT.join("Shared/Assets.xcassets"),
   INFO_PLIST,
   ENTITLEMENTS
@@ -165,6 +168,19 @@ ui_test_target.build_configuration_list.build_configurations.each do |configurat
   assert_setting(settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", "#{UI_TEST_TARGET} #{configuration.name}")
 end
 
+journeys_target = target_by_name[JOURNEYS_TARGET] || fail_check("missing target #{JOURNEYS_TARGET}")
+fail_check("#{JOURNEYS_TARGET} must be a UI test bundle") unless journeys_target.symbol_type == :ui_test_bundle
+fail_check("#{JOURNEYS_TARGET} must depend only on #{IOS_TARGET}") unless journeys_target.dependencies.map { |dependency| dependency.target&.name }.compact == [IOS_TARGET]
+journeys_target.build_configuration_list.build_configurations.each do |configuration|
+  settings = configuration.build_settings
+  assert_setting(settings, "PRODUCT_BUNDLE_IDENTIFIER", JOURNEYS_BUNDLE_ID, "#{JOURNEYS_TARGET} #{configuration.name}")
+  assert_setting(settings, "TEST_TARGET_NAME", IOS_TARGET, "#{JOURNEYS_TARGET} #{configuration.name}")
+  assert_setting(settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", "#{JOURNEYS_TARGET} #{configuration.name}")
+end
+journeys_sources = journeys_target.source_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact.sort
+expected_journeys_sources = APP_ROOT.join("Journeys").find.select { |path| path.file? && path.extname == ".swift" }.map(&:to_s).sort
+fail_check("#{JOURNEYS_TARGET} sources must be exactly Apps/Spoonjoy/Journeys/**/*.swift") unless journeys_sources == expected_journeys_sources
+
 {
   IOS_SCHEME => { required: IOS_TARGET, forbidden: MAC_TARGET },
   MAC_SCHEME => { required: MAC_TARGET, forbidden: IOS_TARGET }
@@ -216,7 +232,7 @@ def assert_package_product(target, product_name)
   fail_check("#{target.name} has duplicate #{product_name} Frameworks entries") if framework_entries.length > 1
 end
 
-[ios_target, mac_target].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
+[ios_target, mac_target, journeys_target].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
 
 mac_bootstrap = Gem::Version.new(
   mac_target.build_configuration_list["BootstrapDebug"].build_settings.fetch("MACOSX_DEPLOYMENT_TARGET")
@@ -236,7 +252,9 @@ end
 ios_sources = target_source_paths(ios_target)
 mac_sources = target_source_paths(mac_target)
 app_swift_files = APP_ROOT.find.select do |path|
-  path.file? && path.extname == ".swift" && !path.to_s.start_with?("#{APP_ROOT.join("UITests")}/")
+  path.file? && path.extname == ".swift" &&
+    !path.to_s.start_with?("#{APP_ROOT.join("UITests")}/") &&
+    !path.to_s.start_with?("#{APP_ROOT.join("Journeys")}/")
 end.map(&:to_s)
 
 app_swift_files.each do |source|
