@@ -155,7 +155,10 @@ struct JourneyQAAccountsScriptTests {
             ("api_v1_auth_password_native", "200 ", "still answered HTTP 200"),
             ("account_settings", "200 \n<p>Your current password is incorrect</p>", "did not confirm success"),
             ("account_settings", "500 ", "returned HTTP 500"),
-            ("login", "200 ", "returned HTTP 200 instead of 302")
+            ("login", "200 ", "returned HTTP 200 to none instead of 302 to /recipes"),
+            ("login", "302 \(Self.baseURL)/login?error=1", "returned HTTP 302 to /login?error=1 instead of 302 to /recipes"),
+            ("account_settings", "302 \(Self.baseURL)/somewhere", "returned HTTP 302 to /somewhere"),
+            ("account_settings", "200 \n<p>Your current password is incorrect</p>", "did not confirm success")
         ]
         for (path, response, message) in cases {
             try withAccountsHarness { harness in
@@ -166,6 +169,50 @@ struct JourneyQAAccountsScriptTests {
                 #expect(result.output.contains(message), Comment(rawValue: result.output))
                 #expect(result.output.contains("2 journey account(s) could not be rotated"))
             }
+        }
+    }
+
+    @Test("rotate works against a model of the web app, where a successful change redirects to /login")
+    func rotateAgainstWebModel() throws {
+        try withAccountsHarness { harness in
+            let model = ["FAKE_QA_MODEL": "1"]
+            let file = harness.root.appendingPathComponent("secrets/accounts.json")
+            let create = try harness.run(["create", "--base-url", Self.baseURL, "--count", "2", "--out", file.path], environment: model)
+            #expect(create.status == 0, Comment(rawValue: create.output))
+            let before = try harness.accounts(at: file)
+
+            let result = try harness.run(["rotate", "--base-url", Self.baseURL, "--accounts", file.path], environment: model)
+            #expect(result.status == 0, Comment(rawValue: result.output))
+            #expect(result.stdout.contains("Rotated journey account \(before.entries[0].username) (the settings page redirected to /login); its old password is rejected"))
+            #expect(result.stdout.contains("Rotated 2 journey account(s)"))
+
+            for entry in before.entries {
+                let stored = try String(contentsOf: harness.root.appendingPathComponent("model-users/\(entry.username)/password"), encoding: .utf8)
+                #expect(stored != entry.password)
+                #expect(stored.wholeMatch(of: /f[0-9a-f]{47}/) != nil)
+            }
+            let headers = try String(contentsOf: harness.root.appendingPathComponent("curl-headers.log"), encoding: .utf8)
+            #expect(headers.contains("login Origin: \(Self.baseURL)"))
+            #expect(headers.contains("login Referer: \(Self.baseURL)/login"))
+            #expect(headers.contains("account_settings Origin: \(Self.baseURL)"))
+            #expect(headers.contains("account_settings Referer: \(Self.baseURL)/account/settings"))
+        }
+    }
+
+    @Test("rotate fails when the web app does not accept the sign-in cookie, because the old password still works")
+    func rotateFailsWhenSessionIsRejected() throws {
+        try withAccountsHarness { harness in
+            let file = harness.root.appendingPathComponent("secrets/accounts.json")
+            let create = try harness.run(["create", "--base-url", Self.baseURL, "--count", "1", "--out", file.path], environment: ["FAKE_QA_MODEL": "1"])
+            #expect(create.status == 0, Comment(rawValue: create.output))
+
+            let result = try harness.run(
+                ["rotate", "--base-url", Self.baseURL, "--accounts", file.path],
+                environment: ["FAKE_QA_MODEL": "1", "FAKE_QA_DROP_COOKIES": "1"]
+            )
+            #expect(result.status == 1)
+            #expect(result.output.contains("still answered HTTP 200 instead of 401 (the settings page redirected to /login, so the /login session was probably not accepted)"))
+            #expect(result.output.contains("1 journey account(s) could not be rotated"))
         }
     }
 
@@ -511,37 +558,118 @@ private func accountsRepoRoot() -> URL {
 
 /// Logs argv, records form fields read from @files, and answers from responses/<path> (first line is the
 /// "-w" output, the rest is the body). A numbered responses/<path>.N file answers the Nth call instead.
+/// Logs argv, records form fields read from @files and request headers, and answers either from
+/// responses/<path> (first line is the "-w" output, the rest is the body; responses/<path>.N answers the
+/// Nth call) or, with FAKE_QA_MODEL=1, from a small model of the web app's real behaviour.
 private let fakeCurlSource = #"""
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$FAKE_STATE/curl-calls.log"
 args=("$@")
 output=""
+jar_in=""
+jar_out=""
+request="$(mktemp -d "$FAKE_STATE/request.XXXXXX")"
+trap 'rm -rf "$request"' EXIT
 for ((i = 0; i < ${#args[@]}; i++)); do
   case "${args[$i]}" in
     -o) output="${args[$((i + 1))]}" ;;
+    -b) jar_in="${args[$((i + 1))]}" ;;
+    -c) jar_out="${args[$((i + 1))]}" ;;
+    -H) printf '%s\n' "${args[$((i + 1))]}" >> "$request/headers" ;;
     --data-urlencode)
       field="${args[$((i + 1))]}"
-      if [[ "$field" == *@* ]]; then
-        printf '%s=%s\n' "${field%%@*}" "$(cat "${field#*@}")" >> "$FAKE_STATE/curl-bodies.log"
+      # curl reads name@file only when no '=' comes first; name=value otherwise.
+      if [[ "${field%%=*}" == *@* ]]; then
+        value="$(cat "${field#*@}")"
+        printf '%s=%s\n' "${field%%@*}" "$value" >> "$FAKE_STATE/curl-bodies.log"
+        printf '%s' "$value" > "$request/field-${field%%@*}"
       else
         printf '%s\n' "$field" >> "$FAKE_STATE/curl-bodies.log"
+        printf '%s' "${field#*=}" > "$request/field-${field%%=*}"
       fi
       ;;
     --data-binary)
       printf 'binary=%s\n' "$(tr -d '\n' < "${args[$((i + 1))]#@}")" >> "$FAKE_STATE/curl-bodies.log"
+      cp "${args[$((i + 1))]#@}" "$request/json"
       ;;
   esac
 done
 url="${args[${#args[@]}-1]}"
+origin="$(printf '%s' "$url" | sed -E 's#^(https?://[^/]+).*#\1#')"
 path="${url#*://*/}"
 name="${path//\//_}"
+if [[ -f "$request/headers" ]]; then
+  sed "s#^#$name #" "$request/headers" >> "$FAKE_STATE/curl-headers.log"
+fi
 counter_file="$FAKE_STATE/curl-count-$name"
 count=$(( $(cat "$counter_file" 2>/dev/null || echo 0) + 1 ))
 echo "$count" > "$counter_file"
-response="$FAKE_CURL_RESPONSES/$name"
-if [[ -f "$response.$count" ]]; then
-  response="$response.$count"
+
+field() { cat "$request/field-$1" 2>/dev/null || true; }
+users="$FAKE_STATE/model-users"
+user_for() {
+  local id="$1"
+  if [[ -d "$users/$id" ]]; then printf '%s' "$id"; return; fi
+  grep -l -x -F "$id" "$users"/*/email 2>/dev/null | head -n 1 | xargs -n 1 dirname 2>/dev/null | xargs -n 1 basename 2>/dev/null || true
+}
+bounce="302 $origin/login?redirectTo=%2Faccount%2Fsettings"
+
+if [[ -n "${FAKE_QA_MODEL:-}" ]]; then
+  response="$request/response"
+  mkdir -p "$users"
+  case "$name" in
+    signup)
+      user="$users/$(field username)"
+      mkdir -p "$user"
+      field email > "$user/email"
+      field password > "$user/password"
+      echo 0 > "$user/version"
+      echo "302 $origin/recipes" > "$response"
+      ;;
+    login)
+      user="$(user_for "$(field identifier)")"
+      if [[ -n "$user" && "$(field password)" == "$(cat "$users/$user/password")" ]]; then
+        if [[ -z "${FAKE_QA_DROP_COOKIES:-}" ]]; then
+          printf '#HttpOnly_%s\tFALSE\t/\tTRUE\t0\t__session\t%s.%s\n' "${origin#https://}" "$user" "$(cat "$users/$user/version")" > "$jar_out"
+        fi
+        echo "302 $origin/recipes" > "$response"
+      else
+        printf '401 \n<p>Invalid username, email, or password</p>\n' > "$response"
+      fi
+      ;;
+    account_settings)
+      cookie="$(awk -F '\t' '$6 == "__session" { print $7 }' "$jar_in" 2>/dev/null || true)"
+      user="${cookie%.*}"
+      if [[ -z "$cookie" || ! -d "$users/$user" || "${cookie##*.}" != "$(cat "$users/$user/version")" ]]; then
+        echo "$bounce" > "$response"
+      elif [[ "$(field intent)" != "changePassword" || "$(field currentPassword)" != "$(cat "$users/$user/password")" ]]; then
+        printf '200 \n<p>Your current password is incorrect</p>\n' > "$response"
+      elif [[ "$(field newPassword)" != "$(field confirmPassword)" ]]; then
+        printf '200 \n<p>Passwords do not match</p>\n' > "$response"
+      else
+        field newPassword > "$users/$user/password"
+        echo $(( $(cat "$users/$user/version") + 1 )) > "$users/$user/version"
+        # The action succeeds, then the document render reloads the page with the pre-change cookie,
+        # whose session version is now stale, so the settings loader redirects to /login.
+        echo "$bounce" > "$response"
+      fi
+      ;;
+    api_v1_auth_password_native)
+      user="$(user_for "$(jq -r '.emailOrUsername' "$request/json")")"
+      if [[ -n "$user" && "$(jq -r '.password' "$request/json")" == "$(cat "$users/$user/password")" ]]; then
+        printf '200 \n{"access_token":"a","refresh_token":"r","token_type":"Bearer","expires_in":1,"scope":"s"}\n' > "$response"
+      else
+        printf '401 \n{"ok":false}\n' > "$response"
+      fi
+      ;;
+    *) echo "404 " > "$response" ;;
+  esac
+else
+  response="$FAKE_CURL_RESPONSES/$name"
+  if [[ -f "$response.$count" ]]; then
+    response="$response.$count"
+  fi
 fi
 if [[ ! -f "$response" ]]; then
   echo "curl: (7) Failed to connect" >&2

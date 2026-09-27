@@ -115,8 +115,14 @@ create_accounts() {
   echo "Journey run token: $token"
 }
 
+redirect_path() {
+  # The redirect target without the QA origin; paths are not secret and make failures readable.
+  local target="${1#"$base_url"}"
+  printf '%s' "${target:-none}"
+}
+
 rotate_account() {
-  local index="$1" username old_file new_file jar result status body probe
+  local index="$1" username old_file new_file jar result status redirect body probe settings_outcome
   username="$(jq -r ".accounts[$index].username" "$accounts")"
   old_file="$work_dir/old-$index"
   new_file="$work_dir/new-$index"
@@ -128,30 +134,52 @@ rotate_account() {
   echo "::add-mask::$(cat "$old_file")"
   new_password "$new_file" || return 1
 
+  # Sign in the way the browser form does. Success is a 302 to /recipes carrying the __session cookie.
   result="$(post_form /dev/null "$base_url/login" -c "$jar" \
+    -H "Origin: $base_url" -H "Referer: $base_url/login" \
     --data-urlencode "identifier=$username" \
     --data-urlencode "password@$old_file")" || { echo "::error::login request for $username did not complete" >&2; return 1; }
   status="${result%% *}"
-  [[ "$status" == "302" ]] || { echo "::error::login for $username returned HTTP $status instead of 302" >&2; return 1; }
+  redirect="${result#* }"
+  if [[ "$status" != "302" || "$redirect" != */recipes ]]; then
+    echo "::error::login for $username returned HTTP $status to $(redirect_path "$redirect") instead of 302 to /recipes" >&2
+    return 1
+  fi
 
+  # Change the password with the same cookie jar. A plain form post re-renders the settings page after
+  # the action; the action bumps the session version, so that render sees the pre-change cookie as
+  # stale and redirects to /login. That 302 is what a successful change looks like, and so is a 200
+  # page with the success message. The old-password probe below is the proof either way.
   result="$(post_form "$body" "$base_url/account/settings" -b "$jar" -c "$jar" \
+    -H "Origin: $base_url" -H "Referer: $base_url/account/settings" \
     --data-urlencode "intent=changePassword" \
     --data-urlencode "currentPassword@$old_file" \
     --data-urlencode "newPassword@$new_file" \
     --data-urlencode "confirmPassword@$new_file")" || { echo "::error::password change request for $username did not complete" >&2; return 1; }
   status="${result%% *}"
-  [[ "$status" == "200" ]] || { echo "::error::password change for $username returned HTTP $status instead of 200" >&2; return 1; }
-  grep -F -q "$SUCCESS_TEXT" "$body" || { echo "::error::password change for $username did not confirm success" >&2; return 1; }
+  redirect="${result#* }"
+  if [[ "$status" == "200" ]]; then
+    grep -F -q "$SUCCESS_TEXT" "$body" || { echo "::error::password change for $username did not confirm success" >&2; return 1; }
+    settings_outcome="the settings page confirmed the change"
+  elif [[ "$status" == "302" && "$(redirect_path "$redirect")" == "/login?redirectTo=%2Faccount%2Fsettings" ]]; then
+    settings_outcome="the settings page redirected to /login"
+  else
+    echo "::error::password change for $username returned HTTP $status to $(redirect_path "$redirect")" >&2
+    return 1
+  fi
 
   jq -cn --arg id "$username" --rawfile password "$old_file" '{emailOrUsername: $id, password: $password}' > "$probe" || return 1
   result="$(post_form /dev/null "$base_url/api/v1/auth/password/native" \
     -H "Content-Type: application/json" \
     --data-binary "@$probe")" || { echo "::error::old-password probe for $username did not complete" >&2; return 1; }
   status="${result%% *}"
-  [[ "$status" == "401" ]] || { echo "::error::old password for $username still answered HTTP $status instead of 401" >&2; return 1; }
+  if [[ "$status" != "401" ]]; then
+    echo "::error::old password for $username still answered HTTP $status instead of 401 ($settings_outcome, so the /login session was probably not accepted)" >&2
+    return 1
+  fi
 
   rm -f "$old_file" "$new_file" "$jar" "$body" "$probe"
-  echo "Rotated journey account $username; its old password is rejected"
+  echo "Rotated journey account $username ($settings_outcome); its old password is rejected"
 }
 
 rotate_accounts() {
