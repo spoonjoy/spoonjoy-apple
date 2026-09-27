@@ -11,7 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: journeys-${{ github.ref }}
+  # Pull requests share a group so a new push cancels the old run; every main commit gets its own run.
+  group: journeys-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -47,9 +48,14 @@ jobs:
             || { echo "::error::BootstrapDebug does not define DEBUG; SPOONJOY_API_BASE_URL would be ignored and the app would talk to production."; exit 1; }
       - name: Resolve iPhone simulator
         id: sim
-        run: echo "destination=$(python3 .github/scripts/resolve-ios-simulator-destination.py)" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          # The resolver pins the architecture so the id matches exactly one xcodebuild destination.
+          destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Build for testing
-        timeout-minutes: 20
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/journeys"
@@ -103,7 +109,7 @@ jobs:
         if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: journeys-xcresult-${{ github.sha }}-${{ github.run_attempt }}
+          name: journeys-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/journeys/SpoonjoyJourneys.xcresult
             ${{ runner.temp }}/journeys/test.log
@@ -134,7 +140,12 @@ jobs:
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Resolve iPhone simulator
         id: sim
-        run: echo "destination=$(python3 .github/scripts/resolve-ios-simulator-destination.py)" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          # The resolver pins the architecture so the id matches exactly one xcodebuild destination.
+          destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
+          echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Run shopping UI tests
         timeout-minutes: 25
         run: |
@@ -152,7 +163,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: shopping-uitests-xcresult-${{ github.sha }}-${{ github.run_attempt }}
+          name: shopping-uitests-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/shopping/SpoonjoyShoppingUITests.xcresult
             ${{ runner.temp }}/shopping/test.log
