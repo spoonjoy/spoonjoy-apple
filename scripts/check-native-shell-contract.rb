@@ -112,29 +112,6 @@ REQUIRED_SOURCE_TOKENS = {
     "#if os(macOS)",
     "#if os(iOS)"
   ],
-  "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift" => [
-    "NativeAuthSessionRepository",
-    "SignInWithAppleButton",
-    "NativeAppleSignInCredential",
-    "NativePasswordSignInCredential",
-    "handleAppleSignInCredential",
-    "handlePasswordSignInCredential",
-    "restoreState",
-    "revokeAndLogout",
-    "isSigningIn",
-    "emailOrUsername",
-    "native password sign-in",
-    "Button"
-  ],
-  "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
-    "SettingsView",
-    "SettingsViewModel",
-    "OfflineStatusView(display:",
-    "viewModel.offlineIndicatorDisplay",
-    "viewModel.dismissOfflineIndicator",
-    "viewModel.authSessionState",
-    "viewModel.environmentSwitcher"
-  ],
   "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift" => [
     "OfflineStatusView",
     "OfflineIndicatorDisplay",
@@ -192,14 +169,6 @@ FORBIDDEN_SOURCE_TOKENS = {
     "KitchenFixtureState.bootstrapFallback",
     "SettingsState(\n                auth: .signedOut",
     "startedAt: \"2026-06-16T11:45:00.000Z\""
-  ],
-  "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift" => [
-    "Open Kitchen",
-    "keep offline fixtures nearby"
-  ],
-  "Apps/Spoonjoy/Shared/Views/SettingsView.swift" => [
-    "OfflineStatusView(state:",
-    "settings.offline"
   ],
   "Apps/Spoonjoy/Shared/Components/OfflineStatusView.swift" => [
     "legacyStatusLabel"
