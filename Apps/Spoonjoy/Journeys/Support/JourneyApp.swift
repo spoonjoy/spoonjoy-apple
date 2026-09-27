@@ -9,7 +9,6 @@ final class JourneyApp {
     static let launchTimeout: TimeInterval = 30
     static let networkTimeout: TimeInterval = 45
     static let interactionTimeout: TimeInterval = 10
-    private static let selectAllMenuTitle = "Select All"
     private static let pasteMenuTitle = "Paste"
 
     let app: XCUIApplication
@@ -67,15 +66,17 @@ final class JourneyApp {
         waitFor(JourneyID.signInIdentifier, timeout: Self.interactionTimeout, "The email or username field is missing.", file: file, line: line)
         let current = field.value as? String ?? ""
         let existing = current == field.placeholderValue ? "" : current
-        field.tap()
-        if !existing.isEmpty {
-            // Select the whole prefilled value so typing replaces it, however far it scrolls.
-            field.press(forDuration: 1.2)
-            let selectAll = editMenuItem(Self.selectAllMenuTitle)
-            XCTAssertTrue(selectAll.waitForExistence(timeout: Self.interactionTimeout), "Select All did not appear on the identifier field.", file: file, line: line)
-            selectAll.tap()
+        if existing != identifier {
+            // Tap past the end of the text so the caret lands after it, delete exactly that many
+            // characters, and prove the field is empty before typing. No edit menu is involved.
+            field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
+            if !existing.isEmpty {
+                field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
+            }
+            let cleared = field.value as? String ?? ""
+            XCTAssertTrue(cleared.isEmpty || cleared == field.placeholderValue, "The identifier field still holds text after clearing it.", file: file, line: line)
+            field.typeText(identifier)
         }
-        field.typeText(identifier)
         XCTAssertEqual(field.value as? String, identifier, "The identifier field does not hold exactly the identifier.", file: file, line: line)
 
         pastePassword(password, file: file, line: line)
