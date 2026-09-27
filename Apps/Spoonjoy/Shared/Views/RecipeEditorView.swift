@@ -18,9 +18,6 @@ struct RecipeEditorView: View {
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
-#if os(iOS)
-    @Environment(\.editMode) private var editMode: Binding<EditMode>?
-#endif
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -143,8 +140,10 @@ struct RecipeEditorView: View {
                     }
                     .padding(.vertical, 6)
                 }
-                // Steps reorder only in Edit mode, so outside it a tap on a step's text field focuses the field.
-                .onMove(perform: stepMoveAction)
+                .onMove { indices, newOffset in
+                    draft.steps.move(fromOffsets: indices, toOffset: newOffset)
+                    renumberSteps()
+                }
 
                 Button {
                     addStep()
@@ -181,11 +180,6 @@ struct RecipeEditorView: View {
         }
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
-#if os(iOS)
-        .toolbar {
-            EditButton()
-        }
-#endif
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Recipe", role: .destructive) {
                 Task {
@@ -315,20 +309,6 @@ struct RecipeEditorView: View {
         } catch {
             blockedMessage = message(for: error, action: nil)
         }
-    }
-
-    private var stepMoveAction: ((IndexSet, Int) -> Void)? {
-#if os(iOS)
-        guard editMode?.wrappedValue.isEditing == true else {
-            return nil
-        }
-#endif
-        return moveSteps
-    }
-
-    private func moveSteps(_ indices: IndexSet, _ newOffset: Int) {
-        draft.steps.move(fromOffsets: indices, toOffset: newOffset)
-        renumberSteps()
     }
 
     private func addStep() {
