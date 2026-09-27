@@ -104,7 +104,9 @@ struct RecipeEditorView: View {
                         }
 
                         let priorSteps = priorSteps(for: step)
-                        if !priorSteps.isEmpty {
+                        // Creating a recipe cannot store which steps use another step's output (the web API
+                        // rejects that field on create), so output uses are offered once the recipe exists.
+                        if draft.recipeID != nil, !priorSteps.isEmpty {
                             DisclosureGroup("Uses Output From") {
                                 ForEach(priorSteps) { priorStep in
                                     Toggle(

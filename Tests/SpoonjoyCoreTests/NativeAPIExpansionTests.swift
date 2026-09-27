@@ -543,14 +543,12 @@ struct NativeAPIExpansionTests {
                     "quantity": 1,
                     "unit": "lb",
                     "name": "pasta"
-                ]],
-                "outputStepNums": []
+                ]]
             ], [
                 "stepTitle": "Sauce",
                 "description": "Use the pasta water.",
                 "duration": 5,
-                "ingredients": [],
-                "outputStepNums": [1]
+                "ingredients": []
             ]]
         ])
         assertJSONRequest(updateRecipe, method: .patch, path: "/api/v1/recipes/recipe%2Fone", expected: [
@@ -1174,8 +1172,7 @@ struct NativeAPIExpansionTests {
                     "quantity": 1,
                     "unit": "cup",
                     "name": "broth"
-                ]],
-                "outputStepNums": []
+                ]]
             ]]
         ])
         #expect(throws: APIRequestBuildError.missingRequiredField("steps.0.ingredients.0.unit")) {
