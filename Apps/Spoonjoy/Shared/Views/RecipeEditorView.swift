@@ -18,6 +18,9 @@ struct RecipeEditorView: View {
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
+#if os(iOS)
+    @Environment(\.editMode) private var editMode: Binding<EditMode>?
+#endif
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -86,6 +89,7 @@ struct RecipeEditorView: View {
                                 Label("Delete Step", systemImage: "trash")
                             }
                             .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
                             .disabled(isSubmitting)
                         }
 
@@ -126,6 +130,7 @@ struct RecipeEditorView: View {
                                     Label("Delete Ingredient", systemImage: "minus.circle")
                                 }
                                 .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
                                 .disabled(isSubmitting)
                             }
                         }
@@ -135,15 +140,18 @@ struct RecipeEditorView: View {
                         } label: {
                             Label("Add Ingredient", systemImage: "plus.circle")
                         }
+                        // A step is one form row. With default-styled buttons, a tap anywhere in the row ran
+                        // every button in it, Delete Step first, so Add Ingredient crashed on the removed step.
+                        // Borderless buttons each handle only their own taps.
+                        .buttonStyle(.borderless)
                         .disabled(isSubmitting)
                         .accessibilityIdentifier("editor.step.\(step.stepNum).addIngredient")
                     }
                     .padding(.vertical, 6)
                 }
-                .onMove { indices, newOffset in
-                    draft.steps.move(fromOffsets: indices, toOffset: newOffset)
-                    renumberSteps()
-                }
+                // Steps reorder in Edit mode only: a reorderable row holds a touch as a possible drag, and
+                // taps on a step's text fields did not focus them.
+                .onMove(perform: stepMoveAction)
 
                 Button {
                     addStep()
@@ -180,6 +188,11 @@ struct RecipeEditorView: View {
         }
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
+#if os(iOS)
+        .toolbar {
+            EditButton()
+        }
+#endif
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Recipe", role: .destructive) {
                 Task {
@@ -309,6 +322,20 @@ struct RecipeEditorView: View {
         } catch {
             blockedMessage = message(for: error, action: nil)
         }
+    }
+
+    private var stepMoveAction: ((IndexSet, Int) -> Void)? {
+#if os(iOS)
+        guard editMode?.wrappedValue.isEditing == true else {
+            return nil
+        }
+#endif
+        return moveSteps
+    }
+
+    private func moveSteps(_ indices: IndexSet, _ newOffset: Int) {
+        draft.steps.move(fromOffsets: indices, toOffset: newOffset)
+        renumberSteps()
     }
 
     private func addStep() {
