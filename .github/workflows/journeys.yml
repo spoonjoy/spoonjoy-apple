@@ -70,18 +70,10 @@ jobs:
         timeout-minutes: 20
         run: |
           set -euo pipefail
-          creds="$RUNNER_TEMP/journeys-secrets/accounts.json"
-          # xcodebuild hands TEST_RUNNER_<NAME> to the test runner as <NAME>. Values are never echoed.
-          TEST_RUNNER_SPOONJOY_JOURNEY_RUN_TOKEN="$(jq -r '.runToken' "$creds")"
-          TEST_RUNNER_SPOONJOY_JOURNEY_A1_EMAIL="$(jq -r '.accounts[0].email' "$creds")"
-          TEST_RUNNER_SPOONJOY_JOURNEY_A1_USERNAME="$(jq -r '.accounts[0].username' "$creds")"
-          TEST_RUNNER_SPOONJOY_JOURNEY_A1_PASSWORD="$(jq -r '.accounts[0].password' "$creds")"
-          TEST_RUNNER_SPOONJOY_JOURNEY_A2_EMAIL="$(jq -r '.accounts[1].email' "$creds")"
-          TEST_RUNNER_SPOONJOY_JOURNEY_A2_USERNAME="$(jq -r '.accounts[1].username' "$creds")"
-          TEST_RUNNER_SPOONJOY_JOURNEY_A2_PASSWORD="$(jq -r '.accounts[1].password' "$creds")"
-          export TEST_RUNNER_SPOONJOY_JOURNEY_RUN_TOKEN \
-            TEST_RUNNER_SPOONJOY_JOURNEY_A1_EMAIL TEST_RUNNER_SPOONJOY_JOURNEY_A1_USERNAME TEST_RUNNER_SPOONJOY_JOURNEY_A1_PASSWORD \
-            TEST_RUNNER_SPOONJOY_JOURNEY_A2_EMAIL TEST_RUNNER_SPOONJOY_JOURNEY_A2_USERNAME TEST_RUNNER_SPOONJOY_JOURNEY_A2_PASSWORD
+          # xcodebuild hands TEST_RUNNER_<NAME> to the test runner as <NAME>. The runner gets only the path
+          # of the 0600 accounts file (deleted after the run); xcodebuild records the test environment in the
+          # result bundle, so no credential value may travel through it.
+          export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/journeys-secrets/accounts.json"
           xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" \
