@@ -12,6 +12,8 @@ set -euo pipefail
 umask 077
 
 readonly SUCCESS_TEXT="Your password has been changed successfully"
+# Journey accounts live only on the QA mirror; QA's cleanup is the only thing that ever deletes them.
+readonly QA_BASE_URL="https://spoonjoy-v2-qa.mendelow-studio.workers.dev"
 
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/journey-qa-accounts.XXXXXX")"
 trap 'rm -rf "$work_dir"' EXIT
@@ -34,6 +36,12 @@ new_password() {
   [[ "$password" =~ ^[0-9a-f]{48}$ ]] || fail "openssl did not return a 48-character hex password"
   echo "::add-mask::$password"
   printf '%s' "$password" > "$1"
+}
+
+require_qa_base_url() {
+  [[ -n "$base_url" ]] || usage
+  [[ "$base_url" == "$QA_BASE_URL" ]] ||
+    fail "journey accounts may only be created or rotated on the QA mirror ($QA_BASE_URL); refusing $base_url"
 }
 
 post_form() {
@@ -63,7 +71,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 create_accounts() {
-  [[ -n "$base_url" && -n "$out" && "$count" =~ ^[1-9][0-9]*$ ]] || usage
+  [[ -n "$out" && "$count" =~ ^[1-9][0-9]*$ ]] || usage
+  require_qa_base_url
   [[ "${GITHUB_RUN_ID:-}" =~ ^[0-9]+$ && "${GITHUB_RUN_ATTEMPT:-}" =~ ^[0-9]+$ ]] ||
     fail "GITHUB_RUN_ID and GITHUB_RUN_ATTEMPT must be set to build the run token"
 
@@ -147,11 +156,11 @@ rotate_account() {
 
 rotate_accounts() {
   [[ -n "$accounts" ]] || usage
+  require_qa_base_url
   if [[ ! -f "$accounts" ]]; then
     echo "no journey accounts to rotate"
     return 0
   fi
-  [[ -n "$base_url" ]] || usage
 
   local total index failures=0
   total="$(jq '.accounts | length' "$accounts")"

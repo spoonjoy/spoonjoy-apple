@@ -5,7 +5,7 @@ import Testing
 /// Nothing here talks to a real server.
 @Suite("Journey QA accounts script")
 struct JourneyQAAccountsScriptTests {
-    private static let baseURL = "https://qa.example.test"
+    private static let baseURL = "https://spoonjoy-v2-qa.mendelow-studio.workers.dev"
 
     @Test("create signs up two masked accounts and writes a private accounts file")
     func createWritesMaskedAccounts() throws {
@@ -189,12 +189,47 @@ struct JourneyQAAccountsScriptTests {
         }
     }
 
-    @Test("rotate requires a base URL once accounts exist")
+    @Test("rotate requires a base URL")
     func rotateRequiresBaseURL() throws {
         try withAccountsHarness { harness in
             let file = try harness.createAccounts()
             #expect(try harness.run(["rotate", "--accounts", file.path]).status == 2)
             #expect(try harness.run(["rotate"]).status == 2)
+        }
+    }
+
+    @Test("create and rotate refuse every host but the QA mirror before any network call")
+    func refusesNonQAHosts() throws {
+        let hosts = [
+            "https://spoonjoy.app",
+            "https://www.spoonjoy.app",
+            "http://spoonjoy-v2-qa.mendelow-studio.workers.dev",
+            "https://spoonjoy-v2-qa.mendelow-studio.workers.dev.evil.example",
+            "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/api",
+            "http://localhost:5173"
+        ]
+        try withAccountsHarness { harness in
+            let file = try harness.createAccounts()
+            let callsBefore = harness.curlCalls().count
+            let out = harness.root.appendingPathComponent("refused.json")
+            for host in hosts {
+                let create = try harness.run(["create", "--base-url", host, "--count", "2", "--out", out.path])
+                #expect(create.status == 1, Comment(rawValue: create.output))
+                #expect(create.output.contains("may only be created or rotated on the QA mirror"))
+                #expect(!create.stdout.contains("::add-mask::"))
+
+                let rotate = try harness.run(["rotate", "--base-url", host, "--accounts", file.path])
+                #expect(rotate.status == 1, Comment(rawValue: rotate.output))
+                #expect(rotate.output.contains("refusing \(host)"))
+
+                let missing = try harness.run([
+                    "rotate", "--base-url", host,
+                    "--accounts", harness.root.appendingPathComponent("missing.json").path
+                ])
+                #expect(missing.status == 1)
+            }
+            #expect(harness.curlCalls().count == callsBefore)
+            #expect(!FileManager.default.fileExists(atPath: out.path))
         }
     }
 
@@ -374,7 +409,7 @@ private struct AccountsHarness {
 
     func createAccounts() throws -> URL {
         let out = root.appendingPathComponent("secrets/accounts.json")
-        let result = try run(["create", "--base-url", "https://qa.example.test", "--count", "2", "--out", out.path])
+        let result = try run(["create", "--base-url", "https://spoonjoy-v2-qa.mendelow-studio.workers.dev", "--count", "2", "--out", out.path])
         guard result.status == 0 else {
             throw CocoaError(.fileWriteUnknown, userInfo: [NSLocalizedDescriptionKey: result.output])
         }
@@ -447,8 +482,8 @@ private func withAccountsHarness(_ body: (AccountsHarness) throws -> Void) throw
     try writeExecutable(fakeCurlSource, to: bin.appendingPathComponent("curl"))
     try writeExecutable(fakeOpenSSLSource, to: bin.appendingPathComponent("openssl"))
     try writeExecutable(fakeXcrunSource, to: bin.appendingPathComponent("xcrun"))
-    try harness.respond("signup", "302 https://qa.example.test/recipes")
-    try harness.respond("login", "302 https://qa.example.test/recipes")
+    try harness.respond("signup", "302 https://spoonjoy-v2-qa.mendelow-studio.workers.dev/recipes")
+    try harness.respond("login", "302 https://spoonjoy-v2-qa.mendelow-studio.workers.dev/recipes")
     try harness.respond(
         "account_settings",
         "200 \n<html><body><p>Your password has been changed successfully. Other browsers signed in to your account have been signed out.</p></body></html>"
