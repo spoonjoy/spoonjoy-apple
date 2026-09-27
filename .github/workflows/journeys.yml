@@ -138,18 +138,27 @@ jobs:
           destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
           [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
-      - name: Run shopping UI tests
-        timeout-minutes: 25
+      - name: Build shopping UI tests
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/shopping"
-          log="$RUNNER_TEMP/shopping/test.log"
-          xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+          log="$RUNNER_TEMP/shopping/build.log"
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
-            -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES \
-            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
-            -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" 2>&1 | tee "$log"
+            -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Run shopping UI tests
+        timeout-minutes: 15
+        # The warning gate covers the build above. The test log carries simulator runtime noise (for
+        # example "Failed to send CA Event for app launch measurements"), and test failures fail xcodebuild.
+        run: |
+          set -euo pipefail
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
+            -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+            -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" 2>&1 | tee "$RUNNER_TEMP/shopping/test.log"
       - name: Upload shopping UI test result bundle
         # The fixture tests use no credentials, so the bundle is always safe to upload.
         if: always()
@@ -159,5 +168,6 @@ jobs:
           path: |
             ${{ runner.temp }}/shopping/SpoonjoyShoppingUITests.xcresult
             ${{ runner.temp }}/shopping/test.log
+            ${{ runner.temp }}/shopping/build.log
           if-no-files-found: warn
           retention-days: 30
