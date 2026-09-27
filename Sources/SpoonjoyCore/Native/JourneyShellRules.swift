@@ -36,9 +36,9 @@ struct JourneyShellRuleScanner {
                 } else if first == "done" {
                     _ = loops.popLast()
                 }
-                if let index = loops.indices.last, !loops[index].reported, Self.runsTests(words) {
+                if let index = loops.indices.last, !loops[index].reported, let runner = Self.runner(words) {
                     loops[index].reported = true
-                    violations.append(violation(loops[index].line, .noRetryConfig, "a shell loop re-runs `\(Self.runner(words) ?? "")`; flaky is failing"))
+                    violations.append(violation(loops[index].line, .noRetryConfig, "a shell loop re-runs `\(runner)`; flaky is failing"))
                 }
             }
         }
@@ -115,12 +115,8 @@ struct JourneyShellRuleScanner {
 
     static let launchers: Set<String> = ["bash", "sh", "zsh", "xcrun", "exec", "env", "time", "command"]
 
-    /// True for commands that build or run tests: xcodebuild, a `*.sh` script, or a command named for
-    /// journeys, run directly or through a launcher such as `bash` or `xcrun`.
-    static func runsTests(_ words: [String]) -> Bool {
-        runner(words) != nil
-    }
-
+    /// The word naming a command that builds or runs tests: xcodebuild, a `*.sh` script, or a command named
+    /// for journeys, run directly or through a launcher such as `bash` or `xcrun`. Nil for anything else.
     static func runner(_ words: [String]) -> String? {
         let words = words.first == "!" ? Array(words.dropFirst()) : words
         let candidates = launchers.contains(words.first ?? "") ? Array(words.prefix(2)) : Array(words.prefix(1))
@@ -133,9 +129,8 @@ struct JourneyShellRuleScanner {
     static func hasRepeatedAlternative(_ text: String) -> Bool {
         let parts = text.components(separatedBy: "||")
         return zip(parts, parts.dropFirst()).contains { left, right in
-            let before = commands(in: left).last.map(firstWord) ?? ""
             let after = firstWord(right)
-            return !neutralCommands.contains(after) && before == after
+            return !neutralCommands.contains(after) && commands(in: left).map(firstWord).last == after
         }
     }
 
