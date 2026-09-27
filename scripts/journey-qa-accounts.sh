@@ -187,6 +187,7 @@ export_result_bundle() {
     while IFS= read -r test_id; do
       [[ -n "$test_id" ]] || continue
       xcrun xcresulttool get test-results activities --test-id "$test_id" --path "$bundle" >> "$export_dir/activities.json" || return 1
+      xcrun xcresulttool get test-results test-details --test-id "$test_id" --path "$bundle" >> "$export_dir/test-details.json" || return 1
     done <<< "$test_ids"
     xcrun xcresulttool export attachments --path "$bundle" --output-path "$export_dir/attachments" > /dev/null || return 1
   fi

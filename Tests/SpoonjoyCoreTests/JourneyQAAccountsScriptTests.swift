@@ -251,6 +251,7 @@ struct JourneyQAAccountsScriptTests {
             #expect(result.stdout.contains("(not present)"))
             #expect(harness.xcrunCalls().contains { $0.contains("activities --test-id test://SpoonjoyJourneys/SignInJourney/testSignInOutJourney") })
             #expect(harness.xcrunCalls().contains { $0.contains("get log --type action") })
+            #expect(harness.xcrunCalls().contains { $0.contains("test-details --test-id test://SpoonjoyJourneys/SignInJourney/testSignInOutJourney") })
             #expect(harness.xcrunCalls().contains { $0.contains("export diagnostics") })
         }
     }
@@ -582,6 +583,7 @@ case "$1 $2" in
       summary) echo '{"title":"Journeys","result":"Passed"}' ;;
       tests) echo '{"testNodes":[{"nodeType":"UI test bundle","name":"SpoonjoyJourneys","children":[{"nodeType":"Test Case","name":"testSignInOutJourney()","nodeIdentifierURL":"test://SpoonjoyJourneys/SignInJourney/testSignInOutJourney"}]}]}' ;;
       activities) cat "$FAKE_STATE/fake-activities.txt" ;;
+      test-details) echo '{"testName":"testSignInOutJourney()","result":"Passed"}' ;;
       *) exit 64 ;;
     esac
     ;;
