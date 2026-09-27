@@ -183,6 +183,15 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
     fail_check("#{scheme_name} missing Launch/Profile runnable") unless scheme_text.include?("<BuildableProductRunnable")
   end
 
+  ios_scheme_text = scheme_dir.join("Spoonjoy iOS.xcscheme").read
+  test_action = ios_scheme_text[%r{<TestAction\b.*?</TestAction>}m] || fail_check("Spoonjoy iOS scheme has no TestAction")
+  unless test_action.match?(/<TestAction\s+buildConfiguration = "BootstrapDebug"/m)
+    fail_check("Spoonjoy iOS UI tests must use BootstrapDebug so installed simulator runtimes remain eligible")
+  end
+  %w[SpoonjoyShoppingUITests SpoonjoyJourneys].each do |test_target|
+    fail_check("Spoonjoy iOS scheme TestAction does not run #{test_target}") unless test_action.include?("BlueprintName = \"#{test_target}\"")
+  end
+
   {
 	    "app.spoonjoy" => {
 	      "Debug" => {

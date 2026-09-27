@@ -303,6 +303,7 @@ struct SignedOutSetupView: View {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .buttonStyle(.bordered)
+                .accessibilityIdentifier("signin.settings")
 
                 if canDisconnect {
                     Button(role: .destructive) {

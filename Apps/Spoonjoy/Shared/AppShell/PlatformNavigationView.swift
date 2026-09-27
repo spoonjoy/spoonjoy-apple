@@ -865,14 +865,17 @@ struct PlatformNavigationView: View {
                         await performSearch(search)
                     }
                 }
+                .accessibilityIdentifier("shell.more.search")
                 Button("Settings", systemImage: "gearshape") {
                     openRoute(.settings)
                 }
+                .accessibilityIdentifier("shell.more.settings")
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.body.weight(.semibold))
             }
             .accessibilityLabel("More")
+            .accessibilityIdentifier("shell.more")
         }
 #else
         ToolbarItem(placement: .automatic) {

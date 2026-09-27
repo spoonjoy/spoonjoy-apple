@@ -186,6 +186,7 @@ struct SpoonjoyRootView: View {
                     } label: {
                         Label("Kitchen", systemImage: "chevron.left")
                     }
+                    .accessibilityIdentifier("settings.close")
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -566,6 +567,7 @@ struct SpoonjoyRootView: View {
         let configuration = Self.defaultAPIConfiguration(environment: environment)
         let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
 #if DEBUG
+        _ = Self.journeyLaunchReset
         let vault: any TokenVault = screenshotValidationTokenVault(environment: environment) ?? debugTokenVault(
             environment: environment,
             appDirectory: appDirectory
@@ -893,6 +895,24 @@ struct SpoonjoyRootView: View {
     private static func screenshotRestoreCacheOnlyEnabled(environment: [String: String]) -> Bool {
         truthy("SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY", in: environment)
     }
+
+    /// Journeys launch with SPOONJOY_JOURNEY_RESET_STATE=1 to start from a clean install. The reset runs once per
+    /// process, before any store reads the app directory, so a re-created root view never wipes a new session.
+    private static let journeyLaunchReset: Void = {
+        let environment = ProcessInfo.processInfo.environment
+        guard NativeJourneyLaunchReset.isRequested(environment: environment) else {
+            return
+        }
+        do {
+            try NativeJourneyLaunchReset.resetIfRequested(
+                environment: environment,
+                appDirectory: NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()
+            )
+        } catch {
+            fatalError("Journey state reset failed: \(error)")
+        }
+        UserDefaults.standard.removePersistentDomain(forName: Bundle.main.bundleIdentifier ?? "app.spoonjoy")
+    }()
 
     private static func debugTokenVault(environment: [String: String], appDirectory: URL) -> any TokenVault {
         if truthy("SPOONJOY_DEBUG_KEYCHAIN_AUTH", in: environment) {

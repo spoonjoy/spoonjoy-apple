@@ -256,6 +256,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(onlineOnlyActionsDisabled(surface))
+                    .accessibilityIdentifier("settings.signout")
                 }
             }
 
@@ -416,7 +417,7 @@ struct SettingsView: View {
 
         KitchenTableSection(title: "Environment", subtitle: "Current data source") {
             SettingsPanel {
-                settingsFact("Environment", value: surface.data.environment.rawValue)
+                settingsFact("Environment", value: surface.data.environment.rawValue, valueIdentifier: "settings.environment.value")
                 settingsFact("Source", value: sourceLabel(surface.data.source))
             }
         }
@@ -467,7 +468,7 @@ struct SettingsView: View {
         KitchenTableSection(title: "Session") {
             SettingsPanel {
                 settingsFact("Auth", value: authSummary)
-                settingsFact("Environment", value: viewModel.environmentSwitcher.rawValue)
+                settingsFact("Environment", value: viewModel.environmentSwitcher.rawValue, valueIdentifier: "settings.environment.value")
             }
         }
 
@@ -510,18 +511,27 @@ struct SettingsView: View {
             }
     }
 
-    private func settingsFact(_ title: String, value: String) -> some View {
+    private func settingsFact(_ title: String, value: String, valueIdentifier: String? = nil) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.brass)
             Spacer(minLength: 12)
-            Text(value)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .multilineTextAlignment(.trailing)
+            settingsFactValue(value, identifier: valueIdentifier)
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder private func settingsFactValue(_ value: String, identifier: String?) -> some View {
+        let text = Text(value)
+            .font(KitchenTableTheme.bodyNote)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .multilineTextAlignment(.trailing)
+        if let identifier {
+            text.accessibilityIdentifier(identifier)
+        } else {
+            text
+        }
     }
 
     private func settingsCreatedCredentialDisclosure(
