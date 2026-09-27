@@ -142,6 +142,28 @@ struct TestFlightAutomationContractTests {
         )
     }
 
+    @Test("Each journeys job's step time limits sum to less than its job time limit")
+    func journeysStepTimeoutsFitTheirJob() throws {
+        let workflow = try readTestFlightAutomationRepoFile(".github/workflows/journeys.yml")
+        let jobsSection = try #require(workflow.components(separatedBy: "\njobs:\n").dropFirst().first)
+        let jobPattern = /(?m)^  ([A-Za-z0-9_-]+):\n/
+        let names = jobsSection.matches(of: jobPattern).map { String($0.1) }
+        let bodies = jobsSection.split(separator: jobPattern, omittingEmptySubsequences: true).map(String.init)
+        #expect(names == ["journeys", "shopping-ui-tests"])
+        #expect(bodies.count == names.count)
+
+        for (name, body) in zip(names, bodies) {
+            let jobLimit = body.matches(of: /(?m)^    timeout-minutes: (\d+)$/).compactMap { Int($0.1) }
+            let stepLimits = body.matches(of: /(?m)^        timeout-minutes: (\d+)$/).compactMap { Int($0.1) }
+            #expect(jobLimit.count == 1, "\(name) must set one job timeout-minutes")
+            #expect(!stepLimits.isEmpty, "\(name) must limit its xcodebuild steps")
+            #expect(
+                stepLimits.reduce(0, +) < (jobLimit.first ?? 0),
+                "\(name) step limits \(stepLimits) must sum to less than the job limit \(jobLimit), so a slow step fails before the job is cancelled"
+            )
+        }
+    }
+
     @Test("Artifact uploads use the audited Node 24 action revision")
     func artifactUploadsUseAuditedNode24Revision() throws {
         let expectedRevision = "b7c566a772e6b6bfb58ed0dc250532a479d7789f"
