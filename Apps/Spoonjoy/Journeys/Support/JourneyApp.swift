@@ -83,11 +83,10 @@ final class JourneyApp {
             if !existing.isEmpty {
                 field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
             }
-            let cleared = field.value as? String ?? ""
-            XCTAssertTrue(cleared.isEmpty || cleared == field.placeholderValue, "The identifier field still holds text after clearing it.", file: file, line: line)
+            assertCleared(field, "The identifier field still holds text after clearing it.", file: file, line: line)
             field.typeText(identifier)
         }
-        XCTAssertEqual(field.value as? String, identifier, "The identifier field does not hold exactly the identifier. Screen: \(screen)", file: file, line: line)
+        assertValue(of: field, equals: identifier, "The identifier field does not hold exactly the identifier. Screen: \(screen)", file: file, line: line)
 
         pastePassword(password, file: file, line: line)
         tap(JourneyID.passwordSignIn, file: file, line: line)
@@ -159,7 +158,7 @@ final class JourneyApp {
         let field = element(id)
         assertKeyboardFocus(in: query(id), named: id, file: file, line: line)
         field.typeText(text)
-        XCTAssertEqual(field.value as? String, text, "\(id) does not hold exactly the typed text.", file: file, line: line)
+        assertValue(of: field, equals: text, "\(id) does not hold exactly the typed text.", file: file, line: line)
     }
 
     /// Replaces the text in a field that already holds a value.
@@ -254,10 +253,33 @@ final class JourneyApp {
         if !existing.isEmpty {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
         }
-        let cleared = field.value as? String ?? ""
-        XCTAssertTrue(cleared.isEmpty || cleared == field.placeholderValue, "\(name) still holds text after clearing it.", file: file, line: line)
+        assertCleared(field, "\(name) still holds text after clearing it.", file: file, line: line)
         field.typeText(text)
-        XCTAssertEqual(field.value as? String, text, "\(name) does not hold exactly the typed text.", file: file, line: line)
+        assertValue(of: field, equals: text, "\(name) does not hold exactly the typed text.", file: file, line: line)
+    }
+
+    /// Waits up to `interactionTimeout` for the field to hold exactly `text`, then asserts that it does.
+    /// XCUITest's idle check covers the app's main thread, not the keyboard's input queue, so `typeText` can
+    /// return while keys are still arriving: run 36340239763 read "c" from a field whose recording then showed
+    /// "cod" and "codex-na". A late key passes. A dropped, trimmed or changed key never makes the value equal
+    /// `text`, so the assertion still fails and reports the value it read. Nothing is typed again.
+    private func assertValue(of field: XCUIElement, equals text: String, _ message: @autoclosure () -> String, file: StaticString, line: UInt) {
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", text), object: field)
+        _ = XCTWaiter.wait(for: [settled], timeout: Self.interactionTimeout)
+        XCTAssertEqual(field.value as? String, text, message(), file: file, line: line)
+    }
+
+    /// Waits up to `interactionTimeout` for deleted characters to leave the field, then asserts that it is
+    /// empty (an empty field reports its placeholder as its value). Nothing is deleted again.
+    private func assertCleared(_ field: XCUIElement, _ message: @autoclosure () -> String, file: StaticString, line: UInt) {
+        let placeholder = field.placeholderValue ?? ""
+        let empty = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value == nil OR value == '' OR value == %@", placeholder),
+            object: field
+        )
+        _ = XCTWaiter.wait(for: [empty], timeout: Self.interactionTimeout)
+        let cleared = field.value as? String ?? ""
+        XCTAssertTrue(cleared.isEmpty || cleared == field.placeholderValue, message(), file: file, line: line)
     }
 
     /// Matches the accessibility identifier alone. `matching(identifier:)` also compares each element's
