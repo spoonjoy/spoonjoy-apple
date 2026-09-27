@@ -232,8 +232,7 @@ REQUIRED_TOKENS = {
     "NativeOfflineMutationPolicy.decision",
     "TokenCredentialRequests.createToken",
     "TokenCredentialRequests.revokeToken",
-    "PrivateAccountRequests.disconnectConnection",
-    "SecureAuthWebHandoff.logout"
+    "PrivateAccountRequests.disconnectConnection"
   ]
 }.freeze
 

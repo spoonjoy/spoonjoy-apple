@@ -109,7 +109,7 @@ public struct SettingsSecureHandoffRoutes: Equatable, Sendable {
         case .login:
             return baseURL.appending(path: "login")
         case .logout:
-            return SecureAuthWebHandoff.logout.url
+            return baseURL.appending(path: "logout")
         case .passkeys:
             return URL(string: "\(baseURL.absoluteString)/account/settings#passkeys")!
         case .password:
