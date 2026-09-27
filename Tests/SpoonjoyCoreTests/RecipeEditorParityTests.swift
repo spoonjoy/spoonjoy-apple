@@ -124,14 +124,12 @@ struct RecipeEditorParityTests {
                     "quantity": 2,
                     "unit": "slice",
                     "name": "bread"
-                ]],
-                "outputStepNums": []
+                ]]
             ], [
                 "stepTitle": "Serve toast",
                 "description": "Plate toast with butter.",
                 "duration": NSNull(),
-                "ingredients": [],
-                "outputStepNums": [1]
+                "ingredients": []
             ]]
         ])
         #expect(create.queuedMutation == nil)

@@ -3336,14 +3336,14 @@ public extension NativeQueuedMutation {
         return .null
     }
 
+    /// Queued recipe-create steps replay as the `POST /api/v1/recipes` body, which rejects outputStepNums.
     private static func stepDrafts(_ steps: [RecipeStepDraft]) -> JSONValue {
         .array(steps.map { step in
             .object([
                 "stepTitle": stringOrNull(step.stepTitle),
                 "description": .string(step.description),
                 "duration": intOrNull(step.duration),
-                "ingredients": ingredientDrafts(step.ingredients),
-                "outputStepNums": .array(step.outputStepNums.map { .number(Double($0)) })
+                "ingredients": ingredientDrafts(step.ingredients)
             ])
         })
     }
