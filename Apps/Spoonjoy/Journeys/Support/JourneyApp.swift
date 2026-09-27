@@ -77,6 +77,7 @@ final class JourneyApp {
             // Tap past the end of the text so the caret lands after it, delete exactly that many
             // characters, and prove the field is empty before typing. No edit menu is involved.
             field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
+            assertKeyboardFocus(in: query(JourneyID.signInIdentifier), named: "The identifier field", file: file, line: line)
             if !existing.isEmpty {
                 field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
             }
@@ -139,7 +140,7 @@ final class JourneyApp {
 
     /// Replaces the text in Search's field with `query`. Results follow as the user types.
     func search(for query: String, file: StaticString = #filePath, line: UInt = #line) {
-        replaceText(of: searchField, named: "The search field", with: query, file: file, line: line)
+        replaceText(in: app.searchFields, named: "The search field", with: query, file: file, line: line)
     }
 
     /// Opens the recipe whose row `listID` has a label containing `title`, and waits for its detail page.
@@ -154,7 +155,7 @@ final class JourneyApp {
     func enterText(_ text: String, into id: String, file: StaticString = #filePath, line: UInt = #line) {
         tap(id, file: file, line: line)
         let field = element(id)
-        assertKeyboardFocus(field, named: id, file: file, line: line)
+        assertKeyboardFocus(in: query(id), named: id, file: file, line: line)
         field.typeText(text)
         XCTAssertEqual(field.value as? String, text, "\(id) does not hold exactly the typed text.", file: file, line: line)
     }
@@ -162,7 +163,7 @@ final class JourneyApp {
     /// Replaces the text in a field that already holds a value.
     func replaceText(in id: String, with text: String, file: StaticString = #filePath, line: UInt = #line) {
         waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear.", file: file, line: line)
-        replaceText(of: element(id), named: id, with: text, file: file, line: line)
+        replaceText(in: query(id), named: id, with: text, file: file, line: line)
     }
 
     /// Saves the recipe editor. Save sits below the steps in a lazily built form, so its row does not
@@ -204,11 +205,12 @@ final class JourneyApp {
 
     /// Taps past the end of the text so the caret lands after it, deletes exactly that many characters,
     /// proves the field is empty, types the text and reads it back. No edit menu is involved.
-    private func replaceText(of field: XCUIElement, named name: String, with text: String, file: StaticString, line: UInt) {
+    private func replaceText(in query: XCUIElementQuery, named name: String, with text: String, file: StaticString, line: UInt) {
+        let field = query.firstMatch
         let current = field.value as? String ?? ""
         let existing = current == field.placeholderValue ? "" : current
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
-        assertKeyboardFocus(field, named: name, file: file, line: line)
+        assertKeyboardFocus(in: query, named: name, file: file, line: line)
         if !existing.isEmpty {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
         }
@@ -218,15 +220,18 @@ final class JourneyApp {
         XCTAssertEqual(field.value as? String, text, "\(name) does not hold exactly the typed text.", file: file, line: line)
     }
 
-    /// Fails when a tapped field did not take keyboard focus, naming the element that holds it instead,
-    /// so a swallowed tap is reported as that rather than as a failed keystroke.
-    private func assertKeyboardFocus(_ field: XCUIElement, named name: String, file: StaticString, line: UInt) {
+    private func query(_ id: String) -> XCUIElementQuery {
+        app.descendants(matching: .any).matching(identifier: id)
+    }
+
+    /// Waits for the tapped field (the first match of `query`) to take keyboard focus before anything is
+    /// typed: the keyboard's arrival can move the layout, and typing into a field that is not focused yet
+    /// fails. Fails naming the element that holds focus instead.
+    private func assertKeyboardFocus(in query: XCUIElementQuery, named name: String, file: StaticString, line: UInt) {
         let focused = NSPredicate(format: "hasKeyboardFocus == true")
-        let result = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: focused, object: field)], timeout: Self.interactionTimeout)
         let holder = app.descendants(matching: .any).matching(focused).firstMatch
-        XCTAssertEqual(
-            result,
-            .completed,
+        XCTAssertTrue(
+            query.matching(focused).firstMatch.waitForExistence(timeout: Self.interactionTimeout),
             "\(name) did not take keyboard focus after a tap. Keyboard shown: \(app.keyboards.firstMatch.exists). Focus is on: \(holder.exists ? holder.debugDescription : "nothing")",
             file: file,
             line: line
