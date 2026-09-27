@@ -63,11 +63,11 @@ final class RecipesJourney: JourneyTestCase {
         XCTAssertEqual(detailTitle.label, title, "The detail page shows another recipe's title.")
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: basil).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Step 1 on the detail page does not list the basil."
+            "Step 1 on the detail page does not list the basil. Screen: \(journey.screen)"
         )
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
-            "Step 2 on the detail page does not list the spaghetti."
+            "Step 2 on the detail page does not list the spaghetti. Screen: \(journey.screen)"
         )
 
         journey.openSearch()
@@ -94,11 +94,11 @@ final class RecipesJourney: JourneyTestCase {
             XCTAssertEqual(journey.element(JourneyID.recipeDetailTitle).label, title, "My Recipes opened another recipe after a relaunch.")
             XCTAssertTrue(
                 journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: basil).waitForExistence(timeout: JourneyApp.interactionTimeout),
-                "Step 1 lost its basil after a relaunch."
+                "Step 1 lost its basil after a relaunch. Screen: \(journey.screen)"
             )
             XCTAssertTrue(
                 journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
-                "Step 2 lost its spaghetti after a relaunch."
+                "Step 2 lost its spaghetti after a relaunch. Screen: \(journey.screen)"
             )
         }
     }

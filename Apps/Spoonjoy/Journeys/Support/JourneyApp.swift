@@ -85,7 +85,7 @@ final class JourneyApp {
             XCTAssertTrue(cleared.isEmpty || cleared == field.placeholderValue, "The identifier field still holds text after clearing it.", file: file, line: line)
             field.typeText(identifier)
         }
-        XCTAssertEqual(field.value as? String, identifier, "The identifier field does not hold exactly the identifier.", file: file, line: line)
+        XCTAssertEqual(field.value as? String, identifier, "The identifier field does not hold exactly the identifier. Screen: \(screen)", file: file, line: line)
 
         pastePassword(password, file: file, line: line)
         tap(JourneyID.passwordSignIn, file: file, line: line)
