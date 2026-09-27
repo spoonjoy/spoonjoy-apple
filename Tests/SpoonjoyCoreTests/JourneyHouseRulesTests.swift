@@ -300,6 +300,13 @@ struct JourneyHouseRulesTests {
         #expect(violations("} ) ] [").isEmpty)
         #expect(violations("[\"a\"]").isEmpty)
         #expect(violations("func").map(\.rule) == [.noSkippedJourneys])
+        #expect(violations("let text = \"\"\"\nfor x in y").isEmpty)
+    }
+
+    @Test("a relaunch check inside a nested block still counts for its test")
+    func nestedRelaunchCheckCounts() {
+        let source = "func testA() {\n    journey.run {\n        verifyAfterRelaunch(journey) {}\n    }\n}\n"
+        #expect(violations(source).isEmpty)
     }
 
     @Test("the command reports usage without arguments")
