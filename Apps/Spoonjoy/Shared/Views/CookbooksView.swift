@@ -56,6 +56,11 @@ struct CookbooksView: View {
                 )
             )
         }
+        .onChange(of: viewModel.list.rows) { _, _ in
+            // The shelf follows the chef's synced cookbooks: after a create, delete or sync the app
+            // passes a new view model, and its rows replace the ones this view loaded earlier.
+            list = viewModel.list
+        }
         .sheet(isPresented: $isPresentingCreate) {
             CookbookCreateSheet(
                 title: $newCookbookTitle,
@@ -337,7 +342,10 @@ struct CookbooksView: View {
                 return
             }
             let queuedMutation = try await performCookbookAction(plan)
-            if let createdCookbook = plan.updatedCookbook {
+            // A queued create shows its local cookbook right away. A create that reached the server
+            // refreshed the synced cookbooks, which arrive through the list's onChange; adding the
+            // local copy as well would show the cookbook twice.
+            if let queuedMutation, let createdCookbook = plan.updatedCookbook {
                 list = list.applyingCreatedCookbook(createdCookbook, queuedMutation: queuedMutation)
             }
             if let successRoute = plan.successRoute {
@@ -346,9 +354,6 @@ struct CookbooksView: View {
             isPresentingCreate = false
             newCookbookTitle = ""
             createErrorMessage = nil
-            if queuedMutation == nil {
-                await loadCookbooks()
-            }
         } catch {
             createErrorMessage = "Cookbook action failed."
         }
@@ -881,7 +886,7 @@ private struct CookbookDetailView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
-                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1) {
+                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1, removeAccessibilityLabel: removeAccessibilityLabel(for: recipe)) {
                             openRoute(recipe.openRoute)
                         } remove: {
                             runAction(.removeRecipe(
@@ -889,19 +894,6 @@ private struct CookbookDetailView: View {
                                 clientMutationID: clientMutationID(prefix: "cookbook-remove-recipe"),
                                 confirmation: .required
                             ))
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if viewModel.ownerTools.isVisible {
-                                Button(role: .destructive) {
-                                    runAction(.removeRecipe(
-                                        recipeID: recipe.id,
-                                        clientMutationID: clientMutationID(prefix: "cookbook-remove-recipe"),
-                                        confirmation: .required
-                                    ))
-                                } label: {
-                                    Label("Remove from cookbook", systemImage: "minus.circle")
-                                }
-                            }
                         }
                     }
                 }
@@ -984,6 +976,11 @@ private struct CookbookDetailView: View {
         }
     }
 
+    /// The label of a row's Remove button, or nil when this chef cannot remove recipes.
+    private func removeAccessibilityLabel(for recipe: CookbookRecipeRowViewModel) -> String? {
+        viewModel.canRemoveRecipes ? viewModel.removeRecipeAccessibilityLabel(for: recipe) : nil
+    }
+
     private var selectedRecipeBinding: Binding<String?> {
         Binding(
             get: { selectedRecipeID },
@@ -1059,10 +1056,38 @@ private struct CookbookDetailView: View {
 private struct CookbookRecipeIndexRow: View {
     let recipe: CookbookRecipeRowViewModel
     let ordinal: Int
+    /// The Remove button's label; nil hides Remove, for chefs who do not own the cookbook.
+    let removeAccessibilityLabel: String?
     let open: () -> Void
     let remove: () -> Void
 
     var body: some View {
+        HStack(alignment: .center, spacing: 4) {
+            openButton
+            if let removeAccessibilityLabel {
+                // The rows sit in a scroll view, where swipe actions never trigger, so Remove is a
+                // visible button. Borderless, so a tap on it never also opens the recipe.
+                Button(role: .destructive, action: remove) {
+                    Image(systemName: "minus.circle")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(removeAccessibilityLabel)
+                // One identifier for every row; a journey picks the row by the label, which names the recipe.
+                .accessibilityIdentifier("cookbook.recipe.remove")
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(KitchenTableTheme.line.opacity(0.35))
+                .frame(height: 1)
+        }
+    }
+
+    private var openButton: some View {
         Button(action: open) {
             HStack(alignment: .center, spacing: 12) {
                 Text(String(ordinal).padStart(length: 2, pad: "0"))
@@ -1099,14 +1124,16 @@ private struct CookbookRecipeIndexRow: View {
             }
             .padding(.vertical, 12)
             .contentShape(Rectangle())
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.35))
-                    .frame(height: 1)
-            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(ordinal). \(recipe.title)")
+        .contextMenu {
+            if removeAccessibilityLabel != nil {
+                Button(role: .destructive, action: remove) {
+                    Label("Remove from cookbook", systemImage: "minus.circle")
+                }
+            }
+        }
     }
 }
 

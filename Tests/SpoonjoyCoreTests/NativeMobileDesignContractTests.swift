@@ -1622,10 +1622,11 @@ struct NativeMobileDesignContractTests {
                 "if recipe.coverImageURL != nil",
                 "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)",
                 "Label(\"Owner tools\", systemImage: \"wrench.and.screwdriver\")",
-                ".swipeActions(edge: .trailing, allowsFullSwipe: false)",
-                "Button(role: .destructive)"
+                "Button(role: .destructive, action: remove)",
+                ".accessibilityIdentifier(\"cookbook.recipe.remove\")"
             ],
             forbids: [
+                ".swipeActions",
                 "title: \"\\(emptyState.title). \\(emptyState.message)\"",
                 "RecipeCoverImage(\n                    url: row.cover.primaryImageURL",
                 "Image(systemName: \"books.vertical\")\n                    .foregroundStyle(KitchenTableTheme.brass)",

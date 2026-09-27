@@ -256,6 +256,29 @@ public struct FallbackCookbookSurfaceRepository: CookbookSurfaceRepository {
     }
 }
 
+/// The signed-in chef's Cookbooks shelf. The list comes only from the chef's own cookbooks, which the
+/// native account sync (`GET /api/v1/me/sync`, cookbooks whose author is the chef) keeps in the app's
+/// cache; that matches the web Cookbooks page, which lists the user's own cookbooks. `GET /api/v1/cookbooks`
+/// lists every cookbook on Spoonjoy, oldest first, so it never feeds this shelf. Opening a cookbook still
+/// reads it through `detail`.
+public struct OwnCookbookSurfaceRepository: CookbookSurfaceRepository {
+    private let ownCookbooks: SnapshotCookbookSurfaceRepository
+    private let detail: any CookbookSurfaceRepository
+
+    public init(ownCookbooks: SnapshotCookbookSurfaceRepository, detail: any CookbookSurfaceRepository) {
+        self.ownCookbooks = ownCookbooks
+        self.detail = detail
+    }
+
+    public func listCookbooks(request: CookbookSurfaceListRequest) async throws -> CookbookSurfacePage {
+        try await ownCookbooks.listCookbooks(request: request)
+    }
+
+    public func cookbookDetail(id: String) async throws -> CookbookSurfaceDetailResult {
+        try await detail.cookbookDetail(id: id)
+    }
+}
+
 public enum CookbookSurfaceRepositoryError: Error, Equatable, Sendable {
     case cookbookNotFound(String)
 }
