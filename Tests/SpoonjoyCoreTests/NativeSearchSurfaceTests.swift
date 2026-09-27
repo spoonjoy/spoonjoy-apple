@@ -55,7 +55,7 @@ struct NativeSearchSurfaceTests {
                     "SearchSurfaceDebouncePolicy",
                     "SearchSurfaceDebounceDecision",
                     "cancelsInFlightSearch",
-                    "previous != next",
+                    "previous.route != next.route",
                     "OfflineIndicatorState",
                     "SearchScope.allCases",
                     "AppRoute.recipeDetail",

@@ -125,9 +125,9 @@ struct SearchView: View {
 
     private var searchTextBinding: Binding<String> {
         Binding(
-            get: { search.query },
-            set: { query in
-                search.update(query: query, scope: search.scope)
+            get: { search.text },
+            set: { text in
+                search.update(query: text, scope: search.scope)
             }
         )
     }
@@ -136,7 +136,7 @@ struct SearchView: View {
         Binding(
             get: { search.scope },
             set: { scope in
-                search.update(query: search.query, scope: scope)
+                search.update(query: search.text, scope: scope)
                 Task {
                     await searchTask(search)
                 }

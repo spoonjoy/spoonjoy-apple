@@ -75,6 +75,50 @@ struct AppStateTests {
         #expect(search.route == .search(query: "", scope: .chefs))
     }
 
+    @Test("search field text ending in a space round-trips unchanged while requests use the trimmed query")
+    func searchFieldTextEndingInASpaceRoundTripsUnchanged() {
+        var search = SearchState()
+
+        // What the search field binding does as each key arrives: write the field's text, then read it back.
+        search.update(query: "lemon ", scope: search.scope)
+        #expect(search.text == "lemon ")
+        search.update(query: search.text + "p", scope: search.scope)
+        #expect(search.text == "lemon p")
+
+        search.update(query: "lemon pasta ", scope: .recipes)
+        #expect(search.text == "lemon pasta ")
+        #expect(search.query == "lemon pasta")
+        #expect(search.route == .search(query: "lemon pasta", scope: .recipes))
+
+        // A search that runs while the person is still typing applies its route; the typed space survives.
+        let applied = search.apply(route: .search(query: "lemon pasta", scope: .recipes))
+        #expect(applied)
+        #expect(search.text == "lemon pasta ")
+
+        // A route with a different query replaces the field text with that query.
+        search.apply(route: .search(query: "  beans  ", scope: .all))
+        #expect(search.text == "beans")
+        #expect(search.scope == .all)
+    }
+
+    @Test("search debounce ignores a trailing space")
+    func searchDebounceIgnoresATrailingSpace() {
+        let policy = SearchSurfaceDebouncePolicy(delayMilliseconds: 350, defaultLimit: 20)
+        let inFlight = SearchSurfaceRequest(query: "lemon", scope: .all, limit: 20)
+
+        let decision = policy.plan(
+            previous: SearchState(query: "lemon", scope: .all),
+            next: SearchState(query: "lemon ", scope: .all),
+            inFlight: inFlight
+        )
+
+        #expect(decision == SearchSurfaceDebounceDecision(
+            cancelsInFlightSearch: false,
+            scheduledRequest: nil,
+            delayMilliseconds: 0
+        ))
+    }
+
     @Test("search state hydrates from search routes")
     func searchStateHydratesFromSearchRoutes() {
         var search = SearchState(query: "old", scope: .all)

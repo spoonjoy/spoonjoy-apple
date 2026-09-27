@@ -665,10 +665,10 @@ struct PlatformNavigationView: View {
 
     private var searchText: Binding<String> {
         Binding(
-            get: { search.query },
+            get: { search.text },
             set: { value in
                 let nextSearch = normalizedSearch(SearchState(query: value, scope: search.scope))
-                search.update(query: nextSearch.query, scope: nextSearch.scope)
+                search.update(query: value, scope: nextSearch.scope)
                 if value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     Task {
                         await performSearch(nextSearch)
@@ -684,8 +684,8 @@ struct PlatformNavigationView: View {
                 normalizedSearch(search).scope
             },
             set: { scope in
-                let nextSearch = normalizedSearch(SearchState(query: search.query, scope: scope))
-                search.update(query: nextSearch.query, scope: nextSearch.scope)
+                let nextSearch = normalizedSearch(SearchState(query: search.text, scope: scope))
+                search.update(query: search.text, scope: nextSearch.scope)
                 if !nextSearch.hasQuery {
                     Task {
                         await performSearch(nextSearch)
@@ -1151,15 +1151,17 @@ struct PlatformNavigationView: View {
         return contentState.performSearch(routeSearch)
     }
 
+    /// The search a request or route runs: the trimmed query, in a scope this surface offers.
     private func normalizedSearch(_ candidate: SearchState) -> SearchState {
-        availableSearchScopes.contains(candidate.scope)
-            ? candidate
-            : SearchState(query: candidate.query, scope: .all)
+        SearchState(
+            query: candidate.query,
+            scope: availableSearchScopes.contains(candidate.scope) ? candidate.scope : .all
+        )
     }
 
     private func canApplySearchResult(identity: String, state: SearchState) -> Bool {
         contentState.searchSurfaceIdentity == identity &&
-            search == state &&
+            search.route == state.route &&
             navigation.route == state.route &&
             !Task.isCancelled
     }
