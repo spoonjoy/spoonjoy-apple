@@ -895,19 +895,6 @@ private struct CookbookDetailView: View {
                                 confirmation: .required
                             ))
                         }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            if viewModel.ownerTools.isVisible {
-                                Button(role: .destructive) {
-                                    runAction(.removeRecipe(
-                                        recipeID: recipe.id,
-                                        clientMutationID: clientMutationID(prefix: "cookbook-remove-recipe"),
-                                        confirmation: .required
-                                    ))
-                                } label: {
-                                    Label("Remove from cookbook", systemImage: "minus.circle")
-                                }
-                            }
-                        }
                     }
                 }
                 .accessibilityIdentifier("cookbookContentsIndex")
