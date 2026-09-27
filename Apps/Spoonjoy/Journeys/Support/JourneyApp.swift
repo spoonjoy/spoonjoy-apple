@@ -217,12 +217,13 @@ final class JourneyApp {
     }
 
     func tap(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
-        waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear.", file: file, line: line)
+        waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear. Screen: \(screen)", file: file, line: line)
         element(id).tap()
     }
 
-    private func waitFor(_ id: String, timeout: TimeInterval, _ message: String, file: StaticString, line: UInt) {
-        XCTAssertTrue(element(id).waitForExistence(timeout: timeout), message, file: file, line: line)
+    /// The message is evaluated only on failure, so a screen dump in it costs nothing on success.
+    private func waitFor(_ id: String, timeout: TimeInterval, _ message: @autoclosure () -> String, file: StaticString, line: UInt) {
+        XCTAssertTrue(element(id).waitForExistence(timeout: timeout), message(), file: file, line: line)
     }
 
     private var searchField: XCUIElement {
