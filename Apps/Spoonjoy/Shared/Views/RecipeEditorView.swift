@@ -46,6 +46,7 @@ struct RecipeEditorView: View {
             if let blockedMessage {
                 Label(blockedMessage, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(KitchenTableTheme.tomato)
+                    .accessibilityIdentifier("editor.status")
             }
 
             if let conflictBanner = activeViewModel.conflictBanner {

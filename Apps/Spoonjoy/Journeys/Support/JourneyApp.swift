@@ -190,12 +190,23 @@ final class JourneyApp {
             line: line
         )
         save.tap()
+        // The editor's title field, not Save, shows whether the editor closed: while saving, Save's label
+        // becomes a progress view and the Save button query stops matching (run 36337705822).
         XCTAssertTrue(
-            save.waitForNonExistence(timeout: Self.networkTimeout),
-            "The editor did not close after Save. Screen: \(screen)",
+            element(JourneyID.editorTitle).waitForNonExistence(timeout: Self.networkTimeout),
+            "The editor did not close after Save. Editor message: \(editorStatusAtTop()). Screen: \(screen)",
             file: file,
             line: line
         )
+    }
+
+    /// For a failure message only: scrolls the editor back to its top, where a blocked or failed save
+    /// shows its message, and returns that message.
+    private func editorStatusAtTop() -> String {
+        app.swipeDown()
+        app.swipeDown()
+        let status = element(JourneyID.editorStatus)
+        return status.waitForExistence(timeout: Self.interactionTimeout) ? status.label : "none shown"
     }
 
     /// The app's current accessibility hierarchy, for failure messages only.

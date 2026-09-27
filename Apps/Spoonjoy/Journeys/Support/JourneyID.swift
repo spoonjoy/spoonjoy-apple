@@ -28,6 +28,8 @@ enum JourneyID {
     static let editorServings = "editor.servings"
     static let editorAddStep = "editor.addStep"
     static let editorSave = "editor.save"
+    /// The editor's message when a save is blocked or fails.
+    static let editorStatus = "editor.status"
 
     /// Editor step fields. `step` and `ingredient` are 1-based positions in the draft, not server ids.
     static func editorStepTitle(_ step: Int) -> String { "editor.step.\(step).title" }
