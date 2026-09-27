@@ -81,6 +81,11 @@ jobs:
             -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
             -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult" 2>&1 | tee "$RUNNER_TEMP/journeys/test.log"
+      - name: Print app crash reports
+        # When the app dies mid-journey XCTest reports only "Lost connection to the application"; this puts
+        # the crash report's exception and crashing thread in the job log.
+        if: failure()
+        run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
       - name: Rotate journey account passwords
         id: rotate
         if: always()
