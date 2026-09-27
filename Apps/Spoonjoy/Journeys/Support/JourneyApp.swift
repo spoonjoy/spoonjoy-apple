@@ -54,10 +54,12 @@ final class JourneyApp {
             .firstMatch
     }
 
-    /// An element inside the element `id` whose label contains `text`, for data a journey created.
+    /// An element inside the element `id` whose label contains `text`, ignoring case, for data a journey
+    /// created. The web API stores ingredient names lowercased (normalizeName in
+    /// app/lib/api-v1.server.ts), so `Journey<token>basil` comes back as `journey<token>basil`.
     func element(_ id: String, descendantLabelContaining text: String) -> XCUIElement {
         element(id).descendants(matching: .any)
-            .matching(NSPredicate(format: "label CONTAINS %@", text))
+            .matching(NSPredicate(format: "label CONTAINS[c] %@", text))
             .firstMatch
     }
 
