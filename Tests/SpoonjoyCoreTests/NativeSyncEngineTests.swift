@@ -1862,15 +1862,13 @@ struct NativeSyncEngineTests {
                                 "unit": "lb",
                                 "name": "pasta"
                             ]
-                        ],
-                        "outputStepNums": []
+                        ]
                     ],
                     [
                         "stepTitle": "Sauce",
                         "description": "Use the pasta water.",
                         "duration": 5.0,
-                        "ingredients": [],
-                        "outputStepNums": [1.0]
+                        "ingredients": []
                     ]
                 ]
             ]),

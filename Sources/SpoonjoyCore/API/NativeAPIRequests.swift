@@ -627,13 +627,15 @@ public struct RecipeStepDraft: Equatable, Sendable {
         self.outputStepNums = outputStepNums
     }
 
+    /// A step in a `POST /api/v1/recipes` body. The web API accepts exactly stepTitle, description,
+    /// duration and ingredients here and rejects any other field ("Unknown request body fields"), so
+    /// output uses are not sent; they are set on an existing recipe's steps.
     var jsonObject: [String: Any] {
         [
             "stepTitle": stepTitle ?? NSNull(),
             "description": description,
             "duration": duration ?? NSNull(),
-            "ingredients": ingredients.map(\.jsonObject),
-            "outputStepNums": outputStepNums
+            "ingredients": ingredients.map(\.jsonObject)
         ]
     }
 }
