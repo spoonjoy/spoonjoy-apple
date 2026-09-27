@@ -1872,6 +1872,47 @@ struct NativeSyncEngineTests {
                     ]
                 ]
             ]),
+            // A create queued by an older build stored outputStepNums on each step; it replays without them.
+            .json(try JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "recipe.create", fields: [
+                "title": "Queued Pasta",
+                "description": NSNull(),
+                "servings": NSNull(),
+                "steps": [
+                    [
+                        "stepTitle": NSNull(),
+                        "description": "Boil.",
+                        "duration": NSNull(),
+                        "ingredients": [],
+                        "outputStepNums": []
+                    ],
+                    [
+                        "stepTitle": "Sauce",
+                        "description": "Use the pasta water.",
+                        "duration": 5,
+                        "ingredients": [],
+                        "outputStepNums": [1]
+                    ]
+                ]
+            ])), .post, "/api/v1/recipes", [
+                "clientMutationId": "cm_decode",
+                "title": "Queued Pasta",
+                "description": NSNull(),
+                "servings": NSNull(),
+                "steps": [
+                    [
+                        "stepTitle": NSNull(),
+                        "description": "Boil.",
+                        "duration": NSNull(),
+                        "ingredients": []
+                    ],
+                    [
+                        "stepTitle": "Sauce",
+                        "description": "Use the pasta water.",
+                        "duration": 5.0,
+                        "ingredients": []
+                    ]
+                ]
+            ]),
             .json(.recipeUpdate(recipeID: "recipe/lemon", clientMutationID: "cm_recipe_update", title: "Lemon Pasta", description: nil, servings: "4", createdAt: Self.createdAt(1)), .patch, "/api/v1/recipes/recipe%2Flemon", [
                 "clientMutationId": "cm_recipe_update",
                 "title": "Lemon Pasta",

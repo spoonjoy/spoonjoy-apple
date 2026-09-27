@@ -1643,7 +1643,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
     public func requestBuilder() throws -> APIRequestBuilder {
         switch queueableKind {
         case .recipeCreate:
-            return try json(.post, ["api", "v1", "recipes"])
+            return try APIRequestSupport.privateJSON(method: .post, pathComponents: ["api", "v1", "recipes"], body: recipeCreateRequestBody())
         case .recipeUpdate:
             return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId")], excluding: ["recipeId"])
         case .recipeDelete:
@@ -1818,6 +1818,23 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             file: UploadFile(fileName: media.fileName, contentType: media.contentType, data: media.data),
             fields: fields
         )
+    }
+
+    /// POST /api/v1/recipes rejects outputStepNums on a step as an unknown request body field. Creates queued by
+    /// builds that still stored it on each step replay without it.
+    private func recipeCreateRequestBody() -> [String: Any] {
+        var body = requestBody(includeClientMutation: true, excluding: [])
+        guard values["steps"] != nil else {
+            return body
+        }
+        body["steps"] = APIRequestSupport.jsonObject(from: .array(stepsValue("steps").map { step in
+            guard case .object(var object) = step else {
+                return step
+            }
+            object.removeValue(forKey: "outputStepNums")
+            return .object(object)
+        }))
+        return body
     }
 
     private func requestBody(includeClientMutation: Bool, excluding excludedKeys: Set<String>) -> [String: Any] {
