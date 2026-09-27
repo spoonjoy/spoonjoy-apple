@@ -9,6 +9,8 @@ final class JourneyApp {
     static let launchTimeout: TimeInterval = 30
     static let networkTimeout: TimeInterval = 45
     static let interactionTimeout: TimeInterval = 10
+    private static let selectAllMenuTitle = "Select All"
+    private static let pasteMenuTitle = "Paste"
 
     let app: XCUIApplication
 
@@ -65,11 +67,16 @@ final class JourneyApp {
         waitFor(JourneyID.signInIdentifier, timeout: Self.interactionTimeout, "The email or username field is missing.", file: file, line: line)
         let current = field.value as? String ?? ""
         let existing = current == field.placeholderValue ? "" : current
-        if existing != identifier {
-            // Tap at the trailing edge so the cursor lands after any existing text, then replace it.
-            field.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).tap()
-            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count) + identifier)
+        field.tap()
+        if !existing.isEmpty {
+            // Select the whole prefilled value so typing replaces it, however far it scrolls.
+            field.press(forDuration: 1.2)
+            let selectAll = editMenuItem(Self.selectAllMenuTitle)
+            XCTAssertTrue(selectAll.waitForExistence(timeout: Self.interactionTimeout), "Select All did not appear on the identifier field.", file: file, line: line)
+            selectAll.tap()
         }
+        field.typeText(identifier)
+        XCTAssertEqual(field.value as? String, identifier, "The identifier field does not hold exactly the identifier.", file: file, line: line)
 
         pastePassword(password, file: file, line: line)
         tap(JourneyID.passwordSignIn, file: file, line: line)
@@ -129,6 +136,11 @@ final class JourneyApp {
         XCTAssertTrue(element(id).waitForExistence(timeout: timeout), message, file: file, line: line)
     }
 
+    /// A system edit-menu item (system copy, so it is matched by label).
+    private func editMenuItem(_ title: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).firstMatch
+    }
+
     private func pastePassword(_ password: String, file: StaticString, line: UInt) {
         let field = element(JourneyID.signInPassword)
         waitFor(JourneyID.signInPassword, timeout: Self.interactionTimeout, "The password field is missing.", file: file, line: line)
@@ -136,7 +148,7 @@ final class JourneyApp {
         defer { UIPasteboard.general.items = [] }
         field.tap()
         field.press(forDuration: 1.2)
-        let paste = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "Paste")).firstMatch
+        let paste = editMenuItem(Self.pasteMenuTitle)
         XCTAssertTrue(paste.waitForExistence(timeout: Self.interactionTimeout), "The Paste action did not appear on the password field.", file: file, line: line)
         paste.tap()
     }
