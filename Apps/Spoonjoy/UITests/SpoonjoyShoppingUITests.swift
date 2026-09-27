@@ -86,6 +86,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
 
         let lemons = app.descendants(matching: .any)["shopping.item.item_lemons"]
         lemons.press(forDuration: 1)
+        XCTAssertTrue(app.buttons["Remove"].waitForExistence(timeout: 3))
         app.buttons["Remove"].tap()
         XCTAssertTrue(app.sheets.firstMatch.waitForExistence(timeout: 3))
         app.sheets.firstMatch.buttons["Remove Item"].tap()
