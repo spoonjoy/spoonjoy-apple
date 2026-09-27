@@ -45,7 +45,7 @@ final class JourneyApp {
     }
 
     func element(_ id: String) -> XCUIElement {
-        app.descendants(matching: .any).matching(identifier: id).firstMatch
+        query(id).firstMatch
     }
 
     func element(_ id: String, labelContaining text: String) -> XCUIElement {
@@ -231,8 +231,12 @@ final class JourneyApp {
         XCTAssertEqual(field.value as? String, text, "\(name) does not hold exactly the typed text.", file: file, line: line)
     }
 
+    /// Matches the accessibility identifier alone. `matching(identifier:)` also compares each element's
+    /// label, title, value and placeholder, which XCUITest evaluates on the app's main thread for every
+    /// element on screen: with the editor form and keyboard up that took seconds per lookup, dropped
+    /// keystrokes, and once crashed the app while fetching a placeholder (runs 36331139692, 36332727373).
     private func query(_ id: String) -> XCUIElementQuery {
-        app.descendants(matching: .any).matching(identifier: id)
+        app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id))
     }
 
     /// Waits for the tapped field (the first match of `query`) to take keyboard focus before anything is

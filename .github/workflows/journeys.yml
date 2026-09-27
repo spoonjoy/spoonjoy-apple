@@ -74,8 +74,6 @@ jobs:
           # of the 0600 accounts file (deleted after the run); xcodebuild records the test environment in the
           # result bundle, so no credential value may travel through it.
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/journeys-secrets/accounts.json"
-          # Stack-only samples of the app's main thread every 15 seconds, printed if the journeys fail.
-          python3 .github/scripts/sample-app-main-thread.py record "$RUNNER_TEMP/journeys/samples" &
           xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" \
@@ -88,13 +86,6 @@ jobs:
         # the crash report's exception and crashing thread in the job log.
         if: failure()
         run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
-      - name: Print app main-thread samples
-        # Matches a stall in the journey log (XCUITest waits and lookups carry UTC timestamps) to what
-        # the app's main thread was doing at that moment.
-        if: failure()
-        run: |
-          touch "$RUNNER_TEMP/journeys/samples/stop"
-          python3 .github/scripts/sample-app-main-thread.py print "$RUNNER_TEMP/journeys/samples"
       - name: Rotate journey account passwords
         id: rotate
         if: always()
