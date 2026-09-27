@@ -886,7 +886,7 @@ private struct CookbookDetailView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
-                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1) {
+                        CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1, removeAccessibilityLabel: removeAccessibilityLabel(for: recipe)) {
                             openRoute(recipe.openRoute)
                         } remove: {
                             runAction(.removeRecipe(
@@ -989,6 +989,11 @@ private struct CookbookDetailView: View {
         }
     }
 
+    /// The label of a row's Remove button, or nil when this chef cannot remove recipes.
+    private func removeAccessibilityLabel(for recipe: CookbookRecipeRowViewModel) -> String? {
+        viewModel.canRemoveRecipes ? viewModel.removeRecipeAccessibilityLabel(for: recipe) : nil
+    }
+
     private var selectedRecipeBinding: Binding<String?> {
         Binding(
             get: { selectedRecipeID },
@@ -1064,10 +1069,36 @@ private struct CookbookDetailView: View {
 private struct CookbookRecipeIndexRow: View {
     let recipe: CookbookRecipeRowViewModel
     let ordinal: Int
+    /// The Remove button's label; nil hides Remove, for chefs who do not own the cookbook.
+    let removeAccessibilityLabel: String?
     let open: () -> Void
     let remove: () -> Void
 
     var body: some View {
+        HStack(alignment: .center, spacing: 4) {
+            openButton
+            if let removeAccessibilityLabel {
+                // The rows sit in a scroll view, where swipe actions never trigger, so Remove is a
+                // visible button. Borderless, so a tap on it never also opens the recipe.
+                Button(role: .destructive, action: remove) {
+                    Image(systemName: "minus.circle")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(removeAccessibilityLabel)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(KitchenTableTheme.line.opacity(0.35))
+                .frame(height: 1)
+        }
+    }
+
+    private var openButton: some View {
         Button(action: open) {
             HStack(alignment: .center, spacing: 12) {
                 Text(String(ordinal).padStart(length: 2, pad: "0"))
@@ -1104,14 +1135,16 @@ private struct CookbookRecipeIndexRow: View {
             }
             .padding(.vertical, 12)
             .contentShape(Rectangle())
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.35))
-                    .frame(height: 1)
-            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(ordinal). \(recipe.title)")
+        .contextMenu {
+            if removeAccessibilityLabel != nil {
+                Button(role: .destructive, action: remove) {
+                    Label("Remove from cookbook", systemImage: "minus.circle")
+                }
+            }
+        }
     }
 }
 

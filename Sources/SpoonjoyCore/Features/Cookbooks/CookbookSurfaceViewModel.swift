@@ -393,6 +393,11 @@ public struct CookbookDetailViewModel: Sendable {
     public let queuedWorkSummary: String?
     public let conflictBanner: CookbookSurfaceConflictBanner?
 
+    /// Whether each recipe row offers a Remove button. Only the cookbook's owner can remove recipes.
+    public var canRemoveRecipes: Bool {
+        availableActionIDs.contains(.removeRecipe)
+    }
+
     private let result: CookbookSurfaceDetailResult
     private let context: CookbookSurfaceContext
     private let queuedMutations: [NativeQueuedMutation]
@@ -580,6 +585,11 @@ public struct CookbookDetailViewModel: Sendable {
                 successRoute: .cookbookDetail(id: cookbook.id)
             )
         }
+    }
+
+    /// The VoiceOver label for a recipe row's Remove button, naming both the recipe and this cookbook.
+    public func removeRecipeAccessibilityLabel(for recipe: CookbookRecipeRowViewModel) -> String {
+        "Remove \(recipe.title) from \(title)"
     }
 
     public func applying(updatedCookbook: Cookbook, queuedMutation: NativeQueuedMutation? = nil) -> CookbookDetailViewModel {

@@ -847,6 +847,31 @@ struct CookbookSurfaceParityTests {
         #expect(transport.requests.map(\.url.path) == ["/api/v1/cookbooks/\(ownCookbook.id)"])
     }
 
+    @Test("a cookbook's owner can remove each recipe, and the Remove button names the recipe and the cookbook")
+    func cookbookOwnerCanRemoveEachRecipe() throws {
+        let cookbook = try Self.cookbook()
+        let recipe = try #require(cookbook.recipes.first)
+        func detail(currentChefID: String) -> CookbookDetailViewModel {
+            CookbookDetailViewModel(
+                result: CookbookSurfaceDetailResult(cookbook: cookbook, source: .live(requestID: "req_detail", validatedAt: Self.now), availableRecipes: []),
+                context: CookbookSurfaceContext(currentChefID: currentChefID),
+                queuedMutations: [],
+                conflicts: [],
+                connectivity: .online,
+                now: { Self.now },
+                timestamp: { Self.createdAt }
+            )
+        }
+
+        let owner = detail(currentChefID: cookbook.chef.id)
+        #expect(owner.canRemoveRecipes)
+        #expect(
+            owner.removeRecipeAccessibilityLabel(for: CookbookRecipeRowViewModel(summary: recipe)) ==
+                "Remove \(recipe.title) from \(cookbook.title)"
+        )
+        #expect(!detail(currentChefID: "chef_visitor").canRemoveRecipes)
+    }
+
     private static func cookbook() throws -> Cookbook {
         try CookbookFixtureCatalog.decodeFromBundle().cookbooks[0]
     }
