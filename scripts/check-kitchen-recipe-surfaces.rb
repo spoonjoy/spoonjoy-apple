@@ -61,9 +61,7 @@ REQUIRED_TOKENS = {
     "Radius"
   ],
   "Apps/Spoonjoy/Shared/Views/KitchenView.swift" => [
-    "KitchenView",
     "KitchenMasthead",
-    "RecipeLead",
     "RecipeIndex",
     "CookbookShelf",
     "On the Counter",
@@ -73,8 +71,6 @@ REQUIRED_TOKENS = {
     "recipe.description",
     "recipe.servings",
     "recipe.displayCoverProvenanceLabel",
-    "KitchenFixtureState",
-    "KitchenLeadObject",
     "KitchenTablePage",
     "KitchenTableHeader",
     "KitchenTableObjectRow",
@@ -82,9 +78,6 @@ REQUIRED_TOKENS = {
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/RecipesView.swift" => [
-    "RecipesView",
-    "RecipeCatalogViewModel",
-    "state.leadRow",
     "state.indexRows",
     "@State private var query",
     "@State private var isLoading",
@@ -95,33 +88,24 @@ REQUIRED_TOKENS = {
     "emptyState.title",
     "emptyState.message",
     "emptyState.systemImage",
-    "viewModel.load",
     "KitchenTablePage",
     "KitchenTableHeader",
     "KitchenTableObjectRow",
-    "Button",
-    "openRoute",
     "RecipeCoverImage(",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift" => [
-    "RecipeDetailRouteView",
     "repository.recipeDetail",
-    "RecipeDetailView",
-    "RecipeDetailScreenViewModel",
     "ShareLink",
     "RecipeCoverImage(",
     "provenance",
     "recipeHeaderControls",
     "RecipeScaleSelector",
     "isCookbookSaveSheetPresented",
-    "stepsSection",
-    "RecipeStepChecklistRow",
     "spoonSummary",
     "cookbookSave",
     "ownerTools",
     "offlineIndicator",
-    "ForEach",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/CookModeView.swift" => [
@@ -216,10 +200,6 @@ REQUIRED_TOKENS = {
     "cookbook remove recipe"
   ],
   "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogRepository.swift" => [
-    "RecipeCatalogRepository",
-    "RecipeCatalogListRequest",
-    "RecipeCatalogPage",
-    "RecipeCatalogDetailResult",
     "FallbackRecipeCatalogRepository",
     "PublicCatalogRequests.listRecipes",
     "PublicCatalogRequests.recipeDetail",
@@ -227,11 +207,7 @@ REQUIRED_TOKENS = {
     "NativeCacheDomain.recipeDetail"
   ],
   "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeCatalogViewModel.swift" => [
-    "RecipeCatalogViewModel",
-    "RecipeCatalogState",
     "RecipeCatalogEmptyState",
-    "RecipeCatalogRowViewModel",
-    "leadRow",
     "indexRows",
     "rows.dropFirst()",
     "openRecipeRoute",
@@ -239,10 +215,8 @@ REQUIRED_TOKENS = {
     "OfflineIndicatorState"
   ],
   "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipeDetailScreenViewModel.swift" => [
-    "RecipeDetailScreenViewModel",
     "RecipeDetailContext",
     "RecipeCookbookSaveOption",
-    "stepSections",
     "spoonSummary",
     "cookbookSave",
     "ownerTools",
