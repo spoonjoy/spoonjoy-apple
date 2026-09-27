@@ -32,18 +32,19 @@ final class RecipesJourney: JourneyTestCase {
         journey.enterText(basil, into: JourneyID.editorIngredientName(step: 1, ingredient: 1))
         journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 1, ingredient: 1), with: "1")
         journey.enterText("cup", into: JourneyID.editorIngredientUnit(step: 1, ingredient: 1))
-        journey.enterText("Tear the basil", into: JourneyID.editorStepTitle(1))
         journey.enterText("Tear the basil leaves into a bowl.", into: JourneyID.editorStepDescription(1))
+        journey.enterText("Tear the basil", into: JourneyID.editorStepTitle(1))
 
         journey.tap(JourneyID.editorAddStep)
         journey.tap(JourneyID.editorStepAddIngredient(2))
         journey.enterText(spaghetti, into: JourneyID.editorIngredientName(step: 2, ingredient: 1))
         journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 2, ingredient: 1), with: "200")
         journey.enterText("g", into: JourneyID.editorIngredientUnit(step: 2, ingredient: 1))
-        journey.enterText("Cook the spaghetti", into: JourneyID.editorStepTitle(2))
         journey.enterText("Boil the spaghetti until tender.", into: JourneyID.editorStepDescription(2))
+        journey.enterText("Cook the spaghetti", into: JourneyID.editorStepTitle(2))
 
-        // Saving a new recipe returns to My Recipes.
+        // The step title, a single-line field, is the last one edited, so Return closes the keyboard before
+        // Save. Saving a new recipe returns to My Recipes.
         journey.saveRecipeEditor()
         XCTAssertTrue(
             journey.element(JourneyID.recipesRow, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),

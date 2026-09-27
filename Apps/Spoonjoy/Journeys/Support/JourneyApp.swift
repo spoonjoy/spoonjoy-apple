@@ -166,14 +166,29 @@ final class JourneyApp {
         replaceText(in: query(id), named: id, with: text, file: file, line: line)
     }
 
-    /// Saves the recipe editor. Save sits below the steps in a lazily built form, so its row does not
-    /// exist until the form is scrolled to its end; two swipes reach the end of a two-step recipe.
+    /// Saves the recipe editor. Save is the form's last row. Run 36333893304 showed the keyboard still up
+    /// after two swipes, with Save at y 904, under the tab bar, so the tap never reached it. The field
+    /// being edited is closed with Return first, then one swipe reaches the end of the form, and Save must
+    /// sit above the tab bar before it is tapped.
     func saveRecipeEditor(file: StaticString = #filePath, line: UInt = #line) {
-        app.swipeUp()
+        app.typeText(XCUIKeyboardKey.return.rawValue)
+        XCTAssertTrue(
+            app.keyboards.firstMatch.waitForNonExistence(timeout: Self.interactionTimeout),
+            "Return did not close the keyboard; the last field before Save must be a single-line text field.",
+            file: file,
+            line: line
+        )
         app.swipeUp()
         let save = element(JourneyID.editorSave)
         XCTAssertTrue(save.waitForExistence(timeout: Self.interactionTimeout), "The editor's Save button is missing.", file: file, line: line)
         XCTAssertTrue(save.isEnabled, "Save is disabled, so the editor rejected the draft.", file: file, line: line)
+        XCTAssertLessThanOrEqual(
+            save.frame.maxY,
+            app.tabBars.firstMatch.frame.minY,
+            "Save is under the tab bar, where a tap would not reach it. Screen: \(screen)",
+            file: file,
+            line: line
+        )
         save.tap()
         XCTAssertTrue(
             save.waitForNonExistence(timeout: Self.networkTimeout),
