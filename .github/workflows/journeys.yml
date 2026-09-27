@@ -1,0 +1,160 @@
+name: Journeys
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: journeys-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  SPOONJOY_QA_BASE_URL: https://spoonjoy-v2-qa.mendelow-studio.workers.dev
+
+jobs:
+  journeys:
+    name: Journeys
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Verify Xcode 26.5+ runner
+        run: |
+          set -euo pipefail
+          xcode_version="$(xcodebuild -version)"
+          printf '%s\n' "$xcode_version"
+          first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
+          minimum_xcode_version="26.5"
+          version="${first_line#Xcode }"
+          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
+      - name: Require DEBUG in the journeys build configuration
+        run: |
+          set -euo pipefail
+          settings="$(xcodebuild -project Spoonjoy.xcodeproj -target 'Spoonjoy iOS' -configuration BootstrapDebug -sdk iphonesimulator -showBuildSettings)"
+          printf '%s\n' "$settings" | grep -Eq '^[[:space:]]*SWIFT_ACTIVE_COMPILATION_CONDITIONS = (.* )?DEBUG( |$)' \
+            || { echo "::error::BootstrapDebug does not define DEBUG; SPOONJOY_API_BASE_URL would be ignored and the app would talk to production."; exit 1; }
+      - name: Resolve iPhone simulator
+        id: sim
+        run: echo "destination=$(python3 .github/scripts/resolve-ios-simulator-destination.py)" >> "$GITHUB_OUTPUT"
+      - name: Build for testing
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/journeys"
+          log="$RUNNER_TEMP/journeys/build.log"
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
+            -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
+          ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Create disposable QA accounts
+        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 2 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
+      - name: Run journeys
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          creds="$RUNNER_TEMP/journeys-secrets/accounts.json"
+          # xcodebuild hands TEST_RUNNER_<NAME> to the test runner as <NAME>. Values are never echoed.
+          TEST_RUNNER_SPOONJOY_JOURNEY_RUN_TOKEN="$(jq -r '.runToken' "$creds")"
+          TEST_RUNNER_SPOONJOY_JOURNEY_A1_EMAIL="$(jq -r '.accounts[0].email' "$creds")"
+          TEST_RUNNER_SPOONJOY_JOURNEY_A1_USERNAME="$(jq -r '.accounts[0].username' "$creds")"
+          TEST_RUNNER_SPOONJOY_JOURNEY_A1_PASSWORD="$(jq -r '.accounts[0].password' "$creds")"
+          TEST_RUNNER_SPOONJOY_JOURNEY_A2_EMAIL="$(jq -r '.accounts[1].email' "$creds")"
+          TEST_RUNNER_SPOONJOY_JOURNEY_A2_USERNAME="$(jq -r '.accounts[1].username' "$creds")"
+          TEST_RUNNER_SPOONJOY_JOURNEY_A2_PASSWORD="$(jq -r '.accounts[1].password' "$creds")"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_RUN_TOKEN \
+            TEST_RUNNER_SPOONJOY_JOURNEY_A1_EMAIL TEST_RUNNER_SPOONJOY_JOURNEY_A1_USERNAME TEST_RUNNER_SPOONJOY_JOURNEY_A1_PASSWORD \
+            TEST_RUNNER_SPOONJOY_JOURNEY_A2_EMAIL TEST_RUNNER_SPOONJOY_JOURNEY_A2_USERNAME TEST_RUNNER_SPOONJOY_JOURNEY_A2_PASSWORD
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
+            -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
+            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult" 2>&1 | tee "$RUNNER_TEMP/journeys/test.log"
+      - name: Rotate journey account passwords
+        id: rotate
+        if: always()
+        run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/journeys-secrets/accounts.json"
+      - name: Scan journey artifacts for passwords
+        id: scan
+        if: always()
+        run: |
+          scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/journeys-secrets/accounts.json" \
+            "$RUNNER_TEMP/journeys/build.log" \
+            "$RUNNER_TEMP/journeys/test.log" \
+            "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult"
+      - name: Remove credentials
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/journeys-secrets"
+      - name: Upload journeys result bundle
+        # Only after every old password is proven dead and no password was found in these files.
+        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: journeys-xcresult-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/journeys/SpoonjoyJourneys.xcresult
+            ${{ runner.temp }}/journeys/test.log
+            ${{ runner.temp }}/journeys/build.log
+          if-no-files-found: warn
+          retention-days: 30
+
+  shopping-ui-tests:
+    name: Shopping UI tests
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Verify Xcode 26.5+ runner
+        run: |
+          set -euo pipefail
+          xcode_version="$(xcodebuild -version)"
+          printf '%s\n' "$xcode_version"
+          first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
+          minimum_xcode_version="26.5"
+          version="${first_line#Xcode }"
+          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
+      - name: Resolve iPhone simulator
+        id: sim
+        run: echo "destination=$(python3 .github/scripts/resolve-ios-simulator-destination.py)" >> "$GITHUB_OUTPUT"
+      - name: Run shopping UI tests
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/shopping"
+          log="$RUNNER_TEMP/shopping/test.log"
+          xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
+            -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+            -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" 2>&1 | tee "$log"
+          ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Upload shopping UI test result bundle
+        # The fixture tests use no credentials, so the bundle is always safe to upload.
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: shopping-uitests-xcresult-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/shopping/SpoonjoyShoppingUITests.xcresult
+            ${{ runner.temp }}/shopping/test.log
+          if-no-files-found: warn
+          retention-days: 30
