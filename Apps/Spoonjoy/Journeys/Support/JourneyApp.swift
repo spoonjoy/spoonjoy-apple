@@ -232,7 +232,7 @@ final class JourneyApp {
         let holder = app.descendants(matching: .any).matching(focused).firstMatch
         XCTAssertTrue(
             query.matching(focused).firstMatch.waitForExistence(timeout: Self.interactionTimeout),
-            "\(name) did not take keyboard focus after a tap. Keyboard shown: \(app.keyboards.firstMatch.exists). Focus is on: \(holder.exists ? holder.debugDescription : "nothing")",
+            "\(name) did not take keyboard focus after a tap. Tapped element: \(query.firstMatch.debugDescription) Hittable: \(query.firstMatch.isHittable). Keyboard shown: \(app.keyboards.firstMatch.exists). Focus is on: \(holder.exists ? holder.debugDescription : "nothing")",
             file: file,
             line: line
         )
