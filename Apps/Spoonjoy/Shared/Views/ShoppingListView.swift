@@ -386,6 +386,7 @@ struct ShoppingListView: View {
             Label("Create a recipe", systemImage: "square.and.pencil")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .accessibilityIdentifier("shopping.createRecipe")
     }
 
     @ViewBuilder private var recipeActionButton: some View {
@@ -401,6 +402,7 @@ struct ShoppingListView: View {
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             .accessibilityLabel("Create a recipe")
+            .accessibilityIdentifier("shopping.createRecipe")
         } else if hasRecipes {
             addFromRecipeButton
         } else {

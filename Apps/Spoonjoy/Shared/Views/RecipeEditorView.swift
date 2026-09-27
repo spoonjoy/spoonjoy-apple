@@ -18,6 +18,9 @@ struct RecipeEditorView: View {
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
+#if os(iOS)
+    @Environment(\.editMode) private var editMode: Binding<EditMode>?
+#endif
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -43,6 +46,7 @@ struct RecipeEditorView: View {
             if let blockedMessage {
                 Label(blockedMessage, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(KitchenTableTheme.tomato)
+                    .accessibilityIdentifier("editor.status")
             }
 
             if let conflictBanner = activeViewModel.conflictBanner {
@@ -66,9 +70,11 @@ struct RecipeEditorView: View {
 
             Section("Recipe") {
                 TextField("Title", text: $draft.title)
+                    .accessibilityIdentifier("editor.title")
                 TextEditor(text: descriptionText)
                     .frame(minHeight: 88)
                 TextField("Servings", text: servingsText)
+                    .accessibilityIdentifier("editor.servings")
             }
 
             Section("Steps") {
@@ -84,18 +90,23 @@ struct RecipeEditorView: View {
                                 Label("Delete Step", systemImage: "trash")
                             }
                             .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
                             .disabled(isSubmitting)
                         }
 
                         TextField("Step title", text: optionalText($step.title))
+                            .accessibilityIdentifier("editor.step.\(step.stepNum).title")
                         TextEditor(text: $step.description)
                             .frame(minHeight: 72)
+                            .accessibilityIdentifier("editor.step.\(step.stepNum).description")
                         Stepper(value: durationBinding($step.duration), in: 0...720, step: 1) {
                             Text("Duration \(step.duration ?? 0) minutes")
                         }
 
                         let priorSteps = priorSteps(for: step)
-                        if !priorSteps.isEmpty {
+                        // Creating a recipe cannot store which steps use another step's output (the web API
+                        // rejects that field on create), so output uses are offered once the recipe exists.
+                        if draft.recipeID != nil, !priorSteps.isEmpty {
                             DisclosureGroup("Uses Output From") {
                                 ForEach(priorSteps) { priorStep in
                                     Toggle(
@@ -107,17 +118,22 @@ struct RecipeEditorView: View {
                         }
 
                         ForEach($step.ingredients) { $ingredient in
+                            let ingredientID = "editor.step.\(step.stepNum).ingredient.\(ingredientNumber(ingredient.id, in: step))"
                             HStack {
                                 TextField("Ingredient", text: $ingredient.name)
+                                    .accessibilityIdentifier("\(ingredientID).name")
                                 TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
                                     .frame(minWidth: 72)
+                                    .accessibilityIdentifier("\(ingredientID).quantity")
                                 TextField("Unit", text: optionalText($ingredient.unit))
+                                    .accessibilityIdentifier("\(ingredientID).unit")
                                 Button(role: .destructive) {
                                     removeIngredient(id: ingredient.id, from: step.id)
                                 } label: {
                                     Label("Delete Ingredient", systemImage: "minus.circle")
                                 }
                                 .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
                                 .disabled(isSubmitting)
                             }
                         }
@@ -127,14 +143,18 @@ struct RecipeEditorView: View {
                         } label: {
                             Label("Add Ingredient", systemImage: "plus.circle")
                         }
+                        // A step is one form row. With default-styled buttons, a tap anywhere in the row ran
+                        // every button in it, Delete Step first, so Add Ingredient crashed on the removed step.
+                        // Borderless buttons each handle only their own taps.
+                        .buttonStyle(.borderless)
                         .disabled(isSubmitting)
+                        .accessibilityIdentifier("editor.step.\(step.stepNum).addIngredient")
                     }
                     .padding(.vertical, 6)
                 }
-                .onMove { indices, newOffset in
-                    draft.steps.move(fromOffsets: indices, toOffset: newOffset)
-                    renumberSteps()
-                }
+                // Steps reorder in Edit mode only: a reorderable row holds a touch as a possible drag, and
+                // taps on a step's text fields did not focus them.
+                .onMove(perform: stepMoveAction)
 
                 Button {
                     addStep()
@@ -142,6 +162,7 @@ struct RecipeEditorView: View {
                     Label("Add Step", systemImage: "plus.circle")
                 }
                 .disabled(isSubmitting)
+                .accessibilityIdentifier("editor.addStep")
             }
 
             Section {
@@ -157,6 +178,7 @@ struct RecipeEditorView: View {
                     }
                 }
                 .disabled(!activeViewModel.updatingDraft(draft).canSubmit || isSubmitting)
+                .accessibilityIdentifier("editor.save")
 
                 if draft.recipeID != nil {
                     Button(role: .destructive) {
@@ -169,6 +191,11 @@ struct RecipeEditorView: View {
         }
         .scrollContentBackground(.hidden)
         .background(KitchenTableTheme.bone)
+#if os(iOS)
+        .toolbar {
+            EditButton()
+        }
+#endif
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Recipe", role: .destructive) {
                 Task {
@@ -300,6 +327,20 @@ struct RecipeEditorView: View {
         }
     }
 
+    private var stepMoveAction: ((IndexSet, Int) -> Void)? {
+#if os(iOS)
+        guard editMode?.wrappedValue.isEditing == true else {
+            return nil
+        }
+#endif
+        return moveSteps
+    }
+
+    private func moveSteps(_ indices: IndexSet, _ newOffset: Int) {
+        draft.steps.move(fromOffsets: indices, toOffset: newOffset)
+        renumberSteps()
+    }
+
     private func addStep() {
         draft.steps.append(RecipeEditorStepDraft(
             id: localID("local_step"),
@@ -384,6 +425,11 @@ struct RecipeEditorView: View {
             quantity: 1,
             unit: nil
         ))
+    }
+
+    /// The ingredient's 1-based position in its step, for accessibility identifiers.
+    private func ingredientNumber(_ ingredientID: String, in step: RecipeEditorStepDraft) -> Int {
+        (step.ingredients.firstIndex { $0.id == ingredientID } ?? step.ingredients.count) + 1
     }
 
     private func removeIngredient(id: String, from stepID: String) {

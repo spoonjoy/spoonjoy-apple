@@ -208,6 +208,9 @@ struct RecipeLead: View {
                 }
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(recipe.title)
+        .accessibilityIdentifier("kitchen.recipe")
     }
 
     private var hasRealCover: Bool {
@@ -296,6 +299,7 @@ struct RecipeLead: View {
         leadButton(title: "Open Recipe", systemImage: "book", prominence: .secondary) {
             openRecipe(recipe.id)
         }
+        .accessibilityIdentifier("kitchen.recipe.open")
     }
 
     @ViewBuilder
@@ -382,6 +386,7 @@ struct KitchenRecipeIndexRow: View {
             .buttonStyle(.plain)
             .accessibilityLabel(recipe.title)
             .accessibilityHint("Opens recipe detail")
+            .accessibilityIdentifier("kitchen.recipe")
 
             ShareLink(item: shareRecipe) {
                 Image(systemName: "square.and.arrow.up")

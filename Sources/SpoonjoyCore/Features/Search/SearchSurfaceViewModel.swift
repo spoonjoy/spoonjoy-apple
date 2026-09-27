@@ -156,10 +156,10 @@ public struct SearchSurfaceDebouncePolicy: Equatable, Sendable {
         next: SearchState,
         inFlight: SearchSurfaceRequest?
     ) -> SearchSurfaceDebounceDecision {
-        let scheduledRequest = next.hasQuery && previous != next
+        let scheduledRequest = next.hasQuery && previous.route != next.route
             ? SearchSurfaceRequest(query: next.query, scope: next.scope, limit: defaultLimit)
             : nil
-        let cancelsInFlightSearch = inFlight != nil && previous != next
+        let cancelsInFlightSearch = inFlight != nil && previous.route != next.route
 
         return SearchSurfaceDebounceDecision(
             cancelsInFlightSearch: cancelsInFlightSearch,

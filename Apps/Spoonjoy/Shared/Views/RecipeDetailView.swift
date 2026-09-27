@@ -392,6 +392,7 @@ struct RecipeDetailView: View {
                 .foregroundStyle(KitchenTableTheme.charcoal)
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("recipeDetail.title")
             Text(viewModel.description ?? viewModel.recipe.attribution.creditText)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
@@ -696,6 +697,8 @@ struct RecipeDetailView: View {
                 .fill(KitchenTableTheme.line.opacity(0.35))
                 .frame(height: 1)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("recipeDetail.step.\(section.stepNumber)")
     }
 
     private func stepEyebrow(_ section: RecipeDetailStepSection) -> some View {

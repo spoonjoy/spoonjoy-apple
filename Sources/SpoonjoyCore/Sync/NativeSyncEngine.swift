@@ -1643,7 +1643,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
     public func requestBuilder() throws -> APIRequestBuilder {
         switch queueableKind {
         case .recipeCreate:
-            return try json(.post, ["api", "v1", "recipes"])
+            return try APIRequestSupport.privateJSON(method: .post, pathComponents: ["api", "v1", "recipes"], body: recipeCreateRequestBody())
         case .recipeUpdate:
             return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId")], excluding: ["recipeId"])
         case .recipeDelete:
@@ -1818,6 +1818,16 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             file: UploadFile(fileName: media.fileName, contentType: media.contentType, data: media.data),
             fields: fields
         )
+    }
+
+    /// POST /api/v1/recipes rejects outputStepNums on a step as an unknown request body field. Creates queued by
+    /// builds that still stored it on each step replay without it.
+    private func recipeCreateRequestBody() -> [String: Any] {
+        var body = requestBody(includeClientMutation: true, excluding: [])
+        body["steps"] = (body["steps"] as? [Any])?.map { step in
+            (step as? [String: Any])?.filter { $0.key != "outputStepNums" } ?? step
+        }
+        return body
     }
 
     private func requestBody(includeClientMutation: Bool, excluding excludedKeys: Set<String>) -> [String: Any] {
@@ -3336,14 +3346,14 @@ public extension NativeQueuedMutation {
         return .null
     }
 
+    /// Queued recipe-create steps replay as the `POST /api/v1/recipes` body, which rejects outputStepNums.
     private static func stepDrafts(_ steps: [RecipeStepDraft]) -> JSONValue {
         .array(steps.map { step in
             .object([
                 "stepTitle": stringOrNull(step.stepTitle),
                 "description": .string(step.description),
                 "duration": intOrNull(step.duration),
-                "ingredients": ingredientDrafts(step.ingredients),
-                "outputStepNums": .array(step.outputStepNums.map { .number(Double($0)) })
+                "ingredients": ingredientDrafts(step.ingredients)
             ])
         })
     }

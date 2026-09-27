@@ -1,12 +1,19 @@
 import Foundation
 
 public struct SearchState: Equatable, Hashable, Sendable {
-    public private(set) var query: String
+    /// Exactly what the person typed into the search field, including leading and trailing spaces.
+    /// The field reads this back, so trimming it while typing would delete a space before the next word.
+    public private(set) var text: String
     public private(set) var scope: SearchScope
 
     public init(query: String = "", scope: SearchScope = .all) {
-        self.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.text = query
         self.scope = scope
+    }
+
+    /// The trimmed query that requests and routes use.
+    public var query: String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     public var hasQuery: Bool {
@@ -18,17 +25,20 @@ public struct SearchState: Equatable, Hashable, Sendable {
     }
 
     public mutating func update(query: String, scope: SearchScope) {
-        self.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.text = query
         self.scope = scope
     }
 
+    /// Hydrates from a search route. When the route names the query already in the field, the field text is kept
+    /// as typed, so a search that runs while someone is still typing does not remove their trailing space.
     @discardableResult
     public mutating func apply(route: AppRoute) -> Bool {
-        guard case .search(let query, let scope) = route else {
+        guard case .search(let routeQuery, let scope) = route else {
             return false
         }
 
-        update(query: query, scope: scope)
+        let trimmedRouteQuery = routeQuery.trimmingCharacters(in: .whitespacesAndNewlines)
+        update(query: trimmedRouteQuery == query ? text : trimmedRouteQuery, scope: scope)
         return true
     }
 }

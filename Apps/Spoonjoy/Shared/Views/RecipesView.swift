@@ -117,6 +117,7 @@ struct RecipesView: View {
                     RecipeIndexRow(row: row)
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("recipes.row")
             }
         }
     }
@@ -232,6 +233,7 @@ private struct RecipeCatalogLead: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens recipe detail")
+        .accessibilityIdentifier("recipes.row")
     }
 
     @ViewBuilder private var leadCover: some View {

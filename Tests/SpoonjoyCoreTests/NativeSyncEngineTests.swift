@@ -1862,15 +1862,54 @@ struct NativeSyncEngineTests {
                                 "unit": "lb",
                                 "name": "pasta"
                             ]
-                        ],
-                        "outputStepNums": []
+                        ]
                     ],
                     [
                         "stepTitle": "Sauce",
                         "description": "Use the pasta water.",
                         "duration": 5.0,
+                        "ingredients": []
+                    ]
+                ]
+            ]),
+            // A create queued by an older build stored outputStepNums on each step; it replays without them.
+            .json(try JSONDecoder().decode(NativeQueuedMutation.self, from: Self.queuedMutationJSON(schemaVersion: 1, type: "recipe.create", fields: [
+                "title": "Queued Pasta",
+                "description": NSNull(),
+                "servings": NSNull(),
+                "steps": [
+                    [
+                        "stepTitle": NSNull(),
+                        "description": "Boil.",
+                        "duration": NSNull(),
                         "ingredients": [],
-                        "outputStepNums": [1.0]
+                        "outputStepNums": []
+                    ],
+                    [
+                        "stepTitle": "Sauce",
+                        "description": "Use the pasta water.",
+                        "duration": 5,
+                        "ingredients": [],
+                        "outputStepNums": [1]
+                    ]
+                ]
+            ])), .post, "/api/v1/recipes", [
+                "clientMutationId": "cm_decode",
+                "title": "Queued Pasta",
+                "description": NSNull(),
+                "servings": NSNull(),
+                "steps": [
+                    [
+                        "stepTitle": NSNull(),
+                        "description": "Boil.",
+                        "duration": NSNull(),
+                        "ingredients": []
+                    ],
+                    [
+                        "stepTitle": "Sauce",
+                        "description": "Use the pasta water.",
+                        "duration": 5.0,
+                        "ingredients": []
                     ]
                 ]
             ]),

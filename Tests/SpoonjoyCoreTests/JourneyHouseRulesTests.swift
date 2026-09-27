@@ -312,15 +312,16 @@ struct JourneyHouseRulesTests {
               - continue-on-error: ${{ true }}
         """
         let found = JourneyHouseRules.check(fileName: "journeys.yml", source: workflow, kind: .workflow)
-        #expect(found.map(\.line) == [5, 6, 8, 9, 10, 11, 13, 14, 16, 19, 20, 22, 25])
+        #expect(found.map(\.line) == [5, 5, 6, 8, 9, 10, 11, 13, 14, 16, 19, 20, 22, 25])
         #expect(found.map(\.rule) == [
-            .noRetryConfig, .noRetryConfig, .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys,
+            .noSkippedJourneys, .noRetryConfig, .noRetryConfig, .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys,
             .noRetryConfig, .noRetryConfig, .noRetryConfig, .noRetryConfig, .noRetryConfig,
             .noSkippedJourneys, .noRetryConfig, .noSkippedJourneys
         ])
-        #expect(found.first?.message == "a shell loop re-runs `xcodebuild`; flaky is failing")
-        #expect(found.dropFirst(4).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys or SpoonjoyShoppingUITests whole")
-        #expect(found.dropFirst(8).first?.message == "a shell loop re-runs `scripts/run-journeys.sh`; flaky is failing")
+        #expect(found.first?.message == "`&&` after a test command stops its failure from failing the step")
+        #expect(found.dropFirst(1).first?.message == "a shell loop re-runs `xcodebuild`; flaky is failing")
+        #expect(found.dropFirst(5).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys or SpoonjoyShoppingUITests whole")
+        #expect(found.dropFirst(9).first?.message == "a shell loop re-runs `scripts/run-journeys.sh`; flaky is failing")
     }
 
     @Test("retries hidden in conditions, subshells and bash -c, soft failures and set +e are reported (round-2 probes)")
@@ -348,13 +349,57 @@ struct JourneyHouseRulesTests {
               - run: xcodebuild test -only-testing:SpoonjoyJourneys; echo done
         """
         let found = JourneyHouseRules.check(fileName: "journeys.yml", source: workflow, kind: .workflow)
-        #expect(found.map(\.line) == [5, 8, 10, 13, 14, 15, 17, 19])
+        // Lines 6, 8 and 11 also swallow a failure (`if` condition, `&&`); the loops around them are reported too.
+        #expect(found.map(\.line) == [5, 6, 8, 8, 10, 11, 13, 14, 15, 17, 19])
         #expect(found.map(\.rule) == [
-            .noRetryConfig, .noRetryConfig, .noRetryConfig,
+            .noRetryConfig, .noSkippedJourneys, .noSkippedJourneys, .noRetryConfig, .noRetryConfig, .noSkippedJourneys,
             .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys
         ])
-        #expect(found.dropFirst(3).first?.message == "`||` on a line that runs tests hides their failure")
-        #expect(found.dropFirst(6).first?.message == "`set +e` lets a failing journey command pass")
+        #expect(found.dropFirst(6).first?.message == "`||` on a line that runs tests hides their failure")
+        #expect(found.dropFirst(9).first?.message == "`set +e` lets a failing journey command pass")
+    }
+
+    @Test("`if !` and `if` conditions, `&&` after a test command and `xargs` re-runs are reported (round-3 probes)")
+    func conditionAndListSoftFailureProbes() {
+        let workflow = """
+        jobs:
+          j:
+            steps:
+              - run: |
+                  if ! xcodebuild test-without-building -only-testing:SpoonjoyJourneys; then echo "::warning::flaky"; fi
+                  xcodebuild test-without-building 2>&1 | tee log && echo done
+                  seq 2 | xargs -I{} xcodebuild test-without-building
+                  if scripts/run-journeys.sh; then echo ok; else echo "flaky"; fi
+                  ! bash scripts/run-journeys.sh
+                  echo start; elif ( xcodebuild test ); then :
+                  echo 1 2 | xargs -n1 bash -c 'scripts/run-journeys.sh'
+        """
+        let found = JourneyHouseRules.check(fileName: "journeys.yml", source: workflow, kind: .workflow)
+        #expect(found.map(\.line) == [5, 6, 7, 8, 9, 10, 11])
+        #expect(found.map(\.rule) == [
+            .noSkippedJourneys, .noSkippedJourneys, .noRetryConfig, .noSkippedJourneys, .noSkippedJourneys,
+            .noSkippedJourneys, .noRetryConfig
+        ])
+        #expect(found.first?.message == "a test command used as an `if` or `!` condition cannot fail the step")
+        #expect(found.dropFirst(1).first?.message == "`&&` after a test command stops its failure from failing the step")
+        #expect(found.dropFirst(2).first?.message == "`xargs` re-runs `xcodebuild`; flaky is failing")
+        #expect(found.last?.message == "`xargs` re-runs `scripts/run-journeys.sh`; flaky is failing")
+    }
+
+    @Test("ordinary conditions, `&&` lists and xargs that do not run tests are accepted")
+    func ordinaryConditionsAndListsAreAccepted() {
+        let script = #"""
+        if [[ -d "$path" && "$path" == *.xcresult ]]; then echo bundle; fi
+        elif [ -f "$file" ]; then :
+        if test -n "$x"; then :; fi
+        if ! grep -q needle "$file"; then fail "missing"; fi
+        !
+        if
+        [[ -n "$out" ]] && mkdir -p "$out" && xcodebuild build-for-testing
+        cd "$root" && scripts/journey-qa-accounts.sh create --count 2
+        find . -name '*.log' | xargs rm -f
+        """#
+        #expect(JourneyHouseRules.check(fileName: "scripts/run.sh", source: script, kind: .workflow).isEmpty)
     }
 
     @Test("ordinary workflow and script shell is not mistaken for a retry or skip")
