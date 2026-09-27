@@ -119,7 +119,7 @@ jobs:
           ruby scripts/check-search-capture-settings-surfaces.rb
           ruby scripts/check-launch-screenshot-contract.rb
       - name: Check journey house rules
-        run: swift run -Xswiftc -warnings-as-errors SpoonjoyJourneyRules Apps/Spoonjoy/Journeys .github/workflows/journeys.yml
+        run: swift run -Xswiftc -warnings-as-errors SpoonjoyJourneyRules Apps/Spoonjoy/Journeys .github/workflows/journeys.yml scripts/journey-qa-accounts.sh
       - name: Generate AASA validation or blocker artifact
         run: ruby scripts/validate-aasa.rb --artifact-root "$RUNNER_TEMP/aasa"
       - name: Run native scenario verifier when present

@@ -10,6 +10,7 @@ struct JourneyHouseRulesTests {
         #expect(JourneyHouseRules.kind(forRelativePath: "Support/JourneyApp.swift") == .support)
         #expect(JourneyHouseRules.kind(forRelativePath: "journeys.yml") == .workflow)
         #expect(JourneyHouseRules.kind(forRelativePath: "native.yaml") == .workflow)
+        #expect(JourneyHouseRules.kind(forRelativePath: "journey-qa-accounts.sh") == .workflow)
         #expect(JourneyHouseRules.kind(forRelativePath: "README.md") == nil)
         #expect(JourneyHouseRules.kind(forRelativePath: "Support") == nil)
     }
@@ -230,7 +231,7 @@ struct JourneyHouseRulesTests {
         #expect(violations(present).isEmpty)
 
         let support = "func testLooksLikeATest() {}"
-        #expect(JourneyHouseRules.check(fileName: "Support/A.swift", source: support, kind: .support).isEmpty)
+        #expect(JourneyHouseRules.check(fileName: "Support/A.swift", source: support, kind: .support).map(\.rule) == [.noSkippedJourneys])
     }
 
     @Test("raw string queries are reported in journeys only")
@@ -279,6 +280,136 @@ struct JourneyHouseRulesTests {
         let swiftViolations = JourneyHouseRules.check(fileName: "Support/A.swift", source: swift, kind: .support)
         #expect(swiftViolations.map(\.line) == [2, 3, 3])
         #expect(swiftViolations.allSatisfy { $0.rule == .noRetryConfig })
+    }
+
+    @Test("workflow retries, soft failures and partial test selection are reported (reviewer probes)")
+    func workflowRetryAndSkipProbes() {
+        let workflow = """
+        jobs:
+          j:
+            steps:
+              - run: |
+                  for attempt in 1 2 3; do xcodebuild test-without-building -only-testing:SpoonjoyJourneys && break; done
+              - run: xcodebuild test-without-building || xcodebuild test-without-building
+              - name: soft
+                continue-on-error: true
+                run: xcodebuild test -skip-testing:SpoonjoyJourneys/SignInJourney
+              - run: xcodebuild test -only-testing:SpoonjoyJourneys/SignInJourney
+              - uses: nick-fields/retry@0000000000000000000000000000000000000000
+                with:
+                  max_attempts: 3
+              - run: retry 3 scripts/run-journeys.sh
+              - run: |
+                  until scripts/run-journeys.sh; do
+                    sleep 5
+                  done
+              - run: scripts/run-journeys.sh || scripts/run-journeys.sh
+              - run: xcodebuild test -skip-test-configuration Slow
+              - run: |
+                  while ! bash scripts/run.sh; do
+                    sleep 1
+                  done
+              - continue-on-error: ${{ true }}
+        """
+        let found = JourneyHouseRules.check(fileName: "journeys.yml", source: workflow, kind: .workflow)
+        #expect(found.map(\.line) == [5, 6, 8, 9, 10, 11, 13, 14, 16, 19, 20, 22, 25])
+        #expect(found.map(\.rule) == [
+            .noRetryConfig, .noRetryConfig, .noSkippedJourneys, .noSkippedJourneys, .noSkippedJourneys,
+            .noRetryConfig, .noRetryConfig, .noRetryConfig, .noRetryConfig, .noRetryConfig,
+            .noSkippedJourneys, .noRetryConfig, .noSkippedJourneys
+        ])
+        #expect(found.first?.message == "a shell loop re-runs `xcodebuild`; flaky is failing")
+        #expect(found.dropFirst(4).first?.message == "`-only-testing:SpoonjoyJourneys/SignInJourney` runs part of a target; select SpoonjoyJourneys or SpoonjoyShoppingUITests whole")
+        #expect(found.dropFirst(8).first?.message == "a shell loop re-runs `scripts/run-journeys.sh`; flaky is failing")
+    }
+
+    @Test("ordinary workflow and script shell is not mistaken for a retry or skip")
+    func cleanShellIsAccepted() {
+        let workflow = #"""
+        jobs:
+          journeys:
+            steps:
+              - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+                continue-on-error: false
+              - run: |
+                  set -euo pipefail
+                  printf '%s\n' "$settings" | grep -Eq 'DEBUG( |$)' \
+                    || { echo "::error::no DEBUG; stop"; exit 1; }
+                  xcodebuild build-for-testing -destination "$d" -only-testing:SpoonjoyJourneys \
+                    -only-testing:"SpoonjoyShoppingUITests" CODE_SIGNING_ALLOWED=NO
+                  [[ -n "$a" ]] || [[ -n "$b" ]] || fail "missing"
+                  n="${#items[@]}" # a comment mentioning xcodebuild || xcodebuild
+                  for account in 1 2; do
+                    echo "Created journey account $account"
+                    rotate_account "$account" || failures=$((failures + 1))
+                  done
+                  while IFS= read -r test_id; do
+                    xcrun xcresulttool get test-results activities --test-id "$test_id"
+                  done <<< "$ids"
+                  scripts/journey-qa-accounts.sh rotate --base-url "$QA"
+        """#
+        #expect(JourneyHouseRules.check(fileName: "journeys.yml", source: workflow, kind: .workflow).isEmpty)
+    }
+
+    @Test("a loop inside a script that re-runs a journey script is reported once")
+    func scriptLoopReportedOnce() {
+        let script = "for ((n = 1; n <= 3; n++)); do\n  echo try\n  bash scripts/journeys.sh\n  xcodebuild test\ndone\ndone\n"
+        let found = JourneyHouseRules.check(fileName: "scripts/run.sh", source: script, kind: .workflow)
+        #expect(found.map(\.line) == [1])
+        #expect(found.first?.message == "a shell loop re-runs `scripts/journeys.sh`; flaky is failing")
+    }
+
+    @Test("journey actions inside iteration closures are reported, qualified or not (reviewer probes)")
+    func journeyActionsInIterationClosures() {
+        let journey = """
+        func testA() {
+            (1...3).forEach { _ in journey.signIn(as: "a", password: "b") }
+            ids.map { app.buttons[$0] }
+            ids.forEach { id in relaunch() }
+            verifyAfterRelaunch(journey) {}
+        }
+        """
+        let found = violations(journey)
+        #expect(found.map(\.line) == [2, 2, 3, 4])
+        #expect(found.allSatisfy { $0.rule == .noTapInIterationClosure })
+
+        let support = "extension JourneyApp {\n    func tapAll(_ ids: [String]) {\n        ids.forEach { tap($0) }\n        ids.map { typeText($0) }\n        headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }\n    }\n}\n"
+        let supportFound = JourneyHouseRules.check(fileName: "Support/Helpers.swift", source: support, kind: .support)
+        #expect(supportFound.map(\.line) == [3, 4])
+        #expect(supportFound.first?.message == "`tap(` inside an iteration closure; drive each journey step explicitly")
+    }
+
+    @Test("ternary, catch and optional-try assertions are conditional; a conditional relaunch check does not count")
+    func conditionalAssertionEdges() {
+        let journey = """
+        func testA() {
+            ready ? XCTAssertTrue(a) : XCTFail("no")
+            do {
+                try start()
+            } catch {
+                XCTAssertTrue(false)
+            }
+            let value = try? XCTUnwrap(optional)
+            if false {
+                verifyAfterRelaunch(journey) {}
+            }
+        }
+        """
+        let found = violations(journey)
+        #expect(found.map(\.line) == [2, 2, 6, 8, 1])
+        #expect(found.last?.rule == .mutationNeedsRelaunchCheck)
+    }
+
+    @Test("journeys subclass JourneyTestCase and test classes do not hide in Support")
+    func testClassPlacement() {
+        let journey = "final class RawJourney: XCTestCase {\n    func testA() { verifyAfterRelaunch(journey) {} }\n}\nclass Plain {}\nclass Generic<T>: XCTestCase {}\n"
+        #expect(violations(journey).map(\.line) == [1])
+        #expect(violations(journey).first?.message == "`RawJourney` subclasses XCTestCase; journeys subclass JourneyTestCase")
+
+        let support = "class JourneyTestCase: XCTestCase {}\nclass Hidden: JourneyTestCase {}\nclass Other: XCTestCase {}\nclass Helper: NSObject {}\nlet kind = type.class\n"
+        let found = JourneyHouseRules.check(fileName: "Support/A.swift", source: support, kind: .support)
+        #expect(found.map(\.line) == [2, 3])
+        #expect(found.first?.message == "test class `Hidden` in Support/ escapes the journey rules")
     }
 
     @Test("rule identifiers are stable")

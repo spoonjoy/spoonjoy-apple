@@ -52,6 +52,13 @@ public enum JourneyHouseRules {
         "swipeUp", "swipeDown", "swipeLeft", "swipeRight",
         "adjust", "pinch", "rotate", "click"
     ]
+    /// Calls that drive the app, whether written as `.tap(` or through a journey helper such as `signIn(`.
+    static let journeyActions: Set<String> = interactionMethods.union([
+        "signIn", "signOut", "openSettings", "closeSettings", "relaunch", "launchFresh",
+        "launch", "terminate", "activate", "pastePassword", "assertQAEnvironment"
+    ])
+    /// Receivers whose use inside an iteration closure means the closure is driving the app.
+    static let journeyReceivers: Set<String> = ["journey", "app", "XCUIApplication"]
     static let iterationMethods: Set<String> = [
         "forEach", "map", "flatMap", "compactMap", "filter", "reduce", "first", "contains", "allSatisfy"
     ]
@@ -61,8 +68,10 @@ public enum JourneyHouseRules {
         "return", "in", "case", "where", "try", "await", "throw", "is", "as", "if", "guard", "while", "switch", "else"
     ]
 
+    /// `.yml`/`.yaml` workflows and `.sh` scripts are checked as shell; `.swift` under `Support/` is support
+    /// code and every other `.swift` file is a journey.
     public static func kind(forRelativePath path: String) -> JourneyFileKind? {
-        if path.hasSuffix(".yml") || path.hasSuffix(".yaml") {
+        if path.hasSuffix(".yml") || path.hasSuffix(".yaml") || path.hasSuffix(".sh") {
             return .workflow
         }
         guard path.hasSuffix(".swift") else {
@@ -74,7 +83,7 @@ public enum JourneyHouseRules {
     public static func check(fileName: String, source: String, kind: JourneyFileKind) -> [JourneyRuleViolation] {
         switch kind {
         case .workflow:
-            checkWorkflow(fileName: fileName, source: source)
+            JourneyShellRuleScanner(fileName: fileName, source: source).scan()
         case .journey, .support:
             JourneySwiftRuleScanner(
                 fileName: fileName,
@@ -83,27 +92,10 @@ public enum JourneyHouseRules {
             ).scan()
         }
     }
-
-    private static func checkWorkflow(fileName: String, source: String) -> [JourneyRuleViolation] {
-        let lines = source.split(separator: "\n", omittingEmptySubsequences: false)
-        return lines.enumerated().flatMap { index, line -> [JourneyRuleViolation] in
-            guard !line.trimmingCharacters(in: .whitespaces).hasPrefix("#") else {
-                return []
-            }
-            return retryWorkflowFlags.filter { line.contains($0) }.map { flag in
-                JourneyRuleViolation(
-                    file: fileName,
-                    line: index + 1,
-                    rule: .noRetryConfig,
-                    message: "`\(flag)` retries or repeats tests; flaky is failing"
-                )
-            }
-        }
-    }
 }
 
 public enum JourneyHouseRulesCommand {
-    public static let usage = "usage: SpoonjoyJourneyRules <journeys directory> [<workflow file> ...]"
+    public static let usage = "usage: SpoonjoyJourneyRules <journeys directory> [<workflow or script file> ...]"
 
     /// Checks every file under the journeys directory plus the named workflow files.
     /// Returns 0 when everything is clean and 1 for violations, usage errors or IO errors.
@@ -400,8 +392,10 @@ struct JourneySwiftRuleScanner {
             }
             report(token, .noLoops, "`\(name)` loop; drive each journey step explicitly")
             pending = (.loop(name), parenDepth)
-        } else if ["if", "guard", "switch", "else"].contains(name) && isKeywordUse {
+        } else if ["if", "guard", "switch", "else", "catch"].contains(name) && isKeywordUse {
             pending = (.conditional, parenDepth)
+        } else if name == "class" && previous != "." {
+            checkClassDeclaration(token, at: index)
         } else if name == "func" {
             visitFunctionDeclaration(token, at: index)
         } else if JourneyHouseRules.retrySwiftIdentifiers.contains(name) {
@@ -413,13 +407,13 @@ struct JourneySwiftRuleScanner {
         } else if name == "verifyAfterRelaunch" {
             markRelaunchCheck()
         } else if isJourney && isAssertion(name, next: next) {
-            if stack.contains(where: { $0.block == .conditional }) {
+            if stack.contains(where: { $0.block == .conditional }) || previous == "?" || previous == ":" {
                 report(token, .noConditionalAssertion, "`\(name)` inside a conditional branch; assert unconditionally")
             }
-        } else if previous == "." && next == "(" && JourneyHouseRules.interactionMethods.contains(name) {
-            if stack.contains(where: { $0.block == .iterationClosure }) {
-                report(token, .noTapInIterationClosure, "`.\(name)(` inside an iteration closure; interact with each element explicitly")
-            }
+        } else if next == "(" && JourneyHouseRules.journeyActions.contains(name) && isInsideIterationClosure {
+            report(token, .noTapInIterationClosure, "`\(name)(` inside an iteration closure; drive each journey step explicitly")
+        } else if previous != "." && JourneyHouseRules.journeyReceivers.contains(name) && isInsideIterationClosure {
+            report(token, .noTapInIterationClosure, "`\(name)` used inside an iteration closure; drive each journey step explicitly")
         } else if previous == "." && (next == "{" || next == "(") && JourneyHouseRules.iterationMethods.contains(name) {
             pendingIteration = true
         } else if isJourney && previous == "." && ["element", "copy"].contains(name) && next == "(" && tokens.indices.contains(index + 2) && tokens[index + 2].kind == .string {
@@ -429,8 +423,28 @@ struct JourneySwiftRuleScanner {
         }
     }
 
+    private var isInsideIterationClosure: Bool {
+        stack.contains { $0.block == .iterationClosure }
+    }
+
+    /// Journeys must subclass JourneyTestCase (it stops at the first failure and sets the time limit), and
+    /// test classes must not hide under Support/, where the journey-only rules do not apply.
+    private mutating func checkClassDeclaration(_ token: JourneyToken, at index: Int) {
+        guard text(at: index + 2) == ":", let name = text(at: index + 1), let superclass = text(at: index + 3) else {
+            return
+        }
+        if isJourney && superclass == "XCTestCase" {
+            report(token, .noSkippedJourneys, "`\(name)` subclasses XCTestCase; journeys subclass JourneyTestCase")
+        } else if !isJourney && ["XCTestCase", "JourneyTestCase"].contains(superclass) && name != "JourneyTestCase" {
+            report(token, .noSkippedJourneys, "test class `\(name)` in Support/ escapes the journey rules")
+        }
+    }
+
     private mutating func visitFunctionDeclaration(_ token: JourneyToken, at index: Int) {
         let name = text(at: index + 1) ?? ""
+        if !isJourney && name.hasPrefix("test") {
+            report(token, .noSkippedJourneys, "`\(name)` in Support/ escapes the journey rules")
+        }
         guard name.hasPrefix("test") else {
             pending = (.other, parenDepth)
             let modifiers = tokens[..<index].filter { $0.line == token.line }.map(\.text)
@@ -447,8 +461,10 @@ struct JourneySwiftRuleScanner {
             (name.hasPrefix("assert") && next == "(")
     }
 
+    /// Counts only an unconditional call: `if false { verifyAfterRelaunch … }` proves nothing.
     private mutating func markRelaunchCheck() {
-        if let index = stack.lastIndex(where: { if case .testFunction = $0.block { true } else { false } }) {
+        if let index = stack.lastIndex(where: { if case .testFunction = $0.block { true } else { false } }),
+           !stack[index...].contains(where: { $0.block == .conditional }) {
             stack[index].callsRelaunchCheck = true
         }
     }
