@@ -1824,16 +1824,9 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
     /// builds that still stored it on each step replay without it.
     private func recipeCreateRequestBody() -> [String: Any] {
         var body = requestBody(includeClientMutation: true, excluding: [])
-        guard values["steps"] != nil else {
-            return body
+        body["steps"] = (body["steps"] as? [Any])?.map { step in
+            (step as? [String: Any])?.filter { $0.key != "outputStepNums" } ?? step
         }
-        body["steps"] = APIRequestSupport.jsonObject(from: .array(stepsValue("steps").map { step in
-            guard case .object(var object) = step else {
-                return step
-            }
-            object.removeValue(forKey: "outputStepNums")
-            return .object(object)
-        }))
         return body
     }
 
