@@ -1305,7 +1305,12 @@ struct PlatformNavigationView: View {
             configuration: contentState.configuration,
             availableRecipes: contentState.recipes.map(RecipeSummary.init(recipe:))
         )
-        return FallbackCookbookSurfaceRepository(primary: liveRepository, fallback: snapshotRepository)
+        // The shelf lists only the chef's own cookbooks from the account sync; the live list endpoint
+        // returns every cookbook on Spoonjoy. A single cookbook still opens live, with the cache as fallback.
+        return OwnCookbookSurfaceRepository(
+            ownCookbooks: snapshotRepository,
+            detail: FallbackCookbookSurfaceRepository(primary: liveRepository, fallback: snapshotRepository)
+        )
     }
 
     private var cookbookSurfaceViewModel: CookbookSurfaceViewModel {

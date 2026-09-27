@@ -56,6 +56,11 @@ struct CookbooksView: View {
                 )
             )
         }
+        .onChange(of: viewModel.list.rows) { _, _ in
+            // The shelf follows the chef's synced cookbooks: after a create, delete or sync the app
+            // passes a new view model, and its rows replace the ones this view loaded earlier.
+            list = viewModel.list
+        }
         .sheet(isPresented: $isPresentingCreate) {
             CookbookCreateSheet(
                 title: $newCookbookTitle,
@@ -337,7 +342,10 @@ struct CookbooksView: View {
                 return
             }
             let queuedMutation = try await performCookbookAction(plan)
-            if let createdCookbook = plan.updatedCookbook {
+            // A queued create shows its local cookbook right away. A create that reached the server
+            // refreshed the synced cookbooks, which arrive through the list's onChange; adding the
+            // local copy as well would show the cookbook twice.
+            if let queuedMutation, let createdCookbook = plan.updatedCookbook {
                 list = list.applyingCreatedCookbook(createdCookbook, queuedMutation: queuedMutation)
             }
             if let successRoute = plan.successRoute {
@@ -346,9 +354,6 @@ struct CookbooksView: View {
             isPresentingCreate = false
             newCookbookTitle = ""
             createErrorMessage = nil
-            if queuedMutation == nil {
-                await loadCookbooks()
-            }
         } catch {
             createErrorMessage = "Cookbook action failed."
         }

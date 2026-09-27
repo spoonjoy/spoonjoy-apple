@@ -787,6 +787,66 @@ struct CookbookSurfaceParityTests {
         #expect(fallbackShare.sharePayload.publicURL?.absoluteString == "https://spoonjoy.app/cookbooks/cookbook_offsite")
     }
 
+    @Test("the Cookbooks shelf lists only the chef's own synced cookbooks, never the site-wide list")
+    func cookbooksShelfListsOnlyOwnSyncedCookbooks() async throws {
+        let ownCookbook = try Self.cookbook()
+        let otherChefsCookbook = Cookbook(
+            id: "cookbook_other_chef",
+            title: "Soups",
+            chef: ChefSummary(id: "chef_other", username: "other_chef"),
+            recipeCount: 0,
+            cover: ownCookbook.cover,
+            href: "/cookbooks/cookbook_other_chef",
+            canonicalURL: try #require(URL(string: "https://spoonjoy.app/cookbooks/cookbook_other_chef")),
+            attribution: ownCookbook.attribution,
+            createdAt: ownCookbook.createdAt,
+            updatedAt: ownCookbook.updatedAt,
+            recipes: []
+        )
+        // GET /api/v1/cookbooks answers with every cookbook on Spoonjoy.
+        let transport = RecordingCookbookAPITransport(
+            listEnvelope: APIEnvelope(
+                requestID: "req_site_wide_cookbooks",
+                data: CookbookListData(
+                    query: nil,
+                    limit: 20,
+                    cursor: nil,
+                    nextCursor: nil,
+                    hasMore: false,
+                    cookbooks: [CookbookSummary(cookbook: otherChefsCookbook), CookbookSummary(cookbook: ownCookbook)]
+                )
+            ),
+            detailEnvelope: APIEnvelope(requestID: "req_live_cookbook_detail", data: CookbookDetailData(cookbook: ownCookbook))
+        )
+        let ownCookbooks = SnapshotCookbookSurfaceRepository(
+            page: CookbookSurfacePage(
+                query: nil,
+                limit: 20,
+                cursor: nil,
+                nextCursor: nil,
+                hasMore: false,
+                rows: [CookbookSummary(cookbook: ownCookbook)],
+                source: .live(requestID: "native-shell", validatedAt: Self.now)
+            ),
+            details: [CookbookSurfaceDetailResult(cookbook: ownCookbook, source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt), availableRecipes: [])]
+        )
+        let repository = OwnCookbookSurfaceRepository(
+            ownCookbooks: ownCookbooks,
+            detail: FallbackCookbookSurfaceRepository(
+                primary: LiveCookbookSurfaceRepository(transport: transport, configuration: Self.configuration, now: { Self.now }),
+                fallback: ownCookbooks
+            )
+        )
+
+        let page = try await repository.listCookbooks(request: CookbookSurfaceListRequest(query: nil, limit: 20))
+        #expect(page.rows.map(\.id) == [ownCookbook.id])
+        #expect(transport.requests.isEmpty)
+
+        let detail = try await repository.cookbookDetail(id: ownCookbook.id)
+        #expect(detail.source == .live(requestID: "req_live_cookbook_detail", validatedAt: Self.now))
+        #expect(transport.requests.map(\.url.path) == ["/api/v1/cookbooks/\(ownCookbook.id)"])
+    }
+
     private static func cookbook() throws -> Cookbook {
         try CookbookFixtureCatalog.decodeFromBundle().cookbooks[0]
     }
