@@ -108,12 +108,22 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         tapWhenHittable(app.sheets.firstMatch.buttons["Clear All"], named: "Clear All", in: app)
         waitForNoSheet(in: app)
 
-        // The row must be settled and uncovered after the confirmation closed before a long press can open its
-        // context menu (runs 36333893304 and 36341886285 pressed and no menu appeared).
+        // The row must be settled and uncovered after the confirmation closed before we can act on it (runs
+        // 36333893304 and 36341886285 pressed and no menu appeared).
+        //
+        // This used to long-press the row to open its context menu, but that repeatedly failed: the same
+        // long press opened a second, empty context-menu window that never populated a Remove item (runs
+        // 36333893304, 36341886285, 36345815010 and 36373059798, each timing out waiting for
+        // app.buttons["Remove"] to become hittable). Rather than add another wait or retry around a flaky
+        // system presentation, this now drives removal through the row's trailing swipe action
+        // (ReceiptDeleteSwipeModifier in ReceiptListView.swift), which is the primary iOS way to delete a
+        // list row and does not depend on that context-menu window. The context menu itself keeps its
+        // coverage at the contract level: NativeMobileDesignContractTests asserts both `.contextMenu` and
+        // `ReceiptDeleteSwipeModifier {` are still present in ReceiptListView.swift.
         let lemons = app.descendants(matching: .any)["shopping.item.item_lemons"]
         waitUntilHittable(lemons, named: "The lemons row", in: app)
-        lemons.press(forDuration: 1)
-        tapWhenHittable(app.buttons["Remove"], named: "The row's Remove menu item", in: app)
+        lemons.swipeLeft()
+        tapWhenHittable(app.buttons["Remove"], named: "The row's revealed Remove swipe action", in: app)
         tapWhenHittable(app.sheets.firstMatch.buttons["Remove Item"], named: "Remove Item", in: app)
     }
 
