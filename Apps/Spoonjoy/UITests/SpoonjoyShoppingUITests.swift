@@ -5,7 +5,10 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     /// The most recently launched app in the current test, terminated in `tearDownWithError` so one test's app
     /// never leaks into the next test's `launch()` (evidence: CI run 36349596485, where the platform-fixture
     /// test's app was still running when the next test launched and XCTest failed waiting 60s to terminate it).
-    private var launchedApp: XCUIApplication?
+    /// `tearDownWithError` overrides a nonisolated XCTestCase requirement, so it runs outside this class's
+    /// @MainActor inference; `nonisolated(unsafe)` is safe because XCTest runs setUp/the test/tearDown
+    /// serially on this one instance, never concurrently.
+    private nonisolated(unsafe) var launchedApp: XCUIApplication?
 
     override func setUpWithError() throws {
         continueAfterFailure = false
