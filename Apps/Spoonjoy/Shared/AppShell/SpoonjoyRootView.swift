@@ -44,7 +44,13 @@ struct SpoonjoyRootView: View {
         Group {
             if Self.truthy("SPOONJOY_SHOPPING_UI_TEST_PLATFORM", in: ProcessInfo.processInfo.environment),
                let shoppingList = Self.shoppingUITestState {
-                platformNavigation(contentState: .debugShoppingFixture(shoppingList))
+                // PlatformNavigationView runs its own foreground sync trigger as soon as it appears; a hermetic
+                // coordinator keeps that a no-op instead of reaching the real sync backend (see the .task guard
+                // above and CI run 36349596485).
+                platformNavigation(
+                    contentState: .debugShoppingFixture(shoppingList),
+                    syncTriggerCoordinator: Self.hermeticShoppingUITestSyncTriggerCoordinator()
+                )
             } else {
                 NavigationStack {
                     ShoppingListView(
@@ -80,6 +86,13 @@ struct SpoonjoyRootView: View {
     private enum ShoppingUITestError: Error {
         case forcedFailure
     }
+
+    private static func hermeticShoppingUITestSyncTriggerCoordinator() -> NativeSyncTriggerCoordinator {
+        NativeSyncTriggerCoordinator(
+            runner: HermeticShoppingUITestSyncRunner(),
+            configuration: .spoonjoyProduction
+        )
+    }
 #endif
 
     @ViewBuilder
@@ -96,6 +109,13 @@ struct SpoonjoyRootView: View {
 #endif
         }
             .task {
+#if DEBUG
+                // The shopping UI test fixture supplies its own fabricated content state and must stay
+                // hermetic: bootstrapping the live store here would restore an auth session and, once
+                // rendered through platformNavigation, reach the real sync backend (evidence: CI run
+                // 36349596485 logged native_sync_bootstrap_started while the fixture was on screen).
+                guard !Self.shoppingUITestFixtureEnabled else { return }
+#endif
                 await liveStore.bootstrap()
                 applyRestoredRouteIfNeeded()
             }
@@ -202,7 +222,10 @@ struct SpoonjoyRootView: View {
         }
     }
 
-    private func platformNavigation(contentState: NativeShellContentState) -> some View {
+    private func platformNavigation(
+        contentState: NativeShellContentState,
+        syncTriggerCoordinator overrideSyncTriggerCoordinator: NativeSyncTriggerCoordinator? = nil
+    ) -> some View {
         let visibleContentState = Self.screenshotAugmentedContentState(contentState)
         return PlatformNavigationView(
             navigation: $navigation,
@@ -266,7 +289,7 @@ struct SpoonjoyRootView: View {
             searchSurfaceRepository: { context in
                 liveStore.searchSurfaceRepository(context: context)
             },
-            syncTriggerCoordinator: liveStore.syncTriggerCoordinator,
+            syncTriggerCoordinator: overrideSyncTriggerCoordinator ?? liveStore.syncTriggerCoordinator,
             purgeShoppingEntityIndexes: { request in
                 await liveStore.purgeShoppingEntityIdentifiers(
                     request.identifiers,
@@ -978,6 +1001,27 @@ private actor SpoonjoyScreenshotValidationTokenVault: TokenVault {
 
     func clearSession() async throws {
         session = nil
+    }
+}
+
+/// Satisfies `NativeSyncTriggerRunning` without touching the network, cache, or keychain. Used only to back the
+/// shopping UI test platform fixture's `PlatformNavigationView`, whose own foreground-sync `.task` would otherwise
+/// call the real sync engine as soon as the fixture appears (evidence: CI run 36349596485 logged
+/// native_sync_bootstrap_started against scope_environment=preview:spoonjoy-v2-qa while the fixture was on screen).
+private struct HermeticShoppingUITestSyncRunner: NativeSyncTriggerRunning {
+    func bootstrapAndDrain(
+        configuration: APIClientConfiguration,
+        trigger: NativeCacheRevalidationTrigger,
+        scope: NativeSyncExecutionScope
+    ) async throws -> NativeSyncReport {
+        NativeSyncReport(
+            trigger: trigger,
+            bootstrapCursor: nil,
+            drainedClientMutationIDs: [],
+            conflicts: [],
+            pausedReason: nil,
+            retryAfterSeconds: nil
+        )
     }
 }
 #endif

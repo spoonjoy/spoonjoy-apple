@@ -2,8 +2,18 @@ import XCTest
 
 @MainActor
 final class SpoonjoyShoppingUITests: XCTestCase {
+    /// The most recently launched app in the current test, terminated in `tearDownWithError` so one test's app
+    /// never leaks into the next test's `launch()` (evidence: CI run 36349596485, where the platform-fixture
+    /// test's app was still running when the next test launched and XCTest failed waiting 60s to terminate it).
+    private var launchedApp: XCUIApplication?
+
     override func setUpWithError() throws {
         continueAfterFailure = false
+    }
+
+    override func tearDownWithError() throws {
+        launchedApp?.terminate()
+        launchedApp = nil
     }
 
     func testAccessibilityDynamicTypeAndResponsiveOrientationsKeepPrimaryControlsReachable() {
@@ -266,7 +276,10 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         mode: String = "all"
     ) -> XCUIApplication {
         let app = XCUIApplication()
-        // The fixture root still bootstraps the live store; keep that off production.
+        // The shopping UI test fixture is hermetic and never bootstraps the live store or reaches this URL
+        // (SpoonjoyRootView skips liveStore.bootstrap() and swaps in a no-op sync coordinator whenever the
+        // fixture is enabled). This is set only as defense in depth, so nothing that ever read
+        // SPOONJOY_API_BASE_URL ahead of that guard could reach production.
         app.launchEnvironment["SPOONJOY_API_BASE_URL"] = "https://spoonjoy-v2-qa.mendelow-studio.workers.dev"
         app.launchEnvironment["SPOONJOY_SHOPPING_UI_TEST_FIXTURE"] = "1"
         if !omitState {
@@ -293,6 +306,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
             "-AppleLocale", "en_US"
         ]
         app.launch()
+        launchedApp = app
         return app
     }
 
