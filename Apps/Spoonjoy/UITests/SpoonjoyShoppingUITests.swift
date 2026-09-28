@@ -2,21 +2,26 @@ import XCTest
 
 @MainActor
 final class SpoonjoyShoppingUITests: XCTestCase {
-    /// The most recently launched app in the current test, terminated in `tearDownWithError` so one test's app
-    /// never leaks into the next test's `launch()` (evidence: CI run 36349596485, where the platform-fixture
-    /// test's app was still running when the next test launched and XCTest failed waiting 60s to terminate it).
-    /// `tearDownWithError` overrides a nonisolated XCTestCase requirement, so it runs outside this class's
-    /// @MainActor inference; `nonisolated(unsafe)` is safe because XCTest runs setUp/the test/tearDown
-    /// serially on this one instance, never concurrently.
-    private nonisolated(unsafe) var launchedApp: XCUIApplication?
+    /// The most recently launched app in the current test, terminated in `tearDown` so one test's app never
+    /// leaks into the next test's `launch()` (evidence: CI run 36349596485, where the platform-fixture test's
+    /// app was still running when the next test launched and XCTest failed waiting 60s to terminate it).
+    private var launchedApp: XCUIApplication?
 
     override func setUpWithError() throws {
         continueAfterFailure = false
     }
 
-    override func tearDownWithError() throws {
-        launchedApp?.terminate()
-        launchedApp = nil
+    // The synchronous tearDownWithError() override is nonisolated (it matches a nonisolated XCTestCase
+    // requirement), so under Swift 6 it can't touch this class's @MainActor state or call
+    // XCUIApplication.terminate() (itself @MainActor) without an actual actor hop. Overriding the async
+    // variant instead lets `await MainActor.run` make that hop for real, rather than reaching for
+    // MainActor.assumeIsolated, whose synchronous "self capture" is flagged as a possible data race here.
+    override func tearDown() async throws {
+        try await super.tearDown()
+        await MainActor.run {
+            launchedApp?.terminate()
+            launchedApp = nil
+        }
     }
 
     func testAccessibilityDynamicTypeAndResponsiveOrientationsKeepPrimaryControlsReachable() {
