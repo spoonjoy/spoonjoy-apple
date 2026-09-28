@@ -191,9 +191,12 @@ struct PlatformNavigationView: View {
             .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
 #endif
-        }
-        .navigationDestination(for: AppRoute.self) { route in
-            destinationContent(for: route)
+            // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
+            // SwiftUI cannot associate it with any stack and logs "navigationDestination modifier only works
+            // inside a NavigationStack" at runtime (evidence: CI run 36349596485).
+            .navigationDestination(for: AppRoute.self) { route in
+                destinationContent(for: route)
+            }
         }
         .task(id: spotlightIndexIdentity) {
             await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
@@ -291,9 +294,12 @@ struct PlatformNavigationView: View {
                 .navigationBarTitleDisplayMode(.large)
                 .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
-        }
-        .navigationDestination(for: AppRoute.self) { route in
-            destinationContent(for: route)
+                // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
+                // SwiftUI cannot associate it with any stack and logs "navigationDestination modifier only works
+                // inside a NavigationStack" at runtime (evidence: CI run 36349596485).
+                .navigationDestination(for: AppRoute.self) { route in
+                    destinationContent(for: route)
+                }
         }
         .task(id: spotlightIndexIdentity) {
             await Self.indexSpotlightIfAvailable(payload: spotlightPayload)
