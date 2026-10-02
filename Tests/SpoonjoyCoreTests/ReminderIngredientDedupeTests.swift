@@ -352,6 +352,68 @@ struct ReminderSyncPlannerTests {
         #expect(firstAgain.isNoOp)
     }
 
+    private func sendAll(_ sends: [([ReminderIncomingIngredient], ReminderSource)]) -> [ReminderExisting] {
+        var list: [ReminderExisting] = []
+        for (ingredients, source) in sends {
+            list = apply(ReminderSyncPlanner.plan(incoming: ingredients, existing: list, source: source), to: list)
+        }
+        return list
+    }
+
+    @Test("recipe then shopping list does not count the same lemons twice")
+    func recipeThenShoppingList() {
+        let list = sendAll([([ingredient("lemons", 2)], recipe), ([ingredient("Lemon", 2)], .shoppingList)])
+        #expect(list.count == 1)
+        #expect(list[0].title == "lemons (2)")
+        #expect(list[0].notes == "2 · Carbonara [sj:recipe-1]\n2 · Shopping list [sj:shopping-list]")
+    }
+
+    @Test("shopping list then recipe does not count the same lemons twice")
+    func shoppingListThenRecipe() {
+        let list = sendAll([([ingredient("lemons", 2)], .shoppingList), ([ingredient("lemons", 2)], recipe)])
+        #expect(list.count == 1)
+        #expect(list[0].title == "lemons (2)")
+    }
+
+    @Test("a shopping list quantity larger than the recipe's wins")
+    func listLargerThanRecipe() {
+        let list = sendAll([([ingredient("lemons", 2)], recipe), ([ingredient("lemons", 5)], .shoppingList)])
+        #expect(list[0].title == "lemons (5)")
+    }
+
+    @Test("two different recipes plus the list use the larger of the list and the recipes' sum")
+    func twoRecipesAndList() {
+        let belowSum = sendAll([([ingredient("lemons", 2)], recipe), ([ingredient("lemons", 3)], otherRecipe), ([ingredient("lemons", 4)], .shoppingList)])
+        #expect(belowSum[0].title == "lemons (5)")
+        let aboveSum = sendAll([([ingredient("lemons", 2)], recipe), ([ingredient("lemons", 3)], otherRecipe), ([ingredient("lemons", 9)], .shoppingList)])
+        #expect(aboveSum[0].title == "lemons (9)")
+    }
+
+    @Test("different units stay separate under the max rule")
+    func unitsStaySeparate() {
+        let list = sendAll([
+            ([ingredient("flour", 2, "cups")], recipe),
+            ([ingredient("flour", 1, "cup")], otherRecipe),
+            ([ingredient("flour", 500, "g"), ingredient("flour", 1, "cup")], .shoppingList)
+        ])
+        #expect(list[0].title == "flour (500 g + 3 cups)")
+    }
+
+    @Test("a hand-typed quantity is added on top of the aggregate")
+    func typedQuantityStacks() {
+        let start = [existing("a", "Lemons (1)")]
+        var list = apply(ReminderSyncPlanner.plan(incoming: [ingredient("lemons", 2)], existing: start, source: recipe), to: start)
+        list = apply(ReminderSyncPlanner.plan(incoming: [ingredient("lemons", 2)], existing: list, source: .shoppingList), to: list)
+        #expect(list[0].title == "Lemons (3)")
+    }
+
+    @Test("resending either path after both were sent is a no-op")
+    func resendIsNoOp() {
+        let list = sendAll([([ingredient("lemons", 2)], recipe), ([ingredient("lemons", 2)], .shoppingList)])
+        #expect(ReminderSyncPlanner.plan(incoming: [ingredient("lemons", 2)], existing: list, source: recipe).isNoOp)
+        #expect(ReminderSyncPlanner.plan(incoming: [ingredient("lemons", 2)], existing: list, source: .shoppingList).isNoOp)
+    }
+
     @Test("re-sending a recipe with a changed quantity replaces its own share")
     func changedQuantityReplacesShare() {
         var list: [ReminderExisting] = []

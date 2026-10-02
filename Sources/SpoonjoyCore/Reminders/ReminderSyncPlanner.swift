@@ -272,8 +272,33 @@ public enum ReminderSyncPlanner {
         return (userLines + lines).joined(separator: "\n")
     }
 
+    /// The title total. Every source stays listed in the notes; only this total follows the rule below.
+    ///
+    /// The shopping list is an aggregate: Spoonjoy's shopping items carry no recipe provenance, so the list may
+    /// already include what a recipe share counted. The two must not stack. Per unit, the total is
+    /// `max(shopping-list share, sum of the recipe shares)`, plus the hand-typed `existing` share, which
+    /// never came from Spoonjoy. Over-counting is the failure to avoid; under-counting can only happen when
+    /// recipes and the list hold different amounts of the same food, and the notes still show every source.
     private static func title(name: String, shares: [Share]) -> String {
-        let total = combine(shares.flatMap(\.quantities)).map(\.displayText).joined(separator: " + ")
+        let typed = shares.filter { $0.source.id == ReminderSource.existingListEntry.id }
+        let list = shares.filter { $0.source.id == ReminderSource.shoppingList.id }
+        let recipes = shares.filter { $0.source.id != ReminderSource.existingListEntry.id && $0.source.id != ReminderSource.shoppingList.id }
+        let listTotal = combine(list.flatMap(\.quantities))
+        let recipeTotal = combine(recipes.flatMap(\.quantities))
+
+        var order: [String?] = []
+        var larger: [String?: Double] = [:]
+        for quantity in listTotal + recipeTotal {
+            guard let value = quantity.value else {
+                continue
+            }
+            if larger[quantity.unit] == nil {
+                order.append(quantity.unit)
+            }
+            larger[quantity.unit] = max(larger[quantity.unit] ?? 0, value)
+        }
+        let aggregate = order.map { ReminderQuantity(value: larger[$0], unit: $0) }
+        let total = combine(typed.flatMap(\.quantities) + aggregate).map(\.displayText).joined(separator: " + ")
         return total.isEmpty ? name : "\(name) (\(total))"
     }
 
