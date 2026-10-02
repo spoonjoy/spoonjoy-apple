@@ -59,6 +59,14 @@ struct CookTimerLiveActivityWiringTests {
         return try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
     }
 
+    @Test("the spread cook layout starts the same alarm-backed timer as the single page")
+    func spreadLayoutUsesTheSameTimer() throws {
+        let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
+        let spread = try #require(view.range(of: "private var cookSpreadStepPage"))
+        let body = view[spread.upperBound...].prefix(2_500)
+        #expect(body.contains("try await scheduleSystemTimer(timer, step: currentStep)"))
+    }
+
     @Test("leaving cook mode keeps the timer running and Next step reopens the recipe")
     func leavingKeepsTheTimer() throws {
         let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
