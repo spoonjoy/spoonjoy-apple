@@ -19,6 +19,12 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     override func tearDown() async throws {
         try await super.tearDown()
         await MainActor.run {
+            // Turn the device upright while the app is still in front. With no app open, an iPhone's
+            // SpringBoard stays portrait, so a later rotation request never gets the confirmation XCUITest
+            // waits for (run 37059261350: "Timed out waiting for confirmation of orientation change").
+            if launchedApp != nil && XCUIDevice.shared.orientation != .portrait {
+                XCUIDevice.shared.orientation = .portrait
+            }
             launchedApp?.terminate()
             launchedApp = nil
         }
@@ -302,7 +308,9 @@ final class SpoonjoyShoppingUITests: XCTestCase {
 
     /// Turns the simulator upright only when it is not upright already. Setting the orientation it already
     /// has still waits for SpringBoard to confirm a change, and on a simulator that has just booted that
-    /// confirmation can time out (run 36983006897 attempt 1, the first test of the run).
+    /// confirmation can time out (run 36983006897 attempt 1, the first test of the run). Tests also call
+    /// this again from `launchShopping`, once the app is in front, because a rotation requested while only
+    /// SpringBoard is showing can never be confirmed on an iPhone.
     private func ensurePortrait() {
         if XCUIDevice.shared.orientation != .portrait {
             XCUIDevice.shared.orientation = .portrait
@@ -361,6 +369,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
             "-AppleLocale", "en_US"
         ]
         app.launch()
+        ensurePortrait()
         launchedApp = app
         return app
     }
