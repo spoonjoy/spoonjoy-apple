@@ -380,7 +380,10 @@ struct PlatformNavigationView: View {
                 }
                 .tag(AppSection.shoppingList)
         }
-        .tint(KitchenTableTheme.action)
+        // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
+        // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the
+        // selected tab, matching the web dock's brass primary button.
+        .tint(KitchenTableTheme.brass)
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 
@@ -764,6 +767,8 @@ struct PlatformNavigationView: View {
                 .environment(\.spoonjoyCompactNavigation, true)
                 .safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)
         }
+        // Screens keep the charcoal action tint; only the tab bar below uses brass.
+        .tint(KitchenTableTheme.action)
         .background(KitchenTableTheme.bone)
     }
 
