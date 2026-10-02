@@ -226,6 +226,24 @@ final class JourneyApp {
         )
     }
 
+    /// Allows the Reminders permission prompt when the system shows it. A simulator that already granted
+    /// access shows no prompt, so the wait simply ends.
+    func allowRemindersAccessIfAsked() {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.alerts.buttons["Allow Full Access"]
+        if allow.waitForExistence(timeout: Self.interactionTimeout) {
+            allow.tap()
+        }
+    }
+
+    /// Keeps a screenshot of the current screen in the result bundle.
+    func attachScreenshot(named name: String, to testCase: XCTestCase) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        testCase.add(attachment)
+    }
+
     func tap(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
         waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear. Screen: \(screen)", file: file, line: line)
         element(id).tap()

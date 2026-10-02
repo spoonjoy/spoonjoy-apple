@@ -584,6 +584,25 @@ struct RecipeCookbookEntityTests {
         ).isEmpty)
     }
 
+    @Test("recipe ingredients for Reminders come from the cached recipe")
+    func reminderIngredientsComeFromTheCachedRecipe() throws {
+        let catalog = try Self.entityCatalog()
+        let result = try catalog.reminderIngredients(forRecipeID: "recipe_lemon_pantry_pasta")
+        #expect(!result.title.isEmpty)
+        #expect(!result.ingredients.isEmpty)
+        #expect(throws: RecipeCookbookEntityCatalogError.self) {
+            _ = try catalog.reminderIngredients(forRecipeID: "missing")
+        }
+        let wrongAccount = RecipeCookbookEntityCatalog(
+            syncSnapshot: try Self.syncSnapshot(),
+            currentAccountID: "account_other",
+            environment: NativeCacheEnvironment.production
+        )
+        #expect(throws: RecipeCookbookEntityCatalogError.self) {
+            _ = try wrongAccount.reminderIngredients(forRecipeID: "recipe_lemon_pantry_pasta")
+        }
+    }
+
     private static func entityCatalog() throws -> RecipeCookbookEntityCatalog {
         RecipeCookbookEntityCatalog(
             syncSnapshot: try syncSnapshot(),
