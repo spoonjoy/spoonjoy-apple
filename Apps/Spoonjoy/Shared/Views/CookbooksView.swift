@@ -45,6 +45,7 @@ struct CookbooksView: View {
                 cookbookIndexRows
             }
         }
+        .reloadsOnPull { await loadCookbooks() }
         .task {
             await loadCookbooks()
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(

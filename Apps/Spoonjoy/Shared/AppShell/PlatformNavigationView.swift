@@ -177,24 +177,29 @@ struct PlatformNavigationView: View {
             .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
             .task(id: contentState.environment.rawValue) {
-                if let report = try? await syncTriggerCoordinator.handle(.foreground) {
-                    for request in report.shoppingEntityPurgeRequests {
-                        await purgeShoppingEntityIndexesHandler(request)
-                    }
-                    for request in report.spoonEntityPurgeRequests {
-                        await purgeSpoonEntityIndexesHandler(request)
-                    }
-                    for request in report.captureDraftEntityPurgeRequests {
-                        await purgeCaptureDraftEntityIndexesHandler(request)
-                    }
-                    for request in report.chefProfileEntityPurgeRequests {
-                        await purgeChefProfileEntityIndexesHandler(request)
-                    }
-                    for request in report.recipeCookbookEntityPurgeRequests {
-                        await purgeRecipeCookbookEntityIndexesHandler(request)
-                    }
-                }
+                await runForegroundSync()
             }
+    }
+
+    /// Runs the foreground sync and purges any entity indexes it reports. Also backs pull-to-refresh.
+    @MainActor private func runForegroundSync() async {
+        if let report = try? await syncTriggerCoordinator.handle(.foreground) {
+            for request in report.shoppingEntityPurgeRequests {
+                await purgeShoppingEntityIndexesHandler(request)
+            }
+            for request in report.spoonEntityPurgeRequests {
+                await purgeSpoonEntityIndexesHandler(request)
+            }
+            for request in report.captureDraftEntityPurgeRequests {
+                await purgeCaptureDraftEntityIndexesHandler(request)
+            }
+            for request in report.chefProfileEntityPurgeRequests {
+                await purgeChefProfileEntityIndexesHandler(request)
+            }
+            for request in report.recipeCookbookEntityPurgeRequests {
+                await purgeRecipeCookbookEntityIndexesHandler(request)
+            }
+        }
     }
 
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
@@ -626,6 +631,7 @@ struct PlatformNavigationView: View {
             }
 
             destinationContent(for: route)
+                .shellRefreshable(for: route) { await runForegroundSync() }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(KitchenTableTheme.bone.ignoresSafeArea())
