@@ -36,6 +36,37 @@ struct NativeQuickWinsTests {
         ) == "Adapted from Nonna")
     }
 
+    @Test("blank text is skipped and a recipe exposes its display subtitle")
+    func blankTextAndRecipeSubtitle() {
+        #expect(RecipeDisplayCopy.subtitle(description: "   ", creditText: "", title: "T", chefUsername: "c") == nil)
+        #expect(RecipeDisplayCopy.subtitle(description: nil, creditText: "Some note on Spoonjoy", title: "T", chefUsername: "c") == "Some note on Spoonjoy")
+
+        func recipe(description: String?, credit: String) -> Recipe {
+            let url = URL(string: "https://spoonjoy.app/recipes/r1")!
+            return Recipe(
+                id: "r1",
+                title: "Lemon Pasta",
+                description: description,
+                servings: nil,
+                chef: ChefSummary(id: "c1", username: "ari"),
+                coverImageURL: nil,
+                coverProvenanceLabel: nil,
+                coverSourceType: nil,
+                coverVariant: nil,
+                href: "/recipes/r1",
+                canonicalURL: url,
+                attribution: RecipeAttribution(creditText: credit, canonicalURL: url, sourceURLRaw: nil, sourceHost: nil, sourceRecipe: nil),
+                createdAt: "2026-06-01T00:00:00.000Z",
+                updatedAt: "2026-06-01T00:10:00.000Z",
+                steps: [],
+                cookbooks: [],
+                recentSpoons: []
+            )
+        }
+        #expect(recipe(description: nil, credit: "Lemon Pasta by ari on Spoonjoy").displaySubtitle == nil)
+        #expect(recipe(description: "Zesty.", credit: "Lemon Pasta by ari on Spoonjoy").displaySubtitle == "Zesty.")
+    }
+
     @Test("the screen stays awake only while cook mode is visible and the app is active")
     func screenAwakePolicy() {
         #expect(CookModeScreenAwakePolicy.shouldKeepScreenAwake(isCookModeVisible: true, isAppActive: true))
