@@ -19,7 +19,7 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         if #available(iOS 26.0, *) {
-            CookModeSessionCenter.shared.liveActivityHost = CookTimerLiveActivityController()
+            CookModeSessionCenter.shared.timerHost = CookTimerAlarmHost()
         }
         return true
     }

@@ -144,12 +144,10 @@ struct CookModeView: View {
         .onDisappear {
             CookModeSessionCenter.shared.unregister()
         }
-        .onChange(of: progress) { _, _ in
-            CookModeSessionCenter.shared.liveActivityHost?.cookModeDidChange(viewModel)
-        }
         .cookModeStepAnnotation(viewModel.onScreenStep)
         .onChange(of: recipe.cookModeIdentityKey) { _, _ in
             normalizeProgressForCurrentRecipe()
+            registerCookModeSession()
         }
         .task(id: recipe.cookModeIdentityKey) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
@@ -635,13 +633,9 @@ struct CookModeView: View {
 
     @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> String {
         let scheduled = try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
-        let session = CookModeTimerSession.starting(recipe: recipe, step: step, durationSeconds: timer.durationSeconds, now: Date())
-        CookModeSessionCenter.shared.liveActivityHost?.timerDidStart(
-            session,
-            viewModel: viewModel,
-            deepLink: DeepLinkURLBuilder.url(for: .recipeDetail(id: recipe.id, presentation: .cook)),
-            alarmID: scheduled.alarmID
-        )
+        if let alarmID = scheduled.alarmID {
+            CookModeSessionCenter.shared.timerHost?.timerDidStart(alarmID: alarmID)
+        }
         return scheduled.message
     }
 
@@ -1016,8 +1010,10 @@ private enum CookModeAlarmKitTimerScheduler {
             recipeID: recipe.id,
             recipeTitle: recipe.title,
             stepID: step.id,
+            stepNumber: step.stepNum,
             stepTitle: step.stepTitle ?? "Step \(step.stepNum)",
-            durationMinutes: timer.durationMinutes
+            durationMinutes: timer.durationMinutes,
+            deepLink: DeepLinkURLBuilder.url(for: .recipeDetail(id: recipe.id, presentation: .cook)).absoluteString
         )
         let attributes = AlarmAttributes(
             presentation: presentation,
@@ -1033,14 +1029,3 @@ private enum CookModeAlarmKitTimerScheduler {
     }
 #endif
 }
-
-#if os(iOS) && canImport(AlarmKit)
-@available(iOS 26.0, *)
-private struct SpoonjoyCookTimerMetadata: AlarmMetadata {
-    let recipeID: String
-    let recipeTitle: String
-    let stepID: String
-    let stepTitle: String
-    let durationMinutes: Int
-}
-#endif

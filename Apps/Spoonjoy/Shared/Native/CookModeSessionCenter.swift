@@ -1,11 +1,10 @@
 import Foundation
 import SpoonjoyCore
 
-/// Receives timer and step changes from cook mode so a platform host can show a Live Activity.
+/// Receives step-timer changes from cook mode so a platform host can keep the system alarm in step with the screen.
 @MainActor
-protocol CookModeLiveActivityHosting: AnyObject {
-    func timerDidStart(_ session: CookModeTimerSession, viewModel: CookModeViewModel, deepLink: URL, alarmID: UUID?)
-    func cookModeDidChange(_ viewModel: CookModeViewModel)
+protocol CookModeTimerAlarmHosting: AnyObject {
+    func timerDidStart(alarmID: UUID)
     func cookModeDidEnd()
 }
 
@@ -25,7 +24,7 @@ final class CookModeSessionCenter {
 
     static let shared = CookModeSessionCenter()
 
-    var liveActivityHost: (any CookModeLiveActivityHosting)?
+    var timerHost: (any CookModeTimerAlarmHosting)?
     private(set) var registration: Registration?
 
     var isCooking: Bool {
@@ -38,7 +37,7 @@ final class CookModeSessionCenter {
 
     func unregister() {
         registration = nil
-        liveActivityHost?.cookModeDidEnd()
+        timerHost?.cookModeDidEnd()
     }
 
     /// The step on screen, for the annotated on-screen entity.
