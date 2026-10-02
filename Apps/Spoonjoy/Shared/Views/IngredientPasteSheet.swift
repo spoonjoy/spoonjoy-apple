@@ -15,7 +15,7 @@ struct IngredientPasteSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Ingredient text") {
+                Section("Step \(stepNumber) ingredient text") {
                     TextEditor(text: $text)
                         .frame(minHeight: 110)
                         .accessibilityIdentifier("editor.paste.text")
@@ -56,7 +56,7 @@ struct IngredientPasteSheet: View {
                     }
                 }
             }
-            .navigationTitle("Paste Ingredients, Step \(stepNumber)")
+            .navigationTitle("Paste")
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
