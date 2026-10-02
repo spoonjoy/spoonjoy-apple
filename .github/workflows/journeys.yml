@@ -144,7 +144,7 @@ jobs:
           [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
       - name: Build shopping UI tests
-        # Step limits sum to 24 of the job's 30 minutes, leaving room for checkout, setup and the upload.
+        # Step limits sum to 28 of the job's 30 minutes, leaving room for checkout, setup and the upload.
         timeout-minutes: 12
         run: |
           set -euo pipefail
@@ -154,6 +154,15 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
             -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Boot the simulator
+        # The first test turns the simulator upright before launching the app. On a simulator that is still
+        # booting, SpringBoard can miss that orientation change (run 36983006897 attempt 1), so the tests start
+        # only after the simulator reports it has finished booting.
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          xcrun simctl bootstatus "${destination##*,id=}" -b
       - name: Run shopping UI tests
         timeout-minutes: 12
         # The warning gate covers the build above. The test log carries simulator runtime noise (for

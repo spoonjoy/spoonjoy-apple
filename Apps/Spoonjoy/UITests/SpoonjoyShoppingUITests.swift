@@ -25,7 +25,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     }
 
     func testAccessibilityDynamicTypeAndResponsiveOrientationsKeepPrimaryControlsReachable() {
-        XCUIDevice.shared.orientation = .portrait
+        ensurePortrait()
         let app = launchShopping(
             variant: "normal",
             contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL"
@@ -44,7 +44,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     }
 
     func testPendingAndRetryStatesStayLocalizedToTheShoppingSurface() {
-        XCUIDevice.shared.orientation = .portrait
+        ensurePortrait()
         var app = launchShopping(variant: "pending", offline: true)
         let pendingItem = app.descendants(matching: .any)["shopping.item.item_lemons.pending"]
         XCTAssertTrue(pendingItem.waitForExistence(timeout: 8))
@@ -63,7 +63,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     }
 
     func testComposerKeepsAddActionVisibleWhileKeyboardIsPresented() {
-        XCUIDevice.shared.orientation = .portrait
+        ensurePortrait()
         let app = launchShopping(variant: "normal")
         let itemField = app.textFields["Add an item"]
         XCTAssertTrue(itemField.waitForExistence(timeout: 8))
@@ -74,7 +74,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     }
 
     func testMarketFiltersComposerCheckAndDestructiveActionsAreInteractive() {
-        XCUIDevice.shared.orientation = .portrait
+        ensurePortrait()
         let app = launchShopping(variant: "normal")
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
 
@@ -98,6 +98,25 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         itemField.typeText("basil" + XCUIKeyboardKey.return.rawValue)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 10), "Return did not close the keyboard. \(app.debugDescription)")
 
+        // Remove the row by its trailing swipe action before any confirmation dialog has been shown. A closed
+        // confirmation dialog can leave an empty, full-screen window over the page that never goes away, and
+        // that window covers the revealed Remove button (run 36983006897 attempt 2: the swipe revealed Remove
+        // at {330, 733}, but an extra empty Window sat above it, so it never became hittable). The checked
+        // parmesan row stays, so the receipt actions below still have something to clear.
+        //
+        // Removal goes through the trailing swipe action (ReceiptDeleteSwipeModifier in ReceiptListView.swift)
+        // rather than a long-press context menu, which repeatedly opened an empty second context-menu window
+        // (runs 36333893304, 36341886285, 36345815010 and 36373059798). The context menu keeps its coverage at
+        // the contract level: NativeMobileDesignContractTests asserts both `.contextMenu` and
+        // `ReceiptDeleteSwipeModifier {` are still present in ReceiptListView.swift.
+        let lemons = app.descendants(matching: .any)["shopping.item.item_lemons"]
+        scrollFullyOnScreen(lemons, in: app)
+        waitUntilHittable(lemons, named: "The lemons row", in: app)
+        lemons.swipeLeft()
+        tapWhenHittable(app.buttons["Remove"], named: "The row's revealed Remove swipe action", in: app)
+        tapWhenHittable(app.sheets.firstMatch.buttons["Remove Item"], named: "Remove Item", in: app)
+        waitForNoSheet(in: app)
+
         tapOnceItExists(app.buttons["Receipt actions"], named: "Receipt actions", in: app)
         tapWhenHittable(app.buttons["Clear checked"], named: "The Clear checked menu item", in: app)
         tapWhenHittable(app.sheets.firstMatch.buttons["Clear Completed"], named: "Clear Completed", in: app)
@@ -107,28 +126,10 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         tapWhenHittable(app.buttons["Clear all"], named: "The Clear all menu item", in: app)
         tapWhenHittable(app.sheets.firstMatch.buttons["Clear All"], named: "Clear All", in: app)
         waitForNoSheet(in: app)
-
-        // The row must be settled and uncovered after the confirmation closed before we can act on it (runs
-        // 36333893304 and 36341886285 pressed and no menu appeared).
-        //
-        // This used to long-press the row to open its context menu, but that repeatedly failed: the same
-        // long press opened a second, empty context-menu window that never populated a Remove item (runs
-        // 36333893304, 36341886285, 36345815010 and 36373059798, each timing out waiting for
-        // app.buttons["Remove"] to become hittable). Rather than add another wait or retry around a flaky
-        // system presentation, this now drives removal through the row's trailing swipe action
-        // (ReceiptDeleteSwipeModifier in ReceiptListView.swift), which is the primary iOS way to delete a
-        // list row and does not depend on that context-menu window. The context menu itself keeps its
-        // coverage at the contract level: NativeMobileDesignContractTests asserts both `.contextMenu` and
-        // `ReceiptDeleteSwipeModifier {` are still present in ReceiptListView.swift.
-        let lemons = app.descendants(matching: .any)["shopping.item.item_lemons"]
-        waitUntilHittable(lemons, named: "The lemons row", in: app)
-        lemons.swipeLeft()
-        tapWhenHittable(app.buttons["Remove"], named: "The row's revealed Remove swipe action", in: app)
-        tapWhenHittable(app.sheets.firstMatch.buttons["Remove Item"], named: "Remove Item", in: app)
     }
 
     func testAccessibilityMenusAndRecipeFallbacksAreInteractive() {
-        XCUIDevice.shared.orientation = .portrait
+        ensurePortrait()
         var app = launchShopping(
             variant: "normal",
             contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL"
@@ -259,8 +260,8 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         element.tap()
     }
 
-    /// For a control in the scrolling page: waits for it to exist, then taps it. The tap scrolls the control into
-    /// view, so it need not be on screen yet (at accessibility sizes the menus start below the fold).
+    /// For a control in the scrolling page: waits for it to exist, scrolls it wholly into the safe middle of the
+    /// screen, then taps it. At accessibility sizes the menus start at or below the bottom edge.
     private func tapOnceItExists(
         _ element: XCUIElement,
         named name: String,
@@ -269,7 +270,43 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         line: UInt = #line
     ) {
         XCTAssertTrue(element.waitForExistence(timeout: 10), "\(name) is missing. \(app.debugDescription)", file: file, line: line)
+        scrollFullyOnScreen(element, in: app)
         element.tap()
+    }
+
+    /// Scrolls the page until `element` sits wholly between the navigation bar and the home indicator.
+    ///
+    /// XCUITest only scrolls a control into view when its center is off screen. A control whose center is on
+    /// screen but whose frame runs past the bottom edge is tapped where it is, inside the home indicator's
+    /// gesture zone, where the system sometimes keeps the touch (run 36983006897 attempt 3: the "Shopping
+    /// view" menu spanned y 864 to 927 on a 912-point screen, the tap landed at y 896, and the menu never
+    /// opened). The page is dragged slowly from its left margin, outside every control, so it does not coast
+    /// past the target. A control that does not move with the page (a navigation bar button) is left as is.
+    private func scrollFullyOnScreen(_ element: XCUIElement, in app: XCUIApplication) {
+        let screen = app.windows.firstMatch.frame
+        let safeTop = screen.minY + 200
+        let safeBottom = screen.maxY - 120
+        let maximumStep = screen.height * 0.4
+        for _ in 0..<6 {
+            let frame = element.frame
+            if frame.minY >= safeTop && frame.maxY <= safeBottom { return }
+            let target = frame.maxY > safeBottom ? safeBottom - frame.height : safeTop
+            let step = max(min(target - frame.minY, maximumStep), -maximumStep)
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: 8, dy: screen.midY))
+            let end = origin.withOffset(CGVector(dx: 8, dy: screen.midY + step))
+            start.press(forDuration: 0.1, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.3)
+            if element.frame == frame { return }
+        }
+    }
+
+    /// Turns the simulator upright only when it is not upright already. Setting the orientation it already
+    /// has still waits for SpringBoard to confirm a change, and on a simulator that has just booted that
+    /// confirmation can time out (run 36983006897 attempt 1, the first test of the run).
+    private func ensurePortrait() {
+        if XCUIDevice.shared.orientation != .portrait {
+            XCUIDevice.shared.orientation = .portrait
+        }
     }
 
     /// Waits for a confirmation sheet to finish closing.
