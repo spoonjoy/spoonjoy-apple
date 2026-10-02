@@ -289,11 +289,12 @@ public enum ReminderSyncPlanner {
         var order: [String?] = []
         var larger: [String?: Double] = [:]
         for quantity in listTotal + recipeTotal {
-            let value = quantity.value ?? 0
-            if larger[quantity.unit] == nil {
-                order.append(quantity.unit)
+            if let value = quantity.value {
+                if larger[quantity.unit] == nil {
+                    order.append(quantity.unit)
+                }
+                larger[quantity.unit] = max(larger[quantity.unit] ?? 0, value)
             }
-            larger[quantity.unit] = max(larger[quantity.unit] ?? 0, value)
         }
         let aggregate = order.map { ReminderQuantity(value: larger[$0], unit: $0) }
         let total = combine(typed.flatMap(\.quantities) + aggregate).map(\.displayText).joined(separator: " + ")

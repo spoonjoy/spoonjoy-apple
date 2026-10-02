@@ -226,11 +226,11 @@ final class JourneyApp {
         )
     }
 
-    /// Allows the Reminders permission prompt when the system shows it. A simulator that already granted
+    /// Allows the Reminders permission prompt (its button reads "Allow" on iOS 27) when the system shows it. A simulator that already granted
     /// access shows no prompt, so the wait simply ends.
     func allowRemindersAccessIfAsked() {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let allow = springboard.alerts.buttons["Allow Full Access"]
+        let allow = springboard.alerts.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Allow")).firstMatch
         if allow.waitForExistence(timeout: Self.interactionTimeout) {
             allow.tap()
         }

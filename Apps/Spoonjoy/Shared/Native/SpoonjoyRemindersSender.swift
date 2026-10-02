@@ -27,6 +27,10 @@ final class SpoonjoyRemindersSender {
 
     init(store: SpoonjoyRemindersStore = SpoonjoyRemindersStore()) {
         self.store = store
+    }
+
+    /// Reads the remembered list's name for the menu. Called once the view appears, never while building it.
+    func refreshCurrentListTitle() {
         currentListTitle = store.hasFullAccess ? store.resolvedList()?.title : nil
     }
 
@@ -151,6 +155,7 @@ struct SpoonjoyRemindersSendModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            .task { sender.refreshCurrentListTitle() }
             .sheet(isPresented: $sender.isPickingList, onDismiss: { sender.cancelListChoice() }) {
                 NavigationStack {
                     List {

@@ -15,11 +15,20 @@ enum SpoonjoyRemindersError: Error, Equatable {
 final class SpoonjoyRemindersStore: @unchecked Sendable {
     static let chosenListDefaultsKey = "spoonjoy.reminders.chosenListIdentifier"
 
-    private let eventStore: EKEventStore
+    /// One store for the whole process, created on first use. Creating an EKEventStore connects to the
+    /// calendar daemon, and SwiftUI builds a view's `@State` default every time the parent re-renders, so
+    /// making one per view struct would stall the main thread.
+    nonisolated(unsafe) private static let sharedEventStore = EKEventStore()
+
+    private let eventStoreOverride: EKEventStore?
     private let defaults: UserDefaults
 
-    init(eventStore: EKEventStore = EKEventStore(), defaults: UserDefaults = .standard) {
-        self.eventStore = eventStore
+    private var eventStore: EKEventStore {
+        eventStoreOverride ?? Self.sharedEventStore
+    }
+
+    init(eventStore: EKEventStore? = nil, defaults: UserDefaults = .standard) {
+        self.eventStoreOverride = eventStore
         self.defaults = defaults
     }
 
