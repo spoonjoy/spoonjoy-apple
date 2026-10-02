@@ -1,6 +1,12 @@
 name: TestFlight
 
 on:
+  # Continuous delivery: every successful Native push run on main publishes that exact commit.
+  workflow_run:
+    workflows: [Native]
+    types: [completed]
+    branches: [main]
+  # Manual release, rollback, or build-number override.
   workflow_dispatch:
     inputs:
       source_sha:
@@ -46,17 +52,40 @@ jobs:
 
   release-gate:
     name: Validate release dispatch
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
     runs-on: ubuntu-24.04
+    outputs:
+      source_sha: ${{ steps.select.outputs.source_sha }}
+      publish: ${{ steps.select.outputs.publish }}
     env:
+      GH_TOKEN: ${{ github.token }}
+      EVENT_NAME: ${{ github.event_name }}
+      RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
       SOURCE_SHA: ${{ inputs.source_sha }}
       ALLOW_ROLLBACK: ${{ inputs.allow_rollback }}
       ROLLBACK_REASON: ${{ inputs.rollback_reason }}
       ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
     steps:
-      - name: Validate exact-SHA inputs
+      - name: Select the release commit
+        id: select
         run: |
           set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_run" ]]; then
+            SOURCE_SHA="$RUN_HEAD_SHA"
+            main_head="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+            if [[ "$SOURCE_SHA" != "$main_head" ]]; then
+              echo "Skipping $SOURCE_SHA: main has moved to $main_head, whose own Native run will publish it." >> "$GITHUB_STEP_SUMMARY"
+              echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]] || {
             echo "source_sha must be exactly 40 lowercase hexadecimal characters." >&2
             exit 1
@@ -65,10 +94,13 @@ jobs:
             echo "rollback_reason is required when allow_rollback is true." >&2
             exit 1
           fi
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "publish=true" >> "$GITHUB_OUTPUT"
 
   publish-internal:
     name: Publish internal TestFlight
     needs: release-gate
+    if: needs.release-gate.outputs.publish == 'true'
     environment: internal-testflight
     runs-on: macos-26
     timeout-minutes: 120
@@ -83,7 +115,7 @@ jobs:
       - name: Check out selected source revision
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ needs.release-gate.outputs.source_sha }}
           path: release-source
           fetch-depth: 0
           persist-credentials: false
@@ -93,8 +125,8 @@ jobs:
         working-directory: release-source
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          ALLOW_ROLLBACK: ${{ inputs.allow_rollback }}
+          SOURCE_SHA: ${{ needs.release-gate.outputs.source_sha }}
+          ALLOW_ROLLBACK: ${{ inputs.allow_rollback || false }}
           ROLLBACK_REASON: ${{ inputs.rollback_reason }}
           ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
         run: |
@@ -110,7 +142,7 @@ jobs:
       - name: Upload verified candidate note
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: testflight-release-candidate-note-${{ inputs.source_sha }}-${{ github.run_id }}
+          name: testflight-release-candidate-note-${{ needs.release-gate.outputs.source_sha }}-${{ github.run_id }}
           path: ${{ steps.candidate.outputs.release_notes_path }}
           if-no-files-found: error
           retention-days: 90
@@ -251,7 +283,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
-          name: testflight-publish-artifacts-${{ inputs.source_sha }}
+          name: testflight-publish-artifacts-${{ needs.release-gate.outputs.source_sha }}
           path: release-source/artifacts/apple/ci-testflight
           if-no-files-found: error
           retention-days: 90
