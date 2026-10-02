@@ -20,6 +20,8 @@
 	<string>Spoonjoy uses the camera to capture recipes from cookbooks, cards, and kitchen notes.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Spoonjoy sends recipe and shopping list ingredients to the Reminders list you choose. It needs full access so it can see what is already on that list, including checked-off items, and avoid adding duplicates.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSAlarmKitUsageDescription</key>
 	<string>Spoonjoy can set system cooking timers for timed recipe steps.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

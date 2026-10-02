@@ -140,6 +140,14 @@ struct CookModeView: View {
         .sensoryFeedback(.selection, trigger: progress.currentStepID)
         .sensoryFeedback(.impact(weight: .light), trigger: viewModel.recipeProgressLabel)
         .onAppear(perform: normalizeProgressForCurrentRecipe)
+        .onAppear(perform: registerCookModeSession)
+        .onDisappear {
+            CookModeSessionCenter.shared.unregister()
+        }
+        .onChange(of: progress) { _, _ in
+            CookModeSessionCenter.shared.liveActivityHost?.cookModeDidChange(viewModel)
+        }
+        .cookModeStepAnnotation(viewModel.onScreenStep)
         .onChange(of: recipe.cookModeIdentityKey) { _, _ in
             normalizeProgressForCurrentRecipe()
         }
@@ -626,7 +634,31 @@ struct CookModeView: View {
     }
 
     @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> String {
-        try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+        let scheduled = try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+        let session = CookModeTimerSession.starting(recipe: recipe, step: step, durationSeconds: timer.durationSeconds, now: Date())
+        CookModeSessionCenter.shared.liveActivityHost?.timerDidStart(
+            session,
+            viewModel: viewModel,
+            deepLink: DeepLinkURLBuilder.url(for: .recipeDetail(id: recipe.id, presentation: .cook)),
+            alarmID: scheduled.alarmID
+        )
+        return scheduled.message
+    }
+
+    /// Lets Siri, Shortcuts and the Live Activity drive this screen while it is open.
+    private func registerCookModeSession() {
+        CookModeSessionCenter.shared.register(
+            CookModeSessionCenter.Registration(
+                viewModel: { viewModel },
+                apply: { updateProgress($0) },
+                startTimer: { timer in
+                    guard let step = viewModel.activeStep else {
+                        return
+                    }
+                    _ = try await scheduleSystemTimer(timer, step: step)
+                }
+            )
+        )
     }
 }
 
@@ -914,9 +946,10 @@ private struct CookModeSystemTimer: View {
 }
 
 private enum CookModeAlarmKitTimerScheduler {
-    @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> String {
+    @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> (message: String, alarmID: UUID?) {
 #if os(iOS) && canImport(AlarmKit)
         if #available(iOS 26.1, *) {
+            var alarmID: UUID?
             let client = CookModeSystemTimerSchedulingClient(
                 authorizationState: {
                     authorizationState(from: AlarmManager.shared.authorizationState)
@@ -925,11 +958,11 @@ private enum CookModeAlarmKitTimerScheduler {
                     authorizationState(from: try await AlarmManager.shared.requestAuthorization())
                 },
                 schedule: {
-                    try await scheduleAlarm(timer: timer, recipe: recipe, step: step)
+                    alarmID = try await scheduleAlarm(timer: timer, recipe: recipe, step: step)
                 }
             )
             try await CookModeSystemTimerScheduler.schedule(using: client)
-            return "\(timer.durationLabel) system timer set."
+            return ("\(timer.durationLabel) system timer set.", alarmID)
         }
 #endif
         throw CookModeSystemTimerSchedulingError.unsupportedPlatform
@@ -957,7 +990,7 @@ private enum CookModeAlarmKitTimerScheduler {
         timer: CookModeSystemTimerViewModel,
         recipe: Recipe,
         step: RecipeStep
-    ) async throws {
+    ) async throws -> UUID {
         let presentation = AlarmPresentation(
             alert: AlarmPresentation.Alert(
                 title: LocalizedStringResource("\(step.stepTitle ?? recipe.title) is ready")
@@ -994,7 +1027,9 @@ private enum CookModeAlarmKitTimerScheduler {
         let configuration = AlarmManager.AlarmConfiguration.timer(duration: TimeInterval(timer.durationSeconds),
             attributes: attributes
         )
-        _ = try await AlarmManager.shared.schedule(id: UUID(), configuration: configuration)
+        let alarmID = UUID()
+        _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
+        return alarmID
     }
 #endif
 }
