@@ -119,7 +119,10 @@ struct KitchenMasthead: View {
         VStack(alignment: .leading, spacing: 10) {
             KitchenTableHeader(eyebrow: dayLabel, title: title, subtitle: countSummary, hidesTitleInCompactNavigation: true)
 
-            statusBadge
+            // "Ready" is the normal state, so it stays quiet; only the preparing state needs a badge.
+            if kitchen.status != .ready {
+                statusBadge
+            }
         }
     }
 
@@ -285,10 +288,12 @@ struct RecipeLead: View {
                 .lineLimit(4)
                 .minimumScaleFactor(0.82)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(recipe.attribution.creditText)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(secondary)
-                .lineLimit(2)
+            if let subtitle = recipe.displaySubtitle {
+                Text(subtitle)
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(secondary)
+                    .lineLimit(2)
+            }
         }
     }
 

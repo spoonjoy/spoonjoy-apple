@@ -14,6 +14,7 @@ struct ShoppingListView: View {
     @State private var lastFailedAction: ShoppingSurfaceAction?
     @State private var viewMode: ShoppingListViewMode = .all
     @State private var activeCategory = "all"
+    @State private var checkHapticTick = 0
     @FocusState private var isItemFieldFocused: Bool
     @FocusState private var isRetryButtonFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -106,6 +107,7 @@ struct ShoppingListView: View {
             EditButton()
         }
 #endif
+        .sensoryFeedback(.selection, trigger: checkHapticTick)
         .task(id: viewModel.activeCountLabel) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "shopping-list",
@@ -546,6 +548,7 @@ struct ShoppingListView: View {
     }
 
     private func settingChecked(_ item: ShoppingListItem, _ checked: Bool) {
+        checkHapticTick += 1
         runAction(.setItemChecked(
             itemID: item.id,
             checked: checked,

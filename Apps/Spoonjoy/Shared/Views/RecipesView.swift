@@ -68,6 +68,7 @@ struct RecipesView: View {
                 recipeIndexSection(rows: state.rows)
             }
         }
+        .reloadsOnPull { await loadCatalog(query: query) }
         .searchable(text: $query, prompt: searchPrompt)
         .onSubmit(of: .search) {
             Task {

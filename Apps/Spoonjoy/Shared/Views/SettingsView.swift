@@ -159,12 +159,16 @@ struct SettingsView: View {
         .tint(KitchenTableTheme.herb)
     }
 
-    private var settingsHeaderSubtitle: String {
+    private var settingsHeaderSubtitle: String? {
+#if DEBUG
         if let surface = settingsSurfaceViewModel {
             "\(surface.data.environment.rawValue.capitalized) - \(sourceLabel(surface.data.source))"
         } else {
             "\(authSummary) - \(viewModel.environmentSwitcher.rawValue.capitalized)"
         }
+#else
+        nil
+#endif
     }
 
     @ViewBuilder private func nativeSettings(surface: SettingsSurfaceViewModel) -> some View {
@@ -415,12 +419,16 @@ struct SettingsView: View {
             }
         }
 
+#if DEBUG
+        // Diagnostics for builds that point at a non-production environment. Journeys read this row
+        // to prove they are on the QA mirror. Release builds keep the account screen to settings only.
         KitchenTableSection(title: "Environment", subtitle: "Current data source") {
             SettingsPanel {
                 settingsFact("Environment", value: surface.data.environment.rawValue, valueIdentifier: "settings.environment.value")
                 settingsFact("Source", value: sourceLabel(surface.data.source))
             }
         }
+#endif
 
         KitchenTableSection(title: "Offline", subtitle: "What the app is using right now") {
             SettingsPanel {
@@ -457,6 +465,7 @@ struct SettingsView: View {
     }
 
     @ViewBuilder private var legacySettings: some View {
+#if DEBUG
         KitchenTableSection(title: "Status", subtitle: "Live session snapshot") {
             SettingsPanel {
                 ForEach(settings.statusRows, id: \.id) { row in
@@ -464,6 +473,7 @@ struct SettingsView: View {
                 }
             }
         }
+#endif
 
         KitchenTableSection(title: "Session") {
             SettingsPanel {

@@ -136,6 +136,9 @@ struct CookModeView: View {
                 }
             }
         }
+        .keepsScreenAwake()
+        .sensoryFeedback(.selection, trigger: progress.currentStepID)
+        .sensoryFeedback(.impact(weight: .light), trigger: viewModel.recipeProgressLabel)
         .onAppear(perform: normalizeProgressForCurrentRecipe)
         .onChange(of: recipe.cookModeIdentityKey) { _, _ in
             normalizeProgressForCurrentRecipe()

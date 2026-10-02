@@ -103,6 +103,7 @@ struct RecipeDetailRouteView: View {
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
             }
         }
+        .reloadsOnPull { await loadRecipe() }
         .task(id: recipeID) {
             await loadRecipe()
         }
@@ -381,7 +382,7 @@ struct RecipeDetailView: View {
     }
 
     private var recipeIdentityAndProvenance: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: usesCompactRecipeDock ? 8 : 14) {
             Text("Recipe".uppercased())
                 .font(.caption2.weight(.bold))
                 .tracking(1.3)
@@ -393,10 +394,12 @@ struct RecipeDetailView: View {
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("recipeDetail.title")
-            Text(viewModel.description ?? viewModel.recipe.attribution.creditText)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .fixedSize(horizontal: false, vertical: true)
+            if let subtitle = viewModel.recipe.displaySubtitle {
+                Text(subtitle)
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Text(viewModel.chefAttribution)
                 .font(KitchenTableTheme.uiLabel)
@@ -425,30 +428,29 @@ struct RecipeDetailView: View {
             RecipeScaleSelector(
                 scaleFactor: shoppingScaleFactor,
                 displayValue: scaledYieldLabel,
-                setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) }
+                setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) },
+                isCompact: usesCompactRecipeDock
             )
             .frame(maxWidth: usesCompactRecipeDock ? .infinity : 440)
 
-            Button {
-                clearRecipeProgress()
-            } label: {
-                Label("Clear progress", systemImage: "arrow.counterclockwise")
+            // Nothing to clear on a fresh recipe, so the button only shows once there is progress.
+            if hasRecipeProgress || !usesCompactRecipeDock {
+                Button {
+                    clearRecipeProgress()
+                } label: {
+                    Label("Clear progress", systemImage: "arrow.counterclockwise")
+                }
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .buttonStyle(.plain)
+                .accessibilityHint("Clears checked step ingredients and resets recipe scale.")
             }
-            .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.inkMuted)
-            .buttonStyle(.plain)
-            .accessibilityHint("Clears checked step ingredients and resets recipe scale.")
         }
     }
 
     private var recipeMastheadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
-            if usesCompactRecipeDock {
-                if hasAction(.logCook) {
-                    recipeMastheadLogCookAction
-                }
-            }
             if !usesCompactRecipeDock {
                 if hasAction(.logCook) || hasSecondaryRecipeActions {
                     HStack(spacing: 10) {
@@ -502,10 +504,16 @@ struct RecipeDetailView: View {
     @ViewBuilder private var recipePrimaryActions: some View {
         VStack(alignment: .leading, spacing: 10) {
             if hasAction(.startCooking) {
-                if usesCompactRecipeDock && hasCompactRecipeMenuActions {
+                if usesCompactRecipeDock {
+                    // One row on iPhone: Cook mode, Log, and the actions menu as an icon.
                     HStack(spacing: 10) {
                         startCookingButton
-                        compactRecipeActionsMenu
+                        if hasAction(.logCook) {
+                            recipeMastheadLogCookAction
+                        }
+                        if hasCompactRecipeMenuActions {
+                            compactRecipeActionsMenu
+                        }
                     }
                 } else {
                     startCookingButton
@@ -557,8 +565,10 @@ struct RecipeDetailView: View {
             ownerToolsMenuItems
         } label: {
             Label("Recipe actions", systemImage: "ellipsis.circle")
+                .labelStyle(.iconOnly)
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .fixedSize()
         .accessibilityLabel("Recipe actions")
     }
 
@@ -1025,6 +1035,10 @@ struct RecipeDetailView: View {
         }
     }
 
+    private var hasRecipeProgress: Bool {
+        shoppingScaleFactor != 1 || !checkedRecipeIngredientIDs.isEmpty || !checkedRecipeStepDependencyIDs.isEmpty
+    }
+
     private func clearRecipeProgress() {
         shoppingScaleFactor = 1
         checkedRecipeIngredientIDs = []
@@ -1187,6 +1201,7 @@ private struct RecipeScaleSelector: View {
     let scaleFactor: Double
     let displayValue: String
     let setScaleFactor: (Double) -> Void
+    var isCompact = false
 
     private let step = 0.25
     private let minimum = 0.25
@@ -1198,7 +1213,7 @@ private struct RecipeScaleSelector: View {
                 setScaleFactor(max(minimum, rounded(scaleFactor - step)))
             }
 
-            VStack(spacing: 2) {
+            VStack(spacing: isCompact ? 0 : 2) {
                 Text("Yield")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
@@ -1211,7 +1226,7 @@ private struct RecipeScaleSelector: View {
                     .lineLimit(2)
                     .minimumScaleFactor(0.72)
             }
-            .frame(maxWidth: .infinity, minHeight: 64)
+            .frame(maxWidth: .infinity, minHeight: isCompact ? 48 : 64)
             .padding(.horizontal, 12)
 
             scaleButton(systemImage: "plus", label: "Increase scale", isDisabled: scaleFactor >= maximum) {
@@ -1238,7 +1253,7 @@ private struct RecipeScaleSelector: View {
         Button(action: action) {
             Image(systemName: systemImage)
                 .font(.body.weight(.bold))
-                .frame(width: 52, height: 64)
+                .frame(width: 52, height: isCompact ? 48 : 64)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
