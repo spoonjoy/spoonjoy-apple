@@ -186,7 +186,7 @@ struct SpoonEntityTests {
                 (
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
                     label: "foreground sync consumes spoon sync purge report",
-                    pattern: #"\.task\(id: contentState\.environment\.rawValue\)"#,
+                    pattern: #"func\s+runForegroundSync\(\)"#,
                     requiredTokens: [
                         "let report = try? await syncTriggerCoordinator.handle(.foreground)",
                         "report.spoonEntityPurgeRequests",
