@@ -673,6 +673,72 @@ struct TestFlightAutomationContractTests {
         )
     }
 
+    @Test("TestFlight workflow revokes CI-created development certificates before and after publish")
+    func workflowCleansUpCICreatedCertificates() throws {
+        let workflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
+        let preStep = try #require(workflow.range(of: "ruby scripts/revoke-ci-signing-certificates.rb\n"))
+        let publishStep = try #require(workflow.range(of: "../scripts/ci-publish-testflight.sh"))
+        let postStep = try #require(workflow.range(of: "ruby scripts/revoke-ci-signing-certificates.rb --best-effort"))
+        #expect(preStep.lowerBound < publishStep.lowerBound, "cleanup must run before the archive so a full account recovers")
+        #expect(publishStep.lowerBound < postStep.lowerBound, "cleanup must run again after publish")
+        expectTestFlightAutomationContent(
+            workflow,
+            in: ".github/workflows/testflight.yml",
+            contains: [
+                "if: always() && steps.asc_credentials.outcome == 'success'",
+                "continue-on-error: true",
+                "environment: internal-testflight"
+            ]
+        )
+    }
+
+    @Test("certificate cleanup revokes only API-created development certificates")
+    func certificateCleanupFilterIsNarrow() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("cert-cleanup-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        func cert(_ id: String, _ type: String, _ name: String) -> [String: Any] {
+            ["id": id, "type": "certificates",
+             "attributes": ["certificateType": type, "name": name, "displayName": name, "expirationDate": "2027-01-01T00:00:00.000+0000"]]
+        }
+        let fixture = directory.appendingPathComponent("certs.json")
+        try writeJSON([
+            "data": [
+                cert("dev-api", "DEVELOPMENT", "Created via API"),
+                cert("ios-dev-api", "IOS_DEVELOPMENT", "created via API"),
+                cert("mac-dev-api", "MAC_APP_DEVELOPMENT", "Created via API"),
+                cert("dev-person", "IOS_DEVELOPMENT", "Ari Mendelow"),
+                cert("dist-api", "DISTRIBUTION", "Created via API"),
+                cert("ios-dist-api", "IOS_DISTRIBUTION", "Created via API"),
+                cert("dev-id", "DEVELOPER_ID_APPLICATION", "Created via API")
+            ]
+        ], to: fixture)
+
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/ruby")
+        process.arguments = [
+            testFlightAutomationRepoURL.appendingPathComponent("scripts/revoke-ci-signing-certificates.rb").path,
+            "--dry-run", "--fixture", fixture.path
+        ]
+        process.standardOutput = output
+        process.standardError = output
+        try process.run()
+        process.waitUntilExit()
+        let text = String(decoding: output.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+
+        #expect(process.terminationStatus == 0, "\(text)")
+        for id in ["dev-api", "ios-dev-api", "mac-dev-api"] {
+            #expect(text.contains("would revoke: id=\(id) "), "\(text)")
+        }
+        for id in ["dev-person", "dist-api", "ios-dist-api", "dev-id"] {
+            #expect(text.contains("keep: id=\(id) "), "\(text)")
+            #expect(!text.contains("would revoke: id=\(id) "), "\(text)")
+        }
+        #expect(text.contains("Revoked 0 certificate(s) (dry run)."))
+    }
+
     @Test("distribution docs describe exact-SHA release and rollback")
     func distributionDocsDescribeContainedReleaseAndRollback() throws {
         let docs = try readTestFlightAutomationRepoFile("docs/apple-distribution.md")
@@ -694,7 +760,9 @@ struct TestFlightAutomationContractTests {
                 "runner-provided `gh`",
                 "last known-good main commit",
                 "new TestFlight build number",
-                "publishes that exact commit", "never for pull requests or forks"
+                "publishes that exact commit", "never for pull requests or forks",
+                "revoke-ci-signing-certificates.rb",
+                "Created via API"
             ],
             forbids: [
                 "publishes internal TestFlight builds automatically"

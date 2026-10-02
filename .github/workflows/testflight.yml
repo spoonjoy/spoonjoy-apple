@@ -196,6 +196,7 @@ jobs:
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
 
       - name: Prepare App Store Connect credentials
+        id: asc_credentials
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
@@ -249,7 +250,11 @@ jobs:
             echo "APP_STORE_CONNECT_PROVIDER_PUBLIC_ID=${ASC_PROVIDER_PUBLIC_ID:-9735080289}"
           } >> "$GITHUB_ENV"
 
+      - name: Revoke stale CI-created development certificates
+        run: ruby scripts/revoke-ci-signing-certificates.rb
+
       - name: Publish exact candidate to Spoonjoy Internal
+        id: publish
         working-directory: release-source
         env:
           SPOONJOY_TESTFLIGHT_SOURCE_ROOT: ${{ github.workspace }}/release-source
@@ -257,6 +262,11 @@ jobs:
           SPOONJOY_TESTFLIGHT_SOURCE_SHA: ${{ steps.candidate.outputs.source_sha }}
           SPOONJOY_TESTFLIGHT_RELEASE_NOTES_PATH: ${{ steps.candidate.outputs.release_notes_path }}
         run: ../scripts/ci-publish-testflight.sh
+
+      - name: Revoke development certificate created by this run
+        if: always() && steps.asc_credentials.outcome == 'success'
+        continue-on-error: true
+        run: ruby scripts/revoke-ci-signing-certificates.rb --best-effort
 
       - name: Summarize publish
         if: always()
