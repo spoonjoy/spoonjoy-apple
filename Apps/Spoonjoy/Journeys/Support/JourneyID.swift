@@ -38,6 +38,14 @@ enum JourneyID {
     static func editorIngredientQuantity(step: Int, ingredient: Int) -> String { "editor.step.\(step).ingredient.\(ingredient).quantity" }
     static func editorIngredientUnit(step: Int, ingredient: Int) -> String { "editor.step.\(step).ingredient.\(ingredient).unit" }
 
+    /// The "Paste Ingredients" button on a step, and its sheet: the text box, the add button and the preview rows.
+    static func editorStepPasteIngredients(_ step: Int) -> String { "editor.step.\(step).pasteIngredients" }
+    static let editorPasteText = "editor.paste.text"
+    static let editorPasteAdd = "editor.paste.add"
+    static func editorPasteRowName(_ row: Int) -> String { "editor.paste.row.\(row).name" }
+    static func editorPasteRowQuantity(_ row: Int) -> String { "editor.paste.row.\(row).quantity" }
+    static func editorPasteRowUnit(_ row: Int) -> String { "editor.paste.row.\(row).unit" }
+
     /// Every recipe row (lead and index) in My Recipes.
     static let recipesRow = "recipes.row"
 

@@ -13,7 +13,7 @@ struct IngredientTextParserTests {
         let rows = IngredientTextParser.parse("2 cups rice\n3 large eggs\n\n  \n1 tbsp soy sauce\r\n")
         #expect(rows == [
             ParsedIngredientLine(quantity: 2, unit: "cup", name: "rice", hadExplicitQuantity: true),
-            ParsedIngredientLine(quantity: 3, unit: "whole", name: "large eggs", hadExplicitQuantity: true),
+            ParsedIngredientLine(quantity: 3, unit: "large", name: "eggs", hadExplicitQuantity: true),
             ParsedIngredientLine(quantity: 1, unit: "tbsp", name: "soy sauce", hadExplicitQuantity: true),
         ])
         #expect(IngredientTextParser.parse("   \n").isEmpty)
@@ -64,7 +64,7 @@ struct IngredientTextParserTests {
             ("1 kilograms a", "kg"), ("1 millilitres a", "ml"), ("1 liters a", "l"), ("1 cloves a", "clove"),
             ("1 pinches a", "pinch"), ("1 dashes a", "dash"), ("1 cans a", "can"), ("1 slices a", "slice"),
             ("1 pieces a", "piece"), ("1 sticks a", "stick"), ("1 bunches a", "bunch"), ("1 sprigs a", "sprig"),
-            ("1 heads a", "head"), ("1 pkg a", "package"),
+            ("1 heads a", "head"), ("1 pkg a", "package"), ("1 Small a", "small"), ("1 medium a", "medium"), ("1 large a", "large"),
         ]
         for (line, unit) in cases {
             #expect(parsed(line)?.unit == unit, "\(line)")
@@ -77,6 +77,7 @@ struct IngredientTextParserTests {
         #expect(parsed("3 cloves of garlic") == ParsedIngredientLine(quantity: 3, unit: "clove", name: "garlic", hadExplicitQuantity: true))
         #expect(parsed("pinch of salt") == ParsedIngredientLine(quantity: 1, unit: "pinch", name: "salt", hadExplicitQuantity: false))
         #expect(parsed("2 cups Of rice")?.name == "rice")
+        #expect(parsed("3 large eggs") == ParsedIngredientLine(quantity: 3, unit: "large", name: "eggs", hadExplicitQuantity: true))
         #expect(parsed("salt") == ParsedIngredientLine(quantity: 1, unit: "whole", name: "salt", hadExplicitQuantity: false))
     }
 

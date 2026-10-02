@@ -19,7 +19,7 @@ public struct ParsedIngredientLine: Equatable, Sendable {
 /// Deterministic, offline port of the rules in the web app's ingredient parser prompt
 /// (`app/lib/ingredient-parse.server.ts`), so native and web agree:
 /// fractions and unicode fractions become decimals, ranges use the lower number, approximate words
-/// are dropped, units are singular standard abbreviations, countable items get the unit "whole",
+/// are dropped, units are singular standard abbreviations, size words such as "large" are units, countable items with no unit word get "whole",
 /// "pinch of X" and "dash of X" are quantity 1, and prep notes and modifiers stay in the name.
 /// Each line is parsed independently; a comma inside a line stays in the name ("flour, sifted").
 public enum IngredientTextParser {
@@ -181,6 +181,10 @@ public enum IngredientTextParser {
             "sprig": ["sprig", "sprigs"],
             "head": ["head", "heads"],
             "package": ["package", "packages", "pkg"],
+            // Size words are stored as the unit ("3 large eggs" is 3 / large / eggs), as Spoonjoy recipes do.
+            "small": ["small"],
+            "medium": ["medium"],
+            "large": ["large"],
         ]
         for (canonical, names) in groups {
             for name in names {
