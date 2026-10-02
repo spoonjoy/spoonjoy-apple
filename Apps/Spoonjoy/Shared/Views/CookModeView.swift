@@ -161,12 +161,23 @@ struct CookModeView: View {
                 cookModeBottomActionRail
             }
         } else {
-            VStack(alignment: .leading, spacing: 0) {
-                ScrollView {
-                    cookModeScrollContent
-                }
+            GeometryReader { proxy in
+                let layout = BookSpreadLayout.resolve(
+                    width: Double(proxy.size.width),
+                    height: Double(proxy.size.height),
+                    isRegularWidth: true
+                )
+                if layout.isSpread {
+                    cookModeSpread(layout)
+                } else {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ScrollView {
+                            cookModeScrollContent
+                        }
 
-                bottomControls
+                        bottomControls
+                    }
+                }
             }
         }
     }
@@ -616,6 +627,142 @@ struct CookModeView: View {
 
     @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> String {
         try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+    }
+}
+
+// MARK: - Cookbook spread
+
+extension CookModeView {
+    /// Cook mode laid open across a wide landscape screen. The left page gathers what this step needs, as a
+    /// checklist; the right page is the step itself in large type with its timer. Back sits at the outer corner
+    /// of the left page and Next at the outer corner of the right page, like turning a page, so every control
+    /// stays well away from the fold in the middle.
+    fileprivate func cookModeSpread(_ layout: BookSpreadLayout) -> some View {
+        KitchenTableSpread(layout: layout) {
+            VStack(alignment: .leading, spacing: 0) {
+                ScrollView {
+                    cookSpreadGatherPage
+                        .spreadPagePadding(.leading, bottom: 24)
+                }
+                cookSpreadLeadingControls
+                    .spreadPagePadding(.leading, top: 12, bottom: 16)
+            }
+            .accessibilityIdentifier("cookSpread.gatherPage")
+        } trailing: {
+            VStack(alignment: .leading, spacing: 0) {
+                ScrollView {
+                    cookSpreadStepPage
+                        .spreadPagePadding(.trailing, bottom: 24)
+                }
+                cookSpreadTrailingControls
+                    .spreadPagePadding(.trailing, top: 12, bottom: 16)
+            }
+            .accessibilityIdentifier("cookSpread.stepPage")
+        }
+    }
+
+    private var cookSpreadGatherPage: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(recipe.title)
+                    .spreadRunningHead()
+                    .lineLimit(1)
+                HStack(alignment: .firstTextBaseline, spacing: 12) {
+                    Text("Gather")
+                        .font(KitchenTableTheme.displayTitle)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer(minLength: 0)
+                    utilityButton
+                }
+                stepProgressRail
+                shoppingStatus
+            }
+
+            if viewModel.stepOutputChecklistRows.isEmpty && viewModel.ingredientChecklistRows.isEmpty {
+                Text("Nothing new to gather for this step.")
+                    .font(KitchenTableTheme.instructionBody)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+            dependencyChecklist
+            ingredientChecklist
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var cookSpreadStepPage: some View {
+        if let currentStep {
+            VStack(alignment: .leading, spacing: 18) {
+                Text(viewModel.stepProgressLabel)
+                    .spreadRunningHead()
+                HStack(alignment: .firstTextBaseline, spacing: 14) {
+                    Text("\(currentStep.stepNum)")
+                        .font(KitchenTableTheme.displayTitle)
+                        .foregroundStyle(KitchenTableTheme.brass)
+                        .accessibilityHidden(true)
+                    Text(currentStep.stepTitle ?? "Step \(currentStep.stepNum)")
+                        .font(KitchenTableTheme.sectionTitle)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityLabel("Current cooking step \(currentStep.stepNum), \(currentStep.stepTitle ?? "Step")")
+                }
+                Text(currentStep.description)
+                    .font(KitchenTableTheme.cookInstruction)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineSpacing(6)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let timer = viewModel.systemTimer {
+                    RecipeStepDurationCue(durationLabel: timer.durationLabel)
+                    CookModeSystemTimer(timer: timer) {
+                        try await scheduleSystemTimer(timer, step: currentStep)
+                    }
+                    .id(timer.stepID)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var cookSpreadLeadingControls: some View {
+        HStack(spacing: 10) {
+            Button(action: previous) {
+                Label("Back step", systemImage: "chevron.backward.circle")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+            .disabled(!canGoBack)
+            .fixedSize()
+
+            Button(action: close) {
+                Label("Close", systemImage: "text.book.closed")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+            .accessibilityLabel("Return to recipe detail")
+            .fixedSize()
+
+            Spacer(minLength: 0)
+        }
+        .controlSize(.large)
+    }
+
+    private var cookSpreadTrailingControls: some View {
+        HStack(spacing: 10) {
+            Spacer(minLength: 0)
+            Button(action: markCurrentStepComplete) {
+                Label("Mark done", systemImage: "checkmark.circle.fill")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .accessibilityLabel("Mark the current step done")
+            .fixedSize()
+
+            Button(action: advance) {
+                Label("Next step", systemImage: "arrow.forward.circle.fill")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+            .disabled(!canAdvance)
+            .accessibilityLabel("Move to the next step")
+            .fixedSize()
+        }
+        .controlSize(.large)
     }
 }
 
