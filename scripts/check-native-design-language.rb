@@ -163,8 +163,8 @@ kitchen_navigation_phrases = [
   "`Shopping List` -> `/shopping-list`",
   "`Chefs` -> `/chefs`",
   "`Kitchen Search` -> `/search`",
-  "compact iPhone tabs are exactly `Kitchen`, `My Recipes`, `Saved`, `Cookbooks`, and `Shopping List`",
-  "Search stays in the trailing `More` menu",
+  "compact iPhone tabs are exactly `Kitchen`, `Recipes`, `Cookbooks`, and `Shopping`, plus Search as the tab bar's search tab",
+  "Each tab owns its own `NavigationStack`",
   "Saved Recipes derive from cookbooks owned by the current chef",
   "route matrix covers `kitchen`, `recipes`, `saved-recipes`, `cookbooks`, `shopping-list`, `chefs`, and `search`"
 ]
@@ -226,11 +226,17 @@ web_source_markers = [
 ]
 assert_includes(web_content, web_source_markers, "web source design markers", web_doc)
 
-# The compact tab bar marks the selected tab in brass. iOS draws unselected tabs near-black, so a
-# charcoal (action) tint makes the selected tab indistinguishable from the others.
+# The compact shell is a TabView whose tabs each own a NavigationStack, with Search as the system search tab
+# and a tab bar that minimizes on scroll. The tab bar marks the selected tab in brass: iOS draws unselected
+# tabs near-black, so a charcoal (action) tint makes the selected tab indistinguishable from the others.
 shell_source = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
 assert_file(shell_source)
 tab_shell = shell_source.read[/private var compactTabShellContent: some View \{.*?\n    \}\n/m].to_s
+fail_check("#{display_path(shell_source)} compactTabShellContent must be a TabView(selection:)") unless tab_shell.include?("TabView(selection: compactTabSelection)")
+fail_check("#{display_path(shell_source)} compact tabs must use the Tab API, not .tabItem") if tab_shell.include?(".tabItem") || !tab_shell.include?("Tab(\"Kitchen\"")
+fail_check("#{display_path(shell_source)} compact Search must be Tab(..., role: .search)") unless tab_shell.include?("role: .search")
+fail_check("#{display_path(shell_source)} compact tab bar must use .tabBarMinimizeBehavior(.onScrollDown)") unless tab_shell.include?(".tabBarMinimizeBehavior(.onScrollDown)")
 fail_check("#{display_path(shell_source)} compact TabView must use .tint(KitchenTableTheme.brass) so the selected tab is visible") unless tab_shell.match?(/^        \.tint\(KitchenTableTheme\.brass\)$/)
+fail_check("#{display_path(shell_source)} each compact tab must own a NavigationStack(path:)") unless shell_source.read.include?("NavigationStack(path: compactPath(for: tab))")
 
 puts "native design language contract ok"

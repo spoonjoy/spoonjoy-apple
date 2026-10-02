@@ -20,8 +20,8 @@ struct KitchenNavigationDocumentationContractTests {
                 "`Shopping List` -> `/shopping-list`",
                 "`Chefs` -> `/chefs`",
                 "`Kitchen Search` -> `/search`",
-                "compact iPhone tabs are exactly `Kitchen`, `My Recipes`, `Saved`, `Cookbooks`, and `Shopping List`",
-                "Search stays in the trailing `More` menu",
+                "compact iPhone tabs are exactly `Kitchen`, `Recipes`, `Cookbooks`, and `Shopping`, plus Search as the tab bar's search tab",
+                "Each tab owns its own `NavigationStack`",
                 "Saved Recipes derive from cookbooks owned by the current chef",
                 "route matrix covers `kitchen`, `recipes`, `saved-recipes`, `cookbooks`, `shopping-list`, `chefs`, and `search`"
             ],
