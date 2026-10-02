@@ -296,6 +296,22 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
 #endif
+        // On the TabView, not inside the Search tab: this is what lets iOS draw Search as the separate circle
+        // beside the tab capsule and open it as the bottom search field above the keyboard, as Music does.
+        .searchable(text: searchText, prompt: "Search Spoonjoy")
+        .searchScopes(searchScope) {
+            ForEach(availableSearchScopes, id: \.rawValue) { scope in
+                Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
+            }
+        }
+#if os(iOS)
+        .tabViewSearchActivation(.searchTabSelection)
+#endif
+        .onSubmit(of: .search) {
+            Task {
+                await performSearch(search)
+            }
+        }
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
         // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the
         // selected tab, matching the web dock's brass primary button. Pages set their own action tint.

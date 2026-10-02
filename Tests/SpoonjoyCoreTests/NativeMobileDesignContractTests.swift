@@ -26,7 +26,8 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                ".tabBarMinimizeBehavior(.onScrollDown)"
+                ".tabBarMinimizeBehavior(.onScrollDown)",
+                ".tabViewSearchActivation(.searchTabSelection)"
             ],
             forbids: [
                 ".toolbarBackground(.regularMaterial, for: .tabBar)",
@@ -1734,13 +1735,14 @@ struct NativeMobileDesignContractTests {
             search,
             in: searchPath,
             contains: [
-                ".searchable(text: searchTextBinding, placement: searchFieldPlacement, prompt: \"Search Spoonjoy\")",
-                "usesCompactNavigation ? .automatic : .navigationBarDrawer(displayMode: .always)",
+                "ownsSearchField: !usesCompactNavigation",
+                ".searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: \"Search Spoonjoy\")",
                 "@FocusState private var isSearchFieldFocused",
-                ".searchFocused($isSearchFieldFocused)",
+                ".searchFocused(isFocused)",
                 "isSearchFieldFocused = true",
                 "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
-                ".searchScopes(searchScopeBinding)",
+                ".searchScopes($scope)",
+                "scope: searchScopeBinding",
                 "SearchSurfaceNativeChrome",
                 "onSubmit(of: .search)",
                 "searchScopeBinding"
