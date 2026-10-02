@@ -25,6 +25,7 @@ final class RemindersJourney: JourneyTestCase {
         journey.tap(JourneyID.editorStepAddIngredient(1))
         journey.enterText("eggs", into: JourneyID.editorIngredientName(step: 1, ingredient: 1))
         journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 1, ingredient: 1), with: "3")
+        journey.enterText("large", into: JourneyID.editorIngredientUnit(step: 1, ingredient: 1))
         journey.tap(JourneyID.editorStepAddIngredient(1))
         journey.enterText("rice", into: JourneyID.editorIngredientName(step: 1, ingredient: 2))
         journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 1, ingredient: 2), with: "2")
