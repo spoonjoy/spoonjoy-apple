@@ -226,4 +226,11 @@ web_source_markers = [
 ]
 assert_includes(web_content, web_source_markers, "web source design markers", web_doc)
 
+# The compact tab bar marks the selected tab in brass. iOS draws unselected tabs near-black, so a
+# charcoal (action) tint makes the selected tab indistinguishable from the others.
+shell_source = ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift")
+assert_file(shell_source)
+tab_shell = shell_source.read[/private var compactTabShellContent: some View \{.*?\n    \}\n/m].to_s
+fail_check("#{display_path(shell_source)} compact TabView must use .tint(KitchenTableTheme.brass) so the selected tab is visible") unless tab_shell.match?(/^        \.tint\(KitchenTableTheme\.brass\)$/)
+
 puts "native design language contract ok"
