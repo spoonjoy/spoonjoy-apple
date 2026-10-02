@@ -220,6 +220,13 @@ struct RecipeDetailView: View {
     @State private var checkedRecipeStepDependencyIDs: Set<String> = []
     @State private var shoppingScaleFactor: Double = 1
     @State private var remindersSender = SpoonjoyRemindersSender()
+    @State private var spreadSelection = RecipeSpreadSelection()
+    /// The anchor each page of the spread is scrolled to. Setting one scrolls that page; the two pages scroll on
+    /// their own otherwise.
+    @State private var spreadIngredientScrollPosition = ScrollPosition(idType: String.self)
+    /// Where each ingredient group starts on the left page, measured in the page's content coordinates.
+    @State private var spreadIngredientGroupOffsets: [String: CGFloat] = [:]
+    @State private var spreadMethodScrollAnchor: String?
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -227,12 +234,7 @@ struct RecipeDetailView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
-        KitchenTablePage {
-            offlineIndicator
-            recipeMasthead
-            stepsSection
-            cookLogView(showsHeader: true)
-        }
+        recipeLayout
         .spoonjoyRemindersSend(remindersSender)
         .onChange(of: remindersSender.statusMessage) { _, message in
             if let message {
@@ -332,6 +334,36 @@ struct RecipeDetailView: View {
         }
     }
 
+    /// Compact width keeps the single scrolling page. Regular width opens into a two-page spread when the
+    /// screen is wide and landscape, such as the inner screen of the iPhone Duo, and reads as one page otherwise.
+    @ViewBuilder private var recipeLayout: some View {
+        if usesCompactRecipeDock {
+            singlePageLayout
+        } else {
+            GeometryReader { proxy in
+                let layout = BookSpreadLayout.resolve(
+                    width: Double(proxy.size.width),
+                    height: Double(proxy.size.height),
+                    isRegularWidth: true
+                )
+                if layout.isSpread {
+                    recipeSpread(layout)
+                } else {
+                    singlePageLayout
+                }
+            }
+        }
+    }
+
+    private var singlePageLayout: some View {
+        KitchenTablePage {
+            offlineIndicator
+            recipeMasthead
+            stepsSection
+            cookLogView(showsHeader: true)
+        }
+    }
+
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
         ScreenshotAccessibilityRuntimeContext(
             dynamicTypeSize: String(describing: dynamicTypeSize),
@@ -370,7 +402,7 @@ struct RecipeDetailView: View {
                 recipeNoPhotoStatus
             }
             recipeMastheadActions
-            recipeHeaderControls
+            recipeHeaderControls(fillsWidth: usesCompactRecipeDock)
         }
     }
 
@@ -437,7 +469,8 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var recipeHeaderControls: some View {
+    /// On a spread page the yield control fills the page so it lines up with the actions above it.
+    private func recipeHeaderControls(fillsWidth: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             RecipeScaleSelector(
                 scaleFactor: shoppingScaleFactor,
@@ -445,7 +478,7 @@ struct RecipeDetailView: View {
                 setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) },
                 isCompact: usesCompactRecipeDock
             )
-            .frame(maxWidth: usesCompactRecipeDock ? .infinity : 440)
+            .frame(maxWidth: fillsWidth ? .infinity : 440)
 
             // Nothing to clear on a fresh recipe, so the button only shows once there is progress.
             if hasRecipeProgress || !usesCompactRecipeDock {
@@ -630,7 +663,13 @@ struct RecipeDetailView: View {
             }
             .disabled(hasIngredientsInShoppingList)
         }
-        if includeAddToList && hasIngredientsToSendToReminders {
+        if includeAddToList {
+            remindersMenuItems
+        }
+    }
+
+    @ViewBuilder private var remindersMenuItems: some View {
+        if hasIngredientsToSendToReminders {
             Button {
                 sendIngredientsToReminders()
             } label: {
@@ -1215,6 +1254,396 @@ private extension Recipe {
             cookbooks: cookbooks,
             recentSpoons: recentSpoons
         )
+    }
+}
+
+// MARK: - Cookbook spread
+
+extension RecipeDetailView {
+    /// The recipe laid open like a cookbook. The left page holds the title, cover, yield and every ingredient
+    /// grouped under the step that uses it; the right page holds the method. The pages scroll on their own.
+    /// Tapping a step highlights its ingredients on the left page and brings them into view; tapping an
+    /// ingredient group's heading selects its step on the right.
+    fileprivate func recipeSpread(_ layout: BookSpreadLayout) -> some View {
+        let index = RecipeSpreadIngredientIndex(stepSections: viewModel.stepSections)
+        return KitchenTableSpread(layout: layout) {
+            ScrollView {
+                spreadIngredientPage(index: index)
+                    .spreadPagePadding(.leading)
+            }
+            .scrollPosition($spreadIngredientScrollPosition)
+            .accessibilityIdentifier("recipeSpread.ingredientsPage")
+        } trailing: {
+            ScrollView {
+                spreadMethodPage(index: index)
+                    .spreadPagePadding(.trailing)
+            }
+            .scrollPosition(id: $spreadMethodScrollAnchor, anchor: .top)
+            .accessibilityIdentifier("recipeSpread.methodPage")
+        }
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+#endif
+        .onChange(of: viewModel.id) { _, _ in
+            spreadSelection.clear()
+        }
+    }
+
+    private func spreadIngredientPage(index: RecipeSpreadIngredientIndex) -> some View {
+        VStack(alignment: .leading, spacing: 22) {
+            offlineIndicator
+            if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
+                RecipeCoverImage(
+                    url: coverImageURL,
+                    title: viewModel.title,
+                    subtitle: "Cover",
+                    showsFallbackLabel: false
+                )
+                .frame(maxWidth: .infinity)
+                .frame(height: 220)
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                .accessibilityLabel("\(viewModel.title) cover image")
+            }
+            recipeIdentityAndProvenance
+            if !viewModel.cover.hasRealCover {
+                recipeNoPhotoStatus
+            }
+            spreadActions
+            recipeHeaderControls(fillsWidth: true)
+            spreadIngredientList(index: index)
+        }
+        .scrollTargetLayout()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .coordinateSpace(name: Self.spreadIngredientContentSpace)
+    }
+
+    /// Cooking is the page's one primary action, so it gets its own full-width row; the utilities share the row
+    /// beneath it. A single row truncated every label at page width.
+    private var spreadActions: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if hasAction(.startCooking) {
+                startCookingButton
+            }
+            HStack(spacing: 10) {
+                spreadUtilityButtons
+            }
+            actionStatus
+        }
+    }
+
+    @ViewBuilder private var spreadUtilityButtons: some View {
+        if hasAction(.saveToCookbook) {
+            Button {
+                isCookbookSaveSheetPresented = true
+            } label: {
+                Label("Save", systemImage: "book.closed")
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        }
+        if hasAction(.addToShoppingList) {
+            Button {
+                addRecipeIngredients()
+            } label: {
+                Label(
+                    hasIngredientsInShoppingList ? "In list" : "Add to list",
+                    systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
+                )
+                .lineLimit(1)
+            }
+            .disabled(hasIngredientsInShoppingList)
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
+        }
+        if hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders {
+            Menu {
+                recipeMenuItems(includeSave: false, includeAddToList: false)
+                remindersMenuItems
+                ownerToolsMenuItems
+            } label: {
+                Label("More", systemImage: "ellipsis.circle")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .frame(width: 64)
+            .accessibilityLabel("More recipe actions")
+        }
+    }
+
+    @ViewBuilder private func spreadIngredientList(index: RecipeSpreadIngredientIndex) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Ingredients")
+                .font(KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .accessibilityAddTraits(.isHeader)
+            Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+        }
+        .padding(.top, 6)
+
+        // The groups sit directly in the page's scroll target layout so the page can scroll to any of them.
+        ForEach(index.groups) { group in
+            spreadIngredientGroup(group, isHighlighted: spreadSelection.isHighlighted(groupID: group.id, in: index))
+                .id(Self.spreadIngredientAnchor(group.id))
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.frame(in: .named(Self.spreadIngredientContentSpace)).minY
+                } action: { minY in
+                    spreadIngredientGroupOffsets[Self.spreadIngredientAnchor(group.id)] = minY
+                }
+        }
+    }
+
+    private func spreadIngredientGroup(_ group: RecipeSpreadIngredientGroup, isHighlighted: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                selectSpreadStep(group.id, scrollIngredients: false)
+            } label: {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(group.stepLabel)
+                        .spreadRunningHead()
+                    if let title = group.title {
+                        Text(title)
+                            .font(KitchenTableTheme.instructionBody.italic())
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(group.accessibilityHeading)
+            .accessibilityHint("Shows this step in the method.")
+            .accessibilityAddTraits(.isHeader)
+
+            ForEach(group.dependencies) { dependency in
+                RecipeSpreadIngredientRow(
+                    name: dependency.label,
+                    amount: "",
+                    note: "from an earlier step",
+                    isChecked: dependencyIsChecked(dependency.id),
+                    toggle: { toggleDependency(id: dependency.id) }
+                )
+            }
+            ForEach(group.ingredients) { ingredient in
+                RecipeSpreadIngredientRow(
+                    name: ingredient.name,
+                    amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
+                    note: nil,
+                    isChecked: ingredientIsChecked(ingredient.id),
+                    toggle: { toggleIngredient(id: ingredient.id) }
+                )
+            }
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 4)
+        .padding(.vertical, 4)
+        .background(isHighlighted ? KitchenTableTheme.selectionWash : Color.clear)
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(isHighlighted ? KitchenTableTheme.brass : KitchenTableTheme.line)
+                .frame(width: isHighlighted ? 3 : 1)
+        }
+        .animation(accessibilityReduceMotion ? nil : .easeOut(duration: 0.2), value: isHighlighted)
+        .accessibilityElement(children: .contain)
+        .accessibilityValue(isHighlighted ? "Ingredients for the selected step" : "")
+    }
+
+    private func spreadMethodPage(index: RecipeSpreadIngredientIndex) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(viewModel.title)
+                    .spreadRunningHead()
+                    .lineLimit(1)
+                Text("Method")
+                    .font(KitchenTableTheme.displayTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .accessibilityAddTraits(.isHeader)
+                Text(spreadMethodSummary)
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+            .padding(.bottom, 12)
+
+            if viewModel.stepSections.isEmpty {
+                Text("No steps added yet")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .padding(.vertical, 18)
+            } else {
+                ForEach(viewModel.stepSections) { section in
+                    spreadMethodStep(section, index: index)
+                        .id(Self.spreadMethodAnchor(section.id))
+                }
+            }
+
+            cookLogView(showsHeader: true)
+                .padding(.top, 28)
+        }
+        .scrollTargetLayout()
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var spreadMethodSummary: String {
+        let count = viewModel.stepSections.count
+        let steps = count == 1 ? "1 step" : "\(count) steps"
+        let minutes = viewModel.stepSections.compactMap(\.durationMinutes).reduce(0, +)
+        return minutes > 0 ? "\(steps) · about \(minutes) min" : steps
+    }
+
+    private func spreadMethodStep(_ section: RecipeDetailStepSection, index: RecipeSpreadIngredientIndex) -> some View {
+        let isSelected = spreadSelection.isSelected(stepID: section.id)
+        let gathers = index.group(forStepID: section.id) != nil
+        return Button {
+            selectSpreadStep(section.id, scrollIngredients: true)
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: 16) {
+                Text("\(section.stepNumber)")
+                    .font(KitchenTableTheme.stepNumeral)
+                    .foregroundStyle(isSelected ? KitchenTableTheme.brass : KitchenTableTheme.brass.opacity(0.62))
+                    .frame(minWidth: 30, alignment: .trailing)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 8) {
+                    if let title = section.title, !title.isEmpty {
+                        Text(title)
+                            .font(KitchenTableTheme.objectTitle)
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                    }
+                    Text(section.body)
+                        .font(KitchenTableTheme.instructionBody)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .lineSpacing(3)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let durationLabel = section.durationLabel {
+                        RecipeStepDurationCue(durationLabel: durationLabel)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 16)
+            .padding(.horizontal, 12)
+            .background(isSelected ? KitchenTableTheme.selectionWash : Color.clear)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(KitchenTableTheme.line.opacity(0.35))
+                    .frame(height: 1)
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .animation(accessibilityReduceMotion ? nil : .easeOut(duration: 0.2), value: isSelected)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spreadStepAccessibilityLabel(section))
+        .accessibilityHint(gathers ? "Highlights this step's ingredients." : "Selects this step.")
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityIdentifier("recipeSpread.step.\(section.stepNumber)")
+    }
+
+    private func spreadStepAccessibilityLabel(_ section: RecipeDetailStepSection) -> String {
+        var parts = ["Step \(section.stepNumber)"]
+        if let title = section.title, !title.isEmpty {
+            parts.append(title)
+        }
+        parts.append(section.body)
+        if let durationLabel = section.durationLabel {
+            parts.append(durationLabel)
+        }
+        return parts.joined(separator: ", ")
+    }
+
+    private func selectSpreadStep(_ stepID: String, scrollIngredients: Bool) {
+        let index = RecipeSpreadIngredientIndex(stepSections: viewModel.stepSections)
+        spreadSelection.toggle(stepID: stepID)
+        let target: String?
+        if scrollIngredients {
+            target = spreadSelection.highlightedGroupID(in: index).map(Self.spreadIngredientAnchor)
+        } else {
+            target = spreadSelection.isSelected(stepID: stepID) ? Self.spreadMethodAnchor(stepID) : nil
+        }
+        guard let target else {
+            return
+        }
+        // Scroll the facing page once the highlight has rendered, so the two updates do not cancel each other.
+        Task { @MainActor in
+            await Task.yield()
+            withAnimation(accessibilityReduceMotion ? nil : .easeInOut(duration: 0.3)) {
+                if scrollIngredients {
+                    scrollIngredientPage(to: target)
+                } else {
+                    spreadMethodScrollAnchor = target
+                }
+            }
+        }
+    }
+
+    private nonisolated static let spreadIngredientContentSpace = "spread.ingredients.content"
+
+    /// Scrolls the ingredients page so a group sits just under the top of the page. The page scrolls by measured
+    /// offset: scrolling to the group's ID left the page where it was.
+    private func scrollIngredientPage(to anchor: String) {
+        guard let minY = spreadIngredientGroupOffsets[anchor] else {
+            spreadIngredientScrollPosition.scrollTo(id: anchor, anchor: .top)
+            return
+        }
+        spreadIngredientScrollPosition.scrollTo(y: max(0, minY + Self.spreadPageTopPadding - 12))
+    }
+
+    private static var spreadPageTopPadding: CGFloat { 24 }
+
+    private static func spreadIngredientAnchor(_ id: String) -> String {
+        "spread.ingredients.\(id)"
+    }
+
+    private static func spreadMethodAnchor(_ id: String) -> String {
+        "spread.method.\(id)"
+    }
+}
+
+/// An ingredient on the left page of a recipe spread, set like a printed cookbook: the amount in its own
+/// column, then the ingredient in serif. Tapping it checks it off, the same progress the single page keeps.
+private struct RecipeSpreadIngredientRow: View {
+    let name: String
+    let amount: String
+    let note: String?
+    let isChecked: Bool
+    let toggle: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(isChecked ? KitchenTableTheme.herb : KitchenTableTheme.lineStrong)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                Text(amount)
+                    .font(KitchenTableTheme.uiLabel)
+                    .monospacedDigit()
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .frame(width: 72, alignment: .leading)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(name)
+                        .font(KitchenTableTheme.instructionBody)
+                        .foregroundStyle(isChecked ? KitchenTableTheme.inkMuted : KitchenTableTheme.charcoal)
+                        .strikethrough(isChecked, color: KitchenTableTheme.inkMuted)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let note {
+                        Text(note)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel([name, amount, note ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
+        .accessibilityValue(isChecked ? "used" : "not used")
     }
 }
 
