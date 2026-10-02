@@ -9,7 +9,7 @@ struct TestFlightAutomationContractTests {
     private let currentSHA = String(repeating: "a", count: 40)
     private let rollbackSHA = String(repeating: "b", count: 40)
 
-    @Test("TestFlight is a trusted-main exact-SHA release-candidate dispatch")
+    @Test("TestFlight publishes each green main Native push, or an exact-SHA manual dispatch, from trusted main")
     func testFlightIsAnExactSHAReleaseCandidateDispatch() throws {
         let workflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
 
@@ -18,6 +18,17 @@ struct TestFlightAutomationContractTests {
             in: ".github/workflows/testflight.yml",
             contains: [
                 "name: TestFlight",
+                "workflow_run:",
+                "workflows: [Native]",
+                "types: [completed]",
+                "branches: [main]",
+                "github.event.workflow_run.conclusion == 'success'",
+                "github.event.workflow_run.event == 'push'",
+                "github.event.workflow_run.head_branch == 'main'",
+                "github.event.workflow_run.head_repository.full_name == github.repository",
+                "RUN_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}",
+                "main has moved to",
+                "if: needs.release-gate.outputs.publish == 'true'",
                 "workflow_dispatch:",
                 "source_sha:",
                 "required: true",
@@ -32,13 +43,13 @@ struct TestFlightAutomationContractTests {
                 "name: Check out trusted release controls",
                 "ref: ${{ github.sha }}",
                 "name: Check out selected source revision",
-                "ref: ${{ inputs.source_sha }}",
+                "ref: ${{ needs.release-gate.outputs.source_sha }}",
                 "path: release-source",
                 "fetch-depth: 0",
                 "persist-credentials: false",
                 "working-directory: release-source",
                 "../scripts/verify-testflight-release-candidate.rb",
-                "SOURCE_SHA: ${{ inputs.source_sha }}",
+                "SOURCE_SHA: ${{ needs.release-gate.outputs.source_sha }}",
                 "--source-sha \"$SOURCE_SHA\"",
                 "SPOONJOY_TESTFLIGHT_SOURCE_ROOT: ${{ github.workspace }}/release-source",
                 "ROLLBACK_NOTES: ${{ inputs.rollback_notes }}",
@@ -55,8 +66,8 @@ struct TestFlightAutomationContractTests {
                 "../scripts/ci-publish-testflight.sh"
             ],
             forbids: [
-                "workflow_run:",
-                "github.event.workflow_run",
+                "pull_request",
+                "workflow_run.event == 'pull_request'",
                 "appStoreVersionSubmissions",
                 "appStoreReviewSubmissions",
                 "betaAppReviewSubmissions"
@@ -683,7 +694,7 @@ struct TestFlightAutomationContractTests {
                 "runner-provided `gh`",
                 "last known-good main commit",
                 "new TestFlight build number",
-                "No push, pull request, or completed workflow publishes automatically"
+                "publishes that exact commit", "never for pull requests or forks"
             ],
             forbids: [
                 "publishes internal TestFlight builds automatically"

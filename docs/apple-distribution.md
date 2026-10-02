@@ -155,10 +155,7 @@ this lane.
 
 ## Exact-SHA TestFlight Release
 
-`.github/workflows/testflight.yml` is a release-candidate dispatch, not a CI
-side effect. No push, pull request, or completed workflow publishes automatically.
-Dispatch the workflow from its trusted `main` definition and
-provide the full lowercase 40-character `source_sha` to release.
+`.github/workflows/testflight.yml` is continuous delivery for internal TestFlight. When a `Native` push run on `main` completes successfully, the workflow publishes that exact commit. It runs only for push runs of `main` in this repository, never for pull requests or forks, and its definition always comes from trusted `main`. If `main` has moved on by the time the run starts, it skips that commit with a step-summary note, because the newer commit's own `Native` run publishes it. A manual dispatch remains available for rollbacks and build-number overrides: run it from its trusted `main` definition and provide the full lowercase 40-character `source_sha`.
 
 For an ordinary release, `source_sha` must equal the current `main` head. The
 verifier checks out that exact SHA and requires a successful `Native` push run
@@ -193,7 +190,7 @@ GitHub evidence queries and exact-run artifact download; source-changing actions
 the Node setup action, toolkit source, dependency lockfile, and generated toolkit
 output are independently pinned or checksum-verified.
 
-Use GitHub's **Run workflow** form on `main`, or dispatch explicitly:
+To release manually (normally unnecessary), use GitHub's **Run workflow** form on `main`, or dispatch explicitly:
 
 ```bash
 gh workflow run testflight.yml \
