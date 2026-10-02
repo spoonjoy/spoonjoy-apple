@@ -15,6 +15,7 @@ struct ShoppingListView: View {
     @State private var viewMode: ShoppingListViewMode = .all
     @State private var activeCategory = "all"
     @State private var checkHapticTick = 0
+    @State private var remindersSender = SpoonjoyRemindersSender()
     @FocusState private var isItemFieldFocused: Bool
     @FocusState private var isRetryButtonFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -75,6 +76,19 @@ struct ShoppingListView: View {
             shoppingCategoryFilters
             statusBanner
             shoppingReceiptState
+        }
+        .spoonjoyRemindersSend(remindersSender)
+        .onChange(of: remindersSender.statusMessage) { _, message in
+            if let message {
+                actionErrorMessage = nil
+                actionStatusMessage = message
+            }
+        }
+        .onChange(of: remindersSender.errorMessage) { _, message in
+            if let message {
+                actionStatusMessage = nil
+                actionErrorMessage = message
+            }
         }
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
@@ -170,6 +184,22 @@ struct ShoppingListView: View {
 
     private var receiptActionsMenu: some View {
         Menu {
+            Button {
+                remindersSender.send(
+                    ingredients: ReminderIncomingIngredient.fromShoppingItems(shoppingList?.items ?? []),
+                    source: .shoppingList
+                )
+            } label: {
+                Label("Send to Reminders", systemImage: "checklist")
+            }
+            Button {
+                remindersSender.chooseList()
+            } label: {
+                Label(
+                    remindersSender.currentListTitle.map { "Reminders list: \($0)" } ?? "Choose Reminders list",
+                    systemImage: "list.bullet"
+                )
+            }
             Button("Clear checked") {
                 clearCompleted()
             }

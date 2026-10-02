@@ -219,6 +219,7 @@ struct RecipeDetailView: View {
     @State private var checkedRecipeIngredientIDs: Set<String> = []
     @State private var checkedRecipeStepDependencyIDs: Set<String> = []
     @State private var shoppingScaleFactor: Double = 1
+    @State private var remindersSender = SpoonjoyRemindersSender()
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -231,6 +232,19 @@ struct RecipeDetailView: View {
             recipeMasthead
             stepsSection
             cookLogView(showsHeader: true)
+        }
+        .spoonjoyRemindersSend(remindersSender)
+        .onChange(of: remindersSender.statusMessage) { _, message in
+            if let message {
+                actionErrorMessage = nil
+                actionStatusMessage = message
+            }
+        }
+        .onChange(of: remindersSender.errorMessage) { _, message in
+            if let message {
+                actionStatusMessage = nil
+                actionErrorMessage = message
+            }
         }
         .sheet(isPresented: $isCookbookSaveSheetPresented) {
             NavigationStack {
@@ -570,6 +584,7 @@ struct RecipeDetailView: View {
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
         .fixedSize()
         .accessibilityLabel("Recipe actions")
+        .accessibilityIdentifier("recipeDetail.actions")
     }
 
     @ViewBuilder private var recipeSecondaryActions: some View {
@@ -580,6 +595,7 @@ struct RecipeDetailView: View {
                 Label("More", systemImage: "ellipsis.circle")
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .accessibilityIdentifier("recipeDetail.actions")
         }
     }
 
@@ -614,14 +630,45 @@ struct RecipeDetailView: View {
             }
             .disabled(hasIngredientsInShoppingList)
         }
+        if includeAddToList && hasIngredientsToSendToReminders {
+            Button {
+                sendIngredientsToReminders()
+            } label: {
+                Label("Send to Reminders", systemImage: "checklist")
+            }
+            .accessibilityIdentifier("recipeDetail.remindersSend")
+            Button {
+                remindersSender.chooseList()
+            } label: {
+                Label(remindersListMenuTitle, systemImage: "list.bullet")
+            }
+        }
+    }
+
+    private var hasIngredientsToSendToReminders: Bool {
+        viewModel.recipe.steps.contains { !$0.ingredients.isEmpty }
+    }
+
+    private var remindersListMenuTitle: String {
+        remindersSender.currentListTitle.map { "Reminders list: \($0)" } ?? "Choose Reminders list"
+    }
+
+    private func sendIngredientsToReminders() {
+        remindersSender.send(
+            ingredients: ReminderIncomingIngredient.fromRecipe(
+                viewModel.recipe.steps.flatMap(\.ingredients),
+                scaleFactor: shoppingScaleFactor
+            ),
+            source: ReminderSource(id: viewModel.recipe.id, label: viewModel.recipe.title)
+        )
     }
 
     private var hasSecondaryRecipeActions: Bool {
-        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList)
+        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList) || hasIngredientsToSendToReminders
     }
 
     private var hasCompactRecipeMenuActions: Bool {
-        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible
+        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders
     }
 
     private var hasRecipeUtilityActions: Bool {
@@ -860,10 +907,12 @@ struct RecipeDetailView: View {
             Label(actionStatusMessage, systemImage: "checkmark.circle")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.herb)
+                .accessibilityIdentifier("recipeDetail.status")
         } else if let actionErrorMessage {
             Label(actionErrorMessage, systemImage: "exclamationmark.triangle")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.tomato)
+                .accessibilityIdentifier("recipeDetail.status")
         }
     }
 

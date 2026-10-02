@@ -416,6 +416,15 @@ public struct RecipeCookbookEntityCatalog: Sendable {
         return try RecipeEntityDescriptor(recipe: recipe, scope: scope)
     }
 
+    /// The recipe's title and every ingredient across its steps, for sending to Reminders.
+    public func reminderIngredients(forRecipeID id: String) throws -> (title: String, ingredients: [RecipeIngredient]) {
+        _ = try ensureScopeAvailable()
+        guard let recipe = recipes.first(where: { $0.id == id }) else {
+            throw RecipeCookbookEntityCatalogError.recipeNotFound(id)
+        }
+        return (recipe.title, recipe.steps.flatMap(\.ingredients))
+    }
+
     public func cookbookEntity(id: String) async throws -> CookbookEntityDescriptor {
         let scope = try ensureScopeAvailable()
         let id = try scopedCookbookIdentifier(id)

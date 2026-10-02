@@ -44,6 +44,18 @@ enum JourneyID {
     static let recipeDetailTitle = "recipeDetail.title"
     static func recipeDetailStep(_ step: Int) -> String { "recipeDetail.step.\(step)" }
 
+    /// The recipe detail page's actions menu ("Recipe actions" on a phone, "More" on a wide screen).
+    static let recipeDetailActions = "recipeDetail.actions"
+    static let recipeDetailRemindersSend = "recipeDetail.remindersSend"
+    /// The success or error line under the recipe's actions.
+    static let recipeDetailStatus = "recipeDetail.status"
+
+    /// Every Reminders list in the "Send ingredients to" picker; the label is the list name.
+    static let remindersList = "reminders.list"
+    /// The picker's "Or make a new list" field and its "Create and use" button.
+    static let remindersNewListName = "reminders.newListName"
+    static let remindersCreateList = "reminders.createList"
+
     /// Every result row in Search.
     static let searchResult = "search.result"
 }
