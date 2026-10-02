@@ -17,6 +17,7 @@ struct SearchView: View {
     private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
     private let debounce = SearchSurfaceDebouncePolicy(delayMilliseconds: 350, defaultLimit: 20)
 
+    @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
@@ -39,7 +40,8 @@ struct SearchView: View {
             KitchenTableHeader(
                 eyebrow: "Kitchen Index",
                 title: "Search",
-                subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)"
+                subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)",
+                hidesTitleInCompactNavigation: true
             )
 
             if viewModel.offlineIndicator.display.isVisible {
@@ -68,17 +70,13 @@ struct SearchView: View {
         }
         .tint(KitchenTableTheme.herb)
         .navigationTitle("Search")
-#if os(iOS)
-        .searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Spoonjoy")
-#else
-        .searchable(text: searchTextBinding, prompt: "Search Spoonjoy")
-#endif
-        .searchFocused($isSearchFieldFocused)
-        .searchScopes(searchScopeBinding) {
-            ForEach(searchableScopeOrder, id: \.rawValue) { scope in
-                Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
-            }
-        }
+        .modifier(SearchFieldChrome(
+            ownsSearchField: !usesCompactNavigation,
+            text: searchTextBinding,
+            scope: searchScopeBinding,
+            scopes: searchableScopeOrder,
+            isFocused: $isSearchFieldFocused
+        ))
         .onAppear {
             focusSearchFieldIfNeeded()
         }
@@ -116,7 +114,8 @@ struct SearchView: View {
     }
 
     private func focusSearchFieldIfNeeded() {
-        guard shouldAutoFocusSearchField else {
+        // On iPhone the search tab owns the field; selecting the tab activates it.
+        guard shouldAutoFocusSearchField, !usesCompactNavigation else {
             isSearchFieldFocused = false
             return
         }
@@ -227,11 +226,41 @@ private enum SearchSurfaceContract {
     static let typedRows = "typed rows"
 }
 
-private enum SearchSurfaceNativeChrome {
+/// On iPhone the shell's search tab owns the search field, applied to the TabView; everywhere else this page
+/// owns it, pinned in the navigation bar on iOS.
+private struct SearchFieldChrome: ViewModifier {
+    let ownsSearchField: Bool
+    @Binding var text: String
+    @Binding var scope: SearchScope
+    let scopes: [SearchScope]
+    let isFocused: FocusState<Bool>.Binding
+
+    func body(content: Content) -> some View {
+        if ownsSearchField {
+            content
+#if os(iOS)
+                .searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search Spoonjoy")
+#else
+                .searchable(text: $text, prompt: "Search Spoonjoy")
+#endif
+                .searchFocused(isFocused)
+                .searchScopes($scope) {
+                    ForEach(scopes, id: \.rawValue) { scope in
+                        Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
+                    }
+                }
+        } else {
+            content
+        }
+    }
+}
+
+enum SearchSurfaceNativeChrome {
     static func title(for scope: SearchScope) -> String {
         switch scope {
+        // Five scopes share an iPhone-width scope bar, so the labels stay short.
         case .all:
-            "Everything"
+            "All"
         case .recipes:
             "Recipes"
         case .cookbooks:

@@ -89,7 +89,7 @@ final class RecipesJourney: JourneyTestCase {
         )
 
         verifyAfterRelaunch(journey) {
-            journey.openTab(JourneyCopy.myRecipesTab)
+            journey.openTab(JourneyCopy.recipesTab)
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
             XCTAssertEqual(journey.element(JourneyID.recipeDetailTitle).label, title, "My Recipes opened another recipe after a relaunch.")
             XCTAssertTrue(

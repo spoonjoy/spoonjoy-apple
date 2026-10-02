@@ -7,6 +7,7 @@ enum JourneyCopy {
 
     // Tab bar items cannot carry accessibility identifiers, so tabs are found by their titles.
     static let kitchenTab = "Kitchen"
-    static let myRecipesTab = "My Recipes"
-    static let shoppingTab = "Shopping List"
+    static let recipesTab = "Recipes"
+    static let shoppingTab = "Shopping"
+    static let searchTab = "Search"
 }

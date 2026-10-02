@@ -117,7 +117,7 @@ struct KitchenMasthead: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            KitchenTableHeader(eyebrow: dayLabel, title: title, subtitle: countSummary)
+            KitchenTableHeader(eyebrow: dayLabel, title: title, subtitle: countSummary, hidesTitleInCompactNavigation: true)
 
             statusBadge
         }

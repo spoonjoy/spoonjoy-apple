@@ -11,9 +11,8 @@ enum JourneyID {
     static let settingsClose = "settings.close"
     static let settingsSignOut = "settings.signout"
 
-    static let shellMore = "shell.more"
-    static let shellMoreSettings = "shell.more.settings"
-    static let shellMoreSearch = "shell.more.search"
+    /// The Kitchen root's account button, which opens Settings.
+    static let kitchenAccount = "kitchen.account"
 
     static let kitchenRoot = "kitchen.root"
     /// The lead recipe and every Recipe Index row in the Kitchen; the label is the recipe title.

@@ -3,7 +3,7 @@ import Testing
 
 @Suite("Native mobile design contract")
 struct NativeMobileDesignContractTests {
-    @Test("system tab chrome owns Liquid Glass and compact content owns a real viewport inset")
+    @Test("system tab and navigation bars own Liquid Glass and the tab bar sets its own content inset")
     func systemTabChromeOwnsLiquidGlassAndCompactContentOwnsViewportInset() throws {
         let appPath = "Apps/Spoonjoy/iOS/SpoonjoyiOSApp.swift"
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
@@ -26,18 +26,21 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                ".safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)"
+                ".tabBarMinimizeBehavior(.onScrollDown)",
+                ".tabViewSearchActivation(.searchTabSelection)"
             ],
             forbids: [
                 ".toolbarBackground(.regularMaterial, for: .tabBar)",
-                ".toolbarBackground(.visible, for: .tabBar)"
+                ".toolbarBackground(.visible, for: .tabBar)",
+                ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
+                ".safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)"
             ]
         )
         expectContent(
             theme,
             in: themePath,
-            contains: [
-                "static let compactTabBarContentInset: CGFloat"
+            forbids: [
+                "compactTabBarContentInset"
             ]
         )
     }
@@ -228,29 +231,31 @@ struct NativeMobileDesignContractTests {
                 "private var usesCompactMobileShell: Bool",
                 "compactMobileShell",
                 "TabView(selection: compactTabSelection)",
-                ".tabItem",
-                "Label(\"Kitchen\", systemImage: \"house\")",
-                "Label(\"My Recipes\", systemImage: \"book.closed\")",
-                "Label(\"Saved\", systemImage: \"bookmark\")",
-                "Label(\"Cookbooks\", systemImage: \"books.vertical\")",
-                "Label(\"Shopping List\", systemImage: \"checklist\")",
+                "Tab(\"Kitchen\", systemImage: \"house\", value: CompactTab.kitchen)",
+                "Tab(\"Recipes\", systemImage: \"book.closed\", value: CompactTab.recipes)",
+                "Tab(\"Cookbooks\", systemImage: \"books.vertical\", value: CompactTab.cookbooks)",
+                "Tab(\"Shopping\", systemImage: \"cart\", value: CompactTab.shopping)",
+                "Tab(\"Search\", systemImage: \"magnifyingglass\", value: CompactTab.search, role: .search)",
+                "NavigationStack(path: compactPath(for: tab))",
                 "Button(\"Chefs\", systemImage: \"person.2\")",
-                "Button(\"Search\", systemImage: \"magnifyingglass\")",
-                "compactNavigationToolbar",
+                "Button(\"Settings\", systemImage: \"person.crop.circle\")",
+                "compactKitchenToolbar",
                 "ToolbarItem(placement: .topBarTrailing)",
-                ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
-                ".toolbarBackground(.visible, for: .navigationBar)",
                 "compactOfflineStatusBar",
                 "desktopClassShell",
-                "NavigationStack",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.bone.ignoresSafeArea())",
+                ".navigationBarTitleDisplayMode(.large)",
                 ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
+                ".tabItem",
+                "Image(systemName: \"ellipsis\")",
+                "shell.more",
+                "compactBackAction",
+                ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
                 "compactBottomChrome",
                 ".safeAreaInset(edge: .bottom, spacing: 0)",
-                "ToolbarItemGroup(placement: .topBarTrailing)",
                 "compactTabContent(for: .search)",
                 "SpoonDock(context: spoonDockContext)",
                 "shouldShowShellSpoonDock",
@@ -1181,9 +1186,8 @@ struct NativeMobileDesignContractTests {
             in: navigationPath,
             contains: [
                 "TabView(selection: compactTabSelection)",
-                "Label(\"Shopping List\", systemImage: \"checklist\")",
-                ".tag(AppSection.shoppingList)",
-                "case .shoppingList:\n            navigation.navigate(to: .shoppingList)",
+                "Tab(\"Shopping\", systemImage: \"cart\", value: CompactTab.shopping)",
+                "compactTabStack(for: .shopping)",
                 ".settings,\n             .shoppingList,\n             .search:\n            true"
             ],
             forbids: [
@@ -1365,23 +1369,22 @@ struct NativeMobileDesignContractTests {
             navigation,
             in: navigationPath,
             contains: [
-                "private var compactNavigationContent: some View",
-                "if navigation.route.isCookModeActive",
-                "compactImmersiveRouteContent(for: navigation.route)",
-                "private var compactTabSelection: Binding<AppSection>",
-                "compactTabContent(for: .kitchen)",
-                "compactTabContent(for: .recipes)",
-                "compactTabContent(for: .savedRecipes)",
-                "compactTabContent(for: .cookbooks)",
-                "compactTabContent(for: .shoppingList)",
-                "private func compactRootRoute(for section: AppSection) -> AppRoute",
-                "private func compactTabSection(for route: AppRoute) -> AppSection",
-                "case .search:\n            .kitchen",
-                "case .chefs, .profile, .profileGraph:\n            .chefs",
-                "case .capture, .settings, .unknownLink:\n            .kitchen"
+                "@State private var compactTabs: CompactTabNavigation",
+                "compactTabs.apply(route)",
+                ".fullScreenCover(item: compactFullScreenRoute)",
+                "compactImmersiveRouteContent(for: route)",
+                "private var compactTabSelection: Binding<CompactTab>",
+                "compactTabStack(for: .kitchen)",
+                "compactTabStack(for: .recipes)",
+                "compactTabStack(for: .cookbooks)",
+                "compactTabStack(for: .shopping)",
+                "compactTabStack(for: .search)",
+                "Text(\"Mine\").tag(AppRoute.recipes)",
+                "Text(\"Saved\").tag(AppRoute.savedRecipes)",
+                ".navigationDestination(for: AppRoute.self) { route in\n                    compactPushedPage(for: route)"
             ],
             forbids: [
-                "compactTabContent(for: .search)",
+                "compactTabContent(for:",
                 ".toolbar(navigation.route.isCookModeActive ? .hidden : .automatic, for: .tabBar)",
                 "SpoonDockContext.recipes(",
                 "SpoonDockContext.search(",
@@ -1704,17 +1707,14 @@ struct NativeMobileDesignContractTests {
                 "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)",
                 "searchableRouteNavigationStack",
                 ".searchable(text: searchText, prompt: \"Search Spoonjoy\")",
-                "navigation.route.usesCompactAuxiliaryShell",
-                "@State private var isSearchPresented = false",
-                ".searchable(text: searchText, isPresented: $isSearchPresented, placement: .toolbarPrincipal, prompt: \"Search Spoonjoy\")",
-                "focusCompactSearchFieldIfNeeded",
                 "routeKeepsSearchFocus",
                 "if case .search = route",
                 "compactMobileShell(spotlightPayload: spotlightPayload)",
                 "ToolbarItem(placement: .topBarTrailing)"
             ],
             forbids: [
-                "ToolbarItemGroup(placement: .topBarTrailing)",
+                "isSearchPresented",
+                "placement: .toolbarPrincipal",
                 "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: false, showsSearchChrome: false)"
             ]
         )
@@ -1735,13 +1735,14 @@ struct NativeMobileDesignContractTests {
             search,
             in: searchPath,
             contains: [
-                ".searchable(text: searchTextBinding, prompt: \"Search Spoonjoy\")",
-                ".searchable(text: searchTextBinding, placement: .navigationBarDrawer(displayMode: .always), prompt: \"Search Spoonjoy\")",
+                "ownsSearchField: !usesCompactNavigation",
+                ".searchable(text: $text, placement: .navigationBarDrawer(displayMode: .always), prompt: \"Search Spoonjoy\")",
                 "@FocusState private var isSearchFieldFocused",
-                ".searchFocused($isSearchFieldFocused)",
+                ".searchFocused(isFocused)",
                 "isSearchFieldFocused = true",
                 "SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS",
-                ".searchScopes(searchScopeBinding)",
+                ".searchScopes($scope)",
+                "scope: searchScopeBinding",
                 "SearchSurfaceNativeChrome",
                 "onSubmit(of: .search)",
                 "searchScopeBinding"

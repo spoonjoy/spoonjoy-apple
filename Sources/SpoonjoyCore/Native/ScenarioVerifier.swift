@@ -402,7 +402,7 @@ public enum ScenarioVerifier {
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", "SearchFieldChrome(", "text: searchTextBinding", "scope: searchScopeBinding", ".searchable(text: $text", ".searchScopes($scope)", "SearchSurfaceNativeChrome"],
                     forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(
@@ -578,7 +578,7 @@ public enum ScenarioVerifier {
                     detail: "Search surface renders the search surface view model with native sections, cached results, and offline status.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/SearchView.swift",
-                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", ".searchable(text: searchTextBinding", ".searchScopes(searchScopeBinding)", "SearchSurfaceNativeChrome"],
+                    tokens: ["SearchView", "SearchSurfaceViewModel", "SearchSurfaceSection", "SearchSurfaceRow", "OfflineStatusView", "searchTask", "debounce", "SearchFieldChrome(", "text: searchTextBinding", "scope: searchScopeBinding", ".searchable(text: $text", ".searchScopes($scope)", "SearchSurfaceNativeChrome"],
                     forbiddenTokens: ["TextField(\"tomato beans\"", "ScrollView(.horizontal, showsIndicators: false)"]
                 ),
                 sourceCheck(

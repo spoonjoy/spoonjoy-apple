@@ -30,7 +30,6 @@ enum KitchenTableTheme {
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
     static let compactDockReserve: CGFloat = 148
-    static let compactTabBarContentInset: CGFloat = 88
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
