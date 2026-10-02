@@ -92,10 +92,9 @@ final class JourneyApp {
         tap(JourneyID.passwordSignIn, file: file, line: line)
     }
 
-    /// Opens Settings from the signed-in shell's "More" menu.
+    /// Opens Settings from the account button on the Kitchen tab's root.
     func openSettings(file: StaticString = #filePath, line: UInt = #line) {
-        tap(JourneyID.shellMore, file: file, line: line)
-        tap(JourneyID.shellMoreSettings, file: file, line: line)
+        tap(JourneyID.kitchenAccount, file: file, line: line)
     }
 
     /// Leaves the standalone (signed-out) Settings screen through its "Kitchen" button.
@@ -132,10 +131,9 @@ final class JourneyApp {
         tab.tap()
     }
 
-    /// Opens Search from the signed-in shell's "More" menu and waits for its search field.
+    /// Opens the Search tab and waits for its search field.
     func openSearch(file: StaticString = #filePath, line: UInt = #line) {
-        tap(JourneyID.shellMore, file: file, line: line)
-        tap(JourneyID.shellMoreSearch, file: file, line: line)
+        openTab(JourneyCopy.searchTab, file: file, line: line)
         XCTAssertTrue(searchField.waitForExistence(timeout: Self.launchTimeout), "Search has no search field.", file: file, line: line)
     }
 
