@@ -45,6 +45,114 @@ struct NativeMobileDesignContractTests {
         )
     }
 
+    @Test("wide regular-width screens open recipes and cook mode as a cookbook spread, with one seam for the fold")
+    func wideRegularScreensOpenCookbookSpreads() throws {
+        let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let recipePath = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let cookPath = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
+        let spreadPath = "Apps/Spoonjoy/Shared/Design/KitchenTableSpread.swift"
+        let shoppingPanePath = "Apps/Spoonjoy/Shared/Views/ShoppingRecipeSourcesPane.swift"
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let docPath = "docs/native-design-language.md"
+        let navigation = uncommentedSwift(try readRepoFile(navigationPath))
+        let recipe = uncommentedSwift(try readRepoFile(recipePath))
+        let cook = uncommentedSwift(try readRepoFile(cookPath))
+        let spreadSource = try readRepoFile(spreadPath)
+        let shoppingPane = uncommentedSwift(try readRepoFile(shoppingPanePath))
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+        let doc = try readRepoFile(docPath)
+        let hingeAPIs = ["onHingeChange", "ArrangementView", ".division"]
+
+        expectContent(
+            recipe,
+            in: recipePath,
+            contains: [
+                "if usesCompactRecipeDock {\n            singlePageLayout",
+                "BookSpreadLayout.resolve(",
+                "recipeSpread(layout)",
+                "RecipeSpreadIngredientIndex(stepSections: viewModel.stepSections)",
+                "spreadSelection.toggle(stepID: stepID)",
+                "scrollIngredientPage(to: target)",
+                ".scrollPosition($spreadIngredientScrollPosition)",
+                ".scrollPosition(id: $spreadMethodScrollAnchor, anchor: .top)",
+                ".spreadPagePadding(.leading)",
+                ".spreadPagePadding(.trailing)",
+                "cookLogView(showsHeader: true)"
+            ],
+            forbids: hingeAPIs
+        )
+        expectContent(
+            cook,
+            in: cookPath,
+            contains: [
+                "if usesEmbeddedSpoonDock {",
+                "cookModeSpread(layout)",
+                "cookSpreadLeadingControls",
+                "cookSpreadTrailingControls",
+                "CookModeSystemTimer(timer: timer)"
+            ],
+            forbids: hingeAPIs
+        )
+        expectContent(
+            spreadSource,
+            in: spreadPath,
+            contains: [
+                "FOLD SEAM",
+                "BookSpreadLayout.resolve(division:)",
+                "BookSpreadLayout.pageInsets(for: side)",
+                "KitchenTableTheme.spreadGutterRule"
+            ],
+            forbids: ["onHingeChange", "ArrangementView", "shadow(", "Image(\"paper"]
+        )
+        expectContent(
+            navigation,
+            in: navigationPath,
+            contains: [
+                "NavigationSplitView(columnVisibility: $splitColumnVisibility)",
+                "BookSpreadLayout.hidesLibrarySidebar(route: navigation.route, windowLayout: windowLayout)",
+                "splitColumnVisibility = hides ? .detailOnly : .automatic",
+                "LibrarySidebar.cookbookEntries(cookbooks: contentState.cookbooks, currentChefID: contentState.currentChefID)",
+                "DisclosureGroup(isExpanded: $isSidebarCookbookContentsExpanded)",
+                "ShoppingWithRecipeSources(",
+                "ShoppingRecipeSources.sources("
+            ],
+            forbids: hingeAPIs + [".sidebarAdaptable"]
+        )
+        expectContent(
+            shoppingPane,
+            in: shoppingPanePath,
+            contains: [
+                "if isCompact {\n            list()",
+                "\"For these recipes\"",
+                "openRecipe(source.id)"
+            ]
+        )
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "static let instructionBody = Font.system(.body, design: .serif)",
+                "static let cookInstruction = Font.system(.title, design: .serif)",
+                "static let selectionWash = brass.opacity(0.09)"
+            ],
+            forbids: [".font(.system(size:"]
+        )
+        expectContent(
+            doc,
+            in: docPath,
+            contains: [
+                "## iPhone Duo Inner Screen",
+                "**A recipe is a two-page spread.**",
+                "**Cook mode uses the spread too.**",
+                "**The library sidebar is a table of contents.**",
+                "**Fold seam (iOS 27.1).**",
+                "Reserved Region `.division`",
+                "https://developer.apple.com/videos/play/tech-talks/111464/",
+                "https://developer.apple.com/videos/play/tech-talks/111466/"
+            ]
+        )
+    }
+
     @Test("desktop navigation gives labels room and cook mode removes the library shell")
     func desktopNavigationGivesLabelsRoomAndCookModeRemovesLibraryShell() throws {
         let navigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
@@ -857,7 +965,8 @@ struct NativeMobileDesignContractTests {
                 "private var recipeMastheadLogCookAction",
                 "viewModel.cover.hasRealCover",
                 "Label(\"Log\", systemImage: \"fork.knife.circle\")",
-                ".frame(maxWidth: usesCompactRecipeDock ? .infinity : 440)",
+                ".frame(maxWidth: fillsWidth ? .infinity : 440)",
+                "recipeHeaderControls(fillsWidth: usesCompactRecipeDock)",
                 ".buttonStyle(.plain)",
                 ".navigationTitle(\"Save to Cookbook\")"
             ],

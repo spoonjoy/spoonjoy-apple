@@ -20,6 +20,12 @@ struct PlatformNavigationView: View {
     @State private var compactTabs: CompactTabNavigation
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
+    @State private var splitColumnVisibility: NavigationSplitViewVisibility = .automatic
+    @State private var isSidebarCookbookContentsExpanded = true
+#if os(iOS)
+    @State private var shellWindowSize: CGSize = .zero
+    @State private var spreadSidebarHiddenAt: Date?
+#endif
 
     private let contentState: NativeShellContentState
     private let offlineIndicatorState: OfflineIndicatorState
@@ -203,13 +209,49 @@ struct PlatformNavigationView: View {
     }
 
     @ViewBuilder private func desktopClassShell(spotlightPayload: SpotlightIndexPayload) -> some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $splitColumnVisibility) {
             sidebar.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)
                 .navigationTitle("Spoonjoy")
         } detail: {
             routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)
         }
+#if os(iOS)
+        // An open recipe on a wide landscape screen becomes a two-page spread. The library sidebar steps aside so
+        // the spread gets the whole screen and its gutter lands on the middle, where the iPhone Duo folds. The
+        // sidebar button brings the library back; leaving the recipe restores the sidebar.
+        .onGeometryChange(for: CGSize.self) { proxy in
+            proxy.size
+        } action: { size in
+            shellWindowSize = size
+        }
+        .onChange(of: hidesLibrarySidebarForSpread, initial: true) { _, hides in
+            spreadSidebarHiddenAt = hides ? Date() : nil
+            splitColumnVisibility = hides ? .detailOnly : .automatic
+        }
+        .onChange(of: splitColumnVisibility) { _, visibility in
+            // The split view settles its own columns on first layout and can show the sidebar again right after
+            // we hide it. Hold the spread for that settling moment only; after it, the sidebar button wins.
+            guard visibility != .detailOnly, let hiddenAt = spreadSidebarHiddenAt,
+                  Date().timeIntervalSince(hiddenAt) < Self.spreadSidebarSettleInterval else {
+                return
+            }
+            splitColumnVisibility = .detailOnly
+        }
+#endif
     }
+
+#if os(iOS)
+    private static var spreadSidebarSettleInterval: TimeInterval { 1 }
+
+    private var hidesLibrarySidebarForSpread: Bool {
+        let windowLayout = BookSpreadLayout.resolve(
+            width: shellWindowSize.width,
+            height: shellWindowSize.height,
+            isRegularWidth: horizontalSizeClass == .regular
+        )
+        return BookSpreadLayout.hidesLibrarySidebar(route: navigation.route, windowLayout: windowLayout)
+    }
+#endif
 
     private func focusedCookModeShell(spotlightPayload: SpotlightIndexPayload) -> some View {
         routeNavigationStack(
@@ -605,17 +647,50 @@ struct PlatformNavigationView: View {
     }
 
     private var sidebar: some View {
-        List(selection: sidebarSelection) {
-            sidebarLink(section: .kitchen, title: "Kitchen", systemImage: "house")
-            sidebarLink(section: .recipes, title: "My Recipes", systemImage: "book.closed")
-            sidebarLink(section: .savedRecipes, title: "Saved Recipes", systemImage: "bookmark")
-            sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
-            sidebarLink(section: .shoppingList, title: "Shopping List", systemImage: "checklist")
-            sidebarLink(section: .chefs, title: "Chefs", systemImage: "person.2")
-            sidebarLink(section: .search, title: "Kitchen Search", systemImage: "magnifyingglass")
-            sidebarLink(section: .capture, title: "Imports", systemImage: "tray.and.arrow.down")
-            sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
+        List(selection: librarySidebarSelection) {
+            Section {
+                sidebarLink(section: .kitchen, title: "Kitchen", systemImage: "house")
+                sidebarLink(section: .recipes, title: "My Recipes", systemImage: "book.closed")
+                sidebarLink(section: .savedRecipes, title: "Saved Recipes", systemImage: "bookmark")
+                // The chef's own cookbooks sit under Cookbooks like a table of contents, so a book is one tap away.
+                DisclosureGroup(isExpanded: $isSidebarCookbookContentsExpanded) {
+                    ForEach(sidebarCookbookEntries) { entry in
+                        sidebarCookbookLink(entry)
+                    }
+                } label: {
+                    sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
+                }
+                sidebarLink(section: .shoppingList, title: "Shopping List", systemImage: "checklist")
+                sidebarLink(section: .search, title: "Kitchen Search", systemImage: "magnifyingglass")
+            }
+            Section("More") {
+                sidebarLink(section: .chefs, title: "Chefs", systemImage: "person.2")
+                sidebarLink(section: .capture, title: "Imports", systemImage: "tray.and.arrow.down")
+                sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
+            }
         }
+    }
+
+    private var sidebarCookbookEntries: [LibrarySidebarCookbookEntry] {
+        LibrarySidebar.cookbookEntries(cookbooks: contentState.cookbooks, currentChefID: contentState.currentChefID)
+    }
+
+    private func sidebarCookbookLink(_ entry: LibrarySidebarCookbookEntry) -> some View {
+        Label {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.title)
+                    .lineLimit(1)
+                Text(entry.recipeCountLabel)
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+        } icon: {
+            Image(systemName: "book.closed.fill")
+                .foregroundStyle(KitchenTableTheme.brass)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.title), \(entry.recipeCountLabel)")
+        .tag(LibrarySidebarDestination.cookbook(id: entry.id))
     }
 
     @ViewBuilder private var detailContent: some View {
@@ -750,16 +825,24 @@ struct PlatformNavigationView: View {
         case .chefs:
             ChefsView(profiles: chefProfiles, openRoute: openRoute)
         case .shoppingList:
-            ShoppingListView(
-                viewModel: shoppingViewModel,
-                actionDidPlan: performShoppingAction,
-                shoppingMutationFeedback: shoppingMutationFeedback,
-                retryShoppingMutationRecovery: retryShoppingMutationRecovery,
-                hasRecipes: !contentState.recipes.isEmpty,
-                openSearch: openSearchFromDock,
-                createRecipe: { openRoute(.recipeEditor(id: nil)) },
-                onDismissOfflineIndicator: dismissOfflineIndicator
-            )
+            ShoppingWithRecipeSources(
+                sources: ShoppingRecipeSources.sources(
+                    for: contentState.shoppingList?.items ?? [],
+                    recipes: contentState.recipes
+                ),
+                openRecipe: openRecipe
+            ) {
+                ShoppingListView(
+                    viewModel: shoppingViewModel,
+                    actionDidPlan: performShoppingAction,
+                    shoppingMutationFeedback: shoppingMutationFeedback,
+                    retryShoppingMutationRecovery: retryShoppingMutationRecovery,
+                    hasRecipes: !contentState.recipes.isEmpty,
+                    openSearch: openSearchFromDock,
+                    createRecipe: { openRoute(.recipeEditor(id: nil)) },
+                    onDismissOfflineIndicator: dismissOfflineIndicator
+                )
+            }
         case .search(let query, let scope):
             let routeSearch = normalizedSearch(SearchState(query: query, scope: scope))
             SearchView(
@@ -859,19 +942,32 @@ struct PlatformNavigationView: View {
 #endif
     }
 
-    private var sidebarSelection: Binding<AppSection?> {
+    private var librarySidebarSelection: Binding<LibrarySidebarDestination?> {
         Binding(
-            get: { navigation.sidebarSelection },
-            set: { section in
-                guard let section else { return }
-                navigateToSidebar(section)
+            get: {
+                LibrarySidebar.selection(
+                    route: navigation.route,
+                    sidebarSection: navigation.sidebarSelection,
+                    cookbookEntries: sidebarCookbookEntries
+                )
+            },
+            set: { destination in
+                switch destination {
+                case .section(let section):
+                    navigateToSidebar(section)
+                case .cookbook(let id):
+                    isSearchFieldFocused = false
+                    navigation.navigate(to: .cookbookDetail(id: id))
+                case nil:
+                    break
+                }
             }
         )
     }
 
     private func sidebarLink(section: AppSection, title: String, systemImage: String) -> some View {
         Label(title, systemImage: systemImage)
-            .tag(section)
+            .tag(LibrarySidebarDestination.section(section))
     }
 
     private func openSearchFromDock() {

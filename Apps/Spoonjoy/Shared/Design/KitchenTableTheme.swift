@@ -37,6 +37,16 @@ enum KitchenTableTheme {
     static let bodyNote = Font.body
     static let uiLabel = Font.caption.weight(.semibold)
 
+    // The cookbook spread: a recipe or cook mode laid open across a wide landscape screen, such as the inner
+    // screen of the iPhone Duo. Instructions are body serif, as the design language assigns them.
+    static let instructionBody = Font.system(.body, design: .serif)
+    static let spreadInstruction = Font.system(.title3, design: .serif)
+    static let cookInstruction = Font.system(.title, design: .serif)
+    static let stepNumeral = Font.system(.title, design: .serif).weight(.semibold)
+    static let runningHead = Font.caption2.weight(.bold)
+    static let selectionWash = brass.opacity(0.09)
+    static let spreadGutterRule = line
+
     private static func webColor(_ hex: UInt32) -> Color {
         Color(
             red: Double((hex >> 16) & 0xFF) / 255.0,
