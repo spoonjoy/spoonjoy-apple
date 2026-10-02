@@ -633,9 +633,6 @@ struct CookModeView: View {
 
     @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> String {
         let scheduled = try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
-        if let alarmID = scheduled.alarmID {
-            CookModeSessionCenter.shared.timerHost?.timerDidStart(alarmID: alarmID)
-        }
         return scheduled.message
     }
 

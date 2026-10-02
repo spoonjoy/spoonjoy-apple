@@ -18,7 +18,6 @@ private final class RecordingAlarmController: CookTimerAlarmControlling {
 @Suite("Cook timer alarm coordinator")
 struct CookTimerAlarmCoordinatorTests {
     private let first = UUID()
-    private let second = UUID()
 
     @Test("pause and resume reach the system alarm")
     func pauseAndResumeReachTheAlarm() throws {
@@ -31,41 +30,25 @@ struct CookTimerAlarmCoordinatorTests {
         #expect(controller.calls == ["pause \(first)", "resume \(first)"])
     }
 
-    @Test("leaving cook mode cancels the timer")
-    func leavingCancelsTheTimer() {
+    @Test("an explicit stop cancels the alarm and nothing else does")
+    func explicitStopCancels() throws {
         let controller = RecordingAlarmController()
         let coordinator = CookTimerAlarmCoordinator(controller: controller)
-        coordinator.timerStarted(alarmID: first)
 
-        #expect(coordinator.cookModeEnded() == 1)
-        #expect(controller.calls == ["cancel \(first)"])
-        #expect(coordinator.activeAlarmIDs.isEmpty)
-        #expect(coordinator.cookModeEnded() == 0)
+        try coordinator.pause(alarmID: first)
+        #expect(!controller.calls.contains { $0.hasPrefix("cancel") })
+
+        try coordinator.stop(alarmID: first)
+        #expect(controller.calls.last == "cancel \(first)")
     }
 
-    @Test("a second timer does not orphan the first")
-    func secondTimerKeepsTheFirst() {
-        let controller = RecordingAlarmController()
-        let coordinator = CookTimerAlarmCoordinator(controller: controller)
-        coordinator.timerStarted(alarmID: first)
-        coordinator.timerStarted(alarmID: second)
-        coordinator.timerStarted(alarmID: second)
-
-        #expect(coordinator.activeAlarmIDs == [first, second])
-        #expect(coordinator.cookModeEnded() == 2)
-        #expect(controller.calls == ["cancel \(first)", "cancel \(second)"])
-    }
-
-    @Test("an alarm the system already finished does not stop the others from cancelling")
-    func finishedAlarmIsIgnored() {
+    @Test("a stop for an alarm the system already finished reports the failure")
+    func stopReportsFailure() {
         let controller = RecordingAlarmController()
         controller.failingCancels = [first]
         let coordinator = CookTimerAlarmCoordinator(controller: controller)
-        coordinator.timerStarted(alarmID: first)
-        coordinator.timerStarted(alarmID: second)
 
-        #expect(coordinator.cookModeEnded() == 1)
-        #expect(controller.calls == ["cancel \(first)", "cancel \(second)"])
+        #expect(throws: RecordingAlarmController.Failure.self) { try coordinator.stop(alarmID: first) }
     }
 }
 
@@ -74,6 +57,18 @@ struct CookTimerLiveActivityWiringTests {
     private func source(_ path: String) throws -> String {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         return try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
+    }
+
+    @Test("leaving cook mode keeps the timer running and Next step reopens the recipe")
+    func leavingKeepsTheTimer() throws {
+        let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
+        let unregister = try #require(center.range(of: "func unregister() {"))
+        let body = center[unregister.upperBound...].prefix(80)
+        #expect(!body.contains("cancel") && !body.contains("End") && !body.contains("host"))
+
+        let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
+        #expect(!host.contains("cookModeEnded"))
+        #expect(host.contains("UIApplication.shared.open(DeepLinkURLBuilder.url(for: .recipeDetail(id: recipeID, presentation: .cook)))"))
     }
 
     @Test("switching recipes re-registers the cook-mode session so commands act on the new recipe")

@@ -186,7 +186,14 @@ struct CookTimerControls: View {
                 .foregroundStyle(primaryText)
                 .background(primaryFill, in: Capsule())
             case .alert:
-                EmptyView()
+                Button(intent: StopCookTimerIntent(alarmID: alarmID)) {
+                    Label("Stop", systemImage: "stop.fill")
+                        .font(KitchenTableTheme.uiLabel)
+                        .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(primaryText)
+                .background(primaryFill, in: Capsule())
             @unknown default:
                 EmptyView()
             }

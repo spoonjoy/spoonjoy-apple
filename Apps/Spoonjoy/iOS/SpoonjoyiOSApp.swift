@@ -14,12 +14,14 @@ struct SpoonjoyiOSApp: App {
 
 @MainActor
 final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
+    private var cookTimerAlarmHost: AnyObject?
+
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         if #available(iOS 26.0, *) {
-            CookModeSessionCenter.shared.timerHost = CookTimerAlarmHost()
+            cookTimerAlarmHost = CookTimerAlarmHost()
         }
         return true
     }

@@ -20,6 +20,7 @@ struct SpoonjoyCookTimerMetadata: AlarmMetadata {
 enum SpoonjoyCookActivityCommand: Sendable {
     case pause(alarmID: UUID)
     case resume(alarmID: UUID)
+    case stop(alarmID: UUID)
     case nextStep(recipeID: String)
 }
 
@@ -74,6 +75,31 @@ struct ResumeCookTimerIntent: LiveActivityIntent {
     func perform() async throws -> some IntentResult {
         if let id = UUID(uuidString: alarmID) {
             await SpoonjoyCookActivityBridge.handler?(.resume(alarmID: id))
+        }
+        return .result()
+    }
+}
+
+@available(iOS 26.0, *)
+struct StopCookTimerIntent: LiveActivityIntent {
+    static let title: LocalizedStringResource = "Stop Timer"
+    static let isDiscoverable = false
+
+    @Parameter(title: "Timer")
+    var alarmID: String
+
+    init() {
+        alarmID = ""
+    }
+
+    init(alarmID: UUID) {
+        self.alarmID = alarmID.uuidString
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult {
+        if let id = UUID(uuidString: alarmID) {
+            await SpoonjoyCookActivityBridge.handler?(.stop(alarmID: id))
         }
         return .result()
     }

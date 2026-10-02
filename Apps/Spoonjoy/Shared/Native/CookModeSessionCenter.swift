@@ -1,13 +1,6 @@
 import Foundation
 import SpoonjoyCore
 
-/// Receives step-timer changes from cook mode so a platform host can keep the system alarm in step with the screen.
-@MainActor
-protocol CookModeTimerAlarmHosting: AnyObject {
-    func timerDidStart(alarmID: UUID)
-    func cookModeDidEnd()
-}
-
 enum CookModeSessionError: Error, Equatable {
     case notCooking
 }
@@ -24,7 +17,6 @@ final class CookModeSessionCenter {
 
     static let shared = CookModeSessionCenter()
 
-    var timerHost: (any CookModeTimerAlarmHosting)?
     private(set) var registration: Registration?
 
     var isCooking: Bool {
@@ -35,9 +27,9 @@ final class CookModeSessionCenter {
         self.registration = registration
     }
 
+    /// Leaving cook mode only stops the commands. A running step timer belongs to the system alarm and keeps going.
     func unregister() {
         registration = nil
-        timerHost?.cookModeDidEnd()
     }
 
     /// The step on screen, for the annotated on-screen entity.
