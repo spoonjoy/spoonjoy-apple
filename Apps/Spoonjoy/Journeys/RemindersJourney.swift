@@ -45,7 +45,8 @@ final class RemindersJourney: JourneyTestCase {
         journey.tap(JourneyID.recipeDetailRemindersSend)
         journey.allowRemindersAccessIfAsked()
         journey.attachScreenshot(named: "02-choose-list", to: self)
-        journey.tap(JourneyID.remindersList)
+        journey.enterText("Journey \(token) Groceries", into: JourneyID.remindersNewListName)
+        journey.tap(JourneyID.remindersCreateList)
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailStatus, labelContaining: "Added 2").waitForExistence(timeout: JourneyApp.networkTimeout),
             "The first send did not report two added reminders. Screen: \(journey.screen)"

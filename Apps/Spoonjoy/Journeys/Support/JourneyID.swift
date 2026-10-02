@@ -52,6 +52,9 @@ enum JourneyID {
 
     /// Every Reminders list in the "Send ingredients to" picker; the label is the list name.
     static let remindersList = "reminders.list"
+    /// The picker's "Or make a new list" field and its "Create and use" button.
+    static let remindersNewListName = "reminders.newListName"
+    static let remindersCreateList = "reminders.createList"
 
     /// Every result row in Search.
     static let searchResult = "search.result"

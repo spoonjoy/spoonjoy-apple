@@ -289,9 +289,7 @@ public enum ReminderSyncPlanner {
         var order: [String?] = []
         var larger: [String?: Double] = [:]
         for quantity in listTotal + recipeTotal {
-            guard let value = quantity.value else {
-                continue
-            }
+            let value = quantity.value ?? 0
             if larger[quantity.unit] == nil {
                 order.append(quantity.unit)
             }
