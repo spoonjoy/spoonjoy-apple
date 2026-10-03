@@ -79,7 +79,7 @@ end
 def find_build_settings_block(project_content, bundle_id, configuration)
   matches = build_configuration_objects(project_content).select do |object|
     object[:configuration] == configuration &&
-      object[:settings].include?("PRODUCT_BUNDLE_IDENTIFIER = #{bundle_id};")
+      object[:settings].match?(/PRODUCT_BUNDLE_IDENTIFIER = "?#{Regexp.escape(bundle_id)}"?;/)
   end
 
   fail_check("missing build settings for #{bundle_id} #{configuration}") if matches.empty?
@@ -234,6 +234,19 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
       end
     end
   end
+
+  {
+    "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG" },
+    "Release" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
+    "BootstrapDebug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "26.5", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG" }
+  }.each do |configuration, settings|
+    block = find_build_settings_block(project_content, "app.spoonjoy.cook-timer-widget", configuration)
+    assert_absent_setting(block, "CODE_SIGN_ENTITLEMENTS")
+    fail_check("widget #{configuration} must use the widget Info.plist") unless block.match?(%r{^\s*INFOPLIST_FILE = Apps/Spoonjoy/LiveActivity/Widget/Info\.plist;}m)
+    settings.each { |setting, expected| assert_setting(block, setting, expected) }
+  end
+  fail_check("generated project must embed the cook-timer widget in the iOS app") unless project_content.include?("Embed Foundation Extensions") &&
+    project_content.include?("SpoonjoyCookTimerWidget.appex")
 
   diff_stdout, diff_stderr, diff_status = Open3.capture3("diff", "-ru", one.to_s, two.to_s)
   fail_check("generator output is not deterministic\nSTDOUT:\n#{diff_stdout}\nSTDERR:\n#{diff_stderr}") unless diff_status.success?

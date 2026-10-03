@@ -28,6 +28,9 @@ UI_TEST_TARGET = "SpoonjoyShoppingUITests"
 UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 JOURNEYS_TARGET = "SpoonjoyJourneys"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
+WIDGET_TARGET = "SpoonjoyCookTimerWidget"
+WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
+WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
 
 EXPECTED_FILES = [
   APP_ROOT.join("Shared/SpoonjoyApp.swift"),
@@ -36,6 +39,9 @@ EXPECTED_FILES = [
   APP_ROOT.join("UITests/SpoonjoyShoppingUITests.swift"),
   APP_ROOT.join("Journeys/SignInJourney.swift"),
   APP_ROOT.join("Shared/Assets.xcassets"),
+  APP_ROOT.join("LiveActivity/Shared/SpoonjoyCookTimerActivity.swift"),
+  APP_ROOT.join("LiveActivity/Widget/SpoonjoyCookTimerWidgetBundle.swift"),
+  WIDGET_INFO_PLIST,
   INFO_PLIST,
   ENTITLEMENTS
 ].freeze
@@ -150,6 +156,12 @@ expected_orientations = %w[
 missing_orientations = expected_orientations - supported_orientations
 fail_check("#{relative(INFO_PLIST)} missing supported interface orientation(s): #{missing_orientations.join(", ")}") unless missing_orientations.empty?
 
+fail_check("#{relative(INFO_PLIST)} must set NSSupportsLiveActivities so the cook timer can start a Live Activity") unless info_plist["NSSupportsLiveActivities"] == true
+
+widget_plist = plist_json(WIDGET_INFO_PLIST)
+widget_point = widget_plist.dig("NSExtension", "NSExtensionPointIdentifier")
+fail_check("#{relative(WIDGET_INFO_PLIST)} must declare the com.apple.widgetkit-extension extension point, got #{widget_point.inspect}") unless widget_point == "com.apple.widgetkit-extension"
+
 entitlements = plist_json(ENTITLEMENTS)
 associated_domains = Array(entitlements["com.apple.developer.associated-domains"])
 fail_check("#{relative(ENTITLEMENTS)} missing #{ASSOCIATED_DOMAIN}") unless associated_domains.include?(ASSOCIATED_DOMAIN)
@@ -167,6 +179,24 @@ ui_test_target.build_configuration_list.build_configurations.each do |configurat
   assert_setting(settings, "TEST_TARGET_NAME", IOS_TARGET, "#{UI_TEST_TARGET} #{configuration.name}")
   assert_setting(settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", "#{UI_TEST_TARGET} #{configuration.name}")
 end
+
+widget_target = target_by_name[WIDGET_TARGET] || fail_check("missing target #{WIDGET_TARGET}")
+fail_check("#{WIDGET_TARGET} must be an app extension") unless widget_target.symbol_type == :app_extension
+fail_check("#{IOS_TARGET} must depend on #{WIDGET_TARGET}") unless ios_target.dependencies.map { |dependency| dependency.target&.name }.compact.include?(WIDGET_TARGET)
+embed_phase = ios_target.copy_files_build_phases.find { |phase| phase.name == "Embed Foundation Extensions" } || fail_check("#{IOS_TARGET} missing Embed Foundation Extensions phase")
+fail_check("#{IOS_TARGET} must embed #{WIDGET_TARGET} in PlugIns") unless embed_phase.symbol_dst_subfolder_spec == :plug_ins &&
+  embed_phase.files.map { |build_file| build_file.file_ref&.path }.include?("#{WIDGET_TARGET}.appex")
+widget_target.build_configuration_list.build_configurations.each do |configuration|
+  settings = configuration.build_settings
+  label = "#{WIDGET_TARGET} #{configuration.name}"
+  assert_setting(settings, "PRODUCT_BUNDLE_IDENTIFIER", WIDGET_BUNDLE_ID, label)
+  assert_setting(settings, "INFOPLIST_FILE", relative(WIDGET_INFO_PLIST), label)
+  assert_setting(settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", label)
+  assert_setting(settings, "GCC_TREAT_WARNINGS_AS_ERRORS", "YES", label)
+  assert_absent_setting(settings, "CODE_SIGN_ENTITLEMENTS", label)
+  assert_setting(settings, "IPHONEOS_DEPLOYMENT_TARGET", configuration.name == "BootstrapDebug" ? "26.5" : "27.0", label)
+end
+fail_check("#{WIDGET_BUNDLE_ID} must sit under #{IOS_BUNDLE_ID} so the app's automatic signing covers it") unless WIDGET_BUNDLE_ID.start_with?("#{IOS_BUNDLE_ID}.")
 
 journeys_target = target_by_name[JOURNEYS_TARGET] || fail_check("missing target #{JOURNEYS_TARGET}")
 fail_check("#{JOURNEYS_TARGET} must be a UI test bundle") unless journeys_target.symbol_type == :ui_test_bundle
@@ -251,6 +281,7 @@ end
 
 ios_sources = target_source_paths(ios_target)
 mac_sources = target_source_paths(mac_target)
+widget_sources = target_source_paths(widget_target)
 app_swift_files = APP_ROOT.find.select do |path|
   path.file? && path.extname == ".swift" &&
     !path.to_s.start_with?("#{APP_ROOT.join("UITests")}/") &&
@@ -264,6 +295,10 @@ app_swift_files.each do |source|
       [IOS_TARGET, MAC_TARGET]
     elsif rel.start_with?("Apps/Spoonjoy/iOS/")
       [IOS_TARGET]
+    elsif rel.start_with?("Apps/Spoonjoy/LiveActivity/Shared/")
+      [IOS_TARGET, WIDGET_TARGET]
+    elsif rel.start_with?("Apps/Spoonjoy/LiveActivity/Widget/")
+      [WIDGET_TARGET]
     elsif rel.start_with?("Apps/Spoonjoy/macOS/")
       [MAC_TARGET]
     else
@@ -272,8 +307,14 @@ app_swift_files.each do |source|
 
   fail_check("#{rel} missing from #{IOS_TARGET}") if expected_targets.include?(IOS_TARGET) && !ios_sources.include?(source)
   fail_check("#{rel} missing from #{MAC_TARGET}") if expected_targets.include?(MAC_TARGET) && !mac_sources.include?(source)
+  fail_check("#{rel} missing from #{WIDGET_TARGET}") if expected_targets.include?(WIDGET_TARGET) && !widget_sources.include?(source)
+  fail_check("#{rel} unexpectedly in #{WIDGET_TARGET}") if !expected_targets.include?(WIDGET_TARGET) && widget_sources.include?(source) && !rel.end_with?("Shared/Design/KitchenTableTheme.swift")
   fail_check("#{rel} unexpectedly in #{IOS_TARGET}") if !expected_targets.include?(IOS_TARGET) && ios_sources.include?(source)
   fail_check("#{rel} unexpectedly in #{MAC_TARGET}") if !expected_targets.include?(MAC_TARGET) && mac_sources.include?(source)
 end
+
+theme_source = APP_ROOT.join("Shared/Design/KitchenTableTheme.swift").to_s
+fail_check("#{WIDGET_TARGET} must reuse KitchenTableTheme.swift so the Live Activity matches the app palette") unless widget_sources.include?(theme_source)
+fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - [theme_source]).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
 
 puts "xcode project contract ok"
