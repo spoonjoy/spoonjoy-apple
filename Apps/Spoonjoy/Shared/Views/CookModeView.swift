@@ -140,8 +140,14 @@ struct CookModeView: View {
         .sensoryFeedback(.selection, trigger: progress.currentStepID)
         .sensoryFeedback(.impact(weight: .light), trigger: viewModel.recipeProgressLabel)
         .onAppear(perform: normalizeProgressForCurrentRecipe)
+        .onAppear(perform: registerCookModeSession)
+        .onDisappear {
+            CookModeSessionCenter.shared.unregister()
+        }
+        .cookModeStepAnnotation(viewModel.onScreenStep)
         .onChange(of: recipe.cookModeIdentityKey) { _, _ in
             normalizeProgressForCurrentRecipe()
+            registerCookModeSession()
         }
         .task(id: recipe.cookModeIdentityKey) {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
@@ -626,7 +632,24 @@ struct CookModeView: View {
     }
 
     @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> String {
-        try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+        let scheduled = try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+        return scheduled.message
+    }
+
+    /// Lets Siri, Shortcuts and the Live Activity drive this screen while it is open.
+    private func registerCookModeSession() {
+        CookModeSessionCenter.shared.register(
+            CookModeSessionCenter.Registration(
+                viewModel: { viewModel },
+                apply: { updateProgress($0) },
+                startTimer: { timer in
+                    guard let step = viewModel.activeStep else {
+                        return
+                    }
+                    _ = try await scheduleSystemTimer(timer, step: step)
+                }
+            )
+        )
     }
 }
 
@@ -914,9 +937,10 @@ private struct CookModeSystemTimer: View {
 }
 
 private enum CookModeAlarmKitTimerScheduler {
-    @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> String {
+    @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> (message: String, alarmID: UUID?) {
 #if os(iOS) && canImport(AlarmKit)
         if #available(iOS 26.1, *) {
+            var alarmID: UUID?
             let client = CookModeSystemTimerSchedulingClient(
                 authorizationState: {
                     authorizationState(from: AlarmManager.shared.authorizationState)
@@ -925,11 +949,11 @@ private enum CookModeAlarmKitTimerScheduler {
                     authorizationState(from: try await AlarmManager.shared.requestAuthorization())
                 },
                 schedule: {
-                    try await scheduleAlarm(timer: timer, recipe: recipe, step: step)
+                    alarmID = try await scheduleAlarm(timer: timer, recipe: recipe, step: step)
                 }
             )
             try await CookModeSystemTimerScheduler.schedule(using: client)
-            return "\(timer.durationLabel) system timer set."
+            return ("\(timer.durationLabel) system timer set.", alarmID)
         }
 #endif
         throw CookModeSystemTimerSchedulingError.unsupportedPlatform
@@ -957,7 +981,7 @@ private enum CookModeAlarmKitTimerScheduler {
         timer: CookModeSystemTimerViewModel,
         recipe: Recipe,
         step: RecipeStep
-    ) async throws {
+    ) async throws -> UUID {
         let presentation = AlarmPresentation(
             alert: AlarmPresentation.Alert(
                 title: LocalizedStringResource("\(step.stepTitle ?? recipe.title) is ready")
@@ -983,8 +1007,10 @@ private enum CookModeAlarmKitTimerScheduler {
             recipeID: recipe.id,
             recipeTitle: recipe.title,
             stepID: step.id,
+            stepNumber: step.stepNum,
             stepTitle: step.stepTitle ?? "Step \(step.stepNum)",
-            durationMinutes: timer.durationMinutes
+            durationMinutes: timer.durationMinutes,
+            deepLink: DeepLinkURLBuilder.url(for: .recipeDetail(id: recipe.id, presentation: .cook)).absoluteString
         )
         let attributes = AlarmAttributes(
             presentation: presentation,
@@ -994,18 +1020,9 @@ private enum CookModeAlarmKitTimerScheduler {
         let configuration = AlarmManager.AlarmConfiguration.timer(duration: TimeInterval(timer.durationSeconds),
             attributes: attributes
         )
-        _ = try await AlarmManager.shared.schedule(id: UUID(), configuration: configuration)
+        let alarmID = UUID()
+        _ = try await AlarmManager.shared.schedule(id: alarmID, configuration: configuration)
+        return alarmID
     }
 #endif
 }
-
-#if os(iOS) && canImport(AlarmKit)
-@available(iOS 26.0, *)
-private struct SpoonjoyCookTimerMetadata: AlarmMetadata {
-    let recipeID: String
-    let recipeTitle: String
-    let stepID: String
-    let stepTitle: String
-    let durationMinutes: Int
-}
-#endif

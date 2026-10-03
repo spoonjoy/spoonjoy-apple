@@ -677,6 +677,73 @@ struct ContinueCookModeIntent: AppIntent {
 }
 
 @available(iOS 27.0, macOS 27.0, *)
+extension CookModeSessionError: CustomLocalizedStringResourceConvertible {
+    var localizedStringResource: LocalizedStringResource {
+        "Open a recipe in Spoonjoy cook mode first."
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct NextCookStepIntent: AppIntent {
+    static let title: LocalizedStringResource = "Next Cooking Step"
+    static let description = IntentDescription("Move to the next step of the recipe open in Spoonjoy cook mode and read it aloud.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let message = try await CookModeSessionCenter.shared.perform(.nextStep)
+        return .result(dialog: IntentDialog(stringLiteral: message))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct PreviousCookStepIntent: AppIntent {
+    static let title: LocalizedStringResource = "Previous Cooking Step"
+    static let description = IntentDescription("Go back one step in Spoonjoy cook mode and read it aloud.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let message = try await CookModeSessionCenter.shared.perform(.previousStep)
+        return .result(dialog: IntentDialog(stringLiteral: message))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct StartCookStepTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Start Step Timer"
+    static let description = IntentDescription("Start the timer for the step on screen in Spoonjoy cook mode.")
+
+    @Parameter(title: "Step")
+    var step: SpoonjoyCookStepEntity?
+
+    init() {}
+
+    init(step: SpoonjoyCookStepEntity?) {
+        self.step = step
+    }
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        if let step, step.id != CookModeSessionCenter.shared.onScreenStep()?.entityID {
+            return .result(dialog: "That step is no longer on screen.")
+        }
+        let message = try await CookModeSessionCenter.shared.perform(.startTimer)
+        return .result(dialog: IntentDialog(stringLiteral: message))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
+struct ReadCookStepIntent: AppIntent {
+    static let title: LocalizedStringResource = "Read Current Step"
+    static let description = IntentDescription("Read the step on screen in Spoonjoy cook mode aloud.")
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let message = try await CookModeSessionCenter.shared.perform(.readStep)
+        return .result(dialog: IntentDialog(stringLiteral: message))
+    }
+}
+
+@available(iOS 27.0, macOS 27.0, *)
 struct ForkRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Fork Recipe"
     static let description = IntentDescription("Create a Spoonjoy variation of a recipe.")
@@ -1373,15 +1440,6 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             systemImageName: "book"
         )
         AppShortcut(
-            intent: OpenCookbookIntent(),
-            phrases: [
-                "Open a cookbook in \(.applicationName)",
-                "Show my cookbook in \(.applicationName)"
-            ],
-            shortTitle: "Open Cookbook",
-            systemImageName: "books.vertical"
-        )
-        AppShortcut(
             intent: SearchSpoonjoyIntent(),
             phrases: [
                 "Search \(.applicationName)",
@@ -1389,33 +1447,6 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Search Spoonjoy",
             systemImageName: "magnifyingglass"
-        )
-        AppShortcut(
-            intent: ShareRecipeIntent(),
-            phrases: [
-                "Share a recipe from \(.applicationName)",
-                "Send a \(.applicationName) recipe"
-            ],
-            shortTitle: "Share Recipe",
-            systemImageName: "square.and.arrow.up"
-        )
-        AppShortcut(
-            intent: ShareCookbookIntent(),
-            phrases: [
-                "Share a cookbook from \(.applicationName)",
-                "Send a \(.applicationName) cookbook"
-            ],
-            shortTitle: "Share Cookbook",
-            systemImageName: "square.and.arrow.up.on.square"
-        )
-        AppShortcut(
-            intent: ShareShoppingListIntent(),
-            phrases: [
-                "Share my shopping list from \(.applicationName)",
-                "Export my \(.applicationName) shopping list"
-            ],
-            shortTitle: "Share Shopping List",
-            systemImageName: "cart"
         )
         AppShortcut(
             intent: StartCookModeIntent(),
@@ -1434,6 +1465,42 @@ struct SpoonjoyAppShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Continue Cooking",
             systemImageName: "play.circle"
+        )
+        AppShortcut(
+            intent: NextCookStepIntent(),
+            phrases: [
+                "Next step in \(.applicationName)",
+                "What is the next step in \(.applicationName)"
+            ],
+            shortTitle: "Next Step",
+            systemImageName: "forward.fill"
+        )
+        AppShortcut(
+            intent: PreviousCookStepIntent(),
+            phrases: [
+                "Previous step in \(.applicationName)",
+                "Go back a step in \(.applicationName)"
+            ],
+            shortTitle: "Previous Step",
+            systemImageName: "backward.fill"
+        )
+        AppShortcut(
+            intent: StartCookStepTimerIntent(),
+            phrases: [
+                "Start the step timer in \(.applicationName)",
+                "Start this timer in \(.applicationName)"
+            ],
+            shortTitle: "Start Step Timer",
+            systemImageName: "timer"
+        )
+        AppShortcut(
+            intent: ReadCookStepIntent(),
+            phrases: [
+                "Read the step in \(.applicationName)",
+                "Read this step from \(.applicationName)"
+            ],
+            shortTitle: "Read Step",
+            systemImageName: "text.bubble"
         )
         AppShortcut(
             intent: AddShoppingListItemIntent(),
@@ -1462,6 +1529,10 @@ private enum SpoonjoyIntentShortcutBudget {
 
     static var shortcutsLibraryOnlyIntentNames: [String] {
         [
+            String(describing: OpenCookbookIntent()),
+            String(describing: ShareRecipeIntent()),
+            String(describing: ShareCookbookIntent()),
+            String(describing: ShareShoppingListIntent()),
             String(describing: OpenProfileIntent()),
             String(describing: OpenSettingsIntent()),
             String(describing: ReadNotificationPreferencesIntent()),
