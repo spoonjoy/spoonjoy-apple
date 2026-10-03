@@ -40,6 +40,31 @@ final class RecipesJourney: JourneyTestCase {
         journey.enterText(spaghetti, into: JourneyID.editorIngredientName(step: 2, ingredient: 1))
         journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 2, ingredient: 1), with: "200")
         journey.enterText("g", into: JourneyID.editorIngredientUnit(step: 2, ingredient: 1))
+        // Paste two ingredient lines into step 2: the preview parses them, the rows are added to the step.
+        journey.tap(JourneyID.editorStepPasteIngredients(2))
+        journey.enterText("2 large eggs\n1 tbsp soy sauce", into: JourneyID.editorPasteText)
+        journey.assertFieldValue(JourneyID.editorPasteRowName(1), equals: "eggs")
+        journey.assertFieldValue(JourneyID.editorPasteRowQuantity(1), equals: "2")
+        journey.assertFieldValue(JourneyID.editorPasteRowUnit(1), equals: "large")
+        journey.assertFieldValue(JourneyID.editorPasteRowName(2), equals: "soy sauce")
+        journey.assertFieldValue(JourneyID.editorPasteRowQuantity(2), equals: "1")
+        journey.assertFieldValue(JourneyID.editorPasteRowUnit(2), equals: "tbsp")
+        journey.attachScreenshot(named: "01-paste-preview", to: self)
+        journey.tap(JourneyID.editorPasteAdd)
+        journey.assertFieldValue(JourneyID.editorIngredientName(step: 2, ingredient: 2), equals: "eggs")
+        journey.assertFieldValue(JourneyID.editorIngredientQuantity(step: 2, ingredient: 2), equals: "2")
+        journey.assertFieldValue(JourneyID.editorIngredientUnit(step: 2, ingredient: 2), equals: "large")
+        journey.assertFieldValue(JourneyID.editorIngredientName(step: 2, ingredient: 3), equals: "soy sauce")
+        journey.attachScreenshot(named: "02-pasted-rows", to: self)
+
+        // A single typed line fills the quantity and unit when Return is pressed.
+        journey.tap(JourneyID.editorStepAddIngredient(2))
+        journey.enterText("2 cups rice", into: JourneyID.editorIngredientName(step: 2, ingredient: 4))
+        journey.pressReturn()
+        journey.assertFieldValue(JourneyID.editorIngredientName(step: 2, ingredient: 4), equals: "rice")
+        journey.assertFieldValue(JourneyID.editorIngredientQuantity(step: 2, ingredient: 4), equals: "2")
+        journey.assertFieldValue(JourneyID.editorIngredientUnit(step: 2, ingredient: 4), equals: "cup")
+        journey.attachScreenshot(named: "03-typed-line-parsed", to: self)
         journey.enterText("Boil the spaghetti until tender.", into: JourneyID.editorStepDescription(2))
         journey.enterText("Cook the spaghetti", into: JourneyID.editorStepTitle(2))
 
@@ -69,6 +94,19 @@ final class RecipesJourney: JourneyTestCase {
             journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
             "Step 2 on the detail page does not list the spaghetti. Screen: \(journey.screen)"
         )
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "eggs").exists,
+            "Step 2 on the detail page does not list the eggs. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "soy sauce").exists,
+            "Step 2 on the detail page does not list the soy sauce. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "rice").exists,
+            "Step 2 on the detail page does not list the rice. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "04-saved-recipe", to: self)
 
         journey.openSearch()
         journey.search(for: title)

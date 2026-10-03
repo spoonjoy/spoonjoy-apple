@@ -165,6 +165,18 @@ final class JourneyApp {
         replaceText(in: query(id), named: id, with: text, file: file, line: line)
     }
 
+    /// Presses Return in the focused field.
+    func pressReturn() {
+        app.typeText(XCUIKeyboardKey.return.rawValue)
+    }
+
+    /// Waits for the field `id` to hold exactly `text`, then asserts it.
+    func assertFieldValue(_ id: String, equals text: String, file: StaticString = #filePath, line: UInt = #line) {
+        let field = element(id)
+        XCTAssertTrue(field.waitForExistence(timeout: Self.interactionTimeout), "\(id) did not appear. Screen: \(screen)", file: file, line: line)
+        assertValue(of: field, equals: text, "\(id) does not hold \(text).", file: file, line: line)
+    }
+
     /// Saves the recipe editor. Save is the form's last row. Run 36333893304 showed the keyboard still up
     /// after two swipes, with Save at y 904, under the tab bar, so the tap never reached it. The field
     /// being edited is closed with Return first, then one swipe reaches the end of the form, and Save must
