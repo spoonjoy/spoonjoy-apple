@@ -254,6 +254,14 @@ publish summary. It fails the job if any of these validations fail:
 - `/v1/betaGroups/$ASC_INTERNAL_GROUP_ID/betaTesters` reports zero testers;
 - `/v1/buildBetaDetails/$ASC_BUILD_BETA_DETAIL_ID` is not `IN_BETA_TESTING`.
 
+### CI signing certificate cleanup
+
+Each GitHub runner starts with an empty keychain, so `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key creates a new Apple Development certificate on every run. Those accumulate until Apple refuses with `Your account has reached the maximum number of certificates`. `scripts/revoke-ci-signing-certificates.rb` removes them through the App Store Connect API (`GET /v1/certificates`, `DELETE /v1/certificates/{id}`) using the same API key.
+
+It revokes a certificate only when its type is `DEVELOPMENT`, `IOS_DEVELOPMENT`, or `MAC_APP_DEVELOPMENT` and its name is exactly `Created via API` (case-insensitive), the name Xcode gives certificates it creates with an API key. Distribution certificates and certificates made by people or Macs are never touched. The script logs each certificate's id, type, name, and expiration, and supports `--dry-run`.
+
+The workflow runs it before the publish step, so a full account recovers; this step fails the job only if the API call itself fails. It runs again in an `if: always()` step after publish with `--best-effort` and `continue-on-error`, so cleanup problems never fail a job whose publish succeeded.
+
 ## Reactive TestFlight Feedback
 
 Spoonjoy uses an App Store Connect webhook for TestFlight screenshot and crash
