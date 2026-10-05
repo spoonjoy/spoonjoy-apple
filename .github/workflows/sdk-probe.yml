@@ -7,15 +7,9 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 20
     steps:
-      - name: UIKit swiftinterface hits
+      - name: Print overlay lines
         run: |
-          app=/Applications/Xcode_27.1_beta.app
-          sdk="$app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
-          find "$sdk/System/Library/Frameworks/UIKit.framework" -name '*.swiftinterface'
-          for f in $(find "$sdk/System/Library/Frameworks/UIKit.framework" -name 'arm64e-apple-ios.swiftinterface'); do
-            echo "## $f"; grep -nEi "reservedregion|hinge|divisionRegion|occlusionRegion" "$f" | cut -c1-350 | head -80
-          done
-          echo "## SwiftUI any ReservedRegion/Hinge"
-          grep -nEi "reservedregion|hinge" "$sdk/System/Library/Frameworks/SwiftUI.framework/Modules/SwiftUI.swiftmodule/arm64e-apple-ios.swiftinterface" | head
-          echo "## swift versions"
-          for a in 27.0 27.1_beta 27.2_beta; do echo "-- $a"; DEVELOPER_DIR=/Applications/Xcode_$a.app/Contents/Developer xcrun swiftc -version 2>&1 | head -2; done
+          f=/Applications/Xcode_27.1_beta.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk/System/Library/Frameworks/UIKit.framework/Modules/UIKit.swiftmodule/arm64e-apple-ios.swiftinterface
+          sed -n 1960,2060p "$f"
+          sed -n 4090,4106p "$f"
+          head -12 "$f"
