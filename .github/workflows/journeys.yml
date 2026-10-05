@@ -21,7 +21,7 @@ env:
 jobs:
   journeys:
     name: Journeys
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -31,13 +31,16 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5+ runner
+      - name: Select and verify Xcode 27 runner
         run: |
           set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          xcrun --sdk iphonesimulator --show-sdk-version
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="26.5"
+          minimum_xcode_version="27.0"
           version="${first_line#Xcode }"
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Require DEBUG in the journeys build configuration
@@ -116,8 +119,8 @@ jobs:
 
   shopping-ui-tests:
     name: Shopping UI tests
-    runs-on: macos-26
-    timeout-minutes: 30
+    runs-on: xcode-27
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -126,13 +129,16 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5+ runner
+      - name: Select and verify Xcode 27 runner
         run: |
           set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          xcrun --sdk iphonesimulator --show-sdk-version
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="26.5"
+          minimum_xcode_version="27.0"
           version="${first_line#Xcode }"
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Resolve iPhone simulator
@@ -164,7 +170,7 @@ jobs:
           destination="${{ steps.sim.outputs.destination }}"
           xcrun simctl bootstatus "${destination##*,id=}" -b
       - name: Run shopping UI tests
-        timeout-minutes: 12
+        timeout-minutes: 20
         # The warning gate covers the build above. The test log carries simulator runtime noise (for
         # example "Failed to send CA Event for app launch measurements"), and test failures fail xcodebuild.
         run: |
@@ -173,6 +179,7 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
             -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" \
             -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+            -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" 2>&1 | tee "$RUNNER_TEMP/shopping/test.log"
       - name: Upload shopping UI test result bundle
         # The fixture tests use no credentials, so the bundle is always safe to upload.

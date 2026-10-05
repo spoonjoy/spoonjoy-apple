@@ -56,7 +56,7 @@ Spoonjoy Apple earns being native by making cooking, grocery, and capture flows 
 ## Bootstrap Validation And Product Baseline
 
 - Product baseline remains iOS 27 and macOS 27 forward.
-- This machine and GitHub `macos-26` runners validate with Xcode 26.5 before Xcode 27 is available.
+- This machine and the GitHub `xcode-27` runner image (Xcode 27.0, iOS 27.0 simulator runtime) validate with Xcode 27.0. CI selects `/Applications/Xcode_27.0.app` explicitly and fails below 27.0.
 - `BootstrapDebug` may use `IPHONEOS_DEPLOYMENT_TARGET = 26.5` for iOS simulator bootstrap builds.
 - `BootstrapDebug` must use `MACOSX_DEPLOYMENT_TARGET = 26.2` because this local macOS 26.2 host must run mandatory macOS launch/smoke.
 - Product Debug and Release configs keep iOS 27/macOS 27 deployment targets.

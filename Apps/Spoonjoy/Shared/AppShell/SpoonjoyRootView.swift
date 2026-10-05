@@ -864,65 +864,85 @@ struct SpoonjoyRootView: View {
 
     private static func purgeShoppingEntityIdentifiersIfAvailable(_ request: NativeShoppingEntityIndexPurgeRequest) async {
 #if canImport(CoreSpotlight)
-        if #available(iOS 27.0, macOS 27.0, *) {
-            try? await SpoonjoySpotlightIndexer().delete(
-                identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+        // Index maintenance runs in the background so a slow Spotlight service never holds the kitchen on its
+        // loading screen. The queue keeps purges in the order they were requested.
+        await SpotlightMaintenanceQueue.shared.enqueue {
+            if #available(iOS 27.0, macOS 27.0, *) {
+                try? await SpoonjoySpotlightIndexer().delete(
+                    identifiers: request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
 #endif
     }
 
     private static func purgeSpoonEntityIdentifiersIfAvailable(_ request: NativeSpoonEntityIndexPurgeRequest) async {
 #if canImport(CoreSpotlight)
-        if #available(iOS 27.0, macOS 27.0, *) {
-            try? await SpoonjoySpotlightIndexer().delete(
-                identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+        // Index maintenance runs in the background so a slow Spotlight service never holds the kitchen on its
+        // loading screen. The queue keeps purges in the order they were requested.
+        await SpotlightMaintenanceQueue.shared.enqueue {
+            if #available(iOS 27.0, macOS 27.0, *) {
+                try? await SpoonjoySpotlightIndexer().delete(
+                    identifiers: request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
 #endif
     }
 
     private static func purgeCaptureDraftEntityIdentifiersIfAvailable(_ request: NativeCaptureDraftEntityIndexPurgeRequest) async {
 #if canImport(CoreSpotlight)
-        if #available(iOS 27.0, macOS 27.0, *) {
-            try? await SpoonjoySpotlightIndexer().delete(
-                identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+        // Index maintenance runs in the background so a slow Spotlight service never holds the kitchen on its
+        // loading screen. The queue keeps purges in the order they were requested.
+        await SpotlightMaintenanceQueue.shared.enqueue {
+            if #available(iOS 27.0, macOS 27.0, *) {
+                try? await SpoonjoySpotlightIndexer().delete(
+                    identifiers: request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
 #endif
     }
 
     private static func purgeChefProfileEntityIdentifiersIfAvailable(_ request: NativeChefProfileEntityIndexPurgeRequest) async {
 #if canImport(CoreSpotlight)
-        if #available(iOS 27.0, macOS 27.0, *) {
-            try? await SpoonjoySpotlightIndexer().delete(
-                identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+        // Index maintenance runs in the background so a slow Spotlight service never holds the kitchen on its
+        // loading screen. The queue keeps purges in the order they were requested.
+        await SpotlightMaintenanceQueue.shared.enqueue {
+            if #available(iOS 27.0, macOS 27.0, *) {
+                try? await SpoonjoySpotlightIndexer().delete(
+                    identifiers: request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
 #endif
     }
 
     private static func purgeRecipeCookbookEntityIdentifiersIfAvailable(_ request: NativeRecipeCookbookEntityIndexPurgeRequest) async {
 #if canImport(CoreSpotlight)
-        if #available(iOS 27.0, macOS 27.0, *) {
-            try? await SpoonjoySpotlightIndexer().delete(
-                identifiers: request.identifiers,
-                domainIdentifiers: request.domainIdentifiers,
-                accountID: request.accountID,
-                environment: request.environment
-            )
+        // Index maintenance runs in the background so a slow Spotlight service never holds the kitchen on its
+        // loading screen. The queue keeps purges in the order they were requested.
+        await SpotlightMaintenanceQueue.shared.enqueue {
+            if #available(iOS 27.0, macOS 27.0, *) {
+                try? await SpoonjoySpotlightIndexer().delete(
+                    identifiers: request.identifiers,
+                    domainIdentifiers: request.domainIdentifiers,
+                    accountID: request.accountID,
+                    environment: request.environment
+                )
+            }
         }
 #endif
     }
@@ -1186,3 +1206,20 @@ private enum OAuthURLSessionSupport {
         return nil
     }
 }
+
+#if canImport(CoreSpotlight)
+/// Runs Spotlight index maintenance one job at a time, off the caller's path.
+private actor SpotlightMaintenanceQueue {
+    static let shared = SpotlightMaintenanceQueue()
+
+    private var tail: Task<Void, Never>?
+
+    func enqueue(_ job: @escaping @Sendable () async -> Void) {
+        let previous = tail
+        tail = Task(priority: .utility) {
+            await previous?.value
+            await job()
+        }
+    }
+}
+#endif

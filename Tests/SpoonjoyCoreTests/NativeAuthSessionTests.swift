@@ -1631,7 +1631,7 @@ set -euo pipefail
 
 case "${*:-}" in
   "-version")
-    printf 'Xcode 26.5\nBuild version 17F76\n'
+    printf 'Xcode 27.0\nBuild version 27A266a\n'
     exit 0
     ;;
   "-checkFirstLaunchStatus")
@@ -1657,7 +1657,7 @@ set -euo pipefail
 
 case "${*:-}" in
   "-version")
-    printf 'Xcode 26.5\nBuild version 17F76\n'
+    printf 'Xcode 27.0\nBuild version 27A266a\n'
     exit 0
     ;;
   "-checkFirstLaunchStatus")

@@ -587,7 +587,7 @@ Dir.mktmpdir("spoonjoy-simulator-resolver-contract") do |directory|
     #!/usr/bin/env bash
     set -euo pipefail
     if [[ "$*" == "simctl list devices available --json" ]]; then
-      printf '%s\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-5":[{"name":"Spoonjoy Codex Fresh iPhone 17 Pro Max","udid":"DOGFOOD-UDID","state":"Shutdown","isAvailable":true},{"name":"iPhone 17","udid":"IPHONE-UDID","state":"Booted","isAvailable":true},{"name":"iPad Pro 13-inch","udid":"IPAD-UDID","state":"Shutdown","isAvailable":true}],"com.apple.CoreSimulator.SimRuntime.watchOS-26-5":[{"name":"Apple Watch","udid":"WATCH-UDID","state":"Shutdown","isAvailable":true}]}}'
+      printf '%s\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-27-0":[{"name":"Spoonjoy Codex Fresh iPhone 17 Pro Max","udid":"DOGFOOD-UDID","state":"Shutdown","isAvailable":true},{"name":"iPhone 17","udid":"IPHONE-UDID","state":"Booted","isAvailable":true},{"name":"iPad Pro 13-inch","udid":"IPAD-UDID","state":"Shutdown","isAvailable":true}],"com.apple.CoreSimulator.SimRuntime.watchOS-26-5":[{"name":"Apple Watch","udid":"WATCH-UDID","state":"Shutdown","isAvailable":true}]}}'
       exit 0
     fi
     exit 70

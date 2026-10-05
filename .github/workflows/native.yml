@@ -37,7 +37,7 @@ jobs:
 
   swift-tests:
     name: Swift tests
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -47,13 +47,16 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5+ runner
+      - name: Select and verify Xcode 27 runner
         run: |
           set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          xcrun --sdk iphonesimulator --show-sdk-version
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="26.5"
+          minimum_xcode_version="27.0"
           version="${first_line#Xcode }"
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Run Swift or Xcode tests when testable sources exist
@@ -87,7 +90,7 @@ jobs:
 
   native-scenario-verifier:
     name: Native scenario verifier
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -97,13 +100,16 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5+ runner
+      - name: Select and verify Xcode 27 runner
         run: |
           set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          xcrun --sdk iphonesimulator --show-sdk-version
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="26.5"
+          minimum_xcode_version="27.0"
           version="${first_line#Xcode }"
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Check native design-language contract
@@ -146,7 +152,7 @@ jobs:
 
   app-bundle:
     name: App bundle
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -156,13 +162,16 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5+ runner
+      - name: Select and verify Xcode 27 runner
         run: |
           set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          xcrun --sdk iphonesimulator --show-sdk-version
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="26.5"
+          minimum_xcode_version="27.0"
           version="${first_line#Xcode }"
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Build iOS and macOS app bundles when Xcode project exists
@@ -194,7 +203,7 @@ jobs:
 
   coverage:
     name: Coverage
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -204,13 +213,16 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Verify Xcode 26.5+ runner
+      - name: Select and verify Xcode 27 runner
         run: |
           set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.0.app
+          echo "DEVELOPER_DIR=$(xcode-select -p)"
+          xcrun --sdk iphonesimulator --show-sdk-version
           xcode_version="$(xcodebuild -version)"
           printf '%s\n' "$xcode_version"
           first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="26.5"
+          minimum_xcode_version="27.0"
           version="${first_line#Xcode }"
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
       - name: Generate and enforce Swift or Xcode coverage when testable sources exist

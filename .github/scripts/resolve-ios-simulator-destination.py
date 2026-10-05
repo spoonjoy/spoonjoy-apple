@@ -60,8 +60,13 @@ if preferred_family not in {"iphone", "ipad"}:
 all_available_ios_devices: list[tuple[tuple[int, ...], int, str, str, str]] = []
 default_family_matches: list[tuple[tuple[int, ...], int, str, str, str]] = []
 
+# CI builds with the iOS 27 SDK, so refuse to fall back to an older simulator runtime.
+minimum_runtime_major = int(os.environ.get("SPOONJOY_IOS_SIMULATOR_MIN_MAJOR", "27"))
+
 for runtime, devices in data.get("devices", {}).items():
     if "iOS" not in runtime:
+        continue
+    if (runtime_version(runtime) or (0,))[0] < minimum_runtime_major:
         continue
 
     for device in devices:
@@ -76,7 +81,7 @@ for runtime, devices in data.get("devices", {}).items():
                 default_family_matches.append(match)
 
 if not all_available_ios_devices:
-    print("No available iOS simulator found.", file=sys.stderr)
+    print(f"No available iOS {minimum_runtime_major}+ simulator found.", file=sys.stderr)
     sys.exit(1)
 
 if preferred_udid:
