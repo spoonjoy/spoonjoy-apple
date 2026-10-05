@@ -153,7 +153,12 @@ struct APITransportTests {
                     headers: ["Content-Type": "text/plain"],
                     body: Data("busy".utf8)
                 )),
-                .failure(TransportFixtureError.boom)
+                .failure(TransportFixtureError.boom),
+                .success(Self.response(
+                    statusCode: 302,
+                    headers: ["Content-Type": "text/plain"],
+                    body: Data("moved".utf8)
+                ))
             ]
         )
         let transport = URLSessionNativeSyncTransport(
@@ -269,8 +274,21 @@ struct APITransportTests {
             ),
             configuration: configuration
         )
+        let unexpectedStatus = try await transport.send(
+            .shoppingAddItem(
+                name: "figs",
+                quantity: 1,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_unexpected_status",
+                createdAt: "2026-06-16T12:04:30.000Z"
+            ),
+            configuration: configuration
+        )
         let capturedRequests = await session.capturedRequests()
 
+        #expect(unexpectedStatus == .retry(afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: 0), message: "HTTP 302 returned a non-JSON response."))
         #expect(syncData.entries.map(\.resourceID) == ["profile_ari"])
         #expect(syncData.nextCursor?.rawValue == "v1.after")
         #expect(success == .success(serverRevision: nil))
@@ -280,7 +298,7 @@ struct APITransportTests {
         #expect(idempotencyRetry == .retry(afterSeconds: 5, message: "Mutation is still in progress."))
         #expect(defaultRetry == .retry(afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: 0), message: "HTTP 503 returned a non-JSON response."))
         #expect(networkRetry == .retry(afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: 0), message: "Native sync request failed."))
-        #expect(capturedRequests.map(\.httpMethod) == ["GET", "POST", "POST", "POST", "POST", "POST", "POST", "POST", "POST"])
+        #expect(capturedRequests.map(\.httpMethod) == ["GET", "POST", "POST", "POST", "POST", "POST", "POST", "POST", "POST", "POST"])
         #expect(capturedRequests[0].url?.absoluteString == "https://spoonjoy.app/api/v1/me/sync?limit=20")
         #expect(capturedRequests[1].url?.absoluteString == "https://spoonjoy.app/api/v1/shopping-list/items")
         #expect(capturedRequests[1].value(forHTTPHeaderField: "Authorization") == "Bearer sj_access_native")
