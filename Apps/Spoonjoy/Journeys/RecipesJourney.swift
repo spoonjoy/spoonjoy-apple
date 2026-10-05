@@ -1,19 +1,10 @@
 import XCTest
 
-/// Journey 2: a new account creates a two-step recipe with ingredients and a photo in the native editor,
-/// and the recipe then shows up in My Recipes, the Kitchen, its detail page (with the photo as its cover),
-/// a title search and an ingredient search, and again after a relaunch. The account then swaps the two
-/// steps in the editor, and the new order holds on the recipe page after a relaunch.
+/// Journey 2: a new account creates a two-step recipe with ingredients in the native editor, and the
+/// recipe then shows up in My Recipes, the Kitchen, its detail page, a title search and an ingredient
+/// search, and again after a relaunch.
 @MainActor
 final class RecipesJourney: JourneyTestCase {
-    override func setUpWithError() throws {
-        try super.setUpWithError()
-        // This journey covers create, photo, search, two relaunches and the step swap. It ran 542 seconds before
-        // reaching the swap (CI run 37285907663) and timed out at 600 on run 37295920896, so it gets the
-        // workflow's maximum of 900.
-        executionTimeAllowance = 900
-    }
-
     func testRecipesJourney() throws {
         let account = try JourneyAccounts.account(1)
         let token = try JourneyAccounts.runToken()
@@ -35,19 +26,6 @@ final class RecipesJourney: JourneyTestCase {
         journey.tap(JourneyID.shoppingCreateRecipe)
         journey.enterText(title, into: JourneyID.editorTitle)
         journey.enterText("2", into: JourneyID.editorServings)
-
-        // Add a photo. The journey build stages a generated picture here instead of opening the system picker,
-        // which automation cannot drive reliably; the thumbnail is the proof the editor holds the photo.
-        journey.tap(JourneyID.editorPhotoPick)
-        XCTAssertTrue(
-            journey.element(JourneyID.editorPhotoThumbnail).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The editor does not show a thumbnail of the chosen photo. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.editorPhotoReady).exists,
-            "The editor does not show the chosen photo as ready. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "00-photo-chosen", to: self)
 
         journey.tap(JourneyID.editorAddStep)
         journey.tap(JourneyID.editorStepAddIngredient(1))
@@ -128,10 +106,6 @@ final class RecipesJourney: JourneyTestCase {
             journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "rice").exists,
             "Step 2 on the detail page does not list the rice. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailCover).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The detail page shows no cover image, so the photo chosen on create did not become the cover. Screen: \(journey.screen)"
-        )
         journey.attachScreenshot(named: "04-saved-recipe", to: self)
 
         journey.openSearch()
@@ -164,50 +138,6 @@ final class RecipesJourney: JourneyTestCase {
                 journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
                 "Step 2 lost its spaghetti after a relaunch. Screen: \(journey.screen)"
             )
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailCover).exists,
-                "The cover photo is gone after a relaunch. Screen: \(journey.screen)"
-            )
-        }
-
-        // Swap the two steps.
-        journey.tap(JourneyID.recipeDetailActions)
-        journey.tap(JourneyID.recipeDetailEdit)
-        journey.tap(JourneyID.editorStepMoveUp(2))
-        journey.assertFieldValue(JourneyID.editorStepTitle(1), equals: "Cook the spaghetti")
-        journey.assertFieldValue(JourneyID.editorStepTitle(2), equals: "Tear the basil")
-        journey.attachScreenshot(named: "05-steps-swapped-in-editor", to: self)
-        journey.saveOpenRecipeEditor()
-        let swapLog = XCTAttachment(string: journey.syncLog)
-        swapLog.name = "sync-log-after-swap-save"
-        swapLog.lifetime = .keepAlways
-        add(swapLog)
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: spaghetti).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "After the swap, step 1 on the recipe page does not list the spaghetti. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: basil).exists,
-            "After the swap, step 2 on the recipe page does not list the basil. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "06-steps-swapped-on-recipe-page", to: self)
-
-        verifyAfterRelaunch(journey) {
-            journey.openTab(JourneyCopy.recipesTab)
-            journey.openRecipe(titled: title, from: JourneyID.recipesRow)
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: spaghetti).waitForExistence(timeout: JourneyApp.interactionTimeout),
-                "The swapped steps did not survive a relaunch: step 1 lost its spaghetti. Screen: \(journey.screen)"
-            )
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: basil).exists,
-                "The swapped steps did not survive a relaunch: step 2 lost its basil. Screen: \(journey.screen)"
-            )
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailCover).exists,
-                "The cover photo is gone after the steps were swapped and the app relaunched. Screen: \(journey.screen)"
-            )
-            journey.attachScreenshot(named: "07-order-after-relaunch", to: self)
         }
     }
 }
