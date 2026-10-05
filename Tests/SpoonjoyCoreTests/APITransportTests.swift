@@ -208,24 +208,19 @@ struct APITransportTests {
             ),
             configuration: configuration
         )
-        do {
-            _ = try await transport.send(
-                .shoppingAddItem(
-                    name: "bad mutation",
-                    quantity: 1,
-                    unit: "each",
-                    categoryKey: nil,
-                    iconKey: nil,
-                    clientMutationID: "cm_bad_request",
-                    createdAt: "2026-06-16T12:00:30.000Z"
-                ),
-                configuration: configuration
-            )
-            Issue.record("Expected non-retryable sync mutation to throw")
-        } catch let error as APITransportError {
-            #expect(error.statusCode == 400)
-            #expect(error.apiError?.message == "Invalid mutation.")
-        }
+        let rejected = try await transport.send(
+            .shoppingAddItem(
+                name: "bad mutation",
+                quantity: 1,
+                unit: "each",
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_bad_request",
+                createdAt: "2026-06-16T12:00:30.000Z"
+            ),
+            configuration: configuration
+        )
+        #expect(rejected == .conflict(kind: .validation, serverRevision: nil, message: "Invalid mutation."))
         let retry = try await transport.send(
             .shoppingAddItem(
                 name: "limes",
@@ -422,23 +417,17 @@ struct APITransportTests {
             ),
             configuration: Self.configuration(bearerToken: "sj_access_native")
         )
-        do {
-            _ = try await transport.send(
-                .coverRegenerate(
-                    recipeID: "recipe_lemon",
-                    coverID: "cover_passthrough_error",
-                    activateWhenReady: false,
-                    clientMutationID: "cm_cover_error_passthrough",
-                    createdAt: "2026-06-16T12:07:10.000Z"
-                ),
-                configuration: Self.configuration(bearerToken: "sj_access_native")
-            )
-            Issue.record("Expected ordinary cover API errors to pass through")
-        } catch let error as APITransportError {
-            #expect(error.apiError?.code == "ordinary_cover_error")
-        } catch {
-            Issue.record("Expected APITransportError, got \(error)")
-        }
+        let ordinaryCoverError = try await transport.send(
+            .coverRegenerate(
+                recipeID: "recipe_lemon",
+                coverID: "cover_passthrough_error",
+                activateWhenReady: false,
+                clientMutationID: "cm_cover_error_passthrough",
+                createdAt: "2026-06-16T12:07:10.000Z"
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_native")
+        )
+        #expect(ordinaryCoverError == .conflict(kind: .validation, serverRevision: nil, message: "Ordinary cover error."))
         let blankResourceBlocker = try await transport.send(
             .coverFromSpoon(
                 recipeID: "recipe_lemon",

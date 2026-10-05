@@ -4112,12 +4112,16 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
             if mutation.queueableKind == .coverRegenerate || mutation.queueableKind == .coverFromSpoon {
                 return try await sendProviderCoverMutation(mutation, configuration: configuration)
             }
-            let envelope = try await apiTransport.send(
-                try mutation.requestBuilder(),
-                configuration: configuration,
-                decode: JSONValue.self
-            )
-            return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
+            let builder = try mutation.requestBuilder()
+            let label = Self.diagnosticLabel(for: builder)
+            do {
+                let envelope = try await apiTransport.send(builder, configuration: configuration, decode: JSONValue.self)
+                NativeSyncDiagnostics.shared.recordSend(method: label.method, path: label.path, outcome: "ok")
+                return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
+            } catch let error as APITransportError {
+                NativeSyncDiagnostics.shared.recordSend(method: label.method, path: label.path, outcome: Self.diagnosticOutcome(for: error))
+                throw error
+            }
         } catch let error as APITransportError {
             return try Self.mutationResult(for: error, mutation: mutation)
         }
@@ -4153,6 +4157,17 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
         return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
     }
 
+    private static func diagnosticLabel(for builder: APIRequestBuilder) -> (method: String, path: String) {
+        (builder.method.rawValue.uppercased(), "/" + builder.pathComponents.joined(separator: "/"))
+    }
+
+    private static func diagnosticOutcome(for error: APITransportError) -> String {
+        let status = error.statusCode.map(String.init) ?? "no status"
+        let code = error.apiError?.code ?? "no code"
+        let message = error.apiError?.message ?? "no message"
+        return "\(status) \(code): \(message)"
+    }
+
     private static func mutationResult(
         for error: APITransportError,
         mutation: NativeQueuedMutation
@@ -4176,11 +4191,14 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
             )
         }
 
-        if error.statusCode == 409 {
+        // A request the server turned down must stay in the queue where the person can see and resolve it,
+        // never abort the whole sync and leave the edit unseen. A turned-down request is held as a
+        // conflict; any other failure is retried later.
+        if let status = error.statusCode, (400..<500).contains(status) {
             return .conflict(kind: .validation, serverRevision: nil, message: message)
         }
 
-        throw error
+        return .retry(afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: mutation.retryCount), message: message)
     }
 
     private static func coverProviderSecretBlockerResourceID(in apiError: APIError) -> String? {

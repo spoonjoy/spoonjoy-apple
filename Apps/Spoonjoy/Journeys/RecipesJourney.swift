@@ -170,6 +170,10 @@ final class RecipesJourney: JourneyTestCase {
         journey.assertFieldValue(JourneyID.editorStepTitle(2), equals: "Tear the basil")
         journey.attachScreenshot(named: "05-steps-swapped-in-editor", to: self)
         journey.saveOpenRecipeEditor()
+        let swapLog = XCTAttachment(string: journey.syncLog)
+        swapLog.name = "sync-log-after-swap-save"
+        swapLog.lifetime = .keepAlways
+        add(swapLog)
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: spaghetti).waitForExistence(timeout: JourneyApp.networkTimeout),
             "After the swap, step 1 on the recipe page does not list the spaghetti. Screen: \(journey.screen)"

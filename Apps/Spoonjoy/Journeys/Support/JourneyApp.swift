@@ -27,6 +27,8 @@ final class JourneyApp {
         app.launchEnvironment[NativeJourneyLaunchReset.environmentKey] = "1"
         // "Add Photo" stages a built-in picture instead of opening the system photo picker.
         app.launchEnvironment[NativeJourneyPhotoFixture.environmentKey] = "1"
+        // The app records each sync request and the server's answer in a hidden element, read on failure.
+        app.launchEnvironment[NativeSyncDiagnostics.environmentKey] = "1"
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
@@ -232,7 +234,7 @@ final class JourneyApp {
 
     /// The app's current accessibility hierarchy, for failure messages only.
     var screen: String {
-        app.debugDescription
+        "Sync log: \(syncLog)\n" + app.debugDescription
     }
 
     /// Asserts the visible Settings screen's Environment row names the QA mirror.
@@ -250,12 +252,26 @@ final class JourneyApp {
 
     /// Allows the Reminders permission prompt (its button reads "Allow" on iOS 27) when the system shows it. A simulator that already granted
     /// access shows no prompt, so the wait simply ends.
+    /// Waits once for whichever comes first: the system's Reminders permission alert, or the list-name field that
+    /// shows access is already settled. The alert can take longer than a button tap to appear on a cold
+    /// simulator, so a fixed short wait missed it; waiting on either outcome costs nothing when it is not asked.
     func allowRemindersAccessIfAsked() {
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let allow = springboard.alerts.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Allow")).firstMatch
-        if allow.waitForExistence(timeout: Self.interactionTimeout) {
+        let field = element(JourneyID.remindersNewListName)
+        let either = NSPredicate { _, _ in allow.exists || field.exists }
+        let settled = XCTNSPredicateExpectation(predicate: either, object: nil)
+        _ = XCTWaiter().wait(for: [settled], timeout: Self.networkTimeout)
+        if allow.exists {
             allow.tap()
         }
+    }
+
+    /// The recent sync requests and the server's answers, recorded by the app for this run. It is empty text when
+    /// the app does not expose it.
+    var syncLog: String {
+        let log = element("journey.syncLog")
+        return log.exists ? ((log.value as? String) ?? "unreadable") : "no sync log element"
     }
 
     /// Keeps a screenshot of the current screen in the result bundle.
