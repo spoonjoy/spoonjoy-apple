@@ -4162,7 +4162,7 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
     }
 
     private static func diagnosticOutcome(for error: APITransportError) -> String {
-        let status = error.statusCode.map(String.init) ?? "no status"
+        let status = error.statusCode.map(String.init) ?? "no status (\(error.kind))"
         let code = error.apiError?.code ?? "no code"
         let message = error.apiError?.message ?? "no message"
         return "\(status) \(code): \(message)"

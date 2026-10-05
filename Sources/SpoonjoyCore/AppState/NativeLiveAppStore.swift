@@ -2139,7 +2139,10 @@ public final class NativeLiveAppStore: ObservableObject {
                 offlineIndicatorState: indicator
             )))
             if drainImmediately {
-                await bootstrap()
+                // The sync runs as its own task. Saving an edit swaps the editor for the "Restoring your
+                // kitchen" screen, which cancels the task that called this method; a cancelled sync aborts its
+                // request, and the edit would sit in the queue until some later sync trigger.
+                await Task { await bootstrap() }.value
             }
             return queuedMutationBatchResult(submittedClientMutationIDs: submittedClientMutationIDs)
         } catch {

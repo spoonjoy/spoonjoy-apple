@@ -1018,6 +1018,56 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store keeps draining an edit when the caller is cancelled right after saving")
+    func liveStoreDrainSurvivesCallerCancellation() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_cancel", title: "Server Pasta")
+            let mutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_cancel",
+                clientMutationID: "cm_cancel_recipe",
+                title: "Local Pasta",
+                description: recipe.description,
+                servings: recipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [
+                    NativeSyncCachedRecord(
+                        kind: .recipe,
+                        resourceID: recipe.id,
+                        payload: try Self.jsonValue(recipe),
+                        serverRevision: .updatedAt(recipe.updatedAt)
+                    )
+                ]
+            )
+            let probe = CancellationProbeTransport()
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: probe)
+
+            await liveStore.bootstrap()
+            await probe.arm()
+            let caller = Task { @MainActor in
+                try await liveStore.queueMutations([mutation], drainImmediately: true)
+            }
+            // Cancel the caller once the sync is under way, as the editor closing does, then let it continue.
+            while await !probe.bootstrapStarted() {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            caller.cancel()
+            await probe.release()
+            _ = try await caller.value
+
+            #expect(await probe.sendCount() == 1)
+            #expect(await probe.sawCancellation() == false)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+        }
+    }
+
+    @MainActor
     @Test("live store queue and conflict discard no-ops leave state untouched")
     func liveStoreQueueAndConflictDiscardNoopsLeaveStateUntouched() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6460,6 +6510,43 @@ private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
     func capturedBearerTokens() -> [String?] {
         bearerTokens
     }
+}
+
+/// Records whether the sync that sends a queued edit was cancelled when it sent.
+private actor CancellationProbeTransport: NativeSyncTransport {
+    private var cancelledSends = 0
+    private var sends = 0
+
+    private var armed = false
+    private var started = false
+    private var released = false
+
+    func arm() { armed = true }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        guard armed else {
+            return .success(cursor: nil, tombstones: [])
+        }
+        started = true
+        while !released {
+            try await Task.sleep(nanoseconds: 2_000_000)
+        }
+        return .success(cursor: nil, tombstones: [])
+    }
+
+    func bootstrapStarted() -> Bool { started }
+    func release() { released = true }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        sends += 1
+        if Task.isCancelled {
+            cancelledSends += 1
+        }
+        return .success(serverRevision: .updatedAt(mutation.createdAt))
+    }
+
+    func sendCount() -> Int { sends }
+    func sawCancellation() -> Bool { cancelledSends > 0 }
 }
 
 private actor StaticNativeSyncTriggerRunner: NativeSyncTriggerRunning {
