@@ -1855,6 +1855,13 @@ public final class NativeLiveAppStore: ObservableObject {
     private var cookSyncOffRecipeIDs = Set<String>()
     /// The change that is waiting for more changes before it asks for a sync.
     var cookPushTask: Task<Void, Never>?
+    /// The one task that runs cook-session exchanges on their own, without a full sync.
+    private var activeCookSync: Task<Void, Never>?
+    /// Counts cook requests; the run goes again only when this changed while it was running.
+    private var cookQueueVersion = 0
+    /// The last cook-session exchange started, from either kind of sync. A new exchange waits for it, so a
+    /// full sync and a cook-only sync never send for the same recipe at the same time.
+    private var cookExchangeTail: Task<Void, Never>?
 
     /// Asks the store to sync and drain the queue. If a sync is already running, this request joins it. The run
     /// goes once more if an edit was queued while it ran, so that edit is still sent. Views call this
@@ -1880,6 +1887,46 @@ public final class NativeLiveAppStore: ObservableObject {
     /// Waits for the sync that is running now, if any. Safe to await from a view task.
     public func waitForSync() async {
         await activeSync?.value
+        await activeCookSync?.value
+    }
+
+    /// Asks the store to exchange cook progress with the server and nothing else: no recipe, shopping or
+    /// kitchen refresh. Joins a cook sync already running, which goes once more so this request is covered.
+    /// Cancelling the waiter does not cancel the sync.
+    @discardableResult
+    public func requestCookSync() -> Task<Void, Never> {
+        if let activeCookSync {
+            cookQueueVersion += 1
+            return activeCookSync
+        }
+        let task = Task { @MainActor [self] in
+            var versionAtStart: Int
+            repeat {
+                versionAtStart = cookQueueVersion
+                await performCookSync()
+            } while cookQueueVersion != versionAtStart
+            activeCookSync = nil
+        }
+        activeCookSync = task
+        return task
+    }
+
+    private func performCookSync() async {
+        guard case .authenticated = currentContentState.authSessionState,
+              let session = try? await dependencies.authSessionRepository.validSession() else {
+            return
+        }
+        await runCookExchange(session: session)
+    }
+
+    private func runCookExchange(session: AuthSession) async {
+        let previous = cookExchangeTail
+        let exchange = Task { @MainActor [self] in
+            await previous?.value
+            await syncCookSessions(session: session)
+        }
+        cookExchangeTail = exchange
+        await exchange.value
     }
 
     public func bootstrap() async {
@@ -2727,11 +2774,10 @@ public final class NativeLiveAppStore: ObservableObject {
         }
         cookPullRecipeIDs.insert(recipeID)
         cookSyncOffRecipeIDs.remove(recipeID)
-        queueVersion += 1
-        requestSync(trigger: .foreground)
+        requestCookSync()
     }
 
-    // A tap on an ingredient, then another, then a step: the sync waits for a short pause so they go together.
+    // A tap on an ingredient, then another, then a step: the exchange waits for a short pause so they go together.
     private func scheduleCookSessionPush(recipeID: String) {
         guard case .authenticated = currentContentState.authSessionState else {
             return
@@ -2744,13 +2790,12 @@ public final class NativeLiveAppStore: ObservableObject {
             guard !Task.isCancelled else {
                 return
             }
-            queueVersion += 1
-            await requestSync(trigger: .foreground).value
+            await requestCookSync().value
         }
     }
 
     /// Exchanges cook progress with the server for recipes with changes the server has not seen and for
-    /// recipes just opened. Runs as part of the store's sync. Nothing here shows an error: when the server will
+    /// recipes just opened. Runs as part of the store's full sync and on its own through `requestCookSync`. Nothing here shows an error: when the server will
     /// not take progress (sync off, 403) or cannot be reached, progress stays on the device and goes later.
     private func syncCookSessions(session: AuthSession) async {
         guard dependencies.bootstrapMode == .liveFirst,
@@ -3398,7 +3443,7 @@ public final class NativeLiveAppStore: ObservableObject {
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
         )
-        await syncCookSessions(session: session)
+        await runCookExchange(session: session)
         var settingsRefreshError: Error?
         var settingsRefreshResult: SettingsSurfaceResult?
         do {

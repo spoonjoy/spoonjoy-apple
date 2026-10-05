@@ -7789,6 +7789,77 @@ extension NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("a cook change runs only the cook-session exchange, never a full sync")
+    func cookChangeSyncsOnlyCookSessions() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            let syncData = try Self.sampleSyncData(recipe: Self.cookRecipe, shoppingItem: nil, accountID: "chef_ari")
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let store = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: transport,
+                appStateStoreProvider: { appStateStore },
+                cookSessionClient: { _ in server.client(token: nil) },
+                cookSessionPushDelay: .milliseconds(50)
+            )
+            await store.bootstrap()
+            let bootstrapsBefore = await transport.capturedBearerTokens().count
+            let requestsBefore = await server.requestCount
+
+            try Self.checkingIngredient("ing_a", in: store)
+            try Self.checkingIngredient("ing_b", in: store)
+            await store.cookPushTask?.value
+            await store.waitForSync()
+
+            #expect(Set(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs) == ["ing_a", "ing_b"])
+            #expect(await server.requestCount > requestsBefore)
+            #expect(await transport.capturedBearerTokens().count == bootstrapsBefore)
+        }
+    }
+
+    @MainActor
+    @Test("cook requests that arrive during a cook sync are covered by one more run")
+    func cookSyncCoalesces() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+            try Self.checkingIngredient("ing_a", in: store)
+            await store.cookPushTask?.value
+            let first = store.requestCookSync()
+            let second = store.requestCookSync()
+            try Self.checkingIngredient("ing_b", in: store)
+            store.requestCookSync()
+            await first.value
+            await second.value
+            await store.waitForSync()
+            #expect(Set(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs) == ["ing_a", "ing_b"])
+        }
+    }
+
+    @MainActor
+    @Test("a cook sync while signed out sends nothing")
+    func cookSyncSignedOutSendsNothing() async throws {
+        let server = FakeCookServer()
+        let vault = try await Self.signedInVault(accountID: "chef_ari")
+        let store = Self.liveStore(
+            directory: URL(fileURLWithPath: NSTemporaryDirectory()),
+            vault: vault,
+            syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+            transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+            cookSessionClient: { _ in server.client(token: nil) }
+        )
+        await store.requestCookSync().value
+        #expect(await server.requestCount == 0)
+    }
+
+    @MainActor
     @Test("a first check on a recipe the server has never seen starts its session")
     func cookSessionStartsOnFirstCheck() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

@@ -608,6 +608,7 @@ struct RecipeDetailView: View {
             Label("Cook mode", systemImage: "fork.knife")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .accessibilityIdentifier("recipeDetail.cook")
     }
 
     private var compactRecipeActionsMenu: some View {

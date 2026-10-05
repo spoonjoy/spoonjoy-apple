@@ -471,6 +471,7 @@ struct CookModeView: View {
                             CookModeIngredientChecklistLabel(row: row)
                         }
                         .toggleStyle(.largeCheck)
+                        .accessibilityIdentifier("cookMode.ingredient")
                         .tint(KitchenTableTheme.herb)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }

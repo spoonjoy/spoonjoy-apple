@@ -67,6 +67,13 @@ final class JourneyApp {
             .firstMatch
     }
 
+    /// An element `id` whose label contains `text`, ignoring case, for data a journey created.
+    func element(_ id: String, labelContainingIgnoringCase text: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@ AND label CONTAINS[c] %@", id, text))
+            .firstMatch
+    }
+
     /// Finds user-visible copy the journey asserts. Only for `JourneyCopy` values.
     func copy(_ text: String) -> XCUIElement {
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", text)).firstMatch
