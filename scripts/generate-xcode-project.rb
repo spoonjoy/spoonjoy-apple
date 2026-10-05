@@ -175,7 +175,10 @@ apply_common_settings(
 # condition, so the app target defines SPOONJOY_IOS_27_1_SDK only when it builds against the 27.1 or newer iOS
 # SDK. Shipping builds stay on stable Xcode 27.0, where the hinge code is compiled out.
 HINGE_SDK_CONDITION = "SPOONJOY_IOS_27_1_SDK"
-HINGE_SDK_PATTERNS = ["iphoneos27.[1-9]*", "iphonesimulator27.[1-9]*", "iphoneos2[89]*", "iphonesimulator2[89]*", "iphoneos[3-9][0-9]*", "iphonesimulator[3-9][0-9]*"].freeze
+# Xcode's sdk= conditions are plain wildcards, with no character classes, so each SDK version is listed.
+HINGE_SDK_PATTERNS = %w[iphoneos iphonesimulator].flat_map do |sdk|
+  (%w[27.1 27.2 27.3 27.4 27.5] + %w[28 29 30]).map { |version| "#{sdk}#{version}*" }
+end.freeze
 CONFIGURATIONS.each do |configuration|
   settings = ios_target.build_configuration_list[configuration].build_settings
   HINGE_SDK_PATTERNS.each do |pattern|
