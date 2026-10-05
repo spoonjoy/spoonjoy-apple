@@ -5,6 +5,8 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
     case invalidURL(String)
     case unexpectedStatus(Int, path: String)
     case missingRecipeID
+    case missingIngredient(String)
+    case cookSessionNotSynced(String)
 
     var description: String {
         switch self {
@@ -14,6 +16,10 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
             "QA answered HTTP \(status) for \(path)."
         case .missingRecipeID:
             "QA created a recipe but the response had no data.recipe.id."
+        case .missingIngredient(let name):
+            "The recipe QA returned has no ingredient named \(name)."
+        case .cookSessionNotSynced(let detail):
+            "QA's cook session never showed the app's check. \(detail)"
         }
     }
 }
@@ -53,6 +59,71 @@ struct JourneyQAClient: Sendable {
         return id
     }
 
+    /// The id QA gave the ingredient called `name` (QA lowercases ingredient names), found by reading the recipe back.
+    func ingredientID(named name: String, inRecipe recipeID: String) async throws -> String {
+        let data = try await Self.send(PublicCatalogRequests.recipeDetail(id: recipeID), configuration: configuration)
+        let envelope = try APIEnvelope<JSONValue>.decode(data)
+        guard let id = Self.ingredientID(named: name.lowercased(), in: envelope.data) else {
+            throw JourneyQAClientError.missingIngredient(name)
+        }
+        return id
+    }
+
+    private static func ingredientID(named name: String, in value: JSONValue) -> String? {
+        switch value {
+        case .object(let fields):
+            if case .string(let id)? = fields["id"], case .string(let found)? = fields["name"], found.lowercased() == name {
+                return id
+            }
+            return fields.values.compactMap { ingredientID(named: name, in: $0) }.first
+        case .array(let items):
+            return items.compactMap { ingredientID(named: name, in: $0) }.first
+        default:
+            return nil
+        }
+    }
+
+    /// What QA's cook-session store holds for this account and recipe right now.
+    struct CookSessionReading: Sendable {
+        let revision: Int
+        let checkedIngredientIDs: [String]
+        /// The response body as QA sent it, with this client's bearer token replaced by `[redacted]`.
+        let redactedBody: String
+    }
+
+    /// Reads `GET /api/cook-sessions/:recipeId` as this account, directly from the test process.
+    func cookSession(recipeID: String) async throws -> CookSessionReading {
+        let data = try await Self.send(CookSessionRequests.read(recipeID: recipeID), configuration: configuration)
+        let envelope = try JSONDecoder().decode(JourneyCookSessionEnvelope.self, from: data)
+        let body = String(decoding: data, as: UTF8.self)
+        let redacted = configuration.bearerToken.map { body.replacingOccurrences(of: $0, with: "[redacted]") } ?? body
+        return CookSessionReading(
+            revision: envelope.state.revision,
+            checkedIngredientIDs: envelope.state.progress.checkedIngredientIds,
+            redactedBody: redacted
+        )
+    }
+
+    /// Waits for the app's debounced cook sync to reach QA: reads the session once a second, up to `attempts` times,
+    /// until it holds `ingredientID` as checked. Recursion instead of a loop keeps the journey rules simple.
+    func cookSession(
+        recipeID: String,
+        waitingForChecked ingredientID: String,
+        attempts: Int = 30
+    ) async throws -> CookSessionReading {
+        let reading = try? await cookSession(recipeID: recipeID)
+        if let reading, reading.revision > 0, reading.checkedIngredientIDs.contains(ingredientID) {
+            return reading
+        }
+        guard attempts > 1 else {
+            throw JourneyQAClientError.cookSessionNotSynced(
+                "Last reading: \(reading?.redactedBody ?? "no readable session (404 or an error status)")"
+            )
+        }
+        try await Task.sleep(for: .seconds(1))
+        return try await cookSession(recipeID: recipeID, waitingForChecked: ingredientID, attempts: attempts - 1)
+    }
+
     func shoppingList() async throws -> ShoppingListState {
         try await LiveShoppingSurfaceRepository(configuration: configuration).fetchShoppingList()
     }
@@ -81,4 +152,17 @@ struct JourneyQAClient: Sendable {
         }
         return data
     }
+}
+
+private struct JourneyCookSessionEnvelope: Decodable {
+    struct State: Decodable {
+        struct Progress: Decodable {
+            let checkedIngredientIds: [String]
+        }
+
+        let revision: Int
+        let progress: Progress
+    }
+
+    let state: State
 }
