@@ -75,7 +75,11 @@ if percent < minimum
   included.each do |file|
     lines = file.fetch("summary").fetch("lines")
     missed = lines.fetch("count") - lines.fetch("covered")
-    warn "uncovered: #{missed} line(s) in #{normalized_filename(file.fetch("filename"))}" if missed.positive?
+    next unless missed.positive?
+
+    # A segment is [line, column, count, hasCount, isRegionEntry, isGapRegion]; a counted, zero-hit start names a missed line.
+    missed_lines = file.fetch("segments", []).select { |segment| segment[3] && segment[2].zero? && !segment[5] }.map(&:first).uniq
+    warn "uncovered: #{missed} line(s) in #{normalized_filename(file.fetch("filename"))} (zero-hit segments start at line #{missed_lines.join(", ")})"
   end
   fail_check(
     "coverage below threshold: #{format("%.2f", percent)}% " \

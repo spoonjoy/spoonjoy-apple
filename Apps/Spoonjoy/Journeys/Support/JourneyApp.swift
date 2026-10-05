@@ -141,7 +141,7 @@ final class JourneyApp {
 
     /// Replaces the text in Search's field with `query`. Results follow as the user types.
     func search(for query: String, file: StaticString = #filePath, line: UInt = #line) {
-        replaceText(in: app.searchFields, named: "The search field", with: query, file: file, line: line)
+        replaceText(in: app.searchFields, named: "The search field", with: query, scrolls: false, file: file, line: line)
     }
 
     /// Opens the recipe whose row `listID` has a label containing `title`, and waits for its detail page.
@@ -154,9 +154,9 @@ final class JourneyApp {
 
     /// Types into an empty field and reads the value back.
     func enterText(_ text: String, into id: String, file: StaticString = #filePath, line: UInt = #line) {
-        tap(id, file: file, line: line)
+        waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear. Screen: \(screen)", file: file, line: line)
         let field = element(id)
-        assertKeyboardFocus(in: query(id), named: id, file: file, line: line)
+        focus(query(id), named: id, firstTapAt: Self.fieldCentre, file: file, line: line)
         field.typeText(text)
         assertValue(of: field, equals: text, "\(id) does not hold exactly the typed text.", file: file, line: line)
     }
@@ -282,12 +282,12 @@ final class JourneyApp {
 
     /// Taps past the end of the text so the caret lands after it, deletes exactly that many characters,
     /// proves the field is empty, types the text and reads it back. No edit menu is involved.
-    private func replaceText(in query: XCUIElementQuery, named name: String, with text: String, file: StaticString, line: UInt) {
+    private func replaceText(in query: XCUIElementQuery, named name: String, with text: String, scrolls: Bool = true, file: StaticString, line: UInt) {
         let field = query.firstMatch
         let current = field.value as? String ?? ""
         let existing = current == field.placeholderValue ? "" : current
-        field.coordinate(withNormalizedOffset: CGVector(dx: 0.97, dy: 0.5)).tap()
-        assertKeyboardFocus(in: query, named: name, file: file, line: line)
+        // The caret has to land after the text, so this starts at the trailing edge; the centre is the fallback.
+        focus(query, named: name, firstTapAt: Self.fieldTrailingEdge, scrolls: scrolls, file: file, line: line)
         if !existing.isEmpty {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: existing.count))
         }
@@ -326,6 +326,70 @@ final class JourneyApp {
     /// keystrokes, and once crashed the app while fetching a placeholder (runs 36331139692, 36332727373).
     private func query(_ id: String) -> XCUIElementQuery {
         app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id))
+    }
+
+    private static let fieldCentre = CGVector(dx: 0.5, dy: 0.5)
+    private static let fieldTrailingEdge = CGVector(dx: 0.97, dy: 0.5)
+    private static let focusAttempts = 3
+    private static let focusWait: TimeInterval = 4
+
+    /// Puts keyboard focus in the first match of `query`. Focus flaked on four heads when a tap landed on a
+    /// field that was still moving, half under the keyboard or behind the floating tab bar. So the field is
+    /// scrolled fully into view first, then tapped (`firstTapAt`, normally its centre) up to three times, each
+    /// followed by a bounded wait for focus, then once at the other end of the field. Only then does it fail,
+    /// naming the field's and the keyboard's frames. The assertion stays strict: focus must really land.
+    private func focus(_ query: XCUIElementQuery, named name: String, firstTapAt: CGVector, scrolls: Bool = true, file: StaticString, line: UInt) {
+        let fallback = firstTapAt == Self.fieldCentre ? Self.fieldTrailingEdge : Self.fieldCentre
+        let taps = Array(repeating: firstTapAt, count: Self.focusAttempts) + [fallback]
+        // Recursion, not a loop: the house rules keep journey code free of `for` and `while`.
+        if !tapUntilFocused(query, taps: taps[...], scrolls: scrolls) {
+            let field = query.firstMatch
+            let holder = app.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch
+            XCTFail(
+                "\(name) did not take keyboard focus after \(taps.count) taps. Field frame: \(field.frame). Keyboard frame: \(app.keyboards.firstMatch.exists ? "\(app.keyboards.firstMatch.frame)" : "no keyboard"). Hittable: \(field.isHittable). Focus is on: \(holder.exists ? holder.debugDescription : "nothing"). Tapped element: \(field.debugDescription)",
+                file: file,
+                line: line
+            )
+        }
+    }
+
+    /// Taps at the first offset in `taps` and waits for focus; on a miss, tries the next offset.
+    private func tapUntilFocused(_ query: XCUIElementQuery, taps: ArraySlice<CGVector>, scrolls: Bool) -> Bool {
+        guard let offset = taps.first else {
+            return false
+        }
+        let field = query.firstMatch
+        if scrolls {
+            scrollIntoView(field, dragsLeft: 6)
+        }
+        field.coordinate(withNormalizedOffset: offset).tap()
+        if query.matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch.waitForExistence(timeout: Self.focusWait) {
+            return true
+        }
+        return tapUntilFocused(query, taps: taps.dropFirst(), scrolls: scrolls)
+    }
+
+    /// Drags the form until `field` sits fully between the navigation bar and whatever covers the bottom of the
+    /// screen (the keyboard, or the floating tab bar), with a margin. Stops after a few drags either way.
+    private func scrollIntoView(_ field: XCUIElement, dragsLeft: Int) {
+        let margin: CGFloat = 24
+        let top = app.navigationBars.firstMatch.exists ? app.navigationBars.firstMatch.frame.maxY : 0
+        var bottom = app.frame.maxY
+        if app.tabBars.firstMatch.exists {
+            bottom = min(bottom, app.tabBars.firstMatch.frame.minY)
+        }
+        if app.keyboards.firstMatch.exists {
+            bottom = min(bottom, app.keyboards.firstMatch.frame.minY)
+        }
+        let visible = field.exists && field.frame.minY >= top + margin && field.frame.maxY <= bottom - margin
+        guard !visible, dragsLeft > 0 else {
+            return
+        }
+        let towardsTop = !field.exists || field.frame.maxY > bottom - margin
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? 0.65 : 0.35))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? 0.35 : 0.65))
+        from.press(forDuration: 0.05, thenDragTo: to)
+        scrollIntoView(field, dragsLeft: dragsLeft - 1)
     }
 
     /// Waits for the tapped field (the first match of `query`) to take keyboard focus before anything is
