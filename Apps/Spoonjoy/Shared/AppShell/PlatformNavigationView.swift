@@ -750,7 +750,8 @@ struct PlatformNavigationView: View {
             recordSpoonCookLogDraft: recordSpoonCookLogDraft(_:forRecipeID:),
             discardSpoonCookLogConflict: discardSpoonCookLogConflict(clientMutationID:),
             performShoppingAction: performShoppingAction,
-            onDismissOfflineIndicator: dismissOfflineIndicator
+            onDismissOfflineIndicator: dismissOfflineIndicator,
+            reloadToken: contentState.queuedMutations.count
         )
     }
 
