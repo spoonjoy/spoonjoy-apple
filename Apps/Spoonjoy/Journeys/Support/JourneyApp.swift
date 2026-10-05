@@ -220,8 +220,20 @@ final class JourneyApp {
     /// Chooses the first photo in the system photo picker the editor opened. The picker closes on its own
     /// when one photo is picked. The CI workflow puts a photo in the simulator's library first.
     func chooseFirstPhotoInPicker(file: StaticString = #filePath, line: UInt = #line) {
-        let photo = app.images.matching(NSPredicate(format: "label BEGINSWITH %@", "Photo")).firstMatch
-        XCTAssertTrue(photo.waitForExistence(timeout: Self.networkTimeout), "The photo picker shows no photo. Screen: \(screen)", file: file, line: line)
+        // The system picker lists each library item as "Photo, <date>". Any element type counts, because
+        // the picker's grid cells are not images on every iOS release.
+        let photo = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Photo,")).firstMatch
+        if !photo.waitForExistence(timeout: Self.interactionTimeout) {
+            // The first tap can land while the editor is still settling; open the picker once more.
+            element(JourneyID.editorPhotoPick).tap()
+        }
+        let photosApp = XCUIApplication(bundleIdentifier: "com.apple.mobileslideshow")
+        XCTAssertTrue(
+            photo.waitForExistence(timeout: Self.networkTimeout),
+            "The photo picker shows no photo. Screen: \(screen)\nPhotos app: \(photosApp.debugDescription)",
+            file: file,
+            line: line
+        )
         photo.tap()
     }
 

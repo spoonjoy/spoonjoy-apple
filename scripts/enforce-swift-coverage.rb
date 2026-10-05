@@ -72,6 +72,11 @@ fail_check("included coverage has no measurable lines") if total_lines.zero?
 percent = (covered_lines * 100.0) / total_lines
 
 if percent < minimum
+  included.each do |file|
+    lines = file.fetch("summary").fetch("lines")
+    missed = lines.fetch("count") - lines.fetch("covered")
+    warn "uncovered: #{missed} line(s) in #{normalized_filename(file.fetch("filename"))}" if missed.positive?
+  end
   fail_check(
     "coverage below threshold: #{format("%.2f", percent)}% " \
     "(#{covered_lines}/#{total_lines}) is below #{format("%.2f", minimum)}%"
