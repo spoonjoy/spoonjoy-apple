@@ -8,8 +8,6 @@ struct RecipeEditorView: View {
     let viewModel: RecipeEditorViewModel
     let mutationDidPlan: @MainActor @Sendable (RecipeEditorMutationPlan) async throws -> Void
     let mutationsDidQueue: @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
-    /// Sends an online save's requests in order and refreshes once; throws `RecipeEditorBatchSendError`.
-    let requestsDidSend: @MainActor @Sendable ([APIRequestBuilder]) async throws -> Void
     let conflictDidDiscardLocalChange: @MainActor @Sendable (RecipeEditorConflict) async throws -> Void
     /// Creates the recipe and uploads the chosen photo as its cover; returns the route to open next.
     let createRecipeWithPhoto: @MainActor @Sendable (RecipeEditorMutationPlan, NativeStagedMediaUpload) async throws -> AppRoute
@@ -36,7 +34,6 @@ struct RecipeEditorView: View {
         viewModel: RecipeEditorViewModel,
         mutationDidPlan: @escaping @MainActor @Sendable (RecipeEditorMutationPlan) async throws -> Void,
         mutationsDidQueue: @escaping @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
-        requestsDidSend: @escaping @MainActor @Sendable ([APIRequestBuilder]) async throws -> Void,
         conflictDidDiscardLocalChange: @escaping @MainActor @Sendable (RecipeEditorConflict) async throws -> Void,
         createRecipeWithPhoto: @escaping @MainActor @Sendable (RecipeEditorMutationPlan, NativeStagedMediaUpload) async throws -> AppRoute,
         close: @escaping @MainActor @Sendable (AppRoute) -> Void,
@@ -46,7 +43,6 @@ struct RecipeEditorView: View {
         self.viewModel = viewModel
         self.mutationDidPlan = mutationDidPlan
         self.mutationsDidQueue = mutationsDidQueue
-        self.requestsDidSend = requestsDidSend
         self.conflictDidDiscardLocalChange = conflictDidDiscardLocalChange
         self.createRecipeWithPhoto = createRecipeWithPhoto
         self.close = close
@@ -498,29 +494,10 @@ struct RecipeEditorView: View {
                     }
                     return mutation
                 }
-                let requests = plannedActions.compactMap(\.plan.remoteRequestBuilder)
-                if editor.connectivity == .online, requests.count == plannedActions.count {
-                    // Online: send the requests in order so a rejection shows the server's message here, and
-                    // the editor stays open. Going through the queue would replace this screen with the
-                    // sync spinner and hide the failure.
-                    do {
-                        try await requestsDidSend(requests)
-                    } catch let error as RecipeEditorBatchSendError {
-                        if let transportError = error.underlyingError as? APITransportError, transportError.isOffline {
-                            _ = try await mutationsDidQueue(Array(mutations.dropFirst(error.sentCount)), true)
-                        } else {
-                            throw RecipeEditorActionExecutionError(
-                                action: plannedActions[error.sentCount].action,
-                                underlyingError: error.underlyingError
-                            )
-                        }
-                    }
-                } else {
-                    let batchResult = try await mutationsDidQueue(mutations, editor.connectivity == .online)
-                    if editor.connectivity == .online,
-                       submittedBatchNeedsAttention(batchResult, mutations: mutations) {
-                        return
-                    }
+                let batchResult = try await mutationsDidQueue(mutations, editor.connectivity == .online)
+                if editor.connectivity == .online,
+                   submittedBatchNeedsAttention(batchResult, mutations: mutations) {
+                    return
                 }
             } else if let plannedAction = plannedActions.first,
                       let stagedPhoto,

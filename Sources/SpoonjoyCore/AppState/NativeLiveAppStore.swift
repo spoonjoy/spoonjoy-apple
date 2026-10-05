@@ -2229,33 +2229,6 @@ public final class NativeLiveAppStore: ObservableObject {
         await bootstrap()
     }
 
-    /// Sends an editor save's requests one after another, then refreshes once. A failure stops the run and
-    /// reports how many requests already went through, so the editor can show the server's message and
-    /// queue the rest if the failure was a lost connection. The refresh is skipped on failure because it
-    /// replaces the screen the message has to appear on.
-    public func executeRecipeEditorRequests(_ requests: [APIRequestBuilder]) async throws {
-        let session = try await dependencies.authSessionRepository.validSession()
-        configuration = APIClientConfiguration(
-            baseURL: dependencies.configuration.baseURL,
-            bearerToken: session.accessToken
-        )
-        let refresher = NativeLiveAppStoreAPIRefresher(
-            authSessionRepository: dependencies.authSessionRepository,
-            baseURL: dependencies.configuration.baseURL
-        )
-        let transport = dependencies.recipeEditorAPITransport(refresher)
-        var sentCount = 0
-        for request in requests {
-            do {
-                _ = try await transport.send(request, configuration: configuration, decode: JSONValue.self)
-            } catch {
-                throw RecipeEditorBatchSendError(sentCount: sentCount, underlyingError: error)
-            }
-            sentCount += 1
-        }
-        await bootstrap()
-    }
-
     /// Sends a create-recipe request and returns the new recipe's ID, so a photo chosen in the editor can
     /// be uploaded to it.
     public func executeRecipeCreateRequest(_ request: APIRequestBuilder) async throws -> String? {
@@ -3826,16 +3799,5 @@ private extension Dictionary where Key == String, Value == NativeProfileGraphAgg
         } else {
             self[chef.id] = NativeProfileGraphAggregate(chef: chef, latestInteractionAt: interactionAt)
         }
-    }
-}
-
-/// A save that sends several requests failed part way: `sentCount` requests succeeded before it.
-public struct RecipeEditorBatchSendError: Error {
-    public let sentCount: Int
-    public let underlyingError: Error
-
-    public init(sentCount: Int, underlyingError: Error) {
-        self.sentCount = sentCount
-        self.underlyingError = underlyingError
     }
 }
