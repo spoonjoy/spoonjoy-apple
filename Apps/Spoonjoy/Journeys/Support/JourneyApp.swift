@@ -25,6 +25,8 @@ final class JourneyApp {
         let app = XCUIApplication()
         app.launchEnvironment["SPOONJOY_API_BASE_URL"] = JourneyQA.baseURL.absoluteString
         app.launchEnvironment[NativeJourneyLaunchReset.environmentKey] = "1"
+        // "Add Photo" stages a built-in picture instead of opening the system photo picker.
+        app.launchEnvironment[NativeJourneyPhotoFixture.environmentKey] = "1"
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
@@ -219,24 +221,6 @@ final class JourneyApp {
 
     /// Chooses the first photo in the system photo picker the editor opened. The picker closes on its own
     /// when one photo is picked. The CI workflow puts a photo in the simulator's library first.
-    func chooseFirstPhotoInPicker(file: StaticString = #filePath, line: UInt = #line) {
-        // The system picker lists each library item as "Photo, <date>". Any element type counts, because
-        // the picker's grid cells are not images on every iOS release.
-        let photo = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Photo,")).firstMatch
-        if !photo.waitForExistence(timeout: Self.interactionTimeout) {
-            // The first tap can land while the editor is still settling; open the picker once more.
-            element(JourneyID.editorPhotoPick).tap()
-        }
-        let photosApp = XCUIApplication(bundleIdentifier: "com.apple.mobileslideshow")
-        XCTAssertTrue(
-            photo.waitForExistence(timeout: Self.networkTimeout),
-            "The photo picker shows no photo. Screen: \(screen)\nPhotos app: \(photosApp.debugDescription)",
-            file: file,
-            line: line
-        )
-        photo.tap()
-    }
-
     /// For a failure message only: scrolls the editor back to its top, where a blocked or failed save
     /// shows its message, and returns that message.
     private func editorStatusAtTop() -> String {

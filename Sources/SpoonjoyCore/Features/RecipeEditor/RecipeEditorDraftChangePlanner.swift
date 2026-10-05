@@ -116,37 +116,7 @@ public enum RecipeEditorDraftChangePlanner {
         clientMutationID: (String) -> String
     ) {
         let originalIngredientsByID = Dictionary(uniqueKeysWithValues: originalStep.ingredients.map { ($0.id, $0) })
-        // The server has no ingredient position: it lists a step's ingredients in the order they were
-        // added. So the saved order is made by adding ingredients in order. Everything up to the first
-        // ingredient that is out of place stays; that ingredient and the ones after it are deleted and
-        // added again in the draft's order.
-        let draftIngredientIDs = Set(draftStep.ingredients.map(\.id))
-        let survivingOriginalIDs = originalStep.ingredients.map(\.id).filter { draftIngredientIDs.contains($0) }
-        var survivorCursor = 0
-        var reAddFrom = draftStep.ingredients.count
-        for (index, ingredient) in draftStep.ingredients.enumerated() {
-            if survivorCursor < survivingOriginalIDs.count, survivingOriginalIDs[survivorCursor] == ingredient.id {
-                survivorCursor += 1
-            } else {
-                reAddFrom = index
-                break
-            }
-        }
-        for (index, ingredient) in draftStep.ingredients.enumerated() {
-            if index >= reAddFrom, originalIngredientsByID[ingredient.id] != nil {
-                actions.append(.deleteIngredient(
-                    stepID: draftStep.id,
-                    ingredientID: ingredient.id,
-                    clientMutationID: clientMutationID("replace-delete-ingredient-\(ingredient.id)"),
-                    confirmation: .confirmed
-                ))
-                actions.append(.addIngredient(
-                    stepID: draftStep.id,
-                    clientMutationID: clientMutationID("replace-add-ingredient-\(draftStep.id)-\(ingredient.id)"),
-                    ingredient: ingredient
-                ))
-                continue
-            }
+        for ingredient in draftStep.ingredients {
             guard let originalIngredient = originalIngredientsByID[ingredient.id] else {
                 actions.append(.addIngredient(
                     stepID: draftStep.id,

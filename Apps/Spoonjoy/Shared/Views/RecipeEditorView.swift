@@ -161,28 +161,6 @@ struct RecipeEditorView: View {
                                     .accessibilityIdentifier("\(ingredientID).quantity")
                                 TextField("Unit", text: optionalText($ingredient.unit))
                                     .accessibilityIdentifier("\(ingredientID).unit")
-                                Menu {
-                                    Button {
-                                        moveIngredient(id: ingredient.id, in: step.id, by: -1)
-                                    } label: {
-                                        Label("Move Up", systemImage: "arrow.up")
-                                    }
-                                    .disabled(ingredientNumber(ingredient.id, in: step) == 1)
-                                    .accessibilityIdentifier("\(ingredientID).moveUp")
-                                    Button {
-                                        moveIngredient(id: ingredient.id, in: step.id, by: 1)
-                                    } label: {
-                                        Label("Move Down", systemImage: "arrow.down")
-                                    }
-                                    .disabled(ingredientNumber(ingredient.id, in: step) == step.ingredients.count)
-                                    .accessibilityIdentifier("\(ingredientID).moveDown")
-                                } label: {
-                                    Label("Reorder Ingredient", systemImage: "arrow.up.arrow.down")
-                                }
-                                .labelStyle(.iconOnly)
-                                .menuStyle(.borderlessButton)
-                                .disabled(isSubmitting)
-                                .accessibilityIdentifier("\(ingredientID).reorder")
                                 Button(role: .destructive) {
                                     removeIngredient(id: ingredient.id, from: step.id)
                                 } label: {
@@ -292,16 +270,40 @@ struct RecipeEditorView: View {
             if activeViewModel.connectivity == .online {
                 let hasPhoto = stagedPhoto != nil
                 HStack(alignment: .center, spacing: 12) {
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        Label(hasPhoto ? "Replace Photo" : "Add Photo", systemImage: hasPhoto ? "photo.fill" : "photo.badge.plus")
-                            .font(KitchenTableTheme.uiLabel)
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityIdentifier("editor.photo.pick")
-                    .onChange(of: selectedPhotoItem) { _, item in
-                        Task { @MainActor in
-                            await stagePhoto(item)
+                    if journeyPhotoFixtureEnabled {
+                        // Journeys cannot drive the system picker, so a journey build stages a generated picture instead.
+                        Button {
+                            Task { @MainActor in
+                                await stageCandidate(NativeJourneyPhotoFixture.stagedUpload())
+                            }
+                        } label: {
+                            Label(hasPhoto ? "Replace Photo" : "Add Photo", systemImage: hasPhoto ? "photo.fill" : "photo.badge.plus")
+                                .font(KitchenTableTheme.uiLabel)
                         }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("editor.photo.pick")
+                    } else {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            Label(hasPhoto ? "Replace Photo" : "Add Photo", systemImage: hasPhoto ? "photo.fill" : "photo.badge.plus")
+                                .font(KitchenTableTheme.uiLabel)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("editor.photo.pick")
+                        .onChange(of: selectedPhotoItem) { _, item in
+                            Task { @MainActor in
+                                await stagePhoto(item)
+                            }
+                        }
+                    }
+
+                    if let stagedPhoto, let thumbnail = Self.thumbnail(for: stagedPhoto.data) {
+                        thumbnail
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                            .accessibilityLabel("Selected photo")
+                            .accessibilityIdentifier("editor.photo.thumbnail")
                     }
 
                     if hasPhoto {
@@ -341,6 +343,24 @@ struct RecipeEditorView: View {
         }
     }
 
+    private var journeyPhotoFixtureEnabled: Bool {
+#if DEBUG
+        NativeJourneyPhotoFixture.isRequested(environment: ProcessInfo.processInfo.environment)
+#else
+        false
+#endif
+    }
+
+    private static func thumbnail(for data: Data) -> Image? {
+#if canImport(UIKit)
+        UIImage(data: data).map { Image(uiImage: $0) }
+#elseif canImport(AppKit)
+        NSImage(data: data).map { Image(nsImage: $0) }
+#else
+        nil
+#endif
+    }
+
     @MainActor private func stagePhoto(_ item: PhotosPickerItem?) async {
         guard let item else {
             return
@@ -358,28 +378,31 @@ struct RecipeEditorView: View {
                 photoMessage = "Photo could not be loaded."
                 return
             }
-            let candidate = NativeStagedMediaUpload(
+            await stageCandidate(NativeStagedMediaUpload(
                 localStageID: "recipe-create-photo-\(UUID().uuidString)",
                 fileName: "cover.\(fileExtension)",
                 contentType: contentType,
                 data: data
-            )
-            let result = await RecipeCoverPhotoStagingWorker().stageSelection(
-                existing: stagedPhoto,
-                candidate: candidate,
-                existingUsage: RecipeCoverPhotoStagedMediaUsage(byteCount: 0, fileCount: 0)
-            )
-            if result.rejection != nil {
-                selectedPhotoItem = nil
-                photoMessage = "Photo is too large or could not be read. Choose another image."
-                return
-            }
-            stagedPhoto = result.stagedPhoto
-            photoMessage = nil
+            ))
         } catch {
             selectedPhotoItem = nil
             photoMessage = "Photo could not be loaded."
         }
+    }
+
+    @MainActor private func stageCandidate(_ candidate: NativeStagedMediaUpload) async {
+        let result = await RecipeCoverPhotoStagingWorker().stageSelection(
+            existing: stagedPhoto,
+            candidate: candidate,
+            existingUsage: RecipeCoverPhotoStagedMediaUsage(byteCount: 0, fileCount: 0)
+        )
+        if result.rejection != nil {
+            selectedPhotoItem = nil
+            photoMessage = "Photo is too large or could not be read. Choose another image."
+            return
+        }
+        stagedPhoto = result.stagedPhoto
+        photoMessage = nil
     }
 
     private func effectiveOfflineIndicator(_ localDisplay: OfflineIndicatorDisplay) -> OfflineIndicatorDisplay {
@@ -526,10 +549,6 @@ struct RecipeEditorView: View {
 
     private func moveStep(id: String, by offset: Int) {
         showMoveOutcome(draft.moveStep(id: id, by: offset))
-    }
-
-    private func moveIngredient(id: String, in stepID: String, by offset: Int) {
-        showMoveOutcome(draft.moveIngredient(id: id, inStep: stepID, by: offset))
     }
 
     private func showMoveOutcome(_ outcome: RecipeEditorMoveOutcome) {

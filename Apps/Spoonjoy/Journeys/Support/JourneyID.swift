@@ -41,11 +41,10 @@ enum JourneyID {
     /// Reorder controls: a step's move buttons, and an ingredient's reorder menu with its Move Up and Move Down items.
     static func editorStepMoveUp(_ step: Int) -> String { "editor.step.\(step).moveUp" }
     static func editorStepMoveDown(_ step: Int) -> String { "editor.step.\(step).moveDown" }
-    static func editorIngredientReorder(step: Int, ingredient: Int) -> String { "editor.step.\(step).ingredient.\(ingredient).reorder" }
-    static func editorIngredientMoveUp(step: Int, ingredient: Int) -> String { "editor.step.\(step).ingredient.\(ingredient).moveUp" }
 
     /// The create editor's photo row: the picker button and the "Photo ready" label that shows a photo is chosen.
     static let editorPhotoPick = "editor.photo.pick"
+    static let editorPhotoThumbnail = "editor.photo.thumbnail"
     static let editorPhotoReady = "editor.photo.ready"
 
     /// The "Paste Ingredients" button on a step, and its sheet: the text box, the add button and the preview rows.

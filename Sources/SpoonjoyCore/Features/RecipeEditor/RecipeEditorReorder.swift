@@ -40,21 +40,6 @@ extension RecipeEditorDraft {
         return .moved
     }
 
-    /// Moves an ingredient by `offset` positions inside its step.
-    @discardableResult
-    public mutating func moveIngredient(id: String, inStep stepID: String, by offset: Int) -> RecipeEditorMoveOutcome {
-        guard let stepIndex = steps.firstIndex(where: { $0.id == stepID }),
-              let index = steps[stepIndex].ingredients.firstIndex(where: { $0.id == id }) else {
-            return .unchanged
-        }
-        let target = index + offset
-        guard steps[stepIndex].ingredients.indices.contains(target), target != index else {
-            return .unchanged
-        }
-        steps[stepIndex].ingredients.moveElements(fromOffsets: IndexSet(integer: index), toOffset: target > index ? target + 1 : target)
-        return .moved
-    }
-
     /// A step may only use the output of steps that come before it. Returns a sentence naming the first
     /// violation in `candidate` order, or nil when every dependency still points backwards.
     private static func dependencyViolation(in candidate: [RecipeEditorStepDraft]) -> String? {

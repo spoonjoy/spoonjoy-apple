@@ -3,7 +3,7 @@ import XCTest
 /// Journey 2: a new account creates a two-step recipe with ingredients and a photo in the native editor,
 /// and the recipe then shows up in My Recipes, the Kitchen, its detail page (with the photo as its cover),
 /// a title search and an ingredient search, and again after a relaunch. The account then swaps the two
-/// steps and moves an ingredient in the editor, and the new order holds on the recipe page after a relaunch.
+/// steps in the editor, and the new order holds on the recipe page after a relaunch.
 @MainActor
 final class RecipesJourney: JourneyTestCase {
     func testRecipesJourney() throws {
@@ -28,11 +28,15 @@ final class RecipesJourney: JourneyTestCase {
         journey.enterText(title, into: JourneyID.editorTitle)
         journey.enterText("2", into: JourneyID.editorServings)
 
-        // Choose a photo from the simulator's library; the workflow adds one before the run.
+        // Add a photo. The journey build stages a generated picture here instead of opening the system picker,
+        // which automation cannot drive reliably; the thumbnail is the proof the editor holds the photo.
         journey.tap(JourneyID.editorPhotoPick)
-        journey.chooseFirstPhotoInPicker()
         XCTAssertTrue(
-            journey.element(JourneyID.editorPhotoReady).waitForExistence(timeout: JourneyApp.networkTimeout),
+            journey.element(JourneyID.editorPhotoThumbnail).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The editor does not show a thumbnail of the chosen photo. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.editorPhotoReady).exists,
             "The editor does not show the chosen photo as ready. Screen: \(journey.screen)"
         )
         journey.attachScreenshot(named: "00-photo-chosen", to: self)
@@ -158,16 +162,12 @@ final class RecipesJourney: JourneyTestCase {
             )
         }
 
-        // Swap the two steps, and move the rice above the soy sauce inside the spaghetti step.
+        // Swap the two steps.
         journey.tap(JourneyID.recipeDetailActions)
         journey.tap(JourneyID.recipeDetailEdit)
         journey.tap(JourneyID.editorStepMoveUp(2))
         journey.assertFieldValue(JourneyID.editorStepTitle(1), equals: "Cook the spaghetti")
         journey.assertFieldValue(JourneyID.editorStepTitle(2), equals: "Tear the basil")
-        journey.tap(JourneyID.editorIngredientReorder(step: 1, ingredient: 4))
-        journey.tap(JourneyID.editorIngredientMoveUp(step: 1, ingredient: 4))
-        journey.assertFieldValue(JourneyID.editorIngredientName(step: 1, ingredient: 3), equals: "rice")
-        journey.assertFieldValue(JourneyID.editorIngredientName(step: 1, ingredient: 4), equals: "soy sauce")
         journey.attachScreenshot(named: "05-steps-swapped-in-editor", to: self)
         journey.saveOpenRecipeEditor()
         XCTAssertTrue(
@@ -191,11 +191,10 @@ final class RecipesJourney: JourneyTestCase {
                 journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: basil).exists,
                 "The swapped steps did not survive a relaunch: step 2 lost its basil. Screen: \(journey.screen)"
             )
-            // The editor lists the ingredients in the order the server returns them.
-            journey.tap(JourneyID.recipeDetailActions)
-            journey.tap(JourneyID.recipeDetailEdit)
-            journey.assertFieldValue(JourneyID.editorIngredientName(step: 1, ingredient: 3), equals: "rice")
-            journey.assertFieldValue(JourneyID.editorIngredientName(step: 1, ingredient: 4), equals: "soy sauce")
+            XCTAssertTrue(
+                journey.element(JourneyID.recipeDetailCover).exists,
+                "The cover photo is gone after the steps were swapped and the app relaunched. Screen: \(journey.screen)"
+            )
             journey.attachScreenshot(named: "07-order-after-relaunch", to: self)
         }
     }

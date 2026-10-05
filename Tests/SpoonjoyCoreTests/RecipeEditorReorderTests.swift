@@ -53,10 +53,6 @@ struct RecipeEditorReorderTests {
         #expect(draft.moveStep(id: "a", by: 0) == .unchanged)
         #expect(draft.moveStep(id: "missing", by: 1) == .unchanged)
         #expect(draft.moveSteps(fromOffsets: IndexSet(integer: 0), toOffset: 1) == .unchanged)
-        #expect(draft.moveIngredient(id: "i1", inStep: "a", by: 1) == .unchanged)
-        #expect(draft.moveIngredient(id: "i1", inStep: "a", by: 0) == .unchanged)
-        #expect(draft.moveIngredient(id: "missing", inStep: "a", by: 1) == .unchanged)
-        #expect(draft.moveIngredient(id: "i1", inStep: "missing", by: 1) == .unchanged)
     }
 
     @Test("onMove offsets move one or several steps")
@@ -67,19 +63,6 @@ struct RecipeEditorReorderTests {
         #expect(draft.moveSteps(fromOffsets: IndexSet([0, 3]), toOffset: 2) == .moved)
         #expect(draft.steps.map(\.id) == ["c", "b", "d", "a"])
         #expect(draft.steps.map(\.stepNum) == [1, 2, 3, 4])
-    }
-
-    @Test("ingredients move inside their step only")
-    func ingredientMoves() {
-        var draft = Self.draft([
-            Self.step("a", num: 1, ingredients: [Self.ingredient("i1"), Self.ingredient("i2"), Self.ingredient("i3")]),
-            Self.step("b", num: 2, ingredients: [Self.ingredient("j1")])
-        ])
-        #expect(draft.moveIngredient(id: "i1", inStep: "a", by: 1) == .moved)
-        #expect(draft.steps[0].ingredients.map(\.id) == ["i2", "i1", "i3"])
-        #expect(draft.moveIngredient(id: "i3", inStep: "a", by: -2) == .moved)
-        #expect(draft.steps[0].ingredients.map(\.id) == ["i3", "i2", "i1"])
-        #expect(draft.steps[1].ingredients.map(\.id) == ["j1"])
     }
 
     // MARK: Planner
@@ -128,35 +111,6 @@ struct RecipeEditorReorderTests {
         #expect(actions.contains { if case .createStep = $0 { true } else { false } })
         // After the delete and the create (inserted at 1), the server holds new, a, c. c has to move to 2.
         #expect(actions.contains(.reorderStep(stepID: "c", toStepNum: 2, clientMutationID: "cm_reorder-step-c-2")))
-    }
-
-    @Test("reordering ingredients deletes and adds back from the first one out of place")
-    func ingredientReorderReAdds() {
-        let original = Self.draft([Self.step("a", num: 1, ingredients: [Self.ingredient("i1"), Self.ingredient("i2"), Self.ingredient("i3")])])
-        var edited = original
-        edited.moveIngredient(id: "i3", inStep: "a", by: -1)
-        let actions = Self.plan(original: original, draft: edited)
-        let touched = actions.compactMap { action -> String? in
-            switch action {
-            case .deleteIngredient(_, let id, _, _): "delete \(id)"
-            case .addIngredient(_, _, let ingredient): "add \(ingredient.id)"
-            default: nil
-            }
-        }
-        #expect(touched == ["delete i3", "add i3", "delete i2", "add i2"])
-    }
-
-    @Test("an ingredient added in the middle re-adds the ones after it, and one added last re-adds nothing")
-    func ingredientAddedInMiddle() {
-        let original = Self.draft([Self.step("a", num: 1, ingredients: [Self.ingredient("i1"), Self.ingredient("i2")])])
-        var middle = original
-        middle.steps[0].ingredients.insert(Self.ingredient("local_new"), at: 1)
-        let middleTouched = Self.plan(original: original, draft: middle).compactMap(ingredientEvent)
-        #expect(middleTouched == ["add local_new", "delete i2", "add i2"])
-
-        var last = original
-        last.steps[0].ingredients.append(Self.ingredient("local_last"))
-        #expect(Self.plan(original: original, draft: last).compactMap(ingredientEvent) == ["add local_last"])
     }
 
     @Test("an unchanged recipe plans only the recipe save")
@@ -280,14 +234,6 @@ struct RecipeEditorReorderTests {
         return body[start.upperBound...].components(separatedBy: "\r\n").first
     }
 
-    private func ingredientEvent(_ action: RecipeEditorAction) -> String? {
-        switch action {
-        case .deleteIngredient(_, let id, _, _): "delete \(id)"
-        case .addIngredient(_, _, let ingredient): "add \(ingredient.id)"
-        default: nil
-        }
-    }
-
     /// Plays the reorder actions on a server list the way the API does: remove the step, insert it at the position.
     private func applyReorders(_ actions: [RecipeEditorAction], to start: [String]) -> [String] {
         var order = start
@@ -320,4 +266,23 @@ private extension Array where Element == String {
         }
     }
 
+}
+
+@Suite("Journey photo fixture")
+struct NativeJourneyPhotoFixtureTests {
+    @Test("the launch environment key turns the fixture on")
+    func environmentKey() {
+        #expect(NativeJourneyPhotoFixture.isRequested(environment: [NativeJourneyPhotoFixture.environmentKey: " TRUE "]))
+        #expect(NativeJourneyPhotoFixture.isRequested(environment: [NativeJourneyPhotoFixture.environmentKey: "1"]))
+        #expect(!NativeJourneyPhotoFixture.isRequested(environment: [NativeJourneyPhotoFixture.environmentKey: "0"]))
+        #expect(!NativeJourneyPhotoFixture.isRequested(environment: [:]))
+    }
+
+    @Test("the fixture is a JPEG the cover preparation accepts")
+    func fixtureIsPreparable() throws {
+        let upload = NativeJourneyPhotoFixture.stagedUpload()
+        #expect(upload.contentType == "image/jpeg")
+        #expect(upload.data.prefix(2) == Data([0xFF, 0xD8]))
+        _ = try RecipeCoverImageNormalizer().normalize(upload: upload)
+    }
 }
