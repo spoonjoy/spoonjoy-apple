@@ -1187,6 +1187,48 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("a failed cold launch shows the sync-failed state, its retry shows loading, and a later failure keeps content")
+    func failedColdLaunchShowsSyncFailedAndRetryShowsLoading() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_fail", title: "Cached Pasta")
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let transport = ScriptedHoldingTransport(script: [.fail, .hold(try Self.sampleSyncData(recipe: recipe, shoppingItem: nil)), .fail])
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
+
+            // Cold launch, nothing cached, the sync fails: the existing sync-failed state, with its retry.
+            await liveStore.bootstrap()
+            guard case .syncFailed(let failed, _) = liveStore.bootstrapState else {
+                Issue.record("Expected syncFailed after a failed cold launch; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(failed.recipes.isEmpty)
+            #expect(failed.offlineIndicatorState.display == .syncFailure(errorID: "bootstrap", retryAfter: nil))
+
+            // Retrying from that screen shows the loading screen while it runs, not a static error.
+            liveStore.requestSync(trigger: .launch)
+            while await !transport.isHolding() {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            guard case .restoringCache = liveStore.bootstrapState else {
+                Issue.record("Expected the loading screen during the retry; got \(liveStore.bootstrapState)")
+                return
+            }
+            await transport.releaseHold()
+            await liveStore.waitForSync()
+            #expect(liveStore.bootstrapState.contentState.recipes.map(\.id) == ["recipe_fail"])
+
+            // A failure after content loaded keeps that content on screen.
+            await liveStore.bootstrap()
+            guard case .syncFailed(let kept, _) = liveStore.bootstrapState else {
+                Issue.record("Expected syncFailed after the later failure; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(kept.recipes.map(\.id) == ["recipe_fail"])
+        }
+    }
+
+    @MainActor
     @Test("a sync with an existing snapshot never enters the cold-bootstrap state")
     func syncWithSnapshotNeverShowsColdBootstrap() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -7589,5 +7631,42 @@ private struct CreateRecipeAPITransport: SpoonjoyAPITransport {
             throw NativeLiveStoreTestError.unexpectedEnvelopeType
         }
         return APIEnvelope(requestID: "recipe-create-ok", data: data)
+    }
+}
+
+/// Answers each bootstrap from a script: fail with a server error, or hold until released and then succeed with data.
+private actor ScriptedHoldingTransport: NativeSyncTransport {
+    enum Step {
+        case fail
+        case hold(NativeSyncData)
+    }
+
+    private var script: [Step]
+    private var holding = false
+    private var released = false
+
+    init(script: [Step]) {
+        self.script = script
+    }
+
+    func isHolding() -> Bool { holding }
+    func releaseHold() { released = true }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        let step = script.isEmpty ? Step.fail : script.removeFirst()
+        switch step {
+        case .fail:
+            throw APITransportError(kind: .apiError, requestID: "req_scripted", statusCode: 500, apiError: nil, retryDecision: .doNotRetry)
+        case .hold(let data):
+            holding = true
+            while !released {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            return .syncData(data)
+        }
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        .success(serverRevision: .updatedAt(mutation.createdAt))
     }
 }

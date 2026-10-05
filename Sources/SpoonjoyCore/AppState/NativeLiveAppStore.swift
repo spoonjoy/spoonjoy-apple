@@ -1875,6 +1875,11 @@ public final class NativeLiveAppStore: ObservableObject {
         switch bootstrapState {
         case .restoringCache, .signedOut:
             return false
+        case .syncFailed:
+            // A failed first load has nothing to keep on screen: it shows the sync-failed screen with a retry,
+            // and that retry shows the loading screen as feedback. A failure after content loaded keeps it.
+            let content = currentContentState
+            return !content.recipes.isEmpty || !content.cookbooks.isEmpty || !(content.shoppingList?.items.isEmpty ?? true)
         default:
             return true
         }
