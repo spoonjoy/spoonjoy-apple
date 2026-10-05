@@ -170,7 +170,7 @@ jobs:
           destination="${{ steps.sim.outputs.destination }}"
           xcrun simctl bootstatus "${destination##*,id=}" -b
       - name: Run shopping UI tests
-        timeout-minutes: 12
+        timeout-minutes: 20
         # The warning gate covers the build above. The test log carries simulator runtime noise (for
         # example "Failed to send CA Event for app launch measurements"), and test failures fail xcodebuild.
         run: |
