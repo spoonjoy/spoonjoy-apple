@@ -164,6 +164,10 @@ public struct NativeLiveAppStoreDependencies {
     public let nativeTelemetryReport: NativeTelemetryReportOperation
     public let nativeTelemetryMetadata: NativeTelemetryAppMetadata
     public let bootstrapMode: NativeLiveAppBootstrapMode
+    /// Makes the client that exchanges cook progress with the server, for a signed-in configuration.
+    public let cookSessionClient: @Sendable (APIClientConfiguration) -> any CookSessionClient
+    /// How long a change to cook progress waits for more changes before a sync is requested.
+    public let cookSessionPushDelay: Duration
     public let now: @Sendable () -> Date
 
     public init(
@@ -189,6 +193,10 @@ public struct NativeLiveAppStoreDependencies {
         nativeTelemetryReport: @escaping NativeTelemetryReportOperation = { _, _ in },
         nativeTelemetryMetadata: NativeTelemetryAppMetadata = .unknown,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
+        cookSessionClient: @escaping @Sendable (APIClientConfiguration) -> any CookSessionClient = { configuration in
+            URLSessionCookSessionClient(configuration: configuration)
+        },
+        cookSessionPushDelay: Duration = .milliseconds(800),
         now: @escaping @Sendable () -> Date
     ) {
         self.authSessionRepository = authSessionRepository
@@ -211,6 +219,8 @@ public struct NativeLiveAppStoreDependencies {
         self.nativeTelemetryReport = nativeTelemetryReport
         self.nativeTelemetryMetadata = nativeTelemetryMetadata
         self.bootstrapMode = bootstrapMode
+        self.cookSessionClient = cookSessionClient
+        self.cookSessionPushDelay = cookSessionPushDelay
         self.now = now
     }
 }
@@ -1838,6 +1848,13 @@ public final class NativeLiveAppStore: ObservableObject {
     /// Counts edits added to the queue. A run goes again only when this changed while it was running, so a
     /// screen that asks for a sync each time it appears cannot keep the store syncing in a loop.
     private var queueVersion = 0
+    /// Recipes whose cook progress should be read from the server at the next sync (a recipe was opened).
+    private var cookPullRecipeIDs = Set<String>()
+    /// Recipes the server would not take progress for (sync is off, access refused). They are not retried
+    /// until the recipe is opened again.
+    private var cookSyncOffRecipeIDs = Set<String>()
+    /// The change that is waiting for more changes before it asks for a sync.
+    var cookPushTask: Task<Void, Never>?
 
     /// Asks the store to sync and drain the queue. If a sync is already running, this request joins it. The run
     /// goes once more if an edit was queued while it ran, so that edit is still sent. Views call this
@@ -2696,9 +2713,150 @@ public final class NativeLiveAppStore: ObservableObject {
             var nextProgress = currentContentState.cookProgressByRecipeID
             nextProgress[progress.recipeID] = progress
             apply(stateMatchingCurrentSeverity(with: currentContentState.copy(cookProgressByRecipeID: nextProgress)))
+            scheduleCookSessionPush(recipeID: progress.recipeID)
         } catch {
             return
         }
+    }
+
+    /// A recipe was opened in cook mode: read its progress from the server at the next sync, so a step or
+    /// checked ingredient from another device shows up. Returns at once; the store's sync does the network work.
+    public func cookModeOpened(recipeID: String) {
+        guard case .authenticated = currentContentState.authSessionState else {
+            return
+        }
+        cookPullRecipeIDs.insert(recipeID)
+        cookSyncOffRecipeIDs.remove(recipeID)
+        queueVersion += 1
+        requestSync(trigger: .foreground)
+    }
+
+    // A tap on an ingredient, then another, then a step: the sync waits for a short pause so they go together.
+    private func scheduleCookSessionPush(recipeID: String) {
+        guard case .authenticated = currentContentState.authSessionState else {
+            return
+        }
+        cookSyncOffRecipeIDs.remove(recipeID)
+        cookPushTask?.cancel()
+        let delay = dependencies.cookSessionPushDelay
+        cookPushTask = Task { @MainActor [self] in
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else {
+                return
+            }
+            queueVersion += 1
+            await requestSync(trigger: .foreground).value
+        }
+    }
+
+    /// Exchanges cook progress with the server for recipes with changes the server has not seen and for
+    /// recipes just opened. Runs as part of the store's sync. Nothing here shows an error: when the server will
+    /// not take progress (sync off, 403) or cannot be reached, progress stays on the device and goes later.
+    private func syncCookSessions(session: AuthSession) async {
+        guard dependencies.bootstrapMode == .liveFirst,
+              let appStateStore = dependencies.appStateStoreProvider() else {
+            return
+        }
+        let reconciler = CookSessionReconciler(client: dependencies.cookSessionClient(
+            APIClientConfiguration(baseURL: configuration.baseURL, bearerToken: session.accessToken)
+        ))
+        let pulls = cookPullRecipeIDs
+        var recipeIDs = pulls
+        if let snapshot = try? scopedAppSnapshot(appStateStore) {
+            for (recipeID, progress) in snapshot.cookProgressByRecipeID
+            where !cookSyncOffRecipeIDs.contains(recipeID) &&
+                !progress.syncProgress.isSame(as: snapshot.cookSessionServerByRecipeID[recipeID]?.progress ?? .initial) {
+                recipeIDs.insert(recipeID)
+            }
+        }
+
+        for recipeID in recipeIDs.sorted() {
+            guard let snapshot = try? scopedAppSnapshot(appStateStore),
+                  let progress = snapshot.cookProgress(for: recipeID) ?? startingCookProgress(recipeID: recipeID),
+                  !progress.stepIDs.isEmpty else {
+                cookPullRecipeIDs.remove(recipeID)
+                continue
+            }
+            let sent = progress.syncProgress
+            let result = await reconciler.reconcile(
+                recipeID: recipeID,
+                local: sent,
+                known: snapshot.cookSessionServerByRecipeID[recipeID],
+                pull: pulls.contains(recipeID),
+                bounds: progress.syncBounds
+            )
+
+            switch result.outcome {
+            case .synced:
+                cookPullRecipeIDs.remove(recipeID)
+                applyCookSyncResult(result, sent: sent, recipeID: recipeID, appStateStore: appStateStore)
+            case .off:
+                cookPullRecipeIDs.remove(recipeID)
+                cookSyncOffRecipeIDs.insert(recipeID)
+            case .retryLater, .signedOut:
+                return
+            }
+        }
+    }
+
+    private func startingCookProgress(recipeID: String) -> CookModeProgress? {
+        currentContentState.recipes.first { $0.id == recipeID }.map {
+            CookModeProgress.starting(recipe: $0, startedAt: NativeLiveAppStoreClock.isoString(dependencies.now()))
+        }
+    }
+
+    // Saves the exchange's result. Changes made on this device while the exchange was running are replayed on
+    // top of the server's progress so they are not lost; they go out at the next sync.
+    private func applyCookSyncResult(
+        _ result: CookSyncReconciliation,
+        sent: CookSyncProgress,
+        recipeID: String,
+        appStateStore: NativeAppStateStore
+    ) {
+        do {
+            let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+            let snapshot = try scopedAppSnapshot(appStateStore)
+            let existing = snapshot.cookProgress(for: recipeID) ?? startingCookProgress(recipeID: recipeID)
+            var next = existing
+            if let existing {
+                let merged = CookSyncProgress.merge(base: sent, local: existing.syncProgress, remote: result.progress)
+                    .normalized(to: existing.syncBounds)
+                if !merged.isSame(as: existing.syncProgress) {
+                    next = existing.applyingSyncProgress(merged, updatedAt: savedAt)
+                }
+            }
+            let keepsRecord = snapshot.cookProgress(for: recipeID) != nil || next != existing ||
+                result.server != nil
+            try appStateStore.save(
+                snapshot
+                    .completingFirstRun(savedAt: savedAt)
+                    .updatingCookSync(
+                        progress: keepsRecord ? next : nil,
+                        server: result.server,
+                        recipeID: recipeID,
+                        savedAt: savedAt
+                    )
+            )
+            if keepsRecord, let next {
+                var nextProgress = currentContentState.cookProgressByRecipeID
+                nextProgress[recipeID] = next
+                apply(stateMatchingCurrentSeverity(with: currentContentState.copy(cookProgressByRecipeID: nextProgress)))
+            }
+        } catch {
+            return
+        }
+    }
+
+    private func scopedAppSnapshot(_ appStateStore: NativeAppStateStore) throws -> NativeAppSnapshot {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        let fallback = NativeAppSnapshot.bootstrap(
+            shoppingList: currentContentState.shoppingList,
+            accountID: accountID,
+            environment: cacheEnvironment,
+            savedAt: savedAt
+        )
+        let record = try appStateStore.loadOrCreate(fallback: fallback)
+        return record.value.isScoped(accountID: accountID, environment: cacheEnvironment) ? record.value : fallback
     }
 
     public func recordShoppingList(_ shoppingList: ShoppingListState) {
@@ -3240,6 +3398,7 @@ public final class NativeLiveAppStore: ObservableObject {
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
         )
+        await syncCookSessions(session: session)
         var settingsRefreshError: Error?
         var settingsRefreshResult: SettingsSurfaceResult?
         do {

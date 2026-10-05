@@ -312,6 +312,7 @@ struct SpoonjoyRootView: View {
             recordNotificationAPNsBlocker: liveStore.recordNotificationAPNsBlocker,
             recordShoppingList: liveStore.recordShoppingList,
             recordCookProgress: liveStore.recordCookProgress,
+            cookModeOpened: liveStore.cookModeOpened(recipeID:),
             recordCaptureDraft: liveStore.recordCaptureDraft,
             discardCaptureDraft: liveStore.discardCaptureDraft,
             recordCaptureImportRetry: liveStore.recordCaptureImportRetry,
