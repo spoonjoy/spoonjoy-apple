@@ -56,6 +56,7 @@ struct PlatformNavigationView: View {
     private let recordNotificationAPNsBlockerHandler: @MainActor @Sendable (AppleDeveloperProgramBlocker) -> Void
     private let recordShoppingList: @MainActor @Sendable (ShoppingListState) -> Void
     private let recordCookProgress: @MainActor @Sendable (CookModeProgress) -> Void
+    private let cookModeOpened: @MainActor @Sendable (String) -> Void
     private let recordCaptureDraftHandler: @MainActor @Sendable (CaptureDraft) -> Void
     private let discardCaptureDraftHandler: @MainActor @Sendable (String) -> Void
     private let recordCaptureImportRetryHandler: @MainActor @Sendable (NativeQueuedMutation) -> Void
@@ -96,6 +97,7 @@ struct PlatformNavigationView: View {
         recordNotificationAPNsBlocker: @escaping @MainActor @Sendable (AppleDeveloperProgramBlocker) -> Void,
         recordShoppingList: @escaping @MainActor @Sendable (ShoppingListState) -> Void,
         recordCookProgress: @escaping @MainActor @Sendable (CookModeProgress) -> Void,
+        cookModeOpened: @escaping @MainActor @Sendable (String) -> Void = { _ in },
         recordCaptureDraft: @escaping @MainActor @Sendable (CaptureDraft) -> Void,
         discardCaptureDraft: @escaping @MainActor @Sendable (String) -> Void,
         recordCaptureImportRetry: @escaping @MainActor @Sendable (NativeQueuedMutation) -> Void,
@@ -136,6 +138,7 @@ struct PlatformNavigationView: View {
         self.recordNotificationAPNsBlockerHandler = recordNotificationAPNsBlocker
         self.recordShoppingList = recordShoppingList
         self.recordCookProgress = recordCookProgress
+        self.cookModeOpened = cookModeOpened
         self.recordCaptureDraftHandler = recordCaptureDraft
         self.discardCaptureDraftHandler = discardCaptureDraft
         self.recordCaptureImportRetryHandler = recordCaptureImportRetry
@@ -807,6 +810,7 @@ struct PlatformNavigationView: View {
                 initialRecipe: recipe(id: id),
                 progress: cookProgress(for:),
                 progressDidChange: recordCookProgress,
+                cookModeOpened: cookModeOpened,
                 shoppingViewModel: shoppingViewModel,
                 performShoppingAction: performShoppingAction,
                 close: {

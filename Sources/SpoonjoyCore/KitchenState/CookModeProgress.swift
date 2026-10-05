@@ -191,6 +191,36 @@ public struct CookModeProgress: Codable, Equatable {
         )
     }
 
+    /// The part of this progress the server keeps. Completed steps stay on the device.
+    public var syncProgress: CookSyncProgress {
+        CookSyncProgress(
+            activeStepIndex: activeStepIndex,
+            scaleFactor: scaleFactor,
+            checkedIngredientIDs: checkedIngredientIDs,
+            checkedStepOutputIDs: checkedStepOutputUseIDs
+        )
+    }
+
+    /// What the recipe as loaded allows the server to hold.
+    public var syncBounds: CookSyncBounds {
+        CookSyncBounds(
+            stepCount: stepIDs.count,
+            ingredientIDs: Set(ingredientIDs),
+            stepOutputIDs: Set(stepOutputUseIDs)
+        )
+    }
+
+    /// This progress with the server's step, scale and checked ids. Completed steps are kept as they are.
+    public func applyingSyncProgress(_ progress: CookSyncProgress, updatedAt: String) -> CookModeProgress {
+        copy(
+            activeStepIndex: progress.activeStepIndex,
+            scaleFactor: progress.scaleFactor,
+            checkedIngredientIDs: progress.checkedIngredientIDs,
+            checkedStepOutputUseIDs: progress.checkedStepOutputIDs,
+            updatedAt: updatedAt
+        )
+    }
+
     public func snapshot() throws -> Data {
         try JSONEncoder().encode(self)
     }

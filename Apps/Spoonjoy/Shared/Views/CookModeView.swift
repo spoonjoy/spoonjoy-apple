@@ -13,6 +13,7 @@ struct CookModeRouteView: View {
     let initialRecipe: Recipe?
     let progress: (Recipe) -> CookModeProgress
     let progressDidChange: (CookModeProgress) -> Void
+    let cookModeOpened: (String) -> Void
     let shoppingViewModel: ShoppingSurfaceViewModel
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let close: () -> Void
@@ -26,6 +27,7 @@ struct CookModeRouteView: View {
         initialRecipe: Recipe?,
         progress: @escaping (Recipe) -> CookModeProgress,
         progressDidChange: @escaping (CookModeProgress) -> Void = { _ in },
+        cookModeOpened: @escaping (String) -> Void = { _ in },
         shoppingViewModel: ShoppingSurfaceViewModel,
         performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
         close: @escaping () -> Void = {}
@@ -35,6 +37,7 @@ struct CookModeRouteView: View {
         self.initialRecipe = initialRecipe
         self.progress = progress
         self.progressDidChange = progressDidChange
+        self.cookModeOpened = cookModeOpened
         self.shoppingViewModel = shoppingViewModel
         self.performShoppingAction = performShoppingAction
         self.close = close
@@ -46,6 +49,7 @@ struct CookModeRouteView: View {
             if let recipe {
                 CookModeView(
                     viewModel: CookModeViewModel(recipe: recipe, progress: restoredProgress(for: recipe)),
+                    incomingProgress: restoredProgress(for: recipe),
                     progressDidChange: progressDidChange,
                     shoppingViewModel: shoppingViewModel,
                     performShoppingAction: performShoppingAction,
@@ -58,6 +62,8 @@ struct CookModeRouteView: View {
             }
         }
         .task(id: recipeID) {
+            // Asks the store to read this recipe's progress from the server at its next sync; it does not wait.
+            cookModeOpened(recipeID)
             await loadRecipe()
         }
     }
@@ -94,6 +100,7 @@ struct CookModeView: View {
     @State private var shoppingStatusMessage: String?
     @State private var shoppingErrorMessage: String?
     @State private var isCookModeUtilityPresented = false
+    private let incomingProgress: CookModeProgress?
     private let progressDidChange: (CookModeProgress) -> Void
     private let shoppingViewModel: ShoppingSurfaceViewModel
     private let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
@@ -101,6 +108,7 @@ struct CookModeView: View {
 
     init(
         viewModel: CookModeViewModel,
+        incomingProgress: CookModeProgress? = nil,
         progressDidChange: @escaping (CookModeProgress) -> Void = { _ in },
         shoppingViewModel: ShoppingSurfaceViewModel,
         performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
@@ -108,6 +116,7 @@ struct CookModeView: View {
     ) {
         recipe = viewModel.recipe
         _progress = State(initialValue: viewModel.progress)
+        self.incomingProgress = incomingProgress
         self.progressDidChange = progressDidChange
         self.shoppingViewModel = shoppingViewModel
         self.performShoppingAction = performShoppingAction
@@ -118,6 +127,15 @@ struct CookModeView: View {
         cookModeBody
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.bone)
+        .onChange(of: incomingProgress) { _, incoming in
+            // Progress from another device arrives through the store. The step, scale and checked
+            // ingredients follow it; completed steps stay as they are on this device. A change made
+            // here has already reached the store, so it matches and is ignored.
+            guard let incoming, !incoming.syncProgress.isSame(as: progress.syncProgress) else {
+                return
+            }
+            progress = progress.applyingSyncProgress(incoming.syncProgress, updatedAt: incoming.updatedAt)
+        }
         .sheet(isPresented: $isCookModeUtilityPresented) {
             NavigationStack {
                 KitchenTablePage {
@@ -453,6 +471,7 @@ struct CookModeView: View {
                             CookModeIngredientChecklistLabel(row: row)
                         }
                         .toggleStyle(.largeCheck)
+                        .accessibilityIdentifier("cookMode.ingredient")
                         .tint(KitchenTableTheme.herb)
                         .transition(.opacity.combined(with: .move(edge: .bottom)))
                     }

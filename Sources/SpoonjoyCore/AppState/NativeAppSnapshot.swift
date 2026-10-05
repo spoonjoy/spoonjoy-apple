@@ -11,6 +11,8 @@ public struct NativeAppSnapshot: Codable, Equatable {
     public let hasCompletedFirstRun: Bool
     public let cookProgressByRecipeID: [String: CookModeProgress]
     public let spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]
+    /// The server's cook session as last seen, per recipe: the base for replaying this device's changes.
+    public let cookSessionServerByRecipeID: [String: CookServerSnapshot]
     public let shoppingList: ShoppingListState?
     public let captureDraft: CaptureDraft?
     public let pendingCaptureImport: NativeQueuedMutation?
@@ -26,6 +28,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
         hasCompletedFirstRun: Bool,
         cookProgressByRecipeID: [String: CookModeProgress],
         spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState] = [:],
+        cookSessionServerByRecipeID: [String: CookServerSnapshot] = [:],
         shoppingList: ShoppingListState?,
         captureDraft: CaptureDraft?,
         pendingCaptureImport: NativeQueuedMutation? = nil,
@@ -40,6 +43,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
         self.hasCompletedFirstRun = hasCompletedFirstRun
         self.cookProgressByRecipeID = cookProgressByRecipeID
         self.spoonCookLogDraftsByRecipeID = spoonCookLogDraftsByRecipeID
+        self.cookSessionServerByRecipeID = cookSessionServerByRecipeID
         self.shoppingList = shoppingList
         self.captureDraft = captureDraft
         self.pendingCaptureImport = pendingCaptureImport
@@ -111,6 +115,27 @@ public struct NativeAppSnapshot: Codable, Equatable {
         nextProgress[progress.recipeID] = progress
 
         return copy(cookProgressByRecipeID: nextProgress, savedAt: savedAt)
+    }
+
+    /// Saves the progress after an exchange with the server, with the server state to replay against next time.
+    public func updatingCookSync(
+        progress: CookModeProgress?,
+        server: CookServerSnapshot?,
+        recipeID: String,
+        savedAt: String
+    ) -> NativeAppSnapshot {
+        var nextProgress = cookProgressByRecipeID
+        if let progress {
+            nextProgress[recipeID] = progress
+        }
+        var nextServer = cookSessionServerByRecipeID
+        nextServer[recipeID] = server
+
+        return copy(
+            cookProgressByRecipeID: nextProgress,
+            cookSessionServerByRecipeID: nextServer,
+            savedAt: savedAt
+        )
     }
 
     public func updatingSpoonCookLogDraft(
@@ -219,6 +244,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
         hasCompletedFirstRun: Bool? = nil,
         cookProgressByRecipeID: [String: CookModeProgress]? = nil,
         spoonCookLogDraftsByRecipeID: [String: SpoonCookLogDraftState]? = nil,
+        cookSessionServerByRecipeID: [String: CookServerSnapshot]? = nil,
         shoppingList: ShoppingListState?? = nil,
         captureDraft: CaptureDraft?? = nil,
         pendingCaptureImport: NativeQueuedMutation?? = nil,
@@ -234,6 +260,7 @@ public struct NativeAppSnapshot: Codable, Equatable {
             hasCompletedFirstRun: hasCompletedFirstRun ?? self.hasCompletedFirstRun,
             cookProgressByRecipeID: cookProgressByRecipeID ?? self.cookProgressByRecipeID,
             spoonCookLogDraftsByRecipeID: spoonCookLogDraftsByRecipeID ?? self.spoonCookLogDraftsByRecipeID,
+            cookSessionServerByRecipeID: cookSessionServerByRecipeID ?? self.cookSessionServerByRecipeID,
             shoppingList: shoppingList ?? self.shoppingList,
             captureDraft: captureDraft ?? self.captureDraft,
             pendingCaptureImport: pendingCaptureImport ?? self.pendingCaptureImport,
@@ -253,6 +280,7 @@ extension NativeAppSnapshot {
         case hasCompletedFirstRun
         case cookProgressByRecipeID
         case spoonCookLogDraftsByRecipeID
+        case cookSessionServerByRecipeID
         case shoppingList
         case captureDraft
         case pendingCaptureImport
@@ -271,6 +299,7 @@ extension NativeAppSnapshot {
             hasCompletedFirstRun: try container.decode(Bool.self, forKey: .hasCompletedFirstRun),
             cookProgressByRecipeID: try container.decode([String: CookModeProgress].self, forKey: .cookProgressByRecipeID),
             spoonCookLogDraftsByRecipeID: try container.decodeIfPresent([String: SpoonCookLogDraftState].self, forKey: .spoonCookLogDraftsByRecipeID) ?? [:],
+            cookSessionServerByRecipeID: try container.decodeIfPresent([String: CookServerSnapshot].self, forKey: .cookSessionServerByRecipeID) ?? [:],
             shoppingList: try container.decodeIfPresent(ShoppingListState.self, forKey: .shoppingList),
             captureDraft: try container.decodeIfPresent(CaptureDraft.self, forKey: .captureDraft),
             pendingCaptureImport: try container.decodeIfPresent(NativeQueuedMutation.self, forKey: .pendingCaptureImport),

@@ -78,6 +78,10 @@ enum JourneyID {
     static let remindersNewListName = "reminders.newListName"
     static let remindersCreateList = "reminders.createList"
 
+    /// The recipe detail page's "Cook mode" button, and every ingredient checkbox in cook mode (the label is the ingredient).
+    static let recipeDetailCook = "recipeDetail.cook"
+    static let cookIngredient = "cookMode.ingredient"
+
     /// Every result row in Search.
     static let searchResult = "search.result"
 }

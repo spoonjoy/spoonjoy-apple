@@ -68,7 +68,7 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Create disposable QA accounts
-        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 3 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
+        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
       - name: Run journeys
         timeout-minutes: 30
         run: |

@@ -7157,7 +7157,9 @@ private extension NativeLiveStoreTests {
         recipeCookbookEntityIndexPurge: @escaping NativeRecipeCookbookEntityIndexPurgeOperation = { _ in },
         nativeTelemetryReport: @escaping NativeTelemetryReportOperation = { _, _ in },
         nativeTelemetryMetadata: NativeTelemetryAppMetadata = .unknown,
-        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
+        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
+        cookSessionClient: @escaping @Sendable (APIClientConfiguration) -> any CookSessionClient = { _ in OffCookSessionClient() },
+        cookSessionPushDelay: Duration = .seconds(3_600)
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
@@ -7181,6 +7183,8 @@ private extension NativeLiveStoreTests {
             nativeTelemetryReport: nativeTelemetryReport,
             nativeTelemetryMetadata: nativeTelemetryMetadata,
             bootstrapMode: bootstrapMode,
+            cookSessionClient: cookSessionClient,
+            cookSessionPushDelay: cookSessionPushDelay,
             now: { Self.now }
         ))
     }
@@ -7669,4 +7673,547 @@ private actor ScriptedHoldingTransport: NativeSyncTransport {
     func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
         .success(serverRevision: .updatedAt(mutation.createdAt))
     }
+}
+
+// MARK: Cook session sync
+
+extension NativeLiveStoreTests {
+    private static let cookRecipe = Recipe.cookSyncFixture(id: "recipe_cook_sync")
+
+    @MainActor
+    private static func cookStore(
+        directory: URL,
+        server: FakeCookServer,
+        appStateStore: NativeAppStateStore,
+        vault: InMemoryTokenVault,
+        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
+    ) throws -> NativeLiveAppStore {
+        let syncData = try Self.sampleSyncData(recipe: cookRecipe, shoppingItem: nil, accountID: "chef_ari")
+        return Self.liveStore(
+            directory: directory,
+            vault: vault,
+            syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+            transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+            appStateStoreProvider: { appStateStore },
+            bootstrapMode: bootstrapMode,
+            cookSessionClient: { configuration in
+                server.client(token: configuration.bearerToken)
+            },
+            cookSessionPushDelay: .zero
+        )
+    }
+
+    @MainActor
+    private static func savedCookSnapshot(_ appStateStore: NativeAppStateStore) throws -> NativeAppSnapshot {
+        try appStateStore.loadOrCreate(fallback: .bootstrap(
+            shoppingList: nil,
+            accountID: "chef_ari",
+            environment: .production,
+            savedAt: Self.isoString(Self.now)
+        )).value
+    }
+
+    @MainActor
+    private static func checkingIngredient(_ id: String, in store: NativeLiveAppStore) throws {
+        let current = store.bootstrapState.contentState.cookProgress(for: cookRecipe.id) ??
+            CookModeProgress.starting(recipe: cookRecipe, startedAt: Self.isoString(Self.now))
+        store.recordCookProgress(try current.togglingIngredient(id: id, checked: true, updatedAt: Self.isoString(Self.now)))
+    }
+
+    @MainActor
+    @Test("opening cook mode brings in progress another device saved, and a check here reaches the server")
+    func cookSessionRoundTrip() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            await server.seed(recipeID: Self.cookRecipe.id, progress: CookSyncProgress(
+                activeStepIndex: 1, scaleFactor: 2, checkedIngredientIDs: ["ing_a"], checkedStepOutputIDs: []
+            ))
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+
+            // Nothing was recorded here yet; opening the recipe reads the server.
+            #expect(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id) == nil)
+            store.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await store.waitForSync()
+            let pulled = try #require(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id))
+            #expect(pulled.activeStepIndex == 1)
+            #expect(pulled.scaleFactor == 2)
+            #expect(pulled.checkedIngredientIDs == ["ing_a"])
+            let savedAfterPull = try Self.savedCookSnapshot(appStateStore)
+            #expect(savedAfterPull.cookSessionServerByRecipeID[Self.cookRecipe.id]?.revision == 0)
+            #expect(await server.tokens == ["sj_access_current"])
+
+            // A check here goes to the server after the pause, with the revision it last saw.
+            try Self.checkingIngredient("ing_b", in: store)
+            await store.cookPushTask?.value
+            let stored = try #require(await server.progress(recipeID: Self.cookRecipe.id))
+            #expect(Set(stored.checkedIngredientIDs) == ["ing_a", "ing_b"])
+            #expect(await server.revision(recipeID: Self.cookRecipe.id) == 1)
+            let savedAfterPush = try Self.savedCookSnapshot(appStateStore)
+            #expect(savedAfterPush.cookSessionServerByRecipeID[Self.cookRecipe.id]?.revision == 1)
+            guard case .liveSynced = store.bootstrapState else {
+                Issue.record("Expected live sync; got \(store.bootstrapState)")
+                return
+            }
+        }
+    }
+
+    @MainActor
+    @Test("checks made close together wait for the pause and go in one exchange")
+    func cookSessionPushWaitsForPause() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            let syncData = try Self.sampleSyncData(recipe: Self.cookRecipe, shoppingItem: nil, accountID: "chef_ari")
+            let store = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                appStateStoreProvider: { appStateStore },
+                cookSessionClient: { _ in server.client(token: nil) },
+                cookSessionPushDelay: .milliseconds(200)
+            )
+            await store.bootstrap()
+            try Self.checkingIngredient("ing_a", in: store)
+            try Self.checkingIngredient("ing_b", in: store)
+            await store.cookPushTask?.value
+            await store.waitForSync()
+            #expect(Set(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs) == ["ing_a", "ing_b"])
+            // One start, one send.
+            #expect(await server.requestCount == 3)
+        }
+    }
+
+    @MainActor
+    @Test("a cook change runs only the cook-session exchange, never a full sync")
+    func cookChangeSyncsOnlyCookSessions() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            let syncData = try Self.sampleSyncData(recipe: Self.cookRecipe, shoppingItem: nil, accountID: "chef_ari")
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let store = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: transport,
+                appStateStoreProvider: { appStateStore },
+                cookSessionClient: { _ in server.client(token: nil) },
+                cookSessionPushDelay: .milliseconds(50)
+            )
+            await store.bootstrap()
+            let bootstrapsBefore = await transport.capturedBearerTokens().count
+            let requestsBefore = await server.requestCount
+
+            try Self.checkingIngredient("ing_a", in: store)
+            try Self.checkingIngredient("ing_b", in: store)
+            await store.cookPushTask?.value
+            await store.waitForSync()
+
+            #expect(Set(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs) == ["ing_a", "ing_b"])
+            #expect(await server.requestCount > requestsBefore)
+            #expect(await transport.capturedBearerTokens().count == bootstrapsBefore)
+        }
+    }
+
+    @MainActor
+    @Test("cook requests that arrive during a cook sync are covered by one more run")
+    func cookSyncCoalesces() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+            try Self.checkingIngredient("ing_a", in: store)
+            await store.cookPushTask?.value
+            let first = store.requestCookSync()
+            let second = store.requestCookSync()
+            try Self.checkingIngredient("ing_b", in: store)
+            store.requestCookSync()
+            await first.value
+            await second.value
+            await store.waitForSync()
+            #expect(Set(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs) == ["ing_a", "ing_b"])
+        }
+    }
+
+    @MainActor
+    @Test("a cook sync while signed out sends nothing")
+    func cookSyncSignedOutSendsNothing() async throws {
+        let server = FakeCookServer()
+        let vault = try await Self.signedInVault(accountID: "chef_ari")
+        let store = Self.liveStore(
+            directory: URL(fileURLWithPath: NSTemporaryDirectory()),
+            vault: vault,
+            syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+            transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+            cookSessionClient: { _ in server.client(token: nil) }
+        )
+        await store.requestCookSync().value
+        #expect(await server.requestCount == 0)
+    }
+
+    @MainActor
+    @Test("a first check on a recipe the server has never seen starts its session")
+    func cookSessionStartsOnFirstCheck() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+            // Opening a recipe nobody has cooked leaves nothing behind.
+            store.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await store.waitForSync()
+            #expect(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id) == nil)
+            #expect(try Self.savedCookSnapshot(appStateStore).cookSessionServerByRecipeID.isEmpty)
+            #expect(await server.revision(recipeID: Self.cookRecipe.id) == nil)
+
+            try Self.checkingIngredient("ing_a", in: store)
+            await store.cookPushTask?.value
+            #expect(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs == ["ing_a"])
+        }
+    }
+
+    @MainActor
+    @Test("a server with sync off keeps progress here, shows nothing, and is asked again only when the recipe is opened")
+    func cookSessionOffKeepsLocalProgress() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            await server.setMode(.unavailable)
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+
+            try Self.checkingIngredient("ing_a", in: store)
+            await store.cookPushTask?.value
+            #expect(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id)?.checkedIngredientIDs == ["ing_a"])
+            #expect(await server.requestCount == 1)
+            guard case .liveSynced = store.bootstrapState else {
+                Issue.record("A server with sync off must not show an error; got \(store.bootstrapState)")
+                return
+            }
+
+            // Other syncs leave it alone.
+            await store.requestSync(trigger: .foreground).value
+            #expect(await server.requestCount == 1)
+
+            // Opening the recipe tries again, and now it goes through.
+            await server.setMode(.working)
+            store.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await store.waitForSync()
+            #expect(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs == ["ing_a"])
+        }
+    }
+
+    @MainActor
+    @Test("a server that cannot be reached leaves changes pending, and a later sync and a relaunch send them")
+    func cookSessionRetriesAfterOffline() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            await server.setMode(.offline)
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+
+            try Self.checkingIngredient("ing_a", in: store)
+            await store.cookPushTask?.value
+            #expect(await server.progress(recipeID: Self.cookRecipe.id) == nil)
+            #expect(try Self.savedCookSnapshot(appStateStore).cookProgress(for: Self.cookRecipe.id)?.checkedIngredientIDs == ["ing_a"])
+
+            // The app is relaunched with the server still down: the change is still there, still pending.
+            let relaunched = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await relaunched.bootstrap()
+            #expect(await server.progress(recipeID: Self.cookRecipe.id) == nil)
+
+            await server.setMode(.working)
+            await relaunched.requestSync(trigger: .networkRecovered).value
+            #expect(try #require(await server.progress(recipeID: Self.cookRecipe.id)).checkedIngredientIDs == ["ing_a"])
+        }
+    }
+
+    @MainActor
+    @Test("an ended sign-in stops cook sync and keeps progress here")
+    func cookSessionSignedOut() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            await server.setMode(.signedOut)
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+
+            try Self.checkingIngredient("ing_a", in: store)
+            await store.cookPushTask?.value
+            #expect(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id)?.checkedIngredientIDs == ["ing_a"])
+            #expect(await server.progress(recipeID: Self.cookRecipe.id) == nil)
+        }
+    }
+
+    @MainActor
+    @Test("a check made while an exchange is in flight is replayed on top of the server's progress and sent next")
+    func cookSessionReplaysChangesMadeDuringExchange() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+            let server = FakeCookServer()
+            let store = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await store.bootstrap()
+
+            try Self.checkingIngredient("ing_a", in: store)
+            await store.cookPushTask?.value
+            // Another device checks ing_b, and this device then checks nothing new but moves a step while
+            // the next exchange is waiting on the server.
+            await server.seed(recipeID: Self.cookRecipe.id, progress: CookSyncProgress(
+                activeStepIndex: 0, scaleFactor: 1, checkedIngredientIDs: ["ing_a", "ing_b"], checkedStepOutputIDs: []
+            ), revision: 5)
+            await server.holdNextRead()
+            store.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await server.waitUntilReadIsHeld()
+            let current = try #require(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id))
+            store.recordCookProgress(try current.selectingStep(id: "step_2", updatedAt: Self.isoString(Self.now)))
+            await server.releaseRead()
+            await store.waitForSync()
+            await store.cookPushTask?.value
+            await store.waitForSync()
+
+            let merged = try #require(store.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id))
+            #expect(merged.activeStepIndex == 1)
+            #expect(Set(merged.checkedIngredientIDs) == ["ing_a", "ing_b"])
+            let stored = try #require(await server.progress(recipeID: Self.cookRecipe.id))
+            #expect(stored.activeStepIndex == 1)
+            #expect(Set(stored.checkedIngredientIDs) == ["ing_a", "ing_b"])
+        }
+    }
+
+    @MainActor
+    @Test("cook sync skips signed-out stores, recipes it has no steps for, and cache-only launches")
+    func cookSessionSkips() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let server = FakeCookServer()
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("app.json"))
+
+            let signedOut = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(),
+                appStateStoreProvider: { appStateStore },
+                cookSessionClient: { _ in server.client(token: nil) },
+                cookSessionPushDelay: .zero
+            )
+            signedOut.cookModeOpened(recipeID: Self.cookRecipe.id)
+            signedOut.recordCookProgress(CookModeProgress(recipeID: Self.cookRecipe.id, stepIDs: ["step_1"], startedAt: Self.isoString(Self.now)))
+            #expect(signedOut.cookPushTask == nil)
+
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let signedIn = try Self.cookStore(directory: directory, server: server, appStateStore: appStateStore, vault: vault)
+            await signedIn.bootstrap()
+            // A recipe the app has not loaded, and progress with no steps, have nothing to map onto the server.
+            signedIn.cookModeOpened(recipeID: "recipe_not_loaded")
+            await signedIn.waitForSync()
+            signedIn.recordCookProgress(CookModeProgress(recipeID: "recipe_no_steps", completedStepIDs: [], currentStepID: nil))
+            await signedIn.cookPushTask?.value
+            #expect(await server.requestCount == 0)
+
+            let cacheOnly = try Self.cookStore(
+                directory: directory,
+                server: server,
+                appStateStore: appStateStore,
+                vault: vault,
+                bootstrapMode: .restoreCacheOnly
+            )
+            await cacheOnly.bootstrap()
+            cacheOnly.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await cacheOnly.waitForSync()
+            #expect(await server.requestCount == 0)
+        }
+    }
+
+    @MainActor
+    @Test("cook sync without an app state store does nothing, and a failing save leaves progress where it was")
+    func cookSessionWithoutStorage() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let server = FakeCookServer()
+            let syncData = try Self.sampleSyncData(recipe: Self.cookRecipe, shoppingItem: nil, accountID: "chef_ari")
+            let storeWithoutStorage = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                cookSessionClient: { _ in server.client(token: nil) },
+                cookSessionPushDelay: .zero
+            )
+            await storeWithoutStorage.bootstrap()
+            storeWithoutStorage.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await storeWithoutStorage.waitForSync()
+            #expect(await server.requestCount == 0)
+
+            // The app state file cannot be written (its parent is a file), so the exchange's result is dropped.
+            let blocker = directory.appendingPathComponent("blocker")
+            try Data().write(to: blocker)
+            let brokenStore = NativeAppStateStore(fileURL: blocker.appendingPathComponent("app.json"))
+            await server.seed(recipeID: Self.cookRecipe.id, progress: CookSyncProgress(
+                activeStepIndex: 1, scaleFactor: 1, checkedIngredientIDs: [], checkedStepOutputIDs: []
+            ))
+            let broken = try Self.cookStore(directory: directory, server: server, appStateStore: brokenStore, vault: vault)
+            await broken.bootstrap()
+            broken.cookModeOpened(recipeID: Self.cookRecipe.id)
+            await broken.waitForSync()
+            #expect(broken.bootstrapState.contentState.cookProgress(for: Self.cookRecipe.id) == nil)
+        }
+    }
+}
+
+/// A server for cook-session tests that follows the protocol's revision rules.
+actor FakeCookServer {
+    enum Mode {
+        case working
+        case unavailable
+        case offline
+        case signedOut
+    }
+
+    private var mode = Mode.working
+    private var sessions: [String: CookServerSnapshot] = [:]
+    private var attempts = 0
+    private var holdsRead = false
+    private var readIsHeld = false
+    private var heldRead: CheckedContinuation<Void, Never>?
+    private(set) var requestCount = 0
+    private(set) var tokens: [String] = []
+
+    nonisolated func client(token: String?) -> any CookSessionClient {
+        FakeCookClient(server: self, token: token)
+    }
+
+    func setMode(_ mode: Mode) {
+        self.mode = mode
+    }
+
+    func seed(recipeID: String, progress: CookSyncProgress, revision: Int = 0) {
+        attempts += 1
+        sessions[recipeID] = CookServerSnapshot(attemptID: "attempt-\(attempts)", revision: revision, progress: progress)
+    }
+
+    func progress(recipeID: String) -> CookSyncProgress? {
+        sessions[recipeID]?.progress
+    }
+
+    func revision(recipeID: String) -> Int? {
+        sessions[recipeID]?.revision
+    }
+
+    func holdNextRead() {
+        holdsRead = true
+    }
+
+    func waitUntilReadIsHeld() async {
+        while !readIsHeld {
+            await Task.yield()
+        }
+    }
+
+    func releaseRead() {
+        readIsHeld = false
+        heldRead?.resume()
+        heldRead = nil
+    }
+
+    fileprivate func read(recipeID: String, token: String?) async -> CookSyncResult {
+        if let refusal = begin(token: token) {
+            return refusal
+        }
+        let answer = CookSyncResult.state(sessions[recipeID])
+        if holdsRead {
+            holdsRead = false
+            readIsHeld = true
+            await withCheckedContinuation { heldRead = $0 }
+        }
+        return answer
+    }
+
+    fileprivate func start(recipeID: String, token: String?) -> CookSyncResult {
+        if let refusal = begin(token: token) {
+            return refusal
+        }
+        if sessions[recipeID] == nil {
+            seed(recipeID: recipeID, progress: .initial)
+        }
+        return .state(sessions[recipeID])
+    }
+
+    fileprivate func patch(recipeID: String, server: CookServerSnapshot, changes: CookSyncChanges, token: String?) -> CookSyncResult {
+        if let refusal = begin(token: token) {
+            return refusal
+        }
+        guard let current = sessions[recipeID] else {
+            return .missing
+        }
+        guard current.attemptID == server.attemptID, current.revision == server.revision else {
+            return .conflict(current)
+        }
+        let next = CookServerSnapshot(
+            attemptID: current.attemptID,
+            revision: current.revision + 1,
+            progress: CookSyncProgress(
+                activeStepIndex: changes.activeStepIndex ?? current.progress.activeStepIndex,
+                scaleFactor: changes.scaleFactor ?? current.progress.scaleFactor,
+                checkedIngredientIDs: changes.checkedIngredientIDs ?? current.progress.checkedIngredientIDs,
+                checkedStepOutputIDs: changes.checkedStepOutputIDs ?? current.progress.checkedStepOutputIDs
+            )
+        )
+        sessions[recipeID] = next
+        return .state(next)
+    }
+
+    private func begin(token: String?) -> CookSyncResult? {
+        requestCount += 1
+        if let token {
+            tokens = Array(Set(tokens + [token])).sorted()
+        }
+        switch mode {
+        case .working:
+            return nil
+        case .unavailable:
+            return .stopped
+        case .offline:
+            return .transient(retryAfterSeconds: nil)
+        case .signedOut:
+            return .unauthenticated
+        }
+    }
+}
+
+private struct FakeCookClient: CookSessionClient {
+    let server: FakeCookServer
+    let token: String?
+
+    func read(recipeID: String) async -> CookSyncResult {
+        await server.read(recipeID: recipeID, token: token)
+    }
+
+    func start(recipeID: String) async -> CookSyncResult {
+        await server.start(recipeID: recipeID, token: token)
+    }
+
+    func patch(recipeID: String, server snapshot: CookServerSnapshot, changes: CookSyncChanges, mutationID _: String) async -> CookSyncResult {
+        await server.patch(recipeID: recipeID, server: snapshot, changes: changes, token: token)
+    }
+}
+
+/// A cook-session client for tests that are not about cook sync: the server never takes progress.
+struct OffCookSessionClient: CookSessionClient {
+    func read(recipeID _: String) async -> CookSyncResult { .stopped }
+    func start(recipeID _: String) async -> CookSyncResult { .stopped }
+    func patch(recipeID _: String, server _: CookServerSnapshot, changes _: CookSyncChanges, mutationID _: String) async -> CookSyncResult { .stopped }
 }
