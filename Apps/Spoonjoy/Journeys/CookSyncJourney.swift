@@ -43,7 +43,11 @@ final class CookSyncJourney: JourneyTestCase {
             "Cook mode does not list the lemon. Screen: \(journey.screen)"
         )
         ingredient.tap()
-        XCTAssertEqual(ingredient.value as? String, "checked", "Tapping the lemon did not check it in cook mode.")
+        // The checkbox reads "1" as a switch and "checked" as a button, depending on how the platform exposes it.
+        XCTAssertTrue(
+            ["1", "checked"].contains(ingredient.value as? String ?? ""),
+            "Tapping the lemon did not check it in cook mode. Value: \(String(describing: ingredient.value))"
+        )
         journey.attachScreenshot(named: "01-checked-in-cook-mode", to: self)
 
         // The app sends after a short pause; the test process reads QA until the check arrives.
