@@ -113,6 +113,12 @@ final class EditorJourney: JourneyTestCase {
                 "The cover photo is gone after the steps were swapped and the app relaunched. Screen: \(journey.screen)"
             )
             journey.attachScreenshot(named: "07-order-after-relaunch", to: self)
+            // The cover comes from the on-disk image cache after a relaunch, so it needs no network wait.
+            XCTAssertTrue(
+                journey.element(JourneyID.recipeDetailCover).waitForExistence(timeout: JourneyApp.interactionTimeout),
+                "The cover is missing after a relaunch. Screen: \(journey.screen)"
+            )
+            journey.attachScreenshot(named: "08-cover-after-relaunch", to: self)
         }
     }
 }

@@ -758,7 +758,7 @@ struct NativeMobileDesignContractTests {
             cover,
             in: coverPath,
             contains: [
-                "AsyncImage(url: url, transaction: imageTransaction)",
+                "CachedAsyncImage(url: url, animation: imageAnimation)",
                 ".transition(reduceMotion ? .identity : .opacity)",
                 "KitchenTableNoPhotoView",
                 "missingSubtitle",
@@ -785,7 +785,7 @@ struct NativeMobileDesignContractTests {
             search,
             in: searchPath,
             contains: [
-                "AsyncImage(url: imageURL, transaction: imageLoadingTransaction)",
+                "CachedAsyncImage(url: imageURL, animation: imageLoadingAnimation)",
                 "KitchenTableImagePhaseView",
                 ".transition(reduceMotion ? .identity : .opacity)"
             ],
@@ -1602,7 +1602,7 @@ struct NativeMobileDesignContractTests {
                 "missingSubtitle",
                 "trimmingCharacters(in: .whitespacesAndNewlines)",
                 "KitchenTableNoPhotoView",
-                "AsyncImage(url: url, transaction: imageTransaction)",
+                "CachedAsyncImage(url: url, animation: imageAnimation)",
                 ".id(url.absoluteString)",
                 "KitchenTableTheme.paper",
                 "KitchenTableTheme.vellum",

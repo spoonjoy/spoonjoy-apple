@@ -93,7 +93,7 @@ private struct RemoteRecipeCoverImage: View {
     }
 
     var body: some View {
-        AsyncImage(url: url, transaction: imageTransaction) { phase in
+        CachedAsyncImage(url: url, animation: imageAnimation) { phase in
             let readinessPhase = readinessPhase(for: phase)
             cover(for: phase)
                 .transition(reduceMotion ? .identity : .opacity)
@@ -109,8 +109,8 @@ private struct RemoteRecipeCoverImage: View {
         }
     }
 
-    private var imageTransaction: Transaction {
-        Transaction(animation: reduceMotion ? nil : .easeInOut(duration: 0.20))
+    private var imageAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.20)
     }
 
     private var missingSubtitle: String {
@@ -119,7 +119,7 @@ private struct RemoteRecipeCoverImage: View {
     }
 
     @ViewBuilder
-    private func cover(for phase: AsyncImagePhase) -> some View {
+    private func cover(for phase: CachedImagePhase) -> some View {
         switch phase {
         case .success(let image):
             image.resizable().scaledToFill()
@@ -127,17 +127,14 @@ private struct RemoteRecipeCoverImage: View {
             KitchenTableNoPhotoView(title: title, subtitle: "Loading photo", mode: .loading, showsLabel: false)
         case .failure:
             KitchenTableNoPhotoView(title: title, subtitle: "Photo did not load", mode: .unavailable, showsLabel: showsFallbackLabel)
-        @unknown default:
-            KitchenTableNoPhotoView(title: title, subtitle: missingSubtitle, mode: .missing, showsLabel: showsFallbackLabel)
         }
     }
 
-    private func readinessPhase(for phase: AsyncImagePhase) -> RecipeCoverReadinessPhase {
+    private func readinessPhase(for phase: CachedImagePhase) -> RecipeCoverReadinessPhase {
         switch phase {
         case .empty: .pending
         case .success: .loaded
         case .failure: .failed
-        @unknown default: .failed
         }
     }
 

@@ -68,9 +68,9 @@ failures << "route loading/error contract failed: #{route_failures.join("; ")}" 
 
 search_content = uncommented_swift(SEARCH_VIEW.read)
 search_required_tokens = [
-  "private var imageLoadingTransaction",
+  "private var imageLoadingAnimation",
   "accessibilityReduceMotion ? nil",
-  "AsyncImage(url: imageURL, transaction: imageLoadingTransaction)",
+  "CachedAsyncImage(url: imageURL, animation: imageLoadingAnimation)",
   "KitchenTableImagePhaseView"
 ]
 search_missing = search_required_tokens.reject { |token| search_content.include?(token) }
