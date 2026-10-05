@@ -38,11 +38,13 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         )
 
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.textFields["Add an item"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.textFields["Add an item"].isHittable)
+        XCTAssertTrue(app.buttons["Add item"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["Add item"].isHittable)
         let modeSelector = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label BEGINSWITH[c] 'Shopping view, All '")).firstMatch
-        XCTAssertTrue(modeSelector.exists)
+        XCTAssertTrue(modeSelector.waitForExistence(timeout: 8))
 
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(app.textFields["Add an item"].waitForExistence(timeout: 3))
@@ -56,6 +58,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(pendingItem.waitForExistence(timeout: 8))
         XCTAssertFalse(pendingItem.isEnabled)
         let hideOfflineStatus = app.buttons["Hide offline status"]
+        XCTAssertTrue(hideOfflineStatus.waitForExistence(timeout: 8))
         XCTAssertTrue(hideOfflineStatus.isHittable)
         hideOfflineStatus.tap()
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].exists)
@@ -214,7 +217,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         app = launchShopping(variant: "normal", noRecipes: true, omitState: true)
         XCTAssertTrue(app.staticTexts["Sync the receipt"].waitForExistence(timeout: 8))
         let primaryAdd = app.buttons.matching(NSPredicate(format: "label == 'Add item' AND identifier != 'plus'")).firstMatch
-        XCTAssertTrue(primaryAdd.exists)
+        XCTAssertTrue(primaryAdd.waitForExistence(timeout: 8))
         primaryAdd.tap()
         app.terminate()
 
@@ -227,7 +230,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         app = launchShopping(variant: "normal", platformFixture: true)
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
         let platformItem = app.descendants(matching: .any)["shopping.item.item_lemons"]
-        XCTAssertTrue(platformItem.exists)
+        XCTAssertTrue(platformItem.waitForExistence(timeout: 8))
         platformItem.tap()
         app.buttons["Create a recipe"].tap()
     }
