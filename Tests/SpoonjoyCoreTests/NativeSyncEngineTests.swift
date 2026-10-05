@@ -142,6 +142,8 @@ struct NativeSyncEngineTests {
 
         #expect(await transport.sendCount() == 1)
         #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_cancel_a", "cm_cancel_b"])
+        // Unchanged: a request cut short by cancellation must not leave a retry delay that stalls the next drain.
+        #expect(try await store.loadQueue().mutations == [first, second])
     }
 
     @Test("sync tombstones apply to local cache records and checkpoint revisions")

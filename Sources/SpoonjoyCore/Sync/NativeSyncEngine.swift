@@ -4486,6 +4486,15 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 blockedDependencyKeys.insert(mutation.dependencyKey)
                 blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
             case .retry(let afterSeconds, let message):
+                if Task.isCancelled {
+                    // The request was cut short by cancellation (a screen change cancels the sync task that
+                    // was running). Nothing failed, so do not back the edit off: keep it, unchanged, ready
+                    // for the next drain, which may start right away.
+                    remaining.append(mutation)
+                    remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1).map { $0.replacingResourceIDs(idReplacements) })
+                    index = originalQueue.mutations.count
+                    continue
+                }
                 retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, afterSeconds)
                 remaining.append(mutation.recordingRetry(
                     message: message,
