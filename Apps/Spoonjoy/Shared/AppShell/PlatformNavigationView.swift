@@ -198,6 +198,9 @@ struct PlatformNavigationView: View {
             .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
             .task(id: contentState.environment.rawValue) {
+                // With a live store, launch and environment changes already sync through the store, so a
+                // second sync here would only republish the same content under a screen the person is using.
+                guard requestSync == nil else { return }
                 await runForegroundSync()
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
