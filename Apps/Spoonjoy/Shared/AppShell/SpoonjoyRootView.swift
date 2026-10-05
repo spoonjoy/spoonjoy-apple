@@ -265,6 +265,9 @@ struct SpoonjoyRootView: View {
             discardQueuedMutation: { clientMutationID in
                 try await liveStore.discardQueuedMutation(clientMutationID: clientMutationID)
             },
+            retryHeldChanges: {
+                await liveStore.retryHeldChanges()
+            },
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },

@@ -961,6 +961,63 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store retries a held recipe change and clears it once the server accepts it")
+    func liveStoreRetriesHeldRecipeChange() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_held", title: "Server Pasta")
+            let mutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: "recipe_held",
+                clientMutationID: "cm_held_recipe",
+                title: "Local Pasta",
+                description: recipe.description,
+                servings: recipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [mutation]),
+                cachedRecords: [
+                    NativeSyncCachedRecord(
+                        kind: .recipe,
+                        resourceID: recipe.id,
+                        payload: try Self.jsonValue(recipe),
+                        serverRevision: .updatedAt(recipe.updatedAt)
+                    )
+                ]
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: [])), .result(.success(cursor: nil, tombstones: []))],
+                    sends: [
+                        .conflict(kind: .validation, serverRevision: nil, message: "Step numbers must be unique."),
+                        .success(serverRevision: nil)
+                    ]
+                )
+            )
+
+            await liveStore.bootstrap()
+            guard case .conflict(let held) = liveStore.bootstrapState else {
+                Issue.record("Expected a held change; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(held.syncConflicts.map(\.message) == ["Step numbers must be unique."])
+            #expect((try await syncStore.loadQueue()).mutations.map(\.clientMutationID) == ["cm_held_recipe"])
+
+            await liveStore.retryHeldChanges()
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+            if case .conflict = liveStore.bootstrapState {
+                Issue.record("The retried change was accepted but the conflict is still shown")
+            }
+        }
+    }
+
+    @MainActor
     @Test("live store queue and conflict discard no-ops leave state untouched")
     func liveStoreQueueAndConflictDiscardNoopsLeaveStateUntouched() async throws {
         try await withTemporaryLiveStoreDirectory { directory in

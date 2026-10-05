@@ -36,6 +36,7 @@ struct PlatformNavigationView: View {
     private let queueMutation: @Sendable (NativeQueuedMutation) async throws -> Void
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
+    private let retryHeldChanges: @Sendable () async -> Void
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
     private let executeRecipeCreateRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> String?
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
@@ -74,6 +75,7 @@ struct PlatformNavigationView: View {
         queueMutation: @escaping @Sendable (NativeQueuedMutation) async throws -> Void,
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
+        retryHeldChanges: @escaping @Sendable () async -> Void = {},
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
         executeRecipeCreateRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> String?,
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
@@ -112,6 +114,7 @@ struct PlatformNavigationView: View {
         self.queueMutation = queueMutation
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
+        self.retryHeldChanges = retryHeldChanges
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
         self.executeRecipeCreateRequest = executeRecipeCreateRequest
         self.executeSettingsActionRequest = executeSettingsActionRequest
@@ -759,17 +762,22 @@ struct PlatformNavigationView: View {
         case .savedRecipes:
             SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
         case .recipeDetail(let id, .detail):
-            if let pending = pendingCoverUploads[id] {
-                VStack(spacing: 0) {
+            VStack(spacing: 0) {
+                if let held = recipeEditorConflict(for: id) {
+                    HeldChangeBanner(
+                        message: held.message,
+                        retry: { await retryHeldChanges() },
+                        discard: { try? await discardRecipeEditorLocalChange(held) }
+                    )
+                }
+                if let pending = pendingCoverUploads[id] {
                     PendingCoverUploadBanner(
                         message: pending.message,
                         isRetrying: isRetryingCoverUpload,
                         retry: { await retryCoverUpload(pending) },
                         dismiss: { pendingCoverUploads[id] = nil }
                     )
-                    recipeDetailRoute(id: id)
                 }
-            } else {
                 recipeDetailRoute(id: id)
             }
         case .recipeDetail(let id, .cook):

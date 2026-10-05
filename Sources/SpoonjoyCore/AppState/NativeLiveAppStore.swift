@@ -2210,6 +2210,13 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    /// Sends held changes to the server again. A change the server turned down stays in the queue with its
+    /// message; this runs another sync so it is submitted once more. If the server still turns it down it
+    /// returns to the held state with the new message.
+    public func retryHeldChanges() async {
+        await bootstrap()
+    }
+
     public func executeRecipeEditorRequest(_ request: APIRequestBuilder) async throws {
         let session = try await dependencies.authSessionRepository.validSession()
         configuration = APIClientConfiguration(
