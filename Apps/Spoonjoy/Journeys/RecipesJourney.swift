@@ -6,6 +6,14 @@ import XCTest
 /// steps in the editor, and the new order holds on the recipe page after a relaunch.
 @MainActor
 final class RecipesJourney: JourneyTestCase {
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        // This journey covers create, photo, search, two relaunches and the step swap. It ran 542 seconds before
+        // reaching the swap (CI run 37285907663) and timed out at 600 on run 37295920896, so it gets the
+        // workflow's maximum of 900.
+        executionTimeAllowance = 900
+    }
+
     func testRecipesJourney() throws {
         let account = try JourneyAccounts.account(1)
         let token = try JourneyAccounts.runToken()
