@@ -284,7 +284,12 @@ final class JourneyApp {
 
     func tap(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
         waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear. Screen: \(screen)", file: file, line: line)
-        element(id).tap()
+        // A button inside a sheet exists before the sheet finishes sliding in; a tap at that moment lands on the
+        // old position and does nothing (evidence: CI run 37292614749, the paste sheet stayed open after the tap).
+        let target = element(id)
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: target)
+        _ = XCTWaiter().wait(for: [settled], timeout: Self.interactionTimeout)
+        target.tap()
     }
 
     /// The message is evaluated only on failure, so a screen dump in it costs nothing on success.
