@@ -238,6 +238,13 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     /// Waits for `element` to exist and be hittable and enabled: for menu items, confirmation buttons and a
     /// long-press target, which must be on screen and uncovered, not still behind a closing sheet, menu or
     /// the keyboard. Fails with the screen if it does not settle. Nothing is retried.
+    ///
+    /// The 10 seconds bound the element's state, not the accessibility queries that read it. On the hosted
+    /// runner a single query of a popover over the shopping page took 7 to 9 seconds (runs 37366696305 and
+    /// 37386300404: the popover and its button were on screen with valid frames when the snapshot was taken, and
+    /// the whole 10 second window held one or two evaluations). A fixed `XCTWaiter` window therefore judged the
+    /// button after one slow look. This loop keeps polling until the 10 seconds have passed and the button has
+    /// been evaluated at least `minimumEvaluations` times; an element that never becomes hittable still fails.
     private func waitUntilHittable(
         _ element: XCUIElement,
         named name: String,
@@ -245,24 +252,30 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         file: StaticString = #filePath,
         line: UInt = #line
     ) {
-        let ready = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "exists == true AND isHittable == true AND isEnabled == true"),
-            object: element
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [ready], timeout: 10),
-            .completed,
-            "\(name) did not become hittable. \(app.debugDescription)",
+        let minimumEvaluations = 3
+        let deadline = Date().addingTimeInterval(10)
+        var evaluations = 0
+        var ready = false
+        repeat {
+            evaluations += 1
+            if element.exists && element.isHittable && element.isEnabled {
+                ready = true
+                break
+            }
+            Thread.sleep(forTimeInterval: 0.25)
+        } while Date() < deadline || evaluations < minimumEvaluations
+        XCTAssertTrue(
+            ready,
+            "\(name) did not become hittable after \(evaluations) evaluations. \(app.debugDescription)",
             file: file,
             line: line
         )
     }
 
     /// Taps a button in the confirmation sheet. The sheet is presented after the menu or swipe action that
-    /// opens it has closed, and on the hosted runner that takes well over the 10 seconds `waitUntilHittable`
-    /// allows (run 37366696305: a single accessibility query took 9 seconds and the sheet was on screen
-    /// afterwards). The wait for the sheet itself is therefore longer; the button must still be hittable
-    /// within the usual limit once the sheet is up. Nothing is retried and a missing sheet still fails.
+    /// opens it has closed, and on the hosted runner that takes well over 10 seconds. The wait for the sheet
+    /// itself is therefore longer; the button must then be hittable by the rules of `waitUntilHittable`.
+    /// Nothing is retried and a missing sheet still fails.
     private func tapConfirmation(
         _ title: String,
         in app: XCUIApplication,
