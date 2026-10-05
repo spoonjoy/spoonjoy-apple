@@ -179,6 +179,7 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
             -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" \
             -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 300 \
+            -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/shopping/SpoonjoyShoppingUITests.xcresult" 2>&1 | tee "$RUNNER_TEMP/shopping/test.log"
       - name: Upload shopping UI test result bundle
         # The fixture tests use no credentials, so the bundle is always safe to upload.
