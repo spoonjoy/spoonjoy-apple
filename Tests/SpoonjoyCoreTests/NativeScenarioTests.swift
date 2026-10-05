@@ -1335,14 +1335,20 @@ struct NativeScenarioTests {
     }
 
     private func assertSwiftSourcesTypecheck(_ relativePaths: [String]) throws {
+        // SwiftPM with the classic build system writes modules under debug/Modules; the Swift 6.4 (Xcode 27)
+        // default build system writes them under out/Products/Debug. Search whichever layout exists.
+        let moduleDirectories = [
+            ".build/arm64-apple-macosx/debug/Modules",
+            ".build/out/Products/Debug"
+        ].map { repoURL.appendingPathComponent($0).path }
+            .filter { FileManager.default.fileExists(atPath: $0) }
         let result = try runProcess(
             "/usr/bin/xcrun",
             arguments: [
                 "swiftc",
                 "-typecheck",
-                "-warnings-as-errors",
-                "-I", repoURL.appendingPathComponent(".build/arm64-apple-macosx/debug/Modules").path
-            ] + relativePaths.map { repoURL.appendingPathComponent($0).path },
+                "-warnings-as-errors"
+            ] + moduleDirectories.flatMap { ["-I", $0] } + relativePaths.map { repoURL.appendingPathComponent($0).path },
             currentDirectoryURL: repoURL
         )
 
