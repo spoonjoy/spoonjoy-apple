@@ -7,14 +7,19 @@ jobs:
     runs-on: xcode-27
     timeout-minutes: 20
     steps:
-      - name: Grep beta SDK interfaces
+      - name: Dump hinge headers and SwiftUI interface hits
         run: |
-          ls -d /Applications/Xcode_27*.app
-          for app in /Applications/Xcode_27*.app; do
-            echo "=== $app"
-            /usr/bin/defaults read "$app/Contents/Info" CFBundleShortVersionString || true
-            sdk="$app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
-            ls "$app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/" || true
-            cat "$sdk/SDKSettings.json" 2>/dev/null | head -c 400; echo
-            grep -rniE "ReservedRegion|reserved ?region|\bdivision\b|hinge|foldable|\bfold\b" "$sdk/System/Library/Frameworks/SwiftUI.framework" "$sdk/System/Library/Frameworks/UIKit.framework" --include='*.swiftinterface' --include='*.h' 2>/dev/null | grep -v "^Binary" | cut -c1-400 | head -150 || true
-          done
+          app=/Applications/Xcode_27.1_beta.app
+          sdk="$app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+          h="$sdk/System/Library/Frameworks/UIKit.framework/Headers"
+          echo "##### UIViewReservedRegion.h"; cat "$h/UIViewReservedRegion.h"
+          echo "##### UIView.h reserved"; sed -n 750,775p "$h/UIView.h"
+          echo "##### SwiftUI"
+          find "$sdk/System/Library/Frameworks/SwiftUI.framework" -name '*.swiftinterface' | head
+          find "$sdk/System/Library/Frameworks/SwiftUI.framework" -name '*.swiftinterface' | head -3 | xargs -I{} grep -nEi "reservedregion|hinge|division" {} | cut -c1-300 | head -60
+          echo "##### 27.2 beta"
+          sdk2=/Applications/Xcode_27.2_beta.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk
+          ls "$sdk2/System/Library/Frameworks/UIKit.framework/Headers" | grep -iE "hinge|reserved"
+          grep -rlE "ReservedRegion|Hinge" "$sdk2/System/Library/Frameworks/SwiftUI.framework" 2>/dev/null | head
+          echo "##### Swift toolchain versions"
+          for a in 27.0 27.1_beta 27.2_beta; do echo $a; DEVELOPER_DIR=/Applications/Xcode_$a.app/Contents/Developer xcrun swift -version 2>&1 | head -2; done
