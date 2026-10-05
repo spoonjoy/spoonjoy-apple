@@ -1835,23 +1835,25 @@ public final class NativeLiveAppStore: ObservableObject {
     /// The one task that runs syncs and drains the queue. The store owns it, so no view can cancel a sync by
     /// going away: a screen change, a closed editor or a dismissed sheet only stops waiting for the result.
     private var activeSync: Task<Void, Never>?
-    private var syncRerunRequested = false
+    /// Counts edits added to the queue. A run goes again only when this changed while it was running, so a
+    /// screen that asks for a sync each time it appears cannot keep the store syncing in a loop.
+    private var queueVersion = 0
 
-    /// Asks the store to sync and drain the queue. If a sync is already running, this request joins it and the
-    /// run goes once more afterwards, so edits queued after it read the queue are still sent. Views call this
+    /// Asks the store to sync and drain the queue. If a sync is already running, this request joins it. The run
+    /// goes once more if an edit was queued while it ran, so that edit is still sent. Views call this
     /// and never run the network work themselves. Await the returned task only to wait for the result;
     /// cancelling the waiter does not cancel the sync.
     @discardableResult
     public func requestSync(trigger: NativeSyncTriggerEvent = .foreground) -> Task<Void, Never> {
         if let activeSync {
-            syncRerunRequested = true
             return activeSync
         }
         let task = Task { @MainActor [self] in
+            var versionAtStart: Int
             repeat {
-                syncRerunRequested = false
+                versionAtStart = queueVersion
                 await performSync(trigger: trigger)
-            } while syncRerunRequested
+            } while queueVersion != versionAtStart
             activeSync = nil
         }
         activeSync = task
@@ -1867,14 +1869,18 @@ public final class NativeLiveAppStore: ObservableObject {
         await requestSync(trigger: .launch).value
     }
 
-    /// True when the store already holds content the person can see, so a sync can update it in place instead
-    /// of covering the app with the cold-launch loading screen.
-    private var hasPopulatedSnapshot: Bool {
-        let content = currentContentState
-        return !content.recipes.isEmpty
-            || !content.cookbooks.isEmpty
-            || !(content.shoppingList?.items.isEmpty ?? true)
-            || !content.queuedMutations.isEmpty
+    /// True when the app is already showing content, so a sync can update it in place instead of covering the
+    /// app with the cold-launch loading screen. A fresh account with an empty kitchen counts: it has loaded.
+    private var isShowingLoadedContent: Bool {
+        switch bootstrapState {
+        case .restoringCache, .signedOut:
+            return false
+        case .syncFailed:
+            let content = currentContentState
+            return !content.recipes.isEmpty || !content.cookbooks.isEmpty || !(content.shoppingList?.items.isEmpty ?? true)
+        default:
+            return true
+        }
     }
 
     private func performSync(trigger: NativeSyncTriggerEvent) async {
@@ -1906,7 +1912,7 @@ public final class NativeLiveAppStore: ObservableObject {
 
             // The loading screen is for a cold launch with nothing cached. A sync that starts with content on
             // screen (a saved edit draining, the app becoming active) updates that content in place.
-            if !(hasPopulatedSnapshot && currentContentState.authSessionState == authState) {
+            if !(isShowingLoadedContent && currentContentState.authSessionState == authState) {
                 apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
             }
             try await bootstrapFromLiveAPI(session: session, trigger: trigger)
@@ -2180,6 +2186,7 @@ public final class NativeLiveAppStore: ObservableObject {
                     now: mutation.createdAt
                 )
             }
+            queueVersion += 1
             apply(.queuedWork(currentContentState.copy(
                 recipes: optimisticRecipes,
                 cookbooks: optimisticCookbooks,

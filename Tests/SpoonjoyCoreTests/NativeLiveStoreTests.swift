@@ -1163,6 +1163,30 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("repeated sync requests with no new edit run once, even for an empty kitchen")
+    func repeatedSyncRequestsDoNotLoopForEmptyKitchen() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let (liveStore, _, probe) = try await Self.populatedStoreWithProbe(directory: directory, recipeID: "recipe_none", emptyKitchen: true)
+            let before = await probe.bootstrapCount()
+            await probe.arm()
+            let first = liveStore.requestSync(trigger: .foreground)
+            while await !probe.bootstrapStarted() {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            // A screen that appears while the sync runs asks again; an empty kitchen is still a loaded one.
+            if case .restoringCache = liveStore.bootstrapState {
+                Issue.record("An empty but loaded kitchen must not show the loading screen during a sync")
+            }
+            let second = liveStore.requestSync(trigger: .foreground)
+            await probe.release()
+            await first.value
+            await second.value
+
+            #expect(await probe.bootstrapCount() == before + 1)
+        }
+    }
+
+    @MainActor
     @Test("a sync with an existing snapshot never enters the cold-bootstrap state")
     func syncWithSnapshotNeverShowsColdBootstrap() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6648,7 +6672,11 @@ private actor CancellationProbeTransport: NativeSyncTransport {
 
     func arm() { armed = true }
 
+    private var bootstraps = 0
+    func bootstrapCount() -> Int { bootstraps }
+
     func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        bootstraps += 1
         guard armed else {
             return .success(cursor: nil, tombstones: [])
         }
@@ -7243,7 +7271,8 @@ private extension NativeLiveStoreTests {
 
     @MainActor static func populatedStoreWithProbe(
         directory: URL,
-        recipeID: String
+        recipeID: String,
+        emptyKitchen: Bool = false
     ) async throws -> (NativeLiveAppStore, InMemoryNativeSyncStore, CancellationProbeTransport) {
         let vault = try await signedInVault(accountID: "chef_ari")
         let recipe = sampleRecipe(id: recipeID, title: "Server Pasta")
@@ -7252,7 +7281,7 @@ private extension NativeLiveStoreTests {
             environment: .production,
             checkpoint: nil,
             queue: NativeMutationQueue(),
-            cachedRecords: [
+            cachedRecords: emptyKitchen ? [] : [
                 NativeSyncCachedRecord(
                     kind: .recipe,
                     resourceID: recipe.id,
