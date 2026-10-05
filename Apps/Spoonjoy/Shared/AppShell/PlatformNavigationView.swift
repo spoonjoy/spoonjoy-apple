@@ -28,6 +28,7 @@ struct PlatformNavigationView: View {
     @State private var isRetryingCoverUpload = false
 #if os(iOS)
     @State private var shellWindowSize: CGSize = .zero
+    @State private var shellHingeDivision: SpreadDivision?
     @State private var spreadSidebarHiddenAt: Date?
 #endif
 
@@ -256,6 +257,7 @@ struct PlatformNavigationView: View {
         } action: { size in
             shellWindowSize = size
         }
+        .readingHingeDivision($shellHingeDivision)
         .onChange(of: hidesLibrarySidebarForSpread, initial: true) { _, hides in
             spreadSidebarHiddenAt = hides ? Date() : nil
             splitColumnVisibility = hides ? .detailOnly : .automatic
@@ -279,7 +281,8 @@ struct PlatformNavigationView: View {
         let windowLayout = BookSpreadLayout.resolve(
             width: shellWindowSize.width,
             height: shellWindowSize.height,
-            isRegularWidth: horizontalSizeClass == .regular
+            isRegularWidth: horizontalSizeClass == .regular,
+            division: shellHingeDivision
         )
         return BookSpreadLayout.hidesLibrarySidebar(route: navigation.route, windowLayout: windowLayout)
     }

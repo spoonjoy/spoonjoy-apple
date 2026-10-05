@@ -171,6 +171,19 @@ apply_common_settings(
   }
 )
 
+# The iOS 27.1 SDK adds the hinge APIs (UIView.reservedRegions, UIHingeInteraction). Swift has no SDK-version
+# condition, so the app target defines SPOONJOY_IOS_27_1_SDK only when it builds against the 27.1 or newer iOS
+# SDK. Shipping builds stay on stable Xcode 27.0, where the hinge code is compiled out.
+HINGE_SDK_CONDITION = "SPOONJOY_IOS_27_1_SDK"
+HINGE_SDK_PATTERNS = ["iphoneos27.[1-9]*", "iphonesimulator27.[1-9]*", "iphoneos2[89]*", "iphonesimulator2[89]*", "iphoneos[3-9][0-9]*", "iphonesimulator[3-9][0-9]*"].freeze
+CONFIGURATIONS.each do |configuration|
+  settings = ios_target.build_configuration_list[configuration].build_settings
+  HINGE_SDK_PATTERNS.each do |pattern|
+    settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=#{pattern}]"] = "$(inherited) #{HINGE_SDK_CONDITION}"
+  end
+end
+
+
 def apply_ui_test_settings(target, bundle_id:)
   CONFIGURATIONS.each do |configuration|
     build_configuration = target.build_configuration_list[configuration]

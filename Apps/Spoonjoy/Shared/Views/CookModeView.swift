@@ -185,12 +185,7 @@ struct CookModeView: View {
                 cookModeBottomActionRail
             }
         } else {
-            GeometryReader { proxy in
-                let layout = BookSpreadLayout.resolve(
-                    width: Double(proxy.size.width),
-                    height: Double(proxy.size.height),
-                    isRegularWidth: true
-                )
+            SpreadLayoutReader(isRegularWidth: true) { layout in
                 if layout.isSpread {
                     cookModeSpread(layout)
                 } else {

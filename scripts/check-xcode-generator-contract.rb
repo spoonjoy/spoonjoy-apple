@@ -130,6 +130,11 @@ Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
   text = File.read(path)
   next unless text.include?("xcodebuild") || text.include?("runs-on: xcode-27") || text.include?("runs-on: macos")
   fail_check("#{File.basename(path)} must not run on macos-26 (Xcode 26 default)") if text.match?(/runs-on:\s*macos-26/)
+  # beta-sdk.yml is the one workflow that builds with beta Xcodes; it never ships anything.
+  if File.basename(path) == "beta-sdk.yml"
+    fail_check("beta-sdk.yml must select a beta Xcode explicitly") unless text.include?('sudo xcode-select -s "/Applications/Xcode_${{ matrix.xcode }}.app"') && text.include?("_beta'")
+    next
+  end
   fail_check("#{File.basename(path)} must select Xcode 27.0 explicitly") if text.include?("runs-on: xcode-27") && !text.include?("sudo xcode-select -s /Applications/Xcode_27.0.app")
   fail_check("#{File.basename(path)} still requires an Xcode 26 minimum") if text.include?('minimum_xcode_version="26')
 end
