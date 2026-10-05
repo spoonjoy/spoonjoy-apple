@@ -13,9 +13,13 @@ public enum PublicCatalogRequests {
     }
 
     public static func recipeDetail(id: String) -> APIRequestBuilder {
-        APIRequestSupport.publicRead(
+        // A recipe page is read right after the user edits it, so a cached copy from before the edit must not
+        // answer: the shared 60-second public cache would show the old step order for a minute after a save.
+        APIRequestBuilder(
+            method: .get,
             pathComponents: ["api", "v1", "recipes", id],
-            queryItems: []
+            queryItems: [],
+            responseCachePolicy: APIRequestSupport.privateNoStore
         )
     }
 

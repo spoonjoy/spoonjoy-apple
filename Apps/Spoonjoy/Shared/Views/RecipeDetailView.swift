@@ -28,10 +28,6 @@ struct RecipeDetailRouteView: View {
     let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
-    /// Changes when the number of queued edits changes. The page loads the recipe once when it opens, which can
-    /// be before a just-saved edit has reached the server; reloading when the queue changes shows the saved
-    /// result instead of the pre-save order.
-    let reloadToken: Int
 
     @State private var routeState: RecipeDetailRouteState
     @State private var errorMessage: String?
@@ -54,10 +50,8 @@ struct RecipeDetailRouteView: View {
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         discardSpoonCookLogConflict: @escaping @MainActor @Sendable (String) async throws -> Void,
         performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
-        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {},
-        reloadToken: Int = 0
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
-        self.reloadToken = reloadToken
         self.recipeID = recipeID
         self.repository = repository
         self.spoonRepository = spoonRepository
@@ -110,7 +104,7 @@ struct RecipeDetailRouteView: View {
             }
         }
         .reloadsOnPull { await loadRecipe() }
-        .task(id: "\(recipeID)#\(reloadToken)") {
+        .task(id: recipeID) {
             await loadRecipe()
         }
         .onChange(of: snapshotViewModel) { _, nextViewModel in

@@ -751,7 +751,6 @@ struct PlatformNavigationView: View {
             discardSpoonCookLogConflict: discardSpoonCookLogConflict(clientMutationID:),
             performShoppingAction: performShoppingAction,
             onDismissOfflineIndicator: dismissOfflineIndicator,
-            reloadToken: contentState.queuedMutations.count
         )
     }
 

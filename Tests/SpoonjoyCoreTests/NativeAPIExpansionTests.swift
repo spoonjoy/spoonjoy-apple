@@ -81,7 +81,7 @@ struct NativeAPIExpansionTests {
             method: .get,
             path: "/api/v1/recipes/recipe%2Flemon",
             authorization: nil,
-            responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+            responseCachePolicy: .privateNoStore
         )
         assertRequest(
             cookbookList,
