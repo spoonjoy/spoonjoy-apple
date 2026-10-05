@@ -4417,6 +4417,12 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
 
         var index = 0
         while index < originalQueue.mutations.count {
+            // A cancelled drain stops here. Every mutation not yet sent stays queued, unchanged, for the
+            // next sync trigger; a cancelled request must not be sent again from inside a cancelled task.
+            if Task.isCancelled {
+                remaining.append(contentsOf: originalQueue.mutations.dropFirst(index).map { $0.replacingResourceIDs(idReplacements) })
+                break
+            }
             let mutation = originalQueue.mutations[index].replacingResourceIDs(idReplacements)
             guard !blockedDependencyKeys.contains(mutation.dependencyKey) else {
                 remaining.append(mutation)
