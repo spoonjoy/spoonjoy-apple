@@ -1832,7 +1832,60 @@ public final class NativeLiveAppStore: ObservableObject {
         self.shoppingMutationFeedback = nil
     }
 
+    /// The one task that runs syncs and drains the queue. The store owns it, so no view can cancel a sync by
+    /// going away: a screen change, a closed editor or a dismissed sheet only stops waiting for the result.
+    private var activeSync: Task<Void, Never>?
+    /// Counts edits added to the queue. A run goes again only when this changed while it was running, so a
+    /// screen that asks for a sync each time it appears cannot keep the store syncing in a loop.
+    private var queueVersion = 0
+
+    /// Asks the store to sync and drain the queue. If a sync is already running, this request joins it. The run
+    /// goes once more if an edit was queued while it ran, so that edit is still sent. Views call this
+    /// and never run the network work themselves. Await the returned task only to wait for the result;
+    /// cancelling the waiter does not cancel the sync.
+    @discardableResult
+    public func requestSync(trigger: NativeSyncTriggerEvent = .foreground) -> Task<Void, Never> {
+        if let activeSync {
+            return activeSync
+        }
+        let task = Task { @MainActor [self] in
+            var versionAtStart: Int
+            repeat {
+                versionAtStart = queueVersion
+                await performSync(trigger: trigger)
+            } while queueVersion != versionAtStart
+            activeSync = nil
+        }
+        activeSync = task
+        return task
+    }
+
+    /// Waits for the sync that is running now, if any. Safe to await from a view task.
+    public func waitForSync() async {
+        await activeSync?.value
+    }
+
     public func bootstrap() async {
+        await requestSync(trigger: .launch).value
+    }
+
+    /// True when the app is already showing content, so a sync can update it in place instead of covering the
+    /// app with the cold-launch loading screen. A fresh account with an empty kitchen counts: it has loaded.
+    private var isShowingLoadedContent: Bool {
+        switch bootstrapState {
+        case .restoringCache, .signedOut:
+            return false
+        case .syncFailed:
+            // A failed first load has nothing to keep on screen: it shows the sync-failed screen with a retry,
+            // and that retry shows the loading screen as feedback. A failure after content loaded keeps it.
+            let content = currentContentState
+            return !content.recipes.isEmpty || !content.cookbooks.isEmpty || !(content.shoppingList?.items.isEmpty ?? true)
+        default:
+            return true
+        }
+    }
+
+    private func performSync(trigger: NativeSyncTriggerEvent) async {
         do {
             guard !dependencies.fixtureFallbackPolicy.allowsProductionFallback() else {
                 throw NativeLiveAppStoreError.fixtureFallbackEnabledInProduction
@@ -1859,8 +1912,12 @@ public final class NativeLiveAppStore: ObservableObject {
                 return
             }
 
-            apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
-            try await bootstrapFromLiveAPI(session: session, trigger: .launch)
+            // The loading screen is for a cold launch with nothing cached. A sync that starts with content on
+            // screen (a saved edit draining, the app becoming active) updates that content in place.
+            if !(isShowingLoadedContent && currentContentState.authSessionState == authState) {
+                apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
+            }
+            try await bootstrapFromLiveAPI(session: session, trigger: trigger)
         } catch let error as APITransportError where error.isOffline {
             NativeLiveAppStoreTelemetry.bootstrapOffline(
                 stage: "launch",
@@ -2131,6 +2188,7 @@ public final class NativeLiveAppStore: ObservableObject {
                     now: mutation.createdAt
                 )
             }
+            queueVersion += 1
             apply(.queuedWork(currentContentState.copy(
                 recipes: optimisticRecipes,
                 cookbooks: optimisticCookbooks,
@@ -2139,7 +2197,8 @@ public final class NativeLiveAppStore: ObservableObject {
                 offlineIndicatorState: indicator
             )))
             if drainImmediately {
-                await bootstrap()
+                // The store's own sync task drains the queue, so the caller going away cannot cancel it.
+                await requestSync(trigger: .foreground).value
             }
             return queuedMutationBatchResult(submittedClientMutationIDs: submittedClientMutationIDs)
         } catch {
@@ -2210,6 +2269,13 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    /// Sends held changes to the server again. A change the server turned down stays in the queue with its
+    /// message; this runs another sync so it is submitted once more. If the server still turns it down it
+    /// returns to the held state with the new message.
+    public func retryHeldChanges() async {
+        await bootstrap()
+    }
+
     public func executeRecipeEditorRequest(_ request: APIRequestBuilder) async throws {
         let session = try await dependencies.authSessionRepository.validSession()
         configuration = APIClientConfiguration(
@@ -2227,6 +2293,28 @@ public final class NativeLiveAppStore: ObservableObject {
             decode: JSONValue.self
         )
         await bootstrap()
+    }
+
+    /// Sends a create-recipe request and returns the new recipe's ID, so a photo chosen in the editor can
+    /// be uploaded to it.
+    public func executeRecipeCreateRequest(_ request: APIRequestBuilder) async throws -> String? {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+        let envelope = try await transport.send(
+            request,
+            configuration: configuration,
+            decode: JSONValue.self
+        )
+        await bootstrap()
+        return RecipeCreateResponse.recipeID(from: envelope.data)
     }
 
     private func executeShoppingMutationRequest(_ request: APIRequestBuilder) async throws {

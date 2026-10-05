@@ -3684,6 +3684,14 @@ public enum NativeSyncTriggerEvent: Equatable, Sendable {
     case visibleStaleSurface(NativeVisibleStaleSurface)
 }
 
+/// When the app comes to the front it drains pending edits again, so an edit whose send was cancelled or
+/// failed while the app was in the background goes out as soon as the person returns.
+public enum NativeSceneSyncPolicy {
+    public static func shouldSync(wasActive: Bool, isActive: Bool) -> Bool {
+        !wasActive && isActive
+    }
+}
+
 public protocol NativeSyncTriggerRunning: Sendable {
     func bootstrapAndDrain(
         configuration: APIClientConfiguration,
@@ -4112,12 +4120,16 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
             if mutation.queueableKind == .coverRegenerate || mutation.queueableKind == .coverFromSpoon {
                 return try await sendProviderCoverMutation(mutation, configuration: configuration)
             }
-            let envelope = try await apiTransport.send(
-                try mutation.requestBuilder(),
-                configuration: configuration,
-                decode: JSONValue.self
-            )
-            return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
+            let builder = try mutation.requestBuilder()
+            let label = Self.diagnosticLabel(for: builder)
+            do {
+                let envelope = try await apiTransport.send(builder, configuration: configuration, decode: JSONValue.self)
+                NativeSyncDiagnostics.shared.recordSend(method: label.method, path: label.path, outcome: "ok")
+                return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
+            } catch let error as APITransportError {
+                NativeSyncDiagnostics.shared.recordSend(method: label.method, path: label.path, outcome: Self.diagnosticOutcome(for: error))
+                throw error
+            }
         } catch let error as APITransportError {
             return try Self.mutationResult(for: error, mutation: mutation)
         }
@@ -4153,6 +4165,17 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
         return .success(serverRevision: nil, idRemaps: mutation.idRemaps(from: envelope.data))
     }
 
+    private static func diagnosticLabel(for builder: APIRequestBuilder) -> (method: String, path: String) {
+        (builder.method.rawValue.uppercased(), "/" + builder.pathComponents.joined(separator: "/"))
+    }
+
+    private static func diagnosticOutcome(for error: APITransportError) -> String {
+        let status = error.statusCode.map(String.init) ?? "no status (\(error.kind))"
+        let code = error.apiError?.code ?? "no code"
+        let message = error.apiError?.message ?? "no message"
+        return "\(status) \(code): \(message)"
+    }
+
     private static func mutationResult(
         for error: APITransportError,
         mutation: NativeQueuedMutation
@@ -4176,11 +4199,14 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
             )
         }
 
-        if error.statusCode == 409 {
+        // A request the server turned down must stay in the queue where the person can see and resolve it,
+        // never abort the whole sync and leave the edit unseen. A turned-down request is held as a
+        // conflict; any other failure is retried later.
+        if let status = error.statusCode, (400..<500).contains(status) {
             return .conflict(kind: .validation, serverRevision: nil, message: message)
         }
 
-        throw error
+        return .retry(afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: mutation.retryCount), message: message)
     }
 
     private static func coverProviderSecretBlockerResourceID(in apiError: APIError) -> String? {
@@ -4391,6 +4417,12 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
 
         var index = 0
         while index < originalQueue.mutations.count {
+            // A cancelled drain stops here. Every mutation not yet sent stays queued, unchanged, for the
+            // next sync trigger; a cancelled request must not be sent again from inside a cancelled task.
+            if Task.isCancelled {
+                remaining.append(contentsOf: originalQueue.mutations.dropFirst(index).map { $0.replacingResourceIDs(idReplacements) })
+                break
+            }
             let mutation = originalQueue.mutations[index].replacingResourceIDs(idReplacements)
             guard !blockedDependencyKeys.contains(mutation.dependencyKey) else {
                 remaining.append(mutation)
@@ -4454,6 +4486,15 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 blockedDependencyKeys.insert(mutation.dependencyKey)
                 blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
             case .retry(let afterSeconds, let message):
+                if Task.isCancelled {
+                    // The request was cut short by cancellation (a screen change cancels the sync task that
+                    // was running). Nothing failed, so do not back the edit off: keep it, unchanged, ready
+                    // for the next drain, which may start right away.
+                    remaining.append(mutation)
+                    remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1).map { $0.replacingResourceIDs(idReplacements) })
+                    index = originalQueue.mutations.count
+                    continue
+                }
                 retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, afterSeconds)
                 remaining.append(mutation.recordingRetry(
                     message: message,

@@ -32,16 +32,27 @@ public enum RecipeEditorDraftChangePlanner {
             ))
         }
 
-        for step in draft.steps {
+        // The server's order of the steps that survive the deletes above. A reorder moves one step to a
+        // position and shifts the rest, so tracking it tells us when a step still needs a move even though
+        // its own number did not change (an earlier move can push it off its place).
+        var serverOrder = original.steps.map(\.id).filter { currentStepsByID[$0] != nil }
+
+        for (index, step) in draft.steps.enumerated() {
             guard let originalStep = originalStepsByID[step.id] else {
                 actions.append(.createStep(
                     clientMutationID: clientMutationID("create-step-\(step.id)"),
                     step: step
                 ))
+                serverOrder.insert(step.id, at: min(index, serverOrder.count))
                 continue
             }
 
-            if originalStep.stepNum != step.stepNum {
+            let isOutOfPlace = serverOrder.indices.contains(index) && serverOrder[index] != step.id
+            if originalStep.stepNum != step.stepNum || isOutOfPlace {
+                if let from = serverOrder.firstIndex(of: step.id) {
+                    serverOrder.remove(at: from)
+                    serverOrder.insert(step.id, at: min(index, serverOrder.count))
+                }
                 actions.append(.reorderStep(
                     stepID: step.id,
                     toStepNum: step.stepNum,

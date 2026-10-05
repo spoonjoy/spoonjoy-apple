@@ -108,6 +108,9 @@ struct SpoonjoyRootView: View {
             rootContent
 #endif
         }
+#if DEBUG
+            .overlay(alignment: .top) { journeySyncLog }
+#endif
             .task {
 #if DEBUG
                 // The shopping UI test fixture supplies its own fabricated content state and must stay
@@ -135,6 +138,23 @@ struct SpoonjoyRootView: View {
             }
 #endif
     }
+
+#if DEBUG
+    /// Journey runs only: a one-pixel element that carries the recent sync requests and the server's answers, so a
+    /// failed journey can say which request was turned down. Reading `bootstrapState` re-renders it after each sync.
+    @ViewBuilder private var journeySyncLog: some View {
+        if NativeSyncDiagnostics.isRequested(environment: ProcessInfo.processInfo.environment) {
+            let _ = NativeSyncDiagnostics.shared.enable()
+            let _ = liveStore.bootstrapState
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("journey.syncLog")
+                .accessibilityValue(NativeSyncDiagnostics.shared.summary)
+                .allowsHitTesting(false)
+        }
+    }
+#endif
 
     @ViewBuilder private var rootContent: some View {
         switch liveStore.bootstrapState {
@@ -222,6 +242,13 @@ struct SpoonjoyRootView: View {
         }
     }
 
+    private var liveStoreSyncRequest: @MainActor @Sendable () async -> Void {
+        { [liveStore] in
+            liveStore.requestSync(trigger: .foreground)
+            await liveStore.waitForSync()
+        }
+    }
+
     private func platformNavigation(
         contentState: NativeShellContentState,
         syncTriggerCoordinator overrideSyncTriggerCoordinator: NativeSyncTriggerCoordinator? = nil
@@ -245,8 +272,15 @@ struct SpoonjoyRootView: View {
             discardQueuedMutation: { clientMutationID in
                 try await liveStore.discardQueuedMutation(clientMutationID: clientMutationID)
             },
+            retryHeldChanges: {
+                await liveStore.retryHeldChanges()
+            },
+            requestSync: overrideSyncTriggerCoordinator == nil ? liveStoreSyncRequest : nil,
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
+            },
+            executeRecipeCreateRequest: { request in
+                try await liveStore.executeRecipeCreateRequest(request)
             },
             executeSettingsActionRequest: { request, responseHandling in
                 try await liveStore.executeSettingsActionRequest(request, responseHandling: responseHandling)

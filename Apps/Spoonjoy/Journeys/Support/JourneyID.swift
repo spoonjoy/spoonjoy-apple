@@ -38,6 +38,15 @@ enum JourneyID {
     static func editorIngredientQuantity(step: Int, ingredient: Int) -> String { "editor.step.\(step).ingredient.\(ingredient).quantity" }
     static func editorIngredientUnit(step: Int, ingredient: Int) -> String { "editor.step.\(step).ingredient.\(ingredient).unit" }
 
+    /// Reorder controls: a step's move buttons, and an ingredient's reorder menu with its Move Up and Move Down items.
+    static func editorStepMoveUp(_ step: Int) -> String { "editor.step.\(step).moveUp" }
+    static func editorStepMoveDown(_ step: Int) -> String { "editor.step.\(step).moveDown" }
+
+    /// The create editor's photo row: the picker button and the "Photo ready" label that shows a photo is chosen.
+    static let editorPhotoPick = "editor.photo.pick"
+    static let editorPhotoThumbnail = "editor.photo.thumbnail"
+    static let editorPhotoReady = "editor.photo.ready"
+
     /// The "Paste Ingredients" button on a step, and its sheet: the text box, the add button and the preview rows.
     static func editorStepPasteIngredients(_ step: Int) -> String { "editor.step.\(step).pasteIngredients" }
     static let editorPasteText = "editor.paste.text"
@@ -51,6 +60,11 @@ enum JourneyID {
 
     static let recipeDetailTitle = "recipeDetail.title"
     static func recipeDetailStep(_ step: Int) -> String { "recipeDetail.step.\(step)" }
+
+    /// The recipe's cover image, shown once it has a real cover.
+    static let recipeDetailCover = "recipeDetail.cover"
+    /// The "Edit recipe" item in the detail page's actions menu.
+    static let recipeDetailEdit = "recipeDetail.edit"
 
     /// The recipe detail page's actions menu ("Recipe actions" on a phone, "More" on a wide screen).
     static let recipeDetailActions = "recipeDetail.actions"

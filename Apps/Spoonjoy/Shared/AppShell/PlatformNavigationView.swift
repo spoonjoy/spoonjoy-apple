@@ -22,6 +22,10 @@ struct PlatformNavigationView: View {
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
     @State private var splitColumnVisibility: NavigationSplitViewVisibility = .automatic
     @State private var isSidebarCookbookContentsExpanded = true
+    /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
+    @State private var isRetryingCoverUpload = false
 #if os(iOS)
     @State private var shellWindowSize: CGSize = .zero
     @State private var spreadSidebarHiddenAt: Date?
@@ -33,7 +37,12 @@ struct PlatformNavigationView: View {
     private let queueMutation: @Sendable (NativeQueuedMutation) async throws -> Void
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
+    private let retryHeldChanges: @Sendable () async -> Void
+    /// Asks the live store to sync. The store owns the sync task, so this view going away cannot cancel it.
+    /// Nil only for the hermetic fixture, which supplies its own coordinator.
+    private let requestSync: (@MainActor @Sendable () async -> Void)?
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let executeRecipeCreateRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> String?
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
     private let performShoppingMutationHandler: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
@@ -70,7 +79,10 @@ struct PlatformNavigationView: View {
         queueMutation: @escaping @Sendable (NativeQueuedMutation) async throws -> Void,
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
+        retryHeldChanges: @escaping @Sendable () async -> Void = {},
+        requestSync: (@MainActor @Sendable () async -> Void)? = nil,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        executeRecipeCreateRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> String?,
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
         performShoppingMutation: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
@@ -107,7 +119,10 @@ struct PlatformNavigationView: View {
         self.queueMutation = queueMutation
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
+        self.retryHeldChanges = retryHeldChanges
+        self.requestSync = requestSync
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
+        self.executeRecipeCreateRequest = executeRecipeCreateRequest
         self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
         self.performShoppingMutationHandler = performShoppingMutation
@@ -183,12 +198,26 @@ struct PlatformNavigationView: View {
             .spoonjoyEntityActivity(routeEntityIdentifier)
 #endif
             .task(id: contentState.environment.rawValue) {
+                // With a live store, launch and environment changes already sync through the store, so a
+                // second sync here would only republish the same content under a screen the person is using.
+                guard requestSync == nil else { return }
                 await runForegroundSync()
+            }
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                if NativeSceneSyncPolicy.shouldSync(wasActive: oldPhase == .active, isActive: newPhase == .active) {
+                    Task { @MainActor in
+                        await runForegroundSync()
+                    }
+                }
             }
     }
 
     /// Runs the foreground sync and purges any entity indexes it reports. Also backs pull-to-refresh.
     @MainActor private func runForegroundSync() async {
+        if let requestSync {
+            await requestSync()
+            return
+        }
         if let report = try? await syncTriggerCoordinator.handle(.foreground) {
             for request in report.shoppingEntityPurgeRequests {
                 await purgeShoppingEntityIndexesHandler(request)
@@ -712,6 +741,31 @@ struct PlatformNavigationView: View {
         .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 
+    private func recipeDetailRoute(id: String) -> some View {
+        RecipeDetailRouteView(
+            recipeID: id,
+            repository: recipeCatalogRepository,
+            spoonRepository: spoonCookLogRepository,
+            initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
+            loadingTitle: recipeLoadingTitle(id: id),
+            actionConnectivity: recipeActionConnectivity,
+            shoppingViewModel: shoppingViewModel,
+            context: recipeDetailContext(for:),
+            actionPlanner: { viewModel, context in
+                recipeActionsViewModel(for: viewModel, context: context)
+            },
+            spoonCookLogViewModel: spoonCookLogViewModel(for:summary:),
+            spoonCookLogDraft: spoonCookLogDraft(for:),
+            openRoute: openRoute,
+            performRecipeAction: performRecipeAction,
+            performSpoonCookLogAction: performSpoonCookLogAction,
+            recordSpoonCookLogDraft: recordSpoonCookLogDraft(_:forRecipeID:),
+            discardSpoonCookLogConflict: discardSpoonCookLogConflict(clientMutationID:),
+            performShoppingAction: performShoppingAction,
+            onDismissOfflineIndicator: dismissOfflineIndicator,
+        )
+    }
+
     @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
         switch route {
         case .kitchen:
@@ -728,28 +782,24 @@ struct PlatformNavigationView: View {
         case .savedRecipes:
             SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
         case .recipeDetail(let id, .detail):
-            RecipeDetailRouteView(
-                recipeID: id,
-                repository: recipeCatalogRepository,
-                spoonRepository: spoonCookLogRepository,
-                initialViewModel: recipe(id: id).map(recipeDetailScreenViewModel(for:)),
-                loadingTitle: recipeLoadingTitle(id: id),
-                actionConnectivity: recipeActionConnectivity,
-                shoppingViewModel: shoppingViewModel,
-                context: recipeDetailContext(for:),
-                actionPlanner: { viewModel, context in
-                    recipeActionsViewModel(for: viewModel, context: context)
-                },
-                spoonCookLogViewModel: spoonCookLogViewModel(for:summary:),
-                spoonCookLogDraft: spoonCookLogDraft(for:),
-                openRoute: openRoute,
-                performRecipeAction: performRecipeAction,
-                performSpoonCookLogAction: performSpoonCookLogAction,
-                recordSpoonCookLogDraft: recordSpoonCookLogDraft(_:forRecipeID:),
-                discardSpoonCookLogConflict: discardSpoonCookLogConflict(clientMutationID:),
-                performShoppingAction: performShoppingAction,
-                onDismissOfflineIndicator: dismissOfflineIndicator
-            )
+            VStack(spacing: 0) {
+                if let held = recipeEditorConflict(for: id) {
+                    HeldChangeBanner(
+                        message: held.message,
+                        retry: { await retryHeldChanges() },
+                        discard: { try? await discardRecipeEditorLocalChange(held) }
+                    )
+                }
+                if let pending = pendingCoverUploads[id] {
+                    PendingCoverUploadBanner(
+                        message: pending.message,
+                        isRetrying: isRetryingCoverUpload,
+                        retry: { await retryCoverUpload(pending) },
+                        dismiss: { pendingCoverUploads[id] = nil }
+                    )
+                }
+                recipeDetailRoute(id: id)
+            }
         case .recipeDetail(let id, .cook):
             CookModeRouteView(
                 recipeID: id,
@@ -770,6 +820,7 @@ struct PlatformNavigationView: View {
                     mutationDidPlan: handleRecipeEditorPlan,
                     mutationsDidQueue: queueMutations,
                     conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
+                    createRecipeWithPhoto: createRecipeWithPhoto,
                     close: openRoute,
                     shellOfflineIndicatorState: offlineIndicatorState,
                     onDismissOfflineIndicator: dismissOfflineIndicator
@@ -1648,6 +1699,58 @@ struct PlatformNavigationView: View {
         }
 
         return nil
+    }
+
+    private func createRecipeWithPhoto(_ plan: RecipeEditorMutationPlan, photo: NativeStagedMediaUpload) async throws -> AppRoute {
+        guard let request = plan.remoteRequestBuilder else {
+            throw RecipeEditorPlanningError.missingQueuedMutation
+        }
+        let result: RecipeCreateWithPhotoResult
+        do {
+            result = try await RecipeCreateWithPhoto.run(
+                photo: photo,
+                clientMutationID: Self.coverUploadMutationID,
+                create: { try await executeRecipeCreateRequest(request) },
+                upload: performCoverAction
+            )
+        } catch let error as APITransportError where error.isOffline {
+            // The create never reached the server: queue it as a normal offline create. The photo cannot
+            // follow without a recipe ID, so it can be added from Photo Studio once the recipe syncs.
+            if let fallback = plan.offlineFallbackMutation {
+                try await queueMutation(fallback)
+                return plan.successRoute ?? .recipes
+            }
+            throw error
+        }
+        if case .photoPending(let pending) = result {
+            pendingCoverUploads[pending.recipeID] = pending
+        }
+        return result.route
+    }
+
+    @MainActor private func retryCoverUpload(_ pending: PendingRecipeCoverUpload) async {
+        guard !isRetryingCoverUpload else {
+            return
+        }
+        isRetryingCoverUpload = true
+        defer { isRetryingCoverUpload = false }
+        let result = await RecipeCreateWithPhoto.retry(
+            pending,
+            clientMutationID: Self.coverUploadMutationID,
+            upload: performCoverAction
+        )
+        switch result {
+        case .uploaded(let recipeID):
+            pendingCoverUploads[recipeID] = nil
+        case .photoPending(let stillPending):
+            pendingCoverUploads[stillPending.recipeID] = stillPending
+        case .createdWithoutID:
+            break
+        }
+    }
+
+    private nonisolated static func coverUploadMutationID(_ prefix: String) -> String {
+        "\(prefix)-\(Date().timeIntervalSince1970.formatted(.number.precision(.fractionLength(0))))-\(UUID().uuidString.prefix(8).lowercased())"
     }
 
     private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) async throws {
