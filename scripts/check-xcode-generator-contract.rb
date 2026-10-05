@@ -117,17 +117,26 @@ matrix = ROOT.join("scripts/validate-native-local.sh").read
   "ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1",
   "bundler-cache: true",
   'xcode_version="$(xcodebuild -version)"',
-  'minimum_xcode_version="26.5"',
+  'minimum_xcode_version="27.0"',
+  'sudo xcode-select -s /Applications/Xcode_27.0.app',
+  'runs-on: xcode-27',
   'version="${first_line#Xcode }"',
   "bundle exec ruby scripts/check-xcode-project-contract.rb",
   "bundle exec ruby scripts/check-xcode-generator-contract.rb"
 ].each do |token|
   fail_check("native workflow missing #{token}") unless workflow.include?(token)
 end
+Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
+  text = File.read(path)
+  next unless text.include?("xcodebuild") || text.include?("runs-on: xcode-27") || text.include?("runs-on: macos")
+  fail_check("#{File.basename(path)} must not run on macos-26 (Xcode 26 default)") if text.match?(/runs-on:\s*macos-26/)
+  fail_check("#{File.basename(path)} must select Xcode 27.0 explicitly") if text.include?("runs-on: xcode-27") && !text.include?("sudo xcode-select -s /Applications/Xcode_27.0.app")
+  fail_check("#{File.basename(path)} still requires an Xcode 26 minimum") if text.include?('minimum_xcode_version="26')
+end
 fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep")
 fail_check("local matrix must not pipe xcodebuild -version into grep -q") if matrix.include?("xcodebuild -version | grep")
 fail_check("local matrix missing captured xcodebuild version check") unless matrix.include?('xcode_version="$(xcodebuild -version)"') &&
-  matrix.include?('minimum_xcode_version="26.5"') &&
+  matrix.include?('minimum_xcode_version="27.0"') &&
   matrix.include?('version="${first_line#Xcode }"')
 
 local_matrix = LOCAL_MATRIX.read

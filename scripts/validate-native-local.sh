@@ -324,7 +324,7 @@ else
   record_step "stale noncanonical blocker scan" "fail" "stale_noncanonical_blockers" "$stale_blocker_scan_path" "true" "" "$stale_blocker_details"
   overall_status=1
 fi
-run_required "xcode version" "$apple_dir/matrix-xcode-version.log" bash -c 'xcode_version="$(xcodebuild -version)" && printf "%s\n" "$xcode_version" && first_line="$(printf "%s\n" "$xcode_version" | sed -n "1p")" && minimum_xcode_version="26.5" && version="${first_line#Xcode }" && awk -v version="$version" -v minimum="$minimum_xcode_version" "BEGIN { split(version, actual, \".\"); split(minimum, required, \".\"); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }"' || overall_status=1
+run_required "xcode version" "$apple_dir/matrix-xcode-version.log" bash -c 'xcode_version="$(xcodebuild -version)" && printf "%s\n" "$xcode_version" && first_line="$(printf "%s\n" "$xcode_version" | sed -n "1p")" && minimum_xcode_version="27.0" && version="${first_line#Xcode }" && awk -v version="$version" -v minimum="$minimum_xcode_version" "BEGIN { split(version, actual, \".\"); split(minimum, required, \".\"); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }"' || overall_status=1
 run_required "ruby bundle check" "$apple_dir/matrix-bundle-check.log" scripts/bundle-check.sh || overall_status=1
 run_required "ruby advisory scan" "$apple_dir/matrix-ruby-advisory-scan.log" ruby scripts/scan-ruby-advisories.rb --output "$apple_dir/matrix-ruby-advisory-report.json" || overall_status=1
 run_required "swift tests" "$apple_dir/matrix-swift-test.log" swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors || overall_status=1

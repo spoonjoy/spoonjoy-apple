@@ -36,7 +36,7 @@ required_phrases = [
   "BootstrapDebug",
   "IPHONEOS_DEPLOYMENT_TARGET = 26.5",
   "MACOSX_DEPLOYMENT_TARGET = 26.2",
-  "Xcode 26.5",
+  "Xcode 27.0",
   "macOS 26.2",
   "App Intents",
   "Spotlight",
