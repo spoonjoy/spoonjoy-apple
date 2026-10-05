@@ -26,6 +26,7 @@ struct RecipeEditorView: View {
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var stagedPhoto: NativeStagedMediaUpload?
     @State private var photoMessage: String?
+    @State private var isShowingCamera = false
 #if os(iOS)
     @Environment(\.editMode) private var editMode: Binding<EditMode>?
 #endif
@@ -239,6 +240,19 @@ struct RecipeEditorView: View {
             EditButton()
         }
 #endif
+#if os(iOS)
+        .fullScreenCover(isPresented: $isShowingCamera) {
+            CameraCapture { data in
+                isShowingCamera = false
+                if let data {
+                    Task { @MainActor in
+                        await stageCameraImage(data)
+                    }
+                }
+            }
+            .ignoresSafeArea()
+        }
+#endif
         .sheet(isPresented: Binding(get: { pasteStepID != nil }, set: { if !$0 { pasteStepID = nil } })) {
             if let stepID = pasteStepID, let step = draft.steps.first(where: { $0.id == stepID }) {
                 IngredientPasteSheet(
@@ -267,7 +281,7 @@ struct RecipeEditorView: View {
 
     @ViewBuilder private var photoSection: some View {
         Section("Photo") {
-            if activeViewModel.connectivity == .online {
+            do {
                 let hasPhoto = stagedPhoto != nil
                 HStack(alignment: .center, spacing: 12) {
                     if journeyPhotoFixtureEnabled {
@@ -294,6 +308,18 @@ struct RecipeEditorView: View {
                                 await stagePhoto(item)
                             }
                         }
+                    }
+
+                    if !journeyPhotoFixtureEnabled,
+                       RecipePhotoSource.available(cameraAvailable: Self.cameraAvailable).contains(.camera) {
+                        Button {
+                            isShowingCamera = true
+                        } label: {
+                            Label("Take Photo", systemImage: "camera")
+                                .font(KitchenTableTheme.uiLabel)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("editor.photo.camera")
                     }
 
                     if let stagedPhoto, let thumbnail = Self.thumbnail(for: stagedPhoto.data) {
@@ -324,13 +350,13 @@ struct RecipeEditorView: View {
                         .accessibilityIdentifier("editor.photo.remove")
                     }
                 }
-                Text(hasPhoto
-                    ? "Uploads as the cover when you save."
-                    : "Optional. Without a photo, Spoonjoy makes a placeholder cover.")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
-            } else {
-                Text("Photos upload once you're online. You can add one from the recipe's Photo Studio after it syncs.")
+                Text(activeViewModel.connectivity == .offline
+                    ? (hasPhoto
+                        ? "You're offline. The photo is kept on this device and uploads as the cover once the recipe syncs."
+                        : "Optional. You're offline; a photo you add uploads once the recipe syncs.")
+                    : (hasPhoto
+                        ? "Uploads as the cover when you save."
+                        : "Optional. Without a photo, Spoonjoy makes a placeholder cover."))
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
             }
@@ -388,6 +414,25 @@ struct RecipeEditorView: View {
             selectedPhotoItem = nil
             photoMessage = "Photo could not be loaded."
         }
+    }
+
+    private static var cameraAvailable: Bool {
+#if os(iOS)
+        UIImagePickerController.isSourceTypeAvailable(.camera)
+#else
+        false
+#endif
+    }
+
+    @MainActor private func stageCameraImage(_ data: Data?) async {
+        guard let data else {
+            photoMessage = "Photo could not be loaded."
+            return
+        }
+        await stageCandidate(RecipePhotoSource.cameraUpload(
+            jpegData: data,
+            stageID: "recipe-create-photo-\(UUID().uuidString)"
+        ))
     }
 
     @MainActor private func stageCandidate(_ candidate: NativeStagedMediaUpload) async {
@@ -502,8 +547,7 @@ struct RecipeEditorView: View {
             } else if let plannedAction = plannedActions.first,
                       let stagedPhoto,
                       draft.recipeID == nil,
-                      plannedAction.plan.remoteRequestBuilder != nil,
-                      plannedAction.plan.queuedMutation == nil {
+                      plannedAction.plan.remoteRequestBuilder != nil || plannedAction.plan.queuedMutation?.queueableKind == .recipeCreate {
                 do {
                     let route = try await createRecipeWithPhoto(plannedAction.plan, stagedPhoto)
                     blockedMessage = nil
@@ -766,3 +810,43 @@ private struct RecipeEditorActionExecutionError: Error {
     let action: RecipeEditorAction
     let underlyingError: Error
 }
+
+#if os(iOS)
+import UIKit
+
+/// The system camera. `onFinish` gets JPEG data for a photo taken, or nil when the chef cancels or the
+/// picture cannot be encoded.
+private struct CameraCapture: UIViewControllerRepresentable {
+    let onFinish: (Data?) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onFinish: onFinish)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let onFinish: (Data?) -> Void
+
+        init(onFinish: @escaping (Data?) -> Void) {
+            self.onFinish = onFinish
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            let image = info[.originalImage] as? UIImage
+            onFinish(image?.jpegData(compressionQuality: 0.9))
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            onFinish(nil)
+        }
+    }
+}
+#endif

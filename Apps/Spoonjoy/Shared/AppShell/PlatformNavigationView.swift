@@ -1707,7 +1707,12 @@ struct PlatformNavigationView: View {
 
     private func createRecipeWithPhoto(_ plan: RecipeEditorMutationPlan, photo: NativeStagedMediaUpload) async throws -> AppRoute {
         guard let request = plan.remoteRequestBuilder else {
-            throw RecipeEditorPlanningError.missingQueuedMutation
+            // Offline from the start: queue the create with its photo.
+            guard let queued = plan.queuedMutation else {
+                throw RecipeEditorPlanningError.missingQueuedMutation
+            }
+            try await queueCreateWithPhoto(queued, photo: photo)
+            return plan.successRoute ?? .recipes
         }
         let result: RecipeCreateWithPhotoResult
         do {
@@ -1718,10 +1723,10 @@ struct PlatformNavigationView: View {
                 upload: performCoverAction
             )
         } catch let error as APITransportError where error.isOffline {
-            // The create never reached the server: queue it as a normal offline create. The photo cannot
-            // follow without a recipe ID, so it can be added from Photo Studio once the recipe syncs.
+            // The create never reached the server: queue it with its photo. The photo uploads after the
+            // create syncs.
             if let fallback = plan.offlineFallbackMutation {
-                try await queueMutation(fallback)
+                try await queueCreateWithPhoto(fallback, photo: photo)
                 return plan.successRoute ?? .recipes
             }
             throw error
@@ -1730,6 +1735,16 @@ struct PlatformNavigationView: View {
             pendingCoverUploads[pending.recipeID] = pending
         }
         return result.route
+    }
+
+    private func queueCreateWithPhoto(_ create: NativeQueuedMutation, photo: NativeStagedMediaUpload) async throws {
+        let mutations = RecipeCreateOfflineQueue.mutations(
+            create: create,
+            photo: photo,
+            clientMutationID: Self.coverUploadMutationID("cover-upload"),
+            createdAt: ISO8601DateFormatter().string(from: Date())
+        )
+        _ = try await queueMutations(mutations, false)
     }
 
     @MainActor private func retryCoverUpload(_ pending: PendingRecipeCoverUpload) async {

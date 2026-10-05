@@ -51,6 +51,67 @@ public enum RecipeCreateResponse {
     }
 }
 
+/// Where a chef can get a recipe photo from.
+public enum RecipePhotoSource: Equatable, Sendable {
+    case library
+    case camera
+
+    /// The library is always offered. The camera is offered only where the device has one, so the
+    /// simulator and Macs without a camera show the library alone.
+    public static func available(cameraAvailable: Bool) -> [RecipePhotoSource] {
+        cameraAvailable ? [.library, .camera] : [.library]
+    }
+
+    /// A photo taken with the camera, ready to stage like a library pick.
+    public static func cameraUpload(jpegData: Data, stageID: String) -> NativeStagedMediaUpload {
+        NativeStagedMediaUpload(
+            localStageID: stageID,
+            fileName: "cover.jpg",
+            contentType: "image/jpeg",
+            data: jpegData
+        )
+    }
+}
+
+public enum RecipeCreateOfflineQueue {
+    /// The queue entries for a recipe created while offline with a photo chosen: the create, then a cover
+    /// upload addressed to the recipe's local ID. When the create succeeds the sync engine swaps that local ID
+    /// for the server's, so the upload runs second and against the real recipe. If the create is turned
+    /// down, the engine holds the upload with it. The photo bytes are saved to the staged media directory
+    /// when these are queued, so they survive a relaunch.
+    public static func mutations(
+        create: NativeQueuedMutation,
+        photo: NativeStagedMediaUpload,
+        clientMutationID: String,
+        createdAt: String
+    ) -> [NativeQueuedMutation] {
+        guard create.queueableKind == .recipeCreate, let localRecipeID = create.optimisticRecipeID else {
+            return [create]
+        }
+        return [
+            create,
+            .coverUpload(
+                recipeID: localRecipeID,
+                image: photo,
+                clientMutationID: clientMutationID,
+                activate: true,
+                generateEditorial: false,
+                createdAt: createdAt
+            )
+        ]
+    }
+}
+
+public extension NativeStagedMediaDirectory {
+    /// Deletes the saved photo files of cover uploads the server has accepted. A file that is already gone is
+    /// fine. Other kinds are left alone: a spoon draft can still point at its own file.
+    func deleteMedia(ofDrained mutations: [NativeQueuedMutation]) {
+        for stageID in mutations.filter({ $0.queueableKind == .coverUpload }).flatMap(\.stagedMediaUploadStageIDs) {
+            try? delete(localStageID: stageID)
+        }
+    }
+}
+
 public enum RecipeCreateWithPhotoResult: Equatable, Sendable {
     /// The recipe exists and the photo is its cover.
     case uploaded(recipeID: String)

@@ -3438,6 +3438,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: request.environment
             )
         }
+        dependencies.stagedMediaDirectory?.deleteMedia(ofDrained: report.drainedMutations)
         let boundAuthState = try await authSessionStateByBindingReport(report, session: session)
         clearDrainedCaptureImports(
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
