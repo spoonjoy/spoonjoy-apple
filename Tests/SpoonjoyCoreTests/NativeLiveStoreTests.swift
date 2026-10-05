@@ -613,6 +613,53 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store keeps a two-step swap visible after the editor batch drains online")
+    func liveStoreKeepsStepSwapVisibleAfterEditorBatchDrains() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_swap", title: "Swap Pasta", steps: [
+                RecipeStep(id: "step_basil", stepNum: 1, stepTitle: "Tear the basil", description: "Tear.", duration: nil, ingredients: []),
+                RecipeStep(id: "step_spaghetti", stepNum: 2, stepTitle: "Cook the spaghetti", description: "Boil.", duration: nil, ingredients: [])
+            ])
+            let syncData = try Self.sampleSyncData(
+                recipe: recipe,
+                shoppingItem: Self.sampleShoppingItem(id: "item_swap", name: "salt")
+            )
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [
+                        .result(.syncData(syncData)),
+                        .result(.syncData(syncData))
+                    ],
+                    sends: [
+                        .success(serverRevision: .updatedAt("2026-06-25T18:30:00.000Z")),
+                        .success(serverRevision: .updatedAt("2026-06-25T18:30:01.000Z")),
+                        .success(serverRevision: .updatedAt("2026-06-25T18:30:02.000Z"))
+                    ]
+                )
+            )
+
+            await liveStore.bootstrap()
+            let result = try await liveStore.queueMutations([
+                NativeQueuedMutation.recipeUpdate(recipeID: "recipe_swap", clientMutationID: "cm_swap_save", title: "Swap Pasta", description: nil, servings: "2", createdAt: Self.isoString(Self.now)),
+                NativeQueuedMutation.recipeStepReorder(recipeID: "recipe_swap", stepID: "step_spaghetti", toStepNum: 1, clientMutationID: "cm_swap_a", createdAt: Self.isoString(Self.now)),
+                NativeQueuedMutation.recipeStepReorder(recipeID: "recipe_swap", stepID: "step_basil", toStepNum: 2, clientMutationID: "cm_swap_b", createdAt: Self.isoString(Self.now))
+            ], drainImmediately: true)
+
+            #expect(result.drainedClientMutationIDs == ["cm_swap_save", "cm_swap_a", "cm_swap_b"])
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected liveSynced; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipe(id: "recipe_swap")?.steps.map(\.id) == ["step_spaghetti", "step_basil"])
+        }
+    }
+
+    @MainActor
     @Test("live store keeps drained shopping mutations visible and cached after immediate online drain")
     func liveStoreKeepsDrainedShoppingMutationsVisibleAndCachedAfterImmediateOnlineDrain() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -1335,6 +1382,52 @@ struct NativeLiveStoreTests {
                 return
             }
             #expect(content.recipes.map(\.id) == ["recipe_created"])
+        }
+    }
+
+    @MainActor
+    @Test("live store sends editor requests in order, refreshes once, and reports a partial failure")
+    func liveStoreSendsEditorRequestsInOrder() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_ordered", title: "Ordered Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil)
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let requests = [
+                try RecipeStepRequests.reorderStep(recipeID: "recipe_ordered", clientMutationID: "cm_a", stepID: "step_a", toStepNum: 1),
+                try RecipeStepRequests.reorderStep(recipeID: "recipe_ordered", clientMutationID: "cm_b", stepID: "step_b", toStepNum: 2)
+            ]
+
+            let okRecorder = RecipeEditorRequestRecorder()
+            let okStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                recipeEditorAPITransport: { _ in OrderedRecipeEditorAPITransport(failOnCall: nil, recorder: okRecorder) }
+            )
+            try await okStore.executeRecipeEditorRequests(requests)
+            #expect(await okRecorder.paths == ["api/v1/recipes/recipe_ordered/steps/reorder", "api/v1/recipes/recipe_ordered/steps/reorder"])
+            guard case .liveSynced = okStore.bootstrapState else {
+                Issue.record("Expected live sync after the requests; got \(okStore.bootstrapState)")
+                return
+            }
+
+            let failRecorder = RecipeEditorRequestRecorder()
+            let failStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)),
+                recipeEditorAPITransport: { _ in OrderedRecipeEditorAPITransport(failOnCall: 2, recorder: failRecorder) }
+            )
+            do {
+                try await failStore.executeRecipeEditorRequests(requests)
+                Issue.record("Expected the second request to fail")
+            } catch let error as RecipeEditorBatchSendError {
+                #expect(error.sentCount == 1)
+                #expect((error.underlyingError as? APITransportError)?.statusCode == 400)
+            }
         }
     }
 
@@ -6976,7 +7069,8 @@ private extension NativeLiveStoreTests {
         id: String,
         title: String,
         ingredients: [RecipeIngredient] = [],
-        recentSpoons: [RecipeDetailRecentSpoon] = []
+        recentSpoons: [RecipeDetailRecentSpoon] = [],
+        steps customSteps: [RecipeStep]? = nil
     ) -> Recipe {
         let canonicalURL = URL(string: "https://spoonjoy.app/recipes/\(id)")!
         let chef = ChefSummary(id: "chef_ari", username: "ari")
@@ -7001,7 +7095,7 @@ private extension NativeLiveStoreTests {
             ),
             createdAt: isoString(now),
             updatedAt: isoString(now),
-            steps: [
+            steps: customSteps ?? [
                 RecipeStep(
                     id: "step_\(id)",
                     stepNum: 1,
@@ -7264,5 +7358,34 @@ private struct CreateRecipeAPITransport: SpoonjoyAPITransport {
             throw NativeLiveStoreTestError.unexpectedEnvelopeType
         }
         return APIEnvelope(requestID: "recipe-create-ok", data: data)
+    }
+}
+
+private struct OrderedRecipeEditorAPITransport: SpoonjoyAPITransport {
+    let failOnCall: Int?
+    let recorder: RecipeEditorRequestRecorder
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration _: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        let call = await recorder.record(request.pathComponents.joined(separator: "/"))
+        if call == failOnCall {
+            throw APITransportError(kind: .apiError, requestID: nil, statusCode: 400, apiError: nil, retryDecision: .doNotRetry)
+        }
+        guard let data = JSONValue.object([:]) as? Value else {
+            throw NativeLiveStoreTestError.unexpectedEnvelopeType
+        }
+        return APIEnvelope(requestID: "ordered-ok", data: data)
+    }
+}
+
+private actor RecipeEditorRequestRecorder {
+    private(set) var paths: [String] = []
+
+    func record(_ path: String) -> Int {
+        paths.append(path)
+        return paths.count
     }
 }

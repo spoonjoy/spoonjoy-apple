@@ -37,6 +37,7 @@ struct PlatformNavigationView: View {
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
+    private let executeRecipeEditorRequests: @MainActor @Sendable ([APIRequestBuilder]) async throws -> Void
     private let executeRecipeCreateRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> String?
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
     private let executeCaptureImportRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse
@@ -75,6 +76,7 @@ struct PlatformNavigationView: View {
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
+        executeRecipeEditorRequests: @escaping @MainActor @Sendable ([APIRequestBuilder]) async throws -> Void,
         executeRecipeCreateRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> String?,
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
         executeCaptureImportRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> RecipeImportResponse,
@@ -113,6 +115,7 @@ struct PlatformNavigationView: View {
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
+        self.executeRecipeEditorRequests = executeRecipeEditorRequests
         self.executeRecipeCreateRequest = executeRecipeCreateRequest
         self.executeSettingsActionRequest = executeSettingsActionRequest
         self.executeCaptureImportRequest = executeCaptureImportRequest
@@ -791,6 +794,7 @@ struct PlatformNavigationView: View {
                     viewModel: editorViewModel,
                     mutationDidPlan: handleRecipeEditorPlan,
                     mutationsDidQueue: queueMutations,
+                    requestsDidSend: executeRecipeEditorRequests,
                     conflictDidDiscardLocalChange: discardRecipeEditorLocalChange,
                     createRecipeWithPhoto: createRecipeWithPhoto,
                     close: openRoute,
