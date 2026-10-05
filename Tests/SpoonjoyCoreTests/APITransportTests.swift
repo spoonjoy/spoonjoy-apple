@@ -1696,7 +1696,7 @@ struct APITransportTests {
             Issue.record("Expected cancelled URL error to throw")
         } catch let error as APITransportError {
             #expect(error.isCancelled)
-            #expect(error.retryDecision == .doNotRetry)
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
             #expect(error.requestID == nil)
         }
 
@@ -1709,8 +1709,33 @@ struct APITransportTests {
             Issue.record("Expected task cancellation to throw")
         } catch let error as APITransportError {
             #expect(error.isCancelled)
-            #expect(error.retryDecision == .doNotRetry)
+            #expect(error.retryDecision == .retrySameRequest(afterSeconds: nil))
             #expect(error.requestID == nil)
+        }
+    }
+
+    @Test("a cancelled sync request leaves its queued edit pending to retry")
+    func cancelledSyncRequestRetries() async throws {
+        let session = RecordingURLSession(responses: [.failure(URLError(.cancelled)), .failure(CancellationError())])
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let retry = NativeSyncMutationResult.retry(
+            afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: 0),
+            message: "Native sync request failed."
+        )
+        for clientMutationID in ["cm_cancelled_url", "cm_cancelled_task"] {
+            let result = try await transport.send(
+                .shoppingAddItem(
+                    name: "limes",
+                    quantity: 1,
+                    unit: "each",
+                    categoryKey: nil,
+                    iconKey: nil,
+                    clientMutationID: clientMutationID,
+                    createdAt: "2026-06-16T12:00:00.000Z"
+                ),
+                configuration: Self.configuration(bearerToken: "sj_access_native")
+            )
+            #expect(result == retry)
         }
     }
 

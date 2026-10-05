@@ -292,7 +292,9 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
                 requestID: nil,
                 statusCode: nil,
                 apiError: nil,
-                retryDecision: .doNotRetry
+                // A cancelled request never reached an answer, so it can be sent again. A queued edit whose
+                // request was cancelled stays pending and goes out on the next drain.
+                retryDecision: .retrySameRequest(afterSeconds: nil)
             )
         }
 
@@ -303,7 +305,7 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
                     requestID: nil,
                     statusCode: nil,
                     apiError: nil,
-                    retryDecision: .doNotRetry
+                    retryDecision: .retrySameRequest(afterSeconds: nil)
                 )
             }
 

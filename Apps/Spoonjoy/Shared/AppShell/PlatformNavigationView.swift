@@ -23,6 +23,7 @@ struct PlatformNavigationView: View {
     @State private var splitColumnVisibility: NavigationSplitViewVisibility = .automatic
     @State private var isSidebarCookbookContentsExpanded = true
     /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
+    @Environment(\.scenePhase) private var scenePhase
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
 #if os(iOS)
@@ -193,6 +194,13 @@ struct PlatformNavigationView: View {
 #endif
             .task(id: contentState.environment.rawValue) {
                 await runForegroundSync()
+            }
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                if NativeSceneSyncPolicy.shouldSync(wasActive: oldPhase == .active, isActive: newPhase == .active) {
+                    Task { @MainActor in
+                        await runForegroundSync()
+                    }
+                }
             }
     }
 

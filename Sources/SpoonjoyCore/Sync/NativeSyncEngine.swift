@@ -3684,6 +3684,14 @@ public enum NativeSyncTriggerEvent: Equatable, Sendable {
     case visibleStaleSurface(NativeVisibleStaleSurface)
 }
 
+/// When the app comes to the front it drains pending edits again, so an edit whose send was cancelled or
+/// failed while the app was in the background goes out as soon as the person returns.
+public enum NativeSceneSyncPolicy {
+    public static func shouldSync(wasActive: Bool, isActive: Bool) -> Bool {
+        !wasActive && isActive
+    }
+}
+
 public protocol NativeSyncTriggerRunning: Sendable {
     func bootstrapAndDrain(
         configuration: APIClientConfiguration,

@@ -1067,6 +1067,14 @@ struct NativeLiveStoreTests {
         }
     }
 
+    @Test("the app drains pending edits when it becomes active, not on other phase changes")
+    func sceneSyncPolicySyncsOnlyWhenBecomingActive() {
+        #expect(NativeSceneSyncPolicy.shouldSync(wasActive: false, isActive: true))
+        #expect(NativeSceneSyncPolicy.shouldSync(wasActive: true, isActive: true) == false)
+        #expect(NativeSceneSyncPolicy.shouldSync(wasActive: true, isActive: false) == false)
+        #expect(NativeSceneSyncPolicy.shouldSync(wasActive: false, isActive: false) == false)
+    }
+
     @MainActor
     @Test("live store queue and conflict discard no-ops leave state untouched")
     func liveStoreQueueAndConflictDiscardNoopsLeaveStateUntouched() async throws {
