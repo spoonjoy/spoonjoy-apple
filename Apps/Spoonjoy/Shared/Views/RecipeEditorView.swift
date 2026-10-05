@@ -18,6 +18,7 @@ struct RecipeEditorView: View {
     @State private var conflictOverride = false
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
+    @State private var pasteStepID: String?
 #if os(iOS)
     @Environment(\.editMode) private var editMode: Binding<EditMode>?
 #endif
@@ -122,6 +123,8 @@ struct RecipeEditorView: View {
                             HStack {
                                 TextField("Ingredient", text: $ingredient.name)
                                     .accessibilityIdentifier("\(ingredientID).name")
+                                    // Typing a whole line such as "2 cups rice" and pressing return fills the quantity and unit.
+                                    .onSubmit { $ingredient.wrappedValue.applyTypedLine() }
                                 TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
                                     .frame(minWidth: 72)
                                     .accessibilityIdentifier("\(ingredientID).quantity")
@@ -149,6 +152,15 @@ struct RecipeEditorView: View {
                         .buttonStyle(.borderless)
                         .disabled(isSubmitting)
                         .accessibilityIdentifier("editor.step.\(step.stepNum).addIngredient")
+
+                        Button {
+                            pasteStepID = step.id
+                        } label: {
+                            Label("Paste Ingredients", systemImage: "doc.on.clipboard")
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(isSubmitting)
+                        .accessibilityIdentifier("editor.step.\(step.stepNum).pasteIngredients")
                     }
                     .padding(.vertical, 6)
                 }
@@ -196,6 +208,16 @@ struct RecipeEditorView: View {
             EditButton()
         }
 #endif
+        .sheet(isPresented: Binding(get: { pasteStepID != nil }, set: { if !$0 { pasteStepID = nil } })) {
+            if let stepID = pasteStepID, let step = draft.steps.first(where: { $0.id == stepID }) {
+                IngredientPasteSheet(
+                    stepNumber: step.stepNum,
+                    makeLocalID: { localID("local_ingredient") },
+                    onAdd: { addIngredients($0, to: stepID) },
+                    onCancel: { pasteStepID = nil }
+                )
+            }
+        }
         .confirmationDialog(activeViewModel.deleteConfirmationTitle, isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("Delete Recipe", role: .destructive) {
                 Task {
@@ -412,6 +434,15 @@ struct RecipeEditorView: View {
             oldestClientMutationID: result.remainingSubmittedClientMutationIDs.first
         )
         return true
+    }
+
+    private func addIngredients(_ ingredients: [RecipeEditorIngredientDraft], to stepID: String) {
+        pasteStepID = nil
+        guard let stepIndex = draft.steps.firstIndex(where: { $0.id == stepID }) else {
+            return
+        }
+
+        draft.steps[stepIndex].ingredients.append(contentsOf: ingredients)
     }
 
     private func addIngredient(to stepID: String) {

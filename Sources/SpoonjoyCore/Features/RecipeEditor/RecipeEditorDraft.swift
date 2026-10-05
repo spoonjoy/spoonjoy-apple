@@ -13,6 +13,24 @@ public struct RecipeEditorIngredientDraft: Identifiable, Equatable, Sendable {
         self.unit = unit
     }
 
+    /// Builds a draft ingredient from a parsed text line, under a caller-supplied local ID.
+    public init(id: String, parsed: ParsedIngredientLine) {
+        self.init(id: id, name: parsed.name, quantity: parsed.quantity, unit: parsed.unit)
+    }
+
+    /// Fills this row from a typed single line such as "2 cups rice". Returns false and leaves the row
+    /// unchanged when the text has no leading quantity, so plain names are never rewritten.
+    @discardableResult
+    public mutating func applyTypedLine() -> Bool {
+        guard let parsed = IngredientTextParser.parseLine(name), parsed.hadExplicitQuantity else {
+            return false
+        }
+        name = parsed.name
+        quantity = parsed.quantity
+        unit = parsed.unit
+        return true
+    }
+
     var apiDraft: RecipeIngredientDraft {
         RecipeIngredientDraft(quantity: quantity, unit: trimmedOptional(unit), name: name.trimmingCharacters(in: .whitespacesAndNewlines))
     }
