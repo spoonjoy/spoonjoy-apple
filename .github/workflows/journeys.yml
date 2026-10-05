@@ -67,6 +67,15 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Boot the simulator
+        # Same guard as the Shopping UI tests job: the first journey launches the app on a simulator that may
+        # still be booting, and two runs on the hosted runner lost it (the test runner crashed while
+        # bootstrapping; Xcode timed out launching the app). Tests start once the simulator reports booted.
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          xcrun simctl bootstatus "${destination##*,id=}" -b
       - name: Create disposable QA accounts
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
       - name: Run journeys

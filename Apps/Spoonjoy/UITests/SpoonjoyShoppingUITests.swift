@@ -123,17 +123,17 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         waitUntilHittable(lemons, named: "The lemons row", in: app)
         lemons.swipeLeft()
         tapWhenHittable(app.buttons["Remove"], named: "The row's revealed Remove swipe action", in: app)
-        tapWhenHittable(app.sheets.firstMatch.buttons["Remove Item"], named: "Remove Item", in: app)
+        tapConfirmation("Remove Item", in: app)
         waitForNoSheet(in: app)
 
         tapOnceItExists(app.buttons["Receipt actions"], named: "Receipt actions", in: app)
         tapWhenHittable(app.buttons["Clear checked"], named: "The Clear checked menu item", in: app)
-        tapWhenHittable(app.sheets.firstMatch.buttons["Clear Completed"], named: "Clear Completed", in: app)
+        tapConfirmation("Clear Completed", in: app)
         waitForNoSheet(in: app)
 
         tapOnceItExists(app.buttons["Receipt actions"], named: "Receipt actions", in: app)
         tapWhenHittable(app.buttons["Clear all"], named: "The Clear all menu item", in: app)
-        tapWhenHittable(app.sheets.firstMatch.buttons["Clear All"], named: "Clear All", in: app)
+        tapConfirmation("Clear All", in: app)
         waitForNoSheet(in: app)
     }
 
@@ -256,6 +256,27 @@ final class SpoonjoyShoppingUITests: XCTestCase {
             file: file,
             line: line
         )
+    }
+
+    /// Taps a button in the confirmation sheet. The sheet is presented after the menu or swipe action that
+    /// opens it has closed, and on the hosted runner that takes well over the 10 seconds `waitUntilHittable`
+    /// allows (run 37366696305: a single accessibility query took 9 seconds and the sheet was on screen
+    /// afterwards). The wait for the sheet itself is therefore longer; the button must still be hittable
+    /// within the usual limit once the sheet is up. Nothing is retried and a missing sheet still fails.
+    private func tapConfirmation(
+        _ title: String,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let sheet = app.sheets.firstMatch
+        XCTAssertTrue(
+            sheet.waitForExistence(timeout: 45),
+            "The confirmation sheet for \(title) never appeared. \(app.debugDescription)",
+            file: file,
+            line: line
+        )
+        tapWhenHittable(sheet.buttons[title], named: title, in: app, file: file, line: line)
     }
 
     private func tapWhenHittable(
