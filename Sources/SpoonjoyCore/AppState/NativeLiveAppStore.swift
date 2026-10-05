@@ -1832,7 +1832,52 @@ public final class NativeLiveAppStore: ObservableObject {
         self.shoppingMutationFeedback = nil
     }
 
+    /// The one task that runs syncs and drains the queue. The store owns it, so no view can cancel a sync by
+    /// going away: a screen change, a closed editor or a dismissed sheet only stops waiting for the result.
+    private var activeSync: Task<Void, Never>?
+    private var syncRerunRequested = false
+
+    /// Asks the store to sync and drain the queue. If a sync is already running, this request joins it and the
+    /// run goes once more afterwards, so edits queued after it read the queue are still sent. Views call this
+    /// and never run the network work themselves. Await the returned task only to wait for the result;
+    /// cancelling the waiter does not cancel the sync.
+    @discardableResult
+    public func requestSync(trigger: NativeSyncTriggerEvent = .foreground) -> Task<Void, Never> {
+        if let activeSync {
+            syncRerunRequested = true
+            return activeSync
+        }
+        let task = Task { @MainActor [self] in
+            repeat {
+                syncRerunRequested = false
+                await performSync(trigger: trigger)
+            } while syncRerunRequested
+            activeSync = nil
+        }
+        activeSync = task
+        return task
+    }
+
+    /// Waits for the sync that is running now, if any. Safe to await from a view task.
+    public func waitForSync() async {
+        await activeSync?.value
+    }
+
     public func bootstrap() async {
+        await requestSync(trigger: .launch).value
+    }
+
+    /// True when the store already holds content the person can see, so a sync can update it in place instead
+    /// of covering the app with the cold-launch loading screen.
+    private var hasPopulatedSnapshot: Bool {
+        let content = currentContentState
+        return !content.recipes.isEmpty
+            || !content.cookbooks.isEmpty
+            || !(content.shoppingList?.items.isEmpty ?? true)
+            || !content.queuedMutations.isEmpty
+    }
+
+    private func performSync(trigger: NativeSyncTriggerEvent) async {
         do {
             guard !dependencies.fixtureFallbackPolicy.allowsProductionFallback() else {
                 throw NativeLiveAppStoreError.fixtureFallbackEnabledInProduction
@@ -1859,8 +1904,12 @@ public final class NativeLiveAppStore: ObservableObject {
                 return
             }
 
-            apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
-            try await bootstrapFromLiveAPI(session: session, trigger: .launch)
+            // The loading screen is for a cold launch with nothing cached. A sync that starts with content on
+            // screen (a saved edit draining, the app becoming active) updates that content in place.
+            if !(hasPopulatedSnapshot && currentContentState.authSessionState == authState) {
+                apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
+            }
+            try await bootstrapFromLiveAPI(session: session, trigger: trigger)
         } catch let error as APITransportError where error.isOffline {
             NativeLiveAppStoreTelemetry.bootstrapOffline(
                 stage: "launch",
@@ -2139,10 +2188,8 @@ public final class NativeLiveAppStore: ObservableObject {
                 offlineIndicatorState: indicator
             )))
             if drainImmediately {
-                // The sync runs as its own task. Saving an edit swaps the editor for the "Restoring your
-                // kitchen" screen, which cancels the task that called this method; a cancelled sync aborts its
-                // request, and the edit would sit in the queue until some later sync trigger.
-                await Task { await bootstrap() }.value
+                // The store's own sync task drains the queue, so the caller going away cannot cancel it.
+                await requestSync(trigger: .foreground).value
             }
             return queuedMutationBatchResult(submittedClientMutationIDs: submittedClientMutationIDs)
         } catch {

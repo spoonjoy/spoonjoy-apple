@@ -1109,6 +1109,81 @@ struct NativeLiveStoreTests {
         }
     }
 
+    @MainActor
+    @Test("a sync requested by a view that is then cancelled still drains the queue")
+    func syncRequestedByCancelledViewStillDrains() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let (liveStore, syncStore, probe) = try await Self.populatedStoreWithProbe(directory: directory, recipeID: "recipe_view")
+            _ = try await liveStore.queueMutations([
+                NativeQueuedMutation.recipeUpdate(recipeID: "recipe_view", clientMutationID: "cm_view", title: "Local", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            ], drainImmediately: false)
+            #expect((try await syncStore.loadQueue()).mutations.count == 1)
+
+            await probe.arm()
+            let view = Task { @MainActor in
+                liveStore.requestSync(trigger: .foreground)
+                await liveStore.waitForSync()
+            }
+            while await !probe.bootstrapStarted() {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            view.cancel()
+            await probe.release()
+            await view.value
+            await liveStore.waitForSync()
+
+            #expect(await probe.sendCount() == 1)
+            #expect(await probe.sawCancellation() == false)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("a sync requested while one is running joins it and goes once more, so late edits are sent")
+    func syncRequestDuringRunCoalescesAndRunsAgain() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let (liveStore, syncStore, probe) = try await Self.populatedStoreWithProbe(directory: directory, recipeID: "recipe_join")
+            await probe.arm()
+            let first = liveStore.requestSync(trigger: .foreground)
+            while await !probe.bootstrapStarted() {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            // An edit queued after the running sync read the queue, then a second request for a sync.
+            _ = try await liveStore.queueMutations([
+                NativeQueuedMutation.recipeUpdate(recipeID: "recipe_join", clientMutationID: "cm_join", title: "Late", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            ], drainImmediately: false)
+            let second = liveStore.requestSync(trigger: .foreground)
+            await probe.release()
+            await first.value
+            await second.value
+
+            #expect(await probe.sendCount() == 1)
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("a sync with an existing snapshot never enters the cold-bootstrap state")
+    func syncWithSnapshotNeverShowsColdBootstrap() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let (liveStore, _, probe) = try await Self.populatedStoreWithProbe(directory: directory, recipeID: "recipe_warm")
+            await probe.arm()
+            liveStore.requestSync(trigger: .foreground)
+            while await !probe.bootstrapStarted() {
+                try await Task.sleep(nanoseconds: 2_000_000)
+            }
+            if case .restoringCache = liveStore.bootstrapState {
+                Issue.record("A sync with content on screen must not show the loading screen")
+            }
+            #expect(liveStore.bootstrapState.contentState.recipes.map(\.id) == ["recipe_warm"])
+            await probe.release()
+            await liveStore.waitForSync()
+            if case .restoringCache = liveStore.bootstrapState {
+                Issue.record("Sync finished in the cold-bootstrap state")
+            }
+        }
+    }
+
     @Test("the app drains pending edits when it becomes active, not on other phase changes")
     func sceneSyncPolicySyncsOnlyWhenBecomingActive() {
         #expect(NativeSceneSyncPolicy.shouldSync(wasActive: false, isActive: true))
@@ -7164,6 +7239,32 @@ private extension NativeLiveStoreTests {
             nextCursor: PaginationCursor(rawValue: "v1.live.after"),
             hasMore: false
         )
+    }
+
+    @MainActor static func populatedStoreWithProbe(
+        directory: URL,
+        recipeID: String
+    ) async throws -> (NativeLiveAppStore, InMemoryNativeSyncStore, CancellationProbeTransport) {
+        let vault = try await signedInVault(accountID: "chef_ari")
+        let recipe = sampleRecipe(id: recipeID, title: "Server Pasta")
+        let syncStore = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .production,
+            checkpoint: nil,
+            queue: NativeMutationQueue(),
+            cachedRecords: [
+                NativeSyncCachedRecord(
+                    kind: .recipe,
+                    resourceID: recipe.id,
+                    payload: try jsonValue(recipe),
+                    serverRevision: .updatedAt(recipe.updatedAt)
+                )
+            ]
+        )
+        let probe = CancellationProbeTransport()
+        let liveStore = liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: probe)
+        await liveStore.bootstrap()
+        return (liveStore, syncStore, probe)
     }
 
     static func sampleRecipe(

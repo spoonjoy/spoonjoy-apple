@@ -268,6 +268,10 @@ struct SpoonjoyRootView: View {
             retryHeldChanges: {
                 await liveStore.retryHeldChanges()
             },
+            requestSync: overrideSyncTriggerCoordinator == nil ? {
+                liveStore.requestSync(trigger: .foreground)
+                await liveStore.waitForSync()
+            } : nil,
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },

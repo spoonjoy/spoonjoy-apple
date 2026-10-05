@@ -38,6 +38,9 @@ struct PlatformNavigationView: View {
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
     private let retryHeldChanges: @Sendable () async -> Void
+    /// Asks the live store to sync. The store owns the sync task, so this view going away cannot cancel it.
+    /// Nil only for the hermetic fixture, which supplies its own coordinator.
+    private let requestSync: (@MainActor @Sendable () async -> Void)?
     private let executeRecipeEditorRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> Void
     private let executeRecipeCreateRequest: @MainActor @Sendable (APIRequestBuilder) async throws -> String?
     private let executeSettingsActionRequest: @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?
@@ -77,6 +80,7 @@ struct PlatformNavigationView: View {
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
         retryHeldChanges: @escaping @Sendable () async -> Void = {},
+        requestSync: (@MainActor @Sendable () async -> Void)? = nil,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
         executeRecipeCreateRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> String?,
         executeSettingsActionRequest: @escaping @MainActor @Sendable (APIRequestBuilder, SettingsActionResponseHandling) async throws -> SettingsActionOutcome?,
@@ -116,6 +120,7 @@ struct PlatformNavigationView: View {
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
         self.retryHeldChanges = retryHeldChanges
+        self.requestSync = requestSync
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
         self.executeRecipeCreateRequest = executeRecipeCreateRequest
         self.executeSettingsActionRequest = executeSettingsActionRequest
@@ -206,6 +211,10 @@ struct PlatformNavigationView: View {
 
     /// Runs the foreground sync and purges any entity indexes it reports. Also backs pull-to-refresh.
     @MainActor private func runForegroundSync() async {
+        if let requestSync {
+            await requestSync()
+            return
+        }
         if let report = try? await syncTriggerCoordinator.handle(.foreground) {
             for request in report.shoppingEntityPurgeRequests {
                 await purgeShoppingEntityIndexesHandler(request)
