@@ -286,3 +286,32 @@ struct NativeJourneyPhotoFixtureTests {
         _ = try RecipeCoverImageNormalizer().normalize(upload: upload)
     }
 }
+
+@Suite("Create recipe request steps")
+struct RecipeCreateRequestStepsTests {
+    @Test("a create request with complete steps is built, and an ingredient without a unit is refused")
+    func createRequestChecksEveryStep() throws {
+        let step = RecipeStepDraft(
+            stepNum: 1,
+            stepTitle: nil,
+            description: "Boil the pasta.",
+            duration: nil,
+            ingredients: [RecipeIngredientDraft(quantity: 1, unit: "lb", name: "pasta")],
+            outputStepNums: []
+        )
+        let request = try RecipeWriteRequests.createRecipe(clientMutationID: "cm_create", title: "Pasta", description: nil, servings: nil, steps: [step, step])
+        #expect(request.pathComponents == ["api", "v1", "recipes"])
+
+        let unitless = RecipeStepDraft(
+            stepNum: 1,
+            stepTitle: nil,
+            description: "Boil.",
+            duration: nil,
+            ingredients: [RecipeIngredientDraft(quantity: 1, unit: nil, name: "pasta")],
+            outputStepNums: []
+        )
+        #expect(throws: APIRequestBuildError.self) {
+            try RecipeWriteRequests.createRecipe(clientMutationID: "cm_create", title: "Pasta", description: nil, servings: nil, steps: [step, unitless])
+        }
+    }
+}
