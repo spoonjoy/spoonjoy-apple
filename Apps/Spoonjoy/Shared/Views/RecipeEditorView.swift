@@ -1,12 +1,16 @@
 import Foundation
+import PhotosUI
 import SpoonjoyCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct RecipeEditorView: View {
     let viewModel: RecipeEditorViewModel
     let mutationDidPlan: @MainActor @Sendable (RecipeEditorMutationPlan) async throws -> Void
     let mutationsDidQueue: @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     let conflictDidDiscardLocalChange: @MainActor @Sendable (RecipeEditorConflict) async throws -> Void
+    /// Creates the recipe and uploads the chosen photo as its cover; returns the route to open next.
+    let createRecipeWithPhoto: @MainActor @Sendable (RecipeEditorMutationPlan, NativeStagedMediaUpload) async throws -> AppRoute
     let close: @MainActor @Sendable (AppRoute) -> Void
     let shellOfflineIndicatorState: OfflineIndicatorState?
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
@@ -19,6 +23,9 @@ struct RecipeEditorView: View {
     @State private var runtimeConflict: RecipeEditorConflict?
     @State private var offlineDisplayOverride: OfflineIndicatorDisplay?
     @State private var pasteStepID: String?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var stagedPhoto: NativeStagedMediaUpload?
+    @State private var photoMessage: String?
 #if os(iOS)
     @Environment(\.editMode) private var editMode: Binding<EditMode>?
 #endif
@@ -28,6 +35,7 @@ struct RecipeEditorView: View {
         mutationDidPlan: @escaping @MainActor @Sendable (RecipeEditorMutationPlan) async throws -> Void,
         mutationsDidQueue: @escaping @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         conflictDidDiscardLocalChange: @escaping @MainActor @Sendable (RecipeEditorConflict) async throws -> Void,
+        createRecipeWithPhoto: @escaping @MainActor @Sendable (RecipeEditorMutationPlan, NativeStagedMediaUpload) async throws -> AppRoute,
         close: @escaping @MainActor @Sendable (AppRoute) -> Void,
         shellOfflineIndicatorState: OfflineIndicatorState? = nil,
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
@@ -36,6 +44,7 @@ struct RecipeEditorView: View {
         self.mutationDidPlan = mutationDidPlan
         self.mutationsDidQueue = mutationsDidQueue
         self.conflictDidDiscardLocalChange = conflictDidDiscardLocalChange
+        self.createRecipeWithPhoto = createRecipeWithPhoto
         self.close = close
         self.shellOfflineIndicatorState = shellOfflineIndicatorState
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
@@ -78,6 +87,10 @@ struct RecipeEditorView: View {
                     .accessibilityIdentifier("editor.servings")
             }
 
+            if draft.recipeID == nil {
+                photoSection
+            }
+
             Section("Steps") {
                 ForEach($draft.steps) { $step in
                     VStack(alignment: .leading, spacing: 10) {
@@ -85,6 +98,24 @@ struct RecipeEditorView: View {
                             Text("Step \(step.stepNum)")
                                 .font(.headline)
                             Spacer()
+                            Button {
+                                moveStep(id: step.id, by: -1)
+                            } label: {
+                                Label("Move Step Up", systemImage: "chevron.up")
+                            }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .disabled(isSubmitting || step.stepNum == 1)
+                            .accessibilityIdentifier("editor.step.\(step.stepNum).moveUp")
+                            Button {
+                                moveStep(id: step.id, by: 1)
+                            } label: {
+                                Label("Move Step Down", systemImage: "chevron.down")
+                            }
+                            .labelStyle(.iconOnly)
+                            .buttonStyle(.borderless)
+                            .disabled(isSubmitting || step.stepNum == draft.steps.count)
+                            .accessibilityIdentifier("editor.step.\(step.stepNum).moveDown")
                             Button(role: .destructive) {
                                 removeStep(id: step.id)
                             } label: {
@@ -130,6 +161,28 @@ struct RecipeEditorView: View {
                                     .accessibilityIdentifier("\(ingredientID).quantity")
                                 TextField("Unit", text: optionalText($ingredient.unit))
                                     .accessibilityIdentifier("\(ingredientID).unit")
+                                Menu {
+                                    Button {
+                                        moveIngredient(id: ingredient.id, in: step.id, by: -1)
+                                    } label: {
+                                        Label("Move Up", systemImage: "arrow.up")
+                                    }
+                                    .disabled(ingredientNumber(ingredient.id, in: step) == 1)
+                                    .accessibilityIdentifier("\(ingredientID).moveUp")
+                                    Button {
+                                        moveIngredient(id: ingredient.id, in: step.id, by: 1)
+                                    } label: {
+                                        Label("Move Down", systemImage: "arrow.down")
+                                    }
+                                    .disabled(ingredientNumber(ingredient.id, in: step) == step.ingredients.count)
+                                    .accessibilityIdentifier("\(ingredientID).moveDown")
+                                } label: {
+                                    Label("Reorder Ingredient", systemImage: "arrow.up.arrow.down")
+                                }
+                                .labelStyle(.iconOnly)
+                                .menuStyle(.borderlessButton)
+                                .disabled(isSubmitting)
+                                .accessibilityIdentifier("\(ingredientID).reorder")
                                 Button(role: .destructive) {
                                     removeIngredient(id: ingredient.id, from: step.id)
                                 } label: {
@@ -234,6 +287,101 @@ struct RecipeEditorView: View {
         }
     }
 
+    @ViewBuilder private var photoSection: some View {
+        Section("Photo") {
+            if activeViewModel.connectivity == .online {
+                let hasPhoto = stagedPhoto != nil
+                HStack(alignment: .center, spacing: 12) {
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        Label(hasPhoto ? "Replace Photo" : "Add Photo", systemImage: hasPhoto ? "photo.fill" : "photo.badge.plus")
+                            .font(KitchenTableTheme.uiLabel)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("editor.photo.pick")
+                    .onChange(of: selectedPhotoItem) { _, item in
+                        Task { @MainActor in
+                            await stagePhoto(item)
+                        }
+                    }
+
+                    if hasPhoto {
+                        Label("Photo ready", systemImage: "checkmark.circle.fill")
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.herb)
+                            .accessibilityIdentifier("editor.photo.ready")
+                        Spacer()
+                        Button {
+                            selectedPhotoItem = nil
+                            stagedPhoto = nil
+                            photoMessage = nil
+                        } label: {
+                            Label("Remove Photo", systemImage: "xmark.circle")
+                        }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.borderless)
+                        .accessibilityIdentifier("editor.photo.remove")
+                    }
+                }
+                Text(hasPhoto
+                    ? "Uploads as the cover when you save."
+                    : "Optional. Without a photo, Spoonjoy makes a placeholder cover.")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            } else {
+                Text("Photos upload once you're online. You can add one from the recipe's Photo Studio after it syncs.")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            }
+            if let photoMessage {
+                Label(photoMessage, systemImage: "exclamationmark.triangle")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.tomato)
+                    .accessibilityIdentifier("editor.photo.status")
+            }
+        }
+    }
+
+    @MainActor private func stagePhoto(_ item: PhotosPickerItem?) async {
+        guard let item else {
+            return
+        }
+        let policy = RecipeCoverPhotoStagingPolicy.offlineProductContract
+        guard let contentType = item.supportedContentTypes.compactMap({ $0.preferredMIMEType?.lowercased() }).first(where: { policy.fileExtension(for: $0) != nil }),
+              let fileExtension = policy.fileExtension(for: contentType) else {
+            selectedPhotoItem = nil
+            photoMessage = "Unsupported photo format. Choose a JPEG, PNG, WebP, or HEIC image."
+            return
+        }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                selectedPhotoItem = nil
+                photoMessage = "Photo could not be loaded."
+                return
+            }
+            let candidate = NativeStagedMediaUpload(
+                localStageID: "recipe-create-photo-\(UUID().uuidString)",
+                fileName: "cover.\(fileExtension)",
+                contentType: contentType,
+                data: data
+            )
+            let result = await RecipeCoverPhotoStagingWorker().stageSelection(
+                existing: stagedPhoto,
+                candidate: candidate,
+                existingUsage: RecipeCoverPhotoStagedMediaUsage(byteCount: 0, fileCount: 0)
+            )
+            if result.rejection != nil {
+                selectedPhotoItem = nil
+                photoMessage = "Photo is too large or could not be read. Choose another image."
+                return
+            }
+            stagedPhoto = result.stagedPhoto
+            photoMessage = nil
+        } catch {
+            selectedPhotoItem = nil
+            photoMessage = "Photo could not be loaded."
+        }
+    }
+
     private func effectiveOfflineIndicator(_ localDisplay: OfflineIndicatorDisplay) -> OfflineIndicatorDisplay {
         guard let shellOfflineIndicatorState,
               localDisplay.informationalOnly,
@@ -328,6 +476,20 @@ struct RecipeEditorView: View {
                    submittedBatchNeedsAttention(batchResult, mutations: mutations) {
                     return
                 }
+            } else if let plannedAction = plannedActions.first,
+                      let stagedPhoto,
+                      draft.recipeID == nil,
+                      plannedAction.plan.remoteRequestBuilder != nil,
+                      plannedAction.plan.queuedMutation == nil {
+                do {
+                    let route = try await createRecipeWithPhoto(plannedAction.plan, stagedPhoto)
+                    blockedMessage = nil
+                    offlineDisplayOverride = nil
+                    close(route)
+                    return
+                } catch {
+                    throw RecipeEditorActionExecutionError(action: plannedAction.action, underlyingError: error)
+                }
             } else if let plannedAction = plannedActions.first {
                 do {
                     try await mutationDidPlan(plannedAction.plan)
@@ -359,8 +521,23 @@ struct RecipeEditorView: View {
     }
 
     private func moveSteps(_ indices: IndexSet, _ newOffset: Int) {
-        draft.steps.move(fromOffsets: indices, toOffset: newOffset)
-        renumberSteps()
+        showMoveOutcome(draft.moveSteps(fromOffsets: indices, toOffset: newOffset))
+    }
+
+    private func moveStep(id: String, by offset: Int) {
+        showMoveOutcome(draft.moveStep(id: id, by: offset))
+    }
+
+    private func moveIngredient(id: String, in stepID: String, by offset: Int) {
+        showMoveOutcome(draft.moveIngredient(id: id, inStep: stepID, by: offset))
+    }
+
+    private func showMoveOutcome(_ outcome: RecipeEditorMoveOutcome) {
+        if case .blocked(let message) = outcome {
+            blockedMessage = message
+        } else {
+            blockedMessage = nil
+        }
     }
 
     private func addStep() {

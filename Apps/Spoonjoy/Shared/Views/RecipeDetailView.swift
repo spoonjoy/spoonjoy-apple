@@ -417,6 +417,7 @@ struct RecipeDetailView: View {
                 .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
                 .clipped()
                 .accessibilityLabel("\(viewModel.title) cover image")
+                .accessibilityIdentifier("recipeDetail.cover")
         }
     }
 
@@ -905,6 +906,7 @@ struct RecipeDetailView: View {
             } label: {
                 Label("Edit recipe", systemImage: "pencil")
             }
+            .accessibilityIdentifier("recipeDetail.edit")
         }
 
         if let coverControlsRoute = viewModel.ownerTools.coverControlsRoute {
@@ -1303,6 +1305,7 @@ extension RecipeDetailView {
                 .frame(height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                 .accessibilityLabel("\(viewModel.title) cover image")
+                .accessibilityIdentifier("recipeDetail.cover")
             }
             recipeIdentityAndProvenance
             if !viewModel.cover.hasRealCover {

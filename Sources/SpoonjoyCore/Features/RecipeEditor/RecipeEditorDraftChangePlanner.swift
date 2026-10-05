@@ -32,16 +32,27 @@ public enum RecipeEditorDraftChangePlanner {
             ))
         }
 
-        for step in draft.steps {
+        // The server's order of the steps that survive the deletes above. A reorder moves one step to a
+        // position and shifts the rest, so tracking it tells us when a step still needs a move even though
+        // its own number did not change (an earlier move can push it off its place).
+        var serverOrder = original.steps.map(\.id).filter { currentStepsByID[$0] != nil }
+
+        for (index, step) in draft.steps.enumerated() {
             guard let originalStep = originalStepsByID[step.id] else {
                 actions.append(.createStep(
                     clientMutationID: clientMutationID("create-step-\(step.id)"),
                     step: step
                 ))
+                serverOrder.insert(step.id, at: min(index, serverOrder.count))
                 continue
             }
 
-            if originalStep.stepNum != step.stepNum {
+            let isOutOfPlace = serverOrder.indices.contains(index) && serverOrder[index] != step.id
+            if originalStep.stepNum != step.stepNum || isOutOfPlace {
+                if let from = serverOrder.firstIndex(of: step.id) {
+                    serverOrder.remove(at: from)
+                    serverOrder.insert(step.id, at: min(index, serverOrder.count))
+                }
                 actions.append(.reorderStep(
                     stepID: step.id,
                     toStepNum: step.stepNum,
@@ -105,7 +116,37 @@ public enum RecipeEditorDraftChangePlanner {
         clientMutationID: (String) -> String
     ) {
         let originalIngredientsByID = Dictionary(uniqueKeysWithValues: originalStep.ingredients.map { ($0.id, $0) })
-        for ingredient in draftStep.ingredients {
+        // The server has no ingredient position: it lists a step's ingredients in the order they were
+        // added. So the saved order is made by adding ingredients in order. Everything up to the first
+        // ingredient that is out of place stays; that ingredient and the ones after it are deleted and
+        // added again in the draft's order.
+        let draftIngredientIDs = Set(draftStep.ingredients.map(\.id))
+        let survivingOriginalIDs = originalStep.ingredients.map(\.id).filter { draftIngredientIDs.contains($0) }
+        var survivorCursor = 0
+        var reAddFrom = draftStep.ingredients.count
+        for (index, ingredient) in draftStep.ingredients.enumerated() {
+            if survivorCursor < survivingOriginalIDs.count, survivingOriginalIDs[survivorCursor] == ingredient.id {
+                survivorCursor += 1
+            } else {
+                reAddFrom = index
+                break
+            }
+        }
+        for (index, ingredient) in draftStep.ingredients.enumerated() {
+            if index >= reAddFrom, originalIngredientsByID[ingredient.id] != nil {
+                actions.append(.deleteIngredient(
+                    stepID: draftStep.id,
+                    ingredientID: ingredient.id,
+                    clientMutationID: clientMutationID("replace-delete-ingredient-\(ingredient.id)"),
+                    confirmation: .confirmed
+                ))
+                actions.append(.addIngredient(
+                    stepID: draftStep.id,
+                    clientMutationID: clientMutationID("replace-add-ingredient-\(draftStep.id)-\(ingredient.id)"),
+                    ingredient: ingredient
+                ))
+                continue
+            }
             guard let originalIngredient = originalIngredientsByID[ingredient.id] else {
                 actions.append(.addIngredient(
                     stepID: draftStep.id,

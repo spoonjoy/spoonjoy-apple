@@ -1294,6 +1294,51 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store create request returns the new recipe id and refreshes content")
+    func liveStoreCreateRequestReturnsNewRecipeID() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = InMemoryTokenVault()
+            try await vault.saveClientID("client_live")
+            try await vault.saveSession(try AuthSession(
+                clientID: "client_live",
+                accessToken: "sj_access_current",
+                refreshToken: "sj_refresh_original",
+                tokenType: "Bearer",
+                expiresAt: Self.now.addingTimeInterval(3_600),
+                scope: NativeAuthSession.defaultScope,
+                accountID: "chef_ari"
+            ))
+            let recipe = Self.sampleRecipe(id: "recipe_created", title: "Created Pasta")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_create", name: "pepper"))
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let syncTransport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: syncTransport,
+                recipeEditorAPITransport: { _ in CreateRecipeAPITransport(responseData: .object(["recipe": .object(["id": .string("recipe_created")])])) }
+            )
+            let request = try RecipeWriteRequests.createRecipe(
+                clientMutationID: "cm_create",
+                title: "Created Pasta",
+                description: nil,
+                servings: nil,
+                steps: []
+            )
+
+            let recipeID = try await liveStore.executeRecipeCreateRequest(request)
+
+            #expect(recipeID == "recipe_created")
+            guard case .liveSynced(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected live sync after the create request; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.recipes.map(\.id) == ["recipe_created"])
+        }
+    }
+
+    @MainActor
     @Test("live store refreshes settings surface cache after sync")
     func liveStoreRefreshesSettingsSurfaceCacheAfterSync() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -7203,3 +7248,21 @@ require(NativeFixtureFallbackPolicy.isTestOrDemoBuild(environment: ["XCTestConfi
 require(NativeFixtureFallbackPolicy.isTestOrDemoBuild(environment: ["SPOONJOY_DEMO_MODE": "1"]), "demo environment should be recognized")
 require(!NativeFixtureFallbackPolicy.isTestOrDemoBuild(environment: [:]), "empty environment should not be treated as test/demo")
 """
+
+private struct CreateRecipeAPITransport: SpoonjoyAPITransport {
+    let responseData: JSONValue
+
+    func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        configuration _: APIClientConfiguration,
+        decode _: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        guard request.method == .post, request.pathComponents == ["api", "v1", "recipes"] else {
+            throw NativeLiveStoreTestError.unexpectedRequest
+        }
+        guard let data = responseData as? Value else {
+            throw NativeLiveStoreTestError.unexpectedEnvelopeType
+        }
+        return APIEnvelope(requestID: "recipe-create-ok", data: data)
+    }
+}

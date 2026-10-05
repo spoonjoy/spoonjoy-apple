@@ -248,6 +248,9 @@ struct SpoonjoyRootView: View {
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },
+            executeRecipeCreateRequest: { request in
+                try await liveStore.executeRecipeCreateRequest(request)
+            },
             executeSettingsActionRequest: { request, responseHandling in
                 try await liveStore.executeSettingsActionRequest(request, responseHandling: responseHandling)
             },

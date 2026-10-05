@@ -2229,6 +2229,28 @@ public final class NativeLiveAppStore: ObservableObject {
         await bootstrap()
     }
 
+    /// Sends a create-recipe request and returns the new recipe's ID, so a photo chosen in the editor can
+    /// be uploaded to it.
+    public func executeRecipeCreateRequest(_ request: APIRequestBuilder) async throws -> String? {
+        let session = try await dependencies.authSessionRepository.validSession()
+        configuration = APIClientConfiguration(
+            baseURL: dependencies.configuration.baseURL,
+            bearerToken: session.accessToken
+        )
+        let refresher = NativeLiveAppStoreAPIRefresher(
+            authSessionRepository: dependencies.authSessionRepository,
+            baseURL: dependencies.configuration.baseURL
+        )
+        let transport = dependencies.recipeEditorAPITransport(refresher)
+        let envelope = try await transport.send(
+            request,
+            configuration: configuration,
+            decode: JSONValue.self
+        )
+        await bootstrap()
+        return RecipeCreateResponse.recipeID(from: envelope.data)
+    }
+
     private func executeShoppingMutationRequest(_ request: APIRequestBuilder) async throws {
         let session = try await dependencies.authSessionRepository.validSession()
         configuration = APIClientConfiguration(

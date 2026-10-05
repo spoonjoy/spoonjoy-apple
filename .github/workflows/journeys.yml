@@ -66,6 +66,16 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Create disposable QA accounts
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 2 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
+      - name: Add a photo to the simulator library
+        # The recipe journey picks a photo for the new recipe in the system photo picker. The picker lists
+        # whatever the simulator's library holds, so the run starts with one generated picture in it.
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          udid="${destination##*id=}"
+          xcrun simctl bootstatus "$udid" -b
+          python3 .github/scripts/make-journey-photo.py "$RUNNER_TEMP/journey-photo.png"
+          xcrun simctl addmedia "$udid" "$RUNNER_TEMP/journey-photo.png"
       - name: Run journeys
         timeout-minutes: 30
         run: |

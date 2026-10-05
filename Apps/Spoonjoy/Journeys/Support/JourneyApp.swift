@@ -189,6 +189,12 @@ final class JourneyApp {
             file: file,
             line: line
         )
+        saveOpenRecipeEditor(file: file, line: line)
+    }
+
+    /// Saves an editor with no keyboard up (after tapping reorder controls rather than typing): one swipe
+    /// reaches the form's end, Save must sit above the tab bar, and the editor must close.
+    func saveOpenRecipeEditor(file: StaticString = #filePath, line: UInt = #line) {
         app.swipeUp()
         let save = element(JourneyID.editorSave)
         XCTAssertTrue(save.waitForExistence(timeout: Self.interactionTimeout), "The editor's Save button is missing.", file: file, line: line)
@@ -209,6 +215,14 @@ final class JourneyApp {
             file: file,
             line: line
         )
+    }
+
+    /// Chooses the first photo in the system photo picker the editor opened. The picker closes on its own
+    /// when one photo is picked. The CI workflow puts a photo in the simulator's library first.
+    func chooseFirstPhotoInPicker(file: StaticString = #filePath, line: UInt = #line) {
+        let photo = app.images.matching(NSPredicate(format: "label BEGINSWITH %@", "Photo")).firstMatch
+        XCTAssertTrue(photo.waitForExistence(timeout: Self.networkTimeout), "The photo picker shows no photo. Screen: \(screen)", file: file, line: line)
+        photo.tap()
     }
 
     /// For a failure message only: scrolls the editor back to its top, where a blocked or failed save

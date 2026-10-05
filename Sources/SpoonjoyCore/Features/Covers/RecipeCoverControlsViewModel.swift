@@ -283,7 +283,7 @@ public enum RecipeCoverControlsActionPlanningError: Error, Equatable, Sendable {
     case onlineOnlyPlaceholderGeneration
 }
 
-public struct RecipeCoverControlsMutationPlan: Equatable {
+public struct RecipeCoverControlsMutationPlan: Equatable, Sendable {
     public let remoteRequestBuilder: APIRequestBuilder?
     public let queuedMutation: NativeQueuedMutation?
     public let offlineFallbackMutation: NativeQueuedMutation?
