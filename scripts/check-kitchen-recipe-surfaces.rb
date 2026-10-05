@@ -37,7 +37,7 @@ REQUIRED_FILES = [
 REQUIRED_TOKENS = {
   "Apps/Spoonjoy/Shared/Components/RecipeCoverImage.swift" => [
     "RecipeCoverImage",
-    "AsyncImagePhase",
+    "CachedImagePhase",
     "KitchenTableNoPhotoView",
     "missingSubtitle",
     "Photo not added",

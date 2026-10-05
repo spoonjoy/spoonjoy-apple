@@ -323,17 +323,10 @@ private struct RecipeIndexRow: View {
 }
 
 private enum RecipeCoverPrefetcher {
+    /// Downloads the first rows' covers into the disk cache so they open without waiting on the network.
     static func prefetch(_ urls: [URL]) async {
-        let uniqueURLs = Array(Set(urls)).prefix(12)
-        await withTaskGroup(of: Void.self) { group in
-            for url in uniqueURLs {
-                group.addTask {
-                    var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 3)
-                    request.allowsConstrainedNetworkAccess = true
-                    request.allowsExpensiveNetworkAccess = true
-                    _ = try? await URLSession.shared.data(for: request)
-                }
-            }
-        }
+        var seen = Set<URL>()
+        let uniqueURLs = urls.filter { seen.insert($0).inserted }.prefix(12)
+        AppImagePipeline.shared.prefetch(Array(uniqueURLs))
     }
 }

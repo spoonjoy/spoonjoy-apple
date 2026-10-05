@@ -319,7 +319,7 @@ private struct SearchSurfaceThumbnail: View {
     var body: some View {
         ZStack {
             if let imageURL = row.imageURL {
-                AsyncImage(url: imageURL, transaction: imageLoadingTransaction) { phase in
+                CachedAsyncImage(url: imageURL, animation: imageLoadingAnimation) { phase in
                     let readinessPhase = readinessPhase(for: phase)
                     KitchenTableImagePhaseView(phase: phase, reduceMotion: accessibilityReduceMotion) {
                         thumbnailFill
@@ -343,8 +343,8 @@ private struct SearchSurfaceThumbnail: View {
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
     }
 
-    private var imageLoadingTransaction: Transaction {
-        Transaction(animation: accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18))
+    private var imageLoadingAnimation: Animation? {
+        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.18)
     }
 
     private var thumbnailFill: some View {
@@ -370,15 +370,13 @@ private struct SearchSurfaceThumbnail: View {
         }
     }
 
-    private func readinessPhase(for phase: AsyncImagePhase) -> SearchImageReadinessPhase {
+    private func readinessPhase(for phase: CachedImagePhase) -> SearchImageReadinessPhase {
         switch phase {
         case .empty:
             .pending
         case .success:
             .loaded
         case .failure:
-            .failed
-        @unknown default:
             .failed
         }
     }
@@ -412,7 +410,7 @@ private enum SearchImageReadinessPhase: Hashable {
 }
 
 private struct KitchenTableImagePhaseView<Placeholder: View>: View {
-    let phase: AsyncImagePhase
+    let phase: CachedImagePhase
     let reduceMotion: Bool
     @ViewBuilder let placeholder: () -> Placeholder
 
@@ -426,8 +424,6 @@ private struct KitchenTableImagePhaseView<Placeholder: View>: View {
                 .scaledToFill()
                 .transition(reduceMotion ? .identity : .opacity)
         case .failure:
-            placeholder()
-        @unknown default:
             placeholder()
         }
     }
