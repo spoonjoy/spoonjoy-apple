@@ -1,0 +1,20 @@
+name: SDK probe
+on:
+  push:
+    branches: [claude/fold-hinge-27-1]
+jobs:
+  probe:
+    runs-on: xcode-27
+    timeout-minutes: 20
+    steps:
+      - name: Grep beta SDK interfaces
+        run: |
+          ls -d /Applications/Xcode_27*.app
+          for app in /Applications/Xcode_27*.app; do
+            echo "=== $app"
+            /usr/bin/defaults read "$app/Contents/Info" CFBundleShortVersionString || true
+            sdk="$app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS.sdk"
+            ls "$app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/" || true
+            cat "$sdk/SDKSettings.json" 2>/dev/null | head -c 400; echo
+            grep -rniE "ReservedRegion|reserved ?region|\bdivision\b|hinge|foldable|\bfold\b" "$sdk/System/Library/Frameworks/SwiftUI.framework" "$sdk/System/Library/Frameworks/UIKit.framework" --include='*.swiftinterface' --include='*.h' 2>/dev/null | grep -v "^Binary" | cut -c1-400 | head -150 || true
+          done
