@@ -242,6 +242,13 @@ struct SpoonjoyRootView: View {
         }
     }
 
+    private var liveStoreSyncRequest: @MainActor @Sendable () async -> Void {
+        { [liveStore] in
+            liveStore.requestSync(trigger: .foreground)
+            await liveStore.waitForSync()
+        }
+    }
+
     private func platformNavigation(
         contentState: NativeShellContentState,
         syncTriggerCoordinator overrideSyncTriggerCoordinator: NativeSyncTriggerCoordinator? = nil
@@ -268,10 +275,7 @@ struct SpoonjoyRootView: View {
             retryHeldChanges: {
                 await liveStore.retryHeldChanges()
             },
-            requestSync: overrideSyncTriggerCoordinator == nil ? {
-                liveStore.requestSync(trigger: .foreground)
-                await liveStore.waitForSync()
-            } : nil,
+            requestSync: overrideSyncTriggerCoordinator == nil ? liveStoreSyncRequest : nil,
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
             },

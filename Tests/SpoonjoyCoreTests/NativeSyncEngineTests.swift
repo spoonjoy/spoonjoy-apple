@@ -146,6 +146,35 @@ struct NativeSyncEngineTests {
         #expect(try await store.loadQueue().mutations == [first, second])
     }
 
+    @Test("a drain cancelled after a request succeeds sends nothing more and keeps the rest queued")
+    func cancelledAfterSuccessSendsNothingMore() async throws {
+        let first = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_a", clientMutationID: "cm_done_a", title: "A", description: nil, servings: nil, createdAt: Self.createdAt(0))
+        let second = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_b", clientMutationID: "cm_done_b", title: "B", description: nil, servings: nil, createdAt: Self.createdAt(1))
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [first, second]),
+            cachedRecords: []
+        )
+        let transport = CancellableNativeSyncTransport(answersSuccess: true)
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+        let scope = boundScope
+        let configuration = configuration
+
+        let drain = Task {
+            try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: scope)
+        }
+        while await !transport.requestStarted() {
+            try await Task.sleep(nanoseconds: 2_000_000)
+        }
+        drain.cancel()
+        _ = try await drain.value
+
+        #expect(await transport.sendCount() == 1)
+        #expect(try await store.loadQueue().mutations == [second])
+    }
+
     @Test("sync tombstones apply to local cache records and checkpoint revisions")
     func syncTombstonesApplyToLocalCacheRecordsAndCheckpointRevisions() async throws {
         let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
@@ -5700,8 +5729,14 @@ private actor RecordingNativeSyncTransport: NativeSyncTransport {
 
 /// Holds its first request open until the drain's task is cancelled, then answers like a cancelled request: retry.
 private actor CancellableNativeSyncTransport: NativeSyncTransport {
+    /// When true the held request still succeeds after the cancel, as one that finished just before it landed.
+    let answersSuccess: Bool
     private var sends = 0
     private var started = false
+
+    init(answersSuccess: Bool = false) {
+        self.answersSuccess = answersSuccess
+    }
 
     func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
         .success(cursor: nil, tombstones: [])
@@ -5712,6 +5747,9 @@ private actor CancellableNativeSyncTransport: NativeSyncTransport {
         started = true
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 2_000_000)
+        }
+        if answersSuccess {
+            return .success(serverRevision: nil)
         }
         return .retry(afterSeconds: 5, message: "cancelled")
     }
