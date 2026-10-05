@@ -129,8 +129,18 @@ final class JourneyApp {
 
     /// Selects a tab bar item. Tab items cannot carry identifiers, so the tab is found by its
     /// `JourneyCopy` title, and only among the tab bar's buttons.
+    ///
+    /// After the content scrolls, iOS minimizes the tab bar to one button for the selected tab (its value is
+    /// "Collapsed") and hides the others. The page now updates in place instead of being rebuilt, so that state
+    /// survives. Tapping the collapsed button expands the bar, and only then is the wanted tab tapped.
     func openTab(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
-        let tab = app.tabBars.buttons.matching(NSPredicate(format: "label == %@", title)).firstMatch
+        let tabButtons = app.tabBars.buttons
+        XCTAssertTrue(tabButtons.firstMatch.waitForExistence(timeout: Self.launchTimeout), "The tab bar is missing.", file: file, line: line)
+        let collapsed = tabButtons.matching(NSPredicate(format: "value == %@", "Collapsed")).firstMatch
+        if collapsed.exists {
+            collapsed.tap()
+        }
+        let tab = tabButtons.matching(NSPredicate(format: "label == %@", title)).firstMatch
         XCTAssertTrue(tab.waitForExistence(timeout: Self.launchTimeout), "The \(title) tab is missing.", file: file, line: line)
         tab.tap()
     }
