@@ -1,0 +1,52 @@
+name: Beta SDK
+
+# Builds the iOS app against the newest beta Xcodes on the runner image so code behind new-SDK guards (the iOS 27.1
+# hinge APIs) is compiled before that SDK ships. The image has no simulator runtime for these betas, so this proves
+# compilation only. It is not a required check and never feeds a shipping build: TestFlight stays on stable Xcode 27.0.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  beta-sdk-build:
+    name: Beta SDK build (${{ matrix.xcode }})
+    runs-on: xcode-27
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        xcode: ['27.1_beta', '27.2_beta']
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Select the beta Xcode
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s "/Applications/Xcode_${{ matrix.xcode }}.app"
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+      - name: Check the hinge guard is on for this SDK
+        run: |
+          set -euo pipefail
+          conditions="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -sdk iphonesimulator -showBuildSettings 2>/dev/null | grep ' SWIFT_ACTIVE_COMPILATION_CONDITIONS = ')"
+          echo "$conditions"
+          grep -q SPOONJOY_IOS_27_1_SDK <<<"$conditions"
+      - name: Build the iOS app with the hinge code
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/beta-ios-build.log"
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/beta-dd" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$log"
+          ruby scripts/fail-on-warning.rb --log "$log"
+      - name: Check the hinge code is in the built app
+        run: |
+          set -euo pipefail
+          app="$(find "$RUNNER_TEMP/beta-dd" -name 'Spoonjoy.app' -type d | head -1)"
+          test -n "$app"
+          grep -rl HingeDivisionView "$app"
