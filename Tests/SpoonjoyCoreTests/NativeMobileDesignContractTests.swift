@@ -68,7 +68,7 @@ struct NativeMobileDesignContractTests {
             in: recipePath,
             contains: [
                 "if usesCompactRecipeDock {\n            singlePageLayout",
-                "BookSpreadLayout.resolve(",
+                "SpreadLayoutReader(isRegularWidth: true)",
                 "recipeSpread(layout)",
                 "RecipeSpreadIngredientIndex(stepSections: viewModel.stepSections)",
                 "spreadSelection.toggle(stepID: stepID)",
@@ -97,8 +97,13 @@ struct NativeMobileDesignContractTests {
             spreadSource,
             in: spreadPath,
             contains: [
-                "FOLD SEAM",
-                "BookSpreadLayout.resolve(division:)",
+                "SpreadLayoutReader",
+                "BookSpreadLayout.resolve(",
+                "division: division",
+                "SPOONJOY_IOS_27_1_SDK",
+                "#available(iOS 27.1, *)",
+                "reservedRegions(kind: .division)",
+                "UIHingeInteraction",
                 "BookSpreadLayout.pageInsets(for: side)",
                 "KitchenTableTheme.spreadGutterRule"
             ],
