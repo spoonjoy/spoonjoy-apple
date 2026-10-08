@@ -202,18 +202,18 @@ struct RecipeEditorView: View {
         }
     }
 
-    private func conflictBand(_ banner: RecipeEditorConflictBanner) -> some View {
+    private func conflictBand(_ conflictBanner: RecipeEditorConflictBanner) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(banner.title)
+            Text(conflictBanner.title)
                 .font(.headline)
                 .foregroundStyle(KitchenTableTheme.tomato)
-            Text(banner.message)
+            Text(conflictBanner.message)
                 .font(KitchenTableTheme.bodyNote)
             HStack(spacing: 16) {
                 Button("Review") {
                     reviewConflict()
                 }
-                Button(banner.discardActionTitle) {
+                Button(conflictBanner.discardActionTitle) {
                     Task {
                         await discardLocalChange()
                     }
@@ -259,10 +259,10 @@ struct RecipeEditorView: View {
         }
     }
 
-    private func stepEditor(_ step: Binding<RecipeEditorStepDraft>) -> some View {
-        let stepValue = step.wrappedValue
-        let number = stepValue.stepNum
-        let priorSteps = priorSteps(for: stepValue)
+    private func stepEditor(_ stepBinding: Binding<RecipeEditorStepDraft>) -> some View {
+        let step = stepBinding.wrappedValue
+        let number = step.stepNum
+        let priorSteps = priorSteps(for: step)
         return VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 4) {
                 Text("Step \(number)")
@@ -271,38 +271,34 @@ struct RecipeEditorView: View {
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 stepIconButton("Move Step Up", systemImage: "chevron.up", disabled: isSubmitting || number == 1) {
-                    moveStep(id: stepValue.id, by: -1)
+                    moveStep(id: step.id, by: -1)
                 }
                 .accessibilityIdentifier("editor.step.\(number).moveUp")
                 stepIconButton("Move Step Down", systemImage: "chevron.down", disabled: isSubmitting || number == draft.steps.count) {
-                    moveStep(id: stepValue.id, by: 1)
+                    moveStep(id: step.id, by: 1)
                 }
                 .accessibilityIdentifier("editor.step.\(number).moveDown")
                 stepIconButton("Delete Step", systemImage: "trash", disabled: isSubmitting, tint: KitchenTableTheme.tomato) {
-                    removeStep(id: stepValue.id)
+                    removeStep(id: step.id)
                 }
                 .accessibilityIdentifier("editor.step.\(number).delete")
             }
 
             EditorField("Step title") {
-                TextField("Optional, like Cook the rice", text: optionalText(step.title))
+                TextField("Optional, like Cook the rice", text: optionalText(stepBinding.title))
                     .accessibilityIdentifier("editor.step.\(number).title")
             }
 
             EditorField("Instructions") {
-                TextField("Describe what to do in this step...", text: step.description, axis: .vertical)
+                TextField("Describe what to do in this step...", text: stepBinding.description, axis: .vertical)
                     .lineLimit(3...12)
                     .font(KitchenTableTheme.instructionBody)
                     .accessibilityIdentifier("editor.step.\(number).description")
             }
 
-            Stepper(value: durationBinding(step.duration), in: 0...720, step: 1) {
-                HStack {
-                    Text("Time")
-                        .font(KitchenTableTheme.uiLabel)
-                    Text((stepValue.duration ?? 0) == 0 ? "Optional" : "\(stepValue.duration ?? 0) minutes")
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                }
+            Stepper(value: durationBinding(stepBinding.duration), in: 0...720, step: 1) {
+                Text("Duration \(step.duration ?? 0) minutes")
+                    .font(KitchenTableTheme.uiLabel)
             }
             .accessibilityIdentifier("editor.step.\(number).duration")
 
@@ -313,7 +309,7 @@ struct RecipeEditorView: View {
                     ForEach(priorSteps) { priorStep in
                         Toggle(
                             "Step \(priorStep.stepNum)",
-                            isOn: outputUseBinding(step.outputStepNums, outputStepNum: priorStep.stepNum)
+                            isOn: outputUseBinding(stepBinding.outputStepNums, outputStepNum: priorStep.stepNum)
                         )
                     }
                 }
@@ -323,14 +319,14 @@ struct RecipeEditorView: View {
                 Text("Ingredients")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
-                ForEach(step.ingredients) { ingredient in
-                    ingredientRow(ingredient, stepNumber: number, stepID: stepValue.id, position: ingredientNumber(ingredient.wrappedValue.id, in: stepValue))
+                ForEach(stepBinding.ingredients) { ingredient in
+                    ingredientRow(ingredient, stepNumber: number, stepID: step.id, position: ingredientNumber(ingredient.wrappedValue.id, in: step))
                 }
 
                 // Borderless buttons each handle only their own taps, so a tap near one never runs another.
                 HStack(spacing: 20) {
                     Button {
-                        addIngredient(to: stepValue.id)
+                        addIngredient(to: step.id)
                     } label: {
                         Label("Add Ingredient", systemImage: "plus.circle")
                             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
@@ -340,7 +336,7 @@ struct RecipeEditorView: View {
                     .accessibilityIdentifier("editor.step.\(number).addIngredient")
 
                     Button {
-                        pasteStepID = stepValue.id
+                        pasteStepID = step.id
                     } label: {
                         Label("Paste Ingredients", systemImage: "doc.on.clipboard")
                             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
@@ -489,7 +485,7 @@ struct RecipeEditorView: View {
     // MARK: - Cover image
 
     @ViewBuilder private var coverControl: some View {
-        EditorField("Recipe Image") {
+        EditorField("Recipe Image", boxed: false) {
             if draft.recipeID == nil {
                 photoControl
             } else if let recipeID = draft.recipeID {
@@ -1062,10 +1058,13 @@ private struct RecipeEditorActionExecutionError: Error {
 /// A labelled field: the label sits above the input, as on the web editor, never as a placeholder alone.
 private struct EditorField<Content: View>: View {
     let label: String
+    let boxed: Bool
     let content: Content
 
-    init(_ label: String, @ViewBuilder content: () -> Content) {
+    /// `boxed: false` is for a control that draws its own surface, such as the cover photo.
+    init(_ label: String, boxed: Bool = true, @ViewBuilder content: () -> Content) {
         self.label = label
+        self.boxed = boxed
         self.content = content()
     }
 
@@ -1075,9 +1074,13 @@ private struct EditorField<Content: View>: View {
                 .font(Font.system(.subheadline, design: .rounded).weight(.semibold))
                 .foregroundStyle(KitchenTableTheme.charcoal)
                 .accessibilityHidden(true)
-            content
-                .editorInputStyle()
-                .accessibilityLabel(label)
+            if boxed {
+                content
+                    .editorInputStyle()
+                    .accessibilityLabel(label)
+            } else {
+                content
+            }
         }
     }
 }
@@ -1105,6 +1108,7 @@ private struct QuantityField: View {
     let rowID: String
     @Binding var invalidRows: Set<String>
     @State private var text: String
+    @FocusState private var isFocused: Bool
 
     init(quantity: Binding<Double>, rowID: String, invalidRows: Binding<Set<String>>) {
         _quantity = quantity
@@ -1115,6 +1119,7 @@ private struct QuantityField: View {
 
     var body: some View {
         TextField("1 ½", text: $text)
+            .focused($isFocused)
             .editorInputStyle()
             .overlay(
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
@@ -1139,6 +1144,12 @@ private struct QuantityField: View {
                 if RecipeQuantity.parse(text) != newValue {
                     text = RecipeQuantity.format(newValue)
                     invalidRows.remove(rowID)
+                }
+            }
+            // Leaving the field shows the fraction form of what was typed, such as "1/4" becoming "¼".
+            .onChange(of: isFocused) { _, focused in
+                if !focused, !invalidRows.contains(rowID) {
+                    text = RecipeQuantity.format(quantity)
                 }
             }
             .onDisappear {
