@@ -158,7 +158,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: ourostack/apple-distribution-kit
-          ref: ca21426485551dcf35b8456d74d3200697bb2cc1
+          ref: b0cd5f595d771025edb9510402980004806c753d
           path: .ci/apple-distribution-kit
           persist-credentials: false
 

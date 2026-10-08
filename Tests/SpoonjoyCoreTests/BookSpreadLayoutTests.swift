@@ -107,4 +107,40 @@ struct BookSpreadLayoutTests {
             #expect(!BookSpreadLayout.hidesLibrarySidebar(route: route, windowLayout: spread))
         }
     }
+
+    @Test("a vertical division rect becomes a gutter band")
+    func divisionFromVerticalFold() throws {
+        let division = try #require(SpreadDivision(
+            frameMinX: 500, frameWidth: 24, frameHeight: 720, containerWidth: 1020, containerHeight: 720
+        ))
+        #expect(division == SpreadDivision(minX: 500, width: 24))
+        let layout = BookSpreadLayout.resolve(width: 1020, height: 720, isRegularWidth: true, division: division)
+        #expect(layout.source == .hardwareDivision)
+        #expect(layout.gutter == SpreadColumn(minX: 500, width: 24))
+    }
+
+    @Test("a division rect is clamped to the container")
+    func divisionIsClamped() throws {
+        let left = try #require(SpreadDivision(
+            frameMinX: -10, frameWidth: 30, frameHeight: 720, containerWidth: 1020, containerHeight: 720
+        ))
+        #expect(left == SpreadDivision(minX: 0, width: 20))
+        let right = try #require(SpreadDivision(
+            frameMinX: 1000, frameWidth: 40, frameHeight: 720, containerWidth: 1020, containerHeight: 720
+        ))
+        #expect(right == SpreadDivision(minX: 1000, width: 20))
+    }
+
+    @Test("a division rect that is not a vertical fold is ignored")
+    func divisionRejectsOtherShapes() {
+        // No width, or as wide as the container.
+        #expect(SpreadDivision(frameMinX: 500, frameWidth: 0, frameHeight: 720, containerWidth: 1020, containerHeight: 720) == nil)
+        #expect(SpreadDivision(frameMinX: 0, frameWidth: 1020, frameHeight: 720, containerWidth: 1020, containerHeight: 720) == nil)
+        // Shorter than half the container, or wider than tall.
+        #expect(SpreadDivision(frameMinX: 500, frameWidth: 24, frameHeight: 300, containerWidth: 1020, containerHeight: 720) == nil)
+        #expect(SpreadDivision(frameMinX: 100, frameWidth: 400, frameHeight: 360, containerWidth: 1020, containerHeight: 720) == nil)
+        // Entirely outside the container.
+        #expect(SpreadDivision(frameMinX: -50, frameWidth: 30, frameHeight: 720, containerWidth: 1020, containerHeight: 720) == nil)
+        #expect(SpreadDivision(frameMinX: 1100, frameWidth: 30, frameHeight: 720, containerWidth: 1020, containerHeight: 720) == nil)
+    }
 }

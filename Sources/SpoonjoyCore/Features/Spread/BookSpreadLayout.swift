@@ -2,9 +2,10 @@ import Foundation
 
 /// A vertical band of the screen that content must stay out of, such as the fold of a foldable iPhone.
 ///
-/// Today nothing supplies one: the hinge APIs need the iOS 27.1 SDK. When they arrive, the app reads the
-/// Reserved Region `.division` rect, converts it to the spread's coordinate space and passes it here. Until then
-/// the spread splits the screen down the middle, which is where the fold of the iPhone Duo sits.
+/// Built with the iOS 27.1 SDK, the app reads the Reserved Region `.division` rect, converts it with
+/// `SpreadDivision(frame:in:)` and passes it to `BookSpreadLayout.resolve`. Without a division (an older SDK, an
+/// older OS, or a screen with no fold) the spread splits the screen down the middle, which is where the fold of
+/// the iPhone Duo sits.
 public struct SpreadDivision: Equatable, Sendable {
     public let minX: Double
     public let width: Double
@@ -16,6 +17,34 @@ public struct SpreadDivision: Equatable, Sendable {
 
     public var maxX: Double {
         minX + width
+    }
+
+    /// Converts a division rect reported by the system into a vertical band of the container.
+    ///
+    /// The rect is in the container's coordinates. It must be a vertical fold: it has to be narrower than the
+    /// container is wide and at least as tall as half the container, otherwise a side-by-side spread would not
+    /// follow it and the heuristic layout is the right answer, so this returns nil. The band is clamped to the
+    /// container's width.
+    public init?(
+        frameMinX: Double,
+        frameWidth: Double,
+        frameHeight: Double,
+        containerWidth: Double,
+        containerHeight: Double
+    ) {
+        guard frameWidth > 0,
+              frameWidth < containerWidth,
+              frameHeight >= containerHeight / 2,
+              frameHeight > frameWidth
+        else {
+            return nil
+        }
+        let minX = max(0, frameMinX)
+        let maxX = min(containerWidth, frameMinX + frameWidth)
+        guard maxX > minX else {
+            return nil
+        }
+        self.init(minX: minX, width: maxX - minX)
     }
 }
 
@@ -78,8 +107,8 @@ public enum BookSpreadLayout: Equatable, Sendable {
     ///   - width: The width of the container that holds the spread, in points.
     ///   - height: The height of that container, in points.
     ///   - isRegularWidth: Whether the horizontal size class is regular. Compact width is always one page.
-    ///   - division: The fold, if the system reported one, in the container's coordinates. This is the seam for
-    ///     the fold-aware pass: pass the Reserved Region `.division` rect here once the iOS 27.1 SDK ships.
+    ///   - division: The fold, if the system reported one, in the container's coordinates. Built from the
+    ///     Reserved Region `.division` rect with `SpreadDivision(frameMinX:...)`.
     public static func resolve(
         width: Double,
         height: Double,
