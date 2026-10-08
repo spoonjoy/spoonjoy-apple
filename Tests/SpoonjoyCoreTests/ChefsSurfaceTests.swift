@@ -66,6 +66,66 @@ struct ChefsSurfaceTests {
         #expect(data.activity[1].cookbook == NativeChefActivityRecipe(id: "cb_1", title: "Weeknights"))
     }
 
+    @Test("public initializers build the same values the decoder produces")
+    func initializersMatchDecoder() throws {
+        let julia = NativeChefRef(id: "chef_julia", username: "julia", photoURL: nil)
+        let sam = NativeChefRef(id: "chef_sam", username: "sam", photoURL: nil)
+        let me = NativeChefRef(id: "chef_me", username: "me", photoURL: nil)
+        let built = NativeChefsData(
+            viewer: me,
+            fellowChefs: NativeChefList(total: 2, rows: [
+                NativeChefRow(
+                    chefID: "chef_julia",
+                    username: "julia",
+                    photoURL: URL(string: "https://spoonjoy.app/photos/julia.jpg"),
+                    interactionCounts: NativeChefInteractionCounts(spoons: 2, forks: 1, cookbookSaves: 0),
+                    latestInteractionAt: "2026-06-03T10:00:00.000Z"
+                ),
+                NativeChefRow(
+                    chefID: "chef_sam",
+                    username: "sam",
+                    photoURL: nil,
+                    interactionCounts: NativeChefInteractionCounts(spoons: 0, forks: 0, cookbookSaves: 0),
+                    latestInteractionAt: "2026-06-02T10:00:00.000Z"
+                )
+            ]),
+            chefsUsingMyRecipes: NativeChefList(total: 1, rows: [
+                NativeChefRow(
+                    chefID: "chef_sam",
+                    username: "sam",
+                    photoURL: nil,
+                    interactionCounts: NativeChefInteractionCounts(spoons: 0, forks: 0, cookbookSaves: 3),
+                    latestInteractionAt: "2026-06-02T10:00:00.000Z"
+                )
+            ]),
+            activity: [
+                NativeChefActivity(
+                    id: "outbound:spoon:s1",
+                    kind: .spooned,
+                    direction: .outbound,
+                    eventAt: "2026-06-03T10:00:00.000Z",
+                    actor: me,
+                    otherChef: julia,
+                    recipe: NativeChefActivityRecipe(id: "recipe_1", title: "Lemon Pasta"),
+                    cookbook: nil,
+                    label: "You cooked Lemon Pasta from julia."
+                ),
+                NativeChefActivity(
+                    id: "inbound:save:c1",
+                    kind: .saved,
+                    direction: .inbound,
+                    eventAt: "2026-06-02T10:00:00.000Z",
+                    actor: sam,
+                    otherChef: sam,
+                    recipe: nil,
+                    cookbook: NativeChefActivityRecipe(id: "cb_1", title: "Weeknights"),
+                    label: "sam saved your Soup."
+                )
+            ]
+        )
+        #expect(built == (try Self.decoded()))
+    }
+
     @Test("default transport initializer is usable")
     func defaultTransport() {
         _ = LiveChefsSurfaceRepository(configuration: .spoonjoyProduction)
