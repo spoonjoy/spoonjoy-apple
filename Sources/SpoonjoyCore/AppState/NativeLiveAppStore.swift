@@ -324,6 +324,9 @@ public struct NativeShellContentState {
     public let offlineIndicatorState: OfflineIndicatorState
     public let settingsSurfaceData: SettingsSurfaceData?
     public let notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
+    /// When the app last finished a real sync with the server, or nil if it never has. Surfaces that have no
+    /// per-record freshness of their own derive "out of date" from this, not from a placeholder.
+    public let lastSyncedAt: Date?
 
     public func recipe(id: String) -> Recipe? {
         recipes.first { $0.id == id }
@@ -417,7 +420,7 @@ public struct NativeShellContentState {
             oauthConnections: [],
             environment: environment,
             offline: .unavailable,
-            source: .cache(lastValidatedAt: .distantPast)
+            source: .cache(lastValidatedAt: lastSyncedAt ?? .distantPast)
         )
         return SettingsSurfaceViewModel(
             data: data,
@@ -1054,7 +1057,9 @@ public struct NativeShellContentState {
         configuration: APIClientConfiguration? = nil,
         offlineIndicatorState: OfflineIndicatorState? = nil,
         settingsSurfaceData: SettingsSurfaceData?? = nil,
-        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?? = nil
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?? = nil,
+        authSessionState: NativeAuthSessionState? = nil,
+        lastSyncedAt: Date?? = nil
     ) -> NativeShellContentState {
         NativeShellContentState(
             recipes: recipes ?? self.recipes,
@@ -1068,12 +1073,13 @@ public struct NativeShellContentState {
             queuedMutations: queuedMutations ?? self.queuedMutations,
             syncConflicts: syncConflicts ?? self.syncConflicts,
             searchSurfaceSnapshots: searchSurfaceSnapshots ?? self.searchSurfaceSnapshots,
-            authSessionState: authSessionState,
+            authSessionState: authSessionState ?? self.authSessionState,
             environment: environment ?? self.environment,
             configuration: configuration ?? self.configuration,
             offlineIndicatorState: offlineIndicatorState ?? self.offlineIndicatorState,
             settingsSurfaceData: settingsSurfaceData ?? self.settingsSurfaceData,
-            notificationAPNsSurfaceData: notificationAPNsSurfaceData ?? self.notificationAPNsSurfaceData
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData ?? self.notificationAPNsSurfaceData,
+            lastSyncedAt: lastSyncedAt ?? self.lastSyncedAt
         )
     }
 
@@ -1199,7 +1205,8 @@ public struct NativeShellContentState {
             configuration: configuration,
             offlineIndicatorState: offlineIndicatorState,
             settingsSurfaceData: settingsSurfaceData,
-            notificationAPNsSurfaceData: notificationAPNsSurfaceData
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData,
+            lastSyncedAt: date(from: syncSnapshot.checkpoint?.updatedAt)
         )
     }
 
@@ -1367,7 +1374,7 @@ public struct NativeShellContentState {
         }
     }
 
-    private static func date(from isoString: String?) -> Date? {
+    static func date(from isoString: String?) -> Date? {
         guard let isoString else {
             return nil
         }
@@ -1684,8 +1691,10 @@ public struct NativeShellContentState {
         configuration: APIClientConfiguration,
         offlineIndicatorState: OfflineIndicatorState,
         settingsSurfaceData: SettingsSurfaceData?,
-        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?,
+        lastSyncedAt: Date? = nil
     ) {
+        self.lastSyncedAt = lastSyncedAt
         self.recipes = recipes
         self.cookbooks = cookbooks
         self.cachedProfiles = cachedProfiles
@@ -1950,12 +1959,16 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func performSync(trigger: NativeSyncTriggerEvent) async {
+        // Set once the vault has been read, so a failure after that point can still show the cached kitchen
+        // under the stored account instead of an empty signed-out scope.
+        var restoredForRecovery = currentContentState.authSessionState
         do {
             guard !dependencies.fixtureFallbackPolicy.allowsProductionFallback() else {
                 throw NativeLiveAppStoreError.fixtureFallbackEnabledInProduction
             }
 
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
+            restoredForRecovery = restoredAuthState
             if dependencies.bootstrapMode == .restoreCacheOnly {
                 configureForRestoredAuthState(restoredAuthState)
                 let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
@@ -1969,7 +1982,13 @@ public final class NativeLiveAppStore: ObservableObject {
                 return
             }
 
-            let authState = try await authorizedAuthState(from: restoredAuthState)
+            let authState: NativeAuthSessionState
+            do {
+                authState = try await authorizedAuthState(from: restoredAuthState)
+            } catch TokenRefreshError.sessionExpired {
+                try await applySessionExpired(restoredAuthState: restoredAuthState)
+                return
+            }
             guard case .authenticated(let session) = authState else {
                 let restoringContent = try await restoreFromCache(authSessionState: authState)
                 apply(.signedOut(restoringContent))
@@ -1999,7 +2018,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState
+            let offlineContent = (try? await restoreFromCache(authSessionState: restoredForRecovery)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
         } catch {
             NativeLiveAppStoreTelemetry.bootstrapFailed(
@@ -2018,11 +2037,38 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
+            if !hasKitchenContent(currentContentState),
+               let cached = try? await restoreFromCache(authSessionState: restoredForRecovery) {
+                currentContentState = cached
+            }
             apply(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "bootstrap", retryAfter: nil), dismissal: nil)),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
             ))
         }
+    }
+
+    /// The server refused the stored refresh token for good. The session is signed out from here on, in every
+    /// surface, but whatever kitchen was cached for the account stays on screen so the chef is never left on a
+    /// dead-end error. The expired session stays in the vault (a later sync tries it once more at launch), and a
+    /// fresh sign-in replaces it.
+    private func applySessionExpired(restoredAuthState: NativeAuthSessionState) async throws {
+        configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
+        let cached = try await restoreFromCache(authSessionState: restoredAuthState)
+        let content = cached.copy(
+            offlineIndicatorState: OfflineIndicatorState(display: .stale(domain: .accountBootstrap), dismissal: nil),
+            authSessionState: .signedOut
+        )
+        currentContentState = content
+        if hasKitchenContent(content) {
+            apply(.offlineStale(content))
+        } else {
+            apply(.signedOut(content))
+        }
+    }
+
+    private func hasKitchenContent(_ content: NativeShellContentState) -> Bool {
+        !content.recipes.isEmpty || !content.cookbooks.isEmpty || !(content.shoppingList?.activeItems.isEmpty ?? true)
     }
 
     public func switchEnvironment(_ environment: NativeCacheEnvironment) async {
@@ -3313,7 +3359,6 @@ public final class NativeLiveAppStore: ObservableObject {
             authSessionState: authSessionState,
             savedAt: savedAt
         )
-        restoredRoute = appSnapshot?.lastOpenedRoute.flatMap(AppRoute.init(stateIdentifier:))
         let display: OfflineIndicatorDisplay
         if !syncSnapshot.queue.mutations.isEmpty {
             display = .queuedWork(
@@ -3336,6 +3381,9 @@ public final class NativeLiveAppStore: ObservableObject {
             optimisticMutations: optimisticMutations,
             offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: record.value.dismissedIndicators.first)
         )
+        restoredRoute = appSnapshot?.lastOpenedRoute
+            .flatMap(AppRoute.init(stateIdentifier:))?
+            .restorable(recipeIDs: Set(content.recipes.map(\.id)), cookbookIDs: Set(content.cookbooks.map(\.id)))
         currentContentState = content
         return content
     }
@@ -3470,7 +3518,8 @@ public final class NativeLiveAppStore: ObservableObject {
             offlineIndicatorState: shouldPreserveRestoredBlocker
                 ? restoredContent.offlineIndicatorState
                 : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now()),
-            settingsSurfaceData: settingsRefreshResult?.data
+            settingsSurfaceData: settingsRefreshResult?.data,
+            lastSyncedAt: dependencies.now()
         )
 
         let providerSecretResourceID = report.blockers.first.map { blocker -> String in
