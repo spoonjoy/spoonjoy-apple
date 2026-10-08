@@ -147,51 +147,30 @@ struct ChefsView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
-    let profiles: [NativeCachedProfile]
+    let repository: (any ChefsSurfaceRepository)?
+    let fallbackChefs: [NativeChefRef]
     let openRoute: (AppRoute) -> Void
 
+    @State private var content: ChefsSurfaceContent?
+
     var body: some View {
+        let resolved = content ?? .cachedFallback(fallbackChefs)
         KitchenTablePage {
             KitchenTableHeader(
                 eyebrow: "My Kitchen",
                 title: "Chefs",
-                subtitle: "\(profiles.count) \(profiles.count == 1 ? "chef" : "chefs")"
+                subtitle: resolved.subtitle
             )
 
-            if profiles.isEmpty {
-                KitchenTableSection(title: "No fellow chefs yet") {
-                    Text("Cook, save, or fork another chef's recipe to start building your kitchen.")
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                        .padding(14)
-                        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-                        .background(KitchenTableTheme.paper)
-                        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                }
-            } else {
-                KitchenTableSection(title: "Fellow Chefs") {
-                    ForEach(profiles.map(\.profile), id: \.id) { profile in
-                        Button {
-                            openRoute(.profile(identifier: profile.username))
-                        } label: {
-                            KitchenTableObjectRow(title: profile.username, subtitle: "Open kitchen profile") {
-                                Image(systemName: "person.crop.circle")
-                                    .font(.title2)
-                                    .foregroundStyle(KitchenTableTheme.brass)
-                                    .frame(width: 44, height: 44)
-                                    .background(KitchenTableTheme.paper)
-                            } trailing: {
-                                Image(systemName: "chevron.forward")
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .foregroundStyle(KitchenTableTheme.brass)
-                                    .accessibilityHidden(true)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Opens chef profile")
-                    }
-                }
+            fellowChefsSection(resolved)
+
+            if case .live = resolved {
+                chefsUsingMyRecipesSection(resolved)
+                activitySection(resolved)
             }
+        }
+        .task(id: fallbackChefs.map(\.id)) {
+            content = await ChefsSurfaceContent.load(repository: repository, fallbackChefs: fallbackChefs)
         }
         .task {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
@@ -202,6 +181,110 @@ struct ChefsView: View {
                     reduceMotionEnabled: accessibilityReduceMotion
                 )
             )
+        }
+    }
+
+    @ViewBuilder
+    private func fellowChefsSection(_ resolved: ChefsSurfaceContent) -> some View {
+        if resolved.fellowChefs.isEmpty {
+            emptySection(
+                title: "No fellow chefs yet",
+                message: "Cook, save, or fork another chef's recipe to start building your kitchen."
+            )
+        } else {
+            KitchenTableSection(title: "Fellow Chefs") {
+                ForEach(resolved.fellowChefs, id: \.id) { chef in
+                    chefRow(
+                        chef: chef,
+                        subtitle: resolved.fellowChefRows.first(where: { $0.chefID == chef.id })?.interactionSummary
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func chefsUsingMyRecipesSection(_ resolved: ChefsSurfaceContent) -> some View {
+        if resolved.chefsUsingMyRecipes.isEmpty {
+            emptySection(title: "Chefs Using My Recipes", message: "No one has used your recipes yet.")
+        } else {
+            KitchenTableSection(title: "Chefs Using My Recipes") {
+                ForEach(resolved.chefsUsingMyRecipes) { row in
+                    chefRow(
+                        chef: NativeChefRef(id: row.chefID, username: row.username, photoURL: row.photoURL),
+                        subtitle: row.interactionSummary
+                    )
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func activitySection(_ resolved: ChefsSurfaceContent) -> some View {
+        if resolved.activity.isEmpty {
+            emptySection(
+                title: "No chef activity yet",
+                message: "Cook, fork, or save another chef's recipe to start building your kitchen graph."
+            )
+        } else {
+            KitchenTableSection(title: "Activity") {
+                ForEach(resolved.activity) { row in
+                    Button {
+                        openRoute(row.recipeRoute ?? row.otherChef.profileRoute)
+                    } label: {
+                        KitchenTableObjectRow(title: row.label, subtitle: row.directionLabel) {
+                            Image(systemName: "text.bubble")
+                                .font(.title2)
+                                .foregroundStyle(KitchenTableTheme.brass)
+                                .frame(width: 44, height: 44)
+                                .background(KitchenTableTheme.paper)
+                        } trailing: {
+                            Image(systemName: "chevron.forward")
+                                .font(KitchenTableTheme.uiLabel)
+                                .foregroundStyle(KitchenTableTheme.brass)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("chefs.activity.row")
+                }
+            }
+        }
+    }
+
+    private func chefRow(chef: NativeChefRef, subtitle: String?) -> some View {
+        Button {
+            openRoute(chef.profileRoute)
+        } label: {
+            KitchenTableObjectRow(
+                title: chef.username,
+                subtitle: (subtitle?.isEmpty == false ? subtitle : nil) ?? "Open kitchen profile"
+            ) {
+                Image(systemName: "person.crop.circle")
+                    .font(.title2)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .frame(width: 44, height: 44)
+                    .background(KitchenTableTheme.paper)
+            } trailing: {
+                Image(systemName: "chevron.forward")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .accessibilityHidden(true)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens chef profile")
+    }
+
+    private func emptySection(title: String, message: String) -> some View {
+        KitchenTableSection(title: title) {
+            Text(message)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .padding(14)
+                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+                .background(KitchenTableTheme.paper)
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         }
     }
 }

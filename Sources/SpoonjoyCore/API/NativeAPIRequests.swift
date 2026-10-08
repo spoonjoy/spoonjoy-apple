@@ -1377,3 +1377,10 @@ public enum RecipeImportRequests {
         )
     }
 }
+
+public enum NativeChefsRequests {
+    /// The signed-in chef's own chef graph: the same fellow chefs, kitchen visitors and activity the web Chefs page loads.
+    public static func chefs() -> APIRequestBuilder {
+        APIRequestSupport.privateRead(pathComponents: ["api", "v1", "me", "chefs"])
+    }
+}
