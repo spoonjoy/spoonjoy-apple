@@ -198,10 +198,8 @@ final class JourneyApp {
         assertValue(of: field, equals: text, "\(id) does not hold \(text).", file: file, line: line)
     }
 
-    /// Saves the recipe editor. Save is the form's last row. Run 36333893304 showed the keyboard still up
-    /// after two swipes, with Save at y 904, under the tab bar, so the tap never reached it. The field
-    /// being edited is closed with Return first, then one swipe reaches the end of the form, and Save must
-    /// sit above the tab bar before it is tapped.
+    /// Saves the recipe editor. Save is in the navigation bar, so it is reachable with the keyboard up. The
+    /// field being edited is closed with Return first, so the last field before Save must be a single-line field.
     func saveRecipeEditor(file: StaticString = #filePath, line: UInt = #line) {
         app.typeText(XCUIKeyboardKey.return.rawValue)
         XCTAssertTrue(
@@ -213,20 +211,11 @@ final class JourneyApp {
         saveOpenRecipeEditor(file: file, line: line)
     }
 
-    /// Saves an editor with no keyboard up (after tapping reorder controls rather than typing): one swipe
-    /// reaches the form's end, Save must sit above the tab bar, and the editor must close.
+    /// Saves an editor from its toolbar Save button and checks the editor closes.
     func saveOpenRecipeEditor(file: StaticString = #filePath, line: UInt = #line) {
-        app.swipeUp()
         let save = element(JourneyID.editorSave)
         XCTAssertTrue(save.waitForExistence(timeout: Self.interactionTimeout), "The editor's Save button is missing.", file: file, line: line)
         XCTAssertTrue(save.isEnabled, "Save is disabled, so the editor rejected the draft.", file: file, line: line)
-        XCTAssertLessThanOrEqual(
-            save.frame.maxY,
-            app.tabBars.firstMatch.frame.minY,
-            "Save is under the tab bar, where a tap would not reach it. Screen: \(screen)",
-            file: file,
-            line: line
-        )
         save.tap()
         // The editor's title field, not Save, shows whether the editor closed: while saving, Save's label
         // becomes a progress view and the Save button query stops matching (run 36337705822).
