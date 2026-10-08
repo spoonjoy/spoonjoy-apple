@@ -231,6 +231,10 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
         let platformItem = app.descendants(matching: .any)["shopping.item.item_lemons"]
         XCTAssertTrue(platformItem.waitForExistence(timeout: 8))
+        // On a phone the actions menu lives in the navigation bar, and no search field sits over the list.
+        XCTAssertTrue(app.buttons["Receipt actions"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Receipt actions"].isHittable)
+        XCTAssertFalse(app.searchFields["Search Spoonjoy"].exists)
         platformItem.tap()
         app.buttons["Create a recipe"].tap()
     }

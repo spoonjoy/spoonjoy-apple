@@ -32,7 +32,7 @@ struct ReceiptListView: View {
                             )
                         }
                         .toggleStyle(.largeCheck)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(KitchenTableTheme.bone)
                         .accessibilityHint(item.isEffectivelyChecked ? "Double tap to move this item back to Need." : "Double tap to move this item to Basket.")
@@ -55,13 +55,16 @@ struct ReceiptListView: View {
                         .textCase(.uppercase)
                         .tracking(1.6)
                         .foregroundStyle(KitchenTableTheme.brass)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                         .accessibilityLabel(section.title)
                 }
             }
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .environment(\.defaultMinListHeaderHeight, 28)
+        .contentMargins(.top, 0, for: .scrollContent)
+        .listSectionSpacing(0)
         .background(KitchenTableTheme.bone)
         .frame(minHeight: receiptListHeight)
     }
@@ -81,7 +84,7 @@ struct ReceiptListView: View {
     private var receiptListHeight: CGFloat {
         let rowCount = sections.reduce(0) { $0 + $1.items.count }
         let sectionCount = sections.count
-        let estimated = CGFloat(rowCount * 82 + sectionCount * 42 + 28)
+        let estimated = CGFloat(rowCount * 52 + sectionCount * 34 + 28)
         return min(max(estimated, 260), 680)
     }
 
@@ -91,34 +94,42 @@ private struct ShoppingReceiptRow: View {
     let item: ShoppingPresentationItem
     let isPending: Bool
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
+        HStack(alignment: .center, spacing: 12) {
             Image(systemName: symbol(for: item.iconKey))
                 .font(.body.weight(.semibold))
                 .foregroundStyle(KitchenTableTheme.brass)
                 .frame(width: 24)
                 .accessibilityHidden(true)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.item.name)
-                    .font(KitchenTableTheme.objectTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.inkMuted)
-                    .lineLimit(2)
-
-                HStack(spacing: 8) {
-                    if !item.item.displayQuantity.isEmpty {
-                        Text(item.item.displayQuantity)
-                    }
+            // One line per item, as on the web list: name leading, amount trailing. At accessibility text
+            // sizes the amount drops under the name so neither is squeezed.
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    nameText
+                    detailLine
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    nameText
                     if item.item.isEffectivelyChecked {
                         Text("already in basket")
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .lineLimit(1)
                     }
                 }
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if !item.item.displayQuantity.isEmpty {
+                    Text(item.item.displayQuantity)
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .lineLimit(1)
+                }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
 
             if isPending {
                 ProgressView()
@@ -128,6 +139,28 @@ private struct ShoppingReceiptRow: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityText(for: item.item))
+    }
+
+    private var nameText: some View {
+        Text(item.item.name)
+            .font(KitchenTableTheme.objectTitle)
+            .foregroundStyle(KitchenTableTheme.charcoal)
+            .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.inkMuted)
+            .lineLimit(2)
+    }
+
+    private var detailLine: some View {
+        HStack(spacing: 8) {
+            if !item.item.displayQuantity.isEmpty {
+                Text(item.item.displayQuantity)
+            }
+            if item.item.isEffectivelyChecked {
+                Text("already in basket")
+            }
+        }
+        .font(KitchenTableTheme.uiLabel)
+        .foregroundStyle(KitchenTableTheme.inkMuted)
+        .lineLimit(1)
     }
 
     private func symbol(for iconKey: String) -> String {
@@ -179,15 +212,15 @@ private struct ReceiptDeleteSwipeModifier: ViewModifier {
 }
 
 struct LargeCheckToggleStyle: ToggleStyle {
-    private static let minimumCheckTarget: CGFloat = 52
+    private static let minimumCheckTarget: CGFloat = 44
 
     func makeBody(configuration: Configuration) -> some View {
         Button {
             configuration.isOn.toggle()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Image(systemName: configuration.isOn ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
+                    .font(.title3)
                     .foregroundStyle(configuration.isOn ? KitchenTableTheme.herb : KitchenTableTheme.brass)
                     .frame(width: Self.minimumCheckTarget, height: Self.minimumCheckTarget)
                     .accessibilityHidden(true)
