@@ -404,7 +404,9 @@ struct RecipeEditorView: View {
                         .font(KitchenTableTheme.runningHead)
                         .foregroundStyle(KitchenTableTheme.inkMuted)
                     TextField("cup", text: optionalText(ingredient.unit))
+#if os(iOS)
                         .textInputAutocapitalization(.never)
+#endif
                         .editorInputStyle()
                         .accessibilityLabel("Unit")
                         .accessibilityIdentifier("\(ingredientID).unit")
