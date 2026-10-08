@@ -64,7 +64,9 @@ struct ReceiptListView: View {
         .scrollContentBackground(.hidden)
         .environment(\.defaultMinListHeaderHeight, 28)
         .contentMargins(.top, 0, for: .scrollContent)
+#if os(iOS)
         .listSectionSpacing(0)
+#endif
         .background(KitchenTableTheme.bone)
         .frame(minHeight: receiptListHeight)
     }

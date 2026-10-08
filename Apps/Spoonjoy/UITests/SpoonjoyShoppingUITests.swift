@@ -239,6 +239,22 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         app.buttons["Create a recipe"].tap()
     }
 
+    /// The search field belongs to the Search tab only: it is absent over the shopping list and present, and
+    /// usable, once the Search tab is chosen.
+    func testSearchFieldBelongsToTheSearchTabOnly() {
+        ensurePortrait()
+        let app = launchShopping(variant: "normal", platformFixture: true)
+        XCTAssertTrue(app.descendants(matching: .any)["shopping.item.item_lemons"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.searchFields["Search Spoonjoy"].exists)
+
+        let searchTab = app.tabBars.buttons["Search"].firstMatch
+        XCTAssertTrue(searchTab.waitForExistence(timeout: 8), "The Search tab is missing. \(app.debugDescription)")
+        searchTab.tap()
+        let searchField = app.searchFields["Search Spoonjoy"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 10), "The Search tab has no search field. \(app.debugDescription)")
+        XCTAssertTrue(searchField.isHittable)
+    }
+
     /// Waits for `element` to exist and be hittable and enabled: for menu items, confirmation buttons and a
     /// long-press target, which must be on screen and uncovered, not still behind a closing sheet, menu or
     /// the keyboard. Fails with the screen if it does not settle. Nothing is retried.
