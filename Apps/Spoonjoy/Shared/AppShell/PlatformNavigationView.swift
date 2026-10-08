@@ -881,7 +881,13 @@ struct PlatformNavigationView: View {
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )
         case .chefs:
-            ChefsView(profiles: chefProfiles, openRoute: openRoute)
+            ChefsView(
+                repository: contentState.configuration.bearerToken != nil ? LiveChefsSurfaceRepository(configuration: contentState.configuration) : nil,
+                fallbackChefs: chefProfiles.map {
+                    NativeChefRef(id: $0.profile.id, username: $0.profile.username, photoURL: $0.profile.photoURL)
+                },
+                openRoute: openRoute
+            )
         case .shoppingList:
             ShoppingWithRecipeSources(
                 sources: ShoppingRecipeSources.sources(
