@@ -198,6 +198,7 @@ struct CookSessionSyncTests {
 
         let requests = await session.requests
         #expect(requests.map(\.httpMethod) == ["GET", "POST", "PATCH", "GET"])
+        #expect(requests.map(\.timeoutInterval) == [15, 15, 15, 15])
         #expect(requests[0].url?.absoluteString == "https://spoonjoy.app/api/cook-sessions/r1")
         #expect(requests[0].value(forHTTPHeaderField: "Authorization") == "Bearer sj_token")
         #expect(requests[1].value(forHTTPHeaderField: "Origin") == "https://spoonjoy.app")

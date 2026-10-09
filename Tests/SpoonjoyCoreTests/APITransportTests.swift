@@ -46,6 +46,8 @@ struct APITransportTests {
         #expect(capturedRequest.value(forHTTPHeaderField: "X-Client-Mutation-Id") == "profile-update-1")
         #expect(capturedRequest.httpBody == Data(#"{"displayName":"Ari"}"#.utf8))
         #expect(capturedRequest.cachePolicy == .reloadIgnoringLocalCacheData)
+        // A stalled request fails after 15 s of silence instead of the system's 60 s.
+        #expect(capturedRequest.timeoutInterval == 15)
     }
 
     @Test("transport preserves already encoded path segments exactly once")
