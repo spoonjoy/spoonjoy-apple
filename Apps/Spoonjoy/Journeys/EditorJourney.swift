@@ -111,14 +111,15 @@ final class EditorJourney: JourneyTestCase {
         // alone: the editor that is still open keeps its unsaved edit, and the recipe keeps its saved title.
         journey.tap(JourneyID.recipeDetailActions)
         journey.tap(JourneyID.recipeDetailEdit)
-        let unsavedTitle = "\(title) unsaved edit"
-        journey.replaceText(in: JourneyID.editorTitle, with: unsavedTitle)
+        let unsavedServings = "7"
+        journey.replaceText(in: JourneyID.editorServings, with: unsavedServings)
         journey.openTab(JourneyCopy.kitchenTab)
         journey.tap(JourneyID.newRecipe)
         journey.assertFieldEmpty(JourneyID.editorTitle)
+        journey.assertFieldEmpty(JourneyID.editorServings)
         journey.attachScreenshot(named: "09-new-recipe-while-editing-is-blank", to: self)
         journey.openTab(JourneyCopy.recipesTab)
-        journey.assertFieldValue(JourneyID.editorTitle, equals: unsavedTitle)
+        journey.assertFieldValue(JourneyID.editorServings, equals: unsavedServings)
         journey.attachScreenshot(named: "10-open-editor-kept-its-edit", to: self)
         journey.goBack()
         XCTAssertTrue(
