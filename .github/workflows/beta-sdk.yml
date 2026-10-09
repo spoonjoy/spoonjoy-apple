@@ -9,6 +9,9 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 concurrency:
   # A new push to a pull request cancels its superseded run, so stale runs stop holding the few xcode-27 runners.
   # Every main commit keeps its own run: TestFlight publishes from Native's success on main.

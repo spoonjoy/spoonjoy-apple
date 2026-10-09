@@ -162,7 +162,7 @@ this lane.
 For an ordinary release, `source_sha` must equal the current `main` head. The
 verifier checks out that exact SHA and requires a successful `Native` push run
 whose head is that exact SHA. All protected jobs must be present and successful: `Swift
-tests`, `Native scenario verifier`, `App bundle`, and `Coverage`. A fifth job,
+tests`, `Native scenario verifier`, `App bundle`, and `Contracts`. A fifth job,
 `TestFlight release note`, runs only after those checks and uploads
 `testflight-release-notes-<source_sha>`. The note JSON embeds its source SHA,
 Native run ID and attempt, generation time, and current commit subject. The
