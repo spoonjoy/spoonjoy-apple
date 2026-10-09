@@ -62,6 +62,37 @@ public struct CookSyncProgress: Codable, Equatable, Sendable {
         )
     }
 
+    /// Like `normalized(to:)`, but leaves alone what `server` already holds: a checked id from a newer version of
+    /// the recipe, and a step or scale this device did not change. The server checked those against its own
+    /// recipe, and sending the trimmed value would erase another device's progress. Only this device's own
+    /// changes are fitted to the recipe as it loaded it.
+    public func normalized(to bounds: CookSyncBounds, keeping server: CookSyncProgress) -> CookSyncProgress {
+        let fitted = normalized(to: bounds)
+        let serverIngredients = Set(server.checkedIngredientIDs)
+        let serverOutputs = Set(server.checkedStepOutputIDs)
+        return CookSyncProgress(
+            activeStepIndex: activeStepIndex == server.activeStepIndex ? activeStepIndex : fitted.activeStepIndex,
+            scaleFactor: scaleFactor == server.scaleFactor ? scaleFactor : fitted.scaleFactor,
+            checkedIngredientIDs: Self.unique(checkedIngredientIDs).filter { bounds.ingredientIDs.contains($0) || serverIngredients.contains($0) },
+            checkedStepOutputIDs: Self.unique(checkedStepOutputIDs).filter { bounds.stepOutputIDs.contains($0) || serverOutputs.contains($0) }
+        )
+    }
+
+    /// Puts back into this device's progress what `base` held outside this device's recipe. The device cannot
+    /// show or keep those ids or that step, so their absence here is not a change the cook made.
+    public func restoringUnknown(from base: CookSyncProgress, bounds: CookSyncBounds) -> CookSyncProgress {
+        let ingredients = Set(checkedIngredientIDs)
+        let outputs = Set(checkedStepOutputIDs)
+        let baseStepIsUnknown = base.activeStepIndex >= bounds.stepCount || base.activeStepIndex < 0
+        let fittedBaseStep = base.normalized(to: bounds).activeStepIndex
+        return CookSyncProgress(
+            activeStepIndex: baseStepIsUnknown && activeStepIndex == fittedBaseStep ? base.activeStepIndex : activeStepIndex,
+            scaleFactor: scaleFactor,
+            checkedIngredientIDs: checkedIngredientIDs + base.checkedIngredientIDs.filter { !bounds.ingredientIDs.contains($0) && !ingredients.contains($0) },
+            checkedStepOutputIDs: checkedStepOutputIDs + base.checkedStepOutputIDs.filter { !bounds.stepOutputIDs.contains($0) && !outputs.contains($0) }
+        )
+    }
+
     /// Replays `local`'s changes since `base` on top of `remote`.
     public static func merge(
         base: CookSyncProgress,
@@ -279,8 +310,8 @@ public struct CookSessionReconciler: Sendable {
 
             let current = remote!
             let base = known?.attemptID == current.attemptID ? known!.progress : CookSyncProgress.initial
-            let merged = CookSyncProgress.merge(base: base, local: local, remote: current.progress)
-                .normalized(to: bounds)
+            let merged = CookSyncProgress.merge(base: base, local: local.restoringUnknown(from: base, bounds: bounds), remote: current.progress)
+                .normalized(to: bounds, keeping: current.progress)
             if merged.isSame(as: current.progress) {
                 return CookSyncReconciliation(progress: merged, server: current, outcome: .synced)
             }
@@ -326,7 +357,8 @@ public struct CookSessionReconciler: Sendable {
     }
 
     // The server refused this device's progress (the recipe changed since the device loaded it). Show the
-    // server's progress instead of sending the same refused change again.
+    // server's progress instead of sending the same refused change again. The server's state is remembered as
+    // the server holds it, so the next exchange does not read ids this device cannot show as unchecks.
     private func adoptServerProgress(
         recipeID: String,
         local: CookSyncProgress,
@@ -335,10 +367,10 @@ public struct CookSessionReconciler: Sendable {
     ) async -> CookSyncReconciliation {
         switch await client.read(recipeID: recipeID) {
         case .state(let state):
-            let adopted = (state?.progress ?? .initial).normalized(to: bounds)
+            let serverProgress = state?.progress ?? .initial
             return CookSyncReconciliation(
-                progress: adopted,
-                server: state.map { CookServerSnapshot(attemptID: $0.attemptID, revision: $0.revision, progress: adopted) },
+                progress: serverProgress.normalized(to: bounds, keeping: serverProgress),
+                server: state,
                 outcome: .synced
             )
         case let result:
