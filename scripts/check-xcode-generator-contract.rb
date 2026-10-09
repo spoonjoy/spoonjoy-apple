@@ -5,6 +5,7 @@ require "fileutils"
 require "open3"
 require "pathname"
 require "tmpdir"
+require "yaml"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 GENERATOR = ROOT.join("scripts/generate-xcode-project.rb")
