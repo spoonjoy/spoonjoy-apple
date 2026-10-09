@@ -2187,17 +2187,15 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func persistAlreadyAppliedShoppingBatch(_ mutations: [NativeQueuedMutation]) async throws {
-        let scopedQueue = try await queueForCurrentScope()
-        let nextQueue = try scopedQueue.queue.appending(contentsOf: mutations)
+        let scope = currentQueueScope()
         for mutation in mutations {
             try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
         }
-        try await dependencies.syncStore.saveQueue(
-            nextQueue,
-            accountID: scopedQueue.accountID,
-            environment: scopedQueue.environment,
-            upsertingCachedRecords: try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList),
-            deletingCachedRecordKeys: []
+        let nextQueue = try await dependencies.syncStore.appendMutations(
+            mutations,
+            accountID: scope.accountID,
+            environment: scope.environment,
+            upsertingCachedRecords: try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList)
         )
         let indicator = OfflineIndicatorState(
             display: .queuedWork(
@@ -2225,19 +2223,16 @@ public final class NativeLiveAppStore: ObservableObject {
         }
 
         do {
-            let scopedQueue = try await queueForCurrentScope()
-            let queue = scopedQueue.queue
-            let nextQueue = try queue.appending(contentsOf: mutations)
+            let scope = currentQueueScope()
             let baseShoppingCacheRecords = try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList)
             for mutation in mutations {
                 try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
             }
-            try await dependencies.syncStore.saveQueue(
-                nextQueue,
-                accountID: scopedQueue.accountID,
-                environment: scopedQueue.environment,
-                upsertingCachedRecords: baseShoppingCacheRecords,
-                deletingCachedRecordKeys: []
+            let nextQueue = try await dependencies.syncStore.appendMutations(
+                mutations,
+                accountID: scope.accountID,
+                environment: scope.environment,
+                upsertingCachedRecords: baseShoppingCacheRecords
             )
             let indicator = OfflineIndicatorState(
                 display: .queuedWork(
@@ -2315,21 +2310,22 @@ public final class NativeLiveAppStore: ObservableObject {
             return
         }
 
-        let scopedQueue = try await queueForCurrentScope()
-        guard scopedQueue.queue.mutations.contains(where: { $0.clientMutationID == trimmedClientMutationID }) else {
+        let scope = currentQueueScope()
+        let snapshot = try await dependencies.syncStore.loadSnapshot()
+        let storedQueue = snapshot.accountID == scope.accountID && snapshot.environment == scope.environment ? snapshot.queue : NativeMutationQueue()
+        guard storedQueue.mutations.contains(where: { $0.clientMutationID == trimmedClientMutationID }) else {
             return
         }
 
         let existingConflicts = currentContentState.syncConflicts
         let clientMutationIDsToDiscard = Self.clientMutationIDsToDiscard(
-            from: scopedQueue.queue,
+            from: storedQueue,
             startingAt: trimmedClientMutationID
         )
-        let nextQueue = try scopedQueue.queue.removing(clientMutationIDs: clientMutationIDsToDiscard)
-        try await dependencies.syncStore.saveQueue(
-            nextQueue,
-            accountID: scopedQueue.accountID,
-            environment: scopedQueue.environment
+        try await dependencies.syncStore.removeMutations(
+            clientMutationIDs: clientMutationIDsToDiscard,
+            accountID: scope.accountID,
+            environment: scope.environment
         )
 
         let restoredContent = try await restoreFromCache(authSessionState: currentContentState.authSessionState)
@@ -2713,16 +2709,12 @@ public final class NativeLiveAppStore: ObservableObject {
         })
     }
 
-    private func queueForCurrentScope() async throws -> (queue: NativeMutationQueue, accountID: String?, environment: NativeCacheEnvironment?) {
-        let snapshot = try await dependencies.syncStore.loadSnapshot()
+    /// The account and environment that new queue entries belong to: the trusted signed-in account, or none.
+    private func currentQueueScope() -> (accountID: String?, environment: NativeCacheEnvironment?) {
         guard let expectedAccountID = trustedAccountID(for: currentContentState.authSessionState) else {
-            return (NativeMutationQueue(), nil, nil)
+            return (nil, nil)
         }
-        guard snapshot.accountID == expectedAccountID,
-              snapshot.environment == cacheEnvironment else {
-            return (NativeMutationQueue(), expectedAccountID, cacheEnvironment)
-        }
-        return (try await dependencies.syncStore.loadQueue(), expectedAccountID, cacheEnvironment)
+        return (expectedAccountID, cacheEnvironment)
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {
