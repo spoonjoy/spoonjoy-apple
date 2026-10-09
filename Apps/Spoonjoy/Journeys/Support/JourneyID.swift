@@ -81,6 +81,8 @@ enum JourneyID {
     /// The recipe detail page's "Cook mode" button, and every ingredient checkbox in cook mode (the label is the ingredient).
     static let recipeDetailCook = "recipeDetail.cook"
     static let cookIngredient = "cookMode.ingredient"
+    /// The scale stepper sits inline in cook mode; it is not behind Tools.
+    static let cookScale = "cookMode.scale"
 
     /// Every result row in Search.
     static let searchResult = "search.result"
