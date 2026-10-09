@@ -168,7 +168,10 @@ struct SpoonjoyRootView: View {
             switch presentation {
             case .signedOut:
                 signedOutContent(contentState: contentState)
-            case .restoring, .kitchen:
+            case .kitchen:
+                // Handled above; listed so the switch stays exhaustive without hiding a kitchen state here.
+                EmptyView()
+            case .restoring:
                 restoringCacheView(contentState: contentState)
             case .settingsAfterSyncFailure(let message):
                 settingsContent(contentState: contentState, syncFailureMessage: message)

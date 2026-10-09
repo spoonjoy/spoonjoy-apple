@@ -55,6 +55,8 @@ struct NativeShellPresentationTests {
         let end = try #require(source.range(of: "\n    }\n", range: start.upperBound..<source.endIndex))
         let rootContent = source[start.upperBound..<end.lowerBound]
         #expect(rootContent.components(separatedBy: "platformNavigation(").count - 1 == 1)
+        // An identity keyed on the sync state would reset the shell just the same.
+        #expect(!rootContent.contains(".id("))
     }
 
     private static func emptyContent() -> NativeShellContentState {
