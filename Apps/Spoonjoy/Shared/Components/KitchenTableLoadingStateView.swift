@@ -64,12 +64,12 @@ struct KitchenTableLoadingStateView: View {
 }
 
 private struct SpoonjoyBackToRecipesKey: EnvironmentKey {
-    static let defaultValue: (@Sendable () -> Void)? = nil
+    static let defaultValue: (@MainActor @Sendable () -> Void)? = nil
 }
 
 extension EnvironmentValues {
     /// Set by the shell: opens the recipes list, so a page that cannot load always has a way back.
-    var spoonjoyBackToRecipes: (@Sendable () -> Void)? {
+    var spoonjoyBackToRecipes: (@MainActor @Sendable () -> Void)? {
         get { self[SpoonjoyBackToRecipesKey.self] }
         set { self[SpoonjoyBackToRecipesKey.self] = newValue }
     }
