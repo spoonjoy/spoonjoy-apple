@@ -2056,6 +2056,24 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    /// Empties every store that holds the account's data on disk: the sync queue, checkpoint and cached
+    /// records, staged uploads, the durable cache file, and the app-state snapshot (drafts, routes, progress).
+    /// Without this a revoked session would leave the chef's recipes and unsynced edits readable, and queued
+    /// edits would drain to the server if the same chef signed back in.
+    private func wipeLocalAccountStores() async {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        let signedOutScope = accountID(for: .signedOut)
+        if let queue = try? await dependencies.syncStore.loadQueue() {
+            dependencies.stagedMediaDirectory?.deleteMedia(ofDrained: queue.mutations)
+        }
+        try? await dependencies.syncStore.saveQueue(NativeMutationQueue(), accountID: nil, environment: nil, upsertingCachedRecords: [], deletingCachedRecordKeys: [])
+        try? await dependencies.syncStore.clearCheckpoint()
+        if let emptyCache = try? NativeDurableCacheSnapshot(schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion, accountID: signedOutScope, environment: cacheEnvironment, createdAt: dependencies.now(), records: [], dismissedIndicators: []) {
+            try? dependencies.cacheStore.save(emptyCache)
+        }
+        try? dependencies.appStateStoreProvider()?.save(NativeAppSnapshot.bootstrap(shoppingList: nil, accountID: signedOutScope, environment: cacheEnvironment, savedAt: savedAt))
+    }
+
     /// The server refused the stored refresh token for good. Syncing stops and a sign-in is offered, but the
     /// account scope does not change: the cached kitchen, the queued edits and every unsynced draft stay under
     /// the chef's own account, still readable and still editable. The expired session stays in the vault (a
@@ -2070,7 +2088,7 @@ public final class NativeLiveAppStore: ObservableObject {
             authSessionState: scope
         )
         currentContentState = content
-        if hasKitchenContent(content) {
+        if hasKitchenContent(content) || hasUnsyncedWork(content) {
             apply(.offlineStale(content))
         } else {
             apply(.signedOut(content))
@@ -2087,10 +2105,17 @@ public final class NativeLiveAppStore: ObservableObject {
             currentContentState = cached
         }
         await purgeLocalAccountData()
+        await wipeLocalAccountStores()
         try? await dependencies.authSessionRepository.clearLocalSession()
         configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
         let content = (try? await restoreFromCache(authSessionState: .signedOut)) ?? emptyContent(authSessionState: .signedOut, display: .synced)
         apply(.signedOut(content))
+    }
+
+    /// Work the chef made on this device that no server has seen yet. It must stay on screen, under the chef's
+    /// own account, even when no recipe is cached.
+    private func hasUnsyncedWork(_ content: NativeShellContentState) -> Bool {
+        !content.queuedMutations.isEmpty || content.captureDraft != nil || !content.spoonCookLogDraftsByRecipeID.isEmpty
     }
 
     private func hasKitchenContent(_ content: NativeShellContentState) -> Bool {

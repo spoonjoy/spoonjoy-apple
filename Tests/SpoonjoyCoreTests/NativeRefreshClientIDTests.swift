@@ -45,7 +45,7 @@ struct NativeRefreshClientIDTests {
     }
 
     private static func repository(
-        vault: InMemoryTokenVault,
+        vault: any TokenVault,
         serverBaseURL: URL?,
         signIn: OAuthTokenResponse = response(),
         refresh: @escaping OAuthRefreshOperation = { _, _ in response() }
@@ -545,8 +545,8 @@ struct NativeRefreshClientIDTests {
         #expect(await seen.entries.map(\.refreshToken) == ["sj_refresh_old", "sj_refresh_other_process"])
     }
 
-    @Test("a rotation race that keeps losing to expired sessions stops after two rounds")
-    func endlessRotationRaceStops() async throws {
+    @Test("a rotation race that keeps losing to expired sessions reports a temporary failure, not an expired token")
+    func endlessRotationRaceIsTemporary() async throws {
         let vault = InMemoryTokenVault()
         try await vault.saveSession(try Self.session(clientID: "cm_old"))
         let counter = CallCounter()
@@ -555,9 +555,60 @@ struct NativeRefreshClientIDTests {
             try await vault.saveSession(try Self.session(clientID: "cm_old", refresh: "sj_refresh_race_\(await counter.count)"))
             throw Self.transportError(status: 400)
         }
-        let session = try await repository.validSession()
-        #expect(session.refreshToken == "sj_refresh_race_2")
+        await #expect(throws: TokenRefreshError.refreshInconclusive) {
+            try await repository.validSession()
+        }
         #expect(await counter.count == 2)
+        // Nothing was marked refused: the last token the other process stored is still untried.
+        #expect(try await vault.loadSession()?.refreshToken == "sj_refresh_race_2")
+    }
+
+    @Test("adopting a session another process stored never writes to the vault")
+    func adoptedSessionIsNotWrittenBack() async throws {
+        let inner = InMemoryTokenVault()
+        let vault = SaveCountingVault(inner)
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let rotatedElsewhere = try AuthSession(
+            clientID: "cm_old",
+            accessToken: "sj_access_other_process",
+            refreshToken: "sj_refresh_other_process",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(900),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        )
+        let repository = Self.repository(vault: vault, serverBaseURL: nil) { _, _ in
+            try await inner.saveSession(rotatedElsewhere)
+            throw Self.transportError(status: 400)
+        }
+        let savesBefore = await vault.saves
+        let session = try await repository.validSession()
+        #expect(session.refreshToken == "sj_refresh_other_process")
+        #expect(await vault.saves == savesBefore)
+    }
+
+    @Test("a caller that joins a refresh already in flight does not mark its own untried token as refused")
+    func joiningCallerKeepsItsOwnToken() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let seen = ClientIDLog()
+        let repository = Self.repository(vault: vault, serverBaseURL: nil) { clientID, refreshToken in
+            await seen.record(clientID: clientID, refreshToken: refreshToken)
+            if refreshToken == "sj_refresh_old" {
+                // Slow, then refused; meanwhile another process rotated and stored a newer expired token.
+                try await Task.sleep(nanoseconds: 300_000_000)
+                throw Self.transportError(status: 400)
+            }
+            return Self.response(refresh: "sj_refresh_after_join")
+        }
+        let first = Task { try await repository.validSession() }
+        try await Task.sleep(nanoseconds: 60_000_000)
+        try await vault.saveSession(try Self.session(clientID: "cm_old", refresh: "sj_refresh_other_process"))
+        let second = Task { try await repository.validSession() }
+
+        let sessions = try await [first.value, second.value]
+        #expect(sessions.allSatisfy { $0.refreshToken == "sj_refresh_after_join" })
+        #expect(await seen.entries.map(\.refreshToken).contains("sj_refresh_other_process"))
     }
 
     @Test("an expired or revoked session keeps its account scope, and a missing one stays signed out")
@@ -646,6 +697,28 @@ struct NativeRefreshClientIDTests {
             #expect(restored(route) == route)
         }
     }
+}
+
+private actor SaveCountingVault: TokenVault {
+    private let inner: InMemoryTokenVault
+    private(set) var saves = 0
+
+    init(_ inner: InMemoryTokenVault) {
+        self.inner = inner
+    }
+
+    func loadClientID() async throws -> String? { try await inner.loadClientID() }
+    func saveClientID(_ clientID: String) async throws {
+        saves += 1
+        try await inner.saveClientID(clientID)
+    }
+    func clearClientID() async throws { try await inner.clearClientID() }
+    func loadSession() async throws -> AuthSession? { try await inner.loadSession() }
+    func saveSession(_ session: AuthSession) async throws {
+        saves += 1
+        try await inner.saveSession(session)
+    }
+    func clearSession() async throws { try await inner.clearSession() }
 }
 
 private actor CallCounter {

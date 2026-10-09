@@ -167,7 +167,7 @@ struct NativeSessionExpiryStoreTests {
         let script: RefreshScript
         let store: NativeLiveAppStore
         let appStateStore: NativeAppStateStore
-        let syncStore: InMemoryNativeSyncStore
+        let syncStore: any NativeSyncStore
         let failure: FailureSwitch
         let cacheStore: NativeDurableCacheStore
     }
@@ -180,7 +180,8 @@ struct NativeSessionExpiryStoreTests {
         checkpointUpdatedAt: String? = nil,
         wallClockNow: Bool = false,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
-        queuedMutations: [NativeQueuedMutation] = []
+        queuedMutations: [NativeQueuedMutation] = [],
+        fileBackedSync: Bool = false
     ) async throws -> Fixture {
         let directory = try directory()
         let vault = InMemoryTokenVault()
@@ -225,21 +226,37 @@ struct NativeSessionExpiryStoreTests {
         let checkpoint = try checkpointUpdatedAt.map {
             try NativeSyncCheckpoint(globalCursor: nil, shoppingCursor: nil, updatedAt: $0)
         }
-        let syncStore = InMemoryNativeSyncStore(
-            accountID: "chef_ari",
-            environment: .production,
-            checkpoint: checkpoint,
-            queue: try NativeMutationQueue(mutations: queuedMutations),
-            cachedRecords: try cachedRecipeIDs.map { id in
-                let recipe = recipe(id: id)
-                return NativeSyncCachedRecord(
-                    kind: .recipe,
-                    resourceID: id,
-                    payload: try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(recipe)),
-                    serverRevision: .updatedAt(recipe.updatedAt)
+        let seededRecords = try cachedRecipeIDs.map { id in
+            let recipe = recipe(id: id)
+            return NativeSyncCachedRecord(
+                kind: .recipe,
+                resourceID: id,
+                payload: try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(recipe)),
+                serverRevision: .updatedAt(recipe.updatedAt)
+            )
+        }
+        let seededQueue = try NativeMutationQueue(mutations: queuedMutations)
+        let syncStore: any NativeSyncStore
+        if fileBackedSync {
+            syncStore = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("sync.json"),
+                fallback: NativeSyncSnapshot(
+                    accountID: "chef_ari",
+                    environment: .production,
+                    checkpoint: checkpoint,
+                    queue: seededQueue,
+                    cachedRecords: seededRecords
                 )
-            }
-        )
+            )
+        } else {
+            syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: checkpoint,
+                queue: seededQueue,
+                cachedRecords: seededRecords
+            )
+        }
         let failure = FailureSwitch()
         let engine = NativeSyncEngine(store: syncStore, transport: EmptyTransport(failure: failure), clock: clock)
         let configuration = APIClientConfiguration.spoonjoyProduction
@@ -266,6 +283,39 @@ struct NativeSessionExpiryStoreTests {
             failure: failure,
             cacheStore: cacheStore
         )
+    }
+
+    /// A second app process over the same files and Keychain: new store objects, nothing shared in memory.
+    @MainActor
+    private static func relaunched(from fixture: Fixture) async throws -> (store: NativeLiveAppStore, syncStore: FileBackedNativeSyncStore) {
+        let fixedNow = Self.now
+        let clock: @Sendable () -> Date = { fixedNow }
+        let script = RefreshScript([.success])
+        let repository = NativeAuthSessionRepository(
+            vault: fixture.vault,
+            clientName: "Spoonjoy Apple Tests",
+            registerClient: { _, _ in "client_live" },
+            exchangeCode: { _, _, _, _ in throw NativeAuthSessionError.missingAuthorizationCode },
+            refresh: { clientID, _ in try await script.next(clientID: clientID) },
+            revoke: { _, _ in },
+            now: clock
+        )
+        let syncStore = try FileBackedNativeSyncStore(fileURL: fixture.directory.appendingPathComponent("sync.json"))
+        let appStateStore = NativeAppStateStore(fileURL: fixture.directory.appendingPathComponent("native-app-state.json"))
+        let engine = NativeSyncEngine(store: syncStore, transport: EmptyTransport(failure: FailureSwitch()), clock: clock)
+        let configuration = APIClientConfiguration.spoonjoyProduction
+        let store = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
+            authSessionRepository: repository,
+            cacheStore: NativeDurableCacheStore(fileURL: fixture.directory.appendingPathComponent("cache.json")),
+            syncStore: syncStore,
+            syncEngine: engine,
+            syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
+            appStateStoreProvider: { appStateStore },
+            configuration: configuration,
+            cacheEnvironment: .production,
+            now: clock
+        ))
+        return (store, syncStore)
     }
 
     // MARK: Permanent failure
@@ -485,7 +535,7 @@ struct NativeSessionExpiryStoreTests {
     // MARK: Revoked on purpose
 
     @MainActor
-    @Test("a session the chef revoked on purpose wipes the cached kitchen and the Keychain session")
+    @Test("a session the chef revoked on purpose empties every store on the device, and a relaunch finds nothing")
     func revokedSessionWipesTheDevice() async throws {
         let queued = NativeQueuedMutation.shoppingAddItem(
             name: "limes",
@@ -496,9 +546,36 @@ struct NativeSessionExpiryStoreTests {
             clientMutationID: "cm_revoked",
             createdAt: "2026-06-16T11:00:00.000Z"
         )
-        let fixture = try await Self.fixture(outcomes: [.revoked], queuedMutations: [queued])
+        let fixture = try await Self.fixture(outcomes: [.success], queuedMutations: [queued], fileBackedSync: true)
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
 
+        // A signed-in chef with a synced kitchen, a queued edit, a draft and a restored route on disk.
+        try fixture.cacheStore.save(try NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: "chef_ari",
+            environment: .production,
+            createdAt: Self.now,
+            records: [],
+            dismissedIndicators: []
+        ))
+        await fixture.store.bootstrap()
+        fixture.store.recordCaptureDraft(CaptureDraft(
+            id: "draft_before_revoke",
+            source: .text,
+            rawText: "two eggs",
+            imageAssetIdentifier: nil,
+            createdAt: "2026-06-16T12:01:00.000Z"
+        ))
+        fixture.store.recordingOpenedRoute(.recipeDetail(id: "recipe_cached", presentation: .detail))
+        let cacheFile = fixture.directory.appendingPathComponent("cache.json")
+        let appStateFile = fixture.directory.appendingPathComponent("native-app-state.json")
+        let syncFile = fixture.directory.appendingPathComponent("sync.json")
+        #expect(try String(contentsOf: cacheFile, encoding: .utf8).contains("chef_ari"))
+        #expect(try String(contentsOf: appStateFile, encoding: .utf8).contains("draft_before_revoke"))
+        #expect(try String(contentsOf: syncFile, encoding: .utf8).contains("cm_revoked"))
+
+        // The server now says the chef revoked this session on purpose.
+        fixture.failure.set(TokenRefreshError.sessionRevoked)
         await fixture.store.bootstrap()
 
         guard case .signedOut(let content) = fixture.store.bootstrapState else {
@@ -509,16 +586,103 @@ struct NativeSessionExpiryStoreTests {
         #expect(!content.isSessionExpired)
         #expect(content.recipes.isEmpty)
         #expect(content.queuedMutations.isEmpty)
+        #expect(content.captureDraft == nil)
         #expect(try await fixture.vault.loadSession() == nil)
         #expect(try await fixture.vault.loadClientID() == nil)
 
-        // A relaunch has nothing of the account to restore.
-        await fixture.store.bootstrap()
-        guard case .signedOut(let again) = fixture.store.bootstrapState else {
-            Issue.record("Expected the sign-in screen on relaunch, got \(fixture.store.bootstrapState)")
+        // The stores themselves are empty, not just filtered from view.
+        #expect(try await fixture.syncStore.loadQueue().mutations.isEmpty)
+        let snapshot = try await fixture.syncStore.loadSnapshot()
+        #expect(snapshot.accountID == nil)
+        #expect(snapshot.cachedRecords.isEmpty)
+        #expect(snapshot.checkpoint == nil)
+        let files = try [cacheFile, appStateFile, syncFile].map { try String(contentsOf: $0, encoding: .utf8) }
+        for text in files {
+            #expect(!text.contains("recipe_cached"))
+            #expect(!text.contains("chef_ari"))
+            #expect(!text.contains("cm_revoked"))
+            #expect(!text.contains("draft_before_revoke"))
+        }
+
+        // A fresh app process over the same files has nothing to restore.
+        let relaunch = try await Self.relaunched(from: fixture)
+        await relaunch.store.bootstrap()
+        guard case .signedOut(let again) = relaunch.store.bootstrapState else {
+            Issue.record("Expected the sign-in screen on relaunch, got \(relaunch.store.bootstrapState)")
             return
         }
         #expect(again.recipes.isEmpty)
+        #expect(again.queuedMutations.isEmpty)
+        #expect(again.captureDraft == nil)
+        #expect(try await relaunch.syncStore.loadQueue().mutations.isEmpty)
+
+        // The same chef signing back in does not get the old edits back, and nothing drains to the server.
+        try await fixture.vault.saveSession(try AuthSession(
+            clientID: NativeAuthSession.nativeAppClientID,
+            accessToken: "sj_access_new_sign_in",
+            refreshToken: "sj_refresh_new_sign_in",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(3_600),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        ))
+        let signedBackIn = try await Self.relaunched(from: fixture)
+        await signedBackIn.store.bootstrap()
+        let restored = signedBackIn.store.bootstrapState.contentState
+        #expect(restored.queuedMutations.isEmpty)
+        #expect(!restored.recipes.map(\.id).contains("recipe_cached"))
+        #expect(try await signedBackIn.syncStore.loadQueue().mutations.isEmpty)
+    }
+
+    @MainActor
+    @Test("an expired chef with queued edits but no cached recipes keeps the kitchen, not the sign-in screen")
+    func expiredChefWithOnlyQueuedWorkKeepsTheWork() async throws {
+        let queued = NativeQueuedMutation.shoppingAddItem(
+            name: "limes",
+            quantity: 1,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_only_queued",
+            createdAt: "2026-06-16T11:00:00.000Z"
+        )
+        let fixture = try await Self.fixture(outcomes: [.invalidGrant], cachedRecipeIDs: [], queuedMutations: [queued])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+
+        await fixture.store.bootstrap()
+
+        guard case .offlineStale(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the kitchen with the sign-in banner, got \(fixture.store.bootstrapState)")
+            return
+        }
+        Self.assertKeepsAccountScope(content)
+        #expect(content.queuedMutations.map(\.clientMutationID) == ["cm_only_queued"])
+    }
+
+    @MainActor
+    @Test("an expired chef with only a capture draft keeps the kitchen, not the sign-in screen")
+    func expiredChefWithOnlyADraftKeepsTheWork() async throws {
+        let fixture = try await Self.fixture(outcomes: [.invalidGrant], cachedRecipeIDs: [])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        try fixture.appStateStore.save(
+            NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: "2026-06-16T11:00:00.000Z"
+            ).recordingCaptureDraft(
+                CaptureDraft(id: "draft_only", source: .text, rawText: "a cup of flour", imageAssetIdentifier: nil, createdAt: "2026-06-16T11:00:00.000Z"),
+                savedAt: "2026-06-16T11:00:00.000Z"
+            )
+        )
+
+        await fixture.store.bootstrap()
+
+        guard case .offlineStale(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the kitchen with the sign-in banner, got \(fixture.store.bootstrapState)")
+            return
+        }
+        #expect(content.captureDraft?.id == "draft_only")
     }
 
     // MARK: Refusals that are not the token's

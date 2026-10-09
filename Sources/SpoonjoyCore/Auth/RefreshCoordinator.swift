@@ -8,6 +8,9 @@ public enum TokenRefreshError: Error, Equatable, Sendable {
     /// The server refused the refresh token and said the chef revoked the session on purpose. The device must
     /// forget the account's private data, not just ask for a new sign-in.
     case sessionRevoked
+    /// Several processes kept rotating the refresh token while this one tried to refresh, and the session it
+    /// ended with still needs a refresh. Nothing is wrong with the session; trying again later settles it.
+    case refreshInconclusive
 
     /// True when a refresh failure means the stored session can never refresh: the server answered with an
     /// OAuth `invalid_grant` or `invalid_client` error. Everything else is transient and keeps the session:
@@ -24,6 +27,8 @@ public actor RefreshCoordinator {
     private let vault: any TokenVault
     private let refresh: OAuthRefreshOperation
     private var inFlightRefresh: Task<AuthSession, Error>?
+    private var inFlightRefreshToken = ""
+    private var inFlightRefreshID = 0
     private var refreshGeneration = 0
     private var rejectedRefreshToken: String?
     private var rejectionWasRevocation = false
@@ -74,7 +79,7 @@ public actor RefreshCoordinator {
             return refreshed
         }
         guard rotationRetriesLeft > 0 else {
-            return refreshed
+            throw TokenRefreshError.refreshInconclusive
         }
         return try await validSession(at: date, rotationRetriesLeft: rotationRetriesLeft - 1)
     }
@@ -85,6 +90,8 @@ public actor RefreshCoordinator {
         rejectionWasRevocation = false
         inFlightRefresh?.cancel()
         inFlightRefresh = nil
+        inFlightRefreshToken = ""
+        inFlightRefreshID += 1
         try await vault.clearSession()
         try await vault.clearClientID()
     }
@@ -92,9 +99,11 @@ public actor RefreshCoordinator {
     private func refreshedSession(from session: AuthSession, at date: Date) async throws -> AuthSession {
         if let inFlightRefresh {
             let generation = refreshGeneration
-            let refreshedSession = try await value(of: inFlightRefresh, for: session, generation: generation)
+            // The joined refresh sent its own token, which may differ from the one this caller loaded.
+            let sentToken = inFlightRefreshToken
+            let outcome = try await value(of: inFlightRefresh, id: inFlightRefreshID, sentToken: sentToken, generation: generation)
             try ensureCurrentRefreshGeneration(generation)
-            return refreshedSession
+            return outcome.session
         }
 
         let refresh = self.refresh
@@ -114,36 +123,50 @@ public actor RefreshCoordinator {
             }
         }
 
+        inFlightRefreshID += 1
+        let id = inFlightRefreshID
         inFlightRefresh = task
-        defer {
-            inFlightRefresh = nil
-        }
+        inFlightRefreshToken = session.refreshToken
 
-        let rotatedSession = try await value(of: task, for: session, generation: generation)
+        let outcome = try await value(of: task, id: id, sentToken: session.refreshToken, generation: generation)
         try ensureCurrentRefreshGeneration(generation)
-        try await vault.saveClientID(rotatedSession.clientID)
+        if outcome.adoptedFromVault {
+            // Another process rotated first and already stored this session; writing it back could overwrite
+            // a newer one.
+            return outcome.session
+        }
+        try await vault.saveClientID(outcome.session.clientID)
         try ensureCurrentRefreshGeneration(generation)
-        try await vault.saveSession(rotatedSession)
+        try await vault.saveSession(outcome.session)
         try ensureCurrentRefreshGeneration(generation)
-        return rotatedSession
+        return outcome.session
     }
 
     private func value(
         of task: Task<AuthSession, Error>,
-        for session: AuthSession,
+        id: Int,
+        sentToken: String,
         generation: Int
-    ) async throws -> AuthSession {
+    ) async throws -> (session: AuthSession, adoptedFromVault: Bool) {
+        // Whoever sees the refresh finish first retires it, so a caller that resumes next never joins a refresh
+        // that already ended and replays its answer.
+        defer {
+            if inFlightRefreshID == id {
+                inFlightRefresh = nil
+                inFlightRefreshToken = ""
+            }
+        }
         do {
-            return try await task.value
+            return (try await task.value, false)
         } catch {
             if TokenRefreshError.isPermanent(error), generation == refreshGeneration {
                 // The server revokes a refresh token the moment it is used. Another process on this Keychain
                 // (App Intents runs its own coordinator) may have rotated it first; if the vault now holds a
                 // different token, that session is the live one.
-                if let stored = try await vault.loadSession(), stored.refreshToken != session.refreshToken {
-                    return stored
+                if let stored = try await vault.loadSession(), stored.refreshToken != sentToken {
+                    return (stored, true)
                 }
-                rejectedRefreshToken = session.refreshToken
+                rejectedRefreshToken = sentToken
                 rejectionWasRevocation = OAuthErrorResponse.isUserRevocation(error)
                 throw rejectionWasRevocation ? TokenRefreshError.sessionRevoked : TokenRefreshError.sessionExpired
             }
