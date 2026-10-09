@@ -244,8 +244,8 @@ struct RecipeCatalogDetailTests {
             unit: "clove"
         ))
 
-        #expect(unitless.quantityText() == "1.25")
-        #expect(unitless.quantityText(scaleFactor: 2) == "2.5")
+        #expect(unitless.quantityText() == "1 ¼")
+        #expect(unitless.quantityText(scaleFactor: 2) == "2 ½")
         #expect(measured.quantityText(scaleFactor: 0.5) == "1 clove")
     }
 
@@ -377,6 +377,56 @@ struct RecipeCatalogDetailTests {
         )
         let fallbackSourceViewModel = RecipeDetailScreenViewModel(recipe: fallbackSourceRecipe)
         #expect(fallbackSourceViewModel.sourceAttribution?.title == "Original recipe")
+        #expect(fallbackSourceViewModel.sourceAttribution?.creditLine == "forked from Original recipe · example.com")
+    }
+
+    @Test("fork credit names the source chef and recipe, and quantities and aisles match cook mode")
+    func forkCreditAndIngredientPresentation() throws {
+        let attribution = RecipeAttribution(
+            creditText: "Manual Recipe by ari on Spoonjoy",
+            canonicalURL: URL(string: "https://spoonjoy.app/recipes/recipe_manual")!,
+            sourceURLRaw: nil,
+            sourceHost: nil,
+            sourceRecipe: SourceRecipeAttribution(
+                id: "recipe_source",
+                title: "Lemon Herb Rice",
+                chef: ChefSummary(id: "chef_qa", username: "qa_kitchen_chef"),
+                href: nil,
+                canonicalURL: nil,
+                deleted: false
+            )
+        )
+        let forked = RecipeDetailScreenViewModel(recipe: Self.manualRecipe(
+            servings: nil, stepTitle: nil, dependencyTitle: nil, recentSpoons: [], attribution: attribution
+        ))
+        #expect(forked.sourceAttribution?.creditLine == "forked from qa_kitchen_chef · Lemon Herb Rice")
+
+        let parsley = RecipeDetailIngredientRow(ingredient: RecipeIngredient(id: "i1", name: "parsley", quantity: 0.25, unit: "cup"))
+        #expect(parsley.quantityText() == "¼ cup")
+        #expect(parsley.aisleLabel == "Produce")
+        let rice = RecipeDetailIngredientRow(ingredient: RecipeIngredient(id: "i2", name: "jasmine rice", quantity: 1, unit: "cup"))
+        #expect(rice.aisleLabel == "Pantry")
+    }
+
+    @Test("share falls back to the recipe's web address when the server canonical URL is on another host")
+    func shareFallsBackToWebAddress() throws {
+        let qaRecipe = Self.manualRecipe(
+            servings: nil, stepTitle: nil, dependencyTitle: nil, recentSpoons: [],
+            canonicalURL: URL(string: "https://qa.spoonjoy.example/recipes/recipe_manual")!
+        )
+        let viewModel = RecipeDetailScreenViewModel(recipe: qaRecipe)
+        #expect(viewModel.actions.sharePayload?.publicURL?.absoluteString == "https://spoonjoy.app/recipes/recipe_manual")
+        #expect(viewModel.actions.availableActionIDs.contains(.share))
+    }
+
+    @Test("recipe quantity formatter writes glyph fractions and trims other decimals")
+    func recipeQuantityFormatter() {
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.25, unit: "cup") == "¼ cup")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 1.5, unit: nil) == "1 ½")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 2, unit: "") == "2")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: 0.4, unit: "tsp") == "0.4 tsp")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: -0.5, unit: nil) == "-½")
+        #expect(RecipeQuantityFormatter.quantityText(quantity: .nan, unit: nil) == "1")
     }
 
     @Test("live repository builds public catalog requests and maps response envelopes")
@@ -630,9 +680,9 @@ struct RecipeCatalogDetailTests {
         stepTitle: String?,
         dependencyTitle: String?,
         recentSpoons: [RecipeDetailRecentSpoon],
-        attribution: RecipeAttribution? = nil
+        attribution: RecipeAttribution? = nil,
+        canonicalURL: URL = URL(string: "https://spoonjoy.app/recipes/recipe_manual")!
     ) -> Recipe {
-        let canonicalURL = URL(string: "https://spoonjoy.app/recipes/recipe_manual")!
         return Recipe(
             id: "recipe_manual",
             title: "Manual Recipe",
