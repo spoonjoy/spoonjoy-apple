@@ -4521,15 +4521,14 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let originalQueue: NativeMutationQueue
         if canReplayStoredQueue {
             originalQueue = try await store.loadQueue()
-        } else {
+        } else if previousSnapshot.queue.mutations.isEmpty {
             originalQueue = NativeMutationQueue()
-            if !previousSnapshot.queue.mutations.isEmpty {
-                try await store.saveQueue(
-                    NativeMutationQueue(),
-                    accountID: queueAccountID,
-                    environment: queueEnvironment
-                )
-            }
+        } else {
+            // The stored queue belonged to another account or environment. Move the store to this sync's scope in
+            // one step: edits queued under this scope while the bootstrap request was in flight stay, and are sent.
+            originalQueue = try await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
+                NativeQueueUpdate(queue: snapshot.queue)
+            }.queue
         }
         var remaining: [NativeQueuedMutation] = []
         var drainedClientMutationIDs: [String] = []

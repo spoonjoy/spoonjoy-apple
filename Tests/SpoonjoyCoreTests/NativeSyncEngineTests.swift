@@ -197,6 +197,21 @@ struct NativeSyncEngineTests {
         #expect(try await store.loadQueue().mutations == [late])
     }
 
+    @Test("an edit queued under the new account while the first sync after sign-in is fetching is kept and sent")
+    func editQueuedDuringBootstrapForNewAccountSurvives() async throws {
+        let previousAccountEdit = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_old", clientMutationID: "cm_old_account", title: "Old", description: nil, servings: nil, createdAt: Self.createdAt(0))
+        let late = NativeQueuedMutation.shoppingCheckItem(itemID: "item_milk", checked: true, clientMutationID: "cm_during_bootstrap", createdAt: Self.createdAt(1))
+        let store = InMemoryNativeSyncStore(accountID: "chef_old", environment: .local, checkpoint: nil, queue: try NativeMutationQueue(mutations: [previousAccountEdit]))
+        let transport = AppendDuringBootstrapTransport(store: store, mutation: late, accountID: "chef_ari", environment: .local)
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
+
+        #expect(await transport.sentClientMutationIDs() == ["cm_during_bootstrap"])
+        #expect(report.drainedClientMutationIDs == ["cm_during_bootstrap"])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+    }
+
     @Test("an edit queued during the drain that names a just-created local id is rewritten to the server id")
     func editQueuedDuringSendFollowsIDRemaps() async throws {
         let create = try NativeQueuedMutation.recipeCreate(clientMutationID: "cm_create_live", title: "Soup", description: nil, servings: nil, steps: [], createdAt: Self.createdAt(0))
@@ -6026,6 +6041,36 @@ actor SendGateNativeSyncTransport: NativeSyncTransport {
     }
 
     func sentMutations() -> [NativeQueuedMutation] {
+        sent
+    }
+}
+
+/// Queues `mutation` in `store` while the bootstrap request is in flight, as the app or an intent would.
+actor AppendDuringBootstrapTransport: NativeSyncTransport {
+    private let store: any NativeSyncStore
+    private let mutation: NativeQueuedMutation
+    private let accountID: String
+    private let environment: NativeCacheEnvironment
+    private var sent: [String] = []
+
+    init(store: any NativeSyncStore, mutation: NativeQueuedMutation, accountID: String, environment: NativeCacheEnvironment) {
+        self.store = store
+        self.mutation = mutation
+        self.accountID = accountID
+        self.environment = environment
+    }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        try await store.appendMutations([mutation], accountID: accountID, environment: environment)
+        return .success(cursor: nil, tombstones: [])
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        sent.append(mutation.clientMutationID)
+        return .success(serverRevision: nil)
+    }
+
+    func sentClientMutationIDs() -> [String] {
         sent
     }
 }
