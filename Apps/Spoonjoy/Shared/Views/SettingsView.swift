@@ -9,11 +9,16 @@ struct SettingsView: View {
         case profile
         case notifications
         case signedOut = "signed-out"
+        case yourData = "your-data"
+        case deleteAccount = "delete-account"
+        case deleteAccountError = "delete-account-error"
+        case exportReady = "export-ready"
     }
 
     private static let screenshotFocusEnvironmentKey = "SPOONJOY_SCREENSHOT_SETTINGS_FOCUS"
     private static let screenshotProofPathEnvironmentKey = "SPOONJOY_SCREENSHOT_PROOF_PATH"
     private static let notificationsFocusID = "settings-section-notification-apns-device"
+    private static let yourDataFocusID = "settings-section-your-data"
 
     let viewModel: SettingsViewModel
     var settingsSurfaceViewModel: SettingsSurfaceViewModel?
@@ -34,7 +39,6 @@ struct SettingsView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @State private var selectedProfilePhotoItem: PhotosPickerItem?
     @State private var stagedProfilePhoto: NativeStagedMediaUpload?
-    @State private var profileEmail = ""
     @State private var profileUsername = ""
     @State private var profileDraftID: String?
     @State private var notifySpoonOnMyRecipe = false
@@ -53,6 +57,9 @@ struct SettingsView: View {
     @State private var tokenCanWriteShoppingList = false
     @State private var pendingDestructiveAction: PendingSettingsDestructiveAction?
     @State private var screenshotSettingsFocus = SettingsView.screenshotSettingsFocus()
+    @State private var accountDeletionForm: AccountDeletionForm?
+    @State private var isExportingAccountData = false
+    @State private var accountExportURL: URL?
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -100,6 +107,25 @@ struct SettingsView: View {
                             source: "SettingsView",
                             runtimeContext: screenshotAccessibilityRuntimeContext
                         )
+                    case .yourData, .exportReady:
+                        if screenshotSettingsFocus == .exportReady, let username = settingsSurfaceViewModel?.data.account?.username {
+                            accountExportURL = try? Self.writeAccountExport(Self.screenshotAccountExport(username: username))
+                        }
+                        withAnimation(nil) {
+                            proxy.scrollTo(Self.yourDataFocusID, anchor: .top)
+                        }
+                        Self.writeScreenshotProof(visualFocus: screenshotSettingsFocus, visibleSections: ["Your data"])
+                    case .deleteAccount, .deleteAccountError:
+                        guard var form = accountDeletionFormForCurrentAccount() else {
+                            return
+                        }
+                        if screenshotSettingsFocus == .deleteAccountError {
+                            form.typedUsername = form.username
+                            form.password = "not-the-password"
+                            form.record(.passwordIncorrect)
+                        }
+                        accountDeletionForm = form
+                        Self.writeScreenshotProof(visualFocus: screenshotSettingsFocus, visibleSections: ["Delete your account?"])
                     }
                 }
         }
@@ -134,6 +160,48 @@ struct SettingsView: View {
                 Text(message)
             }
         }
+        .sheet(item: $accountDeletionForm.identified) { identified in
+            if let surface = settingsSurfaceViewModel {
+                AccountDeletionSheet(
+                    form: identified.form,
+                    isOffline: onlineOnlyActionsDisabled(surface),
+                    appleSignInAvailable: appleSignInAvailableForAccountDeletion,
+                    webDeletionURL: surface.accountDeletionWebHandoff.url,
+                    planner: surface.actionPlanner,
+                    performSettingsAction: performSettingsAction,
+                    downloadDataFirst: {
+                        accountDeletionForm = nil
+                        downloadAccountData(using: surface)
+                    },
+                    onDeleted: { _ in
+                        accountDeletionForm = nil
+                        settingsActionError = nil
+                        settingsActionMessage = "Your account was deleted."
+                    },
+                    cancel: {
+                        accountDeletionForm = nil
+                    }
+                )
+            }
+        }
+    }
+
+    private var appleSignInAvailableForAccountDeletion: Bool {
+#if DEBUG
+        if screenshotSettingsFocus == .deleteAccount {
+            return true
+        }
+#endif
+        return SignedOutSetupView.currentAppleSignInCapability() == .available
+    }
+
+    private func accountDeletionFormForCurrentAccount() -> AccountDeletionForm? {
+        guard let surface = settingsSurfaceViewModel,
+              let username = surface.data.account?.username,
+              let reauthentication = surface.accountDeletionReauthentication else {
+            return nil
+        }
+        return AccountDeletionForm(username: username, reauthentication: reauthentication)
     }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
@@ -175,14 +243,25 @@ struct SettingsView: View {
         if let profile = surface.profileDraft {
             KitchenTableSection(title: "Profile", subtitle: "Public identity and chef card") {
                 SettingsPanel {
-                    settingsTextField("Email", text: $profileEmail)
+                    VStack(alignment: .leading, spacing: 4) {
+                        settingsFact("Email", value: profile.email, valueIdentifier: "settings.profile.email")
+                        Button {
+                            openSecureHandoff(surface.accountSettingsHandoff)
+                        } label: {
+                            Label(surface.emailChangeNote, systemImage: "arrow.up.right.square")
+                                .font(KitchenTableTheme.uiLabel)
+                                .multilineTextAlignment(.leading)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(KitchenTableTheme.herb)
+                        .accessibilityIdentifier("settings.profile.changeEmail")
+                    }
                     settingsTextField("Username", text: $profileUsername)
 
                     Button {
                         planSettingsAction(
-                            .updateProfile(
-                                email: profileEmail.trimmingCharacters(in: .whitespacesAndNewlines),
-                                username: profileUsername.trimmingCharacters(in: .whitespacesAndNewlines),
+                            profile.updateUsernameAction(
+                                username: profileUsername,
                                 clientMutationID: "cm_settings_profile_\(UUID().uuidString)"
                             ),
                             using: surface.actionPlanner
@@ -419,6 +498,10 @@ struct SettingsView: View {
             }
         }
 
+        if surface.data.account != nil {
+            yourDataSection(surface: surface)
+        }
+
 #if DEBUG
         // Diagnostics for builds that point at a non-production environment. Journeys read this row
         // to prove they are on the QA mirror. Release builds keep the account screen to settings only.
@@ -507,8 +590,98 @@ struct SettingsView: View {
         }
     }
 
+    private func yourDataSection(surface: SettingsSurfaceViewModel) -> some View {
+        KitchenTableSection(title: "Your data", subtitle: "Online-only: take a copy, or delete your account") {
+            SettingsPanel {
+                Button {
+                    downloadAccountData(using: surface)
+                } label: {
+                    settingsRowLabel(
+                        isExportingAccountData ? "Preparing your data…" : "Download my data",
+                        systemImage: "square.and.arrow.down",
+                        prominence: .secondary
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(onlineOnlyActionsDisabled(surface) || isExportingAccountData)
+                .accessibilityIdentifier("settings.downloadData")
+
+                if let accountExportURL {
+                    ShareLink(item: accountExportURL) {
+                        settingsRowLabel(
+                            "Save or share \(accountExportURL.lastPathComponent)",
+                            systemImage: "square.and.arrow.up",
+                            prominence: .primary
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.shareDataExport")
+                }
+
+                Button(role: .destructive) {
+                    accountDeletionForm = accountDeletionFormForCurrentAccount()
+                } label: {
+                    settingsRowLabel("Delete account…", systemImage: "person.crop.circle.badge.xmark", prominence: .destructive)
+                }
+                .buttonStyle(.plain)
+                .disabled(onlineOnlyActionsDisabled(surface))
+                .accessibilityIdentifier("settings.deleteAccount")
+
+                if onlineOnlyActionsDisabled(surface) {
+                    Label("Connect to the internet to download your data or delete your account.", systemImage: "wifi.slash")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                }
+            }
+        }
+        .id(Self.yourDataFocusID)
+    }
+
+    private func downloadAccountData(using surface: SettingsSurfaceViewModel) {
+        guard let username = surface.data.account?.username else {
+            return
+        }
+        isExportingAccountData = true
+        accountExportURL = nil
+        Task { @MainActor in
+            defer { isExportingAccountData = false }
+            do {
+                let plan = try surface.actionPlanner.plan(.exportAccountData(username: username))
+                if let reason = plan.onlineOnlyReason {
+                    settingsActionMessage = reason.message
+                    return
+                }
+                settingsActionError = nil
+                if case .exportedAccountData(let file)? = try await performSettingsAction(plan) {
+                    accountExportURL = try Self.writeAccountExport(file)
+                    settingsActionMessage = "Your data is ready to save or share."
+                }
+            } catch {
+                settingsActionError = settingsActionErrorMessage(for: error)
+            }
+        }
+    }
+
+    /// Writes the export where the share sheet can read it, under its own folder so the file keeps the web's name.
+    private static func writeAccountExport(_ file: AccountExportFile) throws -> URL {
+        let folder = FileManager.default.temporaryDirectory
+            .appending(path: "SpoonjoyAccountExport-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = folder.appending(path: file.fileName, directoryHint: .notDirectory)
+        try file.contents.write(to: url, options: [.atomic, .completeFileProtection])
+        return url
+    }
+
+    private static func screenshotAccountExport(username: String) throws -> AccountExportFile {
+        try AccountExportFile(
+            username: username,
+            exportedAt: Date(),
+            export: .object(["format": .string("spoonjoy.account-export.v1"), "account": .object(["username": .string(username)])])
+        )
+    }
+
     private func settingsTextField(_ placeholder: String, text: Binding<String>) -> some View {
-        TextField(placeholder, text: text)
+        TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(KitchenTableTheme.inkMuted))
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
             .foregroundStyle(KitchenTableTheme.charcoal)
@@ -701,29 +874,32 @@ struct SettingsView: View {
         reason.message
     }
 
+    /// A 4xx answer's own message (such as "change your email on the web") when the server sent one, so older
+    /// builds still say what to do; otherwise a generic message with a diagnostic code.
     private func settingsActionErrorMessage(for error: Error) -> String {
-        "Settings could not be updated. Try again. Code: \(settingsActionDiagnosticCode(for: error))."
+        SettingsActionFailureMessage.serverMessage(for: error)
+            ?? "Settings could not be updated. Try again. Code: \(settingsActionDiagnosticCode(for: error))."
     }
 
     private func settingsActionDiagnosticCode(for error: Error) -> String {
-        if let transportError = error as? APITransportError {
-            if let apiError = transportError.apiError {
-                return "settings_api_\(apiError.code)_\(apiError.status)"
-            }
-            if let statusCode = transportError.statusCode {
-                return "settings_http_\(statusCode)"
-            }
-            return "settings_transport"
-        }
-        if error is SettingsActionPlanningError {
-            return "settings_plan"
-        }
-        return "settings_unexpected"
+        SettingsActionFailureMessage.diagnosticCode(for: error)
     }
 
     private func onlineOnlyActionsDisabled(_ surface: SettingsSurfaceViewModel) -> Bool {
-        surface.connectivity == .offline
+#if DEBUG
+        // Screenshot captures restore from the offline cache; these focuses show the online state of Your data.
+        if Self.accountLifecycleOnlineScreenshotFocuses.contains(screenshotSettingsFocus) {
+            return false
+        }
+#endif
+        return surface.connectivity == .offline
     }
+
+#if DEBUG
+    private static let accountLifecycleOnlineScreenshotFocuses: Set<ScreenshotSettingsFocus?> = [
+        .yourData, .deleteAccount, .deleteAccountError, .exportReady
+    ]
+#endif
 
     private var selectedTokenScopes: [String] {
         var scopes: [String] = []
@@ -747,7 +923,6 @@ struct SettingsView: View {
         guard profileDraftID != identity else {
             return
         }
-        profileEmail = profile.email
         profileUsername = profile.username
         profileDraftID = identity
     }
@@ -765,9 +940,8 @@ struct SettingsView: View {
     }
 
     private func profileSaveDisabled(comparedWith profile: SettingsProfileDraft) -> Bool {
-        let email = profileEmail.trimmingCharacters(in: .whitespacesAndNewlines)
         let username = profileUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        return email.isEmpty || username.isEmpty || (email == profile.email && username == profile.username)
+        return username.isEmpty || username == profile.username
     }
 
     private func notificationSaveDisabled(comparedWith preferences: SettingsNotificationPreferences) -> Bool {
@@ -964,5 +1138,20 @@ struct SettingsPanel<Content: View>: View {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
                 .strokeBorder(KitchenTableTheme.line.opacity(0.42), lineWidth: 1)
         }
+    }
+}
+
+/// Lets `.sheet(item:)` present the delete sheet from an optional form.
+private struct IdentifiedAccountDeletionForm: Identifiable {
+    let id: String
+    let form: AccountDeletionForm
+}
+
+private extension Binding where Value == AccountDeletionForm? {
+    var identified: Binding<IdentifiedAccountDeletionForm?> {
+        Binding<IdentifiedAccountDeletionForm?>(
+            get: { wrappedValue.map { IdentifiedAccountDeletionForm(id: $0.username, form: $0) } },
+            set: { if $0 == nil { wrappedValue = nil } }
+        )
     }
 }
