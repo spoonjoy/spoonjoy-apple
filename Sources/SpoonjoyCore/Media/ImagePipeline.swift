@@ -83,8 +83,9 @@ public final class ImageMemoryCache: @unchecked Sendable {
 ///
 /// - A Spoonjoy photo is downloaded at the stored width that covers the decode size, not as the original.
 /// - Concurrent requests for one download share it. When its last caller goes away, the download keeps
-///   running for `abandonGrace` so a view that re-renders and asks again picks it up instead of starting
-///   over; after that it is cancelled. A cancelled or failed download stores nothing.
+///   running for `abandonGrace`, counted from the last caller to leave, so a view that re-renders and asks
+///   again picks it up instead of starting over; after that it is cancelled. A cancelled or failed download
+///   stores nothing.
 /// - A download that fails for a reason that could pass (a dropped connection, a timeout, a server error)
 ///   is tried again after each of `retryDelays`.
 /// - Decoding runs off the pipeline, several at once, so one large image never holds up the others.
@@ -92,6 +93,8 @@ public actor ImagePipeline {
     private struct Download {
         let task: Task<Data?, Never>
         var waiters: Int
+        /// Counts the times the download lost its last caller, so only the newest grace period can cancel it.
+        var abandonments = 0
     }
 
     public static let defaultRetryDelays: [Duration] = [.milliseconds(500), .seconds(2)]
@@ -163,9 +166,22 @@ public actor ImagePipeline {
 
     /// One line per load, so image loading can be measured from the unified log.
     private static func log(url: URL, maxPixelSize: Int, outcome: String, bytes: Int, started: ContinuousClock.Instant, decode: Duration) {
-        let path = url.query.map { "\(url.path)?\($0)" } ?? url.path
+        let path = logPath(url)
         let total = (ContinuousClock.now - started).milliseconds
         logger.info("image-load path=\(path, privacy: .public) px=\(maxPixelSize) outcome=\(outcome, privacy: .public) bytes=\(bytes) ms=\(total) decodeMs=\(decode.milliseconds)")
+    }
+
+    /// The path and query of `url`, without its host.
+    private static func logPath(_ url: URL) -> String {
+        url.query.map { "\(url.path)?\($0)" } ?? url.path
+    }
+
+    /// One line per network transfer: `complete`, `failed`, or `aborted` (cancelled after its grace period;
+    /// `bytes` counts any body received and then thrown away). `image-load` lines are per caller instead, so a
+    /// caller that leaves logs `cancelled` there while the transfer it was waiting on may still complete.
+    private static func logDownload(url: URL, outcome: String, bytes: Int, started: ContinuousClock.Instant) {
+        let path = logPath(url)
+        logger.info("image-download path=\(path, privacy: .public) outcome=\(outcome, privacy: .public) bytes=\(bytes) ms=\((ContinuousClock.now - started).milliseconds)")
     }
 
     /// Downloads `urls`, at the size they will be shown at, to disk (not memory) so later views open
@@ -198,10 +214,14 @@ public actor ImagePipeline {
             task = existing.task
         } else {
             task = Task { [fetcher, disk, retryDelays] in
-                guard let data = await Self.fetch(url, with: fetcher, retryDelays: retryDelays), !Task.isCancelled else {
+                let started = ContinuousClock.now
+                let data = await Self.fetch(url, with: fetcher, retryDelays: retryDelays)
+                guard let data, !Task.isCancelled else {
+                    Self.logDownload(url: url, outcome: Task.isCancelled ? "aborted" : "failed", bytes: data?.count ?? 0, started: started)
                     return nil
                 }
                 await disk.write(data, key: key)
+                Self.logDownload(url: url, outcome: "complete", bytes: data.count, started: started)
                 return data
             }
             downloads[key] = Download(task: task, waiters: 1)
@@ -238,19 +258,22 @@ public actor ImagePipeline {
     private func release(key: String, task: Task<Data?, Never>) {
         if var download = downloads[key], download.task == task {
             download.waiters -= 1
-            downloads[key] = download
             if download.waiters == 0 {
+                download.abandonments += 1
+                let abandonment = download.abandonments
                 Task { [abandonGrace] in
                     try? await Task.sleep(for: abandonGrace)
-                    self.cancelIfAbandoned(key: key, task: task)
+                    self.cancelIfAbandoned(key: key, task: task, abandonment: abandonment)
                 }
             }
+            downloads[key] = download
         }
     }
 
-    /// Cancels a download nobody has asked for again during the grace period, unless it already finished.
-    private func cancelIfAbandoned(key: String, task: Task<Data?, Never>) {
-        if let download = downloads[key], download.task == task, download.waiters == 0 {
+    /// Cancels a download nobody has asked for again during the grace period, unless it already finished
+    /// or a caller joined and left since, which started a newer grace period.
+    private func cancelIfAbandoned(key: String, task: Task<Data?, Never>, abandonment: Int) {
+        if let download = downloads[key], download.task == task, download.waiters == 0, download.abandonments == abandonment {
             task.cancel()
             downloads[key] = nil
         }

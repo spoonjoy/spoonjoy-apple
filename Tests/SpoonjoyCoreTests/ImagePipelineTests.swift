@@ -442,6 +442,18 @@ struct ImagePipelineTests {
         #expect(await fetcher.urls.map { $0.query } == ["w=256", "w=1024", "w=1536"])
     }
 
+    @Test("the variant is chosen from pixels on screen, points times display scale, so a 3x screen gets a sharp one")
+    func variantFollowsDisplayPixels() async {
+        let fetcher = ScriptedFetcher(result: .success(makeImageData()))
+        let pipeline = pipeline(directory: temporaryDirectory(), fetcher: fetcher)
+        // CachedAsyncImage asks with ImageDownsampleBucket.pixelSize(points:scale:) of its laid-out size.
+        for (points, scale) in [(120.0, 3.0), (120.0, 2.0), (120.0, 1.0), (56.0, 3.0), (390.0, 3.0)] {
+            _ = await pipeline.image(for: coverURL, maxPixelSize: ImageDownsampleBucket.pixelSize(points: points, scale: scale))
+        }
+        // 360 px -> 512; 240 px -> 256; 120 px -> the 256 already on disk; 168 px -> 256 on disk; 1,170 px -> 1,536.
+        #expect(await fetcher.urls.map { $0.query } == ["w=512", "w=256", "w=1536"])
+    }
+
     @Test("a dropped connection or server error is tried again until it loads")
     func retriesTransientFailures() async {
         let fetcher = ScriptedFetcher(results: [
@@ -501,6 +513,26 @@ struct ImagePipelineTests {
         #expect(await first.value == nil)
         #expect(await fetcher.count == 1)
         #expect(await fetcher.wasCancelled == false)
+    }
+
+    @Test("the grace period runs from the last caller to leave, not the first")
+    func graceRestartsWhenTheLastCallerLeaves() async {
+        let fetcher = ScriptedFetcher(result: .success(makeImageData()), delay: .seconds(3))
+        let pipeline = ImagePipeline(disk: ImageDiskCache(directory: temporaryDirectory()), fetcher: fetcher, abandonGrace: .seconds(1))
+        let first = Task { await pipeline.image(for: coverURL, maxPixelSize: 256) }
+        await fetcher.waitUntilStarted()
+        first.cancel()
+        try? await Task.sleep(for: .milliseconds(300))
+        let second = Task { await pipeline.image(for: coverURL, maxPixelSize: 256) }
+        try? await Task.sleep(for: .milliseconds(300))
+        second.cancel()
+        // Past the first caller's grace period but well inside the second's: the download must still be running.
+        try? await Task.sleep(for: .milliseconds(700))
+        #expect(await pipeline.image(for: coverURL, maxPixelSize: 256) != nil)
+        #expect(await fetcher.count == 1)
+        #expect(await fetcher.wasCancelled == false)
+        #expect(await first.value == nil)
+        #expect(await second.value == nil)
     }
 
     @Test("a download that finishes during the grace period is kept on disk")
