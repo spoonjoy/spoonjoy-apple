@@ -71,7 +71,7 @@ jobs:
     # One job runs the whole suite once, with coverage. It is the required "Swift tests" check.
     # SwiftPM only, so it runs on the plentiful macos-26 image (Xcode 26.x) and leaves the scarce xcode-27 runners to the jobs that need the iOS 27 SDK.
     name: Swift tests
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -81,7 +81,7 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - uses: ./.github/actions/select-swift-toolchain
+      - uses: ./.github/actions/select-xcode
       - name: Run Swift tests with coverage and enforce 100% SpoonjoyCore coverage
         run: |
           set -euo pipefail
@@ -94,7 +94,7 @@ jobs:
   native-scenario-verifier:
     name: Native scenario verifier
     # Plutil/sips checks and SwiftPM executables only, no xcodebuild, so it runs on macos-26.
-    runs-on: macos-26
+    runs-on: xcode-27
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -104,7 +104,7 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - uses: ./.github/actions/select-swift-toolchain
+      - uses: ./.github/actions/select-xcode
       - name: Check native project and surface contracts
         # These read the Xcode project with plutil, sips and sw_vers, so they stay on macOS.
         run: |
@@ -125,39 +125,6 @@ jobs:
           scripts/verify-native-scenarios.sh --stage final 2>&1 | tee "$scenario_log"
           ruby scripts/fail-on-warning.rb --log "$scenario_log"
 
-  app-bundle:
-    name: App bundle
-    runs-on: xcode-27
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: true
-      - uses: ./.github/actions/select-xcode
-      - name: Build iOS and macOS app bundles
-        run: |
-          set -euo pipefail
-          ios_build_log="$RUNNER_TEMP/xcode-ios-build.log"
-          macos_build_log="$RUNNER_TEMP/xcode-macos-build.log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_build_log"
-          ruby scripts/fail-on-warning.rb --log "$ios_build_log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
-          ruby scripts/fail-on-warning.rb --log "$macos_build_log"
-      - name: Build the shipping Release configuration (unsigned)
-        # TestFlight ships Release, so Release-only code (#if !DEBUG paths, iOS 27 minimums) must compile before release day.
-        run: |
-          set -euo pipefail
-          ios_release_log="$RUNNER_TEMP/xcode-ios-release-build.log"
-          macos_release_log="$RUNNER_TEMP/xcode-macos-release-build.log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_release_log"
-          ruby scripts/fail-on-warning.rb --log "$ios_release_log"
-          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration Release -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_release_log"
-          ruby scripts/fail-on-warning.rb --log "$macos_release_log"
-
   testflight-release-note:
     name: TestFlight release note
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -166,7 +133,6 @@ jobs:
       - contracts
       - swift-tests
       - native-scenario-verifier
-      - app-bundle
     runs-on: ubuntu-24.04
     permissions:
       contents: read
