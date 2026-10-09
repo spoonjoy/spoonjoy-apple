@@ -16,6 +16,8 @@ struct RecipesView: View {
     private let proofRoute: String
     private let proofSource: String
     private let emptyStateOverride: RecipeCatalogEmptyState?
+    /// Replaces the result count under the title when the list is not the whole set, like Everyone's most recent.
+    private let subtitleOverride: String?
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
@@ -30,7 +32,8 @@ struct RecipesView: View {
         loadingSubtitle: String = "Opening your recipe index.",
         proofRoute: String = "recipes",
         proofSource: String = "RecipesView",
-        emptyStateOverride: RecipeCatalogEmptyState? = nil
+        emptyStateOverride: RecipeCatalogEmptyState? = nil,
+        subtitleOverride: String? = nil
     ) {
         self.viewModel = viewModel
         self.openRoute = openRoute
@@ -42,6 +45,7 @@ struct RecipesView: View {
         self.proofRoute = proofRoute
         self.proofSource = proofSource
         self.emptyStateOverride = emptyStateOverride
+        self.subtitleOverride = subtitleOverride
         _state = State(initialValue: viewModel.state)
         _query = State(initialValue: viewModel.state.query)
     }
@@ -51,7 +55,7 @@ struct RecipesView: View {
             KitchenTableHeader(
                 eyebrow: headerEyebrow,
                 title: title,
-                subtitle: state.resultCountLabel,
+                subtitle: subtitleOverride ?? state.resultCountLabel,
                 hidesTitleInCompactNavigation: true
             )
 
@@ -139,7 +143,9 @@ struct EveryoneRecipesView: View {
             loadingTitle: "Loading recipes",
             loadingSubtitle: "Opening every kitchen's recipes.",
             proofRoute: "everyone-recipes",
-            proofSource: "EveryoneRecipesView"
+            proofSource: "EveryoneRecipesView",
+            // The server returns its most recent recipes, not every recipe, so no total is claimed.
+            subtitleOverride: "Recent recipes from every kitchen"
         )
     }
 }
