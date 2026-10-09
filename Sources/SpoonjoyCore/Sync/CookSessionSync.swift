@@ -294,6 +294,9 @@ public struct CookSessionReconciler: Sendable {
             }
         }
 
+        // First keep what the server holds that this device cannot show. The server never prunes checks a recipe
+        // edit removed and refuses a list that names them, so if it refuses, send again fitted to this recipe.
+        var fitsThisRecipeOnly = false
         for _ in 0..<Self.maxRounds {
             if remote == nil {
                 // Nothing on the server yet: only start a session once there is progress to keep.
@@ -310,8 +313,13 @@ public struct CookSessionReconciler: Sendable {
 
             let current = remote!
             let base = known?.attemptID == current.attemptID ? known!.progress : CookSyncProgress.initial
-            let merged = CookSyncProgress.merge(base: base, local: local.restoringUnknown(from: base, bounds: bounds), remote: current.progress)
-                .normalized(to: bounds, keeping: current.progress)
+            let fitted = CookSyncProgress.merge(base: base, local: local, remote: current.progress).normalized(to: bounds)
+            let merged = fitsThisRecipeOnly
+                ? fitted
+                : CookSyncProgress.merge(base: base, local: local.restoringUnknown(from: base, bounds: bounds), remote: current.progress)
+                    .normalized(to: bounds, keeping: current.progress)
+            // A refused change that kept nothing extra would be refused again as it is.
+            let canRetryFitted = !fitsThisRecipeOnly && !merged.isSame(as: fitted)
             if merged.isSame(as: current.progress) {
                 return CookSyncReconciliation(progress: merged, server: current, outcome: .synced)
             }
@@ -334,6 +342,8 @@ public struct CookSessionReconciler: Sendable {
             case .missing:
                 known = nil
                 remote = nil
+            case .rejected where canRetryFitted:
+                fitsThisRecipeOnly = true
             case .rejected:
                 return await adoptServerProgress(recipeID: recipeID, local: local, known: known, bounds: bounds)
             default:

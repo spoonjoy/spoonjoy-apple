@@ -401,6 +401,28 @@ struct CookSessionSyncTests {
         #expect(await moved.patches.map(\.changes) == [CookSyncChanges(activeStepIndex: 1)])
     }
 
+    @Test("when the server refuses ids this device kept, the change is sent again fitted to this device's recipe")
+    func reconcileRetriesFittedWhenKeptIDsAreRefused() async {
+        // The web checked "pepper", then the recipe was edited: pepper removed. The server still holds the pepper
+        // check but refuses any list that names it. This device has the edited recipe and checks "a".
+        let known = Self.server(revision: 2, Self.progress(step: 7, ingredients: ["pepper"]))
+        let accepted = Self.server(revision: 3, Self.progress(step: 2, ingredients: ["a"]))
+        let client = ScriptedCookSessionClient(patch: [.rejected, .state(accepted)])
+        let result = await Self.reconcile(client, local: Self.progress(step: 2, ingredients: ["a"]), known: known, pull: false)
+
+        #expect(await client.patches.map(\.changes) == [
+            CookSyncChanges(checkedIngredientIDs: ["pepper", "a"]),
+            CookSyncChanges(activeStepIndex: 2, checkedIngredientIDs: ["a"])
+        ])
+        #expect(result == CookSyncReconciliation(progress: accepted.progress, server: accepted, outcome: .synced))
+
+        // Refused again, fitted: the device shows the server's progress, as before.
+        let refused = ScriptedCookSessionClient(read: [.state(known)], patch: [.rejected, .rejected])
+        let adopted = await Self.reconcile(refused, local: Self.progress(step: 2, ingredients: ["a"]), known: known, pull: false)
+        #expect(await refused.calls == ["patch", "patch", "read"])
+        #expect(adopted.server == known)
+    }
+
     @Test("only this device's own changes are fitted to its recipe")
     func normalizingKeepsWhatTheServerHolds() {
         let server = Self.progress(step: 7, scale: 80, ingredients: ["salt"], outputs: ["o9"])
