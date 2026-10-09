@@ -535,7 +535,7 @@ struct NativeSearchSurfaceTests {
         )
         #expect(noMatches.emptyState == SearchSurfaceEmptyState(
             title: "No matches for \"kumquat\"",
-            message: "No saved recipes match \"kumquat\".",
+            message: "Check the spelling, or try a shorter word.",
             systemImage: "magnifyingglass"
         ))
 
