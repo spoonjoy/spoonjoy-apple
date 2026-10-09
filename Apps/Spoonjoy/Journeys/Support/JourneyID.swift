@@ -15,6 +15,9 @@ enum JourneyID {
     static let kitchenAccount = "kitchen.account"
 
     static let kitchenRoot = "kitchen.root"
+    /// The hero a kitchen with no recipes and no cookbooks leads with, and its Create recipe button.
+    static let kitchenEmptyHero = "kitchen.emptyHero"
+    static let kitchenEmptyHeroCreate = "kitchen.emptyHero.create"
     /// The lead recipe and every Recipe Index row in the Kitchen; the label is the recipe title.
     static let kitchenRecipe = "kitchen.recipe"
     /// The lead recipe's "Open Recipe" button.

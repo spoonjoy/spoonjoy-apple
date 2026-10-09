@@ -19,6 +19,16 @@ final class EditorJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
+        // Account 3 has no recipes yet, so the kitchen leads with its hero, and the hero's button opens a blank editor.
+        XCTAssertTrue(
+            journey.element(JourneyID.kitchenEmptyHero).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "A kitchen with no recipes does not show the empty-kitchen hero. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "00-empty-kitchen-hero", to: self)
+        journey.tap(JourneyID.kitchenEmptyHeroCreate)
+        journey.assertFieldEmpty(JourneyID.editorTitle)
+        journey.goBack()
+
         // Account 3 has no recipes, so the Shopping List offers "Create a recipe", which opens the editor.
         journey.openTab(JourneyCopy.shoppingTab)
         journey.tap(JourneyID.shoppingCreateRecipe)
