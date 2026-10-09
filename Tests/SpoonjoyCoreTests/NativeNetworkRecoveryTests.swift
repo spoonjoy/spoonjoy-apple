@@ -141,8 +141,9 @@ struct NativeNetworkRecoveryTests {
         let settling = await monitor.observe(isNetworkUsable: true)
         await Self.waitUntil("the delay is running") { await gate.waitingCount == 1 }
         await monitor.cancel()
-        await settling?.value
+        // Release the delay before waiting, so a cancel that stopped working fails here instead of hanging.
         await gate.releaseAll()
+        await settling?.value
         #expect(await syncs.value == 0)
     }
 }
