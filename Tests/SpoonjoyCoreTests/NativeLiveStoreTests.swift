@@ -1217,8 +1217,8 @@ struct NativeLiveStoreTests {
             let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")))
             let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
 
-            // An edit made in the new session before its first sync names the account (an App Intent, for one) is
-            // queued with the environment and no account.
+            // The new session is signed in, but until its first sync names the account an edit made now is queued
+            // with the environment and no account.
             let meanwhile = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_resign", clientMutationID: "cm_meanwhile", title: "Meanwhile", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
             _ = try await syncStore.appendMutations([meanwhile], accountID: nil, environment: .production)
             #expect(try await syncStore.loadQueue().mutations == [waiting])

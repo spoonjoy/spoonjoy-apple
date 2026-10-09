@@ -183,6 +183,29 @@ struct NativeQueueParkingTests {
         #expect(NativeMutationQueueParking.parking(try NativeMutationQueue(mutations: [one]), accountID: nil, environment: nil, in: []).isEmpty)
     }
 
+    @Test("an edit with neither an account nor an environment, made while the store serves an account, is kept for nobody")
+    func editWithNoScopeIsNotParked() async throws {
+        let active = Self.edit("cm_active")
+        let unscoped = Self.edit("cm_unscoped")
+
+        let memory = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: try NativeMutationQueue(mutations: [active]))
+        _ = try await memory.appendMutations([unscoped], accountID: nil, environment: nil)
+        let memorySnapshot = await memory.loadSnapshot()
+        #expect(memorySnapshot.queue.mutations == [active])
+        #expect(memorySnapshot.parkedQueues.isEmpty)
+
+        try await Self.withDirectory { directory in
+            let file = try FileBackedNativeSyncStore(
+                fileURL: directory.appendingPathComponent("sync.json"),
+                fallback: NativeSyncSnapshot(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: try NativeMutationQueue(mutations: [active]))
+            )
+            _ = try await file.appendMutations([unscoped], accountID: nil, environment: nil)
+            let fileSnapshot = try await file.loadSnapshot()
+            #expect(fileSnapshot.queue.mutations == [active])
+            #expect(fileSnapshot.parkedQueues.isEmpty)
+        }
+    }
+
     @Test("store files written before parked edits existed still open")
     func snapshotWithoutParkedQueuesDecodes() throws {
         let snapshot = try JSONDecoder().decode(NativeSyncSnapshot.self, from: Data(#"{"accountID":"chef_ari","environment":"production"}"#.utf8))

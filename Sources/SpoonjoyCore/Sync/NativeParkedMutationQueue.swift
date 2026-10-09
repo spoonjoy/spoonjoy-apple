@@ -70,7 +70,12 @@ enum NativeMutationQueueParking {
         with queue: NativeMutationQueue,
         in parked: [NativeParkedMutationQueue]
     ) -> [NativeParkedMutationQueue] {
-        replacing(accountID: nil, environment: environment, with: queue, in: parked.filter { !isUnbound($0, joining: environment) })
+        let others = parked.filter { !isUnbound($0, joining: environment) }
+        // With no environment either, nobody can say whose edits these are, so they are not kept for anyone (see `parking`).
+        guard environment != nil else {
+            return others
+        }
+        return replacing(accountID: nil, environment: environment, with: queue, in: others)
     }
 
     /// A queue saved into a scope the store just entered: the edits brought back for that scope, then the saved queue.
