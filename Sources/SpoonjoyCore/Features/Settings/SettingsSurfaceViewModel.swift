@@ -12,6 +12,7 @@ public enum SettingsSurfaceSectionID: Equatable, Hashable, Sendable {
     case notifications
     case apiTokens
     case connections
+    case yourData
     case environment
     case offline
 }
@@ -40,6 +41,16 @@ public struct SettingsProfileDraft: Equatable, Sendable {
         self.email = email
         self.username = username
         self.photo = photo
+    }
+
+    /// The profile save for a new username. Email changes happen on the web (Account settings), so the save
+    /// sends the account's current email unchanged.
+    public func updateUsernameAction(username: String, clientMutationID: String) -> SettingsAction {
+        .updateProfile(
+            email: email,
+            username: username.trimmingCharacters(in: .whitespacesAndNewlines),
+            clientMutationID: clientMutationID
+        )
     }
 }
 
@@ -79,6 +90,8 @@ public enum SettingsSecureHandoffTarget: Equatable, Sendable {
     case passkeys
     case password
     case providerLink(SettingsAuthProvider)
+    case accountSettings
+    case deleteAccount
 }
 
 public struct SettingsSecureHandoff: Equatable, Sendable {
@@ -116,6 +129,10 @@ public struct SettingsSecureHandoffRoutes: Equatable, Sendable {
             return URL(string: "\(baseURL.absoluteString)/account/settings#password")!
         case .providerLink(let provider):
             return URL(string: "\(baseURL.absoluteString)/auth/\(provider.rawValue)?linking=true")!
+        case .accountSettings:
+            return baseURL.appending(path: "account/settings")
+        case .deleteAccount:
+            return URL(string: "\(baseURL.absoluteString)/account/settings#delete-account")!
         }
     }
 }
@@ -133,6 +150,8 @@ public enum SettingsAction: Equatable, Sendable {
     case linkProvider(SettingsAuthProvider)
     case logout
     case revokeSession
+    case exportAccountData(username: String)
+    case deleteAccount(confirmUsername: String, proof: AccountDeletionProof)
 }
 
 public enum SettingsOnlineOnlyReason: Equatable, Sendable {
@@ -142,6 +161,8 @@ public enum SettingsOnlineOnlyReason: Equatable, Sendable {
     case logout
     case sessionRevoke
     case credentialHandoff
+    case accountExport
+    case accountDeletion
 
     public var message: String {
         switch self {
@@ -157,6 +178,10 @@ public enum SettingsOnlineOnlyReason: Equatable, Sendable {
             "Connect to the internet to revoke this session."
         case .credentialHandoff:
             "Connect to the internet to manage credentials securely."
+        case .accountExport:
+            "Connect to the internet to download your data."
+        case .accountDeletion:
+            "Connect to the internet to delete your account."
         }
     }
 }
@@ -164,6 +189,9 @@ public enum SettingsOnlineOnlyReason: Equatable, Sendable {
 public enum SettingsSessionOperation: Equatable, Sendable {
     case logout
     case revokeAndLogout
+    /// End the session on this device without asking the server to revoke it: the account was deleted, and the
+    /// server dropped its tokens with it.
+    case signOutLocally
 }
 
 public enum SettingsActionPlanningError: Error, Equatable, Sendable {
@@ -226,10 +254,48 @@ public extension SettingsActionPlan {
 public enum SettingsActionResponseHandling: Equatable, Sendable {
     case refreshOnly
     case captureCreatedAPIToken
+    /// Keep the export JSON as a file to share, named for this username.
+    case captureAccountExport(username: String)
+    /// The account is gone on the server, with every token: sign this device out without a server revoke.
+    case deleteAccountThenSignOutLocally
 }
 
 public enum SettingsActionOutcome: Equatable, Sendable {
     case createdAPIToken(SettingsCreatedAPIToken)
+    case exportedAccountData(AccountExportFile)
+    case deletedAccount(AccountDeletionResult)
+}
+
+/// What a failed settings action tells the person. A 4xx answer (other than 401, which the transport handles by
+/// refreshing the session) carries a message the person can act on, such as "change your email on the web",
+/// so it is shown as the server wrote it. Anything else gets a generic message with a diagnostic code.
+public enum SettingsActionFailureMessage {
+    /// The server's own message for a 4xx answer other than 401, or nil when there is none to show.
+    public static func serverMessage(for error: Error) -> String? {
+        guard let apiError = (error as? APITransportError)?.apiError,
+              (400..<500).contains(apiError.status),
+              apiError.status != 401 else {
+            return nil
+        }
+        let message = apiError.message.trimmingCharacters(in: .whitespacesAndNewlines)
+        return message.isEmpty ? nil : message
+    }
+
+    public static func diagnosticCode(for error: Error) -> String {
+        if let transportError = error as? APITransportError {
+            if let apiError = transportError.apiError {
+                return "settings_api_\(apiError.code)_\(apiError.status)"
+            }
+            if let statusCode = transportError.statusCode {
+                return "settings_http_\(statusCode)"
+            }
+            return "settings_transport"
+        }
+        if error is SettingsActionPlanningError {
+            return "settings_plan"
+        }
+        return "settings_unexpected"
+    }
 }
 
 public struct SettingsActionPlanner: Sendable {
@@ -333,6 +399,20 @@ public struct SettingsActionPlanner: Sendable {
                 reason: .sessionRevoke,
                 offlineAction: .sessionRevoke,
                 sessionOperation: .revokeAndLogout
+            )
+        case .exportAccountData(let username):
+            return try onlineOnlyPlan(
+                reason: .accountExport,
+                offlineAction: .accountExport,
+                request: PrivateAccountRequests.exportAccount(),
+                responseHandling: .captureAccountExport(username: username)
+            )
+        case .deleteAccount(let confirmUsername, let proof):
+            return try onlineOnlyPlan(
+                reason: .accountDeletion,
+                offlineAction: .accountDeletion,
+                request: PrivateAccountRequests.deleteAccount(confirmUsername: confirmUsername, proof: proof),
+                responseHandling: .deleteAccountThenSignOutLocally
             )
         }
     }
@@ -462,6 +542,18 @@ public struct SettingsSurfaceViewModel: Sendable {
     public let conflictBanner: SettingsSurfaceConflictBanner?
     public let offlineIndicator: OfflineIndicatorState
     public let primaryAuthAction: SettingsSecureHandoff?
+    /// Where the person changes their email: Account settings on the web.
+    public let accountSettingsHandoff: SettingsSecureHandoff
+    /// Delete account on the web, for an account the app can't confirm (no password, no Apple ID).
+    public let accountDeletionWebHandoff: SettingsSecureHandoff
+
+    /// The note under the read-only email: the email changes in Account settings on the web.
+    public var emailChangeNote: String {
+        "Change your email in Account settings on \(accountSettingsHandoff.url.host() ?? accountSettingsHandoff.url.absoluteString)"
+    }
+
+    /// How the delete sheet confirms it is the owner, or nil when signed out.
+    public let accountDeletionReauthentication: AccountDeletionReauthentication?
     public let actionPlanner: SettingsActionPlanner
     public let connectivity: SettingsSurfaceConnectivity
 
@@ -485,6 +577,7 @@ public struct SettingsSurfaceViewModel: Sendable {
             SettingsSurfaceSection(id: .security, title: "Security"),
             SettingsSurfaceSection(id: .notifications, title: "Notifications")
         ] + tokenManagementSections + [
+            SettingsSurfaceSection(id: .yourData, title: "Your data"),
             SettingsSurfaceSection(id: .environment, title: "Environment"),
             SettingsSurfaceSection(id: .offline, title: "Offline")
         ] : showsPrimaryAuthActionWhenSignedOut ? [
@@ -542,6 +635,11 @@ public struct SettingsSurfaceViewModel: Sendable {
             offlineIndicator = Self.offlineIndicator(source: data.source, now: now())
         }
         primaryAuthAction = hasAccount || !showsPrimaryAuthActionWhenSignedOut ? nil : secureHandoffRoutes.handoff(target: .login)
+        accountSettingsHandoff = secureHandoffRoutes.handoff(target: .accountSettings)
+        accountDeletionWebHandoff = secureHandoffRoutes.handoff(target: .deleteAccount)
+        accountDeletionReauthentication = data.account.map {
+            AccountDeletionReauthentication(account: $0, routes: secureHandoffRoutes)
+        }
         self.connectivity = connectivity
         actionPlanner = SettingsActionPlanner(
             connectivity: connectivity,

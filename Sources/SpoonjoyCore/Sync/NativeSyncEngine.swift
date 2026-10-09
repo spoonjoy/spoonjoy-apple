@@ -3601,6 +3601,8 @@ public enum NativeOfflineAction: Equatable, Sendable {
     case providerSecretBlockedCoverRegeneration
     case providerSecretBlockedImport
     case destructiveProductionApproval
+    case accountExport
+    case accountDeletion
 }
 
 public struct NativeOfflineMutationDecision: Equatable, Sendable {
@@ -3641,6 +3643,10 @@ public enum NativeOfflineMutationPolicy {
             NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Provider-secret-blocked import is online-only and was not queued.")
         case .destructiveProductionApproval:
             NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Destructive production approvals are online-only and were not queued.")
+        case .accountExport:
+            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Downloading your data is online-only and was not queued.")
+        case .accountDeletion:
+            NativeOfflineMutationDecision(queueableKind: nil, onlineOnlyReason: "Deleting your account is online-only and was not queued.")
         }
     }
 }

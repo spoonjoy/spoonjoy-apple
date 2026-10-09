@@ -2443,6 +2443,25 @@ public final class NativeLiveAppStore: ObservableObject {
             )
             await bootstrap()
             return .createdAPIToken(envelope.data)
+        case .captureAccountExport(let username):
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: JSONValue.self
+            )
+            return .exportedAccountData(try AccountExportFile(
+                username: username,
+                exportedAt: dependencies.now(),
+                export: envelope.data
+            ))
+        case .deleteAccountThenSignOutLocally:
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: AccountDeletionResult.self
+            )
+            try await signOutLocallyAfterAccountDeletion()
+            return .deletedAccount(envelope.data)
         }
     }
 
@@ -2472,7 +2491,7 @@ public final class NativeLiveAppStore: ObservableObject {
 
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
-        case .logout, .revokeAndLogout:
+        case .logout, .revokeAndLogout, .signOutLocally:
             shoppingMutationCoordinator.resetScope()
             let currentAccountID = accountID
             let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
@@ -2560,9 +2579,35 @@ public final class NativeLiveAppStore: ObservableObject {
                 environment: cacheEnvironment,
                 plan: recipeCookbookPurgePlan
             ), accountID: currentAccountID, environment: cacheEnvironment)
-            try await dependencies.authSessionRepository.revokeAndLogout()
+            if operation == .signOutLocally {
+                try await dependencies.authSessionRepository.logoutLocally()
+            } else {
+                try await dependencies.authSessionRepository.revokeAndLogout()
+            }
         }
         await bootstrap()
+    }
+
+    /// After DELETE /api/v1/me succeeds the account, and every token it held, is gone on the server, so a revoke
+    /// has nothing left to do. Wipe what this device kept for the account (the queue of changes waiting to sync,
+    /// which can never be sent now, the durable cache and the app-state snapshot), then sign out locally, which
+    /// also clears the system search index.
+    private func signOutLocallyAfterAccountDeletion() async throws {
+        try await dependencies.syncStore.saveQueue(NativeMutationQueue(), accountID: nil, environment: nil)
+        try await dependencies.syncStore.clearCheckpoint()
+        try dependencies.cacheStore.save(NativeDurableCacheSnapshot(
+            schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+            accountID: accountID(for: .signedOut),
+            environment: cacheEnvironment,
+            createdAt: dependencies.now(),
+            records: [],
+            dismissedIndicators: []
+        ))
+        try dependencies.appStateStoreProvider()?.save(NativeAppSnapshot.bootstrap(
+            shoppingList: nil,
+            savedAt: NativeLiveAppStoreClock.isoString(dependencies.now())
+        ))
+        try await performSettingsSessionOperation(.signOutLocally)
     }
 
     public func purgeShoppingEntityIdentifiers(

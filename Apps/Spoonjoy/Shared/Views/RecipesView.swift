@@ -257,7 +257,7 @@ struct ChefsView: View {
             openRoute(chef.profileRoute)
         } label: {
             KitchenTableObjectRow(
-                title: chef.username,
+                title: chef.displayName,
                 subtitle: (subtitle?.isEmpty == false ? subtitle : nil) ?? "Open kitchen profile"
             ) {
                 Image(systemName: "person.crop.circle")

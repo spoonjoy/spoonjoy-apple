@@ -1,5 +1,4 @@
 import AuthenticationServices
-import CryptoKit
 import Security
 import SpoonjoyCore
 import SwiftUI
@@ -690,7 +689,7 @@ struct SignedOutSetupView: View {
         }
     }
 
-    private static func currentAppleSignInCapability() -> AppleSignInCapability {
+    static func currentAppleSignInCapability() -> AppleSignInCapability {
         #if os(macOS)
         guard let task = SecTaskCreateFromSelf(nil),
               let entitlement = SecTaskCopyValueForEntitlement(
@@ -716,24 +715,11 @@ struct SignedOutSetupView: View {
     }
 
     private static func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
-        let charset = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        var result = ""
-        var remainingLength = length
-        while remainingLength > 0 {
-            var random: UInt8 = 0
-            let status = SecRandomCopyBytes(kSecRandomDefault, 1, &random)
-            if status == errSecSuccess, Int(random) < charset.count {
-                result.append(charset[Int(random)])
-                remainingLength -= 1
-            }
-        }
-        return result
+        NativeAppleSignInNonce.random(length: length)
     }
 
     private static func sha256(_ input: String) -> String {
-        let digest = SHA256.hash(data: Data(input.utf8))
-        return digest.map { String(format: "%02x", $0) }.joined()
+        NativeAppleSignInNonce.sha256(input)
     }
 
     private func revokeAndLogout() async {
@@ -866,7 +852,7 @@ private enum BrowserOAuthSignInError: Error {
     }
 }
 
-private enum AppleSignInCapability: Equatable {
+enum AppleSignInCapability: Equatable {
     case available
     case missingEntitlement
 

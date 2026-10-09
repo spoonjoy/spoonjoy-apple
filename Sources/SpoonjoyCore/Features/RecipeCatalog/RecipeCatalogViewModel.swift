@@ -61,7 +61,7 @@ public struct RecipeCatalogRowViewModel: Identifiable, Equatable, Sendable {
         id = summary.id
         title = summary.title
         subtitle = summary.description
-        chefLine = "By \(summary.chef.username)"
+        chefLine = "By \(summary.chef.displayName)"
         servingsLabel = Self.servingsLabel(summary.servings)
         coverImageURL = summary.displayCoverImageURL
         coverProvenanceLabel = summary.displayCoverProvenanceLabel

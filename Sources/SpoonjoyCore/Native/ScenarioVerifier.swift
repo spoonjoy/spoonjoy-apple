@@ -1678,14 +1678,14 @@ public enum ScenarioVerifier {
             secureHandoffRoutes: .spoonjoyApp,
             now: { Date(timeIntervalSince1970: 1_780_120_000) }
         )
-        let status = scenarioStatus(viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline] &&
+        let status = scenarioStatus(viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .yourData, .environment, .offline] &&
             viewModel.apiTokenRows.first?.tokenPrefix == "sj_live_cli" &&
             viewModel.oauthConnectionRows.first?.clientID == "client_cli")
 
         return ScenarioCheck(
             name: "settings token connection surface",
             status: status,
-            detail: "Settings renders account profile, notification preferences, agent access key metadata, OAuth connection state, and native offline status."
+            detail: "Settings renders account profile, notification preferences, agent access key metadata, OAuth connection state, Your data, and native offline status."
         )
     }
 

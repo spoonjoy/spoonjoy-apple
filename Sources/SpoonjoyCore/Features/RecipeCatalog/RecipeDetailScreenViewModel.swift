@@ -76,7 +76,7 @@ public struct RecipeDetailSourceAttribution: Equatable, Sendable {
 
     /// Full credit line, such as "forked from chef · Lemon Herb Rice".
     public var creditLine: String {
-        let source = chefUsername.map { "\($0) · \(title)" } ?? title
+        let source = chefUsername.map { "\(ChefDisplayName.forUsername($0)) · \(title)" } ?? title
         let credit = "forked from \(source)"
         return host.map { "\(credit) · \($0)" } ?? credit
     }
@@ -265,7 +265,7 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         id = recipe.id
         title = recipe.title
         description = recipe.description
-        chefAttribution = "By \(recipe.chef.username)"
+        chefAttribution = "By \(recipe.chef.displayName)"
         servingsLabel = Self.servingsLabel(recipe.servings)
         cover = RecipeDetailCoverViewModel(
             imageURL: recipe.displayCoverImageURL,
