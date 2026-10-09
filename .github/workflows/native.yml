@@ -12,6 +12,9 @@ concurrency:
   group: native-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
 jobs:
   ruby-advisory-scan:
     name: Ruby advisory scan
@@ -41,7 +44,31 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+  contracts:
+    name: Contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Check native design-language contract
+        run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
+      - name: Check web palette contract
+        run: ruby scripts/check-native-web-palette-contract.rb --web-css docs/source/spoonjoy-v2-tailwind-colors.css
+      - name: Check Xcode generator contract
+        run: bundle exec ruby scripts/check-xcode-generator-contract.rb
+      - name: Check coverage and warning gates
+        run: ruby scripts/check-coverage-warning-contract.rb
+      - name: Check launch screenshot contract
+        run: ruby scripts/check-launch-screenshot-contract.rb
+
   swift-tests:
+    # One job runs the whole suite once, with coverage. It is the required "Swift tests" check.
     name: Swift tests
     runs-on: xcode-27
     timeout-minutes: 30
@@ -53,46 +80,15 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Select and verify Xcode 27 runner
+      - uses: ./.github/actions/select-xcode
+      - name: Run Swift tests with coverage and enforce 100% SpoonjoyCore coverage
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_27.0.app
-          echo "DEVELOPER_DIR=$(xcode-select -p)"
-          xcrun --sdk iphonesimulator --show-sdk-version
-          xcode_version="$(xcodebuild -version)"
-          printf '%s\n' "$xcode_version"
-          first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="27.0"
-          version="${first_line#Xcode }"
-          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
-      - name: Run Swift or Xcode tests when testable sources exist
-        run: |
-          set -euo pipefail
-          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
-          if [ -n "$unexpected_projects" ]; then
-            echo "Unexpected Xcode project(s):"
-            echo "$unexpected_projects"
-            exit 1
-          fi
-
-          if [ -f Package.swift ]; then
-            swift_log="$RUNNER_TEMP/swift-tests.log"
-            swift test --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$swift_log"
-            ruby scripts/fail-on-warning.rb --log "$swift_log"
-          elif [ -d Spoonjoy.xcodeproj ]; then
-            ios_destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
-            ios_test_log="$RUNNER_TEMP/xcode-ios-tests.log"
-            macos_test_log="$RUNNER_TEMP/xcode-macos-tests.log"
-            xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination "$ios_destination" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$ios_test_log"
-            ruby scripts/fail-on-warning.rb --log "$ios_test_log"
-            xcodebuild test -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$macos_test_log"
-            ruby scripts/fail-on-warning.rb --log "$macos_test_log"
-          elif ls ./*.xcodeproj >/dev/null 2>&1; then
-            echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
-            exit 1
-          else
-            echo "No Package.swift or Xcode project present yet; bootstrap check passes."
-          fi
+          coverage_log="$RUNNER_TEMP/swift-coverage.log"
+          swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$coverage_log"
+          ruby scripts/fail-on-warning.rb --log "$coverage_log"
+          coverage_json="$(swift test --show-codecov-path)"
+          ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
 
   native-scenario-verifier:
     name: Native scenario verifier
@@ -106,55 +102,26 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Select and verify Xcode 27 runner
-        run: |
-          set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_27.0.app
-          echo "DEVELOPER_DIR=$(xcode-select -p)"
-          xcrun --sdk iphonesimulator --show-sdk-version
-          xcode_version="$(xcodebuild -version)"
-          printf '%s\n' "$xcode_version"
-          first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="27.0"
-          version="${first_line#Xcode }"
-          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
-      - name: Check native design-language contract
-        run: ruby scripts/check-native-design-language.rb --web-design-doc docs/source/spoonjoy-v2-design-language.md
+      - uses: ./.github/actions/select-xcode
       - name: Check native project and surface contracts
+        # These read the Xcode project with plutil, sips and sw_vers, so they stay on macOS.
         run: |
           set -euo pipefail
-          ruby scripts/check-native-web-palette-contract.rb --web-css docs/source/spoonjoy-v2-tailwind-colors.css
           bundle exec ruby scripts/check-xcode-project-contract.rb
-          bundle exec ruby scripts/check-xcode-generator-contract.rb
           ruby scripts/check-kitchen-recipe-surfaces.rb
           ruby scripts/check-cook-shopping-surfaces.rb
           ruby scripts/check-search-capture-settings-surfaces.rb
-          ruby scripts/check-launch-screenshot-contract.rb
       - name: Check journey house rules
         run: swift run -Xswiftc -warnings-as-errors SpoonjoyJourneyRules Apps/Spoonjoy/Journeys .github/workflows/journeys.yml scripts/journey-qa-accounts.sh
       - name: Generate AASA validation or blocker artifact
         run: ruby scripts/validate-aasa.rb --artifact-root "$RUNNER_TEMP/aasa"
-      - name: Run native scenario verifier when present
+      - name: Run native scenario verifier
         run: |
           set -euo pipefail
-          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
-          if [ -n "$unexpected_projects" ]; then
-            echo "Unexpected Xcode project(s):"
-            echo "$unexpected_projects"
-            exit 1
-          fi
-
-          if [ -f scripts/verify-native-scenarios.sh ]; then
-            test -x scripts/verify-native-scenarios.sh
-            scenario_log="$RUNNER_TEMP/native-scenario.log"
-            scripts/verify-native-scenarios.sh --stage final 2>&1 | tee "$scenario_log"
-            ruby scripts/fail-on-warning.rb --log "$scenario_log"
-          elif [ -f Package.swift ] || [ -d Spoonjoy.xcodeproj ] || ls ./*.xcodeproj >/dev/null 2>&1; then
-            echo "Native scenario verifier is required once Swift or Xcode sources exist."
-            exit 1
-          else
-            echo "Native scenario verifier not present yet; bootstrap check passes."
-          fi
+          test -x scripts/verify-native-scenarios.sh
+          scenario_log="$RUNNER_TEMP/native-scenario.log"
+          scripts/verify-native-scenarios.sh --stage final 2>&1 | tee "$scenario_log"
+          ruby scripts/fail-on-warning.rb --log "$scenario_log"
 
   app-bundle:
     name: App bundle
@@ -168,106 +135,36 @@ jobs:
         with:
           ruby-version: '3.3'
           bundler-cache: true
-      - name: Select and verify Xcode 27 runner
+      - uses: ./.github/actions/select-xcode
+      - name: Build iOS and macOS app bundles
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_27.0.app
-          echo "DEVELOPER_DIR=$(xcode-select -p)"
-          xcrun --sdk iphonesimulator --show-sdk-version
-          xcode_version="$(xcodebuild -version)"
-          printf '%s\n' "$xcode_version"
-          first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="27.0"
-          version="${first_line#Xcode }"
-          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
-      - name: Build iOS and macOS app bundles when Xcode project exists
+          ios_build_log="$RUNNER_TEMP/xcode-ios-build.log"
+          macos_build_log="$RUNNER_TEMP/xcode-macos-build.log"
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_build_log"
+          ruby scripts/fail-on-warning.rb --log "$ios_build_log"
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
+          ruby scripts/fail-on-warning.rb --log "$macos_build_log"
+      - name: Build the shipping Release configuration (unsigned)
+        # TestFlight ships Release, so Release-only code (#if !DEBUG paths, iOS 27 minimums) must compile before release day.
         run: |
           set -euo pipefail
-          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
-          if [ -n "$unexpected_projects" ]; then
-            echo "Unexpected Xcode project(s):"
-            echo "$unexpected_projects"
-            exit 1
-          fi
-
-          if [ -d Spoonjoy.xcodeproj ]; then
-            ios_build_log="$RUNNER_TEMP/xcode-ios-build.log"
-            macos_build_log="$RUNNER_TEMP/xcode-macos-build.log"
-            xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_build_log"
-            ruby scripts/fail-on-warning.rb --log "$ios_build_log"
-            xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
-            ruby scripts/fail-on-warning.rb --log "$macos_build_log"
-          elif ls ./*.xcodeproj >/dev/null 2>&1; then
-            echo "Unexpected Xcode project name; expected Spoonjoy.xcodeproj."
-            exit 1
-          elif [ -f Package.swift ]; then
-            echo "Xcode project is required once Package.swift exists."
-            exit 1
-          else
-            echo "Xcode project not present yet; bootstrap check passes."
-          fi
-
-  coverage:
-    name: Coverage
-    runs-on: xcode-27
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
-      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: true
-      - name: Select and verify Xcode 27 runner
-        run: |
-          set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_27.0.app
-          echo "DEVELOPER_DIR=$(xcode-select -p)"
-          xcrun --sdk iphonesimulator --show-sdk-version
-          xcode_version="$(xcodebuild -version)"
-          printf '%s\n' "$xcode_version"
-          first_line="$(printf '%s\n' "$xcode_version" | sed -n '1p')"
-          minimum_xcode_version="27.0"
-          version="${first_line#Xcode }"
-          awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
-      - name: Generate and enforce Swift or Xcode coverage when testable sources exist
-        run: |
-          set -euo pipefail
-          unexpected_projects="$(find . -maxdepth 1 -name '*.xcodeproj' ! -name 'Spoonjoy.xcodeproj' -print)"
-          if [ -n "$unexpected_projects" ]; then
-            echo "Unexpected Xcode project(s):"
-            echo "$unexpected_projects"
-            exit 1
-          fi
-
-          if [ -f Package.swift ]; then
-            coverage_log="$RUNNER_TEMP/swift-coverage.log"
-            swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$coverage_log"
-            ruby scripts/fail-on-warning.rb --log "$coverage_log"
-            coverage_json="$(swift test --show-codecov-path)"
-            if [ -f scripts/enforce-swift-coverage.rb ]; then
-              ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
-            else
-              echo "Coverage enforcement script is required once Package.swift exists."
-              exit 1
-            fi
-          elif ls ./*.xcodeproj >/dev/null 2>&1; then
-            echo "Coverage enforcement requires Package.swift and scripts/enforce-swift-coverage.rb before any Xcode project lands."
-            exit 1
-          else
-            echo "No Package.swift or Xcode project present yet; bootstrap check passes."
-          fi
+          ios_release_log="$RUNNER_TEMP/xcode-ios-release-build.log"
+          macos_release_log="$RUNNER_TEMP/xcode-macos-release-build.log"
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$ios_release_log"
+          ruby scripts/fail-on-warning.rb --log "$ios_release_log"
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration Release -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_release_log"
+          ruby scripts/fail-on-warning.rb --log "$macos_release_log"
 
   testflight-release-note:
     name: TestFlight release note
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs:
       - ruby-advisory-scan
+      - contracts
       - swift-tests
       - native-scenario-verifier
       - app-bundle
-      - coverage
     runs-on: ubuntu-24.04
     permissions:
       contents: read
