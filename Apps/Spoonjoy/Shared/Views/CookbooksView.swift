@@ -240,8 +240,8 @@ struct CookbooksView: View {
                         Button {
                             openRoute(row.openRoute)
                         } label: {
-                            KitchenTableObjectRow(title: row.title, subtitle: "\(row.chefLine) - \(row.recipeCountLabel)") {
-                                CookbookCoverArt(row: row)
+                            KitchenTableObjectRow(title: row.title, subtitle: "\(row.chefLine) - \(row.recipeCountLabel)", titleFont: KitchenTableTheme.indexTitle) {
+                                CookbookThumb(row: row)
                             } trailing: {
                                 Image(systemName: "chevron.forward")
                                     .font(.caption.weight(.semibold))
@@ -432,7 +432,7 @@ struct CookbookShelf: View {
                             Button {
                                 openRoute(row.openRoute)
                             } label: {
-                                KitchenTableObjectRow(title: row.title, subtitle: row.recipeCountLabel) {
+                                KitchenTableObjectRow(title: row.title, subtitle: row.recipeCountLabel, titleFont: KitchenTableTheme.indexTitle) {
                                     CookbookThumb(row: row)
                                 } trailing: {
                                     Image(systemName: "chevron.forward")
@@ -461,11 +461,33 @@ struct CookbookShelf: View {
     }
 }
 
-private struct CookbookThumb: View {
-    let row: CookbookSurfaceRowViewModel
+/// A cookbook's small cover for index rows: its first cover photo, filling the frame with no text on it.
+/// Only a cookbook with no photo yet shows a serif initial on paper.
+struct CookbookThumb: View {
+    let title: String
+    let primaryImageURL: URL?
+
+    init(row: CookbookSurfaceRowViewModel) {
+        title = row.title
+        primaryImageURL = row.cover.primaryImageURL
+    }
 
     var body: some View {
-        CookbookCoverArt(row: row)
+        if let primaryImageURL {
+            RecipeCoverImage(url: primaryImageURL, title: title, subtitle: "Cover", showsFallbackLabel: false)
+                .frame(width: 56, height: 56)
+                .clipped()
+        } else {
+            Text(String(title.prefix(1)).uppercased())
+                .font(.system(.title2, design: .serif).weight(.bold))
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .frame(width: 56, height: 56)
+                .background(KitchenTableTheme.paper)
+                .overlay {
+                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                        .strokeBorder(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
+                }
+        }
     }
 }
 
@@ -502,7 +524,10 @@ private struct CookbookCoverArt: View {
                     Text(title)
                         .font(.system(.title3, design: .serif).weight(.bold))
                         .foregroundStyle(KitchenTableTheme.onPhoto)
-                        .lineLimit(2)
+                        // Shrink a long word to fit instead of hyphenating it or cutting the title short.
+                        .lineLimit(3)
+                        .minimumScaleFactor(0.72)
+                        .allowsTightening(true)
                         .fixedSize(horizontal: false, vertical: true)
                     Text(recipeCountLabel)
                         .font(KitchenTableTheme.uiLabel)
@@ -706,6 +731,7 @@ private struct CookbookDetailView: View {
     @State private var selectedRecipeID: String?
     @State private var activeConfirmationDialog: CookbookConfirmationDialog?
     @State private var isOwnerToolsExpanded = false
+    @State private var recipeQuery = ""
 
     init(
         viewModel: CookbookDetailViewModel,
@@ -728,6 +754,9 @@ private struct CookbookDetailView: View {
             recipes
             ownerTools
         }
+        // The scrolled page fades under a solid edge at the top, so its title never collides with the
+        // status bar or the back button.
+        .scrollEdgeEffectStyle(.hard, for: .top)
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
             isPresented: Binding(
@@ -819,7 +848,8 @@ private struct CookbookDetailView: View {
             KitchenTableHeader(
                 eyebrow: "Cookbook",
                 title: viewModel.title,
-                subtitle: "\(viewModel.chefLine) - \(viewModel.recipeCountLabel)"
+                subtitle: "\(viewModel.chefLine) - \(viewModel.recipeCountLabel)",
+                titleFont: .system(.title, design: .serif).weight(.bold)
             )
             detailShareAction
         }
@@ -885,8 +915,20 @@ private struct CookbookDetailView: View {
                         .frame(height: 1)
                 }
             } else {
+                if viewModel.recipes.count > 1 {
+                    recipeSearchField
+                }
+                let visibleRecipeIDs = matchingRecipeIDs
+                if visibleRecipeIDs.isEmpty {
+                    Text("No recipes match \u{201C}\(recipeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}.")
+                        .font(KitchenTableTheme.bodyNote)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .padding(.vertical, 12)
+                        .accessibilityIdentifier("cookbook.search.empty")
+                }
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
+                        if visibleRecipeIDs.contains(recipe.id) {
                         CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1, removeAccessibilityLabel: removeAccessibilityLabel(for: recipe)) {
                             openRoute(recipe.openRoute)
                         } remove: {
@@ -896,10 +938,47 @@ private struct CookbookDetailView: View {
                                 confirmation: .required
                             ))
                         }
+                        }
                     }
                 }
                 .accessibilityIdentifier("cookbookContentsIndex")
             }
+        }
+    }
+
+    /// The recipes matching the search. Rows keep their place in the whole cookbook, so numbering holds still.
+    private var matchingRecipeIDs: Set<String> {
+        Set(CookbookRecipeSearch.filter(viewModel.recipes, query: recipeQuery) { $0.title }.map(\.id))
+    }
+
+    private var recipeSearchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .accessibilityHidden(true)
+            TextField("Search this cookbook", text: $recipeQuery)
+                .textFieldStyle(.plain)
+                .font(KitchenTableTheme.bodyNote)
+                .autocorrectionDisabled()
+                .submitLabel(.search)
+                .accessibilityIdentifier("cookbook.search.field")
+            if !recipeQuery.isEmpty {
+                Button {
+                    recipeQuery = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Clear search")
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
         }
     }
 
@@ -1097,7 +1176,14 @@ private struct CookbookRecipeIndexRow: View {
                     .foregroundStyle(KitchenTableTheme.brass)
                     .frame(width: 30, alignment: .leading)
 
+                // A recipe without a photo yet keeps its place with the quiet no-photo mark.
                 if recipe.coverImageURL != nil {
+                    CookbookRecipeThumbnail(recipe: recipe)
+                        .frame(width: 58, height: 48)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                        .accessibilityHidden(true)
+                } else {
                     CookbookRecipeThumbnail(recipe: recipe)
                         .frame(width: 58, height: 48)
                         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
@@ -1106,7 +1192,7 @@ private struct CookbookRecipeIndexRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(recipe.title)
-                        .font(KitchenTableTheme.objectTitle)
+                        .font(KitchenTableTheme.indexTitle)
                         .foregroundStyle(KitchenTableTheme.charcoal)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)

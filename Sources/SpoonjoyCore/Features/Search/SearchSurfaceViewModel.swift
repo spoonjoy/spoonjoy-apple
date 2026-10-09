@@ -58,6 +58,38 @@ public struct SearchSurfaceRow: Identifiable, Equatable, Sendable {
         result.imageURL
     }
 
+    /// The part of the match that explains why the row appeared, for example the ingredient that matched.
+    /// Nil when the server sent none, or when it only repeats the title or subtitle already on the row.
+    public var snippetText: String? {
+        guard let raw = result.snippet else {
+            return nil
+        }
+        let collapsed = raw.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        let text = collapsed.trimmingCharacters(in: CharacterSet(charactersIn: ". \u{2026}"))
+        guard !text.isEmpty else {
+            return nil
+        }
+        let repeated = [result.title, subtitle].contains {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines).caseInsensitiveCompare(text) == .orderedSame
+        }
+        return repeated ? nil : text
+    }
+
+    /// The server's thumbnail, or else the cover the app already holds for the same recipe or cookbook.
+    public func imageURL(recipeCovers: [String: URL], cookbookCovers: [String: URL]) -> URL? {
+        if let serverImage = result.imageURL {
+            return serverImage
+        }
+        switch result.type {
+        case .recipe:
+            return recipeCovers[result.id]
+        case .cookbook:
+            return cookbookCovers[result.id]
+        case .chef, .shoppingListItem:
+            return nil
+        }
+    }
+
     public var openRoute: AppRoute {
         switch result.type {
         case .recipe:
@@ -333,6 +365,24 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
                 display: .syncFailure(errorID: "search-\(state.scope.rawValue)", retryAfter: nil),
                 dismissal: nil
             )
+        }
+    }
+}
+
+extension SearchScope {
+    /// Five scopes share an iPhone-width scope bar, so the labels stay short enough not to truncate.
+    public var compactTitle: String {
+        switch self {
+        case .all:
+            "All"
+        case .recipes:
+            "Recipes"
+        case .cookbooks:
+            "Books"
+        case .chefs:
+            "Chefs"
+        case .shoppingList:
+            "Shopping"
         }
     }
 }

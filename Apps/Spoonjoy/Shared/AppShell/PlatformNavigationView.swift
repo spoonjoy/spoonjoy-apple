@@ -777,7 +777,13 @@ struct PlatformNavigationView: View {
         )
     }
 
-    @ViewBuilder private func destinationContent(for route: AppRoute) -> some View {
+    private func destinationContent(for route: AppRoute) -> some View {
+        destinationRoute(for: route)
+            // A missing page offers the way back to the recipes.
+            .environment(\.spoonjoyBackToRecipes) { openRoute(.recipes) }
+    }
+
+    @ViewBuilder private func destinationRoute(for route: AppRoute) -> some View {
         switch route {
         case .kitchen:
             KitchenView(
@@ -918,6 +924,12 @@ struct PlatformNavigationView: View {
                 search: $search,
                 viewModel: searchViewModel(for: routeSearch),
                 openRoute: openRoute,
+                recipeCovers: contentState.recipes.reduce(into: [:]) { covers, recipe in
+                    covers[recipe.id] = recipe.displayCoverImageURL
+                },
+                cookbookCovers: contentState.cookbooks.reduce(into: [:]) { covers, cookbook in
+                    covers[cookbook.id] = cookbook.cover.primaryImageURL
+                },
                 searchTask: performSearch,
                 onDismissOfflineIndicator: dismissOfflineIndicator
             )

@@ -63,8 +63,23 @@ struct KitchenTableLoadingStateView: View {
     }
 }
 
+private struct SpoonjoyBackToRecipesKey: EnvironmentKey {
+    static let defaultValue: (@Sendable () -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// Set by the shell: opens the recipes list, so a page that cannot load always has a way back.
+    var spoonjoyBackToRecipes: (@Sendable () -> Void)? {
+        get { self[SpoonjoyBackToRecipesKey.self] }
+        set { self[SpoonjoyBackToRecipesKey.self] = newValue }
+    }
+}
+
+/// A page that is missing or could not load: the same quiet empty-state treatment as the web's
+/// "Page not found", with a button back to the recipes instead of a dead end.
 struct KitchenTableRouteErrorView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.spoonjoyBackToRecipes) private var backToRecipes
 
     let message: String
     let systemImage: String
@@ -75,19 +90,52 @@ struct KitchenTableRouteErrorView: View {
     }
 
     var body: some View {
-        Label {
+        VStack(alignment: .leading, spacing: 14) {
+            Label {
+                Text("Spoonjoy".uppercased())
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.4)
+            } icon: {
+                Image(systemName: systemImage)
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(KitchenTableTheme.brass)
+
             Text(message)
-                .font(KitchenTableTheme.bodyNote)
+                .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.charcoal)
                 .fixedSize(horizontal: false, vertical: true)
-        } icon: {
-            Image(systemName: systemImage)
-                .foregroundStyle(KitchenTableTheme.brass)
+
+            Text(guidance)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Rectangle()
+                .fill(KitchenTableTheme.line.opacity(0.55))
+                .frame(height: 1)
+
+            if let backToRecipes {
+                Button(action: backToRecipes) {
+                    Label("Back to recipes", systemImage: "book")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .frame(maxWidth: 260)
+                .accessibilityIdentifier("route.error.back")
+            }
         }
         .padding(KitchenTableTheme.pagePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: 720, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .center)
         .background(KitchenTableTheme.bone)
         .transition(accessibilityReduceMotion ? .identity : .opacity)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("route.error")
+    }
+
+    private var guidance: String {
+        message.contains("find")
+            ? "It may have been removed, or the link may be out of date."
+            : "Check your connection, then try again from the recipes."
     }
 }
