@@ -1100,6 +1100,7 @@ private enum OAuthURLSessionSupport {
             throw URLError(.badURL)
         }
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = APIRequestTimeout.seconds
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {

@@ -179,6 +179,7 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
             url: url,
             cachePolicy: Self.cachePolicy(for: request.responseCachePolicy)
         )
+        urlRequest.timeoutInterval = APIRequestTimeout.seconds
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {

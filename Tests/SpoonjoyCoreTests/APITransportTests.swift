@@ -46,6 +46,8 @@ struct APITransportTests {
         #expect(capturedRequest.value(forHTTPHeaderField: "X-Client-Mutation-Id") == "profile-update-1")
         #expect(capturedRequest.httpBody == Data(#"{"displayName":"Ari"}"#.utf8))
         #expect(capturedRequest.cachePolicy == .reloadIgnoringLocalCacheData)
+        // A stalled server fails the request after 15 s instead of the system's 60 s, so a launch sync is not held up.
+        #expect(capturedRequest.timeoutInterval == 15)
     }
 
     @Test("transport preserves already encoded path segments exactly once")
