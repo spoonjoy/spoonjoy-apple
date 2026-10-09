@@ -205,6 +205,7 @@ struct CookModeView: View {
         VStack(alignment: .leading, spacing: 20) {
             header
             currentStepCard
+            cookControls
             dependencyChecklist
             ingredientChecklist
         }
@@ -269,28 +270,17 @@ struct CookModeView: View {
     }
 
     private var regularHeader: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            KitchenTableHeader(
-                eyebrow: viewModel.stepProgressLabel,
-                title: recipe.title
-            ) {
-                regularHeaderTools
-            }
-
-            stepProgressRail
-        }
-    }
-
-    private var regularHeaderTools: some View {
-        VStack(alignment: .trailing, spacing: 8) {
-            utilityButton
-            shoppingStatus
-        }
-        .frame(maxWidth: 220, alignment: .trailing)
+        cookContextHeader
     }
 
     private var compactTaskHeader: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        cookContextHeader
+    }
+
+    /// Where you are in the recipe: the step count, the recipe's name as a quiet running head and overall progress.
+    /// The current step below is the hero, as on the web.
+    private var cookContextHeader: some View {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text(viewModel.stepProgressLabel.uppercased())
                     .font(.caption2.weight(.bold))
@@ -304,13 +294,13 @@ struct CookModeView: View {
             }
 
             Text(recipe.title)
-                .font(.system(.title, design: .serif).weight(.bold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
 
             stepProgressRail
-            utilityButton
             shoppingStatus
         }
     }
@@ -349,8 +339,30 @@ struct CookModeView: View {
             Label("Tools", systemImage: "slider.horizontal.3")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-        .frame(maxWidth: 156, alignment: .leading)
-        .accessibilityHint("Opens recipe scale and shopping-list tools.")
+        .fixedSize()
+        .accessibilityHint("Opens shopping-list tools.")
+    }
+
+    /// Scale sits right under the step so it can change while cooking; Tools keeps the shopping action.
+    private var cookControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 16) {
+                inlineScale
+                utilityButton
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                inlineScale
+                utilityButton
+            }
+        }
+    }
+
+    private var inlineScale: some View {
+        ScaleSelector(scaleFactor: progress.scaleFactor) { scaleFactor in
+            updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
+        }
+        .accessibilityIdentifier("cookMode.scale")
     }
 
     @ViewBuilder private var shoppingStatus: some View {
@@ -367,14 +379,6 @@ struct CookModeView: View {
 
     private var cookModeUtilitySheet: some View {
         VStack(alignment: .leading, spacing: 14) {
-            KitchenTableSection(title: "Scale") {
-                ScaleSelector(
-                    scaleFactor: progress.scaleFactor
-                ) { scaleFactor in
-                    updateProgress(progress.settingScaleFactor(scaleFactor, updatedAt: timestamp()))
-                }
-            }
-
             Button {
                 addRecipeIngredients(scaleFactor: progress.scaleFactor)
             } label: {
@@ -409,8 +413,10 @@ struct CookModeView: View {
                 }
             }
             Text(step.description)
-                .font(KitchenTableTheme.bodyNote)
+                .font(KitchenTableTheme.spreadInstruction)
                 .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineSpacing(5)
+                .fixedSize(horizontal: false, vertical: true)
             if let timer = viewModel.systemTimer {
                 CookModeSystemTimer(timer: timer) {
                     try await scheduleSystemTimer(timer, step: step)
@@ -418,17 +424,16 @@ struct CookModeView: View {
                     .id(timer.stepID)
             }
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.paper)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .accessibilityElement(children: .contain)
     }
 
     private func currentStepTitle(_ step: RecipeStep) -> some View {
-        Text("\(step.stepNum). \(step.stepTitle ?? "Step")")
-            .font(.title2)
+        Text(step.stepTitle ?? "Step \(step.stepNum)")
+            .font(KitchenTableTheme.displayTitle)
             .foregroundStyle(KitchenTableTheme.charcoal)
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityAddTraits(.isHeader)
             .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
     }
 
@@ -709,11 +714,10 @@ extension CookModeView {
                         .font(KitchenTableTheme.displayTitle)
                         .foregroundStyle(KitchenTableTheme.charcoal)
                         .accessibilityAddTraits(.isHeader)
-                    Spacer(minLength: 0)
-                    utilityButton
                 }
                 stepProgressRail
                 shoppingStatus
+                cookControls
             }
 
             if viewModel.stepOutputChecklistRows.isEmpty && viewModel.ingredientChecklistRows.isEmpty {

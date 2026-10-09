@@ -146,6 +146,11 @@ public struct ShoppingPresentationModel: Equatable, Sendable {
         return result
     }
 
+    /// Aisle label for a bare ingredient name, using the same rules the shopping list applies.
+    public static func aisleLabel(forIngredientNamed name: String) -> String {
+        categoryLabels[inferredAffordance(for: name).categoryKey]!
+    }
+
     private static func affordance(for item: ShoppingListItem) -> (categoryKey: String, categoryLabel: String, iconKey: String) {
         let inferred = inferredAffordance(for: item.name)
         let categoryKey = item.categoryKey.flatMap { categoryLabels[$0] == nil ? nil : $0 } ?? inferred.categoryKey
