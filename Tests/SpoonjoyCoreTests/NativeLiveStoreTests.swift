@@ -178,9 +178,7 @@ struct NativeLiveStoreTests {
             )
 
             try await liveStore.queueMutation(mutation)
-            // Signed out, the edit belongs to no account yet: it waits apart from any stored account's queue and
-            // joins the account the next sign-in confirms.
-            let persisted = await syncStore.loadSnapshot().queue(accountID: nil, environment: .production)
+            let persisted = try await syncStore.loadQueue()
 
             guard case .queuedWork(let content) = liveStore.bootstrapState else {
                 Issue.record("Expected queueMutation to show queuedWork; got \(liveStore.bootstrapState)")
@@ -1219,8 +1217,10 @@ struct NativeLiveStoreTests {
             let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")))
             let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
 
+            // An edit made in the new session before its first sync names the account (an App Intent, for one) is
+            // queued with the environment and no account.
             let meanwhile = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_resign", clientMutationID: "cm_meanwhile", title: "Meanwhile", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
-            _ = try await liveStore.queueMutations([meanwhile], drainImmediately: false)
+            _ = try await syncStore.appendMutations([meanwhile], accountID: nil, environment: .production)
             #expect(try await syncStore.loadQueue().mutations == [waiting])
 
             await liveStore.bootstrap()
@@ -1228,6 +1228,38 @@ struct NativeLiveStoreTests {
             #expect(await transport.sentClientMutationIDs() == ["cm_waiting", "cm_meanwhile"])
             #expect(try await syncStore.loadQueue().mutations.isEmpty)
             #expect(await syncStore.loadSnapshot().accountID == "chef_ari")
+        }
+    }
+
+    @MainActor
+    @Test("an edit made while signed out is never sent to the account that signs in next")
+    func signedOutEditDoesNotJoinTheNextAccount() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let signedOutVault = InMemoryTokenVault()
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let signedOut = Self.liveStore(
+                directory: directory,
+                vault: signedOutVault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            )
+            await signedOut.bootstrap()
+            let strayEdit = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_a", clientMutationID: "cm_signed_out", title: "Stray", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            _ = try await signedOut.queueMutations([strayEdit], drainImmediately: false)
+
+            // Someone else signs in on this device; the server names the account on the first sync.
+            let recipe = Self.sampleRecipe(id: "recipe_b", title: "B's Pasta")
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_b")))
+            let nextAccount = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: nil),
+                syncStore: syncStore,
+                transport: transport
+            )
+            await nextAccount.bootstrap()
+
+            #expect(await transport.sentClientMutationIDs().isEmpty)
+            #expect(try await syncStore.loadQueue().mutations.isEmpty)
         }
     }
 

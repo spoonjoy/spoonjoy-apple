@@ -2693,9 +2693,15 @@ public final class NativeLiveAppStore: ObservableObject {
 
     /// The account and environment that new queue entries belong to. Before the server confirms the account (a fresh
     /// sign-in has no account id until its first sync), there is no account: the store keeps those edits apart, without
-    /// touching the stored account's queue, and they join the account that sync confirms.
+    /// touching the stored account's queue, and they join the account that sync confirms. Signed out, there is no
+    /// session at all, so edits get no scope and never join whichever account signs in next.
     private func currentQueueScope() -> (accountID: String?, environment: NativeCacheEnvironment?) {
-        (trustedAccountID(for: currentContentState.authSessionState), cacheEnvironment)
+        switch currentContentState.authSessionState {
+        case .signedOut:
+            return (nil, nil)
+        case .authenticated, .refreshRequired:
+            return (trustedAccountID(for: currentContentState.authSessionState), cacheEnvironment)
+        }
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {

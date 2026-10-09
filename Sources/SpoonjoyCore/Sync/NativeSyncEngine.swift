@@ -4612,7 +4612,19 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             }
         }
         // A queue stored for another account is left alone: the save below parks it when it moves the store.
-        let originalQueue = canReplayStoredQueue ? try await store.loadQueue() : NativeMutationQueue()
+        let originalQueue: NativeMutationQueue
+        if canReplayStoredQueue {
+            originalQueue = try await store.loadQueue()
+        } else if queueAccountID != nil {
+            // The store still serves another account, and the bootstrap did not name one. Move it to the account
+            // this session expects, in one step: the other account's edits are parked, and this account's come back,
+            // including any queued while the bootstrap request was in flight.
+            originalQueue = try await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
+                NativeQueueUpdate(queue: snapshot.queue)
+            }.queue
+        } else {
+            originalQueue = NativeMutationQueue()
+        }
         var remaining: [NativeQueuedMutation] = []
         var drainedClientMutationIDs: [String] = []
         var drainedMutations: [NativeQueuedMutation] = []
