@@ -174,7 +174,7 @@ The workflow pins every external action to a full commit SHA. Its checkout of
 then built with pinned Node `22.17.1` from its lockfile under
 `.ci/apple-distribution-kit`. The complete generated `dist/` tree must match the
 audited aggregate SHA-256
-`9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45`.
+`d7e9de5971c036eb180114b1eb648ae9f9fcdffdb44dbcb7fe4cdf670befdac0`.
 Only after the
 candidate verifier succeeds does the job prepare App Store Connect credentials,
 compute the next dynamic build number, archive the exact source, upload the IPA,
@@ -256,13 +256,23 @@ publish summary. It fails the job if any of these validations fail:
 - `/v1/betaGroups/$ASC_INTERNAL_GROUP_ID/betaTesters` reports zero testers;
 - `/v1/buildBetaDetails/$ASC_BUILD_BETA_DETAIL_ID` is not `IN_BETA_TESTING`.
 
-### CI signing certificate cleanup
+### CI signing
 
-Each GitHub runner starts with an empty keychain, so `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key creates a new Apple Development certificate on every run. Those accumulate until Apple refuses with `Your account has reached the maximum number of certificates`. `scripts/revoke-ci-signing-certificates.rb` removes them through the App Store Connect API (`GET /v1/certificates`, `DELETE /v1/certificates/{id}`) using the same API key.
+CI signs with one long-lived Apple Distribution certificate, so a TestFlight run creates no certificate and `xcodebuild` makes no Apple network calls. Before this, each runner started with an empty keychain and `xcodebuild -allowProvisioningUpdates` with the App Store Connect API key minted a new "Created via API" Apple Development certificate on every run, which Apple emailed about on each create and revoke, and Xcode's own profile fetch failed on transient network loss.
 
-It revokes a certificate only when its type is `DEVELOPMENT`, `IOS_DEVELOPMENT`, or `MAC_APP_DEVELOPMENT` and its name is exactly `Created via API` (case-insensitive), the name Xcode gives certificates it creates with an API key. Distribution certificates and certificates made by people or Macs are never touched. The script logs each certificate's id, type, name, and expiration, and supports `--dry-run`.
+The signing steps come from `ourostack/apple-distribution-kit` (README section "CI Signing"):
 
-The workflow runs it before the publish step, so a full account recovers; this step fails the job only if the API call itself fails. It runs again in an `if: always()` step after publish with `--best-effort` and `continue-on-error`, so cleanup problems never fail a job whose publish succeeded.
+1. `signing import` reads the repository secrets `APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64` and `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` and imports the identity into a temporary keychain.
+2. `signing profiles` finds or creates the App Store profiles `ADK CI app.spoonjoy <certificate id>` and `ADK CI app.spoonjoy.cook-timer-widget <certificate id>` through the App Store Connect API, retrying GET requests on network loss. It installs them and writes a manual-signing xcconfig and export options on top of `distribution/ExportOptions.testflight.plist`.
+3. `scripts/package-testflight-ios.sh` archives with `-xcconfig "$SPOONJOY_SIGNING_XCCONFIG"` and exports with `SPOONJOY_EXPORT_OPTIONS_PLIST`, without `-allowProvisioningUpdates`. In CI (`CI=true`) it refuses to run without that setup. Local runs without it keep Xcode automatic signing.
+4. After publish, `signing revoke-api-certificates --best-effort` runs as a safety net in an `if: always()` step with `continue-on-error`. It revokes only development certificates named exactly `Created via API` (case-insensitive) and never touches distribution, Developer ID or Mac certificates. A normal run logs `Nothing to revoke`.
+5. `signing delete-keychain` removes the temporary keychain.
+
+When you add a signed target such as a new app extension, add its bundle ID to the `signing profiles` step in both `.github/workflows/testflight.yml` and `.github/workflows/testflight-signing-dry-run.yml`.
+
+`.github/workflows/testflight-signing-dry-run.yml` runs the same signing and export without uploading. It runs on pull requests from this repository that change the signing path, and on demand. Run it after renewing the certificate. The certificate (`47335ARZMR`) expires on 2027-10-09. To renew it, run `signing create-certificate` as the kit README describes, then replace both secrets. The next run creates fresh profiles for the new certificate.
+
+`scripts/revoke-ci-signing-certificates.rb` is the earlier version of the safety net. CI no longer calls it.
 
 ## Reactive TestFlight Feedback
 

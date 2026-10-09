@@ -57,8 +57,8 @@ struct TestFlightAutomationContractTests {
                 "name: Upload verified candidate note",
                 "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
                 "node-version: 22.17.1",
-                "ref: b0cd5f595d771025edb9510402980004806c753d",
-                "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45",
+                "ref: 15ba23ed8a38ef562302db66c68218d8d95aa3a6",
+                "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: d7e9de5971c036eb180114b1eb648ae9f9fcdffdb44dbcb7fe4cdf670befdac0",
                 "actual_dist_sha256",
                 "apple-distribution-kit dist checksum mismatch",
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
@@ -107,6 +107,7 @@ struct TestFlightAutomationContractTests {
         let workflowPaths = [
             ".github/workflows/native.yml",
             ".github/workflows/testflight.yml",
+            ".github/workflows/testflight-signing-dry-run.yml",
             ".github/workflows/journeys.yml"
         ]
         let actionPattern = /uses:\s+[^\s@]+@([^\s#]+)/
@@ -122,7 +123,7 @@ struct TestFlightAutomationContractTests {
         }
 
         let testFlightWorkflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
-        let expectedToolkitRevision = "b0cd5f595d771025edb9510402980004806c753d"
+        let expectedToolkitRevision = "15ba23ed8a38ef562302db66c68218d8d95aa3a6"
         let toolkitRepositoryPattern = /repository:\s+ourostack\/apple-distribution-kit/
         let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit\n\s+ref:\s+([0-9a-f]{40})/
         let toolkitCheckoutCount = testFlightWorkflow.matches(of: toolkitRepositoryPattern).count
@@ -673,23 +674,92 @@ struct TestFlightAutomationContractTests {
         )
     }
 
-    @Test("TestFlight workflow revokes CI-created development certificates before and after publish")
-    func workflowCleansUpCICreatedCertificates() throws {
+    @Test("TestFlight signs with the long-lived identity and creates no certificate")
+    func workflowSignsWithLongLivedIdentity() throws {
         let workflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
-        let preStep = try #require(workflow.range(of: "ruby scripts/revoke-ci-signing-certificates.rb\n"))
+        let importStep = try #require(workflow.range(of: "signing import"))
+        let profilesStep = try #require(workflow.range(of: "signing profiles"))
         let publishStep = try #require(workflow.range(of: "../scripts/ci-publish-testflight.sh"))
-        let postStep = try #require(workflow.range(of: "ruby scripts/revoke-ci-signing-certificates.rb --best-effort"))
-        #expect(preStep.lowerBound < publishStep.lowerBound, "cleanup must run before the archive so a full account recovers")
-        #expect(publishStep.lowerBound < postStep.lowerBound, "cleanup must run again after publish")
+        let safetyNet = try #require(workflow.range(of: "signing revoke-api-certificates --best-effort"))
+        let deleteKeychain = try #require(workflow.range(of: "signing delete-keychain"))
+        #expect(importStep.lowerBound < profilesStep.lowerBound, "the identity must be imported before profiles are fetched")
+        #expect(profilesStep.lowerBound < publishStep.lowerBound, "profiles and signing settings must exist before the archive")
+        #expect(publishStep.lowerBound < safetyNet.lowerBound, "the revoke safety net runs after publish")
+        #expect(safetyNet.lowerBound < deleteKeychain.lowerBound, "the keychain is deleted last")
         expectTestFlightAutomationContent(
             workflow,
             in: ".github/workflows/testflight.yml",
-            contains: [
+            contains: signingWorkflowContract + [
                 "if: always() && steps.asc_credentials.outcome == 'success'",
+                "if: always() && steps.signing_identity.outcome != 'skipped'",
                 "continue-on-error: true",
-                "environment: internal-testflight"
+                "environment: internal-testflight",
+                "--export-options-base release-source/distribution/ExportOptions.testflight.plist"
+            ],
+            forbids: [
+                "-allowProvisioningUpdates",
+                "revoke-ci-signing-certificates.rb"
             ]
         )
+    }
+
+    @Test("signing dry run signs and exports the IPA the same way without uploading")
+    func signingDryRunMatchesTestFlightSigning() throws {
+        let dryRun = try readTestFlightAutomationRepoFile(".github/workflows/testflight-signing-dry-run.yml")
+        expectTestFlightAutomationContent(
+            dryRun,
+            in: ".github/workflows/testflight-signing-dry-run.yml",
+            contains: signingWorkflowContract + [
+                "workflow_dispatch:",
+                "github.event.pull_request.head.repo.full_name == github.repository",
+                "scripts/package-testflight-ios.sh",
+                "Authority=Apple Distribution: ",
+                "--export-options-base distribution/ExportOptions.testflight.plist"
+            ],
+            forbids: [
+                "-allowProvisioningUpdates",
+                "altool",
+                "ci-publish-testflight",
+                "group: spoonjoy-testflight-internal"
+            ]
+        )
+
+        let testFlight = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
+        let toolkitPin = /repository:\s+ourostack\/apple-distribution-kit\n\s+ref:\s+([0-9a-f]{40})/
+        let checksum = /EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256:\s+([0-9a-f]{64})/
+        #expect(
+            dryRun.matches(of: toolkitPin).map { String($0.1) } == testFlight.matches(of: toolkitPin).map { String($0.1) },
+            "the dry run must pin the same apple-distribution-kit revision as TestFlight"
+        )
+        #expect(
+            dryRun.matches(of: checksum).map { String($0.1) } == testFlight.matches(of: checksum).map { String($0.1) },
+            "the dry run must verify the same apple-distribution-kit dist checksum as TestFlight"
+        )
+    }
+
+    @Test("package script signs manually in CI and keeps automatic signing only for local runs")
+    func packageScriptSignsManuallyInCI() throws {
+        let script = try readTestFlightAutomationRepoFile("scripts/package-testflight-ios.sh")
+        expectTestFlightAutomationContent(
+            script,
+            in: "scripts/package-testflight-ios.sh",
+            contains: [
+                "SPOONJOY_SIGNING_XCCONFIG",
+                "SPOONJOY_EXPORT_OPTIONS_PLIST",
+                "archive_signing_settings=(-xcconfig \"$SIGNING_XCCONFIG\")",
+                "-exportOptionsPlist \"$EXPORT_OPTIONS_PLIST\"",
+                "CI must sign with the long-lived identity",
+                "distribution/ExportOptions.testflight.plist"
+            ]
+        )
+        let manualBranch = try #require(script.range(of: "if [[ -n \"$SIGNING_XCCONFIG\" ]]; then"))
+        let automaticBranch = try #require(script.range(of: "\nelse\n", range: manualBranch.upperBound..<script.endIndex))
+        let provisioningUpdates = script.ranges(of: "-allowProvisioningUpdates")
+        #expect(
+            provisioningUpdates.allSatisfy { $0.lowerBound > automaticBranch.upperBound || $0.lowerBound < manualBranch.lowerBound },
+            "-allowProvisioningUpdates may appear only in comments or the local automatic-signing branch"
+        )
+        #expect(script.contains("signing_args+=(-allowProvisioningUpdates)"))
     }
 
     @Test("certificate cleanup revokes only API-created development certificates")
@@ -755,13 +825,16 @@ struct TestFlightAutomationContractTests {
                 "allow_rollback",
                 "rollback_reason",
                 "rollback_notes",
-                "9f64507b03a5dc76a6ebc52f88cddf71f9448a8e532e4758951d2d31309d5a45",
+                "d7e9de5971c036eb180114b1eb648ae9f9fcdffdb44dbcb7fe4cdf670befdac0",
                 "GitHub-hosted runner trust boundary",
                 "runner-provided `gh`",
                 "last known-good main commit",
                 "new TestFlight build number",
                 "publishes that exact commit", "never for pull requests or forks",
-                "revoke-ci-signing-certificates.rb",
+                "signing revoke-api-certificates",
+                "APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64",
+                "testflight-signing-dry-run.yml",
+                "Nothing to revoke",
                 "Created via API"
             ],
             forbids: [
@@ -775,6 +848,22 @@ private struct TestFlightProcessResult {
     let status: Int32
     let output: String
 }
+
+private let signingWorkflowContract = [
+    "name: Import long-lived signing identity",
+    "APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}",
+    "APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}",
+    "signing import",
+    "name: Install App Store provisioning profiles",
+    "signing profiles",
+    "--team-id 743GT2AJ24",
+    "--bundle-id app.spoonjoy \\",
+    "--bundle-id app.spoonjoy.cook-timer-widget \\",
+    "SPOONJOY_SIGNING_XCCONFIG=$ADK_SIGNING_DIR/signing.xcconfig",
+    "SPOONJOY_EXPORT_OPTIONS_PLIST=$ADK_SIGNING_DIR/ExportOptions.plist",
+    "signing revoke-api-certificates --best-effort",
+    "signing delete-keychain"
+]
 
 private let testFlightAutomationRepoURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
 private let requiredNativeJobNames = [
