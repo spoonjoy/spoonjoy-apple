@@ -377,23 +377,8 @@ struct PlatformNavigationView: View {
         }
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
-#endif
-        // On the TabView, not inside the Search tab: this is what lets iOS draw Search as the separate circle
-        // beside the tab capsule and open it as the bottom search field above the keyboard, as Music does.
-        .searchable(text: searchText, prompt: "Search Spoonjoy")
-        .searchScopes(searchScope) {
-            ForEach(availableSearchScopes, id: \.rawValue) { scope in
-                Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
-            }
-        }
-#if os(iOS)
         .tabViewSearchActivation(.searchTabSelection)
 #endif
-        .onSubmit(of: .search) {
-            Task {
-                await performSearch(search)
-            }
-        }
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
         // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the
         // selected tab, matching the web dock's brass primary button. Pages set their own action tint.
@@ -402,13 +387,32 @@ struct PlatformNavigationView: View {
     }
 
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
-    private func compactTabStack(for tab: CompactTab) -> some View {
-        NavigationStack(path: compactPath(for: tab)) {
+    @ViewBuilder private func compactTabStack(for tab: CompactTab) -> some View {
+        let stack = NavigationStack(path: compactPath(for: tab)) {
             compactTabRoot(for: tab)
                 // Must stay inside this NavigationStack's closure (see baseRouteNavigationStack).
                 .navigationDestination(for: AppRoute.self) { route in
                     compactPushedPage(for: route)
                 }
+        }
+        if tab == .search {
+            // Only the Search tab owns the search field. Attached to the TabView, iOS also drew a
+            // "Search Spoonjoy" field in the navigation bar of every other tab (it showed on a pull-down
+            // of the shopping list, where it does not belong).
+            stack
+                .searchable(text: searchText, prompt: "Search Spoonjoy")
+                .searchScopes(searchScope) {
+                    ForEach(availableSearchScopes, id: \.rawValue) { scope in
+                        Text(SearchSurfaceNativeChrome.title(for: scope)).tag(scope)
+                    }
+                }
+                .onSubmit(of: .search) {
+                    Task {
+                        await performSearch(search)
+                    }
+                }
+        } else {
+            stack
         }
     }
 
@@ -416,7 +420,8 @@ struct PlatformNavigationView: View {
         let root = compactPage(for: compactTabs.root(for: tab))
             .navigationTitle(compactTabTitle(for: tab))
 #if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
+            // The shopping list leads with items: its inline title leaves the room a large one would take.
+            .navigationBarTitleDisplayMode(tab == .shopping ? .inline : .large)
 #endif
         switch tab {
         case .kitchen:
