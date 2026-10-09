@@ -385,9 +385,9 @@ final class JourneyApp {
         if scrolls {
             scrollIntoView(field, dragsLeft: Self.scrollDrags)
         }
-        guard field.exists else {
+        guard Self.isLocated(field) else {
             // Tapping an element with no frame throws inside XCUITest; fail with the reason instead.
-            XCTFail("\(query.firstMatch.debugDescription) is not in the accessibility hierarchy after scrolling both ways.")
+            XCTFail("\(query.firstMatch.debugDescription) has no usable frame after scrolling both ways.")
             return true
         }
         field.coordinate(withNormalizedOffset: offset).tap()
@@ -395,6 +395,16 @@ final class JourneyApp {
             return true
         }
         return tapUntilFocused(query, taps: taps.dropFirst(), scrolls: scrolls)
+    }
+
+    /// An off-screen field can still report `exists` while its frame is infinite or empty (the editor lets
+    /// SwiftUI drop fields far outside the viewport), so a frame, not existence, says where it is.
+    private static func isLocated(_ field: XCUIElement) -> Bool {
+        guard field.exists else {
+            return false
+        }
+        let frame = field.frame
+        return frame.minY.isFinite && frame.maxY.isFinite && !frame.isEmpty && !frame.isInfinite
     }
 
     /// Drags the form until `field` sits fully between the navigation bar and whatever covers the bottom of the
@@ -410,13 +420,14 @@ final class JourneyApp {
             // The keyboard's glass top edge sits about 70 pt above its reported frame.
             bottom = min(bottom, app.keyboards.firstMatch.frame.minY - 70)
         }
-        let visible = field.exists && field.frame.minY >= top + margin && field.frame.maxY <= bottom - margin
+        let located = Self.isLocated(field)
+        let visible = located && field.frame.minY >= top + margin && field.frame.maxY <= bottom - margin
         guard !visible, dragsLeft > 0 else {
             return
         }
-        // A field that is missing from the hierarchy may be above or below the viewport (the editor drops
+        // A field without a frame may be above or below the viewport (the editor drops
         // off-screen fields): look below first, then, after a few drags, look above.
-        let towardsTop = field.exists ? field.frame.maxY > bottom - margin : dragsLeft > Self.scrollDrags / 2
+        let towardsTop = located ? field.frame.maxY > bottom - margin : dragsLeft > Self.scrollDrags / 2
         // The keyboard is drawn taller than its reported frame (a drag started at 0.65 of the screen height
         // landed on the keys and scrolled nothing), so with it up the drag stays in the top half of the screen.
         let keyboardUp = app.keyboards.firstMatch.exists
