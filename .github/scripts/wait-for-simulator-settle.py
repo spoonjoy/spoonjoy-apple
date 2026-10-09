@@ -65,10 +65,16 @@ def wait(udid: str, booted_at: int, deadline_minutes: float) -> str:
         deadline = now + ALREADY_BOOTED_WAIT_SECONDS
         print(f"The simulator was already booted; looking back {history_seconds} s and waiting at most {ALREADY_BOOTED_WAIT_SECONDS} s.")
 
-    since_boot = poster_lines(udid, history_seconds, deadline - time.time())
     # A simulator booted before this job may have had its burst long ago, so for it a quiet log is enough.
-    burst_seen = since_boot >= BURST_LINES_SINCE_BOOT or booted_at <= 0
-    print(f"Poster log lines in the last {history_seconds} s: {since_boot}; burst {'already seen' if burst_seen else 'not seen yet'}.")
+    burst_seen = booted_at <= 0
+    try:
+        since_boot = poster_lines(udid, history_seconds, min(LOG_READ_LIMIT_SECONDS, deadline - time.time()))
+        burst_seen = burst_seen or since_boot >= BURST_LINES_SINCE_BOOT
+        print(f"Poster log lines in the last {history_seconds} s: {since_boot}; burst {'already seen' if burst_seen else 'not seen yet'}.")
+    except LogUnreadable as error:
+        # The history read is the largest; it is most likely to time out in the middle of a heavy burst, so keep
+        # watching the short windows instead of giving up.
+        print(f"Could not read the log since boot ({error}); watching recent windows instead.")
 
     quiet_readings = 0
     while True:
