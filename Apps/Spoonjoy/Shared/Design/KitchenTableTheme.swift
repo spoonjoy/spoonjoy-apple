@@ -59,15 +59,18 @@ enum KitchenTableTheme {
 struct KitchenTablePage<Content: View>: View {
     let maxContentWidth: CGFloat
     let bottomReserve: CGFloat
+    let topPadding: CGFloat
     @ViewBuilder let content: () -> Content
 
     init(
         maxContentWidth: CGFloat = 720,
         bottomReserve: CGFloat = KitchenTableTheme.compactDockReserve,
+        topPadding: CGFloat = 20,
         @ViewBuilder content: @escaping () -> Content
     ) {
         self.maxContentWidth = maxContentWidth
         self.bottomReserve = bottomReserve
+        self.topPadding = topPadding
         self.content = content
     }
 
@@ -77,7 +80,7 @@ struct KitchenTablePage<Content: View>: View {
                 content()
             }
             .padding(.horizontal, KitchenTableTheme.pagePadding)
-            .padding(.top, 20)
+            .padding(.top, topPadding)
             .padding(.bottom, bottomReserve)
             .frame(maxWidth: maxContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
