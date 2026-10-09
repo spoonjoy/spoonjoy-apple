@@ -50,6 +50,27 @@ struct APITransportTests {
         #expect(capturedRequest.timeoutInterval == 15)
     }
 
+    @Test("a recipe import may wait 60 s for the server, because the server fetches and reads the page before it answers")
+    func recipeImportWaitsLongerThanOtherRequests() async throws {
+        let session = RecordingURLSession(responses: [
+            .success(Self.response(
+                statusCode: 200,
+                headers: ["Content-Type": "application/json"],
+                body: Self.successEnvelope(requestID: "req_import", name: "Imported")
+            ))
+        ])
+        let transport = URLSessionAPITransport(session: session)
+
+        _ = try await transport.send(
+            try RecipeImportRequests.importURL(clientMutationID: "cm_import", url: URL(string: "https://example.com/soup")!),
+            configuration: Self.configuration(bearerToken: "sj_access_original"),
+            decode: TransportPayload.self
+        )
+
+        let capturedRequest = try #require(await session.capturedRequests().first)
+        #expect(capturedRequest.timeoutInterval == 60)
+    }
+
     @Test("transport preserves already encoded path segments exactly once")
     func transportPreservesAlreadyEncodedPathSegmentsExactlyOnce() async throws {
         let session = RecordingURLSession(
