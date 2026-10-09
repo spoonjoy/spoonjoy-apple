@@ -1119,6 +1119,9 @@ struct NativeMobileDesignContractTests {
                 "private var compactTaskHeader",
                 "private var currentStepCard",
                 "private var cookModeUtilitySheet",
+                "private var cookControls",
+                "private var inlineScale",
+                "private var cookContextHeader",
                 "private var cookModeBottomActionRail",
                 "private var stepProgressRail",
                 "private var ingredientChecklistAnimation: Animation?",
@@ -1137,7 +1140,6 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Done\")",
                 "Label(\"Previous\", systemImage: \"arrow.backward.circle\")",
                 "Label(\"Add Ingredients\", systemImage: \"cart.badge.plus\")",
-                "ScaleSelector(scaleFactor: progress.scaleFactor)",
                 "KitchenTableSection(title: \"Step Inputs\"",
                 "KitchenTableSection(title: \"Step Ingredients\"",
                 ".background(.background)"

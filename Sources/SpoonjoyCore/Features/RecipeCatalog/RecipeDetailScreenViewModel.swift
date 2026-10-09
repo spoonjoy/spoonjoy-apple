@@ -72,6 +72,14 @@ public struct RecipeDetailSourceAttribution: Equatable, Sendable {
     public let title: String
     public let host: String?
     public let canonicalURL: URL?
+    public let chefUsername: String?
+
+    /// Full credit line, such as "forked from chef · Lemon Herb Rice".
+    public var creditLine: String {
+        let source = chefUsername.map { "\($0) · \(title)" } ?? title
+        let credit = "forked from \(source)"
+        return host.map { "\(credit) · \($0)" } ?? credit
+    }
 }
 
 public struct RecipeDetailIngredientRow: Identifiable, Equatable, Sendable {
@@ -88,8 +96,12 @@ public struct RecipeDetailIngredientRow: Identifiable, Equatable, Sendable {
     }
 
     public func quantityText(scaleFactor: Double = 1) -> String {
-        let scaledQuantity = (quantity * scaleFactor).formatted(.number.precision(.fractionLength(0...2)))
-        return [scaledQuantity, unit].compactMap { $0 }.joined(separator: " ")
+        RecipeQuantityFormatter.quantityText(quantity: quantity * scaleFactor, unit: unit)
+    }
+
+    /// Market aisle the ingredient belongs to, the same label the shopping list files it under.
+    public var aisleLabel: String {
+        ShoppingPresentationModel.aisleLabel(forIngredientNamed: name)
     }
 }
 
@@ -264,7 +276,8 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
             RecipeDetailSourceAttribution(
                 title: sourceRecipe.title ?? "Original recipe",
                 host: recipe.attribution.sourceHost,
-                canonicalURL: sourceRecipe.safeCanonicalURL
+                canonicalURL: sourceRecipe.safeCanonicalURL,
+                chefUsername: sourceRecipe.chef?.username
             )
         }
         stepSections = recipe.steps.map(RecipeDetailStepSection.init(step:))
@@ -280,7 +293,10 @@ public struct RecipeDetailScreenViewModel: Equatable, Sendable {
         hasIngredientsInShoppingList = context.hasIngredientsInShoppingList
         actionContext = context
         let isOwner = context.currentChefID == recipe.chef.id
-        let sharePayload = try? NativeSharePayload.publicRecipe(recipe)
+        // The server's canonical URL can point at another host (QA); fall back to the recipe's web address
+        // so Share is always offered.
+        let sharePayload = (try? NativeSharePayload.publicRecipe(recipe))
+            ?? NativeSharePayload.publicRoute(.recipeDetail(id: recipe.id, presentation: .detail))
         let deleteConfirmation = RecipeActionConfirmationPrompt(
             title: "Delete \(recipe.title)?",
             message: "This removes the recipe from your kitchen and syncs the deletion across your devices.",
