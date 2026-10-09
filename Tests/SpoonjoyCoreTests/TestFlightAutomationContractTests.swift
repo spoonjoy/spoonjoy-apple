@@ -711,7 +711,7 @@ struct TestFlightAutomationContractTests {
             in: ".github/workflows/testflight-signing-dry-run.yml",
             contains: signingWorkflowContract + [
                 "workflow_dispatch:",
-                "github.event.pull_request.head.repo.full_name == github.repository",
+                "environment: internal-testflight",
                 "scripts/package-testflight-ios.sh",
                 "Authority=Apple Distribution: ",
                 "--export-options-base distribution/ExportOptions.testflight.plist"
@@ -720,6 +720,7 @@ struct TestFlightAutomationContractTests {
                 "-allowProvisioningUpdates",
                 "altool",
                 "ci-publish-testflight",
+                "pull_request",
                 "group: spoonjoy-testflight-internal"
             ]
         )

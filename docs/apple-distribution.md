@@ -270,7 +270,9 @@ The signing steps come from `ourostack/apple-distribution-kit` (README section "
 
 When you add a signed target such as a new app extension, add its bundle ID to the `signing profiles` step in both `.github/workflows/testflight.yml` and `.github/workflows/testflight-signing-dry-run.yml`.
 
-`.github/workflows/testflight-signing-dry-run.yml` runs the same signing and export without uploading. It runs on pull requests from this repository that change the signing path, and on demand. Run it after renewing the certificate. The certificate (`47335ARZMR`) expires on 2027-10-09. To renew it, run `signing create-certificate` as the kit README describes, then replace both secrets. The next run creates fresh profiles for the new certificate.
+`.github/workflows/testflight-signing-dry-run.yml` runs the same signing and export without uploading. Dispatch it from `main` (`gh workflow run testflight-signing-dry-run.yml --ref main`), for example after renewing the certificate. It runs in the `internal-testflight` environment, because the App Store Connect key secrets live there and that environment admits only protected branches, so it cannot run on pull requests.
+
+The certificate secrets `APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64` and `APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD` are repository secrets. They cannot upload anything without the environment-scoped App Store Connect key. When you renew the certificate, store the new secrets in the `internal-testflight` environment instead. The certificate (`47335ARZMR`) expires on 2027-10-09. To renew it, run `signing create-certificate` as the kit README describes, then replace both secrets. The next run creates fresh profiles for the new certificate.
 
 `scripts/revoke-ci-signing-certificates.rb` is the earlier version of the safety net. CI no longer calls it.
 
