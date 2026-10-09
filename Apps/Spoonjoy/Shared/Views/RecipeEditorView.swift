@@ -184,8 +184,7 @@ struct RecipeEditorView: View {
             coverControl
 
             EditorField("Title") {
-                TextField("e.g., Chocolate Chip Cookies", text: $draft.title, axis: .vertical)
-                    .lineLimit(1...3)
+                TextField("e.g., Chocolate Chip Cookies", text: $draft.title)
                     .accessibilityIdentifier("editor.title")
             }
 

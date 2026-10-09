@@ -401,15 +401,21 @@ final class JourneyApp {
             bottom = min(bottom, app.tabBars.firstMatch.frame.minY)
         }
         if app.keyboards.firstMatch.exists {
-            bottom = min(bottom, app.keyboards.firstMatch.frame.minY)
+            // The keyboard's glass top edge sits about 70 pt above its reported frame.
+            bottom = min(bottom, app.keyboards.firstMatch.frame.minY - 70)
         }
         let visible = field.exists && field.frame.minY >= top + margin && field.frame.maxY <= bottom - margin
         guard !visible, dragsLeft > 0 else {
             return
         }
         let towardsTop = !field.exists || field.frame.maxY > bottom - margin
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? 0.65 : 0.35))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? 0.35 : 0.65))
+        // The keyboard is drawn taller than its reported frame (a drag started at 0.65 of the screen height
+        // landed on the keys and scrolled nothing), so with it up the drag stays in the top half of the screen.
+        let keyboardUp = app.keyboards.firstMatch.exists
+        let startY = keyboardUp ? 0.45 : 0.65
+        let endY = keyboardUp ? 0.15 : 0.35
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? startY : endY))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? endY : startY))
         from.press(forDuration: 0.05, thenDragTo: to)
         scrollIntoView(field, dragsLeft: dragsLeft - 1)
     }
