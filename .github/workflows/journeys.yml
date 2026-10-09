@@ -22,7 +22,7 @@ jobs:
   journeys:
     name: Journeys
     runs-on: xcode-27
-    timeout-minutes: 55
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -56,8 +56,11 @@ jobs:
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
-          echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
-          xcrun simctl bootstatus "${destination##*,id=}" -b
+          udid="${destination##*,id=}"
+          # 0 tells the settle step the simulator was already booted, so the boot time is unknown.
+          if xcrun simctl list devices | grep -F "($udid) (Booted)" >/dev/null; then booted_at=0; else booted_at="$(date +%s)"; fi
+          echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
         timeout-minutes: 15
         run: |
@@ -70,7 +73,7 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Wait for the simulator to settle
         # A terminate during the poster burst fails with "Failed to terminate app.spoonjoy"; see the script.
-        timeout-minutes: 9
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
@@ -128,7 +131,7 @@ jobs:
   shopping-ui-tests:
     name: Shopping UI tests
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -156,11 +159,14 @@ jobs:
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
-          echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
-          xcrun simctl bootstatus "${destination##*,id=}" -b
+          udid="${destination##*,id=}"
+          # 0 tells the settle step the simulator was already booted, so the boot time is unknown.
+          if xcrun simctl list devices | grep -F "($udid) (Booted)" >/dev/null; then booted_at=0; else booted_at="$(date +%s)"; fi
+          echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$udid" -b
       - name: Build shopping UI tests
-        # Step limits sum to 44 of the job's 45 minutes; the settle wait ends 8 minutes after boot at the latest,
-        # so most of it overlaps this build.
+        # Step limits sum to 44 of the job's 50 minutes, leaving room for checkout, setup and the upload. The settle
+        # wait ends 8 minutes after boot at the latest, so most of it overlaps this build.
         timeout-minutes: 12
         run: |
           set -euo pipefail
@@ -172,7 +178,7 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$log"
       - name: Wait for the simulator to settle
         # A terminate during the poster burst fails with "Failed to terminate app.spoonjoy"; see the script.
-        timeout-minutes: 9
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
