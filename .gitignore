@@ -25,3 +25,16 @@ artifacts/apple/
 # Ruby/Bundler local installs
 .bundle/
 vendor/bundle/
+
+# Agent work residue: task evidence, run logs and autopilot state belong on the desk, not in this repo.
+# Two tracked files stay because tests read them: codex-native/tasks/2026-07-07-2353-whole-native-ui-overhaul-visual-audit.md (design contract) and the canonical worker/tasks/2026-08-21-1735-doing-native-shopping-list-experience-repair/shopping-visual-matrix.yaml (hygiene audit). Tracked files are unaffected by ignore rules.
+*.log
+/tasks/
+/worker/
+/slugger/
+/apple/
+/AUTOPILOT-STATE.md
+/codex-native/*
+!/codex-native/tasks/
+/codex-native/tasks/*
+!/codex-native/tasks/2026-07-07-2353-whole-native-ui-overhaul-visual-audit.md
