@@ -142,7 +142,7 @@ class TestFlightReleaseCandidateVerifier
     "Swift tests",
     "Native scenario verifier",
     "App bundle",
-    "Coverage"
+    "Contracts"
   ].freeze
   RELEASE_NOTE_JOB = "TestFlight release note"
   NATIVE_WORKFLOW_PATH = ".github/workflows/native.yml"
