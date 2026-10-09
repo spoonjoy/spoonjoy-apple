@@ -6,6 +6,12 @@ on:
     branches:
       - main
 
+concurrency:
+  # A new push to a pull request cancels its superseded run, so stale runs stop holding the few xcode-27 runners.
+  # Every main commit keeps its own run: TestFlight publishes from Native's success on main.
+  group: native-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   ruby-advisory-scan:
     name: Ruby advisory scan

@@ -9,6 +9,12 @@ on:
     branches:
       - main
 
+concurrency:
+  # A new push to a pull request cancels its superseded run, so stale runs stop holding the few xcode-27 runners.
+  # Every main commit keeps its own run: TestFlight publishes from Native's success on main.
+  group: beta-sdk-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   discover:
     name: Find Xcode 27.1+ on the runner
