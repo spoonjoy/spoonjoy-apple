@@ -430,6 +430,7 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
             }
         }
 
+        tombstones = NativeSyncTombstoneLog(NativeSyncTombstone.pruned(tombstones.entries, cachedRecords: records))
         if let cursor = syncData.nextCursor {
             checkpoint = try NativeSyncCheckpoint(
                 globalCursor: cursor,
@@ -609,6 +610,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
             }
         }
 
+        tombstones = NativeSyncTombstone.pruned(tombstones, cachedRecords: records)
         if let cursor = syncData.nextCursor {
             checkpoint = try NativeSyncCheckpoint(
                 globalCursor: cursor,
