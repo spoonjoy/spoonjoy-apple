@@ -1848,6 +1848,14 @@ public final class NativeLiveAppStore: ObservableObject {
     /// Counts edits added to the queue. A run goes again only when this changed while it was running, so a
     /// screen that asks for a sync each time it appears cannot keep the store syncing in a loop.
     private var queueVersion = 0
+    /// Goes up on every sign-out. Each sync pass runs under the generation it started with, and a pass that
+    /// started before a sign-out cannot put anything on screen, so the old account's kitchen never comes back.
+    private var authGeneration = 0
+    @TaskLocal private static var syncPassAuthGeneration: Int?
+    /// True inside a sync pass (and the tasks it starts) that began before the latest sign-out.
+    private var isStaleSyncPass: Bool {
+        Self.syncPassAuthGeneration.map { $0 != authGeneration } ?? false
+    }
     /// Recipes whose cook progress should be read from the server at the next sync (a recipe was opened).
     private var cookPullRecipeIDs = Set<String>()
     /// Recipes the server would not take progress for (sync is off, access refused). They are not retried
@@ -1876,7 +1884,9 @@ public final class NativeLiveAppStore: ObservableObject {
             var versionAtStart: Int
             repeat {
                 versionAtStart = queueVersion
-                await performSync(trigger: trigger)
+                await Self.$syncPassAuthGeneration.withValue(authGeneration) {
+                    await performSync(trigger: trigger)
+                }
             } while queueVersion != versionAtStart
             activeSync = nil
         }
@@ -2530,6 +2540,10 @@ public final class NativeLiveAppStore: ObservableObject {
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
         case .logout, .revokeAndLogout:
+            // A sync that is already running belongs to the account signing out: drop whatever it finishes, and
+            // make it run one more pass, which finds no session and shows the signed-out screen.
+            authGeneration += 1
+            queueVersion += 1
             shoppingMutationCoordinator.resetScope()
             let currentAccountID = accountID
             let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
@@ -3381,7 +3395,9 @@ public final class NativeLiveAppStore: ObservableObject {
             optimisticMutations: optimisticMutations,
             offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: record.value.dismissedIndicators.first)
         )
-        currentContentState = content
+        if !isStaleSyncPass {
+            currentContentState = content
+        }
         return content
     }
 
@@ -3725,6 +3741,9 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func apply(_ state: NativeAppBootstrapState) {
+        guard !isStaleSyncPass else {
+            return
+        }
         currentContentState = state.contentState
         bootstrapState = state
     }

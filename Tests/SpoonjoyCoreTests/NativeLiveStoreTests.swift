@@ -8363,6 +8363,83 @@ extension NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("signing out while the launch sync runs ends signed out, not on the old account's kitchen")
+    func signOutDuringLaunchSyncEndsSignedOut() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_saved", title: "Saved Lemon Pasta"),
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let vault = try await Self.launchedOnce(directory: directory, syncStore: syncStore, syncData: syncData)
+            let gate = LaunchNetworkGate()
+            let relaunch = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: GatedLaunchSyncTransport(gate: gate, syncData: syncData)
+            )
+
+            // The saved kitchen is on screen and the launch sync is waiting on the network: the user signs out.
+            let launch = relaunch.requestSync(trigger: .launch)
+            try await Self.waitForGate(gate)
+            let signOut = Task { @MainActor in
+                try await relaunch.performSettingsSessionOperation(.logout)
+            }
+            let deadline = ContinuousClock.now + .seconds(10)
+            while try await vault.loadSession() != nil {
+                guard ContinuousClock.now < deadline else {
+                    Issue.record("Sign-out never cleared the session.")
+                    break
+                }
+                try await Task.sleep(for: .milliseconds(5))
+            }
+
+            // The sync that started for the old account answers after the sign-out.
+            await gate.release()
+            await launch.value
+            try await signOut.value
+
+            guard case .signedOut(let shown) = relaunch.bootstrapState else {
+                Issue.record("Expected the signed-out screen after signing out; got \(relaunch.bootstrapState)")
+                return
+            }
+            #expect(shown.recipes.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("a session with no account bound gets no head start from a saved kitchen")
+    func unboundSessionGetsNoHeadStart() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_saved", title: "Saved Lemon Pasta"),
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            _ = try await Self.launchedOnce(directory: directory, syncStore: syncStore, syncData: syncData)
+            // Every session with no account bound maps to the same unbound key, so a kitchen saved on this device
+            // could belong to anyone who signed in here before. Relaunch with such a session.
+            let gate = LaunchNetworkGate()
+            let relaunch = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: nil),
+                syncStore: syncStore,
+                transport: GatedLaunchSyncTransport(gate: gate, syncData: syncData)
+            )
+            let launch = relaunch.requestSync(trigger: .launch)
+            try await Self.waitForGate(gate)
+
+            #expect(relaunch.bootstrapState.contentState.recipes.isEmpty, "An unbound session showed a saved kitchen before the sync named the account.")
+
+            await gate.release()
+            await launch.value
+        }
+    }
+
+    @MainActor
     @Test("the settings refresh runs after the kitchen is on screen, and its failure still shows")
     func settingsRefreshDoesNotHoldBackTheKitchen() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
