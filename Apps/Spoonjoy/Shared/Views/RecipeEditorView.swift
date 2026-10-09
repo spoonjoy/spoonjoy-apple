@@ -1087,9 +1087,21 @@ private struct EditorField<Content: View>: View {
 }
 
 private extension View {
-    /// The web editor's input: paper fill, hairline border, small radius.
-    func editorInputStyle() -> some View {
-        self
+    /// The web editor's input: paper fill, hairline border, small radius. Tapping anywhere in the box,
+    /// padding included, focuses the field. `focus` lets a field watch its own focus.
+    func editorInputStyle(focus: FocusState<Bool>.Binding? = nil) -> some View {
+        modifier(EditorInputStyle(external: focus))
+    }
+}
+
+private struct EditorInputStyle: ViewModifier {
+    let external: FocusState<Bool>.Binding?
+    @FocusState private var ownFocus: Bool
+
+    func body(content: Content) -> some View {
+        let focus = external ?? $ownFocus
+        content
+            .focused(focus)
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .topLeading)
@@ -1099,6 +1111,10 @@ private extension View {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                     .strokeBorder(KitchenTableTheme.lineStrong, lineWidth: 1)
             )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focus.wrappedValue = true
+            }
     }
 }
 
@@ -1120,8 +1136,7 @@ private struct QuantityField: View {
 
     var body: some View {
         TextField("1 ½", text: $text)
-            .focused($isFocused)
-            .editorInputStyle()
+            .editorInputStyle(focus: $isFocused)
             .overlay(
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                     .strokeBorder(KitchenTableTheme.tomato, lineWidth: invalidRows.contains(rowID) ? 2 : 0)
