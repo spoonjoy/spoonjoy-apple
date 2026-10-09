@@ -113,6 +113,12 @@ final class EditorJourney: JourneyTestCase {
         journey.tap(JourneyID.recipeDetailEdit)
         let unsavedServings = "7"
         journey.replaceText(in: JourneyID.editorServings, with: unsavedServings)
+        // The keyboard covers the tab bar, so it is closed before switching tabs.
+        journey.pressReturn()
+        XCTAssertTrue(
+            journey.app.keyboards.firstMatch.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Return did not close the keyboard. Screen: \(journey.screen)"
+        )
         journey.openTab(JourneyCopy.kitchenTab)
         journey.tap(JourneyID.newRecipe)
         journey.assertFieldEmpty(JourneyID.editorTitle)
