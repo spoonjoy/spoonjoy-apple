@@ -89,8 +89,9 @@ final class CookbooksJourney: JourneyTestCase {
         )
         journey.attachScreenshot(named: "07-back-to-recipes", to: self)
 
-        // The link left the app signed in, and My Recipes still lists the seeded recipes after a relaunch.
+        // The link left the app signed in; after a relaunch the Recipes tab still lists the seeded recipes.
         verifyAfterRelaunch(journey) {
+            journey.openTab(JourneyCopy.recipesTab)
             XCTAssertTrue(
                 journey.element(JourneyID.recipesRow, labelContaining: titles[0]).waitForExistence(timeout: JourneyApp.networkTimeout),
                 "My Recipes does not list the seeded recipe after a relaunch. Screen: \(journey.screen)"
