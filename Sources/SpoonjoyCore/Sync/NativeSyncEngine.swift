@@ -1644,12 +1644,16 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
     }
 
     /// Whether a held edit with one of `blockedDependencyKeys` keeps this edit from being sent. Clearing the list waits
-    /// while any shopping change is held, so it never runs ahead of a check it would have cleared.
+    /// while any shopping change is held, so it never runs ahead of a check it would have cleared. The reverse holds too:
+    /// while a clear is held, the shopping changes queued after it wait, so the clear cannot wipe them when it goes through.
     func isHeld(byBlockedDependencyKeys blockedDependencyKeys: Set<String>) -> Bool {
         if blockedDependencyKeys.contains(dependencyKey) {
             return true
         }
-        return dependencyKey == Self.shoppingListDependencyKey && blockedDependencyKeys.contains { $0.hasPrefix("shopping:") }
+        if dependencyKey == Self.shoppingListDependencyKey {
+            return blockedDependencyKeys.contains { $0.hasPrefix("shopping:") }
+        }
+        return dependencyKey.hasPrefix("shopping:") && blockedDependencyKeys.contains(Self.shoppingListDependencyKey)
     }
 
     /// True when this edit names an id that the edit `clientMutationID` created on this device (`recipe_local_<id>`,

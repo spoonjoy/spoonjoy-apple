@@ -29,6 +29,25 @@ struct NativeShoppingHoldTests {
         #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_milk", "cm_milk_again", "cm_clear"])
     }
 
+    @Test("while clearing the list is held, the shopping changes queued after it wait, so the clear cannot wipe them")
+    func heldClearHoldsLaterShoppingChanges() async throws {
+        let queue = try NativeMutationQueue(mutations: [
+            .shoppingCheckItem(itemID: "item_bread", checked: true, clientMutationID: "cm_bread", createdAt: Self.createdAt),
+            .shoppingClearCompleted(clientMutationID: "cm_clear", createdAt: Self.createdAt),
+            .shoppingAddItem(name: "eggs", quantity: nil, unit: nil, categoryKey: nil, iconKey: nil, clientMutationID: "cm_eggs", createdAt: Self.createdAt),
+            .shoppingCheckItem(itemID: "item_milk", checked: true, clientMutationID: "cm_milk", createdAt: Self.createdAt),
+            .recipeUpdate(recipeID: "recipe_soup", clientMutationID: "cm_soup", title: "Soup", description: nil, servings: nil, createdAt: Self.createdAt)
+        ])
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: queue)
+        let transport = HoldTransport(turnedDown: ["cm_clear"])
+
+        _ = try await NativeSyncEngine(store: store, transport: transport, clock: { Self.now })
+            .bootstrapAndDrain(configuration: Self.configuration, trigger: .launch, scope: Self.scope)
+
+        #expect(await transport.sentClientMutationIDs() == ["cm_bread", "cm_clear", "cm_soup"])
+        #expect(try await store.loadQueue().mutations.map(\.clientMutationID) == ["cm_clear", "cm_eggs", "cm_milk"])
+    }
+
     @Test("a change to an item added on this device waits for the add, and other items go ahead")
     func changesToALocalItemWaitForItsAdd() async throws {
         let queue = try NativeMutationQueue(mutations: [
