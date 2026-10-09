@@ -112,19 +112,27 @@ fail_check("Gemfile.lock must record Bundler 2.4.22") unless gemfile_lock.includ
 end
 
 workflow = WORKFLOW.read
+select_xcode_action = ROOT.join(".github/actions/select-xcode/action.yml")
+fail_check("missing .github/actions/select-xcode/action.yml") unless select_xcode_action.file?
+select_xcode = select_xcode_action.read
 matrix = ROOT.join("scripts/validate-native-local.sh").read
 [
   "ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1",
   "bundler-cache: true",
-  'xcode_version="$(xcodebuild -version)"',
-  'minimum_xcode_version="27.0"',
-  'sudo xcode-select -s /Applications/Xcode_27.0.app',
   'runs-on: xcode-27',
-  'version="${first_line#Xcode }"',
+  "uses: ./.github/actions/select-xcode",
   "bundle exec ruby scripts/check-xcode-project-contract.rb",
   "bundle exec ruby scripts/check-xcode-generator-contract.rb"
 ].each do |token|
   fail_check("native workflow missing #{token}") unless workflow.include?(token)
+end
+[
+  'xcode_version="$(xcodebuild -version)"',
+  'minimum_xcode_version="27.0"',
+  'sudo xcode-select -s /Applications/Xcode_27.0.app',
+  'version="${first_line#Xcode }"'
+].each do |token|
+  fail_check("select-xcode action missing #{token}") unless select_xcode.include?(token)
 end
 Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
   text = File.read(path)
@@ -135,10 +143,10 @@ Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
     fail_check("beta-sdk.yml must select a beta Xcode explicitly, resolved on its own runner by version") unless text.include?('sudo xcode-select -s "$pick"') && text.include?('want="${{ matrix.xcode }}"') && text.include?("fromJSON(needs.discover.outputs.xcodes)")
     next
   end
-  fail_check("#{File.basename(path)} must select Xcode 27.0 explicitly") if text.include?("runs-on: xcode-27") && !text.include?("sudo xcode-select -s /Applications/Xcode_27.0.app")
+  fail_check("#{File.basename(path)} must select Xcode 27.0 explicitly") if text.include?("runs-on: xcode-27") && !text.include?("sudo xcode-select -s /Applications/Xcode_27.0.app") && !text.include?("uses: ./.github/actions/select-xcode")
   fail_check("#{File.basename(path)} still requires an Xcode 26 minimum") if text.include?('minimum_xcode_version="26')
 end
-fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep")
+fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep") || select_xcode.include?("xcodebuild -version | grep")
 fail_check("local matrix must not pipe xcodebuild -version into grep -q") if matrix.include?("xcodebuild -version | grep")
 fail_check("local matrix missing captured xcodebuild version check") unless matrix.include?('xcode_version="$(xcodebuild -version)"') &&
   matrix.include?('minimum_xcode_version="27.0"') &&
