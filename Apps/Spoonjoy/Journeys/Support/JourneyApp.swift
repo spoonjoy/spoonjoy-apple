@@ -353,6 +353,7 @@ final class JourneyApp {
     private static let fieldCentre = CGVector(dx: 0.5, dy: 0.5)
     private static let fieldTrailingEdge = CGVector(dx: 0.97, dy: 0.5)
     private static let focusAttempts = 3
+    private static let scrollDrags = 12
     private static let focusWait: TimeInterval = 4
 
     /// Puts keyboard focus in the first match of `query`. Focus flaked on four heads when a tap landed on a
@@ -382,7 +383,12 @@ final class JourneyApp {
         }
         let field = query.firstMatch
         if scrolls {
-            scrollIntoView(field, dragsLeft: 6)
+            scrollIntoView(field, dragsLeft: Self.scrollDrags)
+        }
+        guard field.exists else {
+            // Tapping an element with no frame throws inside XCUITest; fail with the reason instead.
+            XCTFail("\(query.firstMatch.debugDescription) is not in the accessibility hierarchy after scrolling both ways.")
+            return true
         }
         field.coordinate(withNormalizedOffset: offset).tap()
         if query.matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch.waitForExistence(timeout: Self.focusWait) {
@@ -408,7 +414,9 @@ final class JourneyApp {
         guard !visible, dragsLeft > 0 else {
             return
         }
-        let towardsTop = !field.exists || field.frame.maxY > bottom - margin
+        // A field that is missing from the hierarchy may be above or below the viewport (the editor drops
+        // off-screen fields): look below first, then, after a few drags, look above.
+        let towardsTop = field.exists ? field.frame.maxY > bottom - margin : dragsLeft > Self.scrollDrags / 2
         // The keyboard is drawn taller than its reported frame (a drag started at 0.65 of the screen height
         // landed on the keys and scrolled nothing), so with it up the drag stays in the top half of the screen.
         let keyboardUp = app.keyboards.firstMatch.exists
