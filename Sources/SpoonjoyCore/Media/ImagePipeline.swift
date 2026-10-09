@@ -70,6 +70,14 @@ public final class ImageMemoryCache: @unchecked Sendable {
         cache.object(forKey: memoryKey(url, maxPixelSize) as NSString)?.image
     }
 
+    /// The sharpest decode of `url` held at a size below `maxPixelSize`, to show while that size loads.
+    public func image(url: URL, below maxPixelSize: Int) -> CGImage? {
+        ImageDownsampleBucket.pixelSizes.reversed().lazy
+            .filter { $0 < maxPixelSize }
+            .compactMap { self.image(url: url, maxPixelSize: $0) }
+            .first
+    }
+
     func insert(_ image: CGImage, url: URL, maxPixelSize: Int) {
         cache.setObject(DecodedImageBox(image), forKey: memoryKey(url, maxPixelSize) as NSString, cost: image.width * image.height * 4)
     }

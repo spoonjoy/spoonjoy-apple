@@ -325,6 +325,18 @@ struct ImagePipelineTests {
         #expect(pipeline.memory.image(url: coverURL, maxPixelSize: 256) != nil)
     }
 
+    @Test("a view waiting on a larger size can show the sharpest smaller decode already in memory")
+    func smallerDecodeWhileLarger() async {
+        let pipeline = pipeline(directory: temporaryDirectory(), fetcher: ScriptedFetcher(result: .success(makeImageData())))
+        #expect(pipeline.memory.image(url: coverURL, below: 1_536) == nil)
+        let small = await pipeline.image(for: coverURL, maxPixelSize: 128)
+        let medium = await pipeline.image(for: coverURL, maxPixelSize: 512)
+        #expect(small != nil && medium != nil)
+        #expect(pipeline.memory.image(url: coverURL, below: 1_536) === medium)
+        #expect(pipeline.memory.image(url: coverURL, below: 512) === small)
+        #expect(pipeline.memory.image(url: coverURL, below: 128) == nil)
+    }
+
     @Test("a different decode size reuses the downloaded bytes")
     func differentSizeReusesDisk() async {
         let fetcher = ScriptedFetcher(result: .success(makeImageData()))
