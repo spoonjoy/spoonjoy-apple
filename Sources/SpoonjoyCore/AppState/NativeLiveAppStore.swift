@@ -2674,21 +2674,13 @@ public final class NativeLiveAppStore: ObservableObject {
         from queue: NativeMutationQueue,
         startingAt clientMutationID: String
     ) -> Set<String> {
-        let discarded = queue.mutations.first { $0.clientMutationID == clientMutationID }
-        let discardedDependencyKey = discarded?.dependencyKey
-        let discardedLocalRecipeID = discarded?.queueableKind == .recipeCreate ? discarded?.optimisticRecipeID : nil
-        return Set(queue.mutations.compactMap { mutation in
-            if mutation.clientMutationID == clientMutationID {
-                return mutation.clientMutationID
-            }
-            if let discardedDependencyKey, mutation.dependencyKey == discardedDependencyKey {
-                return mutation.clientMutationID
-            }
-            if let discardedLocalRecipeID, mutation.recipeID == discardedLocalRecipeID {
-                return mutation.clientMutationID
-            }
-            return nil
-        })
+        // The discarded edit, and every edit that names something it created on this device (and so on, in queue
+        // order). Other edits to the same recipe or list are kept: they do not need the discarded one.
+        var discarded: Set<String> = [clientMutationID]
+        for mutation in queue.mutations where discarded.contains(where: { mutation.referencesLocalIDs(createdBy: $0) }) {
+            discarded.insert(mutation.clientMutationID)
+        }
+        return discarded
     }
 
     /// The account and environment that new queue entries belong to: the trusted signed-in account, or none.
