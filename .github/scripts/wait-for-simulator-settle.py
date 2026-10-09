@@ -46,6 +46,10 @@ class LogUnreadable(Exception):
     pass
 
 
+class LogReadTimedOut(LogUnreadable):
+    """The read ran past its limit, which a filtered read only does under very heavy poster volume."""
+
+
 def poster_lines(udid: str, seconds: int, limit: float) -> int:
     """Poster log lines the simulator wrote in the last `seconds`."""
     try:
@@ -57,7 +61,7 @@ def poster_lines(udid: str, seconds: int, limit: float) -> int:
             timeout=max(5, min(LOG_READ_LIMIT_SECONDS, limit)),
         )
     except subprocess.TimeoutExpired as error:
-        raise LogUnreadable(f"reading the simulator log took longer than {error.timeout:g} s") from error
+        raise LogReadTimedOut(f"reading the simulator log took longer than {error.timeout:g} s") from error
     except subprocess.CalledProcessError as error:
         raise LogUnreadable(f"reading the simulator log failed with exit code {error.returncode}: {error.stderr.strip()[:500]}") from error
     # The first line is the column header.
@@ -81,11 +85,14 @@ def wait(udid: str, booted_at: int, deadline_minutes: float) -> str:
         since_boot = poster_lines(udid, history_seconds, min(LOG_READ_LIMIT_SECONDS, deadline - time.time()))
         burst_seen = burst_seen or since_boot >= BURST_LINES_SINCE_BOOT
         print(f"Poster log lines in the last {history_seconds} s: {since_boot}; burst {'already seen' if burst_seen else 'not seen yet'}.")
-    except LogUnreadable as error:
+    except LogReadTimedOut as error:
         # The history read is the largest. A filtered read that cannot finish means a very large poster volume, which
         # is the burst itself, so count it as seen and keep watching the short windows instead of giving up.
         history_unreadable = burst_seen = True
         print(f"Could not read the log since boot ({error}); taking that as a burst and watching recent windows instead.")
+    except LogUnreadable as error:
+        # Any other failure says nothing about the burst, so the no-burst window still applies.
+        print(f"Could not read the log since boot ({error}); watching recent windows instead.")
 
     quiet_readings = 0
     burst_active = False
