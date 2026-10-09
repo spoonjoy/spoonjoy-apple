@@ -4591,6 +4591,15 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 for remap in idRemaps {
                     idReplacements[remap.localID] = remap.serverID
                 }
+                // Take the accepted edit off the queue now, and point the rest at any new server ids, so a failure
+                // later in this sync cannot send it again.
+                let acceptedClientMutationID = mutation.clientMutationID
+                let replacementsSoFar = idReplacements
+                try await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
+                    NativeQueueUpdate(queue: NativeMutationQueue(validatedMutations: snapshot.queue.mutations.compactMap { queued in
+                        queued.clientMutationID == acceptedClientMutationID ? nil : queued.replacingResourceIDs(replacementsSoFar)
+                    }))
+                }
                 if case .tombstone(let token)? = revision {
                     try await store.appendTombstone(mutation.tombstone(token: token, at: clock()))
                 }
@@ -5129,9 +5138,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         snapshot: NativeSyncSnapshot,
         accountID: String
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
-        let cachedRecipes = try snapshot.cachedRecords
+        let cachedRecipes = snapshot.cachedRecords
             .filter { $0.kind == .recipe }
-            .map { try $0.payload.decoded(Recipe.self) }
+            .compactMap { try? $0.payload.decoded(Recipe.self) }
         let fallbackChef = cachedRecipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
         let updatedRecipes = drainedMutations.reduce(cachedRecipes) { recipes, mutation in
             mutation.applyingOptimisticRecipeMutation(to: recipes, fallbackChef: fallbackChef, now: mutation.createdAt)
@@ -5161,12 +5170,12 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         snapshot: NativeSyncSnapshot,
         accountID: String
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
-        let cachedItems = try snapshot.cachedRecords
+        let cachedItems = snapshot.cachedRecords
             .filter { $0.kind == .shoppingItem }
-            .map { try $0.payload.decoded(ShoppingListItem.self) }
-        let cachedRecipes = try snapshot.cachedRecords
+            .compactMap { try? $0.payload.decoded(ShoppingListItem.self) }
+        let cachedRecipes = snapshot.cachedRecords
             .filter { $0.kind == .recipe }
-            .map { try $0.payload.decoded(Recipe.self) }
+            .compactMap { try? $0.payload.decoded(Recipe.self) }
         let fallbackChef = cachedRecipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
         let baseShoppingList: ShoppingListState? = cachedItems.isEmpty
             ? nil
@@ -5208,12 +5217,12 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         snapshot: NativeSyncSnapshot,
         accountID: String
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
-        let cachedCookbooks = try snapshot.cachedRecords
+        let cachedCookbooks = snapshot.cachedRecords
             .filter { $0.kind == .cookbook }
-            .map { try $0.payload.decoded(Cookbook.self) }
-        let cachedRecipes = try snapshot.cachedRecords
+            .compactMap { try? $0.payload.decoded(Cookbook.self) }
+        let cachedRecipes = snapshot.cachedRecords
             .filter { $0.kind == .recipe }
-            .map { try $0.payload.decoded(Recipe.self) }
+            .compactMap { try? $0.payload.decoded(Recipe.self) }
         let fallbackChef = cachedRecipes.first?.chef ?? cachedCookbooks.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
         let updatedCookbooks = drainedMutations.reduce(cachedCookbooks) { cookbooks, mutation in
             mutation.applyingOptimisticCookbookMutation(
