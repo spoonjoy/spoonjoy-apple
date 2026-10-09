@@ -8249,3 +8249,65 @@ struct OffCookSessionClient: CookSessionClient {
     func start(recipeID _: String) async -> CookSyncResult { .stopped }
     func patch(recipeID _: String, server _: CookServerSnapshot, changes _: CookSyncChanges, mutationID _: String) async -> CookSyncResult { .stopped }
 }
+
+extension NativeLiveStoreTests {
+    @MainActor
+    @Test("many different searches keep only the most recent ones on disk and in memory")
+    func manySearchesKeepOnlyTheMostRecent() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            let recipeRecord = try Self.cacheRecord(
+                domain: .recipeDetail(id: "recipe_kept"),
+                payload: .recipeDetail(id: "recipe_kept", title: "Kept Pasta")
+            )
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "signed-out",
+                environment: .production,
+                createdAt: Self.now,
+                records: [recipeRecord],
+                dismissedIndicators: []
+            ))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport()
+            )
+            let searchCount = NativeLiveAppStore.maximumCachedSearches + 10
+            for index in 0..<searchCount {
+                let page = SearchSurfacePage(
+                    query: "query \(index)",
+                    scope: .all,
+                    limit: 20,
+                    isAuthenticated: false,
+                    results: [],
+                    source: .live(requestID: "req_search_\(index)", validatedAt: Self.now)
+                )
+                try liveStore.recordSearchSurfacePage(page, expectedIdentity: liveStore.currentSearchSurfaceIdentity)
+            }
+
+            let fallback = try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "fallback",
+                environment: .production,
+                createdAt: Self.now,
+                records: [],
+                dismissedIndicators: []
+            )
+            let persistedRecords = try cacheStore.loadOrRecover(fallback: fallback).value.records
+            let persistedQueries = persistedRecords.compactMap { record -> String? in
+                if case .searchResults(let snapshot) = record.payload {
+                    return snapshot.query
+                }
+                return nil
+            }
+            let expected = (10..<searchCount).map { "query \($0)" }
+            #expect(persistedQueries == expected)
+            #expect(liveStore.bootstrapState.contentState.searchSurfaceSnapshots.map(\.query) == expected)
+
+            #expect(persistedRecords.first?.id == recipeRecord.id)
+        }
+    }
+}
