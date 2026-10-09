@@ -82,9 +82,15 @@ final class CookbooksJourney: JourneyTestCase {
 
         // A link to a recipe that does not exist shows the not-found page with a way back.
         journey.app.open(URL(string: "spoonjoy://recipes/journey-missing-\(token.lowercased())")!)
+        // iOS may ask before it hands a custom-scheme link to the app; answer that prompt if it appears.
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let openPrompt = springboard.alerts.buttons["Open"]
+        if openPrompt.waitForExistence(timeout: 5) {
+            openPrompt.tap()
+        }
         XCTAssertTrue(
             journey.element("route.error").waitForExistence(timeout: JourneyApp.networkTimeout),
-            "A link to a missing recipe did not show the not-found page. Screen: \(journey.screen)"
+            "A link to a missing recipe did not show the not-found page. App state: \(journey.app.state.rawValue). Springboard: \(springboard.debugDescription). Screen: \(journey.screen)"
         )
         XCTAssertTrue(
             journey.app.staticTexts["We couldn't find this recipe."].exists,
