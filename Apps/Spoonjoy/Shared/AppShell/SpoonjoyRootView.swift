@@ -9,7 +9,6 @@ struct SpoonjoyRootView: View {
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
     @State private var hasAppliedRestoredRoute = false
-    @State private var showsReauthSheet = false
     @StateObject private var liveStore: NativeLiveAppStore
 
     private let router: DeepLinkRouter
@@ -167,12 +166,6 @@ struct SpoonjoyRootView: View {
             platformNavigation(contentState: contentState)
         case .offlineStale(let contentState):
             platformNavigation(contentState: contentState)
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    sessionExpiredBanner(contentState: contentState)
-                }
-                .sheet(isPresented: $showsReauthSheet) {
-                    reauthSheet
-                }
         case .queuedWork(let contentState):
             platformNavigation(contentState: contentState)
         case .conflict(let contentState):
@@ -190,46 +183,6 @@ struct SpoonjoyRootView: View {
                 syncFailedView(contentState: contentState, message: message)
             }
         }
-    }
-
-    /// Shown over the saved kitchen when the server refused the stored session for good. The saved kitchen
-    /// stays readable; this is the one place the chef is told why syncing stopped and offered a way back.
-    @ViewBuilder private func sessionExpiredBanner(contentState: NativeShellContentState) -> some View {
-        if case .signedOut = contentState.authSessionState {
-            HStack(spacing: 12) {
-                Text("You're signed out. Sign in to sync your kitchen.")
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Button("Sign In") {
-                    showsReauthSheet = true
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-                .accessibilityIdentifier("session.signIn")
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(KitchenTableTheme.bone)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("session.signedOutBanner")
-        }
-    }
-
-    private var reauthSheet: some View {
-        SignedOutSetupView(
-            authRepository: liveStore.authSessionRepository,
-            pendingRoute: navigation.route,
-            openSettings: {
-                showsReauthSheet = false
-                navigation.navigate(to: .settings)
-            },
-            appleSignInTelemetry: Self.defaultAppleSignInTelemetryClient(),
-            onSignedIn: {
-                showsReauthSheet = false
-                await liveStore.bootstrap()
-                applyRestoredRouteIfNeeded()
-            }
-        )
     }
 
     @ViewBuilder private func signedOutContent(contentState: NativeShellContentState) -> some View {

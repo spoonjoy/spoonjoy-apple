@@ -30,11 +30,6 @@ struct CachedAsyncImage<Content: View>: View {
         let pixelSize: Int
     }
 
-    /// The wait before each retry after a failed load; the first attempt starts immediately.
-    private static var retryDelays: [Duration] {
-        [.seconds(1), .seconds(3), .seconds(8)]
-    }
-
     let url: URL
     let animation: Animation?
     @ViewBuilder let content: (CachedImagePhase) -> Content
@@ -61,20 +56,7 @@ struct CachedAsyncImage<Content: View>: View {
                 guard pixelSize > 0, !isLoaded else {
                     return
                 }
-                // A load that fails right after launch (network not ready, a request cancelled by a relayout)
-                // must not leave the placeholder up until the chef navigates away and back: retry a few times
-                // before giving up.
-                var image = await AppImagePipeline.shared.image(for: url, maxPixelSize: pixelSize)
-                for delay in Self.retryDelays where image == nil {
-                    guard !Task.isCancelled else {
-                        return
-                    }
-                    try? await Task.sleep(for: delay)
-                    guard !Task.isCancelled else {
-                        return
-                    }
-                    image = await AppImagePipeline.shared.image(for: url, maxPixelSize: pixelSize)
-                }
+                let image = await AppImagePipeline.shared.image(for: url, maxPixelSize: pixelSize)
                 guard !Task.isCancelled else {
                     return
                 }
