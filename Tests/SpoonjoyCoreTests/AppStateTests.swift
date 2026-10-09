@@ -903,6 +903,22 @@ struct AppStateTests {
         #expect(navigation.editorIdentity != lemonEditor, "the existing recipe's editor is a new visit too")
     }
 
+    @Test("switching back to an open editor, or backing out to one, keeps its draft")
+    func restoringAnOpenEditorKeepsItsEditorIdentity() {
+        var navigation = AppNavigationState(route: .recipeEditor(id: "recipe_lemon"))
+        let lemonEditor = navigation.editorIdentity
+
+        navigation.navigate(to: .kitchen)
+        navigation.navigate(to: .recipeEditor(id: nil))
+        let newEditor = navigation.editorIdentity
+
+        navigation.navigate(to: .recipeEditor(id: "recipe_lemon"), restoring: true)
+        #expect(navigation.editorIdentity == lemonEditor, "coming back to the open editor is the same visit")
+
+        navigation.navigate(to: .recipeEditor(id: nil), restoring: true)
+        #expect(navigation.editorIdentity == newEditor)
+    }
+
     @Test("route identifiers and native URLs cover every app route")
     func routeIdentifiersAndNativeURLsCoverEveryAppRoute() throws {
         let cases: [(AppRoute, String, String)] = [

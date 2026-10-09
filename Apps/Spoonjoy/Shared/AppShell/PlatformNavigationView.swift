@@ -575,7 +575,7 @@ struct PlatformNavigationView: View {
     private func selectCompactTab(_ tab: CompactTab) {
         let route = compactTabs.select(tab)
         if route != navigation.route {
-            navigation.navigate(to: route)
+            navigation.navigate(to: route, restoring: true)
         }
         if tab == .search, compactTabs.path(for: .search).isEmpty {
             Task {
@@ -591,7 +591,7 @@ struct PlatformNavigationView: View {
             set: { path in
                 let route = compactTabs.setPath(path, for: tab)
                 if route != navigation.route {
-                    navigation.navigate(to: route)
+                    navigation.navigate(to: route, restoring: true)
                 }
             }
         )

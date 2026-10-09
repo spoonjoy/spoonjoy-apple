@@ -32,8 +32,10 @@ public struct AppNavigationState: Equatable {
         editorIdentity(for: route)
     }
 
-    public mutating func navigate(to route: AppRoute) {
-        if case .recipeEditor = route, route != self.route {
+    /// `restoring` is for the shell bringing back a page the chef already had open (switching back to a tab,
+    /// or a back swipe that reveals an editor underneath). It is the same visit, so the draft stays.
+    public mutating func navigate(to route: AppRoute, restoring: Bool = false) {
+        if !restoring, case .recipeEditor = route, route != self.route {
             editorSessions[route.stateIdentifier, default: 0] += 1
         }
         self.route = route
