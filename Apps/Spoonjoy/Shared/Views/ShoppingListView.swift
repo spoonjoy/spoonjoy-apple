@@ -20,6 +20,7 @@ struct ShoppingListView: View {
     @FocusState private var isRetryButtonFocused: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
 
     private let viewModel: ShoppingSurfaceViewModel
     private let actionDidPlan: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
@@ -69,12 +70,14 @@ struct ShoppingListView: View {
     }
 
     var body: some View {
-        KitchenTablePage(maxContentWidth: 760) {
+        KitchenTablePage(maxContentWidth: 760, topPadding: usesCompactNavigation ? 4 : 20) {
             shoppingRunHeader
-            shoppingReceiptComposer
-            shoppingModeStrip
-            shoppingCategoryFilters
-            statusBanner
+            VStack(alignment: .leading, spacing: 10) {
+                shoppingReceiptComposer
+                shoppingModeStrip
+                shoppingCategoryFilters
+                statusBanner
+            }
             shoppingReceiptState
         }
         .spoonjoyRemindersSend(remindersSender)
@@ -118,8 +121,16 @@ struct ShoppingListView: View {
         }
 #if os(iOS)
         .toolbar {
-            EditButton()
+            if usesCompactNavigation, shoppingList != nil {
+                ToolbarItem(placement: .topBarTrailing) {
+                    receiptActionsMenu
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton()
+            }
         }
+        .navigationSubtitle(usesCompactNavigation ? viewModel.shoppingRunSummary : "")
 #endif
         .sensoryFeedback(.selection, trigger: checkHapticTick)
         .task(id: viewModel.activeCountLabel) {
@@ -144,14 +155,18 @@ struct ShoppingListView: View {
         )
     }
 
-    private var shoppingRunHeader: some View {
-        KitchenTableHeader(
-            eyebrow: "Kitchen",
-            title: "Shopping List",
-            subtitle: viewModel.shoppingRunSummary,
-            hidesTitleInCompactNavigation: true
-        ) {
-            shoppingHeaderTools
+    /// On a phone the navigation bar carries the title, the run summary (as its subtitle) and the actions
+    /// menu, so the list leads with the composer and the items. Wide layouts keep the full header.
+    @ViewBuilder private var shoppingRunHeader: some View {
+        if !usesCompactNavigation {
+            KitchenTableHeader(
+                eyebrow: "Kitchen",
+                title: "Shopping List",
+                subtitle: viewModel.shoppingRunSummary,
+                hidesTitleInCompactNavigation: true
+            ) {
+                shoppingHeaderTools
+            }
         }
     }
 
@@ -207,25 +222,31 @@ struct ShoppingListView: View {
                 clearAll()
             }
         } label: {
-            Group {
-                if isAccessibilityLayout {
-                    Image(systemName: "ellipsis.circle")
-                        .accessibilityLabel("Receipt actions")
-                } else {
-                    Label("Receipt actions", systemImage: "ellipsis.circle")
+            if usesCompactNavigation {
+                Image(systemName: "ellipsis.circle")
+                    .accessibilityLabel("Receipt actions")
+            } else {
+                Group {
+                    if isAccessibilityLayout {
+                        Image(systemName: "ellipsis.circle")
+                            .accessibilityLabel("Receipt actions")
+                    } else {
+                        Label("Receipt actions", systemImage: "ellipsis.circle")
+                    }
                 }
-            }
-            .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.charcoal)
-            .padding(.horizontal, 12)
-            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-            .background(KitchenTableTheme.paper, in: Capsule())
-            .overlay {
-                Capsule()
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .padding(.horizontal, 12)
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .background(KitchenTableTheme.paper, in: Capsule())
+                .overlay {
+                    Capsule()
+                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                }
             }
         }
         .buttonStyle(.plain)
+        .modifier(CompactMenuTapTarget(isCompact: usesCompactNavigation))
     }
 
     private var shoppingList: ShoppingListState? {
@@ -331,9 +352,12 @@ struct ShoppingListView: View {
                 HStack(spacing: 8) {
                     itemNameField
                     compactAddItemButton
+                    compactRecipeActionButton
                 }
             }
-            recipeActionButton
+            if isAccessibilityLayout {
+                recipeActionButton
+            }
         }
     }
 
@@ -398,7 +422,7 @@ struct ShoppingListView: View {
         Button(action: addItem) {
             Image(systemName: "plus")
                 .font(.headline.weight(.bold))
-                .frame(width: 50, height: 50)
+                .frame(width: 46, height: 46)
                 .foregroundStyle(KitchenTableTheme.paper)
                 .background(KitchenTableTheme.action, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         }
@@ -419,6 +443,40 @@ struct ShoppingListView: View {
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
         .accessibilityIdentifier("shopping.createRecipe")
+    }
+
+    /// The phone composer keeps the recipe action beside the add button as an icon, so it costs no row.
+    @ViewBuilder private var compactRecipeActionButton: some View {
+        if hasRecipes {
+            Button(action: openSearch) {
+                Label("Add from recipe", systemImage: "book")
+                    .labelStyle(.iconOnly)
+                    .font(.headline)
+                    .frame(width: 46, height: 46)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                            .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                    }
+            }
+            .buttonStyle(.plain)
+        } else {
+            Button(action: createRecipe) {
+                Label("Create a recipe", systemImage: "square.and.pencil")
+                    .labelStyle(.iconOnly)
+                    .font(.headline)
+                    .frame(width: 46, height: 46)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                            .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("shopping.createRecipe")
+        }
     }
 
     @ViewBuilder private var recipeActionButton: some View {
@@ -724,6 +782,18 @@ struct ShoppingListView: View {
 
     private func clientMutationID(prefix: String) -> String {
         "\(prefix)-\(UUID().uuidString)"
+    }
+}
+
+private struct CompactMenuTapTarget: ViewModifier {
+    let isCompact: Bool
+
+    func body(content: Content) -> some View {
+        if isCompact {
+            content.frame(minWidth: KitchenTableTheme.minimumTouchTarget, minHeight: KitchenTableTheme.minimumTouchTarget)
+        } else {
+            content
+        }
     }
 }
 

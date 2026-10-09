@@ -236,8 +236,12 @@ fail_check("#{display_path(shell_source)} compactTabShellContent must be a TabVi
 fail_check("#{display_path(shell_source)} compact tabs must use the Tab API, not .tabItem") if tab_shell.include?(".tabItem") || !tab_shell.include?("Tab(\"Kitchen\"")
 fail_check("#{display_path(shell_source)} compact Search must be Tab(..., role: .search)") unless tab_shell.include?("role: .search")
 fail_check("#{display_path(shell_source)} compact tab bar must use .tabBarMinimizeBehavior(.onScrollDown)") unless tab_shell.include?(".tabBarMinimizeBehavior(.onScrollDown)")
-# Search lives on the TabView itself so iOS draws it as a separate circle and opens it as the bottom search field.
-fail_check("#{display_path(shell_source)} compact .searchable must sit on the TabView with .tabViewSearchActivation(.searchTabSelection)") unless tab_shell.include?(".searchable(text: searchText") && tab_shell.include?(".tabViewSearchActivation(.searchTabSelection)")
+# The TabView carries .tabViewSearchActivation so iOS draws Search as a separate circle and opens it as the
+# bottom search field. The .searchable itself sits on the Search tab's NavigationStack only: attached to the
+# TabView, iOS also drew a "Search Spoonjoy" field over every other tab, including the shopping list.
+tab_stack = shell_source.read[/@ViewBuilder private func compactTabStack\(for tab: CompactTab\) -> some View \{.*?\n    \}\n/m].to_s
+fail_check("#{display_path(shell_source)} compact TabView must use .tabViewSearchActivation(.searchTabSelection)") unless tab_shell.include?(".tabViewSearchActivation(.searchTabSelection)")
+fail_check("#{display_path(shell_source)} compact .searchable must sit on the Search tab's stack only, not on the TabView") if tab_shell.include?(".searchable(") || !tab_stack.include?("if tab == .search") || !tab_stack.include?(".searchable(text: searchText")
 fail_check("#{display_path(shell_source)} compact TabView must use .tint(KitchenTableTheme.brass) so the selected tab is visible") unless tab_shell.match?(/^        \.tint\(KitchenTableTheme\.brass\)$/)
 fail_check("#{display_path(shell_source)} each compact tab must own a NavigationStack(path:)") unless shell_source.read.include?("NavigationStack(path: compactPath(for: tab))")
 

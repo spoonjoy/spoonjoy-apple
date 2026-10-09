@@ -231,8 +231,28 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(app.otherElements["shopping.ui-test.root"].waitForExistence(timeout: 8))
         let platformItem = app.descendants(matching: .any)["shopping.item.item_lemons"]
         XCTAssertTrue(platformItem.waitForExistence(timeout: 8))
+        // On a phone the actions menu lives in the navigation bar, and no search field sits over the list.
+        XCTAssertTrue(app.buttons["Receipt actions"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Receipt actions"].isHittable)
+        XCTAssertFalse(app.searchFields["Search Spoonjoy"].exists)
         platformItem.tap()
         app.buttons["Create a recipe"].tap()
+    }
+
+    /// The search field belongs to the Search tab only: it is absent over the shopping list and present, and
+    /// usable, once the Search tab is chosen.
+    func testSearchFieldBelongsToTheSearchTabOnly() {
+        ensurePortrait()
+        let app = launchShopping(variant: "normal", platformFixture: true)
+        XCTAssertTrue(app.descendants(matching: .any)["shopping.item.item_lemons"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.searchFields["Search Spoonjoy"].exists)
+
+        let searchTab = app.tabBars.buttons["Search"].firstMatch
+        XCTAssertTrue(searchTab.waitForExistence(timeout: 8), "The Search tab is missing. \(app.debugDescription)")
+        searchTab.tap()
+        let searchField = app.searchFields["Search Spoonjoy"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 10), "The Search tab has no search field. \(app.debugDescription)")
+        XCTAssertTrue(searchField.isHittable)
     }
 
     /// Waits for `element` to exist and be hittable and enabled: for menu items, confirmation buttons and a
