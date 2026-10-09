@@ -1597,8 +1597,13 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             "cookbook:new:\(clientMutationID)"
         case .cookbookUpdate, .cookbookDelete, .cookbookAddRecipe, .cookbookRemoveRecipe:
             "cookbook:\(stringValue("cookbookId") ?? "")"
-        case .shoppingAddItem, .shoppingCheckItem, .shoppingDeleteItem, .shoppingAddFromRecipe, .shoppingClearCompleted, .shoppingClearAll:
-            "shopping-list"
+        case .shoppingAddItem, .shoppingAddFromRecipe:
+            "shopping:new:\(clientMutationID)"
+        case .shoppingCheckItem, .shoppingDeleteItem:
+            // A stored change with no item id cannot be tied to one item, so it orders on the whole list.
+            stringValue("itemId").map(Self.shoppingItemDependencyKey(itemID:)) ?? Self.shoppingListDependencyKey
+        case .shoppingClearCompleted, .shoppingClearAll:
+            Self.shoppingListDependencyKey
         case .profileDisplayUpdate, .profilePhotoUpload, .profilePhotoRemove:
             "profile:me"
         case .notificationPreferenceUpdate:
@@ -1621,6 +1626,37 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         default:
             []
         }
+    }
+
+    static let shoppingListDependencyKey = "shopping-list"
+
+    /// Each shopping item orders on its own, so a change the server turns down holds only that item. An item added on
+    /// this device (`item_local_<id>`, or `item_local_<id>-ingredient-<n>` from a recipe) orders with the edit that
+    /// added it, and waits for it.
+    static func shoppingItemDependencyKey(itemID: String) -> String {
+        let localPrefix = "item_local_"
+        guard itemID.hasPrefix(localPrefix) else {
+            return "shopping:item:\(itemID)"
+        }
+        let local = itemID.dropFirst(localPrefix.count)
+        let addingClientMutationID = local.range(of: "-ingredient-", options: .backwards).map { local[..<$0.lowerBound] } ?? local
+        return "shopping:new:\(addingClientMutationID)"
+    }
+
+    /// Whether a held edit with one of `blockedDependencyKeys` keeps this edit from being sent. Clearing the list waits
+    /// while any shopping change is held, so it never runs ahead of a check it would have cleared.
+    func isHeld(byBlockedDependencyKeys blockedDependencyKeys: Set<String>) -> Bool {
+        if blockedDependencyKeys.contains(dependencyKey) {
+            return true
+        }
+        return dependencyKey == Self.shoppingListDependencyKey && blockedDependencyKeys.contains { $0.hasPrefix("shopping:") }
+    }
+
+    /// True when this edit names an id that the edit `clientMutationID` created on this device (`recipe_local_<id>`,
+    /// `item_local_<id>-ingredient-2` and so on), so it cannot be sent without that edit.
+    func referencesLocalIDs(createdBy clientMutationID: String) -> Bool {
+        let marker = "_local_\(clientMutationID)"
+        return values.values.contains { $0.containsLocalIDMarker(marker) }
     }
 
     private init(
@@ -4318,6 +4354,12 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
             return .authFailure(message: message)
         }
 
+        // Someone else already removed this shopping item. Removing it wanted it gone, and there is nothing left to
+        // check, so the edit is done; holding it would stop every later change to the item.
+        if error.statusCode == 404, mutation.queueableKind == .shoppingCheckItem || mutation.queueableKind == .shoppingDeleteItem {
+            return .success(serverRevision: nil)
+        }
+
         if case .retrySameRequest(let afterSeconds) = error.retryDecision {
             return .retry(
                 afterSeconds: afterSeconds ?? NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: mutation.retryCount),
@@ -4554,7 +4596,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 index += 1
                 continue
             }
-            guard !blockedDependencyKeys.contains(mutation.dependencyKey) else {
+            guard !mutation.isHeld(byBlockedDependencyKeys: blockedDependencyKeys) else {
                 remaining.append(mutation)
                 index += 1
                 continue
@@ -5373,5 +5415,28 @@ private enum NativeSyncClockFormatting {
         }
 
         return fractionalDate
+    }
+}
+
+private extension JSONValue {
+    /// Whether a string in this value names a local id ending in `marker`, either exactly or followed by a `-` suffix.
+    func containsLocalIDMarker(_ marker: String) -> Bool {
+        switch self {
+        case .string(let string):
+            var searchRange = string.startIndex..<string.endIndex
+            while let found = string.range(of: marker, range: searchRange) {
+                if found.upperBound == string.endIndex || string[found.upperBound] == "-" {
+                    return true
+                }
+                searchRange = found.upperBound..<string.endIndex
+            }
+            return false
+        case .array(let values):
+            return values.contains { $0.containsLocalIDMarker(marker) }
+        case .object(let object):
+            return object.values.contains { $0.containsLocalIDMarker(marker) }
+        default:
+            return false
+        }
     }
 }
