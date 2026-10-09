@@ -42,6 +42,10 @@ final class CookSyncJourney: JourneyTestCase {
             ingredient.waitForExistence(timeout: JourneyApp.networkTimeout),
             "Cook mode does not list the lemon. Screen: \(journey.screen)"
         )
+        XCTAssertTrue(
+            journey.element(JourneyID.cookScale).exists,
+            "Cook mode does not show scaling inline. Screen: \(journey.screen)"
+        )
         ingredient.tap()
         // The checkbox reads "1" as a switch and "checked" as a button, depending on how the platform exposes it.
         XCTAssertTrue(

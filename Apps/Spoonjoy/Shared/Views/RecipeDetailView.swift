@@ -462,7 +462,7 @@ struct RecipeDetailView: View {
 
     @ViewBuilder private var recipeProvenance: some View {
         if let sourceAttribution = viewModel.sourceAttribution {
-            Label(sourceProvenanceText(sourceAttribution), systemImage: Self.provenanceIconName)
+            Label(sourceAttribution.creditLine, systemImage: Self.provenanceIconName)
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.inkMuted)
         }
@@ -771,7 +771,7 @@ struct RecipeDetailView: View {
                     ForEach(section.ingredients) { ingredient in
                         RecipeStepChecklistRow(
                             title: ingredient.name,
-                            note: nil,
+                            note: ingredient.aisleLabel,
                             amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
                             systemImage: "cart",
                             isChecked: ingredientIsChecked(ingredient.id),
@@ -932,14 +932,6 @@ struct RecipeDetailView: View {
         if viewModel.offlineIndicator.display != .synced {
             OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
         }
-    }
-
-    private func sourceProvenanceText(_ attribution: RecipeDetailSourceAttribution) -> String {
-        if let host = attribution.host {
-            return "\(attribution.title) from \(host)"
-        }
-
-        return attribution.title
     }
 
     @ViewBuilder private var actionStatus: some View {
@@ -1434,7 +1426,7 @@ extension RecipeDetailView {
                 RecipeSpreadIngredientRow(
                     name: ingredient.name,
                     amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
-                    note: nil,
+                    note: ingredient.aisleLabel,
                     isChecked: ingredientIsChecked(ingredient.id),
                     toggle: { toggleIngredient(id: ingredient.id) }
                 )
