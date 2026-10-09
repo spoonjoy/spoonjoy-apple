@@ -29,23 +29,19 @@ jobs:
         # Stable 27.1+ counts too: once it ships, this job keeps proving the hinge code until CI moves to it.
         run: |
           set -euo pipefail
-          # The image ships aliases (Xcode_27.1.app, Xcode_27.1.0.app) for one install, so builds are keyed by the
-          # real bundle and each install is built once, under the first name that points at it.
-          # /bin/bash on macOS is 3.2, which has no associative arrays, so seen bundles go in a newline list.
-          seen=""
+          # The matrix is keyed by Xcode version (27.1, 27.2), not by bundle name. Bundle names differ between runner
+          # images (Xcode_27.2_beta.app on one, Xcode_27.2_beta_2.app on another), and the build job may land on a
+          # different runner than this one, so each build job resolves its own bundle for the version.
           names=()
           for app in /Applications/Xcode_*.app; do
-            name="${app#/Applications/Xcode_}"; name="${name%.app}"
-            real="$(cd "$app" && pwd -P)"
             version="$(defaults read "$app/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo unknown)"
             build="$(defaults read "$app/Contents/version" ProductBuildVersion 2>/dev/null || echo unknown)"
-            echo "$name -> $real ($version, $build)"
-            awk -F'[._]' '($1 > 27) || ($1 == 27 && $2 >= 1) { ok = 1 } END { exit !ok }' <<<"$name" || continue
-            grep -qxF "$real" <<<"$seen" && continue
-            seen="$seen"$'\n'"$real"
-            names+=("$name")
+            echo "${app#/Applications/} -> $(cd "$app" && pwd -P) ($version, $build)"
+            minor="$(awk -F. '{ print $1 "." $2 }' <<<"$version")"
+            awk -F. '($1 > 27) || ($1 == 27 && $2 >= 1) { ok = 1 } END { exit !ok }' <<<"$minor" || continue
+            names+=("$minor")
           done
-          xcodes="$(printf '%s\n' ${names[@]+"${names[@]}"} | jq -R . | jq -cs 'map(select(length > 0))')"
+          xcodes="$(printf '%s\n' ${names[@]+"${names[@]}"} | jq -R . | jq -cs 'map(select(length > 0)) | unique')"
           echo "found: $xcodes"
           if [[ "$xcodes" == "[]" ]]; then
             echo "No Xcode 27.1 or newer on the xcode-27 image; the hinge code cannot be compiled." >&2
@@ -73,7 +69,22 @@ jobs:
       - name: Select the beta Xcode
         run: |
           set -euo pipefail
-          sudo xcode-select -s "/Applications/Xcode_${{ matrix.xcode }}.app"
+          # Resolve this runner's bundle for the version: the newest build among the Xcodes reporting it.
+          want="${{ matrix.xcode }}"
+          pick=""; best=""
+          for app in /Applications/Xcode_*.app; do
+            version="$(defaults read "$app/Contents/Info" CFBundleShortVersionString 2>/dev/null || true)"
+            [[ "$(awk -F. '{ print $1 "." $2 }' <<<"$version")" == "$want" ]] || continue
+            build="$(defaults read "$app/Contents/version" ProductBuildVersion 2>/dev/null || true)"
+            if [[ -z "$pick" || "$build" > "$best" ]]; then pick="$app"; best="$build"; fi
+          done
+          if [[ -z "$pick" ]]; then
+            echo "No Xcode $want on this runner image:" >&2
+            ls -d /Applications/Xcode_*.app >&2
+            exit 1
+          fi
+          echo "Using $pick ($best) for Xcode $want"
+          sudo xcode-select -s "$pick"
           xcodebuild -version
           xcrun --sdk iphonesimulator --show-sdk-version
       - name: Check the hinge guard is on for this SDK
