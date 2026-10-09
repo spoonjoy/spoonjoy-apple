@@ -1458,13 +1458,13 @@ struct NativeLiveStoreTests {
             }
 
             try await liveStore.discardQueuedMutation(clientMutationID: "cm_chain_conflict")
-            guard case .offlineStale(let staleContent) = liveStore.bootstrapState else {
-                Issue.record("Expected dependent follow-up recipe work to be discarded with the conflict; got \(liveStore.bootstrapState)")
-                return
-            }
+            // The follow-up step is on the server's recipe, so it does not need the discarded title change: it stays
+            // queued. Only edits that name something the discarded edit created on this device go with it.
+            let staleContent = liveStore.bootstrapState.contentState
             #expect(staleContent.syncConflicts.isEmpty)
-            #expect(staleContent.queuedMutations.isEmpty)
+            #expect(staleContent.queuedMutations.map(\.clientMutationID) == ["cm_chain_followup"])
             #expect(staleContent.recipe(id: "recipe_conflict_chain")?.title == "Server Chain")
+            #expect(try await syncStore.loadQueue().mutations.map(\.clientMutationID) == ["cm_chain_followup"])
         }
 
         try await withTemporaryLiveStoreDirectory { directory in

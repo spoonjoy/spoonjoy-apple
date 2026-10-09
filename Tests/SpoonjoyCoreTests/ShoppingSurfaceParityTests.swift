@@ -1383,7 +1383,18 @@ private func assertShoppingMutationMetadata(
     #expect(mutation.queueableKind == kind)
     #expect(mutation.clientMutationID == clientMutationID)
     #expect(mutation.createdAt == createdAt)
-    #expect(mutation.dependencyKey == "shopping-list")
+    // Adds order on their own, item changes on their item (or on the add that made a local item), and clearing on
+    // the whole list.
+    switch kind {
+    case .shoppingAddItem, .shoppingAddFromRecipe:
+        #expect(mutation.dependencyKey == "shopping:new:\(clientMutationID)")
+    case .shoppingClearCompleted, .shoppingClearAll:
+        #expect(mutation.dependencyKey == "shopping-list")
+    default:
+        // NativeShoppingHoldTests pins the exact item mapping; here it is enough that the change orders on one item.
+        let key = mutation.dependencyKey
+        #expect(key.hasPrefix("shopping:item:") || key.hasPrefix("shopping:new:"))
+    }
 }
 
 private func assertShoppingJSONRequest(
