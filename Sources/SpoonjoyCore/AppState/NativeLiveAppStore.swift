@@ -2294,7 +2294,7 @@ public final class NativeLiveAppStore: ObservableObject {
 
         let scope = currentQueueScope()
         let snapshot = try await dependencies.syncStore.loadSnapshot()
-        let storedQueue = snapshot.accountID == scope.accountID && snapshot.environment == scope.environment ? snapshot.queue : NativeMutationQueue()
+        let storedQueue = snapshot.queue(accountID: scope.accountID, environment: scope.environment)
         guard storedQueue.mutations.contains(where: { $0.clientMutationID == trimmedClientMutationID }) else {
             return
         }
@@ -2691,12 +2691,11 @@ public final class NativeLiveAppStore: ObservableObject {
         })
     }
 
-    /// The account and environment that new queue entries belong to: the trusted signed-in account, or none.
+    /// The account and environment that new queue entries belong to. Before the server confirms the account (a fresh
+    /// sign-in has no account id until its first sync), there is no account: the store keeps those edits apart, without
+    /// touching the stored account's queue, and they join the account that sync confirms.
     private func currentQueueScope() -> (accountID: String?, environment: NativeCacheEnvironment?) {
-        guard let expectedAccountID = trustedAccountID(for: currentContentState.authSessionState) else {
-            return (nil, nil)
-        }
-        return (expectedAccountID, cacheEnvironment)
+        (trustedAccountID(for: currentContentState.authSessionState), cacheEnvironment)
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {

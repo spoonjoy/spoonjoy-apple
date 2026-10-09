@@ -178,7 +178,9 @@ struct NativeLiveStoreTests {
             )
 
             try await liveStore.queueMutation(mutation)
-            let persisted = try await syncStore.loadQueue()
+            // Signed out, the edit belongs to no account yet: it waits apart from any stored account's queue and
+            // joins the account the next sign-in confirms.
+            let persisted = await syncStore.loadSnapshot().queue(accountID: nil, environment: .production)
 
             guard case .queuedWork(let content) = liveStore.bootstrapState else {
                 Issue.record("Expected queueMutation to show queuedWork; got \(liveStore.bootstrapState)")
@@ -1196,6 +1198,36 @@ struct NativeLiveStoreTests {
             #expect(await gate.sentClientMutationIDs() == ["cm_race_sending", "cm_race_late"])
             #expect((try await syncStore.loadQueue()).mutations.isEmpty)
             #expect(liveStore.bootstrapState.contentState.queuedMutations.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("signing in again as the same account keeps the edits waiting from before, and the ones made meanwhile, and sends them")
+    func signingInAgainKeepsAndSendsWaitingEdits() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            // The session expired with an edit waiting; the cook signs in again, so the new session has no account id
+            // until its first sync names it.
+            let vault = try await Self.signedInVault(accountID: nil)
+            let recipe = Self.sampleRecipe(id: "recipe_resign", title: "Server Pasta")
+            let waiting = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_resign", clientMutationID: "cm_waiting", title: "Waiting", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [waiting])
+            )
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")))
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
+
+            let meanwhile = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_resign", clientMutationID: "cm_meanwhile", title: "Meanwhile", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            _ = try await liveStore.queueMutations([meanwhile], drainImmediately: false)
+            #expect(try await syncStore.loadQueue().mutations == [waiting])
+
+            await liveStore.bootstrap()
+
+            #expect(await transport.sentClientMutationIDs() == ["cm_waiting", "cm_meanwhile"])
+            #expect(try await syncStore.loadQueue().mutations.isEmpty)
+            #expect(await syncStore.loadSnapshot().accountID == "chef_ari")
         }
     }
 
@@ -6709,6 +6741,7 @@ private actor FlakyRestoreNativeSyncStore: NativeSyncStore {
 private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
     private var bootstrapResults: [NativeSyncBootstrapResult]
     private var bearerTokens: [String?] = []
+    private var sent: [String] = []
 
     init(bootstrap: NativeSyncBootstrapResult) {
         self.bootstrapResults = [bootstrap]
@@ -6727,11 +6760,16 @@ private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
     }
 
     func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
-        .success(serverRevision: .updatedAt(mutation.createdAt))
+        sent.append(mutation.clientMutationID)
+        return .success(serverRevision: .updatedAt(mutation.createdAt))
     }
 
     func capturedBearerTokens() -> [String?] {
         bearerTokens
+    }
+
+    func sentClientMutationIDs() -> [String] {
+        sent
     }
 }
 
