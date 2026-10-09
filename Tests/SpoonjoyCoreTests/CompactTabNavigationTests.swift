@@ -17,6 +17,7 @@ struct CompactTabNavigationTests {
         #expect(CompactTabNavigation.placement(for: .kitchen) == .root(.kitchen))
         #expect(CompactTabNavigation.placement(for: .recipes) == .root(.recipes))
         #expect(CompactTabNavigation.placement(for: .savedRecipes) == .root(.recipes))
+        #expect(CompactTabNavigation.placement(for: .everyoneRecipes) == .root(.recipes))
         #expect(CompactTabNavigation.placement(for: .cookbooks) == .root(.cookbooks))
         #expect(CompactTabNavigation.placement(for: .shoppingList) == .root(.shopping))
         #expect(CompactTabNavigation.placement(for: .search(query: "basil", scope: .recipes)) == .root(.search))

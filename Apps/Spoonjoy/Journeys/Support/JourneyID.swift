@@ -23,6 +23,11 @@ enum JourneyID {
     /// "Create a recipe" (and the accessibility-layout "New recipe") on the Shopping List.
     static let shoppingCreateRecipe = "shopping.createRecipe"
 
+    /// The persistent New Recipe button: the Kitchen and Recipes toolbars, the wide layout's toolbar and sidebar.
+    static let newRecipe = "recipes.new"
+    /// The Mine, Saved and Everyone control at the top of the Recipes tab.
+    static let recipesPicker = "recipes.picker"
+
     static let editorTitle = "editor.title"
     static let editorServings = "editor.servings"
     static let editorAddStep = "editor.addStep"

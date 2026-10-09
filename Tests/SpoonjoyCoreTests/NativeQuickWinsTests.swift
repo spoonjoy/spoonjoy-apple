@@ -76,7 +76,7 @@ struct NativeQuickWinsTests {
 
     @Test("pull to refresh covers the list screens and recipe detail only")
     func pullToRefreshRoutes() {
-        let supported: [AppRoute] = [.kitchen, .recipes, .savedRecipes, .recipeDetail(id: "r", presentation: .detail), .cookbooks, .shoppingList]
+        let supported: [AppRoute] = [.kitchen, .recipes, .savedRecipes, .everyoneRecipes, .recipeDetail(id: "r", presentation: .detail), .cookbooks, .shoppingList]
         for route in supported {
             #expect(PullToRefreshPolicy.supportsPullToRefresh(route))
         }

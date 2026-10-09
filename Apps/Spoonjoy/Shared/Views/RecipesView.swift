@@ -124,6 +124,26 @@ struct RecipesView: View {
     }
 }
 
+/// Every public recipe, the same list the website's Recipes page shows, searched on the server.
+struct EveryoneRecipesView: View {
+    let viewModel: RecipeCatalogViewModel
+    let openRoute: (AppRoute) -> Void
+
+    var body: some View {
+        RecipesView(
+            viewModel: viewModel,
+            openRoute: openRoute,
+            headerEyebrow: "Spoonjoy",
+            title: "Everyone's Recipes",
+            searchPrompt: "Search every recipe",
+            loadingTitle: "Loading recipes",
+            loadingSubtitle: "Opening every kitchen's recipes.",
+            proofRoute: "everyone-recipes",
+            proofSource: "EveryoneRecipesView"
+        )
+    }
+}
+
 struct SavedRecipesView: View {
     let viewModel: RecipeCatalogViewModel
     let openRoute: (AppRoute) -> Void

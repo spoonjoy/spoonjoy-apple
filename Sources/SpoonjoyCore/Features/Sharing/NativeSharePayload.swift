@@ -352,6 +352,7 @@ public enum NativePublicShareRoutePolicy {
              .kitchen,
              .recipes,
              .savedRecipes,
+             .everyoneRecipes,
              .recipeEditor,
              .recipeCoverControls,
              .cookbooks,

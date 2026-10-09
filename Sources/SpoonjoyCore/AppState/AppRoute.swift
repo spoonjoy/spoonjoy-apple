@@ -17,6 +17,7 @@ public enum AppSection: Hashable, Sendable {
     case kitchen
     case recipes
     case savedRecipes
+    case everyoneRecipes
     case cookbooks
     case shoppingList
     case chefs
@@ -29,6 +30,7 @@ public enum AppRoute: Hashable, Sendable {
     case kitchen
     case recipes
     case savedRecipes
+    case everyoneRecipes
     case recipeDetail(id: String, presentation: RecipePresentation)
     case recipeEditor(id: String?)
     case recipeCoverControls(id: String)
@@ -51,6 +53,8 @@ public enum AppRoute: Hashable, Sendable {
             .recipes
         case .savedRecipes:
             .savedRecipes
+        case .everyoneRecipes:
+            .everyoneRecipes
         case .cookbooks, .cookbookDetail:
             .cookbooks
         case .chefs, .profile, .profileGraph:
@@ -94,6 +98,8 @@ public enum AppRoute: Hashable, Sendable {
             "recipes"
         case .savedRecipes:
             "saved-recipes"
+        case .everyoneRecipes:
+            "everyone-recipes"
         case .recipeDetail(let id, .detail):
             "recipe:\(id)"
         case .recipeDetail(let id, .cook):
@@ -135,6 +141,8 @@ public enum AppRoute: Hashable, Sendable {
             self = .recipes
         } else if parts == ["saved-recipes"] {
             self = .savedRecipes
+        } else if parts == ["everyone-recipes"] {
+            self = .everyoneRecipes
         } else if parts.count == 2, parts[0] == "recipe", Self.isSafeID(parts[1]) {
             self = .recipeDetail(id: parts[1], presentation: .detail)
         } else if parts.count == 2, parts[0] == "recipe-cook", Self.isSafeID(parts[1]) {

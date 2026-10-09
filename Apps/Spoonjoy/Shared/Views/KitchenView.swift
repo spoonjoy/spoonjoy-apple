@@ -9,6 +9,8 @@ struct KitchenView: View {
     let openRecipe: (String) -> Void
     let startCooking: (String) -> Void
     let openCookbook: (String) -> Void
+    let createRecipe: () -> Void
+    let importRecipe: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
@@ -46,7 +48,9 @@ struct KitchenView: View {
     }
 
     @ViewBuilder private var kitchenContent: some View {
-        if usesWideKitchenSpread, let leadRecipe {
+        if recipes.isEmpty && cookbooks.isEmpty {
+            KitchenEmptyHero(createRecipe: createRecipe, importRecipe: importRecipe)
+        } else if usesWideKitchenSpread, let leadRecipe {
             HStack(alignment: .top, spacing: 28) {
                 RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
                     .frame(maxWidth: 640, alignment: .topLeading)
@@ -108,6 +112,63 @@ struct KitchenView: View {
             dynamicTypeSize: String(describing: dynamicTypeSize),
             reduceMotionEnabled: accessibilityReduceMotion
         )
+    }
+}
+
+/// The first thing a new kitchen shows: an empty table with the two ways to put a recipe on it.
+struct KitchenEmptyHero: View {
+    let createRecipe: () -> Void
+    let importRecipe: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: "fork.knife")
+                .font(.system(.largeTitle, design: .serif))
+                .foregroundStyle(KitchenTableTheme.brass)
+                .accessibilityHidden(true)
+            Text("The table is set")
+                .font(KitchenTableTheme.displayTitle)
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Write down the first recipe, or bring one in from a link, a photo or a screenshot. Everything you cook lives here.")
+                .font(KitchenTableTheme.instructionBody)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    createButton
+                    importButton
+                }
+                VStack(spacing: 12) {
+                    createButton
+                    importButton
+                }
+            }
+            .frame(maxWidth: 520)
+        }
+        .padding(.vertical, 20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) {
+            Rectangle().fill(KitchenTableTheme.lineStrong).frame(height: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("kitchen.emptyHero")
+    }
+
+    private var createButton: some View {
+        Button(action: createRecipe) {
+            Label("Create recipe", systemImage: "plus")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .accessibilityIdentifier("kitchen.emptyHero.create")
+    }
+
+    private var importButton: some View {
+        Button(action: importRecipe) {
+            Label("Import", systemImage: "tray.and.arrow.down")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .accessibilityIdentifier("kitchen.emptyHero.import")
     }
 }
 
@@ -184,7 +245,7 @@ struct KitchenMasthead: View {
         guard let ownerName, !ownerName.isEmpty else {
             return "Spoonjoy kitchen"
         }
-        return "\(ownerName.capitalized)'s kitchen"
+        return "\(ownerName)'s kitchen"
     }
 }
 

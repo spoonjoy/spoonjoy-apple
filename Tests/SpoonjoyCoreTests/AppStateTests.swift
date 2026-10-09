@@ -23,6 +23,10 @@ struct AppStateTests {
         #expect(navigation.route == .savedRecipes)
         #expect(navigation.sidebarSelection == .savedRecipes)
 
+        navigation.navigate(to: .everyoneRecipes)
+        #expect(navigation.route == .everyoneRecipes)
+        #expect(navigation.sidebarSelection == .everyoneRecipes)
+
         navigation.navigate(to: .chefs)
         #expect(navigation.route == .chefs)
         #expect(navigation.sidebarSelection == .chefs)
@@ -869,12 +873,43 @@ struct AppStateTests {
         #expect(gamma.source == ProfileSurfaceDataSource.cache(serverRevision: nil, lastValidatedAt: Date.distantPast))
     }
 
+    @Test("a New Recipe opened while editing another recipe gets its own editor identity")
+    func newRecipeOpenedWhileEditingGetsFreshEditorIdentity() {
+        var navigation = AppNavigationState(route: .recipeEditor(id: "recipe_lemon"))
+        let lemonEditor = navigation.editorIdentity
+
+        navigation.navigate(to: .recipeEditor(id: "recipe_lemon"))
+        #expect(navigation.editorIdentity == lemonEditor, "re-sending the route the editor already shows keeps its draft")
+
+        navigation.navigate(to: .recipeEditor(id: nil))
+        let firstNewEditor = navigation.editorIdentity
+        #expect(navigation.route == .recipeEditor(id: nil))
+        #expect(firstNewEditor != lemonEditor)
+        #expect(
+            navigation.editorIdentity(for: .recipeEditor(id: "recipe_lemon")) == lemonEditor,
+            "an editor left open on another page keeps its draft while New Recipe opens"
+        )
+
+        navigation.navigate(to: .recipeEditor(id: nil))
+        #expect(navigation.editorIdentity == firstNewEditor, "tapping New again on the New Recipe page keeps what the chef typed")
+
+        navigation.navigate(to: .recipes)
+        navigation.navigate(to: .recipeEditor(id: nil))
+        #expect(navigation.editorIdentity != firstNewEditor, "every visit to New Recipe starts a fresh draft")
+
+        let secondNewEditor = navigation.editorIdentity
+        navigation.navigate(to: .recipeEditor(id: "recipe_lemon"))
+        #expect(navigation.editorIdentity != secondNewEditor)
+        #expect(navigation.editorIdentity != lemonEditor, "the existing recipe's editor is a new visit too")
+    }
+
     @Test("route identifiers and native URLs cover every app route")
     func routeIdentifiersAndNativeURLsCoverEveryAppRoute() throws {
         let cases: [(AppRoute, String, String)] = [
             (.kitchen, "kitchen", "spoonjoy://kitchen"),
             (.recipes, "recipes", "spoonjoy://recipes"),
             (.savedRecipes, "saved-recipes", "spoonjoy://saved-recipes"),
+            (.everyoneRecipes, "everyone-recipes", "spoonjoy://everyone-recipes"),
             (.recipeDetail(id: "recipe_lemon", presentation: .detail), "recipe:recipe_lemon", "spoonjoy://recipes/recipe_lemon"),
             (.recipeDetail(id: "recipe_lemon", presentation: .cook), "recipe-cook:recipe_lemon", "spoonjoy://recipes/recipe_lemon/cook"),
             (.recipeEditor(id: "recipe_lemon"), "recipe-editor:recipe_lemon", "spoonjoy://recipes/recipe_lemon/edit"),

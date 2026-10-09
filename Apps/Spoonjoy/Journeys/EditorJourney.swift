@@ -97,8 +97,35 @@ final class EditorJourney: JourneyTestCase {
         )
         journey.attachScreenshot(named: "06-steps-swapped-on-recipe-page", to: self)
 
+        // New Recipe, opened while this recipe's editor is open, starts from a blank draft and leaves the recipe
+        // alone: the editor that is still open keeps its unsaved edit, and the recipe keeps its saved title.
+        journey.tap(JourneyID.recipeDetailActions)
+        journey.tap(JourneyID.recipeDetailEdit)
+        let unsavedTitle = "\(title) unsaved edit"
+        journey.replaceText(in: JourneyID.editorTitle, with: unsavedTitle)
+        journey.openTab(JourneyCopy.kitchenTab)
+        journey.tap(JourneyID.newRecipe)
+        journey.assertFieldEmpty(JourneyID.editorTitle)
+        journey.attachScreenshot(named: "09-new-recipe-while-editing-is-blank", to: self)
+        journey.openTab(JourneyCopy.recipesTab)
+        journey.assertFieldValue(JourneyID.editorTitle, equals: unsavedTitle)
+        journey.attachScreenshot(named: "10-open-editor-kept-its-edit", to: self)
+        journey.goBack()
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailTitle).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Leaving the editor did not return to the recipe. Screen: \(journey.screen)"
+        )
+
         verifyAfterRelaunch(journey) {
             journey.openTab(JourneyCopy.recipesTab)
+            // Everyone lists the public recipes the website's Recipes page lists, from the server.
+            journey.chooseRecipesScope(JourneyCopy.everyoneScope)
+            XCTAssertTrue(
+                journey.element(JourneyID.recipesRow).waitForExistence(timeout: JourneyApp.networkTimeout),
+                "Everyone's Recipes lists no recipes. Screen: \(journey.screen)"
+            )
+            journey.attachScreenshot(named: "11-everyone-recipes", to: self)
+            journey.chooseRecipesScope(JourneyCopy.mineScope)
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
             XCTAssertTrue(
                 journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: spaghetti).waitForExistence(timeout: JourneyApp.interactionTimeout),
