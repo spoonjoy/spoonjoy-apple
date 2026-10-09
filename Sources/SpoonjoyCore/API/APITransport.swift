@@ -19,6 +19,14 @@ extension URLSession: URLSessionPerforming {}
 /// timeout, not a limit on the whole transfer, so a slow photo upload that keeps sending is not cut off.
 public enum APIRequestTimeout {
     public static let interval: TimeInterval = 15
+
+    /// Recipe import answers only after the server has fetched the page (up to 15 s) and run the extraction model
+    /// (up to 30 s), so its first byte can take most of a minute.
+    public static let recipeImportInterval: TimeInterval = 90
+
+    public static func interval(forPath path: String) -> TimeInterval {
+        path.hasSuffix("/recipes/import") ? recipeImportInterval : interval
+    }
 }
 
 public protocol APIAuthenticationRefresher: Sendable {
@@ -188,7 +196,7 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
         )
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
-        urlRequest.timeoutInterval = APIRequestTimeout.interval
+        urlRequest.timeoutInterval = APIRequestTimeout.interval(forPath: url.path)
         for (name, value) in request.headers {
             urlRequest.setValue(value, forHTTPHeaderField: name)
         }

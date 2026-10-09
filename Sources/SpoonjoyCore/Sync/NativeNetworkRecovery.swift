@@ -6,6 +6,9 @@ import Foundation
 /// partner kept seeing a stale list. A reading that the network is usable only counts after a reading that it was
 /// not, so launch, which syncs anyway, does not add a second sync. The network has to stay usable for the settle
 /// delay before the request goes out, so a connection that flaps while walking out of a store asks once.
+///
+/// A network that reports usable but cannot reach the server (a captive portal) gets one attempt; the next
+/// foreground, pull-to-refresh or edit syncs again after that.
 public actor NativeNetworkRecoveryMonitor {
     public typealias Sleep = @Sendable (Duration) async throws -> Void
 
@@ -51,6 +54,13 @@ public actor NativeNetworkRecoveryMonitor {
         }
         pending = task
         return task
+    }
+
+    /// Drops a recovery that is still settling. Call it when readings stop, so no sync fires after the owner is gone.
+    public func cancel() {
+        generation += 1
+        pending?.cancel()
+        pending = nil
     }
 
     private func fireIfCurrent(_ expected: Int) async {

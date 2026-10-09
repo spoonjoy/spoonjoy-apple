@@ -9,27 +9,52 @@ struct NativeNetworkRecoveryTests {
         func increment() { value += 1 }
     }
 
-    /// A sleep the test releases by hand, so a reading can arrive while the settle delay is still running.
+    /// A sleep the test releases by hand, so a reading can arrive while the settle delay is still running. Like
+    /// `Task.sleep`, it throws when its task is cancelled, so a cancelled wait never hangs the test.
     private actor Gate {
-        private var waiters: [CheckedContinuation<Void, Never>] = []
+        private var waiters: [UUID: CheckedContinuation<Void, Error>] = [:]
         private(set) var requestedDelays: [Duration] = []
 
-        func wait(_ delay: Duration) async {
+        func wait(_ delay: Duration) async throws {
             requestedDelays.append(delay)
-            await withCheckedContinuation { waiters.append($0) }
+            let id = UUID()
+            try await withTaskCancellationHandler {
+                try await suspend(id)
+            } onCancel: {
+                Task { await self.cancel(id) }
+            }
+        }
+
+        private func suspend(_ id: UUID) async throws {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                if Task.isCancelled {
+                    continuation.resume(throwing: CancellationError())
+                } else {
+                    waiters[id] = continuation
+                }
+            }
+        }
+
+        private func cancel(_ id: UUID) {
+            waiters.removeValue(forKey: id)?.resume(throwing: CancellationError())
         }
 
         func releaseAll() {
             let current = waiters
-            waiters = []
-            current.forEach { $0.resume() }
+            waiters = [:]
+            current.values.forEach { $0.resume() }
         }
 
         var waitingCount: Int { waiters.count }
     }
 
-    private static func waitUntil(_ condition: @Sendable () async -> Bool) async {
-        for _ in 0..<1000 where !(await condition()) {
+    private static func waitUntil(_ what: String, _ condition: @Sendable () async -> Bool) async {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while !(await condition()) {
+            guard ContinuousClock.now < deadline else {
+                Issue.record("Timed out waiting until \(what)")
+                return
+            }
             await Task.yield()
         }
     }
@@ -57,24 +82,28 @@ struct NativeNetworkRecoveryTests {
         let gate = Gate()
         let monitor = NativeNetworkRecoveryMonitor(
             settleDelay: .seconds(2),
-            sleep: { await gate.wait($0) },
+            sleep: { try await gate.wait($0) },
             onRecovered: { await syncs.increment() }
         )
 
         await monitor.observe(isNetworkUsable: false)
         let firstTry = await monitor.observe(isNetworkUsable: true)
-        await Self.waitUntil { await gate.waitingCount == 1 }
+        await Self.waitUntil("one delay is running") { await gate.waitingCount == 1 }
         await monitor.observe(isNetworkUsable: false)
         await gate.releaseAll()
         await firstTry?.value
         #expect(await syncs.value == 0)
 
         let steady = await monitor.observe(isNetworkUsable: true)
-        await Self.waitUntil { await gate.waitingCount == 1 }
+        await Self.waitUntil("one delay is running") { await gate.waitingCount == 1 }
         // Another usable reading (Wi-Fi to cellular, say) restarts the delay instead of asking twice.
         let restarted = await monitor.observe(isNetworkUsable: true)
         #expect(restarted != nil)
-        await Self.waitUntil { await gate.waitingCount == 2 }
+        await Self.waitUntil("the restarted delay is the only one running") {
+            let requested = await gate.requestedDelays.count
+            let waiting = await gate.waitingCount
+            return requested == 3 && waiting == 1
+        }
         await gate.releaseAll()
         await steady?.value
         await restarted?.value
@@ -101,5 +130,19 @@ struct NativeNetworkRecoveryTests {
         await monitor.observe(isNetworkUsable: false)
         await monitor.observe(isNetworkUsable: true)?.value
         #expect(await syncs.value == 1)
+    }
+
+    @Test("cancelling drops a recovery that is still settling")
+    func cancelDropsSettlingRecovery() async {
+        let syncs = Counter()
+        let gate = Gate()
+        let monitor = NativeNetworkRecoveryMonitor(sleep: { try await gate.wait($0) }, onRecovered: { await syncs.increment() })
+        await monitor.observe(isNetworkUsable: false)
+        let settling = await monitor.observe(isNetworkUsable: true)
+        await Self.waitUntil("the delay is running") { await gate.waitingCount == 1 }
+        await monitor.cancel()
+        await settling?.value
+        await gate.releaseAll()
+        #expect(await syncs.value == 0)
     }
 }

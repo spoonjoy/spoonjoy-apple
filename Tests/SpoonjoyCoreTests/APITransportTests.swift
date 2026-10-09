@@ -50,6 +50,37 @@ struct APITransportTests {
         #expect(capturedRequest.timeoutInterval == 15)
     }
 
+    @Test("recipe import waits up to 90 s for the server; every other request gives up after 15 s idle")
+    func recipeImportGetsTheLongerTimeout() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 200,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(requestID: "req_import", name: "Imported")
+                ))
+            ]
+        )
+        let transport = URLSessionAPITransport(session: session)
+        _ = try await transport.send(
+            APIRequestBuilder(
+                method: .post,
+                pathComponents: ["api", "v1", "recipes", "import"],
+                queryItems: [],
+                headers: ["Content-Type": "application/json"],
+                body: Data(#"{"url":"https://example.com/pasta"}"#.utf8),
+                defaultAuthorization: .includeBearerToken,
+                responseCachePolicy: .privateNoStore
+            ),
+            configuration: Self.configuration(bearerToken: "sj_access_original"),
+            decode: TransportPayload.self
+        )
+        let capturedRequest = try #require(await session.capturedRequests().first)
+
+        #expect(capturedRequest.timeoutInterval == 90)
+        #expect(APIRequestTimeout.interval(forPath: "/api/v1/recipes/recipe_1") == 15)
+    }
+
     @Test("transport preserves already encoded path segments exactly once")
     func transportPreservesAlreadyEncodedPathSegmentsExactlyOnce() async throws {
         let session = RecordingURLSession(

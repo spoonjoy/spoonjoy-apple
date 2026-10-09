@@ -265,6 +265,7 @@ struct SpoonjoyRootView: View {
         for await path in NWPathMonitor() {
             await monitor.observe(isNetworkUsable: path.status == .satisfied)
         }
+        await monitor.cancel()
 #endif
     }
 
