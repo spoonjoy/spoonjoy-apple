@@ -206,6 +206,20 @@ jobs:
           else
             echo "Xcode project not present yet; bootstrap check passes."
           fi
+      # App Store review rejects an upload whose bundle has no privacy manifest (ITMS-91053).
+      - name: Check both app bundles ship the privacy manifest
+        run: |
+          set -euo pipefail
+          for spec in "Spoonjoy iOS|generic/platform=iOS Simulator|" "Spoonjoy macOS|generic/platform=macOS|Contents/Resources/"; do
+            IFS='|' read -r scheme destination resources <<<"$spec"
+            app="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "$scheme" -configuration BootstrapDebug -destination "$destination" -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'target = ARGV[0]; settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == target }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))' "$scheme")"
+            manifest="$app/${resources}PrivacyInfo.xcprivacy"
+            if [ ! -f "$manifest" ]; then
+              echo "$scheme bundle is missing ${resources}PrivacyInfo.xcprivacy ($app)"
+              exit 1
+            fi
+            plutil -lint "$manifest"
+          done
 
   coverage:
     name: Coverage

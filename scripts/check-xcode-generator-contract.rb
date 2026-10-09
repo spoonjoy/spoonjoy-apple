@@ -182,6 +182,7 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
 
   project_content = project_text.read
   fail_check("generated project missing AppIcon compiler setting") unless project_content.include?("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;")
+  fail_check("generated project must copy PrivacyInfo.xcprivacy into both apps") unless project_content.scan(%r{/\* PrivacyInfo\.xcprivacy in Resources \*/ = \{isa = PBXBuildFile;}).length == 2
   scheme_dir = one.join("Spoonjoy.xcodeproj/xcshareddata/xcschemes")
   scheme_files = scheme_dir.children.select { |path| path.extname == ".xcscheme" }.map(&:basename).map(&:to_s).sort
   expected_scheme_files = ["Spoonjoy iOS.xcscheme", "Spoonjoy macOS.xcscheme"]
