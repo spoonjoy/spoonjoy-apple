@@ -356,6 +356,26 @@ extension NativeSyncStore {
         }.queue
     }
 
+    /// Appends `mutations` in one step and, only while this scope's cache holds no shopping items and no shopping
+    /// edit is queued, seeds the cache with `shoppingRecords`. Those must come from a list with no queued edit
+    /// applied: a cached list that already holds a queued edit gets it applied again on the next launch.
+    @discardableResult
+    public func appendMutations(
+        _ mutations: [NativeQueuedMutation],
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        seedingShoppingRecords shoppingRecords: [NativeSyncCachedRecord]
+    ) throws -> NativeMutationQueue {
+        try updateQueue(accountID: accountID, environment: environment) { snapshot in
+            let canSeed = !snapshot.cachedRecords.contains { $0.kind == .shoppingItem } &&
+                !snapshot.queue.mutations.contains(where: \.mutatesShoppingCache)
+            return NativeQueueUpdate(
+                queue: try snapshot.queue.appending(contentsOf: mutations),
+                upsertingCachedRecords: canSeed ? shoppingRecords : []
+            )
+        }.queue
+    }
+
     /// Removes the named mutations from the queue for this scope in one step.
     @discardableResult
     public func removeMutations(
