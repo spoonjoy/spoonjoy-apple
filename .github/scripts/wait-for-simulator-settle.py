@@ -27,11 +27,13 @@ BURST_LINES_SINCE_BOOT = 5000
 BURST_LINES_PER_WINDOW = 1000
 QUIET_LINES_PER_WINDOW = 60
 WINDOW_SECONDS = 20
-QUIET_READINGS_NEEDED = 2
-# Locally the burst starts 45 to 70 s after boot on an idle simulator. With no burst by this point, the simulator is
-# taken as settled. The CI runs that failed saw it start about 5 minutes after boot, but their tests were already
-# loading the simulator by then; the logged burst start times on CI tell whether this window needs to grow.
-NO_BURST_AFTER_BOOT_SECONDS = 180
+# Three quiet readings 10 s apart span about 40 s, so a short pause between poster batches does not end the wait.
+QUIET_READINGS_NEEDED = 3
+# Locally the burst starts 45 to 85 s after boot on an idle simulator, but the CI runs that failed saw it start about
+# 5 minutes after boot, and here the boot overlaps the build, so CI is loaded during boot too. With no burst by this
+# point, the simulator is taken as settled. Lower it only once the "Poster burst under way" lines from CI runs show
+# the burst reliably starts earlier.
+NO_BURST_AFTER_BOOT_SECONDS = 360
 POLL_SECONDS = 10
 # The longest one log read may take, so the deadline holds even when the simulator is too busy to answer.
 LOG_READ_LIMIT_SECONDS = 90
@@ -74,14 +76,16 @@ def wait(udid: str, booted_at: int, deadline_minutes: float) -> str:
 
     # A simulator booted before this job may have had its burst long ago, so for it a quiet log is enough.
     burst_seen = booted_at <= 0
+    history_unreadable = False
     try:
         since_boot = poster_lines(udid, history_seconds, min(LOG_READ_LIMIT_SECONDS, deadline - time.time()))
         burst_seen = burst_seen or since_boot >= BURST_LINES_SINCE_BOOT
         print(f"Poster log lines in the last {history_seconds} s: {since_boot}; burst {'already seen' if burst_seen else 'not seen yet'}.")
     except LogUnreadable as error:
-        # The history read is the largest; it is most likely to time out in the middle of a heavy burst, so keep
-        # watching the short windows instead of giving up.
-        print(f"Could not read the log since boot ({error}); watching recent windows instead.")
+        # The history read is the largest. A filtered read that cannot finish means a very large poster volume, which
+        # is the burst itself, so count it as seen and keep watching the short windows instead of giving up.
+        history_unreadable = burst_seen = True
+        print(f"Could not read the log since boot ({error}); taking that as a burst and watching recent windows instead.")
 
     quiet_readings = 0
     burst_active = False
@@ -96,7 +100,9 @@ def wait(udid: str, booted_at: int, deadline_minutes: float) -> str:
         print(f"{time.strftime('%H:%M:%S')} ({since_boot_now}): {recent} poster log lines in the last {WINDOW_SECONDS} s.", flush=True)
 
         if burst_seen and quiet_readings >= QUIET_READINGS_NEEDED:
-            return "burst finished" if booted_at > 0 else "quiet log (simulator was already booted)"
+            if booted_at <= 0:
+                return "quiet log (simulator was already booted)"
+            return "burst finished" if burst_active or not history_unreadable else "log quiet after an unreadable history (burst assumed)"
         if not burst_seen and booted_at > 0 and time.time() - booted_at >= NO_BURST_AFTER_BOOT_SECONDS and quiet_readings >= QUIET_READINGS_NEEDED:
             return f"no burst within {NO_BURST_AFTER_BOOT_SECONDS} s of boot"
         if time.time() >= deadline:
