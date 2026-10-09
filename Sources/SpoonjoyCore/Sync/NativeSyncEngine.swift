@@ -3602,10 +3602,20 @@ extension NativeQueuedMutation {
         }
     }
 
+    /// Shown on the held-change banner when a queued edit's photo is no longer on this device.
+    public static let missingStagedPhotoMessage = "The photo for this change is no longer on this device. Discard the change, then add the photo again."
+
+    /// Staged photos this edit names whose bytes are not loaded: after resolving, the ones missing from disk.
+    var missingStagedMediaStageIDs: [String] {
+        media.values.filter { $0.data.isEmpty }.map(\.localStageID).sorted()
+    }
+
+    /// Loads each staged photo from disk. A photo that is gone stays unloaded, so only this edit is affected: the drain
+    /// turns it into a conflict instead of sending it, and every other edit still loads, queues and syncs.
     func resolvingStagedMedia(using resolver: any NativeStagedMediaResolving) throws -> NativeQueuedMutation {
         var resolvedMedia: [String: NativeStagedMediaUpload] = [:]
         for (key, upload) in media {
-            resolvedMedia[key] = upload.data.isEmpty ? upload.replacingData(try resolver.data(for: upload)) : upload
+            resolvedMedia[key] = upload.data.isEmpty ? (try? resolver.data(for: upload)).map(upload.replacingData) ?? upload : upload
         }
 
         return NativeQueuedMutation(
@@ -4575,14 +4585,19 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             }
 
             let result: NativeSyncMutationResult
-            do {
-                result = try await transport.send(mutation, configuration: configuration)
-            } catch is RecipeCoverImageNormalizationError {
-                result = .conflict(
-                    kind: .validation,
-                    serverRevision: nil,
-                    message: "Queued cover photo is unreadable. Choose the photo again."
-                )
+            if !mutation.missingStagedMediaStageIDs.isEmpty {
+                // The photo was removed from this device after the edit was queued; sending would upload nothing.
+                result = .conflict(kind: .validation, serverRevision: nil, message: NativeQueuedMutation.missingStagedPhotoMessage)
+            } else {
+                do {
+                    result = try await transport.send(mutation, configuration: configuration)
+                } catch is RecipeCoverImageNormalizationError {
+                    result = .conflict(
+                        kind: .validation,
+                        serverRevision: nil,
+                        message: "Queued cover photo is unreadable. Choose the photo again."
+                    )
+                }
             }
             switch result {
             case .success(let revision, let idRemaps):
