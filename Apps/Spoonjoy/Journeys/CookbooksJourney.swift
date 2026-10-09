@@ -59,6 +59,7 @@ final class CookbooksJourney: JourneyTestCase {
             cookbookRow(journey, titles[0]).waitForNonExistence(timeout: JourneyApp.interactionTimeout),
             "Searching the cookbook for Charlie still lists Alpha. Screen: \(journey.screen)"
         )
+        assertAboveKeyboard(cookbookRow(journey, titles[2]), in: journey, "The Charlie match is hidden under the keyboard. Screen: \(journey.screen)")
         journey.attachScreenshot(named: "04-cookbook-search-match", to: self)
 
         // A search with no match says so.
@@ -67,7 +68,17 @@ final class CookbooksJourney: JourneyTestCase {
             journey.element(JourneyID.cookbookSearchEmpty).waitForExistence(timeout: JourneyApp.interactionTimeout),
             "A cookbook search that matches nothing does not say so. Screen: \(journey.screen)"
         )
+        assertAboveKeyboard(journey.element(JourneyID.cookbookSearchEmpty), in: journey, "The no-match message is hidden under the keyboard. Screen: \(journey.screen)")
         journey.attachScreenshot(named: "05-cookbook-search-empty", to: self)
+
+        // Return closes the keyboard and leaves the message in view.
+        journey.pressReturn()
+        XCTAssertTrue(
+            journey.app.keyboards.firstMatch.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Return did not close the keyboard. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(journey.element(JourneyID.cookbookSearchEmpty).exists, "Closing the keyboard lost the no-match message. Screen: \(journey.screen)")
+        journey.attachScreenshot(named: "05b-cookbook-search-keyboard-closed", to: self)
 
         // A link to a recipe that does not exist shows the not-found page with a way back.
         journey.openLink(URL(string: "spoonjoy://recipes/journey-missing-\(token.lowercased())")!)
@@ -114,6 +125,16 @@ final class CookbooksJourney: JourneyTestCase {
             ]
         )
         try await qa.addRecipe(recipeID, toCookbook: cookbookID)
+    }
+
+    /// Waits until the element sits fully above the keyboard, which is up while the search field has focus.
+    private func assertAboveKeyboard(_ element: XCUIElement, in journey: JourneyApp, _ message: @autoclosure () -> String, file: StaticString = #filePath, line: UInt = #line) {
+        let keyboard = journey.app.keyboards.firstMatch
+        let isClear = NSPredicate { _, _ in
+            element.exists && keyboard.exists && element.frame.maxY <= keyboard.frame.minY
+        }
+        let result = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: isClear, object: nil)], timeout: JourneyApp.interactionTimeout)
+        XCTAssertEqual(result, .completed, message(), file: file, line: line)
     }
 
     private func cookbookRow(_ journey: JourneyApp, _ recipeTitle: String) -> XCUIElement {

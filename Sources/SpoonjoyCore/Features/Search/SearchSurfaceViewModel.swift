@@ -139,6 +139,9 @@ public struct SearchSurfaceEmptyState: Equatable, Sendable {
     public let message: String
     public let systemImage: String
 
+    /// The second line under "No matches for ...", shared by every search that finds nothing.
+    public static let noMatchHelp = "Check the spelling, or try a shorter word."
+
     public init(title: String, message: String, systemImage: String) {
         self.title = title
         self.message = message
@@ -295,7 +298,7 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
             let query = state.query
             return SearchSurfaceEmptyState(
                 title: "No matches for \"\(query)\"",
-                message: Self.noResultsMessage(query: query, scope: state.scope),
+                message: SearchSurfaceEmptyState.noMatchHelp,
                 systemImage: "magnifyingglass"
             )
         }
@@ -304,21 +307,6 @@ public struct SearchSurfaceViewModel: Equatable, Sendable {
             message: "Recipes, cookbooks, chefs, and shopping list items will gather here.",
             systemImage: "magnifyingglass"
         )
-    }
-
-    private static func noResultsMessage(query: String, scope: SearchScope) -> String {
-        switch scope {
-        case .all:
-            "No Spoonjoy results match \"\(query)\"."
-        case .recipes:
-            "No saved recipes match \"\(query)\"."
-        case .cookbooks:
-            "No cookbooks match \"\(query)\"."
-        case .chefs:
-            "No chefs match \"\(query)\"."
-        case .shoppingList:
-            "No shopping items match \"\(query)\"."
-        }
     }
 
     private static func errorState(_ error: SearchSurfaceRepositoryError) -> SearchSurfaceErrorState {

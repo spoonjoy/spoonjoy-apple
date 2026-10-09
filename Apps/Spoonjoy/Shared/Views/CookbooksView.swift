@@ -732,6 +732,7 @@ private struct CookbookDetailView: View {
     @State private var activeConfirmationDialog: CookbookConfirmationDialog?
     @State private var isOwnerToolsExpanded = false
     @State private var recipeQuery = ""
+    @FocusState private var isRecipeSearchFocused: Bool
 
     init(
         viewModel: CookbookDetailViewModel,
@@ -748,11 +749,31 @@ private struct CookbookDetailView: View {
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
+            cookbookPage
+                // Focusing the search field lifts it to the top of the page so its matches sit above the keyboard.
+                .onChange(of: isRecipeSearchFocused) { _, isFocused in
+                    if isFocused {
+                        withAnimation(.easeOut(duration: 0.25)) {
+                            proxy.scrollTo(Self.recipeSearchAnchor, anchor: UnitPoint(x: 0.5, y: 0.14))
+                        }
+                    }
+                }
+        }
+    }
+
+    private static let recipeSearchAnchor = "cookbook.search.anchor"
+
+    private var cookbookPage: some View {
         KitchenTablePage(maxContentWidth: 860) {
             cookbookDetailSpread
             statusBanner
             recipes
             ownerTools
+            if isRecipeSearchFocused {
+                // A short result list cannot scroll the field up by itself, so the page gains room while typing.
+                Color.clear.frame(height: 480)
+            }
         }
         // The scrolled page fades under a solid edge at the top, so its title never collides with the
         // status bar or the back button.
@@ -917,14 +938,21 @@ private struct CookbookDetailView: View {
             } else {
                 if viewModel.recipes.count > 1 {
                     recipeSearchField
+                        .id(Self.recipeSearchAnchor)
                 }
                 let visibleRecipeIDs = matchingRecipeIDs
                 if visibleRecipeIDs.isEmpty {
-                    Text("No recipes match \u{201C}\(recipeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}.")
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                        .padding(.vertical, 12)
-                        .accessibilityIdentifier("cookbook.search.empty")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("No recipes match \u{201C}\(recipeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}")
+                            .font(KitchenTableTheme.bodyNote)
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                        Text(SearchSurfaceEmptyState.noMatchHelp)
+                            .font(KitchenTableTheme.bodyNote)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                    }
+                    .padding(.vertical, 12)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("cookbook.search.empty")
                 }
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
@@ -961,6 +989,8 @@ private struct CookbookDetailView: View {
                 .font(KitchenTableTheme.bodyNote)
                 .autocorrectionDisabled()
                 .submitLabel(.search)
+                .focused($isRecipeSearchFocused)
+                .onSubmit { isRecipeSearchFocused = false }
                 .accessibilityIdentifier("cookbook.search.field")
             if !recipeQuery.isEmpty {
                 Button {
