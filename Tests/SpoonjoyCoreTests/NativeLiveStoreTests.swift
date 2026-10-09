@@ -6079,8 +6079,12 @@ struct NativeLiveStoreTests {
 
     @Test("root view bootstraps through live store instead of fixture first run")
     func rootViewBootstrapsThroughLiveStoreInsteadOfFixtureFirstRun() throws {
-        let relativePath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
-        let content = uncommentedSwift(try readRepoFile(relativePath))
+        // The root view maps each bootstrap state to what it shows through
+        // NativeAppBootstrapState.shellPresentation, so every state is still handled by name, now in that file.
+        let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
+        let presentationPath = "Sources/SpoonjoyCore/AppState/NativeShellPresentation.swift"
+        let relativePath = "\(rootViewPath) + \(presentationPath)"
+        let content = uncommentedSwift(try readRepoFile(rootViewPath)) + "\n" + uncommentedSwift(try readRepoFile(presentationPath))
 
         expectContent(
             content,

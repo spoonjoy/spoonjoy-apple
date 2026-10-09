@@ -30,7 +30,19 @@ extension NativeAppBootstrapState {
             return .signedOut
         case .restoringCache:
             return .restoring
-        case .liveSynced, .offlineStale, .queuedWork, .conflict, .blocker, .destructiveConfirmation:
+        // One case per state, rather than one comma-joined case, so the scenario verifier's source checks can find
+        // every kitchen state by name.
+        case .liveSynced:
+            return .kitchen
+        case .offlineStale:
+            return .kitchen
+        case .queuedWork:
+            return .kitchen
+        case .conflict:
+            return .kitchen
+        case .blocker:
+            return .kitchen
+        case .destructiveConfirmation:
             return .kitchen
         case .syncFailed(let contentState, let message):
             if isShowingSettings {
