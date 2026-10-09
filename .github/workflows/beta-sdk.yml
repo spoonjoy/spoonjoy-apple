@@ -9,15 +9,59 @@ on:
     branches:
       - main
 
+concurrency:
+  # A new push to a pull request cancels its superseded run, so stale runs stop holding the few xcode-27 runners.
+  # Every main commit keeps its own run: TestFlight publishes from Native's success on main.
+  group: beta-sdk-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  discover:
+    name: Find Xcode 27.1+ on the runner
+    runs-on: xcode-27
+    timeout-minutes: 5
+    outputs:
+      xcodes: ${{ steps.find.outputs.xcodes }}
+    steps:
+      - name: List every Xcode newer than 27.0
+        id: find
+        # The image renames and drops beta Xcodes over time, so the matrix is read from the runner, never hard-coded.
+        # Stable 27.1+ counts too: once it ships, this job keeps proving the hinge code until CI moves to it.
+        run: |
+          set -euo pipefail
+          # The image ships aliases (Xcode_27.1.app, Xcode_27.1.0.app) for one install, so builds are keyed by the
+          # real bundle and each install is built once, under the first name that points at it.
+          # /bin/bash on macOS is 3.2, which has no associative arrays, so seen bundles go in a newline list.
+          seen=""
+          names=()
+          for app in /Applications/Xcode_*.app; do
+            name="${app#/Applications/Xcode_}"; name="${name%.app}"
+            real="$(cd "$app" && pwd -P)"
+            version="$(defaults read "$app/Contents/Info" CFBundleShortVersionString 2>/dev/null || echo unknown)"
+            build="$(defaults read "$app/Contents/version" ProductBuildVersion 2>/dev/null || echo unknown)"
+            echo "$name -> $real ($version, $build)"
+            awk -F'[._]' '($1 > 27) || ($1 == 27 && $2 >= 1) { ok = 1 } END { exit !ok }' <<<"$name" || continue
+            grep -qxF "$real" <<<"$seen" && continue
+            seen="$seen"$'\n'"$real"
+            names+=("$name")
+          done
+          xcodes="$(printf '%s\n' ${names[@]+"${names[@]}"} | jq -R . | jq -cs 'map(select(length > 0))')"
+          echo "found: $xcodes"
+          if [[ "$xcodes" == "[]" ]]; then
+            echo "No Xcode 27.1 or newer on the xcode-27 image; the hinge code cannot be compiled." >&2
+            exit 1
+          fi
+          echo "xcodes=$xcodes" >> "$GITHUB_OUTPUT"
+
   beta-sdk-build:
     name: Beta SDK build (${{ matrix.xcode }})
+    needs: discover
     runs-on: xcode-27
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        xcode: ['27.1_beta', '27.2_beta']
+        xcode: ${{ fromJSON(needs.discover.outputs.xcodes) }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
