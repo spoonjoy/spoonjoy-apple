@@ -888,7 +888,7 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains("NativeAppStateLocation.defaultFileURL()"))
         #expect(appIntentsSource.contains("FileBackedNativeSyncStore"))
         #expect(appIntentsSource.contains("NativeQueuedMutation.intentMutation(from:"))
-        #expect(appIntentsSource.contains("saveQueue"))
+        #expect(appIntentsSource.contains("syncStore.appendMutations("))
         #expect(appIntentsSource.contains("KeychainTokenVault()"))
         #expect(appIntentsSource.contains("trustedIntentScope"))
         #expect(appIntentsSource.contains("NativeIntentActionError.authRequired"))
