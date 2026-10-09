@@ -1459,15 +1459,13 @@ public struct NativeShellContentState {
         let baseShoppingList: ShoppingListState?
         if items.isEmpty {
             if let appShoppingList = appSnapshot?.shoppingList {
-                // The saved copy is the list the shopping screen showed, which may already hold queued adds. Drop
-                // the items those adds made so replaying the queue below adds each one once.
-                let queuedClientMutationIDs = (optimisticMutations + syncSnapshot.queue.mutations).map(\.clientMutationID)
+                // The saved copy is the list the shopping screen showed, which may already hold items queued adds
+                // made. Drop every item made on this device: one whose add is still queued comes back once when the
+                // queue is replayed below, and one whose add was discarded no longer belongs in the list.
                 baseShoppingList = ShoppingListState(
                     id: appShoppingList.id,
                     chef: appShoppingList.chef,
-                    items: appShoppingList.items.filter { item in
-                        !queuedClientMutationIDs.contains { NativeQueuedMutation.shoppingItemDependencyKey(itemID: item.id) == "shopping:new:\($0)" }
-                    },
+                    items: appShoppingList.items.filter { !$0.id.hasPrefix("item_local_") },
                     nextCursor: appShoppingList.nextCursor,
                     updatedAt: appShoppingList.updatedAt
                 )

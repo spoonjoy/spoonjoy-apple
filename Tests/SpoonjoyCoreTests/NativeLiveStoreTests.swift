@@ -321,6 +321,31 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("an item whose add was discarded does not come back from the saved copy of the list on relaunch")
+    func discardedLocalItemDoesNotReturnFromSavedList() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_eggs", title: "Eggs")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil)
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)), appStateStoreProvider: { appStateStore })
+            await liveStore.bootstrap()
+
+            let add = NativeQueuedMutation.shoppingAddItem(name: "eggs", quantity: 6, unit: nil, categoryKey: nil, iconKey: nil, clientMutationID: "cm_eggs", createdAt: Self.isoString(Self.now))
+            try await liveStore.queueMutation(add)
+            // The shopping screen saved the list while it showed the eggs; then the cook discarded the add.
+            liveStore.recordShoppingList(try #require(liveStore.bootstrapState.contentState.shoppingList))
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_eggs")
+
+            let offlineError = APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .retrySameRequest(afterSeconds: nil))
+            let relaunched = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: ThrowingLiveStoreSyncTransport(error: offlineError), appStateStoreProvider: { appStateStore })
+            await relaunched.bootstrap()
+            #expect(relaunched.bootstrapState.contentState.shoppingList?.item(id: "item_local_cm_eggs") == nil)
+        }
+    }
+
+    @MainActor
     @Test("live store queueMutation optimistically reflects queued cookbook edits")
     func liveStoreQueueMutationOptimisticallyReflectsQueuedCookbookEdits() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
