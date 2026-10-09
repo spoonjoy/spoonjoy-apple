@@ -103,6 +103,16 @@ struct NativeRefreshClientIDTests {
         )
     }
 
+    @Test("the derived client id matches the server's own output for the QA origin")
+    func derivedClientIDMatchesTheServersFixedVector() {
+        // nativeAppleOAuthClientId("https://spoonjoy-v2-qa.mendelow-studio.workers.dev") on the server.
+        let serverOutput = "spoonjoy-apple-native:bb380180f319522cf838262707b442e3e224fb322ff3570d4d497987650b9d3b"
+        let qa = URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev")!
+        #expect(NativeAuthSession.nativeClientID(forServerBaseURL: qa) == serverOutput)
+        #expect(NativeAuthSession.nativeClientID(forServerBaseURL: URL(string: "https://spoonjoy-v2-qa.mendelow-studio.workers.dev/")!) == serverOutput)
+        #expect(NativeAuthSession.nativeClientID(forServerBaseURL: URL(string: "https://SPOONJOY-V2-QA.mendelow-studio.workers.dev:443/x?y=1")!) == serverOutput)
+    }
+
     @Test("token responses decode the client id the server issued")
     func decodesIssuedClientID() throws {
         let json = Data("""
@@ -154,33 +164,97 @@ struct NativeRefreshClientIDTests {
 
     // MARK: Migration
 
-    @Test("a stored session with the plain id is migrated to the id this server issues, and refreshes with it")
-    func migratesStoredSessions() async throws {
-        let derived = NativeAuthSession.nativeClientID(forServerBaseURL: Self.qaURL)
+    @Test("a stored legacy session is not rewritten before the server has accepted anything")
+    func restoreDoesNotRewriteTheStoredClientID() async throws {
         let vault = InMemoryTokenVault()
         try await vault.saveClientID(NativeAuthSession.nativeAppClientID)
-        let stored = try Self.session(clientID: NativeAuthSession.nativeAppClientID)
-        try await vault.saveSession(stored)
-
-        let seen = ClientIDLog()
-        let repository = Self.repository(vault: vault, serverBaseURL: Self.qaURL) { clientID, refreshToken in
-            await seen.record(clientID: clientID, refreshToken: refreshToken)
-            return Self.response(clientID: clientID)
-        }
+        try await vault.saveSession(try Self.session(clientID: NativeAuthSession.nativeAppClientID))
+        let repository = Self.repository(vault: vault, serverBaseURL: Self.qaURL)
 
         guard case .refreshRequired(let restored) = try await repository.restoreState() else {
             Issue.record("Expected an expired session to need a refresh")
             return
         }
-        #expect(restored.clientID == derived)
-        #expect(restored.refreshToken == "sj_refresh_old")
-        #expect(restored.accountID == "chef_ari")
-        #expect(try await vault.loadClientID() == derived)
+        #expect(restored.clientID == NativeAuthSession.nativeAppClientID)
+        #expect(try await vault.loadClientID() == NativeAuthSession.nativeAppClientID)
+        #expect(try await vault.loadSession()?.clientID == NativeAuthSession.nativeAppClientID)
+    }
+
+    @Test("a legacy session that still refreshes with its stored id keeps that id")
+    func legacySessionThatStillWorksKeepsItsID() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: NativeAuthSession.nativeAppClientID))
+        let seen = ClientIDLog()
+        let repository = Self.repository(vault: vault, serverBaseURL: Self.qaURL) { clientID, refreshToken in
+            await seen.record(clientID: clientID, refreshToken: refreshToken)
+            return Self.response()
+        }
+
+        let refreshed = try await repository.validSession()
+        #expect(refreshed.clientID == NativeAuthSession.nativeAppClientID)
+        #expect(await seen.entries == [.init(clientID: NativeAuthSession.nativeAppClientID, refreshToken: "sj_refresh_old")])
+        #expect(try await vault.loadSession()?.clientID == NativeAuthSession.nativeAppClientID)
+    }
+
+    @Test("a legacy session the server refuses is retried once with the derived id, and only that id is saved")
+    func legacySessionRetriesWithTheDerivedID() async throws {
+        let derived = NativeAuthSession.nativeClientID(forServerBaseURL: Self.qaURL)
+        let vault = InMemoryTokenVault()
+        try await vault.saveClientID(NativeAuthSession.nativeAppClientID)
+        try await vault.saveSession(try Self.session(clientID: NativeAuthSession.nativeAppClientID))
+        let seen = ClientIDLog()
+        let repository = Self.repository(vault: vault, serverBaseURL: Self.qaURL) { clientID, refreshToken in
+            await seen.record(clientID: clientID, refreshToken: refreshToken)
+            if clientID == NativeAuthSession.nativeAppClientID {
+                throw Self.transportError(status: 400)
+            }
+            return Self.response(clientID: clientID)
+        }
 
         let refreshed = try await repository.validSession()
         #expect(refreshed.clientID == derived)
-        #expect(await seen.entries == [.init(clientID: derived, refreshToken: "sj_refresh_old")])
+        #expect(refreshed.accountID == "chef_ari")
+        #expect(await seen.entries == [
+            .init(clientID: NativeAuthSession.nativeAppClientID, refreshToken: "sj_refresh_old"),
+            .init(clientID: derived, refreshToken: "sj_refresh_old")
+        ])
+        #expect(try await vault.loadClientID() == derived)
         #expect(try await vault.loadSession()?.clientID == derived)
+    }
+
+    @Test("when both candidate ids are refused the stored session is left exactly as it was")
+    func refusedLegacySessionIsNotRewritten() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveClientID(NativeAuthSession.nativeAppClientID)
+        try await vault.saveSession(try Self.session(clientID: NativeAuthSession.nativeAppClientID))
+        let counter = CallCounter()
+        let repository = Self.repository(vault: vault, serverBaseURL: Self.qaURL) { _, _ in
+            await counter.bump()
+            throw Self.transportError(status: 400)
+        }
+
+        await #expect(throws: TokenRefreshError.sessionExpired) {
+            try await repository.validSession()
+        }
+        #expect(await counter.count == 2)
+        #expect(try await vault.loadClientID() == NativeAuthSession.nativeAppClientID)
+        #expect(try await vault.loadSession()?.clientID == NativeAuthSession.nativeAppClientID)
+        #expect(try await vault.loadSession()?.refreshToken == "sj_refresh_old")
+    }
+
+    @Test("a transient failure on a legacy session does not try the second id")
+    func transientFailureDoesNotTryTheDerivedID() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: NativeAuthSession.nativeAppClientID))
+        let counter = CallCounter()
+        let repository = Self.repository(vault: vault, serverBaseURL: Self.qaURL) { _, _ in
+            await counter.bump()
+            throw Self.transportError(status: 503)
+        }
+        await #expect(throws: (any Error).self) {
+            try await repository.validSession()
+        }
+        #expect(await counter.count == 1)
     }
 
     @Test("sessions that are already right are left alone, and production keeps the plain id")
@@ -228,7 +302,14 @@ struct NativeRefreshClientIDTests {
             requestID: "req_1",
             statusCode: status,
             apiError: status.map {
-                APIError(requestID: "req_1", code: "oauth_http_status_\($0)", message: "OAuth request failed.", status: $0)
+                // 400 and 401 are the statuses the server's OAuth endpoint answers a refused refresh token with;
+                // every other status here is one a proxy or the platform could produce.
+                APIError(
+                    requestID: "req_1",
+                    code: [400, 401].contains($0) ? "invalid_grant" : "oauth_http_status_\($0)",
+                    message: "OAuth request failed.",
+                    status: $0
+                )
             },
             retryDecision: .doNotRetry
         )
@@ -282,6 +363,9 @@ struct NativeRefreshClientIDTests {
             Self.transportError(status: 425),
             Self.transportError(status: 429),
             Self.transportError(status: 503),
+            Self.transportError(status: 403, kind: .nonJSONResponse),
+            Self.transportError(status: 404, kind: .nonJSONResponse),
+            Self.transportError(status: 413, kind: .nonJSONResponse),
             URLError(.timedOut)
         ]
         for failure in failures {
@@ -302,6 +386,209 @@ struct NativeRefreshClientIDTests {
             let recovered = try await repository.validSession()
             #expect(recovered.refreshToken == "sj_refresh_new")
             #expect(await counter.count == 2)
+        }
+    }
+
+    // MARK: The OAuth error body
+
+    private static func decoded(
+        status: Int,
+        body: String,
+        isJSON: Bool = true
+    ) -> APITransportError? {
+        OAuthErrorResponse.transportError(
+            statusCode: status,
+            isJSON: isJSON,
+            data: Data(body.utf8),
+            requestID: "req_body",
+            retryAfterSeconds: nil
+        )
+    }
+
+    @Test("only an OAuth invalid_grant or invalid_client body makes a refresh failure permanent")
+    func onlyOAuthRefusalsArePermanent() throws {
+        let invalidGrant = try #require(Self.decoded(
+            status: 400,
+            body: #"{"error":"invalid_grant","error_description":"Unknown or revoked refresh token"}"#
+        ))
+        #expect(invalidGrant.apiError?.code == "invalid_grant")
+        #expect(invalidGrant.apiError?.message == "Unknown or revoked refresh token")
+        #expect(TokenRefreshError.isPermanent(invalidGrant))
+
+        let invalidClient = try #require(Self.decoded(status: 401, body: #"{"error":"invalid_client"}"#))
+        #expect(invalidClient.apiError?.message == "invalid_client")
+        #expect(TokenRefreshError.isPermanent(invalidClient))
+
+        // Other OAuth errors, and the same codes at statuses the server never uses for them, are not the token's fault.
+        for (status, body) in [
+            (400, #"{"error":"invalid_request"}"#),
+            (400, #"{"error":"unsupported_grant_type"}"#),
+            (429, #"{"error":"slow_down"}"#),
+            (503, #"{"error":"temporarily_unavailable"}"#),
+            (403, #"{"error":"invalid_grant"}"#)
+        ] {
+            let error = try #require(Self.decoded(status: status, body: body))
+            #expect(!TokenRefreshError.isPermanent(error))
+        }
+    }
+
+    @Test("an HTML 403, a plain 404, a 413 and an empty body are not OAuth errors")
+    func nonOAuthBodiesAreNotDecoded() {
+        #expect(Self.decoded(status: 403, body: "<html><body>Access denied</body></html>", isJSON: false) == nil)
+        #expect(Self.decoded(status: 403, body: "<html>error code: 1020</html>") == nil)
+        #expect(Self.decoded(status: 404, body: "Not Found", isJSON: false) == nil)
+        #expect(Self.decoded(status: 413, body: "") == nil)
+        #expect(Self.decoded(status: 400, body: #"{"error":""}"#) == nil)
+        #expect(Self.decoded(status: 400, body: #"{"error":{"code":"x"}}"#) == nil)
+        // A body that says invalid_grant but is not served as JSON is not trusted either.
+        #expect(Self.decoded(status: 400, body: #"{"error":"invalid_grant"}"#, isJSON: false) == nil)
+    }
+
+    @Test("a revoked-on-purpose marker survives decoding and only that marker counts")
+    func userRevocationMarker() throws {
+        let revoked = try #require(Self.decoded(
+            status: 400,
+            body: #"{"error":"invalid_grant","error_description":"Session revoked","reason":"revoked_by_user"}"#
+        ))
+        #expect(OAuthErrorResponse.isUserRevocation(revoked))
+        let expired = try #require(Self.decoded(status: 400, body: #"{"error":"invalid_grant","reason":"expired"}"#))
+        #expect(!OAuthErrorResponse.isUserRevocation(expired))
+        let plain = try #require(Self.decoded(status: 400, body: #"{"error":"invalid_grant"}"#))
+        #expect(!OAuthErrorResponse.isUserRevocation(plain))
+        #expect(!OAuthErrorResponse.isUserRevocation(URLError(.badURL)))
+        #expect(!TokenRefreshError.isPermanent(URLError(.badURL)))
+    }
+
+    @Test("a refresh the chef revoked on purpose reports a revocation, not an expiry")
+    func revokedRefreshReportsRevocation() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let counter = CallCounter()
+        let repository = Self.repository(vault: vault, serverBaseURL: nil) { _, _ in
+            await counter.bump()
+            throw try #require(Self.decoded(
+                status: 400,
+                body: #"{"error":"invalid_grant","reason":"revoked_by_user"}"#
+            ))
+        }
+        for _ in 0..<2 {
+            await #expect(throws: TokenRefreshError.sessionRevoked) {
+                try await repository.validSession()
+            }
+        }
+        #expect(await counter.count == 1)
+    }
+
+    @Test("URL loading failures that mean no network become offline transport errors")
+    func offlineURLErrorsMapToOffline() {
+        for code in [URLError.Code.notConnectedToInternet, .networkConnectionLost, .cannotFindHost, .cannotConnectToHost,
+                     .timedOut, .internationalRoamingOff, .callIsActive, .dataNotAllowed] {
+            let mapped = OAuthErrorResponse.offlineError(for: URLError(code))
+            #expect(mapped?.isOffline == true)
+            #expect(mapped?.statusCode == nil)
+        }
+        #expect(OAuthErrorResponse.offlineError(for: URLError(.badURL)) == nil)
+        #expect(OAuthErrorResponse.offlineError(for: URLError(.cancelled)) == nil)
+    }
+
+    // MARK: Rotation race
+
+    @Test("a refresh another process already rotated is used instead of expiring the session")
+    func rotationRaceUsesTheStoredSession() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let rotatedElsewhere = try AuthSession(
+            clientID: "cm_old",
+            accessToken: "sj_access_other_process",
+            refreshToken: "sj_refresh_other_process",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(900),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        )
+        let counter = CallCounter()
+        let repository = Self.repository(vault: vault, serverBaseURL: nil) { _, refreshToken in
+            await counter.bump()
+            // While this request was in flight, App Intents rotated the same token and stored the result.
+            try await vault.saveSession(rotatedElsewhere)
+            #expect(refreshToken == "sj_refresh_old")
+            throw Self.transportError(status: 400)
+        }
+
+        let session = try await repository.validSession()
+        #expect(session.refreshToken == "sj_refresh_other_process")
+        #expect(session.accessToken == "sj_access_other_process")
+        #expect(await counter.count == 1)
+        #expect(try await vault.loadSession() == rotatedElsewhere)
+
+        // The session was not marked dead: the next call just uses the live one.
+        #expect(try await repository.validSession().refreshToken == "sj_refresh_other_process")
+    }
+
+    @Test("a rotation race whose stored session is also expired refreshes that one")
+    func rotationRaceWithExpiredStoredSessionRefreshesAgain() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let expiredElsewhere = try Self.session(clientID: "cm_old", refresh: "sj_refresh_other_process")
+        let seen = ClientIDLog()
+        let repository = Self.repository(vault: vault, serverBaseURL: nil) { clientID, refreshToken in
+            await seen.record(clientID: clientID, refreshToken: refreshToken)
+            if refreshToken == "sj_refresh_old" {
+                try await vault.saveSession(expiredElsewhere)
+                throw Self.transportError(status: 400)
+            }
+            return Self.response(refresh: "sj_refresh_after_race")
+        }
+
+        let session = try await repository.validSession()
+        #expect(session.refreshToken == "sj_refresh_after_race")
+        #expect(await seen.entries.map(\.refreshToken) == ["sj_refresh_old", "sj_refresh_other_process"])
+    }
+
+    @Test("a rotation race that keeps losing to expired sessions stops after two rounds")
+    func endlessRotationRaceStops() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let counter = CallCounter()
+        let repository = Self.repository(vault: vault, serverBaseURL: nil) { _, _ in
+            await counter.bump()
+            try await vault.saveSession(try Self.session(clientID: "cm_old", refresh: "sj_refresh_race_\(await counter.count)"))
+            throw Self.transportError(status: 400)
+        }
+        let session = try await repository.validSession()
+        #expect(session.refreshToken == "sj_refresh_race_2")
+        #expect(await counter.count == 2)
+    }
+
+    @Test("an expired or revoked session keeps its account scope, and a missing one stays signed out")
+    func storedScopeSurvivesExpiry() throws {
+        let stored = try Self.session(clientID: "cm_old")
+        #expect(NativeAuthSessionState.signedOut.keepingStoredScope == .signedOut)
+        #expect(NativeAuthSessionState.authenticated(stored).keepingStoredScope == .refreshRequired(stored))
+        #expect(NativeAuthSessionState.refreshRequired(stored).keepingStoredScope == .refreshRequired(stored))
+    }
+
+    @Test("an OAuth error with no request id still decodes")
+    func decodesWithoutARequestID() throws {
+        let error = try #require(OAuthErrorResponse.transportError(
+            statusCode: 400,
+            isJSON: true,
+            data: Data(#"{"error":"invalid_grant"}"#.utf8),
+            requestID: nil,
+            retryAfterSeconds: nil
+        ))
+        #expect(error.requestID == "unknown")
+    }
+
+    @Test("a refusal with an unchanged vault still expires the session")
+    func refusalWithUnchangedVaultExpires() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let repository = Self.repository(vault: vault, serverBaseURL: nil) { _, _ in
+            throw Self.transportError(status: 400)
+        }
+        await #expect(throws: TokenRefreshError.sessionExpired) {
+            try await repository.validSession()
         }
     }
 

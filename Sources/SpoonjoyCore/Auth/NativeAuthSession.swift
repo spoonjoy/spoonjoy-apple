@@ -16,6 +16,20 @@ public enum NativeAuthSessionState: Equatable, Sendable {
     case refreshRequired(AuthSession)
 }
 
+extension NativeAuthSessionState {
+    /// The state a session that can no longer refresh (expired or revoked) is shown under. A stored session keeps
+    /// its account, so every writer keeps using that account's snapshot and queue; with no stored session there
+    /// is no account to keep.
+    var keepingStoredScope: NativeAuthSessionState {
+        switch self {
+        case .signedOut:
+            .signedOut
+        case .authenticated(let session), .refreshRequired(let session):
+            .refreshRequired(session)
+        }
+    }
+}
+
 public struct NativeAuthSignInStart: Equatable, Sendable {
     public let clientID: String
     public let redirectURI: URL

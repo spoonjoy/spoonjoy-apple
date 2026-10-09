@@ -157,7 +157,19 @@ struct SpoonjoyRootView: View {
     }
 #endif
 
+    /// The sign-in banner and sheet sit at the root, so they work in every state that shows the saved kitchen
+    /// (offline, queued work, a conflict, a failed sync), not only one of them.
     @ViewBuilder private var rootContent: some View {
+        bootstrapContent
+            .safeAreaInset(edge: .top, spacing: 0) {
+                sessionExpiredBanner(contentState: liveStore.bootstrapState.contentState)
+            }
+            .sheet(isPresented: $showsReauthSheet) {
+                reauthSheet
+            }
+    }
+
+    @ViewBuilder private var bootstrapContent: some View {
         switch liveStore.bootstrapState {
         case .signedOut(let contentState):
             signedOutContent(contentState: contentState)
@@ -167,12 +179,6 @@ struct SpoonjoyRootView: View {
             platformNavigation(contentState: contentState)
         case .offlineStale(let contentState):
             platformNavigation(contentState: contentState)
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    sessionExpiredBanner(contentState: contentState)
-                }
-                .sheet(isPresented: $showsReauthSheet) {
-                    reauthSheet
-                }
         case .queuedWork(let contentState):
             platformNavigation(contentState: contentState)
         case .conflict(let contentState):
@@ -195,7 +201,7 @@ struct SpoonjoyRootView: View {
     /// Shown over the saved kitchen when the server refused the stored session for good. The saved kitchen
     /// stays readable; this is the one place the chef is told why syncing stopped and offered a way back.
     @ViewBuilder private func sessionExpiredBanner(contentState: NativeShellContentState) -> some View {
-        if case .signedOut = contentState.authSessionState {
+        if contentState.isSessionExpired, !isShowingSignedOutScreen {
             HStack(spacing: 12) {
                 Text("You're signed out. Sign in to sync your kitchen.")
                     .font(KitchenTableTheme.bodyNote)
@@ -213,6 +219,13 @@ struct SpoonjoyRootView: View {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("session.signedOutBanner")
         }
+    }
+
+    private var isShowingSignedOutScreen: Bool {
+        if case .signedOut = liveStore.bootstrapState {
+            return true
+        }
+        return false
     }
 
     private var reauthSheet: some View {
@@ -1153,7 +1166,14 @@ private enum OAuthURLSessionSupport {
         for (name, value) in request.headers {
             urlRequest.setValue(value, forHTTPHeaderField: name)
         }
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
+        } catch let error as URLError {
+            // No usable network is an offline answer, not a refusal: the caller keeps the session.
+            throw OAuthErrorResponse.offlineError(for: error) ?? error
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APITransportError(
                 kind: .nonHTTPResponse,
@@ -1191,6 +1211,17 @@ private enum OAuthURLSessionSupport {
 
     private static func httpError(data: Data, response: HTTPURLResponse) -> APITransportError {
         let retryAfterSeconds = retryAfterSeconds(from: response)
+        // The OAuth endpoints answer with an RFC 6749 body ({"error": ..., "error_description": ...}). Only that
+        // body can say the refresh token itself was refused; a proxy's HTML 403 or a 404 cannot.
+        if let oauthError = OAuthErrorResponse.transportError(
+            statusCode: response.statusCode,
+            isJSON: isJSONResponse(response),
+            data: data,
+            requestID: requestID(from: response),
+            retryAfterSeconds: retryAfterSeconds
+        ) {
+            return oauthError
+        }
         let apiError: APIError
         if isJSONResponse(response),
            let decoded = try? APIEnvelope<JSONValue>.decodeResult(data),

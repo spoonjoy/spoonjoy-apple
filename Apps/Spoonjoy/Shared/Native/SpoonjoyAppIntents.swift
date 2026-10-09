@@ -1765,6 +1765,16 @@ private enum SpoonjoyIntentOAuthSupport {
         }
 
         guard 200...299 ~= httpResponse.statusCode else {
+            let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+            if let oauthError = OAuthErrorResponse.transportError(
+                statusCode: httpResponse.statusCode,
+                isJSON: contentType.contains("json"),
+                data: response.data,
+                requestID: httpResponse.value(forHTTPHeaderField: "X-Request-ID"),
+                retryAfterSeconds: nil
+            ) {
+                throw oauthError
+            }
             throw APITransportError(
                 kind: .apiError,
                 requestID: httpResponse.value(forHTTPHeaderField: "X-Request-ID"),

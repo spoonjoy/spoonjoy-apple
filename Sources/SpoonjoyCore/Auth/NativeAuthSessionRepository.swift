@@ -74,7 +74,23 @@ public actor NativeAuthSessionRepository {
         self.reusesSavedClientID = reusesSavedClientID
         self.serverBaseURL = serverBaseURL
         self.now = now
-        self.refreshCoordinator = RefreshCoordinator(vault: vault, refresh: refresh)
+        // Sessions stored before the app kept the server-issued client id carry the plain native id, which only
+        // production issues. Elsewhere the first refresh uses that stored id (it may still work, because a
+        // rotation keeps the id the tokens were issued to); if the server refuses it, the coordinator tries the
+        // id this server derives, once, and saves only the id that worked.
+        let derivedClientID = serverBaseURL.map(NativeAuthSession.nativeClientID(forServerBaseURL:))
+        self.refreshCoordinator = RefreshCoordinator(
+            vault: vault,
+            refresh: refresh,
+            alternateClientID: { session in
+                guard session.clientID == NativeAuthSession.nativeAppClientID,
+                      let derivedClientID,
+                      derivedClientID != session.clientID else {
+                    return nil
+                }
+                return derivedClientID
+            }
+        )
     }
 
     public func startSignIn(
@@ -187,26 +203,8 @@ public actor NativeAuthSessionRepository {
         serverBaseURL.map(NativeAuthSession.nativeClientID(forServerBaseURL:))
     }
 
-    /// Sessions stored before the app kept the server-issued client id carry the plain native id, which only
-    /// production issues. On any other server that id is rejected at refresh ("issued to a different client"),
-    /// so rewrite it to the id this server derives. The refresh token is unchanged and still valid.
-    private func migratedStoredSession() async throws -> AuthSession? {
-        guard let session = try await vault.loadSession() else {
-            return nil
-        }
-        guard session.clientID == NativeAuthSession.nativeAppClientID,
-              let derived = derivedNativeClientID,
-              derived != session.clientID else {
-            return session
-        }
-        let migrated = try session.replacingClientID(derived)
-        try await vault.saveClientID(derived)
-        try await vault.saveSession(migrated)
-        return migrated
-    }
-
     public func restoreState() async throws -> NativeAuthSessionState {
-        guard let session = try await migratedStoredSession() else {
+        guard let session = try await vault.loadSession() else {
             return .signedOut
         }
 
@@ -218,8 +216,7 @@ public actor NativeAuthSessionRepository {
     }
 
     public func validSession() async throws -> AuthSession {
-        _ = try await migratedStoredSession()
-        return try await refreshCoordinator.validSession(at: now())
+        try await refreshCoordinator.validSession(at: now())
     }
 
     public func bindAccountID(_ accountID: String) async throws -> AuthSession {
@@ -227,6 +224,12 @@ public actor NativeAuthSessionRepository {
         let boundSession = try session.bindingAccountID(accountID)
         try await vault.saveSession(boundSession)
         return boundSession
+    }
+
+    /// Forgets the stored session and client id without telling the server, for a session the server already
+    /// reported as revoked.
+    public func clearLocalSession() async throws {
+        try await refreshCoordinator.disconnect()
     }
 
     public func revokeAndLogout() async throws {

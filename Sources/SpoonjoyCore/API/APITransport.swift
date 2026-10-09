@@ -417,7 +417,7 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
         return nil
     }
 
-    private static func isOffline(_ code: URLError.Code) -> Bool {
+    static func isOffline(_ code: URLError.Code) -> Bool {
         switch code {
         case .notConnectedToInternet,
              .networkConnectionLost,

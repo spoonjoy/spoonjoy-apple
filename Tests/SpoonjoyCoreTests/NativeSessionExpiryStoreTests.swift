@@ -8,6 +8,10 @@ struct NativeSessionExpiryStoreTests {
 
     private enum RefreshOutcome: Sendable {
         case invalidGrant
+        case revoked
+        case htmlForbidden
+        case notFound
+        case payloadTooLarge
         case offline
         case serverError
         case success
@@ -21,23 +25,50 @@ struct NativeSessionExpiryStoreTests {
             self.outcomes = outcomes
         }
 
+        /// What the app builds from a JSON RFC 6749 body.
+        static func oauthRefusal(status: Int, code: String, reason: String?) -> APITransportError {
+            OAuthErrorResponse.transportError(
+                statusCode: status,
+                isJSON: true,
+                data: Data(
+                    ("{\"error\":\"\(code)\",\"error_description\":\"refused\""
+                        + (reason.map { ",\"reason\":\"\($0)\"" } ?? "") + "}").utf8
+                ),
+                requestID: "req_refusal",
+                retryAfterSeconds: nil
+            )!
+        }
+
+        /// What the app builds from a proxy's HTML or an empty error page.
+        static func genericRefusal(status: Int) -> APITransportError {
+            APITransportError(
+                kind: .nonJSONResponse,
+                requestID: "req_generic",
+                statusCode: status,
+                apiError: APIError(
+                    requestID: "req_generic",
+                    code: "oauth_http_status_\(status)",
+                    message: "OAuth request failed with HTTP \(status).",
+                    status: status
+                ),
+                retryDecision: .doNotRetry
+            )
+        }
+
         func next(clientID: String) throws -> OAuthTokenResponse {
             clientIDs.append(clientID)
             let outcome = outcomes.count > 1 ? outcomes.removeFirst() : (outcomes.first ?? .success)
             switch outcome {
             case .invalidGrant:
-                throw APITransportError(
-                    kind: .apiError,
-                    requestID: nil,
-                    statusCode: 400,
-                    apiError: APIError(
-                        requestID: "unknown",
-                        code: "oauth_http_status_400",
-                        message: "Refresh token was issued to a different client",
-                        status: 400
-                    ),
-                    retryDecision: .doNotRetry
-                )
+                throw Self.oauthRefusal(status: 400, code: "invalid_grant", reason: nil)
+            case .revoked:
+                throw Self.oauthRefusal(status: 400, code: "invalid_grant", reason: OAuthErrorResponse.userRevokedReason)
+            case .htmlForbidden:
+                throw Self.genericRefusal(status: 403)
+            case .notFound:
+                throw Self.genericRefusal(status: 404)
+            case .payloadTooLarge:
+                throw Self.genericRefusal(status: 413)
             case .offline:
                 throw APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
             case .serverError:
@@ -60,9 +91,32 @@ struct NativeSessionExpiryStoreTests {
         }
     }
 
+    /// Lets a test make the sync itself fail the way the API refresher does when the session dies mid-sync.
+    private final class FailureSwitch: @unchecked Sendable {
+        private let lock = NSLock()
+        private var error: Error?
+
+        func set(_ error: Error?) {
+            lock.lock()
+            defer { lock.unlock() }
+            self.error = error
+        }
+
+        func current() -> Error? {
+            lock.lock()
+            defer { lock.unlock() }
+            return error
+        }
+    }
+
     private struct EmptyTransport: NativeSyncTransport {
+        let failure: FailureSwitch
+
         func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
-            .success(cursor: nil, tombstones: [])
+            if let error = failure.current() {
+                throw error
+            }
+            return .success(cursor: nil, tombstones: [])
         }
 
         func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
@@ -113,6 +167,9 @@ struct NativeSessionExpiryStoreTests {
         let script: RefreshScript
         let store: NativeLiveAppStore
         let appStateStore: NativeAppStateStore
+        let syncStore: InMemoryNativeSyncStore
+        let failure: FailureSwitch
+        let cacheStore: NativeDurableCacheStore
     }
 
     @MainActor
@@ -122,7 +179,8 @@ struct NativeSessionExpiryStoreTests {
         lastOpenedRoute: AppRoute? = nil,
         checkpointUpdatedAt: String? = nil,
         wallClockNow: Bool = false,
-        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst
+        bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
+        queuedMutations: [NativeQueuedMutation] = []
     ) async throws -> Fixture {
         let directory = try directory()
         let vault = InMemoryTokenVault()
@@ -171,7 +229,7 @@ struct NativeSessionExpiryStoreTests {
             accountID: "chef_ari",
             environment: .production,
             checkpoint: checkpoint,
-            queue: NativeMutationQueue(),
+            queue: try NativeMutationQueue(mutations: queuedMutations),
             cachedRecords: try cachedRecipeIDs.map { id in
                 let recipe = recipe(id: id)
                 return NativeSyncCachedRecord(
@@ -182,11 +240,13 @@ struct NativeSessionExpiryStoreTests {
                 )
             }
         )
-        let engine = NativeSyncEngine(store: syncStore, transport: EmptyTransport(), clock: clock)
+        let failure = FailureSwitch()
+        let engine = NativeSyncEngine(store: syncStore, transport: EmptyTransport(failure: failure), clock: clock)
         let configuration = APIClientConfiguration.spoonjoyProduction
+        let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
         let store = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
             authSessionRepository: repository,
-            cacheStore: NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
+            cacheStore: cacheStore,
             syncStore: syncStore,
             syncEngine: engine,
             syncTriggerCoordinator: NativeSyncTriggerCoordinator(runner: engine, configuration: configuration),
@@ -196,14 +256,33 @@ struct NativeSessionExpiryStoreTests {
             bootstrapMode: bootstrapMode,
             now: clock
         ))
-        return Fixture(directory: directory, vault: vault, script: script, store: store, appStateStore: appStateStore)
+        return Fixture(
+            directory: directory,
+            vault: vault,
+            script: script,
+            store: store,
+            appStateStore: appStateStore,
+            syncStore: syncStore,
+            failure: failure,
+            cacheStore: cacheStore
+        )
     }
 
     // MARK: Permanent failure
 
+    private static func assertKeepsAccountScope(_ content: NativeShellContentState) {
+        guard case .refreshRequired(let session) = content.authSessionState else {
+            Issue.record("Expected the stored session to keep its scope, got \(content.authSessionState)")
+            return
+        }
+        #expect(session.accountID == "chef_ari")
+        #expect(content.isSessionExpired)
+        #expect(content.configuration.bearerToken == nil)
+    }
+
     @MainActor
-    @Test("invalid_grant shows the cached kitchen, signed out everywhere, and offers sign-in")
-    func invalidGrantShowsCachedKitchenSignedOut() async throws {
+    @Test("invalid_grant shows the cached kitchen under the stored account and offers sign-in")
+    func invalidGrantShowsCachedKitchenUnderStoredAccount() async throws {
         let fixture = try await Self.fixture(outcomes: [.invalidGrant])
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
 
@@ -214,9 +293,7 @@ struct NativeSessionExpiryStoreTests {
             return
         }
         #expect(content.recipes.map(\.id) == ["recipe_cached"])
-        #expect(content.authSessionState == .signedOut)
-        #expect(content.configuration.bearerToken == nil)
-        #expect(content.settingsSurfaceViewModel.primaryAuthAction != nil)
+        Self.assertKeepsAccountScope(content)
         #expect(content.offlineIndicatorState.display == .stale(domain: .accountBootstrap))
         // The expired session stays stored, so nothing the chef cached is orphaned.
         #expect(try await fixture.vault.loadSession()?.accountID == "chef_ari")
@@ -228,7 +305,7 @@ struct NativeSessionExpiryStoreTests {
             Issue.record("Expected the cached kitchen on the second launch")
             return
         }
-        #expect(again.authSessionState == .signedOut)
+        Self.assertKeepsAccountScope(again)
     }
 
     @MainActor
@@ -243,8 +320,232 @@ struct NativeSessionExpiryStoreTests {
             Issue.record("Expected the sign-in state, got \(fixture.store.bootstrapState)")
             return
         }
-        #expect(content.authSessionState == .signedOut)
+        Self.assertKeepsAccountScope(content)
         #expect(content.recipes.isEmpty)
+    }
+
+    @MainActor
+    @Test("editing while the session is expired keeps the chef's snapshot, queue and drafts")
+    func editingWhileExpiredKeepsTheChefsData() async throws {
+        let existing = NativeQueuedMutation.shoppingAddItem(
+            name: "limes",
+            quantity: 1,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_before_expiry",
+            createdAt: "2026-06-16T11:00:00.000Z"
+        )
+        let fixture = try await Self.fixture(
+            outcomes: [.invalidGrant],
+            queuedMutations: [existing]
+        )
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        await fixture.store.bootstrap()
+        Self.assertKeepsAccountScope(fixture.store.bootstrapState.contentState)
+
+        // Edits made after the session expired: a queued shopping edit, an opened route, a draft.
+        let added = NativeQueuedMutation.shoppingAddItem(
+            name: "lemons",
+            quantity: 2,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_after_expiry",
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+        try await fixture.store.queueMutation(added)
+        fixture.store.recordingOpenedRoute(.recipeDetail(id: "recipe_cached", presentation: .detail))
+        let draft = CaptureDraft(
+            id: "draft_while_expired",
+            source: .text,
+            rawText: "two eggs, a cup of flour",
+            imageAssetIdentifier: nil,
+            createdAt: "2026-06-16T12:01:00.000Z"
+        )
+        fixture.store.recordCaptureDraft(draft)
+
+        // The chef's snapshot is still the chef's, and the queue holds both edits.
+        let snapshot = try await fixture.syncStore.loadSnapshot()
+        #expect(snapshot.accountID == "chef_ari")
+        let queue = try await fixture.syncStore.loadQueue()
+        #expect(queue.mutations.map(\.clientMutationID) == ["cm_before_expiry", "cm_after_expiry"])
+        let appSnapshot = try fixture.appStateStore.loadOrCreate(fallback: NativeAppSnapshot.bootstrap(
+            shoppingList: nil,
+            accountID: "signed-out",
+            environment: .production,
+            savedAt: "2026-06-16T12:02:00.000Z"
+        )).value
+        #expect(appSnapshot.accountID == "chef_ari")
+        #expect(appSnapshot.captureDraft?.id == "draft_while_expired")
+        #expect(appSnapshot.lastOpenedRoute != nil)
+
+        // Nothing was saved under the signed-out scope, and the screen still shows the chef's work.
+        let content = fixture.store.bootstrapState.contentState
+        Self.assertKeepsAccountScope(content)
+        #expect(content.recipes.map(\.id) == ["recipe_cached"])
+        #expect(content.queuedMutations.map(\.clientMutationID).contains("cm_after_expiry"))
+        #expect(content.captureDraft?.id == "draft_while_expired")
+
+        // A relaunch while still expired restores the same work.
+        await fixture.store.bootstrap()
+        let relaunched = fixture.store.bootstrapState.contentState
+        Self.assertKeepsAccountScope(relaunched)
+        #expect(relaunched.queuedMutations.count == 2)
+        #expect(relaunched.captureDraft?.id == "draft_while_expired")
+        #expect(try await fixture.syncStore.loadQueue().mutations.count == 2)
+    }
+
+    @MainActor
+    @Test("an expiry raised by the sync itself, after the refresh, is handled the same way")
+    func expiryRaisedDuringSyncKeepsTheKitchen() async throws {
+        let fixture = try await Self.fixture(outcomes: [.success])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        fixture.failure.set(TokenRefreshError.sessionExpired)
+
+        await fixture.store.bootstrap()
+
+        guard case .offlineStale(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the cached kitchen with the sign-in banner, got \(fixture.store.bootstrapState)")
+            return
+        }
+        Self.assertKeepsAccountScope(content)
+        #expect(content.recipes.map(\.id) == ["recipe_cached"])
+    }
+
+    @MainActor
+    @Test("an expiry found while switching environment shows the sign-in banner")
+    func expiryDuringEnvironmentSwitchShowsTheBanner() async throws {
+        let fixture = try await Self.fixture(outcomes: [.success])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        await fixture.store.bootstrap()
+        guard case .liveSynced(let synced) = fixture.store.bootstrapState else {
+            Issue.record("Expected the first sync to work, got \(fixture.store.bootstrapState)")
+            return
+        }
+        #expect(!synced.isSessionExpired)
+
+        fixture.failure.set(TokenRefreshError.sessionExpired)
+        await fixture.store.switchEnvironment(.production)
+
+        let content = fixture.store.bootstrapState.contentState
+        #expect(content.isSessionExpired)
+        guard case .refreshRequired(let session) = content.authSessionState else {
+            Issue.record("Expected the stored scope, got \(content.authSessionState)")
+            return
+        }
+        #expect(session.accountID == "chef_ari")
+    }
+
+    @MainActor
+    @Test("a revocation found while switching environment wipes the device")
+    func revocationDuringEnvironmentSwitchWipesTheDevice() async throws {
+        let fixture = try await Self.fixture(outcomes: [.success])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        await fixture.store.bootstrap()
+
+        fixture.failure.set(TokenRefreshError.sessionRevoked)
+        await fixture.store.switchEnvironment(.production)
+
+        guard case .signedOut(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the sign-in screen, got \(fixture.store.bootstrapState)")
+            return
+        }
+        #expect(content.recipes.isEmpty)
+        #expect(try await fixture.vault.loadSession() == nil)
+    }
+
+    @MainActor
+    @Test("a sign-in after an expiry clears the banner")
+    func signInAfterExpiryClearsTheBanner() async throws {
+        let fixture = try await Self.fixture(outcomes: [.invalidGrant, .success])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        await fixture.store.bootstrap()
+        #expect(fixture.store.bootstrapState.contentState.isSessionExpired)
+
+        // A new sign-in is a new refresh token in the vault.
+        try await fixture.vault.saveSession(try AuthSession(
+            clientID: NativeAuthSession.nativeAppClientID,
+            accessToken: "sj_access_signed_in",
+            refreshToken: "sj_refresh_signed_in",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(3_600),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari"
+        ))
+        await fixture.store.bootstrap()
+
+        guard case .liveSynced(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected a live sync after signing in, got \(fixture.store.bootstrapState)")
+            return
+        }
+        #expect(!content.isSessionExpired)
+    }
+
+    // MARK: Revoked on purpose
+
+    @MainActor
+    @Test("a session the chef revoked on purpose wipes the cached kitchen and the Keychain session")
+    func revokedSessionWipesTheDevice() async throws {
+        let queued = NativeQueuedMutation.shoppingAddItem(
+            name: "limes",
+            quantity: 1,
+            unit: "each",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_revoked",
+            createdAt: "2026-06-16T11:00:00.000Z"
+        )
+        let fixture = try await Self.fixture(outcomes: [.revoked], queuedMutations: [queued])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+
+        await fixture.store.bootstrap()
+
+        guard case .signedOut(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the sign-in screen, got \(fixture.store.bootstrapState)")
+            return
+        }
+        #expect(content.authSessionState == .signedOut)
+        #expect(!content.isSessionExpired)
+        #expect(content.recipes.isEmpty)
+        #expect(content.queuedMutations.isEmpty)
+        #expect(try await fixture.vault.loadSession() == nil)
+        #expect(try await fixture.vault.loadClientID() == nil)
+
+        // A relaunch has nothing of the account to restore.
+        await fixture.store.bootstrap()
+        guard case .signedOut(let again) = fixture.store.bootstrapState else {
+            Issue.record("Expected the sign-in screen on relaunch, got \(fixture.store.bootstrapState)")
+            return
+        }
+        #expect(again.recipes.isEmpty)
+    }
+
+    // MARK: Refusals that are not the token's
+
+    @MainActor
+    @Test("an HTML 403, a 404 and a 413 are transient: the session and the cached kitchen stay")
+    func nonOAuthFourHundredsDoNotSignTheChefOut() async throws {
+        for outcome in [RefreshOutcome.htmlForbidden, .notFound, .payloadTooLarge] {
+            let fixture = try await Self.fixture(outcomes: [outcome, .success])
+            defer { try? FileManager.default.removeItem(at: fixture.directory) }
+
+            await fixture.store.bootstrap()
+
+            guard case .syncFailed(let content, _) = fixture.store.bootstrapState else {
+                Issue.record("Expected a retryable failure for \(outcome), got \(fixture.store.bootstrapState)")
+                return
+            }
+            #expect(!content.isSessionExpired)
+            #expect(content.recipes.map(\.id) == ["recipe_cached"])
+            #expect(try await fixture.vault.loadSession()?.refreshToken == "sj_refresh_dead")
+
+            await fixture.store.bootstrap()
+            guard case .liveSynced = fixture.store.bootstrapState else {
+                Issue.record("Expected the retry to sync for \(outcome), got \(fixture.store.bootstrapState)")
+                return
+            }
+        }
     }
 
     // MARK: Transient failure
