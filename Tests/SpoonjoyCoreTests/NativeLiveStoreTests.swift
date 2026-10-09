@@ -1163,6 +1163,43 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("an edit queued while a sync is sending survives that sync and reaches the server")
+    func editQueuedWhileSyncSendsSurvives() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_race", title: "Server Pasta")
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt))
+                ]
+            )
+            let gate = SendGateNativeSyncTransport()
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: gate)
+            await liveStore.bootstrap()
+            _ = try await liveStore.queueMutations([
+                NativeQueuedMutation.recipeUpdate(recipeID: "recipe_race", clientMutationID: "cm_race_sending", title: "Sending", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            ], drainImmediately: false)
+
+            let sync = liveStore.requestSync(trigger: .foreground)
+            await gate.waitForFirstSend()
+            // The cook edits again while the first edit is on the wire.
+            let late = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_race", clientMutationID: "cm_race_late", title: "Late edit", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            _ = try await liveStore.queueMutations([late], drainImmediately: false)
+            await gate.releaseFirstSend()
+            await sync.value
+
+            // The late edit is kept, so the sync's follow-up pass (it saw the queue change) sends it too.
+            #expect(await gate.sentClientMutationIDs() == ["cm_race_sending", "cm_race_late"])
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+            #expect(liveStore.bootstrapState.contentState.queuedMutations.isEmpty)
+        }
+    }
+
+    @MainActor
     @Test("repeated sync requests with no new edit run once, even for an empty kitchen")
     func repeatedSyncRequestsDoNotLoopForEmptyKitchen() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6656,6 +6693,18 @@ private actor FlakyRestoreNativeSyncStore: NativeSyncStore {
             throw NativeSyncStoreError.unavailable("restore unavailable")
         }
         return .empty
+    }
+
+    func updateQueue(
+        accountID _: String?,
+        environment _: NativeCacheEnvironment?,
+        _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
+    ) throws -> NativeQueueUpdate {
+        try transform(.empty)
+    }
+
+    func queuedClientMutationIDs() throws -> Set<String> {
+        []
     }
 }
 
