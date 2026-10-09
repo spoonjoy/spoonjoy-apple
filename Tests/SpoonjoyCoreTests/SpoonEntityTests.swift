@@ -161,8 +161,8 @@ struct SpoonEntityTests {
             contracts: [
                 (
                     relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
-                    label: "performSettingsSessionOperation",
-                    pattern: #"func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)"#,
+                    label: "purgeLocalAccountData",
+                    pattern: #"func\s+purgeLocalAccountData\(\)"#,
                     requiredTokens: [
                         "case .logout, .revokeAndLogout",
                         "SpoonEntityIndexPurgePlan.accountScopePurge",
