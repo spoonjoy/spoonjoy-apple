@@ -14,14 +14,14 @@ struct NativeTombstonePruningTests {
         NativeSyncCachedRecord(kind: kind, resourceID: id, payload: .object([:]), serverRevision: .updatedAt("2026-10-09T08:00:00.000Z"))
     }
 
-    private static func syncData(_ entries: [NativeSyncEntry]) -> NativeSyncData {
+    private static func syncData(_ entries: [NativeSyncEntry], serverTime: String = "2026-10-09T08:00:00.000Z") -> NativeSyncData {
         NativeSyncData(
             freshness: NativeSyncFreshness(
                 accountID: "chef_ari",
                 environment: .production,
                 schemaVersion: 1,
                 sourceEndpoint: "/api/v1/me/sync",
-                generatedAt: "2026-10-09T08:00:00.000Z",
+                generatedAt: serverTime,
                 lastValidatedAt: "2026-10-09T08:00:00.000Z"
             ),
             entries: entries,
@@ -36,7 +36,7 @@ struct NativeTombstonePruningTests {
         return formatter.string(from: Date(timeIntervalSince1970: 1_780_000_000 + Double(n) * 86_400))
     }
 
-    @Test("old tombstones are dropped unless they still hide something cached; recent ones always stay")
+    @Test("old tombstones are dropped unless they still hide something cached or name a chef; recent ones always stay")
     func dropsOnlyOldTombstonesThatHideNothing() {
         let records = Dictionary(uniqueKeysWithValues: [
             Self.record(.recipe, "recipe_cached"),
@@ -56,6 +56,7 @@ struct NativeTombstonePruningTests {
         ], cachedRecords: records)
 
         #expect(pruned.map(\.resourceID) == [
+            "chef_old_gone",
             "spoon_in_cached_recipe",
             "cookbook_unreadable_date",
             "chef_recent_gone",
@@ -83,10 +84,10 @@ struct NativeTombstonePruningTests {
                 let deletedAt = Self.day(round * 30)
                 _ = try await store.apply(syncData: Self.syncData([
                     NativeSyncEntry(action: .upsert, kind: .shoppingItem, resourceID: id, updatedAt: deletedAt, payload: .object(["name": .string("milk")]), tombstone: nil)
-                ]), validatedAt: Self.validatedAt)
+                ], serverTime: deletedAt), validatedAt: Self.validatedAt)
                 _ = try await store.apply(syncData: Self.syncData([
                     NativeSyncEntry(action: .delete, kind: .shoppingItem, resourceID: id, updatedAt: deletedAt, payload: nil, tombstone: Self.tombstone(.shoppingItem, id, at: deletedAt))
-                ]), validatedAt: Self.validatedAt)
+                ], serverTime: deletedAt), validatedAt: Self.validatedAt)
             }
             // Deletions 30 days apart: only those within 90 days of the newest are still remembered.
             #expect(try await store.loadSnapshot().tombstones.map(\.resourceID) == ["item_16", "item_17", "item_18", "item_19"])
@@ -105,5 +106,22 @@ struct NativeTombstonePruningTests {
 
         #expect(try await store.cachedRecord(kind: .profile, resourceID: "chef_peer") == nil)
         #expect(await store.loadSnapshot().tombstones.map(\.resourceID) == ["chef_peer"])
+    }
+
+    @Test("a deletion stamped by a device clock set far ahead does not push real deletions out")
+    func futureDatedLocalDeletionDoesNotMoveTheWindow() {
+        let pruned = NativeSyncTombstone.pruned([
+            Self.tombstone(.recipe, "recipe_deleted_last_week", at: Self.day(93)),
+            Self.tombstone(.shoppingItem, "item_deleted_on_device", at: Self.day(465)),
+            Self.tombstone(.cookbook, "cookbook_deleted_long_ago", at: Self.day(0))
+        ], cachedRecords: [:], serverTime: Self.day(100))
+
+        #expect(pruned.map(\.resourceID) == ["recipe_deleted_last_week", "item_deleted_on_device"])
+        // Without a readable server time, the newest deletion sets the window.
+        let uncapped = NativeSyncTombstone.pruned([
+            Self.tombstone(.recipe, "recipe_deleted_last_week", at: Self.day(93)),
+            Self.tombstone(.shoppingItem, "item_deleted_on_device", at: Self.day(465))
+        ], cachedRecords: [:], serverTime: "not a date")
+        #expect(uncapped.map(\.resourceID) == ["item_deleted_on_device"])
     }
 }
