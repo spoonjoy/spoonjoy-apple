@@ -721,13 +721,9 @@ struct SpoonjoyRootView: View {
         let cacheStore = NativeDurableCacheStore(
             fileURL: appDirectory.appendingPathComponent("native-durable-cache.json")
         )
-        let stagedMediaDirectory = NativeStagedMediaDirectory(
-            directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-        )
-        let syncStore = Self.defaultSyncStore(
-            appDirectory: appDirectory,
-            mediaResolver: stagedMediaDirectory
-        )
+        let stagedMediaDirectory = NativeProcessSyncStore.stagedMediaDirectory(appDirectory: appDirectory)
+        // The same store instance the App Intents use, so neither overwrites the other's queue.
+        let syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
         let syncEngine = NativeSyncEngine(store: syncStore, transport: URLSessionNativeSyncTransport())
         let syncTriggerCoordinator = NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration)
         return NativeLiveAppStoreDependencies(
@@ -1008,20 +1004,6 @@ struct SpoonjoyRootView: View {
         }
     }
 #endif
-
-    private static func defaultSyncStore(
-        appDirectory: URL,
-        mediaResolver: NativeStagedMediaDirectory
-    ) -> any NativeSyncStore {
-        do {
-            return try FileBackedNativeSyncStore(
-                fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-                mediaResolver: mediaResolver
-            )
-        } catch {
-            return UnavailableNativeSyncStore(message: "Could not open Spoonjoy sync store: \(error)")
-        }
-    }
 }
 
 #if DEBUG

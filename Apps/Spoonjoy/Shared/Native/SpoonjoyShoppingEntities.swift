@@ -127,12 +127,7 @@ struct SpoonjoyShoppingListEntityQuery: EntityQuery {
 
     private func syncStore(fileURL: URL = NativeAppStateLocation.defaultFileURL()) throws -> any NativeSyncStore {
         let appDirectory = fileURL.deletingLastPathComponent()
-        return try FileBackedNativeSyncStore(
-            fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-            mediaResolver: NativeStagedMediaDirectory(
-                directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-            )
-        )
+        return NativeProcessSyncStore.shared(appDirectory: appDirectory)
     }
 
     private func scope(syncStore: any NativeSyncStore) async throws -> (accountID: String, environment: NativeCacheEnvironment) {
@@ -169,12 +164,7 @@ struct SpoonjoyShoppingItemEntityQuery: EntityQuery, EntityStringQuery {
 
     private func syncStore(fileURL: URL = NativeAppStateLocation.defaultFileURL()) throws -> any NativeSyncStore {
         let appDirectory = fileURL.deletingLastPathComponent()
-        return try FileBackedNativeSyncStore(
-            fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-            mediaResolver: NativeStagedMediaDirectory(
-                directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-            )
-        )
+        return NativeProcessSyncStore.shared(appDirectory: appDirectory)
     }
 
     private func scope(syncStore: any NativeSyncStore) async throws -> (accountID: String, environment: NativeCacheEnvironment) {

@@ -90,7 +90,7 @@ struct SpoonEntityTests {
                     "descriptor.isPlaceholder",
                     "DeepLinkURLBuilder.url(for:",
                     "NativeAppStateLocation.defaultFileURL()",
-                    "FileBackedNativeSyncStore",
+                    "NativeProcessSyncStore.shared(appDirectory:",
                     "loadSnapshot()",
                     "trustedIntentScope",
                     "KeychainTokenVault()",
