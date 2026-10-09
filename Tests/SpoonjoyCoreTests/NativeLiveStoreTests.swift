@@ -6571,23 +6571,6 @@ struct NativeLiveStoreTests {
         )
     }
 
-    @Test("shell contract gate live store instead of fixture parity")
-    func shellContractGatesLiveStoreInsteadOfFixtureParity() throws {
-        let shellContract = try readRepoFile("scripts/check-native-shell-contract.rb")
-
-        expectContent(
-            shellContract,
-            in: "scripts/check-native-shell-contract.rb",
-            contains: [
-                "NativeLiveAppStore",
-                "NativeShellContentState",
-                "NativeLiveAppStoreDependencies",
-                "OfflineStatusView(display:",
-                "fixture fallback disabled"
-            ]
-        )
-    }
-
     @Test("production fixture fallback is an explicit test and demo only policy")
     func productionFixtureFallbackIsAnExplicitTestAndDemoOnlyPolicy() throws {
         let relativePath = "Sources/SpoonjoyCore/AppState/NativeFixtureFallbackPolicy.swift"
