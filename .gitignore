@@ -25,3 +25,16 @@ artifacts/apple/
 # Ruby/Bundler local installs
 .bundle/
 vendor/bundle/
+
+# Agent work residue: task evidence, run logs and autopilot state belong on the desk, not in this repo.
+# (codex-native/tasks/2026-07-07-2353-whole-native-ui-overhaul-visual-audit.md stays tracked because a design contract test reads it.)
+*.log
+/tasks/
+/worker/
+/slugger/
+/apple/
+/AUTOPILOT-STATE.md
+/codex-native/*
+!/codex-native/tasks/
+/codex-native/tasks/*
+!/codex-native/tasks/2026-07-07-2353-whole-native-ui-overhaul-visual-audit.md

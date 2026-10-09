@@ -88,7 +88,7 @@ struct TestFlightAutomationContractTests {
                 "swift-tests",
                 "native-scenario-verifier",
                 "app-bundle",
-                "coverage",
+                "contracts",
                 "github.event_name == 'push'",
                 "github.ref == 'refs/heads/main'",
                 "testflight-release-notes-${{ github.sha }}",
@@ -498,13 +498,13 @@ struct TestFlightAutomationContractTests {
         defer { try? FileManager.default.removeItem(at: missing) }
         try mutateJSON(at: missing.appendingPathComponent("jobs.json")) { json in
             var jobs = json["jobs"] as! [[String: Any]]
-            jobs.removeAll { ($0["name"] as? String) == "Coverage" }
+            jobs.removeAll { ($0["name"] as? String) == "Contracts" }
             json["jobs"] = jobs
         }
         try expectVerifierFailure(
             fixture: missing,
             sourceSHA: currentSHA,
-            contains: "missing required Native job Coverage"
+            contains: "missing required Native job Contracts"
         )
 
         let superseded = try makeCandidateFixture(sourceSHA: currentSHA, mainSHA: currentSHA)
@@ -781,7 +781,7 @@ private let requiredNativeJobNames = [
     "Swift tests",
     "Native scenario verifier",
     "App bundle",
-    "Coverage",
+    "Contracts",
     "TestFlight release note"
 ]
 
