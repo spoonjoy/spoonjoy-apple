@@ -214,7 +214,7 @@ struct CaptureImportIntentTests {
                     pattern: #"private\s+struct\s+SpoonjoyIntentStateWriter"#,
                     requiredTokens: [
                         ".recipeImportSubmit",
-                        "queue.mutations.contains(where:",
+                        "queuedEquivalent(of: mutation, in: snapshot.queue)",
                         "clientMutationID == mutation.clientMutationID",
                         "recipeImportSource == source",
                         "recordingCaptureImportRetry",
