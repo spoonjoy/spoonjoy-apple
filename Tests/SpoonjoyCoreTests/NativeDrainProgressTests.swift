@@ -31,6 +31,31 @@ struct NativeDrainProgressTests {
         #expect(try await store.loadQueue().mutations.isEmpty)
     }
 
+    @Test("an edit the server accepted stays in the cache when the same sync then fails")
+    func acceptedEditReachesTheCacheBeforeALaterFailure() async throws {
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .production,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [
+                .shoppingAddItem(name: "lemons", quantity: nil, unit: nil, categoryKey: nil, iconKey: nil, clientMutationID: "cm_lemons", createdAt: "2026-10-09T08:00:00.000Z"),
+                Self.edit("cm_cut_off")
+            ])
+        )
+        let transport = ProgressTransport(failingClientMutationIDs: ["cm_cut_off"])
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { Self.now })
+
+        await #expect(throws: URLError.self) {
+            _ = try await engine.bootstrapAndDrain(configuration: Self.configuration, trigger: .launch, scope: Self.scope)
+        }
+
+        // The lemons left the queue, so the cache is the only place the screen can find them until the next sync.
+        let cachedNames = try await store.loadSnapshot().cachedRecords
+            .filter { $0.kind == .shoppingItem }
+            .map { try JSONDecoder().decode(ShoppingListItem.self, from: JSONEncoder().encode($0.payload)).name }
+        #expect(cachedNames == ["lemons"])
+    }
+
     @Test("an edit that names a recipe created earlier in the same sync points at the server id once the create is accepted")
     func remainingEditsFollowAcceptedCreates() async throws {
         let create = try NativeQueuedMutation.recipeCreate(clientMutationID: "cm_create", title: "Soup", description: nil, servings: nil, steps: [], createdAt: "2026-10-09T08:00:00.000Z")
