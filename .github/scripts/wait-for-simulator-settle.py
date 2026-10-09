@@ -6,10 +6,13 @@ that burst runs, the simulator is so busy that XCTest misses the "app stopped" n
 terminated, waits its fixed 60 s, and fails with "Failed to terminate app.spoonjoy" (Shopping UI tests runs
 37934203995 and 37928276839: the app died within 2 s; the notice arrived after the 60 s wait had failed).
 
-The burst is a real, observable event, so this waits for it to happen and end rather than sleeping a fixed time:
-it looks for the burst in the simulator log since boot, then waits for the poster log to go quiet. This step only
-improves the odds for the tests, so nothing here fails the job: if no burst shows up by the deadline, or the
-simulator log cannot be read, it continues with a warning.
+The burst is a real, observable event, so this waits on the log rather than sleeping a fixed time. The simulator
+counts as settled at whichever comes first:
+- the burst has started and the poster log has gone quiet again;
+- no burst has started by NO_BURST_AFTER_BOOT_SECONDS after boot (a fast image may never have one).
+The deadline (8 minutes after boot by default) is only a hard cap. The last line says which condition ended the
+wait and how long it took. Nothing here fails the job: an unreadable log or the cap gives a warning and the
+tests start.
 """
 
 import argparse
@@ -25,6 +28,10 @@ BURST_LINES_PER_WINDOW = 1000
 QUIET_LINES_PER_WINDOW = 60
 WINDOW_SECONDS = 20
 QUIET_READINGS_NEEDED = 2
+# Locally the burst starts 45 to 70 s after boot on an idle simulator. With no burst by this point, the simulator is
+# taken as settled. The CI runs that failed saw it start about 5 minutes after boot, but their tests were already
+# loading the simulator by then; the logged burst start times on CI tell whether this window needs to grow.
+NO_BURST_AFTER_BOOT_SECONDS = 180
 POLL_SECONDS = 10
 # The longest one log read may take, so the deadline holds even when the simulator is too busy to answer.
 LOG_READ_LIMIT_SECONDS = 90
@@ -77,18 +84,28 @@ def wait(udid: str, booted_at: int, deadline_minutes: float) -> str:
         print(f"Could not read the log since boot ({error}); watching recent windows instead.")
 
     quiet_readings = 0
+    burst_active = False
     while True:
         recent = poster_lines(udid, WINDOW_SECONDS, deadline - time.time())
+        since_boot_now = since_boot_label(booted_at)
         if recent >= BURST_LINES_PER_WINDOW:
-            burst_seen = True
+            if not burst_active:
+                print(f"Poster burst under way {since_boot_now}.")
+            burst_seen = burst_active = True
         quiet_readings = quiet_readings + 1 if recent < QUIET_LINES_PER_WINDOW else 0
-        print(f"{time.strftime('%H:%M:%S')}: {recent} poster log lines in the last {WINDOW_SECONDS} s.", flush=True)
+        print(f"{time.strftime('%H:%M:%S')} ({since_boot_now}): {recent} poster log lines in the last {WINDOW_SECONDS} s.", flush=True)
 
         if burst_seen and quiet_readings >= QUIET_READINGS_NEEDED:
-            return "settled"
+            return "burst finished" if booted_at > 0 else "quiet log (simulator was already booted)"
+        if not burst_seen and booted_at > 0 and time.time() - booted_at >= NO_BURST_AFTER_BOOT_SECONDS and quiet_readings >= QUIET_READINGS_NEEDED:
+            return f"no burst within {NO_BURST_AFTER_BOOT_SECONDS} s of boot"
         if time.time() >= deadline:
-            return "still running" if burst_seen else "never started"
+            return "cap: burst still running" if burst_seen else "cap: log never quiet"
         time.sleep(POLL_SECONDS)
+
+
+def since_boot_label(booted_at: int) -> str:
+    return f"{int(time.time() - booted_at)} s after boot" if booted_at > 0 else "boot time unknown"
 
 
 def main() -> int:
@@ -100,16 +117,17 @@ def main() -> int:
     print(f"Thresholds: burst at {BURST_LINES_SINCE_BOOT} lines since boot or {BURST_LINES_PER_WINDOW} per {WINDOW_SECONDS} s; "
           f"quiet below {QUIET_LINES_PER_WINDOW} per {WINDOW_SECONDS} s, {QUIET_READINGS_NEEDED} readings in a row.")
 
+    started = time.time()
     try:
         outcome = wait(args.udid, args.booted_at, args.deadline_minutes)
     except LogUnreadable as error:
-        print(f"::warning::Could not tell whether the simulator has settled ({error}); continuing.")
-        return 0
-    if outcome == "settled":
-        print("The poster burst has finished; the simulator is settled.")
+        outcome = f"log unreadable: {error}"
+    waited = int(time.time() - started)
+    summary = f"Settle result: {outcome}; waited {waited} s ({since_boot_label(args.booted_at)})."
+    if outcome.startswith(("cap:", "log unreadable")):
+        print(f"::warning::{summary} Continuing; a test that terminates the app during a poster burst can fail with \"Failed to terminate\".")
     else:
-        print(f"::warning::The simulator's lock screen poster burst {outcome} by the deadline; continuing. "
-              "A test that terminates the app during the burst can fail with \"Failed to terminate\".")
+        print(f"::notice::{summary}")
     return 0
 
 
