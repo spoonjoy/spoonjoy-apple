@@ -782,14 +782,14 @@ private struct CookbookDetailView: View {
         // scrolled page slides cleanly under it, and the back button still sits on top.
         .scrollEdgeEffectHidden(true, for: .top)
         .overlay(alignment: .top) {
-            // Read from the screen's top edge, so the paper is exactly as tall as the bars above the page.
-            GeometryReader { proxy in
-                KitchenTableTheme.bone
-                    .frame(maxWidth: .infinity)
-                    .frame(height: proxy.safeAreaInsets.top)
-            }
-            .ignoresSafeArea(edges: .top)
-            .allowsHitTesting(false)
+            // A zero-height line at the top of the safe area whose paper reaches up to the screen edge:
+            // it covers exactly the status bar and navigation bar. (A GeometryReader that ignores the
+            // safe area reports a top inset of zero, so it cannot size this.)
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 0)
+                .background(KitchenTableTheme.bone.ignoresSafeArea(edges: .top))
+                .allowsHitTesting(false)
             .accessibilityHidden(true)
         }
 #else
