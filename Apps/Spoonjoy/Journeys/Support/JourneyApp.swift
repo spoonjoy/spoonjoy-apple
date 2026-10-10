@@ -180,6 +180,27 @@ final class JourneyApp {
         assertValue(of: field, equals: text, "\(id) does not hold exactly the typed text.", file: file, line: line)
     }
 
+    /// Picks Mine, Saved or Everyone on the Recipes tab.
+    func chooseRecipesScope(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        let scope = app.segmentedControls[JourneyID.recipesPicker].buttons[title]
+        XCTAssertTrue(scope.waitForExistence(timeout: Self.interactionTimeout), "The Recipes tab has no \(title) scope. Screen: \(screen)", file: file, line: line)
+        scope.tap()
+    }
+
+    /// Taps the navigation bar's back button and waits for the page above to go away.
+    func goBack(file: StaticString = #filePath, line: UInt = #line) {
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        XCTAssertTrue(back.waitForExistence(timeout: Self.interactionTimeout), "There is no back button. Screen: \(screen)", file: file, line: line)
+        back.tap()
+    }
+
+    /// Asserts that a text field holds nothing (an empty field reports its placeholder as its value).
+    func assertFieldEmpty(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
+        let field = element(id)
+        XCTAssertTrue(field.waitForExistence(timeout: Self.interactionTimeout), "\(id) did not appear. Screen: \(screen)", file: file, line: line)
+        assertCleared(field, "\(id) is not empty. Screen: \(screen)", file: file, line: line)
+    }
+
     /// Replaces the text in a field that already holds a value.
     func replaceText(in id: String, with text: String, file: StaticString = #filePath, line: UInt = #line) {
         waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear.", file: file, line: line)

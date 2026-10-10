@@ -436,6 +436,13 @@ struct PlatformNavigationView: View {
             root.safeAreaBar(edge: .top) {
                 compactRecipesPicker
             }
+#if os(iOS)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    newRecipeButton
+                }
+            }
+#endif
         case .cookbooks, .shopping, .search:
             root
         }
@@ -465,16 +472,29 @@ struct PlatformNavigationView: View {
             .background(KitchenTableTheme.bone.ignoresSafeArea())
     }
 
-    /// Mine and Saved share the Recipes tab.
+    /// Mine, Saved and Everyone share the Recipes tab.
     private var compactRecipesPicker: some View {
         Picker("Recipes", selection: compactRecipesSelection) {
             Text("Mine").tag(AppRoute.recipes)
             Text("Saved").tag(AppRoute.savedRecipes)
+            Text("Everyone").tag(AppRoute.everyoneRecipes)
         }
         .pickerStyle(.segmented)
         .accessibilityIdentifier("recipes.picker")
         .padding(.horizontal, KitchenTableTheme.pagePadding)
         .padding(.bottom, 8)
+    }
+
+    /// The persistent create entry. It always opens a blank editor, whatever page the chef is on.
+    private var newRecipeButton: some View {
+        Button("New Recipe", systemImage: "plus") {
+            createRecipe()
+        }
+        .accessibilityIdentifier("recipes.new")
+    }
+
+    private func createRecipe() {
+        openRoute(.recipeEditor(id: nil))
     }
 
     private var compactRecipesSelection: Binding<AppRoute> {
@@ -489,6 +509,7 @@ struct PlatformNavigationView: View {
 #if os(iOS)
     @ToolbarContentBuilder private var compactKitchenToolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
+            newRecipeButton
             Button("Import queue", systemImage: "tray.and.arrow.down") {
                 openRoute(.capture)
             }
@@ -554,7 +575,7 @@ struct PlatformNavigationView: View {
     private func selectCompactTab(_ tab: CompactTab) {
         let route = compactTabs.select(tab)
         if route != navigation.route {
-            navigation.navigate(to: route)
+            navigation.navigate(to: route, restoring: true)
         }
         if tab == .search, compactTabs.path(for: .search).isEmpty {
             Task {
@@ -570,7 +591,7 @@ struct PlatformNavigationView: View {
             set: { path in
                 let route = compactTabs.setPath(path, for: tab)
                 if route != navigation.route {
-                    navigation.navigate(to: route)
+                    navigation.navigate(to: route, restoring: true)
                 }
             }
         )
@@ -637,6 +658,7 @@ struct PlatformNavigationView: View {
         case .kitchen,
              .recipes,
              .savedRecipes,
+             .everyoneRecipes,
              .chefs,
              .unknownLink:
             false
@@ -690,8 +712,16 @@ struct PlatformNavigationView: View {
         List(selection: librarySidebarSelection) {
             Section {
                 sidebarLink(section: .kitchen, title: "Kitchen", systemImage: "house")
+                // Create sits with the recipe drawers, always one tap away, and never takes the selection.
+                Button(action: createRecipe) {
+                    Label("New Recipe", systemImage: "plus.circle.fill")
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("sidebar.newRecipe")
                 sidebarLink(section: .recipes, title: "My Recipes", systemImage: "book.closed")
                 sidebarLink(section: .savedRecipes, title: "Saved Recipes", systemImage: "bookmark")
+                sidebarLink(section: .everyoneRecipes, title: "Everyone's Recipes", systemImage: "globe")
                 // The chef's own cookbooks sit under Cookbooks like a table of contents, so a book is one tap away.
                 DisclosureGroup(isExpanded: $isSidebarCookbookContentsExpanded) {
                     ForEach(sidebarCookbookEntries) { entry in
@@ -709,6 +739,8 @@ struct PlatformNavigationView: View {
                 sidebarLink(section: .settings, title: "Settings", systemImage: "gearshape")
             }
         }
+        // The selected row is brass, the Spoonjoy selection color, not the system blue.
+        .tint(KitchenTableTheme.brass)
     }
 
     private var sidebarCookbookEntries: [LibrarySidebarCookbookEntry] {
@@ -786,12 +818,16 @@ struct PlatformNavigationView: View {
                 cookbooks: contentState.cookbooks,
                 openRecipe: openRecipe,
                 startCooking: startCooking,
-                openCookbook: openCookbook
+                openCookbook: openCookbook,
+                createRecipe: createRecipe,
+                importRecipe: { openRoute(.capture) }
             )
         case .recipes:
             RecipesView(viewModel: myRecipesCatalogViewModel, openRoute: openRoute)
         case .savedRecipes:
             SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
+        case .everyoneRecipes:
+            EveryoneRecipesView(viewModel: recipeCatalogViewModel, openRoute: openRoute)
         case .recipeDetail(let id, .detail):
             VStack(spacing: 0) {
                 if let held = recipeEditorConflict(for: id) {
@@ -837,6 +873,8 @@ struct PlatformNavigationView: View {
                     shellOfflineIndicatorState: offlineIndicatorState,
                     onDismissOfflineIndicator: dismissOfflineIndicator
                 )
+                // A new identity per visit, so opening New Recipe never reuses the draft of the editor before it.
+                .id(navigation.editorIdentity(for: route))
             } else {
                 ShellPlaceholderView(title: "Recipe Editor", systemImage: "pencil", detail: "We couldn't open this recipe editor.")
             }
@@ -1056,6 +1094,8 @@ struct PlatformNavigationView: View {
             navigation.navigate(to: .recipes)
         case .savedRecipes:
             navigation.navigate(to: .savedRecipes)
+        case .everyoneRecipes:
+            navigation.navigate(to: .everyoneRecipes)
         case .cookbooks:
             navigation.navigate(to: .cookbooks)
         case .shoppingList:
@@ -1083,6 +1123,8 @@ struct PlatformNavigationView: View {
             "My Recipes"
         case .savedRecipes:
             "Saved Recipes"
+        case .everyoneRecipes:
+            "Everyone's Recipes"
         case .recipeDetail(_, .detail), .recipeEditor, .recipeCoverControls:
             "Recipes"
         case .cookbooks, .cookbookDetail:
@@ -2188,6 +2230,7 @@ struct PlatformNavigationView: View {
         case .kitchen,
              .recipes,
              .savedRecipes,
+             .everyoneRecipes,
              .chefs,
              .cookbooks,
              .recipeEditor,

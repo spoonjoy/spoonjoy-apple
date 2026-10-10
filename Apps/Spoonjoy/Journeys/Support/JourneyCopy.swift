@@ -10,4 +10,6 @@ enum JourneyCopy {
     static let recipesTab = "Recipes"
     static let shoppingTab = "Shopping"
     static let searchTab = "Search"
+    static let mineScope = "Mine"
+    static let everyoneScope = "Everyone"
 }

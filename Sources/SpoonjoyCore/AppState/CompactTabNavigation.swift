@@ -31,7 +31,7 @@ public enum CompactRoutePlacement: Equatable, Sendable {
 /// already shows, so it changes nothing and cannot loop.
 public struct CompactTabNavigation: Equatable, Sendable {
     public private(set) var selectedTab: CompactTab
-    /// The Recipes tab root: `.recipes` (Mine) or `.savedRecipes` (Saved).
+    /// The Recipes tab root: `.recipes` (Mine), `.savedRecipes` (Saved) or `.everyoneRecipes` (Everyone).
     public private(set) var recipesRoot: AppRoute
     /// The Search tab root: the current search query and scope.
     public private(set) var searchRoot: AppRoute
@@ -52,7 +52,7 @@ public struct CompactTabNavigation: Equatable, Sendable {
         switch route {
         case .kitchen:
             .root(.kitchen)
-        case .recipes, .savedRecipes:
+        case .recipes, .savedRecipes, .everyoneRecipes:
             .root(.recipes)
         case .cookbooks:
             .root(.cookbooks)

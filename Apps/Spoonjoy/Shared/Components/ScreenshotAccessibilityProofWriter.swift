@@ -195,6 +195,15 @@ enum ScreenshotAccessibilityProofWriter {
                 hierarchyAnchors: ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
+        case ("everyone-recipes", "EveryoneRecipesView"):
+            RouteAccessibilityEvidence(
+                voiceOverLabels: ["Everyone's Recipes", "Recipe index", "Loading recipes"],
+                keyboardNavigationTargets: ["recipe lead button", "RecipeIndexRow buttons", "search field"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
+                hierarchyAnchors: ["EveryoneRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+            )
         case ("chefs", "ChefsView"):
             RouteAccessibilityEvidence(
                 voiceOverLabels: ["Chefs", "Fellow chefs", "Kitchen visitors"],

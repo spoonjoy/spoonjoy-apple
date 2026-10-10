@@ -19,6 +19,16 @@ final class EditorJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
+        // Account 3 has no recipes yet, so the kitchen leads with its hero, and the hero's button opens a blank editor.
+        XCTAssertTrue(
+            journey.element(JourneyID.kitchenEmptyHero).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "A kitchen with no recipes does not show the empty-kitchen hero. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "00-empty-kitchen-hero", to: self)
+        journey.tap(JourneyID.kitchenEmptyHeroCreate)
+        journey.assertFieldEmpty(JourneyID.editorTitle)
+        journey.goBack()
+
         // Account 3 has no recipes, so the Shopping List offers "Create a recipe", which opens the editor.
         journey.openTab(JourneyCopy.shoppingTab)
         journey.tap(JourneyID.shoppingCreateRecipe)
@@ -97,8 +107,40 @@ final class EditorJourney: JourneyTestCase {
         )
         journey.attachScreenshot(named: "06-steps-swapped-on-recipe-page", to: self)
 
+        // New Recipe, opened while this recipe's editor is open, starts from a blank draft and leaves the recipe
+        // alone: the unsaved edit is never saved, and the recipe stays in My Recipes under its saved title.
+        journey.tap(JourneyID.recipeDetailActions)
+        journey.tap(JourneyID.recipeDetailEdit)
+        let unsavedServings = "7"
+        journey.replaceText(in: JourneyID.editorServings, with: unsavedServings)
+        // The keyboard covers the tab bar, so it is closed before switching tabs.
+        journey.pressReturn()
+        XCTAssertTrue(
+            journey.app.keyboards.firstMatch.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Return did not close the keyboard. Screen: \(journey.screen)"
+        )
+        journey.openTab(JourneyCopy.kitchenTab)
+        journey.tap(JourneyID.newRecipe)
+        journey.assertFieldEmpty(JourneyID.editorTitle)
+        journey.assertFieldEmpty(JourneyID.editorServings)
+        journey.attachScreenshot(named: "09-new-recipe-while-editing-is-blank", to: self)
+        journey.openTab(JourneyCopy.recipesTab)
+        XCTAssertTrue(
+            journey.element(JourneyID.recipesRow, labelContaining: title).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "The recipe whose editor was open is missing from My Recipes after New Recipe opened. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "10-existing-recipe-unaffected", to: self)
+
         verifyAfterRelaunch(journey) {
             journey.openTab(JourneyCopy.recipesTab)
+            // Everyone lists the public recipes the website's Recipes page lists, from the server.
+            journey.chooseRecipesScope(JourneyCopy.everyoneScope)
+            XCTAssertTrue(
+                journey.element(JourneyID.recipesRow).waitForExistence(timeout: JourneyApp.networkTimeout),
+                "Everyone's Recipes lists no recipes. Screen: \(journey.screen)"
+            )
+            journey.attachScreenshot(named: "11-everyone-recipes", to: self)
+            journey.chooseRecipesScope(JourneyCopy.mineScope)
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
             XCTAssertTrue(
                 journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: spaghetti).waitForExistence(timeout: JourneyApp.interactionTimeout),
