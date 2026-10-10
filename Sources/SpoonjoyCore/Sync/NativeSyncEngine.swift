@@ -1907,7 +1907,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         case .apnsDeviceRevoke:
             return try headerDelete(["api", "v1", "me", "apns-devices", requiredString("deviceId")])
         case .recipeImportSubmit:
-            return try json(.post, ["api", "v1", "recipes", "import"])
+            return try json(.post, ["api", "v1", "recipes", "import"]).waiting(upTo: APIRequestTimeout.recipeImportSeconds)
         case .captureDraftCreate, .captureDraftEdit, .captureDraftDiscard:
             throw NativeQueuedMutationRequestError.localOnlyMutation
         }
