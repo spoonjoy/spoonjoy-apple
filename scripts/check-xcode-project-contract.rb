@@ -31,6 +31,7 @@ JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 WIDGET_TARGET = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
+PRIVACY_MANIFEST = APP_ROOT.join("Shared/PrivacyInfo.xcprivacy")
 
 EXPECTED_FILES = [
   APP_ROOT.join("Shared/SpoonjoyApp.swift"),
@@ -43,7 +44,8 @@ EXPECTED_FILES = [
   APP_ROOT.join("LiveActivity/Widget/SpoonjoyCookTimerWidgetBundle.swift"),
   WIDGET_INFO_PLIST,
   INFO_PLIST,
-  ENTITLEMENTS
+  ENTITLEMENTS,
+  PRIVACY_MANIFEST
 ].freeze
 
 DEPLOYMENT_TARGETS = {
@@ -316,5 +318,44 @@ end
 theme_source = APP_ROOT.join("Shared/Design/KitchenTableTheme.swift").to_s
 fail_check("#{WIDGET_TARGET} must reuse KitchenTableTheme.swift so the Live Activity matches the app palette") unless widget_sources.include?(theme_source)
 fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - [theme_source]).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
+
+# App Store review rejects uploads (ITMS-91053) whose bundle uses a required-reason API without declaring it.
+# The manifest must ship as a resource of both apps, and every required-reason API category the app or
+# SpoonjoyCore code uses must be declared with a reason.
+[ios_target, mac_target].each do |target|
+  resource_paths = target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
+  fail_check("#{target.name} must copy #{relative(PRIVACY_MANIFEST)} as a resource") unless resource_paths.include?(PRIVACY_MANIFEST.to_s)
+end
+privacy_manifest = plist_json(PRIVACY_MANIFEST)
+fail_check("#{relative(PRIVACY_MANIFEST)} must declare NSPrivacyTracking false") unless privacy_manifest["NSPrivacyTracking"] == false
+fail_check("#{relative(PRIVACY_MANIFEST)} must declare an empty NSPrivacyTrackingDomains") unless privacy_manifest["NSPrivacyTrackingDomains"] == []
+collected = Array(privacy_manifest["NSPrivacyCollectedDataTypes"])
+fail_check("#{relative(PRIVACY_MANIFEST)} must declare NSPrivacyCollectedDataTypes") if collected.empty?
+collected.each do |entry|
+  type = entry["NSPrivacyCollectedDataType"]
+  fail_check("#{relative(PRIVACY_MANIFEST)} collected data type #{type.inspect} must not be used for tracking") unless entry["NSPrivacyCollectedDataTypeTracking"] == false
+  fail_check("#{relative(PRIVACY_MANIFEST)} collected data type #{type.inspect} must name a purpose") if Array(entry["NSPrivacyCollectedDataTypePurposes"]).empty?
+end
+declared_reasons = Array(privacy_manifest["NSPrivacyAccessedAPITypes"]).each_with_object({}) do |entry, index|
+  index[entry["NSPrivacyAccessedAPIType"]] = Array(entry["NSPrivacyAccessedAPITypeReasons"])
+end
+required_reason_patterns = {
+  "NSPrivacyAccessedAPICategoryUserDefaults" => /\bUserDefaults\b|@AppStorage\b|NSUbiquitousKeyValueStore\b/,
+  "NSPrivacyAccessedAPICategoryFileTimestamp" => /\.(creationDate|modificationDate|contentModificationDate|contentAccessDate|attributeModificationDate|addedToDirectoryDate)(Key)?\b|attributesOfItem\(|\b(f|l)?stat\(|getattrlist\(/,
+  "NSPrivacyAccessedAPICategorySystemBootTime" => /\bsystemUptime\b|\bmach_absolute_time\(/,
+  "NSPrivacyAccessedAPICategoryDiskSpace" => /volume(Available|Total)Capacity|\.systemFreeSize\b|\.systemSize\b|attributesOfFileSystem\(|\bstatv?fs\(/,
+  "NSPrivacyAccessedAPICategoryActiveKeyboards" => /\bactiveInputModes\b/
+}
+shipped_swift = (ROOT.join("Sources/SpoonjoyCore").find.to_a + APP_ROOT.find.to_a).select do |path|
+  path.file? && path.extname == ".swift" &&
+    !path.to_s.start_with?("#{APP_ROOT.join("UITests")}/") &&
+    !path.to_s.start_with?("#{APP_ROOT.join("Journeys")}/")
+end
+required_reason_patterns.each do |category, pattern|
+  user = shipped_swift.find { |path| path.read.match?(pattern) }
+  next unless user
+
+  fail_check("#{relative(user)} uses a #{category} API, so #{relative(PRIVACY_MANIFEST)} must declare it with a reason") if declared_reasons.fetch(category, []).empty?
+end
 
 puts "xcode project contract ok"

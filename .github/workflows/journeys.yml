@@ -22,7 +22,7 @@ jobs:
   journeys:
     name: Journeys
     runs-on: xcode-27
-    timeout-minutes: 55
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -46,6 +46,21 @@ jobs:
           destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
           [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
+      - name: Boot the simulator
+        id: boot
+        # Same guard as the Shopping UI tests job: the first journey launches the app on a simulator that may
+        # still be booting, and two runs on the hosted runner lost it (the test runner crashed while
+        # bootstrapping; Xcode timed out launching the app). It boots before the build so that its one-time lock
+        # screen poster burst runs while the app builds; "Wait for the simulator to settle" covers the rest.
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          udid="${destination##*,id=}"
+          # 0 tells the settle step the simulator was already booted, so the boot time is unknown.
+          if xcrun simctl list devices | grep -F "($udid) (Booted)" >/dev/null; then booted_at=0; else booted_at="$(date +%s)"; fi
+          echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
         timeout-minutes: 15
         run: |
@@ -56,19 +71,17 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
-      - name: Boot the simulator
-        # Same guard as the Shopping UI tests job: the first journey launches the app on a simulator that may
-        # still be booting, and two runs on the hosted runner lost it (the test runner crashed while
-        # bootstrapping; Xcode timed out launching the app). Tests start once the simulator reports booted.
-        timeout-minutes: 4
+      - name: Wait for the simulator to settle
+        # A terminate during the poster burst fails with "Failed to terminate app.spoonjoy"; see the script.
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
-          xcrun simctl bootstatus "${destination##*,id=}" -b
+          python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Create disposable QA accounts
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
       - name: Run journeys
-        timeout-minutes: 30
+        timeout-minutes: 40
         run: |
           set -euo pipefail
           # xcodebuild hands TEST_RUNNER_<NAME> to the test runner as <NAME>. The runner gets only the path
@@ -118,7 +131,7 @@ jobs:
   shopping-ui-tests:
     name: Shopping UI tests
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -136,8 +149,24 @@ jobs:
           destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
           [[ "$destination" == "platform=iOS Simulator,arch="*",id="* ]] || { echo "::error::Unexpected simulator destination: $destination"; exit 1; }
           echo "destination=$destination" >> "$GITHUB_OUTPUT"
+      - name: Boot the simulator
+        id: boot
+        # The first test turns the simulator upright before launching the app. On a simulator that is still
+        # booting, SpringBoard can miss that orientation change (run 36983006897 attempt 1), so the tests start
+        # only after the simulator reports it has finished booting. It boots before the build so that its
+        # one-time lock screen poster burst runs while the tests build.
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          udid="${destination##*,id=}"
+          # 0 tells the settle step the simulator was already booted, so the boot time is unknown.
+          if xcrun simctl list devices | grep -F "($udid) (Booted)" >/dev/null; then booted_at=0; else booted_at="$(date +%s)"; fi
+          echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$udid" -b
       - name: Build shopping UI tests
-        # Step limits sum to 28 of the job's 30 minutes, leaving room for checkout, setup and the upload.
+        # Step limits sum to 44 of the job's 50 minutes, leaving room for checkout, setup and the upload. The settle
+        # wait ends 8 minutes after boot at the latest, so most of it overlaps this build.
         timeout-minutes: 12
         run: |
           set -euo pipefail
@@ -147,15 +176,13 @@ jobs:
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyShoppingUITests \
             -derivedDataPath "$RUNNER_TEMP/shopping/DerivedData" CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES 2>&1 | tee "$log"
           ruby scripts/fail-on-warning.rb --log "$log"
-      - name: Boot the simulator
-        # The first test turns the simulator upright before launching the app. On a simulator that is still
-        # booting, SpringBoard can miss that orientation change (run 36983006897 attempt 1), so the tests start
-        # only after the simulator reports it has finished booting.
-        timeout-minutes: 4
+      - name: Wait for the simulator to settle
+        # A terminate during the poster burst fails with "Failed to terminate app.spoonjoy"; see the script.
+        timeout-minutes: 8
         run: |
           set -euo pipefail
           destination="${{ steps.sim.outputs.destination }}"
-          xcrun simctl bootstatus "${destination##*,id=}" -b
+          python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Run shopping UI tests
         timeout-minutes: 20
         # The warning gate covers the build above. The test log carries simulator runtime noise (for
