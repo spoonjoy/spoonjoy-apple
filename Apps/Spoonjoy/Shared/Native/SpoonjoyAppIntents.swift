@@ -1861,12 +1861,7 @@ private struct SpoonjoyIntentStateWriter {
         if let syncStore {
             self.syncStore = syncStore
         } else {
-            self.syncStore = try FileBackedNativeSyncStore(
-                fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-                mediaResolver: NativeStagedMediaDirectory(
-                    directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-                )
-            )
+            self.syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
         }
     }
 
