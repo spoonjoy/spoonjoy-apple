@@ -386,7 +386,9 @@ struct NativeSessionExpiryStoreTests {
     @MainActor
     @Test("invalid_grant with an unreadable cache still lands on sign-in under the stored account")
     func invalidGrantWithUnreadableCacheShowsSignIn() async throws {
-        let fixture = try await Self.fixture(outcomes: [.invalidGrant], unreadableCache: true)
+        // Launch also shows recipes saved in the sync store, so none are seeded there: the unreadable
+        // cache is the only place this launch could find a kitchen.
+        let fixture = try await Self.fixture(outcomes: [.invalidGrant], cachedRecipeIDs: [], unreadableCache: true)
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
 
         await fixture.store.bootstrap()
