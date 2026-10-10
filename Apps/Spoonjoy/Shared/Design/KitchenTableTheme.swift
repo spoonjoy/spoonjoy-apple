@@ -34,6 +34,8 @@ enum KitchenTableTheme {
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
     static let objectTitle = Font.system(.headline, design: .rounded).weight(.semibold)
+    // Index entries are titles in a book's contents, so they take the serif voice the web gives them.
+    static let indexTitle = Font.system(.title3, design: .serif).weight(.semibold)
     static let bodyNote = Font.body
     static let uiLabel = Font.caption.weight(.semibold)
 
@@ -96,6 +98,7 @@ struct KitchenTableHeader<Trailing: View>: View {
     let title: String
     let subtitle: String?
     let hidesTitleInCompactNavigation: Bool
+    let titleFont: Font
     @ViewBuilder let trailing: () -> Trailing
 
     init(
@@ -103,8 +106,10 @@ struct KitchenTableHeader<Trailing: View>: View {
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
+        titleFont: Font = KitchenTableTheme.displayTitle,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
+        self.titleFont = titleFont
         self.eyebrow = eyebrow
         self.title = title
         self.subtitle = subtitle
@@ -135,7 +140,7 @@ struct KitchenTableHeader<Trailing: View>: View {
                 .foregroundStyle(KitchenTableTheme.brass)
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
-                    .font(KitchenTableTheme.displayTitle)
+                    .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.charcoal)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
@@ -156,13 +161,15 @@ extension KitchenTableHeader where Trailing == EmptyView {
         eyebrow: String,
         title: String,
         subtitle: String? = nil,
-        hidesTitleInCompactNavigation: Bool = false
+        hidesTitleInCompactNavigation: Bool = false,
+        titleFont: Font = KitchenTableTheme.displayTitle
     ) {
         self.init(
             eyebrow: eyebrow,
             title: title,
             subtitle: subtitle,
-            hidesTitleInCompactNavigation: hidesTitleInCompactNavigation
+            hidesTitleInCompactNavigation: hidesTitleInCompactNavigation,
+            titleFont: titleFont
         ) {
             EmptyView()
         }
@@ -223,37 +230,63 @@ struct KitchenTableSection<Content: View>: View {
 struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     let title: String
     let subtitle: String?
+    let detail: String?
+    let ordinal: String?
+    let titleFont: Font
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
     init(
         title: String,
         subtitle: String? = nil,
+        detail: String? = nil,
+        ordinal: String? = nil,
+        titleFont: Font = KitchenTableTheme.objectTitle,
         @ViewBuilder leading: @escaping () -> Leading,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.title = title
         self.subtitle = subtitle
+        self.detail = detail
+        self.ordinal = ordinal
+        self.titleFont = titleFont
         self.leading = leading
         self.trailing = trailing
     }
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
+            if let ordinal {
+                // The number sits beside the thumbnail, never on it.
+                Text(ordinal)
+                    .font(.caption.weight(.bold))
+                    .tracking(1.0)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .frame(width: 26, alignment: .leading)
+                    .accessibilityHidden(true)
+            }
+
             leading()
                 .frame(width: 56, height: 56)
+                .clipped()
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(KitchenTableTheme.objectTitle)
+                    .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.charcoal)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .lineLimit(2)
+                }
+                if let detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(.footnote)
                         .foregroundStyle(KitchenTableTheme.inkMuted)
                         .lineLimit(2)
                 }
@@ -274,7 +307,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
 
 extension KitchenTableObjectRow where Trailing == EmptyView {
     init(title: String, subtitle: String? = nil, @ViewBuilder leading: @escaping () -> Leading) {
-        self.init(title: title, subtitle: subtitle, leading: leading) {
+        self.init(title: title, subtitle: subtitle, detail: nil, ordinal: nil, titleFont: KitchenTableTheme.objectTitle, leading: leading) {
             EmptyView()
         }
     }
