@@ -182,7 +182,8 @@ struct NativeSessionExpiryStoreTests {
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         queuedMutations: [NativeQueuedMutation] = [],
         fileBackedSync: Bool = false,
-        unreadableCache: Bool = false
+        unreadableCache: Bool = false,
+        unreadableSync: Bool = false
     ) async throws -> Fixture {
         let directory = try directory()
         let vault = InMemoryTokenVault()
@@ -237,7 +238,7 @@ struct NativeSessionExpiryStoreTests {
             )
         }
         let seededQueue = try NativeMutationQueue(mutations: queuedMutations)
-        let syncStore: any NativeSyncStore
+        var syncStore: any NativeSyncStore
         if fileBackedSync {
             syncStore = try FileBackedNativeSyncStore(
                 fileURL: directory.appendingPathComponent("sync.json"),
@@ -257,6 +258,9 @@ struct NativeSessionExpiryStoreTests {
                 queue: seededQueue,
                 cachedRecords: seededRecords
             )
+        }
+        if unreadableSync {
+            syncStore = UnreadableSnapshotSyncStore()
         }
         let failure = FailureSwitch()
         let engine = NativeSyncEngine(store: syncStore, transport: EmptyTransport(failure: failure), clock: clock)
@@ -386,9 +390,9 @@ struct NativeSessionExpiryStoreTests {
     @MainActor
     @Test("invalid_grant with an unreadable cache still lands on sign-in under the stored account")
     func invalidGrantWithUnreadableCacheShowsSignIn() async throws {
-        // Launch also shows recipes saved in the sync store, so none are seeded there: the unreadable
-        // cache is the only place this launch could find a kitchen.
-        let fixture = try await Self.fixture(outcomes: [.invalidGrant], cachedRecipeIDs: [], unreadableCache: true)
+        // Launch also shows recipes saved in the sync store, so that store is unreadable too: this launch can
+        // find no saved kitchen anywhere.
+        let fixture = try await Self.fixture(outcomes: [.invalidGrant], cachedRecipeIDs: [], unreadableCache: true, unreadableSync: true)
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
 
         await fixture.store.bootstrap()
@@ -404,7 +408,7 @@ struct NativeSessionExpiryStoreTests {
     @MainActor
     @Test("a revocation with an unreadable cache still signs out with an empty kitchen")
     func revocationWithUnreadableCacheSignsOut() async throws {
-        let fixture = try await Self.fixture(outcomes: [.revoked], unreadableCache: true)
+        let fixture = try await Self.fixture(outcomes: [.revoked], unreadableCache: true, unreadableSync: true)
         defer { try? FileManager.default.removeItem(at: fixture.directory) }
 
         await fixture.store.bootstrap()
@@ -874,5 +878,59 @@ struct NativeSessionExpiryStoreTests {
         defer { try? FileManager.default.removeItem(at: old.directory) }
         await old.store.bootstrap()
         #expect(old.store.bootstrapState.contentState.settingsSurfaceViewModel.offlineIndicator.display == .stale(domain: .settings))
+    }
+}
+
+/// A sync store whose saved snapshot cannot be read, as when its file is damaged. It holds no queue or
+/// checkpoint, and writes go nowhere.
+private actor UnreadableSnapshotSyncStore: NativeSyncStore {
+    func loadSnapshot() throws -> NativeSyncSnapshot {
+        throw NativeSyncStoreError.unavailable("saved sync snapshot unreadable")
+    }
+
+    func loadQueue() throws -> NativeMutationQueue {
+        NativeMutationQueue()
+    }
+
+    func saveQueue(_: NativeMutationQueue) throws {}
+
+    func saveQueue(_: NativeMutationQueue, accountID _: String?, environment _: NativeCacheEnvironment?) throws {}
+
+    func saveQueue(
+        _: NativeMutationQueue,
+        accountID _: String?,
+        environment _: NativeCacheEnvironment?,
+        upsertingCachedRecords _: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys _: Set<String>
+    ) throws {}
+
+    func loadCheckpoint() throws -> NativeSyncCheckpoint {
+        throw NativeSyncStoreError.missingCheckpoint
+    }
+
+    func saveCheckpoint(_: NativeSyncCheckpoint) throws {}
+
+    func clearCheckpoint() throws {}
+
+    func appendTombstone(_: NativeSyncTombstone) throws {}
+
+    func cachedRecord(kind _: NativeSyncEntryKind, resourceID _: String) throws -> NativeSyncCachedRecord? {
+        nil
+    }
+
+    func apply(syncData _: NativeSyncData, validatedAt _: Date) throws -> NativeSyncApplyResult {
+        NativeSyncApplyResult(upsertedCacheKeys: [], removedCacheKeys: [], tombstones: [])
+    }
+
+    func updateQueue(
+        accountID _: String?,
+        environment _: NativeCacheEnvironment?,
+        _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
+    ) throws -> NativeQueueUpdate {
+        try transform(.empty)
+    }
+
+    func queuedClientMutationIDs() throws -> Set<String> {
+        []
     }
 }
