@@ -200,3 +200,12 @@ public actor NativeAuthSessionRepository {
         try await refreshCoordinator.disconnect()
     }
 }
+
+extension NativeAuthSessionRepository {
+    /// Ends the session on this device only: clears the stored tokens and the refresh state without calling
+    /// the server's revoke. Used after the account itself is deleted, when the server has already dropped
+    /// every token and a revoke has nothing left to do.
+    public func logoutLocally() async throws {
+        try await refreshCoordinator.disconnect()
+    }
+}

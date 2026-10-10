@@ -2169,7 +2169,7 @@ struct NativeLiveStoreTests {
                 return
             }
             #expect(liveStore.restoredRoute == .settings)
-            #expect(content.settingsSurfaceViewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .environment, .offline])
+            #expect(content.settingsSurfaceViewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .yourData, .environment, .offline])
             #expect(content.settingsSurfaceViewModel.profileDraft?.username == "settingscapture")
             #expect(content.settingsSurfaceViewModel.apiTokenRows.map(\.name) == ["Capture validation key"])
             #expect(content.settingsSurfaceViewModel.oauthConnectionRows.map(\.clientName) == ["Capture OAuth App"])
