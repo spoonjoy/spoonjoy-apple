@@ -14,21 +14,6 @@ public protocol URLSessionPerforming: Sendable {
 
 extension URLSession: URLSessionPerforming {}
 
-/// How long an API request may sit with no data moving before it fails. The system default is 60 s, which on weak
-/// Wi-Fi or behind a captive portal kept the launch spinner up for a minute or more per request. This is an idle
-/// timeout, not a limit on the whole transfer, so a slow photo upload that keeps sending is not cut off.
-public enum APIRequestTimeout {
-    public static let interval: TimeInterval = 15
-
-    /// Recipe import answers only after the server has fetched the page (up to 15 s) and run the extraction model
-    /// (up to 30 s), so its first byte can take most of a minute.
-    public static let recipeImportInterval: TimeInterval = 90
-
-    public static func interval(forPath path: String) -> TimeInterval {
-        path.hasSuffix("/recipes/import") ? recipeImportInterval : interval
-    }
-}
-
 public protocol APIAuthenticationRefresher: Sendable {
     func refreshedConfiguration(
         after error: APIError,
@@ -194,9 +179,9 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
             url: url,
             cachePolicy: Self.cachePolicy(for: request.responseCachePolicy)
         )
+        urlRequest.timeoutInterval = request.timeoutInterval
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
-        urlRequest.timeoutInterval = APIRequestTimeout.interval(forPath: url.path)
         for (name, value) in request.headers {
             urlRequest.setValue(value, forHTTPHeaderField: name)
         }

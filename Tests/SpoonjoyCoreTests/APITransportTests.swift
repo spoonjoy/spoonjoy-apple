@@ -46,39 +46,38 @@ struct APITransportTests {
         #expect(capturedRequest.value(forHTTPHeaderField: "X-Client-Mutation-Id") == "profile-update-1")
         #expect(capturedRequest.httpBody == Data(#"{"displayName":"Ari"}"#.utf8))
         #expect(capturedRequest.cachePolicy == .reloadIgnoringLocalCacheData)
-        // A stalled request fails after 15 s of silence instead of the system's 60 s.
+        // A stalled server fails the request after 15 s instead of the system's 60 s, so a launch sync is not held up.
         #expect(capturedRequest.timeoutInterval == 15)
     }
 
-    @Test("recipe import waits up to 90 s for the server; every other request gives up after 15 s idle")
-    func recipeImportGetsTheLongerTimeout() async throws {
-        let session = RecordingURLSession(
-            responses: [
-                .success(Self.response(
-                    statusCode: 200,
-                    headers: ["Content-Type": "application/json"],
-                    body: Self.successEnvelope(requestID: "req_import", name: "Imported")
-                ))
-            ]
-        )
-        let transport = URLSessionAPITransport(session: session)
-        _ = try await transport.send(
-            APIRequestBuilder(
-                method: .post,
-                pathComponents: ["api", "v1", "recipes", "import"],
-                queryItems: [],
+    @Test("a recipe import may wait 60 s for the server, because the server fetches and reads the page before it answers")
+    func recipeImportWaitsLongerThanOtherRequests() async throws {
+        let source = try CaptureDraft.localText(
+            id: "draft_soup",
+            rawText: "Soup",
+            sourceURL: URL(string: "https://example.com/soup")!,
+            createdAt: "2026-10-09T08:00:00.000Z"
+        ).importSource()
+        // The app sends an import, interactive or retried from the queue, from its queued mutation.
+        let queuedImport = NativeQueuedMutation.recipeImportSubmit(source: source, clientMutationID: "cm_import", createdAt: "2026-10-09T08:00:00.000Z")
+        let builders = [
+            try queuedImport.requestBuilder(),
+            try RecipeImportRequests.importURL(clientMutationID: "cm_import", url: URL(string: "https://example.com/soup")!)
+        ]
+        let session = RecordingURLSession(responses: builders.map { _ in
+            .success(Self.response(
+                statusCode: 200,
                 headers: ["Content-Type": "application/json"],
-                body: Data(#"{"url":"https://example.com/pasta"}"#.utf8),
-                defaultAuthorization: .includeBearerToken,
-                responseCachePolicy: .privateNoStore
-            ),
-            configuration: Self.configuration(bearerToken: "sj_access_original"),
-            decode: TransportPayload.self
-        )
-        let capturedRequest = try #require(await session.capturedRequests().first)
+                body: Self.successEnvelope(requestID: "req_import", name: "Imported")
+            ))
+        })
+        let transport = URLSessionAPITransport(session: session)
 
-        #expect(capturedRequest.timeoutInterval == 90)
-        #expect(APIRequestTimeout.interval(forPath: "/api/v1/recipes/recipe_1") == 15)
+        for builder in builders {
+            _ = try await transport.send(builder, configuration: Self.configuration(bearerToken: "sj_access_original"), decode: TransportPayload.self)
+        }
+
+        #expect(await session.capturedRequests().map(\.timeoutInterval) == [60, 60])
     }
 
     @Test("transport preserves already encoded path segments exactly once")

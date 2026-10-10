@@ -119,7 +119,8 @@ public struct URLSessionCookSessionClient: CookSessionClient {
             return .stopped
         }
 
-        var urlRequest = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: APIRequestTimeout.interval)
+        var urlRequest = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
+        urlRequest.timeoutInterval = request.timeoutInterval
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {
