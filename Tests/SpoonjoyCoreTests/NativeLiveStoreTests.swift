@@ -2607,6 +2607,39 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("live store signs out locally when the server revoke fails")
+    func liveStoreSignsOutLocallyWhenServerRevokeFails() async throws {
+        for operation in [SettingsSessionOperation.logout, .revokeAndLogout] {
+            try await withTemporaryLiveStoreDirectory { directory in
+                let vault = try await Self.signedInVault(accountID: "chef_ari")
+                let liveStore = Self.liveStore(
+                    directory: directory,
+                    vault: vault,
+                    syncStore: InMemoryNativeSyncStore(
+                        accountID: "chef_ari",
+                        environment: .production,
+                        checkpoint: nil,
+                        queue: NativeMutationQueue()
+                    ),
+                    transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                    revoke: { _, _ in throw URLError(.notConnectedToInternet) }
+                )
+
+                try await liveStore.performSettingsSessionOperation(operation)
+
+                #expect(try await vault.loadSession() == nil)
+                #expect(try await vault.loadClientID() == nil)
+                #expect((try await liveStore.authSessionRepository.restoreState()) == .signedOut)
+                guard case .signedOut(let content) = liveStore.bootstrapState else {
+                    Issue.record("Expected \(operation) with a failing revoke to bootstrap signed out; got \(liveStore.bootstrapState)")
+                    return
+                }
+                #expect(content.settingsViewModel.authSessionState == .signedOut)
+            }
+        }
+    }
+
+    @MainActor
     @Test("live store purges shopping and spoon entity indexes on logout and account switch")
     func liveStorePurgesShoppingAndSpoonEntityIndexesOnLogoutAndAccountSwitch() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -7274,11 +7307,12 @@ private extension NativeLiveStoreTests {
         nativeTelemetryMetadata: NativeTelemetryAppMetadata = .unknown,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         cookSessionClient: @escaping @Sendable (APIClientConfiguration) -> any CookSessionClient = { _ in OffCookSessionClient() },
-        cookSessionPushDelay: Duration = .seconds(3_600)
+        cookSessionPushDelay: Duration = .seconds(3_600),
+        revoke: @escaping NativeRevokeOperation = { _, _ in }
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
-            authSessionRepository: authRepository(vault: vault),
+            authSessionRepository: authRepository(vault: vault, revoke: revoke),
             cacheStore: cacheStore ?? NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
             syncStore: syncStore,
             syncEngine: engine,
@@ -7319,7 +7353,10 @@ private extension NativeLiveStoreTests {
         return vault
     }
 
-    static func authRepository(vault: InMemoryTokenVault) -> NativeAuthSessionRepository {
+    static func authRepository(
+        vault: InMemoryTokenVault,
+        revoke: @escaping NativeRevokeOperation = { _, _ in }
+    ) -> NativeAuthSessionRepository {
         NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple Tests",
@@ -7342,7 +7379,7 @@ private extension NativeLiveStoreTests {
                     scope: NativeAuthSession.defaultScope
                 )
             },
-            revoke: { _, _ in },
+            revoke: revoke,
             now: { Self.now }
         )
     }
