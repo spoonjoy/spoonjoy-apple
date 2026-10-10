@@ -1459,7 +1459,16 @@ public struct NativeShellContentState {
         let baseShoppingList: ShoppingListState?
         if items.isEmpty {
             if let appShoppingList = appSnapshot?.shoppingList {
-                baseShoppingList = appShoppingList
+                // The saved copy is the list the shopping screen showed, which may already hold items queued adds
+                // made. Drop every item made on this device: one whose add is still queued comes back once when the
+                // queue is replayed below, and one whose add was discarded no longer belongs in the list.
+                baseShoppingList = ShoppingListState(
+                    id: appShoppingList.id,
+                    chef: appShoppingList.chef,
+                    items: appShoppingList.items.filter { !$0.id.hasPrefix("item_local_") },
+                    nextCursor: appShoppingList.nextCursor,
+                    updatedAt: appShoppingList.updatedAt
+                )
             } else if let checkpoint = syncSnapshot.checkpoint {
                 baseShoppingList = ShoppingListState(
                     id: "native-shopping-list",
@@ -2262,11 +2271,11 @@ public final class NativeLiveAppStore: ObservableObject {
         for mutation in mutations {
             try mutation.saveStagedMedia(to: dependencies.stagedMediaDirectory)
         }
+        // The shopping screen already shows this batch, so the list on screen is not a server list: cache nothing.
         let nextQueue = try await dependencies.syncStore.appendMutations(
             mutations,
             accountID: scope.accountID,
-            environment: scope.environment,
-            upsertingCachedRecords: try NativeShellContentState.shoppingCacheRecords(from: currentContentState.shoppingList)
+            environment: scope.environment
         )
         let indicator = OfflineIndicatorState(
             display: .queuedWork(
@@ -2303,7 +2312,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 mutations,
                 accountID: scope.accountID,
                 environment: scope.environment,
-                upsertingCachedRecords: baseShoppingCacheRecords
+                seedingShoppingRecords: baseShoppingCacheRecords
             )
             let indicator = OfflineIndicatorState(
                 display: .queuedWork(
