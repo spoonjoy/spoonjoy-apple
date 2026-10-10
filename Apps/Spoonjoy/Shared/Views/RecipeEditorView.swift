@@ -27,9 +27,8 @@ struct RecipeEditorView: View {
     @State private var stagedPhoto: NativeStagedMediaUpload?
     @State private var photoMessage: String?
     @State private var isShowingCamera = false
-#if os(iOS)
-    @Environment(\.editMode) private var editMode: Binding<EditMode>?
-#endif
+    @State private var pendingExit: AppRoute?
+    @State private var invalidQuantityRows: Set<String> = []
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -53,163 +52,64 @@ struct RecipeEditorView: View {
     }
 
     var body: some View {
-        Form {
-            if let blockedMessage {
-                Label(blockedMessage, systemImage: "exclamationmark.triangle")
-                    .foregroundStyle(KitchenTableTheme.tomato)
-                    .accessibilityIdentifier("editor.status")
-            }
-
-            if let conflictBanner = activeViewModel.conflictBanner {
-                Section("Conflict") {
-                    Text(conflictBanner.title)
-                        .font(.headline)
-                    Text(conflictBanner.message)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 28) {
+                if let blockedMessage {
+                    Label(blockedMessage, systemImage: "exclamationmark.triangle")
                         .font(KitchenTableTheme.bodyNote)
-                    HStack {
-                        Button("Review") {
-                            reviewConflict()
-                        }
-                        Button(conflictBanner.discardActionTitle) {
-                            Task {
-                                await discardLocalChange()
-                            }
-                        }
-                    }
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                        .accessibilityIdentifier("editor.status")
                 }
-            }
 
-            Section("Recipe") {
-                TextField("Title", text: $draft.title)
-                    .accessibilityIdentifier("editor.title")
-                TextEditor(text: descriptionText)
-                    .frame(minHeight: 88)
-                TextField("Servings", text: servingsText)
-                    .accessibilityIdentifier("editor.servings")
-            }
-
-            if draft.recipeID == nil {
-                photoSection
-            }
-
-            Section("Steps") {
-                ForEach($draft.steps) { $step in
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Text("Step \(step.stepNum)")
-                                .font(.headline)
-                            Spacer()
-                            Button {
-                                moveStep(id: step.id, by: -1)
-                            } label: {
-                                Label("Move Step Up", systemImage: "chevron.up")
-                            }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
-                            .disabled(isSubmitting || step.stepNum == 1)
-                            .accessibilityIdentifier("editor.step.\(step.stepNum).moveUp")
-                            Button {
-                                moveStep(id: step.id, by: 1)
-                            } label: {
-                                Label("Move Step Down", systemImage: "chevron.down")
-                            }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
-                            .disabled(isSubmitting || step.stepNum == draft.steps.count)
-                            .accessibilityIdentifier("editor.step.\(step.stepNum).moveDown")
-                            Button(role: .destructive) {
-                                removeStep(id: step.id)
-                            } label: {
-                                Label("Delete Step", systemImage: "trash")
-                            }
-                            .labelStyle(.iconOnly)
-                            .buttonStyle(.borderless)
-                            .disabled(isSubmitting)
-                        }
-
-                        TextField("Step title", text: optionalText($step.title))
-                            .accessibilityIdentifier("editor.step.\(step.stepNum).title")
-                        TextEditor(text: $step.description)
-                            .frame(minHeight: 72)
-                            .accessibilityIdentifier("editor.step.\(step.stepNum).description")
-                        Stepper(value: durationBinding($step.duration), in: 0...720, step: 1) {
-                            Text("Duration \(step.duration ?? 0) minutes")
-                        }
-
-                        let priorSteps = priorSteps(for: step)
-                        // Creating a recipe cannot store which steps use another step's output (the web API
-                        // rejects that field on create), so output uses are offered once the recipe exists.
-                        if draft.recipeID != nil, !priorSteps.isEmpty {
-                            DisclosureGroup("Uses Output From") {
-                                ForEach(priorSteps) { priorStep in
-                                    Toggle(
-                                        "Step \(priorStep.stepNum)",
-                                        isOn: outputUseBinding($step.outputStepNums, outputStepNum: priorStep.stepNum)
-                                    )
-                                }
-                            }
-                        }
-
-                        ForEach($step.ingredients) { $ingredient in
-                            let ingredientID = "editor.step.\(step.stepNum).ingredient.\(ingredientNumber(ingredient.id, in: step))"
-                            HStack {
-                                TextField("Ingredient", text: $ingredient.name)
-                                    .accessibilityIdentifier("\(ingredientID).name")
-                                    // Typing a whole line such as "2 cups rice" and pressing return fills the quantity and unit.
-                                    .onSubmit { $ingredient.wrappedValue.applyTypedLine() }
-                                TextField("Quantity", value: $ingredient.quantity, format: .number.precision(.fractionLength(0...3)))
-                                    .frame(minWidth: 72)
-                                    .accessibilityIdentifier("\(ingredientID).quantity")
-                                TextField("Unit", text: optionalText($ingredient.unit))
-                                    .accessibilityIdentifier("\(ingredientID).unit")
-                                Button(role: .destructive) {
-                                    removeIngredient(id: ingredient.id, from: step.id)
-                                } label: {
-                                    Label("Delete Ingredient", systemImage: "minus.circle")
-                                }
-                                .labelStyle(.iconOnly)
-                                .buttonStyle(.borderless)
-                                .disabled(isSubmitting)
-                            }
-                        }
-
-                        Button {
-                            addIngredient(to: step.id)
-                        } label: {
-                            Label("Add Ingredient", systemImage: "plus.circle")
-                        }
-                        // A step is one form row. With default-styled buttons, a tap anywhere in the row ran
-                        // every button in it, Delete Step first, so Add Ingredient crashed on the removed step.
-                        // Borderless buttons each handle only their own taps.
-                        .buttonStyle(.borderless)
-                        .disabled(isSubmitting)
-                        .accessibilityIdentifier("editor.step.\(step.stepNum).addIngredient")
-
-                        Button {
-                            pasteStepID = step.id
-                        } label: {
-                            Label("Paste Ingredients", systemImage: "doc.on.clipboard")
-                        }
-                        .buttonStyle(.borderless)
-                        .disabled(isSubmitting)
-                        .accessibilityIdentifier("editor.step.\(step.stepNum).pasteIngredients")
-                    }
-                    .padding(.vertical, 6)
+                if let conflictBanner = activeViewModel.conflictBanner {
+                    conflictBand(conflictBanner)
                 }
-                // Steps reorder in Edit mode only: a reorderable row holds a touch as a possible drag, and
-                // taps on a step's text fields did not focus them.
-                .onMove(perform: stepMoveAction)
 
-                Button {
-                    addStep()
-                } label: {
-                    Label("Add Step", systemImage: "plus.circle")
+                recipeCardSection
+                Divider().overlay(KitchenTableTheme.line)
+                methodSection
+                Divider().overlay(KitchenTableTheme.line)
+                footerSection
+            }
+            .padding(.horizontal, KitchenTableTheme.pagePadding)
+            .padding(.top, 8)
+            .padding(.bottom, KitchenTableTheme.pageSpacing)
+            .frame(maxWidth: 720, alignment: .leading)
+            .frame(maxWidth: .infinity)
+        }
+        .scrollDismissesKeyboard(.interactively)
+        .background(KitchenTableTheme.bone.ignoresSafeArea())
+#if os(iOS)
+        // As on a cookbook page, the scrolled editor would show through the glass behind Cancel, the
+        // title and Save, so the edge effect is off and the page's paper covers the status bar and
+        // navigation bar: a zero-height line at the top of the safe area whose paper reaches the
+        // screen edge.
+        .scrollEdgeEffectHidden(true, for: .top)
+        .overlay(alignment: .top) {
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 0)
+                .background(KitchenTableTheme.bone.ignoresSafeArea(edges: .top))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+#else
+        .scrollEdgeEffectStyle(.hard, for: .top)
+#endif
+        .navigationTitle(draft.recipeID == nil ? "New Recipe" : "Edit Recipe")
+#if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+#endif
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Cancel") {
+                    leave(to: exitRoute)
                 }
                 .disabled(isSubmitting)
-                .accessibilityIdentifier("editor.addStep")
+                .accessibilityIdentifier("editor.cancel")
             }
-
-            Section {
+            ToolbarItem(placement: .confirmationAction) {
                 Button {
                     Task {
                         await save()
@@ -218,28 +118,14 @@ struct RecipeEditorView: View {
                     if isSubmitting {
                         ProgressView()
                     } else {
-                        Label("Save", systemImage: "checkmark.circle")
+                        Text("Save")
+                            .fontWeight(.semibold)
                     }
                 }
-                .disabled(!activeViewModel.updatingDraft(draft).canSubmit || isSubmitting)
+                .disabled(!canSave || isSubmitting)
                 .accessibilityIdentifier("editor.save")
-
-                if draft.recipeID != nil {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        Label("Delete Recipe", systemImage: "trash")
-                    }
-                }
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
-#if os(iOS)
-        .toolbar {
-            EditButton()
-        }
-#endif
 #if os(iOS)
         .fullScreenCover(isPresented: $isShowingCamera) {
             CameraCapture { data in
@@ -271,6 +157,21 @@ struct RecipeEditorView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+        .confirmationDialog(
+            "Discard your changes?",
+            isPresented: Binding(get: { pendingExit != nil }, set: { if !$0 { pendingExit = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Discard Changes", role: .destructive) {
+                if let route = pendingExit {
+                    pendingExit = nil
+                    close(route)
+                }
+            }
+            Button("Keep Editing", role: .cancel) {
+                pendingExit = nil
+            }
+        }
         .safeAreaInset(edge: .bottom) {
             OfflineStatusView(display: offlineDisplayOverride ?? effectiveOfflineIndicator(activeViewModel.offlineIndicator.display), onDismiss: onDismissOfflineIndicator)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -279,87 +180,443 @@ struct RecipeEditorView: View {
         }
     }
 
-    @ViewBuilder private var photoSection: some View {
-        Section("Photo") {
-            do {
-                let hasPhoto = stagedPhoto != nil
-                HStack(alignment: .center, spacing: 12) {
-                    if journeyPhotoFixtureEnabled {
-                        // Journeys cannot drive the system picker, so a journey build stages a generated picture instead.
-                        Button {
-                            Task { @MainActor in
-                                await stageCandidate(NativeJourneyPhotoFixture.stagedUpload())
-                            }
-                        } label: {
-                            Label(hasPhoto ? "Replace Photo" : "Add Photo", systemImage: hasPhoto ? "photo.fill" : "photo.badge.plus")
-                                .font(KitchenTableTheme.uiLabel)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("editor.photo.pick")
-                    } else {
-                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                            Label(hasPhoto ? "Replace Photo" : "Add Photo", systemImage: hasPhoto ? "photo.fill" : "photo.badge.plus")
-                                .font(KitchenTableTheme.uiLabel)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("editor.photo.pick")
-                        .onChange(of: selectedPhotoItem) { _, item in
-                            Task { @MainActor in
-                                await stagePhoto(item)
-                            }
-                        }
-                    }
+    // MARK: - Recipe card
 
-                    if !journeyPhotoFixtureEnabled,
-                       RecipePhotoSource.available(cameraAvailable: Self.cameraAvailable).contains(.camera) {
-                        Button {
-                            isShowingCamera = true
-                        } label: {
-                            Label("Take Photo", systemImage: "camera")
-                                .font(KitchenTableTheme.uiLabel)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("editor.photo.camera")
-                    }
-
-                    if let stagedPhoto, let thumbnail = Self.thumbnail(for: stagedPhoto.data) {
-                        thumbnail
-                            .resizable()
-                            .scaledToFill()
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 6))
-                            .accessibilityLabel("Selected photo")
-                            .accessibilityIdentifier("editor.photo.thumbnail")
-                    }
-
-                    if hasPhoto {
-                        Label("Photo ready", systemImage: "checkmark.circle.fill")
-                            .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.herb)
-                            .accessibilityIdentifier("editor.photo.ready")
-                        Spacer()
-                        Button {
-                            selectedPhotoItem = nil
-                            stagedPhoto = nil
-                            photoMessage = nil
-                        } label: {
-                            Label("Remove Photo", systemImage: "xmark.circle")
-                        }
-                        .labelStyle(.iconOnly)
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("editor.photo.remove")
-                    }
-                }
-                Text(activeViewModel.connectivity == .offline
-                    ? (hasPhoto
-                        ? "You're offline. The photo is kept on this device and uploads as the cover once the recipe syncs."
-                        : "Optional. You're offline; a photo you add uploads once the recipe syncs.")
-                    : (hasPhoto
-                        ? "Uploads as the cover when you save."
-                        : "Optional. Without a photo, Spoonjoy makes a placeholder cover."))
-                    .font(KitchenTableTheme.uiLabel)
+    private var recipeCardSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("RECIPE CARD")
+                    .font(KitchenTableTheme.runningHead)
+                    .tracking(1.2)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                Text("Give the dish a home.")
+                    .font(Font.system(.largeTitle, design: .serif).weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .accessibilityAddTraits(.isHeader)
+                Text("Capture the name, story, serving cue, and photo someone will need when they cook this later.")
+                    .font(KitchenTableTheme.instructionBody)
                     .foregroundStyle(KitchenTableTheme.inkMuted)
             }
+
+            coverControl
+
+            EditorField("Title") {
+                TextField("e.g., Chocolate Chip Cookies", text: $draft.title)
+                    .accessibilityIdentifier("editor.title")
+            }
+
+            EditorField("Description") {
+                TextField("Recipe description", text: descriptionText, axis: .vertical)
+                    .lineLimit(3...8)
+                    .accessibilityIdentifier("editor.description")
+            }
+
+            EditorField("Servings") {
+                TextField("e.g., 4 servings", text: servingsText)
+                    .accessibilityIdentifier("editor.servings")
+            }
+        }
+    }
+
+    private func conflictBand(_ conflictBanner: RecipeEditorConflictBanner) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(conflictBanner.title)
+                .font(.headline)
+                .foregroundStyle(KitchenTableTheme.tomato)
+            Text(conflictBanner.message)
+                .font(KitchenTableTheme.bodyNote)
+            HStack(spacing: 16) {
+                Button("Review") {
+                    reviewConflict()
+                }
+                Button(conflictBanner.discardActionTitle) {
+                    Task {
+                        await discardLocalChange()
+                    }
+                }
+            }
+            .buttonStyle(.borderless)
+        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) { Rectangle().fill(KitchenTableTheme.tomato).frame(height: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(KitchenTableTheme.tomato).frame(height: 1) }
+    }
+
+    // MARK: - Method
+
+    private var methodSection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("METHOD")
+                    .font(KitchenTableTheme.runningHead)
+                    .tracking(1.2)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                Text("Build the cooking path.")
+                    .font(Font.system(.title, design: .serif).weight(.semibold))
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .accessibilityAddTraits(.isHeader)
+            }
+
+            ForEach($draft.steps) { $step in
+                stepEditor($step)
+                Divider().overlay(KitchenTableTheme.line)
+            }
+
+            Button {
+                addStep()
+            } label: {
+                Label("Add Step", systemImage: "plus.circle")
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+            }
+            .buttonStyle(.borderless)
+            .disabled(isSubmitting)
+            .accessibilityIdentifier("editor.addStep")
+        }
+    }
+
+    private func stepEditor(_ stepBinding: Binding<RecipeEditorStepDraft>) -> some View {
+        let step = stepBinding.wrappedValue
+        let number = step.stepNum
+        let priorSteps = priorSteps(for: step)
+        return VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 4) {
+                Text("Step \(number)")
+                    .font(KitchenTableTheme.stepNumeral)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                stepIconButton("Move Step Up", systemImage: "chevron.up", disabled: isSubmitting || number == 1) {
+                    moveStep(id: step.id, by: -1)
+                }
+                .accessibilityIdentifier("editor.step.\(number).moveUp")
+                stepIconButton("Move Step Down", systemImage: "chevron.down", disabled: isSubmitting || number == draft.steps.count) {
+                    moveStep(id: step.id, by: 1)
+                }
+                .accessibilityIdentifier("editor.step.\(number).moveDown")
+                stepIconButton("Delete Step", systemImage: "trash", disabled: isSubmitting, tint: KitchenTableTheme.tomato) {
+                    removeStep(id: step.id)
+                }
+                .accessibilityIdentifier("editor.step.\(number).delete")
+            }
+
+            EditorField("Step title") {
+                TextField("Optional, like Cook the rice", text: optionalText(stepBinding.title))
+                    .accessibilityIdentifier("editor.step.\(number).title")
+            }
+
+            EditorField("Instructions") {
+                TextField("Describe what to do in this step...", text: stepBinding.description, axis: .vertical)
+                    .lineLimit(3...12)
+                    .font(KitchenTableTheme.instructionBody)
+                    .accessibilityIdentifier("editor.step.\(number).description")
+            }
+
+            Stepper(value: durationBinding(stepBinding.duration), in: 0...720, step: 1) {
+                Text("Duration \(step.duration ?? 0) minutes")
+                    .font(KitchenTableTheme.uiLabel)
+            }
+            .accessibilityIdentifier("editor.step.\(number).duration")
+
+            // Creating a recipe cannot store which steps use another step's output (the web API
+            // rejects that field on create), so output uses are offered once the recipe exists.
+            if draft.recipeID != nil, !priorSteps.isEmpty {
+                DisclosureGroup("Uses Output From") {
+                    ForEach(priorSteps) { priorStep in
+                        Toggle(
+                            "Step \(priorStep.stepNum)",
+                            isOn: outputUseBinding(stepBinding.outputStepNums, outputStepNum: priorStep.stepNum)
+                        )
+                    }
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Ingredients")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                ForEach(stepBinding.ingredients) { ingredient in
+                    ingredientRow(ingredient, stepNumber: number, stepID: step.id, position: ingredientNumber(ingredient.wrappedValue.id, in: step))
+                }
+
+                // Borderless buttons each handle only their own taps, so a tap near one never runs another.
+                HStack(spacing: 20) {
+                    Button {
+                        addIngredient(to: step.id)
+                    } label: {
+                        Label("Add Ingredient", systemImage: "plus.circle")
+                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(isSubmitting)
+                    .accessibilityIdentifier("editor.step.\(number).addIngredient")
+
+                    Button {
+                        pasteStepID = step.id
+                    } label: {
+                        Label("Paste Ingredients", systemImage: "doc.on.clipboard")
+                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(isSubmitting)
+                    .accessibilityIdentifier("editor.step.\(number).pasteIngredients")
+                }
+            }
+        }
+    }
+
+    private func stepIconButton(
+        _ title: String,
+        systemImage: String,
+        disabled: Bool,
+        tint: Color = KitchenTableTheme.charcoal,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .labelStyle(.iconOnly)
+                .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+        }
+        .buttonStyle(.borderless)
+        .foregroundStyle(disabled ? KitchenTableTheme.inkMuted.opacity(0.5) : tint)
+        .disabled(disabled)
+    }
+
+    private func ingredientRow(_ ingredient: Binding<RecipeEditorIngredientDraft>, stepNumber: Int, stepID: String, position: Int) -> some View {
+        let ingredientID = "editor.step.\(stepNumber).ingredient.\(position)"
+        let rowID = ingredient.wrappedValue.id
+        return VStack(alignment: .leading, spacing: 8) {
+            IngredientNameField(ingredient: ingredient, identifier: "\(ingredientID).name")
+            HStack(alignment: .bottom, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Quantity")
+                        .font(KitchenTableTheme.runningHead)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                    QuantityField(
+                        quantity: ingredient.quantity,
+                        rowID: rowID,
+                        invalidRows: $invalidQuantityRows
+                    )
+                    .accessibilityIdentifier("\(ingredientID).quantity")
+                }
+                .frame(width: 104)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Unit")
+                        .font(KitchenTableTheme.runningHead)
+                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                    TextField("cup", text: optionalText(ingredient.unit))
+#if os(iOS)
+                        .textInputAutocapitalization(.never)
+#endif
+                        .editorInputStyle()
+                        .accessibilityLabel("Unit")
+                        .accessibilityIdentifier("\(ingredientID).unit")
+                }
+                Button(role: .destructive) {
+                    removeIngredient(id: rowID, from: stepID)
+                } label: {
+                    Label("Delete Ingredient", systemImage: "minus.circle")
+                        .labelStyle(.iconOnly)
+                        .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(KitchenTableTheme.tomato)
+                .disabled(isSubmitting)
+            }
+            if invalidQuantityRows.contains(rowID) {
+                Text("Use a number like 2, 1 1/2, ¾ or 0.25.")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.tomato)
+            }
+        }
+    }
+
+    // MARK: - Footer
+
+    private var footerSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let hint = saveHint {
+                Text(hint)
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .accessibilityIdentifier("editor.hint")
+            }
+            if draft.recipeID != nil {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Label("Delete Recipe", systemImage: "trash")
+                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(KitchenTableTheme.tomato)
+                .disabled(isSubmitting)
+                .accessibilityIdentifier("editor.delete")
+            }
+        }
+    }
+
+    /// The first thing keeping Save off, so a dimmed Save always has a reason on screen.
+    private var saveHint: String? {
+        if !invalidQuantityRows.isEmpty {
+            return "Fix the highlighted quantity to save."
+        }
+        return RecipeEditorValidator.validate(draft).first?.message
+    }
+
+    private var canSave: Bool {
+        activeViewModel.updatingDraft(draft).canSubmit && invalidQuantityRows.isEmpty
+    }
+
+    private var hasUnsavedChanges: Bool {
+        draft != viewModel.draft || stagedPhoto != nil
+    }
+
+    private var exitRoute: AppRoute {
+        draft.recipeID.map { .recipeDetail(id: $0, presentation: .detail) } ?? .recipes
+    }
+
+    /// Leaves the editor, asking first when there is work that would be lost.
+    private func leave(to route: AppRoute) {
+        if hasUnsavedChanges {
+            pendingExit = route
+        } else {
+            close(route)
+        }
+    }
+
+    // MARK: - Cover image
+
+    @ViewBuilder private var coverControl: some View {
+        EditorField("Recipe Image", boxed: false) {
+            if draft.recipeID == nil {
+                photoControl
+            } else if let recipeID = draft.recipeID {
+                existingCoverControl(recipeID: recipeID)
+            }
+        }
+    }
+
+    private func existingCoverControl(recipeID: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Choose, take or generate a cover from the recipe's cover controls. Your edits here stay put until you save.")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+            Button {
+                leave(to: .recipeCoverControls(id: recipeID))
+            } label: {
+                Label("Change Cover", systemImage: "photo")
+                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            }
+            .buttonStyle(.bordered)
+            .disabled(isSubmitting)
+            .accessibilityIdentifier("editor.cover.manage")
+        }
+    }
+
+    @ViewBuilder private var photoControl: some View {
+        let hasPhoto = stagedPhoto != nil
+        VStack(alignment: .leading, spacing: 10) {
+            ZStack {
+                if let stagedPhoto, let thumbnail = Self.thumbnail(for: stagedPhoto.data) {
+                    thumbnail
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
+                        .clipped()
+                        .accessibilityLabel("Selected photo")
+                        .accessibilityIdentifier("editor.photo.thumbnail")
+                } else {
+                    VStack(spacing: 6) {
+                        Image(systemName: "photo.badge.plus")
+                            .font(.title)
+                        Text("Add a cover photo")
+                            .font(KitchenTableTheme.uiLabel)
+                    }
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                    .background(KitchenTableTheme.paper)
+                    .accessibilityHidden(true)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            .overlay(
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                    .strokeBorder(KitchenTableTheme.lineStrong, style: StrokeStyle(lineWidth: 1, dash: hasPhoto ? [] : [5, 4]))
+            )
+
+            HStack(spacing: 12) {
+                if journeyPhotoFixtureEnabled {
+                    // Journeys cannot drive the system picker, so a journey build stages a generated picture instead.
+                    Button {
+                        Task { @MainActor in
+                            await stageCandidate(NativeJourneyPhotoFixture.stagedUpload())
+                        }
+                    } label: {
+                        photoPickLabel(hasPhoto: hasPhoto)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("editor.photo.pick")
+                } else {
+                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                        Label(hasPhoto ? "Replace Photo" : "Choose Photo", systemImage: hasPhoto ? "photo.fill" : "photo")
+                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget - 12)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("editor.photo.pick")
+                    .onChange(of: selectedPhotoItem) { _, item in
+                        Task { @MainActor in
+                            await stagePhoto(item)
+                        }
+                    }
+                }
+
+                if !journeyPhotoFixtureEnabled,
+                   RecipePhotoSource.available(cameraAvailable: Self.cameraAvailable).contains(.camera) {
+                    Button {
+                        isShowingCamera = true
+                    } label: {
+                        Label("Take Photo", systemImage: "camera")
+                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget - 12)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("editor.photo.camera")
+                }
+
+                if hasPhoto {
+                    Button {
+                        selectedPhotoItem = nil
+                        stagedPhoto = nil
+                        photoMessage = nil
+                    } label: {
+                        Label("Remove Photo", systemImage: "xmark.circle")
+                            .labelStyle(.iconOnly)
+                            .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityIdentifier("editor.photo.remove")
+                }
+            }
+            .font(KitchenTableTheme.uiLabel)
+            .controlSize(.regular)
+
+            if hasPhoto {
+                Label("Photo ready", systemImage: "checkmark.circle.fill")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.herb)
+                    .accessibilityIdentifier("editor.photo.ready")
+            }
+            Text(activeViewModel.connectivity == .offline
+                ? (hasPhoto
+                    ? "You're offline. The photo is kept on this device and uploads as the cover once the recipe syncs."
+                    : "Optional. You're offline; a photo you add uploads once the recipe syncs.")
+                : (hasPhoto
+                    ? "Uploads as the cover when you save."
+                    : "Optional. Without a photo, Spoonjoy makes a placeholder cover."))
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
             if let photoMessage {
                 Label(photoMessage, systemImage: "exclamationmark.triangle")
                     .font(KitchenTableTheme.uiLabel)
@@ -367,6 +624,11 @@ struct RecipeEditorView: View {
                     .accessibilityIdentifier("editor.photo.status")
             }
         }
+    }
+
+    private func photoPickLabel(hasPhoto: Bool) -> some View {
+        Label(hasPhoto ? "Replace Photo" : "Choose Photo", systemImage: hasPhoto ? "photo.fill" : "photo")
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget - 12)
     }
 
     private var journeyPhotoFixtureEnabled: Bool {
@@ -576,19 +838,6 @@ struct RecipeEditorView: View {
         } catch {
             blockedMessage = message(for: error, action: nil)
         }
-    }
-
-    private var stepMoveAction: ((IndexSet, Int) -> Void)? {
-#if os(iOS)
-        guard editMode?.wrappedValue.isEditing == true else {
-            return nil
-        }
-#endif
-        return moveSteps
-    }
-
-    private func moveSteps(_ indices: IndexSet, _ newOffset: Int) {
-        showMoveOutcome(draft.moveSteps(fromOffsets: indices, toOffset: newOffset))
     }
 
     private func moveStep(id: String, by offset: Int) {
@@ -803,12 +1052,157 @@ struct RecipeEditorView: View {
     }
 }
 
-private typealias EditorSafetyControls = KitchenSafeControls
-private struct ConfirmationDialogAnchor {}
 
 private struct RecipeEditorActionExecutionError: Error {
     let action: RecipeEditorAction
     let underlyingError: Error
+}
+
+/// A labelled field: the label sits above the input, as on the web editor, never as a placeholder alone.
+private struct EditorField<Content: View>: View {
+    let label: String
+    let boxed: Bool
+    let content: Content
+
+    /// `boxed: false` is for a control that draws its own surface, such as the cover photo.
+    init(_ label: String, boxed: Bool = true, @ViewBuilder content: () -> Content) {
+        self.label = label
+        self.boxed = boxed
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(Font.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.charcoal)
+                .accessibilityHidden(true)
+            if boxed {
+                content
+                    .editorInputStyle()
+                    .accessibilityLabel(label)
+            } else {
+                content
+            }
+        }
+    }
+}
+
+private extension View {
+    /// The web editor's input: paper fill, hairline border, small radius. Tapping anywhere in the box,
+    /// padding included, focuses the field. `focus` lets a field watch its own focus.
+    func editorInputStyle(focus: FocusState<Bool>.Binding? = nil) -> some View {
+        modifier(EditorInputStyle(external: focus))
+    }
+}
+
+/// An ingredient's name. It wraps over as many lines as it needs, so a long ingredient is never cut off.
+/// Typing a whole line such as "2 cups rice" and pressing Return fills the quantity and unit, and Return
+/// ends editing as the keyboard's Done key promises. Autocorrect stays off, because it rewrites food words
+/// such as "gochujang" or even "rice" into other words.
+private struct IngredientNameField: View {
+    @Binding var ingredient: RecipeEditorIngredientDraft
+    let identifier: String
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("Ingredient, like chicken stock", text: $ingredient.name, axis: .vertical)
+            .lineLimit(1...4)
+            .submitLabel(.done)
+            .autocorrectionDisabled()
+            .editorInputStyle(focus: $isFocused)
+            .accessibilityLabel("Ingredient name")
+            .accessibilityIdentifier(identifier)
+            .onChange(of: ingredient.name) { _, newValue in
+                guard newValue.contains("\n") else {
+                    return
+                }
+                ingredient.name = newValue.replacingOccurrences(of: "\n", with: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                ingredient.applyTypedLine()
+                isFocused = false
+            }
+    }
+}
+
+private struct EditorInputStyle: ViewModifier {
+    let external: FocusState<Bool>.Binding?
+    @FocusState private var ownFocus: Bool
+
+    func body(content: Content) -> some View {
+        let focus = external ?? $ownFocus
+        content
+            .focused(focus)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .topLeading)
+            .background(KitchenTableTheme.paper)
+            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+            .overlay(
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                    .strokeBorder(KitchenTableTheme.lineStrong, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focus.wrappedValue = true
+            }
+    }
+}
+
+/// A quantity field that shows "¼" and "1 ½" and reads "1/4", "1 1/2" and "0.25" back. The stored value
+/// changes only when the typed text means a different number, so opening a recipe never rewrites it.
+private struct QuantityField: View {
+    @Binding var quantity: Double
+    let rowID: String
+    @Binding var invalidRows: Set<String>
+    @State private var text: String
+    @FocusState private var isFocused: Bool
+
+    init(quantity: Binding<Double>, rowID: String, invalidRows: Binding<Set<String>>) {
+        _quantity = quantity
+        self.rowID = rowID
+        _invalidRows = invalidRows
+        _text = State(initialValue: RecipeQuantity.format(quantity.wrappedValue))
+    }
+
+    var body: some View {
+        TextField("1 ½", text: $text)
+            .editorInputStyle(focus: $isFocused)
+            .overlay(
+                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
+                    .strokeBorder(KitchenTableTheme.tomato, lineWidth: invalidRows.contains(rowID) ? 2 : 0)
+            )
+            .accessibilityLabel("Quantity")
+#if os(iOS)
+            .keyboardType(.numbersAndPunctuation)
+#endif
+            .onChange(of: text) { _, newText in
+                if let value = RecipeQuantity.parse(newText), RecipeQuantity.validationMessage(for: newText) == nil {
+                    invalidRows.remove(rowID)
+                    if value != quantity {
+                        quantity = value
+                    }
+                } else {
+                    invalidRows.insert(rowID)
+                }
+            }
+            // A change from outside the field (a typed "2 cups rice" line) replaces the text.
+            .onChange(of: quantity) { _, newValue in
+                if RecipeQuantity.parse(text) != newValue {
+                    text = RecipeQuantity.format(newValue)
+                    invalidRows.remove(rowID)
+                }
+            }
+            // Leaving the field shows the fraction form of what was typed, such as "1/4" becoming "¼".
+            .onChange(of: isFocused) { _, focused in
+                if !focused, !invalidRows.contains(rowID) {
+                    text = RecipeQuantity.format(quantity)
+                }
+            }
+            .onDisappear {
+                invalidRows.remove(rowID)
+            }
+    }
 }
 
 #if os(iOS)

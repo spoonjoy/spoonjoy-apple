@@ -189,8 +189,8 @@ public struct RecipeEditorValidationIssue: Equatable, Sendable {
 }
 
 public enum RecipeEditorValidator {
-    private static let quantityMinimum = 0.001
-    private static let quantityMaximum = 99_999.0
+    private static let quantityMinimum = RecipeQuantity.minimum
+    private static let quantityMaximum = RecipeQuantity.maximum
 
     public static func validate(_ draft: RecipeEditorDraft) -> [RecipeEditorValidationIssue] {
         var issues: [RecipeEditorValidationIssue] = []
