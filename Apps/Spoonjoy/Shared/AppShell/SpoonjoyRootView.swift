@@ -156,30 +156,26 @@ struct SpoonjoyRootView: View {
     }
 #endif
 
+    /// Every state with a kitchen to show goes through the one `platformNavigation` call below, so a sync that moves
+    /// the app between those states updates the shell in place instead of rebuilding it.
     @ViewBuilder private var rootContent: some View {
-        switch liveStore.bootstrapState {
-        case .signedOut(let contentState):
-            signedOutContent(contentState: contentState)
-        case .restoringCache(let contentState):
-            restoringCacheView(contentState: contentState)
-        case .liveSynced(let contentState):
+        let bootstrapState = liveStore.bootstrapState
+        let contentState = bootstrapState.contentState
+        let presentation = bootstrapState.shellPresentation(isShowingSettings: navigation.route == .settings)
+        if presentation == .kitchen {
             platformNavigation(contentState: contentState)
-        case .offlineStale(let contentState):
-            platformNavigation(contentState: contentState)
-        case .queuedWork(let contentState):
-            platformNavigation(contentState: contentState)
-        case .conflict(let contentState):
-            platformNavigation(contentState: contentState)
-        case .blocker(let contentState):
-            platformNavigation(contentState: contentState)
-        case .destructiveConfirmation(let contentState):
-            platformNavigation(contentState: contentState)
-        case .syncFailed(let contentState, let message):
-            if navigation.route == .settings {
+        } else {
+            switch presentation {
+            case .signedOut:
+                signedOutContent(contentState: contentState)
+            case .kitchen:
+                // Handled above; listed so the switch stays exhaustive without hiding a kitchen state here.
+                EmptyView()
+            case .restoring:
+                restoringCacheView(contentState: contentState)
+            case .settingsAfterSyncFailure(let message):
                 settingsContent(contentState: contentState, syncFailureMessage: message)
-            } else if hasRenderableKitchenContent(contentState) {
-                platformNavigation(contentState: contentState)
-            } else {
+            case .syncFailed(let message):
                 syncFailedView(contentState: contentState, message: message)
             }
         }
@@ -575,12 +571,6 @@ struct SpoonjoyRootView: View {
             return nil
         }
         return "Support code: \(supportText)"
-    }
-
-    private func hasRenderableKitchenContent(_ contentState: NativeShellContentState) -> Bool {
-        !contentState.recipes.isEmpty ||
-            !contentState.cookbooks.isEmpty ||
-            !(contentState.shoppingList?.activeItems.isEmpty ?? true)
     }
 
     private func applyURL(_ url: URL) {
