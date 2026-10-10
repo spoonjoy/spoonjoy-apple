@@ -1439,7 +1439,7 @@ struct NativeLiveStoreTests {
                     createdAt: "2026-06-16T11:00:00.000Z"
                 ),
             ])
-            try await syncStore.saveQueue(otherAccountQueue, accountID: "chef_other", environment: .production)
+            await syncStore.saveQueue(otherAccountQueue, accountID: "chef_other", environment: .production)
             try await liveStore.discardQueuedMutation(clientMutationID: "cm_other_account")
             #expect((try await syncStore.loadQueue()).mutations.map(\.clientMutationID) == ["cm_other_account"])
         }
