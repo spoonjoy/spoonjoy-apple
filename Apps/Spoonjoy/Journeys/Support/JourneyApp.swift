@@ -50,6 +50,14 @@ final class JourneyApp {
         app.launch()
     }
 
+    /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
+    /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
+    /// link until sign-in.
+    func openLink(_ url: URL) {
+        app.launchEnvironment.removeValue(forKey: NativeJourneyLaunchReset.environmentKey)
+        app.open(url)
+    }
+
     func element(_ id: String) -> XCUIElement {
         query(id).firstMatch
     }
