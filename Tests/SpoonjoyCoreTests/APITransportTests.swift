@@ -46,6 +46,38 @@ struct APITransportTests {
         #expect(capturedRequest.value(forHTTPHeaderField: "X-Client-Mutation-Id") == "profile-update-1")
         #expect(capturedRequest.httpBody == Data(#"{"displayName":"Ari"}"#.utf8))
         #expect(capturedRequest.cachePolicy == .reloadIgnoringLocalCacheData)
+        // A stalled server fails the request after 15 s instead of the system's 60 s, so a launch sync is not held up.
+        #expect(capturedRequest.timeoutInterval == 15)
+    }
+
+    @Test("a recipe import may wait 60 s for the server, because the server fetches and reads the page before it answers")
+    func recipeImportWaitsLongerThanOtherRequests() async throws {
+        let source = try CaptureDraft.localText(
+            id: "draft_soup",
+            rawText: "Soup",
+            sourceURL: URL(string: "https://example.com/soup")!,
+            createdAt: "2026-10-09T08:00:00.000Z"
+        ).importSource()
+        // The app sends an import, interactive or retried from the queue, from its queued mutation.
+        let queuedImport = NativeQueuedMutation.recipeImportSubmit(source: source, clientMutationID: "cm_import", createdAt: "2026-10-09T08:00:00.000Z")
+        let builders = [
+            try queuedImport.requestBuilder(),
+            try RecipeImportRequests.importURL(clientMutationID: "cm_import", url: URL(string: "https://example.com/soup")!)
+        ]
+        let session = RecordingURLSession(responses: builders.map { _ in
+            .success(Self.response(
+                statusCode: 200,
+                headers: ["Content-Type": "application/json"],
+                body: Self.successEnvelope(requestID: "req_import", name: "Imported")
+            ))
+        })
+        let transport = URLSessionAPITransport(session: session)
+
+        for builder in builders {
+            _ = try await transport.send(builder, configuration: Self.configuration(bearerToken: "sj_access_original"), decode: TransportPayload.self)
+        }
+
+        #expect(await session.capturedRequests().map(\.timeoutInterval) == [60, 60])
     }
 
     @Test("transport preserves already encoded path segments exactly once")

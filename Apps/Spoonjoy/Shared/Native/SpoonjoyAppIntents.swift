@@ -1733,6 +1733,7 @@ private enum SpoonjoyIntentOAuthSupport {
             throw spoonjoyIntentInvalidRequestURL()
         }
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = request.timeoutInterval
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {
@@ -2506,6 +2507,7 @@ private struct SpoonjoyIntentStateWriter {
         }
 
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = apiRequest.timeoutInterval
         urlRequest.httpMethod = apiRequest.method.rawValue
         urlRequest.httpBody = apiRequest.body
         for (name, value) in apiRequest.headers {
