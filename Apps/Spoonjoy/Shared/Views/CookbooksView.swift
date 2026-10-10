@@ -732,7 +732,6 @@ private struct CookbookDetailView: View {
     @State private var activeConfirmationDialog: CookbookConfirmationDialog?
     @State private var isOwnerToolsExpanded = false
     @State private var recipeQuery = ""
-    @State private var mastheadOpacity: Double = 1
     @FocusState private var isRecipeSearchFocused: Bool
 
     init(
@@ -779,13 +778,12 @@ private struct CookbookDetailView: View {
         // The scrolled page fades under a solid edge at the top, so its title never collides with the
         // status bar or the back button.
         .scrollEdgeEffectStyle(.hard, for: .top)
-        // The edge frosts what passes beneath it, so the masthead fades out on its way up instead of
-        // leaving a blurred ghost of the title behind the back button.
-        .onScrollGeometryChange(for: Double.self) { geometry in
-            MastheadScrollFade.opacity(scrolledDistance: Double(geometry.contentOffset.y + geometry.contentInsets.top))
-        } action: { _, opacity in
-            mastheadOpacity = opacity
-        }
+#if os(iOS)
+        // The hard edge alone frosts what passes beneath it, leaving a blurred ghost of the masthead
+        // and section headers behind the back button; paper behind the bar makes the edge solid.
+        .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
+        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+#endif
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
             isPresented: Binding(
@@ -882,7 +880,6 @@ private struct CookbookDetailView: View {
             )
             detailShareAction
         }
-        .opacity(mastheadOpacity)
     }
 
     private var detailShareAction: some View {
