@@ -2024,6 +2024,48 @@ struct NativeAuthBehaviorContract {
         ])
     }
 
+    @Test("sign out leaves the device signed out even when the server cannot revoke the session")
+    func signOutSucceedsLocallyWhenRevokeFails() async throws {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let vault = InMemoryTokenVault()
+        let network = AuthNetworkSpy(
+            clientID: "cm_native_spoonjoy",
+            exchangeResponse: tokenResponse(accessToken: "sj_access_initial", refreshToken: "ort_refresh_initial", expiresIn: 300),
+            refreshResponse: tokenResponse(accessToken: "sj_access_rotated", refreshToken: "ort_refresh_rotated", expiresIn: 600)
+        )
+        let attempts = RevokeAttemptCounter()
+        let repository = NativeAuthSessionRepository(
+            vault: vault,
+            clientName: "Spoonjoy Apple",
+            redirectURI: URL(string: "https://spoonjoy.app/oauth/callback")!,
+            scope: NativeAuthSession.defaultScope,
+            registerClient: network.registerClient,
+            exchangeCode: network.exchangeCode,
+            refresh: network.refresh,
+            revoke: { _, _ in
+                await attempts.record()
+                throw URLError(.timedOut)
+            },
+            now: { now }
+        )
+        try await vault.saveClientID("cm_native_spoonjoy")
+        try await vault.saveSession(try AuthSession(
+            clientID: "cm_native_spoonjoy",
+            accessToken: "sj_access_live",
+            refreshToken: "ort_refresh_live",
+            tokenType: "Bearer",
+            expiresAt: now.addingTimeInterval(600),
+            scope: NativeAuthSession.defaultScope
+        ))
+
+        try await repository.revokeAndLogout()
+
+        #expect(await attempts.count == 1)
+        #expect(try await repository.restoreState() == .signedOut)
+        #expect(try await vault.loadSession() == nil)
+        #expect(try await vault.loadClientID() == nil)
+    }
+
     @Test("repository rejects callback state mismatch missing code and wrong callback route")
     func repositoryRejectsCallbackStateMismatchMissingCodeAndWrongCallbackRoute() async throws {
         let vault = InMemoryTokenVault()
@@ -2196,3 +2238,11 @@ private func throwsOAuthRedirectValidationError(_ operation: () async throws -> 
     }
 }
 """##
+
+private actor RevokeAttemptCounter {
+    private(set) var count = 0
+
+    func record() {
+        count += 1
+    }
+}

@@ -192,10 +192,18 @@ public actor NativeAuthSessionRepository {
         return boundSession
     }
 
+    /// Signs out on this device whatever the server says. Revoking the refresh token is best effort: when the
+    /// server is slow, unreachable or refuses the request, the session still leaves the vault, so a stalled sign-out
+    /// never keeps the chef signed in or stops the web sign-out handoff. A token the server never heard about expires
+    /// on its own.
     public func revokeAndLogout() async throws {
         if let session = try await vault.loadSession() {
-            _ = try OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID)
-            try await revoke(session.refreshToken, session.clientID)
+            do {
+                _ = try OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID)
+                try await revoke(session.refreshToken, session.clientID)
+            } catch {
+                // Signing out locally below is what the chef asked for; the server copy expires by itself.
+            }
         }
         try await refreshCoordinator.disconnect()
     }
