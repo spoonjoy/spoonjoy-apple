@@ -355,15 +355,89 @@ struct CookSessionSyncTests {
         #expect(result == CookSyncReconciliation(progress: remote.progress, server: remote, outcome: .synced))
     }
 
-    @Test("a refused change adopts the server's progress, normalized to the recipe")
+    // This used to trim the server's progress to this device's recipe and remember the trimmed copy as the
+    // server's state, which made the next exchange send the trim and erase the other device's checks. The server's
+    // state is now kept as the server holds it; the app fits it to the recipe only for display.
+    @Test("a refused change adopts the server's progress and remembers the server's state as it is")
     func reconcileRejectedAdopts() async {
-        let remote = Self.server(revision: 3, Self.progress(step: 9, ingredients: ["a", "gone"]))
+        let remote = Self.server(revision: 3, Self.progress(step: 9, ingredients: ["a", "a", "gone"]))
         let client = ScriptedCookSessionClient(read: [.state(remote)], patch: [.rejected])
         let result = await Self.reconcile(client, local: Self.progress(step: 1), known: Self.server(revision: 3), pull: false)
-        let adopted = Self.progress(step: 2, ingredients: ["a"])
-        #expect(result.progress == adopted)
-        #expect(result.server == Self.server(revision: 3, adopted))
+        #expect(result.progress == Self.progress(step: 9, ingredients: ["a", "gone"]))
+        #expect(result.progress.normalized(to: Self.bounds) == Self.progress(step: 2, ingredients: ["a"]))
+        #expect(result.server == remote)
         #expect(result.outcome == .synced)
+    }
+
+    @Test("a check made on a newer version of the recipe survives this device's send")
+    func reconcileKeepsChecksThisDeviceDoesNotKnow() async {
+        // The web added "salt" to the recipe and checked it; this device still has the old recipe and checks "a".
+        let known = Self.server(revision: 1, Self.progress(ingredients: []))
+        let remote = Self.server(revision: 2, Self.progress(ingredients: ["salt"], outputs: ["o9"]))
+        let accepted = Self.server(revision: 3, Self.progress(ingredients: ["salt", "a"], outputs: ["o9"]))
+        let client = ScriptedCookSessionClient(read: [.state(remote)], patch: [.state(accepted)])
+        let result = await Self.reconcile(client, local: Self.progress(ingredients: ["a"]), known: known)
+
+        #expect(await client.patches.map(\.changes) == [CookSyncChanges(checkedIngredientIDs: ["salt", "a"])])
+        #expect(result.server == accepted)
+        #expect(result.outcome == .synced)
+    }
+
+    @Test("ids and a step this device cannot show are not read as the cook undoing them")
+    func reconcileDoesNotUndoWhatThisDeviceCannotShow() async {
+        // The server is on step 5 of the newer recipe with "salt" checked. This device has three steps, so it shows
+        // step 3 (index 2) and no salt. The cook here checks "b".
+        let known = Self.server(revision: 4, Self.progress(step: 5, ingredients: ["salt"]))
+        let shown = Self.progress(step: 2, ingredients: ["b"])
+        let accepted = Self.server(revision: 5, Self.progress(step: 5, ingredients: ["salt", "b"]))
+        let client = ScriptedCookSessionClient(patch: [.state(accepted)])
+        let result = await Self.reconcile(client, local: shown, known: known, pull: false)
+
+        #expect(await client.patches.map(\.changes) == [CookSyncChanges(checkedIngredientIDs: ["salt", "b"])])
+        #expect(result.server == accepted)
+
+        // Moving to another step here is a real change and is sent, fitted to this device's recipe.
+        let moved = ScriptedCookSessionClient(patch: [.state(Self.server(revision: 5, Self.progress(step: 1, ingredients: ["salt"])))])
+        _ = await Self.reconcile(moved, local: Self.progress(step: 1), known: known, pull: false)
+        #expect(await moved.patches.map(\.changes) == [CookSyncChanges(activeStepIndex: 1)])
+    }
+
+    @Test("when the server refuses ids this device kept, the change is sent again fitted to this device's recipe")
+    func reconcileRetriesFittedWhenKeptIDsAreRefused() async {
+        // The web checked "pepper", then the recipe was edited: pepper removed. The server still holds the pepper
+        // check but refuses any list that names it. This device has the edited recipe and checks "a".
+        let known = Self.server(revision: 2, Self.progress(step: 7, ingredients: ["pepper"]))
+        let accepted = Self.server(revision: 3, Self.progress(step: 2, ingredients: ["a"]))
+        let client = ScriptedCookSessionClient(patch: [.rejected, .state(accepted)])
+        let result = await Self.reconcile(client, local: Self.progress(step: 2, ingredients: ["a"]), known: known, pull: false)
+
+        #expect(await client.patches.map(\.changes) == [
+            CookSyncChanges(checkedIngredientIDs: ["pepper", "a"]),
+            CookSyncChanges(activeStepIndex: 2, checkedIngredientIDs: ["a"])
+        ])
+        #expect(result == CookSyncReconciliation(progress: accepted.progress, server: accepted, outcome: .synced))
+
+        // Refused again, fitted: the device shows the server's progress, as before.
+        let refused = ScriptedCookSessionClient(read: [.state(known)], patch: [.rejected, .rejected])
+        let adopted = await Self.reconcile(refused, local: Self.progress(step: 2, ingredients: ["a"]), known: known, pull: false)
+        #expect(await refused.calls == ["patch", "patch", "read"])
+        #expect(adopted.server == known)
+    }
+
+    @Test("only this device's own changes are fitted to its recipe")
+    func normalizingKeepsWhatTheServerHolds() {
+        let server = Self.progress(step: 7, scale: 80, ingredients: ["salt"], outputs: ["o9"])
+        let kept = Self.progress(step: 7, scale: 80, ingredients: ["salt", "a", "zzz", "a"], outputs: ["o9", "x"])
+            .normalized(to: Self.bounds, keeping: server)
+        #expect(kept == Self.progress(step: 7, scale: 80, ingredients: ["salt", "a"], outputs: ["o9"]))
+        let changed = Self.progress(step: 9, scale: 99).normalized(to: Self.bounds, keeping: server)
+        #expect(changed == Self.progress(step: 2, scale: 50))
+
+        let restored = Self.progress(step: 2, ingredients: ["a"]).restoringUnknown(from: server, bounds: Self.bounds)
+        #expect(restored == Self.progress(step: 7, ingredients: ["a", "salt"], outputs: ["o9"]))
+        #expect(Self.progress(step: 1).restoringUnknown(from: server, bounds: Self.bounds).activeStepIndex == 1)
+        #expect(Self.progress(step: 0).restoringUnknown(from: Self.progress(step: -3), bounds: Self.bounds).activeStepIndex == -3)
+        #expect(Self.progress(step: 1, ingredients: ["a"]).restoringUnknown(from: Self.progress(step: 1, ingredients: ["b"]), bounds: Self.bounds) == Self.progress(step: 1, ingredients: ["a"]))
     }
 
     @Test("a refused change with no session on the server falls back to the defaults")
@@ -548,18 +622,21 @@ actor ScriptedCookSessionClient: CookSessionClient {
 
     func read(recipeID _: String) async -> CookSyncResult {
         calls.append("read")
-        return reads.removeFirst()
+        // A call nothing scripted answers stops the exchange; tests assert on `calls` and `patches`.
+        return reads.isEmpty ? .stopped : reads.removeFirst()
     }
 
     func start(recipeID _: String) async -> CookSyncResult {
         calls.append("start")
-        return starts.removeFirst()
+        // A call nothing scripted answers stops the exchange; tests assert on `calls` and `patches`.
+        return starts.isEmpty ? .stopped : starts.removeFirst()
     }
 
     func patch(recipeID _: String, server: CookServerSnapshot, changes: CookSyncChanges, mutationID: String) async -> CookSyncResult {
         calls.append("patch")
         patches.append(Patch(server: server, changes: changes, mutationID: mutationID))
-        return patchResults.removeFirst()
+        // A call nothing scripted answers stops the exchange; tests assert on `calls` and `patches`.
+        return patchResults.isEmpty ? .stopped : patchResults.removeFirst()
     }
 }
 

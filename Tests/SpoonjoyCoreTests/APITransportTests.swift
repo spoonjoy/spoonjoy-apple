@@ -338,6 +338,28 @@ struct APITransportTests {
         #expect(capturedRequests[5].value(forHTTPHeaderField: "X-Client-Mutation-Id") == nil)
     }
 
+    @Test("checking or removing a shopping item someone already removed counts as done, and other 404s are still held")
+    func shoppingItemAlreadyRemovedCountsAsDone() async throws {
+        func notFound(_ requestID: String) -> Result<(Data, URLResponse), Error> {
+            .success(Self.response(
+                statusCode: 404,
+                headers: ["Content-Type": "application/json"],
+                body: Self.errorEnvelope(requestID: requestID, code: "not_found", message: "Shopping item not found.", status: 404)
+            ))
+        }
+        let session = RecordingURLSession(responses: [notFound("req_check"), notFound("req_remove"), notFound("req_rename")])
+        let transport = URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+        let configuration = Self.configuration(bearerToken: "sj_access_native")
+
+        let check = try await transport.send(.shoppingCheckItem(itemID: "item_cleared", checked: true, clientMutationID: "cm_check", createdAt: "2026-10-09T08:00:00.000Z"), configuration: configuration)
+        let remove = try await transport.send(.shoppingDeleteItem(itemID: "item_cleared", clientMutationID: "cm_remove", createdAt: "2026-10-09T08:00:01.000Z"), configuration: configuration)
+        let rename = try await transport.send(.recipeUpdate(recipeID: "recipe_gone", clientMutationID: "cm_rename", title: "Soup", description: nil, servings: nil, createdAt: "2026-10-09T08:00:02.000Z"), configuration: configuration)
+
+        #expect(check == .success(serverRevision: nil))
+        #expect(remove == .success(serverRevision: nil))
+        #expect(rename == .conflict(kind: .validation, serverRevision: nil, message: "Shopping item not found."))
+    }
+
     @Test("URLSession native sync transport returns typed recipe import blockers")
     func urlSessionNativeSyncTransportReturnsTypedRecipeImportBlockers() async throws {
         let session = RecordingURLSession(
