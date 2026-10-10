@@ -4975,7 +4975,9 @@ struct NativeLiveStoreTests {
             #expect(queueContent.offlineIndicatorState.display == .syncFailure(errorID: "queue", retryAfter: nil))
 
             let signedInVault = try await Self.signedInVault(accountID: "chef_ari")
-            let flakyRestoreSyncStore = FlakyRestoreNativeSyncStore(failingLoadSnapshotCalls: [2, 4])
+            // Launch: 1 is the cached-kitchen head start, 2 the sync's own read, 3 the offline restore. Switching
+            // environments: 4 the sync's read, 5 the offline restore. Every restore fails; the sync reads succeed.
+            let flakyRestoreSyncStore = FlakyRestoreNativeSyncStore(failingLoadSnapshotCalls: [1, 3, 5])
             let configuration = APIClientConfiguration.spoonjoyProduction
             let offlineError = APITransportError(
                 kind: .offline,
@@ -8248,6 +8250,288 @@ struct OffCookSessionClient: CookSessionClient {
     func read(recipeID _: String) async -> CookSyncResult { .stopped }
     func start(recipeID _: String) async -> CookSyncResult { .stopped }
     func patch(recipeID _: String, server _: CookServerSnapshot, changes _: CookSyncChanges, mutationID _: String) async -> CookSyncResult { .stopped }
+}
+
+/// Holds a network call open until the test lets it answer, so a test can look at the screen while it waits.
+private actor LaunchNetworkGate {
+    private var waiter: CheckedContinuation<Void, Never>?
+    private var isReleased = false
+    private(set) var isWaiting = false
+
+    /// Returns at once after `release()`, so a test that gives up early can never leave a call parked forever.
+    func wait() async {
+        guard !isReleased else {
+            return
+        }
+        isWaiting = true
+        await withCheckedContinuation { waiter = $0 }
+        isWaiting = false
+    }
+
+    func release() {
+        isReleased = true
+        waiter?.resume()
+        waiter = nil
+    }
+}
+
+private actor GatedLaunchSyncTransport: NativeSyncTransport {
+    private let gate: LaunchNetworkGate
+    private let syncData: NativeSyncData
+
+    init(gate: LaunchNetworkGate, syncData: NativeSyncData) {
+        self.gate = gate
+        self.syncData = syncData
+    }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        await gate.wait()
+        return .syncData(syncData)
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        .success(serverRevision: .updatedAt(mutation.createdAt))
+    }
+}
+
+extension NativeLiveStoreTests {
+    /// Waits on the clock, not a yield count, so a busy parallel run cannot look at the screen too early.
+    private static func waitForGate(_ gate: LaunchNetworkGate) async throws {
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !(await gate.isWaiting) {
+            guard ContinuousClock.now < deadline else {
+                Issue.record("The launch never reached the network call it was meant to wait on.")
+                throw CancellationError()
+            }
+            try await Task.sleep(for: .milliseconds(5))
+        }
+    }
+
+    @MainActor
+    private static func launchedOnce(directory: URL, syncStore: InMemoryNativeSyncStore, syncData: NativeSyncData) async throws -> InMemoryTokenVault {
+        let vault = try await Self.signedInVault(accountID: "chef_ari")
+        let firstLaunch = Self.liveStore(
+            directory: directory,
+            vault: vault,
+            syncStore: syncStore,
+            transport: ScriptedLiveStoreSyncTransport(bootstraps: [.result(.syncData(syncData))])
+        )
+        await firstLaunch.bootstrap()
+        return vault
+    }
+
+    @MainActor
+    @Test("a relaunch shows the kitchen saved on this device before the network answers")
+    func relaunchShowsSavedKitchenBeforeTheNetwork() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_saved", title: "Saved Lemon Pasta"),
+                shoppingItem: Self.sampleShoppingItem(id: "item_lemons", name: "lemons"),
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let vault = try await Self.launchedOnce(directory: directory, syncStore: syncStore, syncData: syncData)
+            let gate = LaunchNetworkGate()
+            let relaunch = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: GatedLaunchSyncTransport(gate: gate, syncData: syncData)
+            )
+
+            let launch = relaunch.requestSync(trigger: .launch)
+            try await Self.waitForGate(gate)
+
+            guard case .liveSynced(let shown) = relaunch.bootstrapState else {
+                Issue.record("Expected the saved kitchen while the sync waits; got \(relaunch.bootstrapState)")
+                await gate.release()
+                await launch.value
+                return
+            }
+            #expect(shown.recipes.map(\.title) == ["Saved Lemon Pasta"])
+            #expect(shown.shoppingList?.activeItems.map(\.name) == ["lemons"])
+            #expect(shown.offlineIndicatorState.display == .synced)
+
+            await gate.release()
+            await launch.value
+            guard case .liveSynced(let synced) = relaunch.bootstrapState else {
+                Issue.record("Expected the sync to finish live; got \(relaunch.bootstrapState)")
+                return
+            }
+            #expect(synced.recipes.map(\.title) == ["Saved Lemon Pasta"])
+        }
+    }
+
+    @MainActor
+    @Test("signing out while the launch sync runs ends signed out, not on the old account's kitchen")
+    func signOutDuringLaunchSyncEndsSignedOut() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_saved", title: "Saved Lemon Pasta"),
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let vault = try await Self.launchedOnce(directory: directory, syncStore: syncStore, syncData: syncData)
+            let gate = LaunchNetworkGate()
+            let relaunch = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: GatedLaunchSyncTransport(gate: gate, syncData: syncData)
+            )
+
+            // The saved kitchen is on screen and the launch sync is waiting on the network: the user signs out.
+            let launch = relaunch.requestSync(trigger: .launch)
+            try await Self.waitForGate(gate)
+            let signOut = Task { @MainActor in
+                try await relaunch.performSettingsSessionOperation(.logout)
+            }
+            let deadline = ContinuousClock.now + .seconds(10)
+            while try await vault.loadSession() != nil {
+                guard ContinuousClock.now < deadline else {
+                    Issue.record("Sign-out never cleared the session.")
+                    break
+                }
+                try await Task.sleep(for: .milliseconds(5))
+            }
+
+            // The sync that started for the old account answers after the sign-out.
+            await gate.release()
+            await launch.value
+            try await signOut.value
+
+            guard case .signedOut(let shown) = relaunch.bootstrapState else {
+                Issue.record("Expected the signed-out screen after signing out; got \(relaunch.bootstrapState)")
+                return
+            }
+            #expect(shown.recipes.isEmpty)
+        }
+    }
+
+    @MainActor
+    @Test("a session with no account bound gets no head start from a saved kitchen")
+    func unboundSessionGetsNoHeadStart() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_saved", title: "Saved Lemon Pasta"),
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            _ = try await Self.launchedOnce(directory: directory, syncStore: syncStore, syncData: syncData)
+            // Every session with no account bound maps to the same unbound key, so a kitchen saved on this device
+            // could belong to anyone who signed in here before. Relaunch with such a session.
+            let gate = LaunchNetworkGate()
+            let relaunch = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: nil),
+                syncStore: syncStore,
+                transport: GatedLaunchSyncTransport(gate: gate, syncData: syncData)
+            )
+            let launch = relaunch.requestSync(trigger: .launch)
+            try await Self.waitForGate(gate)
+
+            #expect(relaunch.bootstrapState.contentState.recipes.isEmpty, "An unbound session showed a saved kitchen before the sync named the account.")
+
+            await gate.release()
+            await launch.value
+        }
+    }
+
+    @MainActor
+    @Test("the settings refresh runs after the kitchen is on screen, and its failure still shows")
+    func settingsRefreshDoesNotHoldBackTheKitchen() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_fresh", title: "Fresh Lemon Pasta"),
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let gate = LaunchNetworkGate()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport(bootstraps: [.result(.syncData(syncData))]),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    await gate.wait()
+                    throw URLError(.timedOut)
+                }
+            )
+
+            let launch = liveStore.requestSync(trigger: .launch)
+            try await Self.waitForGate(gate)
+
+            guard case .liveSynced(let shown) = liveStore.bootstrapState else {
+                Issue.record("Expected the synced kitchen while settings load; got \(liveStore.bootstrapState)")
+                await gate.release()
+                await launch.value
+                return
+            }
+            #expect(shown.recipes.map(\.title) == ["Fresh Lemon Pasta"])
+
+            await gate.release()
+            await launch.value
+            guard case .syncFailed(let failed, _) = liveStore.bootstrapState else {
+                Issue.record("Expected the settings failure to surface; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(failed.recipes.map(\.title) == ["Fresh Lemon Pasta"])
+            #expect(failed.offlineIndicatorState.display == .syncFailure(errorID: "settings", retryAfter: nil))
+        }
+    }
+}
+
+extension NativeLiveStoreTests {
+    @MainActor
+    @Test("a settings failure after a held change keeps the held change on screen and still reports the failure")
+    func settingsFailureAfterHeldChangeKeepsTheConflict() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let mutation = NativeQueuedMutation.shoppingAddItem(
+                name: "lemons",
+                quantity: nil,
+                unit: nil,
+                categoryKey: nil,
+                iconKey: nil,
+                clientMutationID: "cm_held_lemons",
+                createdAt: Self.isoString(Self.now)
+            )
+            let telemetryRecorder = NativeTelemetryRecorder()
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: InMemoryNativeSyncStore(
+                    accountID: "chef_ari",
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: try NativeMutationQueue(mutations: [mutation])
+                ),
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: []))],
+                    sends: [.conflict(kind: .validation, serverRevision: nil, message: "Lemons are not allowed.")]
+                ),
+                settingsSurfaceFetch: { _, _, _, _, _ in
+                    throw URLError(.timedOut)
+                },
+                nativeTelemetryReport: { event, configuration in
+                    await telemetryRecorder.record(event, configuration: configuration)
+                },
+                nativeTelemetryMetadata: NativeTelemetryAppMetadata(platform: "ios", appVersion: "1.0", buildNumber: "13")
+            )
+
+            await liveStore.bootstrap()
+
+            guard case .conflict(let content) = liveStore.bootstrapState else {
+                Issue.record("Expected the held change to stay on screen; got \(liveStore.bootstrapState)")
+                return
+            }
+            #expect(content.offlineIndicatorState.display == .conflict(recordID: "cm_held_lemons", mutationID: "cm_held_lemons"))
+            #expect(await telemetryRecorder.recordedEvents().contains { $0.stage == "settings" })
+        }
+    }
 }
 
 extension NativeLiveStoreTests {

@@ -1848,6 +1848,14 @@ public final class NativeLiveAppStore: ObservableObject {
     /// Counts edits added to the queue. A run goes again only when this changed while it was running, so a
     /// screen that asks for a sync each time it appears cannot keep the store syncing in a loop.
     private var queueVersion = 0
+    /// Goes up on every sign-out. Each sync pass runs under the generation it started with, and a pass that
+    /// started before a sign-out cannot put anything on screen, so the old account's kitchen never comes back.
+    private var authGeneration = 0
+    @TaskLocal private static var syncPassAuthGeneration: Int?
+    /// True inside a sync pass (and the tasks it starts) that began before the latest sign-out.
+    private var isStaleSyncPass: Bool {
+        Self.syncPassAuthGeneration.map { $0 != authGeneration } ?? false
+    }
     /// Recipes whose cook progress should be read from the server at the next sync (a recipe was opened).
     private var cookPullRecipeIDs = Set<String>()
     /// Recipes the server would not take progress for (sync is off, access refused). They are not retried
@@ -1876,7 +1884,9 @@ public final class NativeLiveAppStore: ObservableObject {
             var versionAtStart: Int
             repeat {
                 versionAtStart = queueVersion
-                await performSync(trigger: trigger)
+                await Self.$syncPassAuthGeneration.withValue(authGeneration) {
+                    await performSync(trigger: trigger)
+                }
             } while queueVersion != versionAtStart
             activeSync = nil
         }
@@ -1969,6 +1979,10 @@ public final class NativeLiveAppStore: ObservableObject {
                 return
             }
 
+            // A relaunch shows the kitchen saved on this device before anything touches the network: the token
+            // check, the sync and the settings refresh used to run first, one after another, behind the spinner.
+            let showedCachedKitchen = await showCachedKitchenIfAvailable(restoredAuthState: restoredAuthState)
+
             let authState = try await authorizedAuthState(from: restoredAuthState)
             guard case .authenticated(let session) = authState else {
                 let restoringContent = try await restoreFromCache(authSessionState: authState)
@@ -1977,8 +1991,8 @@ public final class NativeLiveAppStore: ObservableObject {
             }
 
             // The loading screen is for a cold launch with nothing cached. A sync that starts with content on
-            // screen (a saved edit draining, the app becoming active) updates that content in place.
-            if !(isShowingLoadedContent && currentContentState.authSessionState == authState) {
+            // screen (the cached kitchen, a saved edit draining, the app becoming active) updates it in place.
+            if !showedCachedKitchen && !(isShowingLoadedContent && currentContentState.authSessionState == authState) {
                 apply(.restoringCache(emptyContent(authSessionState: authState, display: .synced)))
             }
             try await bootstrapFromLiveAPI(session: session, trigger: trigger)
@@ -2022,6 +2036,63 @@ public final class NativeLiveAppStore: ObservableObject {
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "bootstrap", retryAfter: nil), dismissal: nil)),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
             ))
+        }
+    }
+
+    /// Shows the kitchen saved for the restored account when nothing is on screen yet. Returns true when it did.
+    /// The account comes from the keychain, so this needs no network; the sync that follows updates it in place.
+    /// It is only a head start: a cache saved for another account is left to the sync's own restore, which purges
+    /// that account's search entries once, and a cache that cannot be read leaves the launch to the sync.
+    private func showCachedKitchenIfAvailable(restoredAuthState: NativeAuthSessionState) async -> Bool {
+        guard !isShowingLoadedContent else {
+            return false
+        }
+        switch restoredAuthState {
+        case .signedOut:
+            return false
+        case .authenticated, .refreshRequired:
+            do {
+                let restoredAccountID = accountID(for: restoredAuthState)
+                let saved = try dependencies.cacheStore.loadOrRecover(fallback: NativeDurableCacheSnapshot(
+                    schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                    accountID: restoredAccountID,
+                    environment: cacheEnvironment,
+                    createdAt: dependencies.now(),
+                    records: [],
+                    dismissedIndicators: []
+                )).value
+                guard saved.accountID == restoredAccountID, saved.environment == cacheEnvironment else {
+                    return false
+                }
+                let cached = try await restoreFromCache(authSessionState: restoredAuthState)
+                guard !cached.recipes.isEmpty || !cached.cookbooks.isEmpty || !(cached.shoppingList?.items.isEmpty ?? true) else {
+                    return false
+                }
+                apply(Self.cachedLaunchState(for: cached))
+                return true
+            } catch {
+                NativeLiveAppStoreTelemetry.bootstrapFailed(
+                    stage: "cachedLaunch",
+                    error: error,
+                    authState: restoredAuthState,
+                    environment: cacheEnvironment,
+                    route: restoredRoute,
+                    contentState: currentContentState
+                )
+                return false
+            }
+        }
+    }
+
+    /// The state for a kitchen shown from the device's cache while the launch sync runs. Pending work keeps its own
+    /// state; otherwise the cache is shown as it was saved, with no offline banner, because nothing has failed yet.
+    nonisolated private static func cachedLaunchState(for content: NativeShellContentState) -> NativeAppBootstrapState {
+        // A restore reports queued work, a blocker, a stale cache or offline; the first two keep their own state.
+        switch content.offlineIndicatorState.display {
+        case .queuedWork, .blocker:
+            return restoreCacheOnlyBootstrapState(for: content)
+        default:
+            return .liveSynced(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .synced, dismissal: nil)))
         }
     }
 
@@ -2487,6 +2558,10 @@ public final class NativeLiveAppStore: ObservableObject {
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
         case .logout, .revokeAndLogout:
+            // A sync that is already running belongs to the account signing out: drop whatever it finishes, and
+            // make it run one more pass, which finds no session and shows the signed-out screen.
+            authGeneration += 1
+            queueVersion += 1
             shoppingMutationCoordinator.resetScope()
             let currentAccountID = accountID
             let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
@@ -3338,7 +3413,9 @@ public final class NativeLiveAppStore: ObservableObject {
             optimisticMutations: optimisticMutations,
             offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: record.value.dismissedIndicators.first)
         )
-        currentContentState = content
+        if !isStaleSyncPass {
+            currentContentState = content
+        }
         return content
     }
 
@@ -3446,15 +3523,6 @@ public final class NativeLiveAppStore: ObservableObject {
             Set(report.drainedMutations.filter { $0.queueableKind == .recipeImportSubmit }.map(\.clientMutationID)),
             authSessionState: boundAuthState
         )
-        await runCookExchange(session: session)
-        var settingsRefreshError: Error?
-        var settingsRefreshResult: SettingsSurfaceResult?
-        do {
-            settingsRefreshResult = try await refreshSettingsSurfaceCache(authSessionState: boundAuthState)
-        } catch {
-            NativeLiveAppStoreTelemetry.settingsRefreshFailed(error)
-            settingsRefreshError = error
-        }
         let drainedOverlayMutations = report.drainedMutations.filter {
             !$0.mutatesRecipeCache && !$0.mutatesShoppingCache && !$0.mutatesCookbookCache
         }
@@ -3471,8 +3539,7 @@ public final class NativeLiveAppStore: ObservableObject {
         let content = restoredContent.copy(
             offlineIndicatorState: shouldPreserveRestoredBlocker
                 ? restoredContent.offlineIndicatorState
-                : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now()),
-            settingsSurfaceData: settingsRefreshResult?.data
+                : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now())
         )
 
         let providerSecretResourceID = report.blockers.first.map { blocker -> String in
@@ -3482,6 +3549,7 @@ public final class NativeLiveAppStore: ObservableObject {
             }
         }
 
+        var settingsRefreshCanReportFailure = false
         if let conflict = report.conflicts.first {
             apply(.conflict(content.copy(
                 syncConflicts: report.conflicts,
@@ -3497,37 +3565,7 @@ public final class NativeLiveAppStore: ObservableObject {
                 content.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "sync", retryAfter: .seconds(retryAfterSeconds)), dismissal: nil)),
                 message: "Sync will retry."
             ))
-        } else if let settingsRefreshError {
-            await reportNativeTelemetry(
-                name: .settingsRefreshFailed,
-                stage: "settings",
-                error: settingsRefreshError,
-                authState: boundAuthState,
-                route: restoredRoute,
-                contentState: content
-            )
-            apply(.syncFailed(
-                content.copy(offlineIndicatorState: OfflineIndicatorState(
-                    display: .syncFailure(
-                        errorID: "settings",
-                        retryAfter: NativeLiveAppStoreTelemetry.retryAfterSeconds(for: settingsRefreshError).map(OfflineIndicatorRetryAfter.seconds)
-                    ),
-                    dismissal: nil
-                )),
-                message: NativeLiveAppStoreTelemetry.failureMessage(for: settingsRefreshError)
-            ))
         } else {
-            for partialFailure in settingsRefreshResult?.data.partialFailures ?? [] {
-                NativeLiveAppStoreTelemetry.settingsRefreshPartiallyFailed(partialFailure)
-                await reportNativeTelemetry(
-                    name: .settingsRefreshFailed,
-                    stage: "settings.\(partialFailure.component.rawValue)",
-                    diagnostic: partialFailure.diagnostic,
-                    authState: boundAuthState,
-                    route: restoredRoute,
-                    contentState: content
-                )
-            }
             if !content.queuedMutations.isEmpty {
                 apply(.queuedWork(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .queuedWork(count: content.queuedMutations.count, oldestClientMutationID: content.queuedMutations.first?.clientMutationID), dismissal: nil))))
             } else if case .blocker = content.offlineIndicatorState.display {
@@ -3535,7 +3573,16 @@ public final class NativeLiveAppStore: ObservableObject {
             } else {
                 apply(.liveSynced(content))
             }
+            settingsRefreshCanReportFailure = true
         }
+
+        // The kitchen is on screen. Cook progress and the settings page refresh now, side by side, and each
+        // updates what is shown when it answers; a settings failure still surfaces as a sync failure.
+        let cookExchange = Task { @MainActor [self] in
+            await runCookExchange(session: session)
+        }
+        await refreshSettingsAfterSync(authSessionState: boundAuthState, canReportFailure: settingsRefreshCanReportFailure)
+        await cookExchange.value
         } catch {
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "liveAPI:\(String(describing: trigger))",
@@ -3546,6 +3593,56 @@ public final class NativeLiveAppStore: ObservableObject {
                 contentState: currentContentState
             )
             throw error
+        }
+    }
+
+    /// Refreshes the settings page after the kitchen is on screen, then updates what is shown. When the sync itself
+    /// ended cleanly (`canReportFailure`), a settings failure turns it into a sync failure, as it did when this ran
+    /// before the kitchen appeared; after a conflict, a blocker or a retry, those states stay.
+    private func refreshSettingsAfterSync(authSessionState: NativeAuthSessionState, canReportFailure: Bool) async {
+        let result: SettingsSurfaceResult?
+        do {
+            result = try await refreshSettingsSurfaceCache(authSessionState: authSessionState)
+        } catch {
+            NativeLiveAppStoreTelemetry.settingsRefreshFailed(error)
+            await reportNativeTelemetry(
+                name: .settingsRefreshFailed,
+                stage: "settings",
+                error: error,
+                authState: authSessionState,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
+            // A held change, a blocker or a sync retry already explains the screen; it stays.
+            guard canReportFailure else {
+                return
+            }
+            apply(.syncFailed(
+                currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(
+                    display: .syncFailure(
+                        errorID: "settings",
+                        retryAfter: NativeLiveAppStoreTelemetry.retryAfterSeconds(for: error).map(OfflineIndicatorRetryAfter.seconds)
+                    ),
+                    dismissal: nil
+                )),
+                message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
+            ))
+            return
+        }
+        guard let result else {
+            return
+        }
+        apply(stateMatchingCurrentSeverity(with: currentContentState.copy(settingsSurfaceData: result.data)))
+        for partialFailure in result.data.partialFailures {
+            NativeLiveAppStoreTelemetry.settingsRefreshPartiallyFailed(partialFailure)
+            await reportNativeTelemetry(
+                name: .settingsRefreshFailed,
+                stage: "settings.\(partialFailure.component.rawValue)",
+                diagnostic: partialFailure.diagnostic,
+                authState: authSessionState,
+                route: restoredRoute,
+                contentState: currentContentState
+            )
         }
     }
 
@@ -3662,6 +3759,9 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func apply(_ state: NativeAppBootstrapState) {
+        guard !isStaleSyncPass else {
+            return
+        }
         currentContentState = state.contentState
         bootstrapState = state
     }
