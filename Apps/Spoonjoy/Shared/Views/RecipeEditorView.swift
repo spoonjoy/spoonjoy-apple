@@ -79,6 +79,23 @@ struct RecipeEditorView: View {
         }
         .scrollDismissesKeyboard(.interactively)
         .background(KitchenTableTheme.bone.ignoresSafeArea())
+#if os(iOS)
+        // As on a cookbook page, the scrolled editor would show through the glass behind Cancel, the
+        // title and Save, so the edge effect is off and the page's paper covers the status bar and
+        // navigation bar: a zero-height line at the top of the safe area whose paper reaches the
+        // screen edge.
+        .scrollEdgeEffectHidden(true, for: .top)
+        .overlay(alignment: .top) {
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: 0)
+                .background(KitchenTableTheme.bone.ignoresSafeArea(edges: .top))
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+#else
+        .scrollEdgeEffectStyle(.hard, for: .top)
+#endif
         .navigationTitle(draft.recipeID == nil ? "New Recipe" : "Edit Recipe")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
