@@ -192,10 +192,18 @@ public actor NativeAuthSessionRepository {
         return boundSession
     }
 
+    /// Signs this device out. The local session and saved client ID are always
+    /// cleared, even when the server revoke fails (offline, outage, or a client ID
+    /// the server no longer recognises), so a shared device can always be signed out.
+    /// The server revoke is best-effort.
     public func revokeAndLogout() async throws {
-        if let session = try await vault.loadSession() {
-            _ = try OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID)
-            try await revoke(session.refreshToken, session.clientID)
+        if let session = try? await vault.loadSession() {
+            do {
+                _ = try OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID)
+                try await revoke(session.refreshToken, session.clientID)
+            } catch {
+                // Best-effort: the local sign-out below must still happen.
+            }
         }
         try await refreshCoordinator.disconnect()
     }

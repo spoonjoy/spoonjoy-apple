@@ -1,13 +1,17 @@
 import Foundation
 
-/// Original image bytes on disk (in Caches), bounded by `byteLimit` and trimmed least-recently-used.
+/// Downloaded image bytes on disk (in Caches), bounded by `byteLimit` and trimmed least-recently-used.
 /// A read refreshes the file's modification date, which serves as its access date.
+///
+/// The cache lists its folder once, on first use, and then keeps sizes and access dates in memory, so a
+/// write costs one file write rather than a scan of every cached file.
 public actor ImageDiskCache {
     public static let defaultByteLimit = 200 * 1_024 * 1_024
 
     private let directory: URL
     private let byteLimit: Int
     private let now: @Sendable () -> Date
+    private var index: [String: ImageCacheEntry]?
 
     public init(directory: URL, byteLimit: Int = ImageDiskCache.defaultByteLimit, now: @escaping @Sendable () -> Date = { Date() }) {
         self.directory = directory
@@ -22,9 +26,12 @@ public actor ImageDiskCache {
     public func read(_ key: String) -> Data? {
         let url = fileURL(key)
         guard let data = try? Data(contentsOf: url) else {
+            forget(key)
             return nil
         }
-        try? FileManager.default.setAttributes([.modificationDate: now()], ofItemAtPath: url.path)
+        let accessed = now()
+        try? FileManager.default.setAttributes([.modificationDate: accessed], ofItemAtPath: url.path)
+        record(ImageCacheEntry(key: key, byteCount: data.count, lastAccess: accessed))
         return data
     }
 
@@ -36,23 +43,52 @@ public actor ImageDiskCache {
         }
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = fileURL(key)
-        try? data.write(to: url, options: .atomic)
-        try? FileManager.default.setAttributes([.modificationDate: now()], ofItemAtPath: url.path)
+        guard (try? data.write(to: url, options: .atomic)) != nil else {
+            return
+        }
+        let written = now()
+        try? FileManager.default.setAttributes([.modificationDate: written], ofItemAtPath: url.path)
+        record(ImageCacheEntry(key: key, byteCount: data.count, lastAccess: written))
         trim()
     }
 
     public func remove(_ key: String) {
         try? FileManager.default.removeItem(at: fileURL(key))
+        forget(key)
     }
 
     public func totalBytes() -> Int {
-        entries().reduce(0) { $0 + $1.byteCount }
+        loadedIndex().values.reduce(0) { $0 + $1.byteCount }
     }
 
     private func trim() {
-        for key in ImageCacheEvictionPolicy.evictions(from: entries(), limitBytes: byteLimit) {
+        let entries = loadedIndex()
+        guard entries.values.reduce(0, { $0 + $1.byteCount }) > byteLimit else {
+            return
+        }
+        for key in ImageCacheEvictionPolicy.evictions(from: Array(entries.values), limitBytes: byteLimit) {
             remove(key)
         }
+    }
+
+    /// The in-memory listing, read from the folder the first time it is needed.
+    private func loadedIndex() -> [String: ImageCacheEntry] {
+        if let index {
+            return index
+        }
+        let listed = Dictionary(uniqueKeysWithValues: entries().map { ($0.key, $0) })
+        index = listed
+        return listed
+    }
+
+    private func record(_ entry: ImageCacheEntry) {
+        _ = loadedIndex()
+        index?[entry.key] = entry
+    }
+
+    /// Drops `key` from the listing; a listing not read yet will not contain it.
+    private func forget(_ key: String) {
+        index?[key] = nil
     }
 
     private func entries() -> [ImageCacheEntry] {

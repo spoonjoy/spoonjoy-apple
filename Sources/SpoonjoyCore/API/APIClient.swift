@@ -45,4 +45,6 @@ public struct APIRequest: Equatable, Sendable {
     public let headers: [String: String]
     public let body: Data?
     public let responseCachePolicy: APIResponseCachePolicy?
+    /// How long the request may go without hearing from the server; see `APIRequestTimeout`.
+    public let timeoutInterval: TimeInterval
 }

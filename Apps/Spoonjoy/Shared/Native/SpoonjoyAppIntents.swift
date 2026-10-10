@@ -1733,6 +1733,7 @@ private enum SpoonjoyIntentOAuthSupport {
             throw spoonjoyIntentInvalidRequestURL()
         }
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = request.timeoutInterval
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {
@@ -2293,8 +2294,9 @@ private struct SpoonjoyIntentStateWriter {
             try await authVault.clearSession()
             try await authVault.clearClientID()
         case .revokeAndLogout:
-            if let session = try await authVault.loadSession() {
-                try await executeOAuthRequest(OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID))
+            if let session = try? await authVault.loadSession() {
+                // Best-effort: signing out must clear this device even when the revoke fails.
+                try? await executeOAuthRequest(OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID))
             }
             try await authVault.clearSession()
             try await authVault.clearClientID()
@@ -2500,6 +2502,7 @@ private struct SpoonjoyIntentStateWriter {
         }
 
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = apiRequest.timeoutInterval
         urlRequest.httpMethod = apiRequest.method.rawValue
         urlRequest.httpBody = apiRequest.body
         for (name, value) in apiRequest.headers {

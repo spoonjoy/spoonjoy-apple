@@ -13,6 +13,8 @@ struct SearchView: View {
 
     private let viewModel: SearchSurfaceViewModel
     private let openRoute: (AppRoute) -> Void
+    private let recipeCovers: [String: URL]
+    private let cookbookCovers: [String: URL]
     private let searchTask: @MainActor @Sendable (SearchState) async -> Void
     private let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
     private let debounce = SearchSurfaceDebouncePolicy(delayMilliseconds: 350, defaultLimit: 20)
@@ -25,12 +27,16 @@ struct SearchView: View {
         search: Binding<SearchState>,
         viewModel: SearchSurfaceViewModel,
         openRoute: @escaping (AppRoute) -> Void,
+        recipeCovers: [String: URL] = [:],
+        cookbookCovers: [String: URL] = [:],
         searchTask: @escaping @MainActor @Sendable (SearchState) async -> Void = { _ in },
         onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
     ) {
         _search = search
         self.viewModel = viewModel
         self.openRoute = openRoute
+        self.recipeCovers = recipeCovers
+        self.cookbookCovers = cookbookCovers
         self.searchTask = searchTask
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
     }
@@ -64,7 +70,7 @@ struct SearchView: View {
                 )
             } else {
                 ForEach(viewModel.sections) { section in
-                    SearchSurfaceSectionView(section: section, openRoute: openRoute)
+                    SearchSurfaceSectionView(section: section, recipeCovers: recipeCovers, cookbookCovers: cookbookCovers, openRoute: openRoute)
                 }
             }
         }
@@ -257,24 +263,14 @@ private struct SearchFieldChrome: ViewModifier {
 
 enum SearchSurfaceNativeChrome {
     static func title(for scope: SearchScope) -> String {
-        switch scope {
-        // Five scopes share an iPhone-width scope bar, so the labels stay short.
-        case .all:
-            "All"
-        case .recipes:
-            "Recipes"
-        case .cookbooks:
-            "Cookbooks"
-        case .chefs:
-            "Chefs"
-        case .shoppingList:
-            "Shopping"
-        }
+        scope.compactTitle
     }
 }
 
 private struct SearchSurfaceSectionView: View {
     let section: SearchSurfaceSection
+    let recipeCovers: [String: URL]
+    let cookbookCovers: [String: URL]
     let openRoute: (AppRoute) -> Void
 
     var body: some View {
@@ -283,7 +279,7 @@ private struct SearchSurfaceSectionView: View {
                 Button {
                     openRoute(row.openRoute)
                 } label: {
-                    SearchSurfaceRowView(row: row)
+                    SearchSurfaceRowView(row: row, imageURL: row.imageURL(recipeCovers: recipeCovers, cookbookCovers: cookbookCovers))
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("search.result")
@@ -294,10 +290,11 @@ private struct SearchSurfaceSectionView: View {
 
 private struct SearchSurfaceRowView: View {
     let row: SearchSurfaceRow
+    let imageURL: URL?
 
     var body: some View {
-        KitchenTableObjectRow(title: row.title, subtitle: row.subtitle) {
-            SearchSurfaceThumbnail(row: row)
+        KitchenTableObjectRow(title: row.title, subtitle: row.subtitle, detail: row.snippetText, titleFont: KitchenTableTheme.indexTitle) {
+            SearchSurfaceThumbnail(row: row, imageURL: imageURL)
         } trailing: {
             Image(systemName: "chevron.right")
                 .font(KitchenTableTheme.uiLabel)
@@ -314,11 +311,12 @@ private struct SearchSurfaceThumbnail: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     let row: SearchSurfaceRow
+    let imageURL: URL?
     @State private var readinessInstanceID = UUID().uuidString
 
     var body: some View {
         ZStack {
-            if let imageURL = row.imageURL {
+            if let imageURL {
                 CachedAsyncImage(url: imageURL, animation: imageLoadingAnimation) { phase in
                     let readinessPhase = readinessPhase(for: phase)
                     KitchenTableImagePhaseView(phase: phase, reduceMotion: accessibilityReduceMotion) {
@@ -339,7 +337,8 @@ private struct SearchSurfaceThumbnail: View {
                 thumbnailFill
             }
         }
-        .frame(width: 48, height: 48)
+        .frame(width: 56, height: 56)
+        .clipped()
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
     }
 
