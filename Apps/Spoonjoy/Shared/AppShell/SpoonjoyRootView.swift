@@ -5,6 +5,10 @@ import SwiftUI
 import CoreSpotlight
 #endif
 
+#if canImport(Network)
+import Network
+#endif
+
 struct SpoonjoyRootView: View {
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
@@ -121,6 +125,12 @@ struct SpoonjoyRootView: View {
 #endif
                 await liveStore.bootstrap()
                 applyRestoredRouteIfNeeded()
+            }
+            .task {
+#if DEBUG
+                guard !Self.shoppingUITestFixtureEnabled else { return }
+#endif
+                await syncWhenNetworkRecovers()
             }
             .onOpenURL { url in
                 applyURL(url)
@@ -240,6 +250,23 @@ struct SpoonjoyRootView: View {
                 }
             }
         }
+    }
+
+    /// Sends edits made with no signal as soon as the network is usable again, instead of waiting for the next
+    /// launch or foreground. Runs for the life of the root view.
+    private func syncWhenNetworkRecovers() async {
+#if canImport(Network)
+        let store = liveStore
+        let monitor = NativeNetworkRecoveryMonitor(onRecovered: {
+            await MainActor.run {
+                _ = store.requestSync(trigger: .networkRecovered)
+            }
+        })
+        for await path in NWPathMonitor() {
+            await monitor.observe(isNetworkUsable: path.status == .satisfied)
+        }
+        await monitor.cancel()
+#endif
     }
 
     private var liveStoreSyncRequest: @MainActor @Sendable () async -> Void {
