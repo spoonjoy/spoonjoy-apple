@@ -2214,17 +2214,35 @@ public final class NativeLiveAppStore: ObservableObject {
         let canSaveDurableSnapshot = currentSnapshot.source != .file ||
             (currentSnapshot.value.accountID == snapshot.accountID && currentSnapshot.value.environment == snapshot.environment)
         if canSaveDurableSnapshot {
-            let nextRecords = currentSnapshot.value.records.filter { $0.id != record.id } + [record]
+            let nextRecords = Self.keepingRecentSearches(
+                in: currentSnapshot.value.records.filter { $0.id != record.id } + [record]
+            )
             try dependencies.cacheStore.save(try currentSnapshot.value.copy(records: nextRecords))
         }
 
-        let nextSearchSnapshots = currentContentState.searchSurfaceSnapshots.filter { existing in
+        let nextSearchSnapshots = Array((currentContentState.searchSurfaceSnapshots.filter { existing in
             existing.environment != snapshot.environment ||
                 existing.accountID != snapshot.accountID ||
                 existing.query != snapshot.query ||
                 existing.scope != snapshot.scope
-        } + [snapshot]
+        } + [snapshot]).suffix(Self.maximumCachedSearches))
         apply(stateMatchingCurrentSeverity(with: currentContentState.copy(searchSurfaceSnapshots: nextSearchSnapshots)))
+    }
+
+    /// How many distinct searches stay cached. Each search is saved as its own record,
+    /// so without a bound the cache file grows with every query a person ever types.
+    static let maximumCachedSearches = 20
+
+    /// Keeps every non-search record and only the most recently saved searches, in order.
+    static func keepingRecentSearches(in records: [NativeCacheRecord]) -> [NativeCacheRecord] {
+        let searchRecordIDs = records.compactMap { record -> String? in
+            if case .searchResults = record.payload {
+                return record.id
+            }
+            return nil
+        }
+        let evicted = Set(searchRecordIDs.dropLast(maximumCachedSearches))
+        return records.filter { !evicted.contains($0.id) }
     }
 
     public func queueMutation(_ mutation: NativeQueuedMutation) async throws {
