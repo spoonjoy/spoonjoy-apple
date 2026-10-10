@@ -1,3 +1,4 @@
+import SpoonjoyCore
 import SwiftUI
 import UIKit
 
@@ -5,9 +6,18 @@ import UIKit
 struct SpoonjoyiOSApp: App {
     @UIApplicationDelegateAdaptor(SpoonjoyiOSAppDelegate.self) private var appDelegate
 
+    init() {
+        #if DEBUG
+        if NativeJourneyAnimations.isRequested(arguments: ProcessInfo.processInfo.arguments) {
+            UIView.setAnimationsEnabled(false)
+        }
+        #endif
+    }
+
     var body: some Scene {
         WindowGroup {
             SpoonjoyRootView()
+                .journeyQuietMode()
         }
     }
 }
