@@ -181,7 +181,8 @@ struct NativeSessionExpiryStoreTests {
         wallClockNow: Bool = false,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         queuedMutations: [NativeQueuedMutation] = [],
-        fileBackedSync: Bool = false
+        fileBackedSync: Bool = false,
+        unreadableCache: Bool = false
     ) async throws -> Fixture {
         let directory = try directory()
         let vault = InMemoryTokenVault()
@@ -260,7 +261,15 @@ struct NativeSessionExpiryStoreTests {
         let failure = FailureSwitch()
         let engine = NativeSyncEngine(store: syncStore, transport: EmptyTransport(failure: failure), clock: clock)
         let configuration = APIClientConfiguration.spoonjoyProduction
-        let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+        // An unreadable cache sits under a regular file, so every read and write of it fails.
+        let cacheDirectory: URL
+        if unreadableCache {
+            cacheDirectory = directory.appendingPathComponent("not-a-directory")
+            try Data("blocked".utf8).write(to: cacheDirectory)
+        } else {
+            cacheDirectory = directory
+        }
+        let cacheStore = NativeDurableCacheStore(fileURL: cacheDirectory.appendingPathComponent("cache.json"))
         let store = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
             authSessionRepository: repository,
             cacheStore: cacheStore,
@@ -371,6 +380,42 @@ struct NativeSessionExpiryStoreTests {
             return
         }
         Self.assertKeepsAccountScope(content)
+        #expect(content.recipes.isEmpty)
+    }
+
+    @MainActor
+    @Test("invalid_grant with an unreadable cache still lands on sign-in under the stored account")
+    func invalidGrantWithUnreadableCacheShowsSignIn() async throws {
+        let fixture = try await Self.fixture(outcomes: [.invalidGrant], unreadableCache: true)
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+
+        await fixture.store.bootstrap()
+
+        guard case .signedOut(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the sign-in state, got \(fixture.store.bootstrapState)")
+            return
+        }
+        Self.assertKeepsAccountScope(content)
+        #expect(content.recipes.isEmpty)
+    }
+
+    @MainActor
+    @Test("a revocation with an unreadable cache still signs out with an empty kitchen")
+    func revocationWithUnreadableCacheSignsOut() async throws {
+        let fixture = try await Self.fixture(outcomes: [.revoked], unreadableCache: true)
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+
+        await fixture.store.bootstrap()
+
+        guard case .signedOut(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the sign-in state, got \(fixture.store.bootstrapState)")
+            return
+        }
+        guard case .signedOut = content.authSessionState else {
+            Issue.record("Expected a revoked session to leave no account scope, got \(content.authSessionState)")
+            return
+        }
+        #expect(!content.isSessionExpired)
         #expect(content.recipes.isEmpty)
     }
 

@@ -1345,6 +1345,22 @@ struct NativeLiveStoreTests {
             }
             #expect(afterMissingDiscard.recipes == syncedContent.recipes)
             #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+
+            // A queue stored for another account is not this chef's to edit, even with a matching id.
+            let otherAccountQueue = try NativeMutationQueue(mutations: [
+                NativeQueuedMutation.shoppingAddItem(
+                    name: "limes",
+                    quantity: 1,
+                    unit: "each",
+                    categoryKey: nil,
+                    iconKey: nil,
+                    clientMutationID: "cm_other_account",
+                    createdAt: "2026-06-16T11:00:00.000Z"
+                ),
+            ])
+            try await syncStore.saveQueue(otherAccountQueue, accountID: "chef_other", environment: .production)
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_other_account")
+            #expect((try await syncStore.loadQueue()).mutations.map(\.clientMutationID) == ["cm_other_account"])
         }
     }
 
