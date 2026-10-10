@@ -535,7 +535,7 @@ struct NativeSearchSurfaceTests {
         )
         #expect(noMatches.emptyState == SearchSurfaceEmptyState(
             title: "No matches for \"kumquat\"",
-            message: "No saved recipes match \"kumquat\".",
+            message: "Check the spelling, or try a shorter word.",
             systemImage: "magnifyingglass"
         ))
 
@@ -584,17 +584,9 @@ struct NativeSearchSurfaceTests {
         #expect(cachedOfflineWithDefaultClock.offlineIndicator.display == .offline)
     }
 
-    @Test("search empty states speak in the selected scope")
-    func searchEmptyStatesSpeakInTheSelectedScope() {
-        let expectations: [(SearchScope, String)] = [
-            (.all, "No Spoonjoy results match \"kumquat\"."),
-            (.recipes, "No saved recipes match \"kumquat\"."),
-            (.cookbooks, "No cookbooks match \"kumquat\"."),
-            (.chefs, "No chefs match \"kumquat\"."),
-            (.shoppingList, "No shopping items match \"kumquat\".")
-        ]
-
-        for (scope, message) in expectations {
+    @Test("search empty states offer one way forward in every scope")
+    func searchEmptyStatesOfferOneWayForwardInEveryScope() {
+        for scope in [SearchScope.all, .recipes, .cookbooks, .chefs, .shoppingList] {
             let state = SearchState(query: "kumquat", scope: scope)
             let viewModel = SearchSurfaceViewModel(
                 page: SearchSurfacePage(
@@ -612,7 +604,7 @@ struct NativeSearchSurfaceTests {
 
             #expect(viewModel.emptyState == SearchSurfaceEmptyState(
                 title: "No matches for \"kumquat\"",
-                message: message,
+                message: "Check the spelling, or try a shorter word.",
                 systemImage: "magnifyingglass"
             ))
         }

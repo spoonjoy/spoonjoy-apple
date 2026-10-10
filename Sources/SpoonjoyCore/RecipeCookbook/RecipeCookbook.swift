@@ -382,8 +382,9 @@ public struct Recipe: Codable, Equatable, Sendable {
         chef = try container.decode(ChefSummary.self, forKey: .chef)
         coverImageURL = try container.decodeIfPresent(URL.self, forKey: .coverImageURL)
         coverProvenanceLabel = try container.decodeIfPresent(String.self, forKey: .coverProvenanceLabel)
-        coverSourceType = try container.decodeIfPresent(RecipeCoverSourceType.self, forKey: .coverSourceType)
-        coverVariant = try container.decodeIfPresent(RecipeCoverVariant.self, forKey: .coverVariant)
+        // A cover kind added on the server after this build shipped reads as no kind, so the recipe still opens.
+        coverSourceType = (try? container.decodeIfPresent(RecipeCoverSourceType.self, forKey: .coverSourceType)) ?? nil
+        coverVariant = (try? container.decodeIfPresent(RecipeCoverVariant.self, forKey: .coverVariant)) ?? nil
         href = try container.decode(String.self, forKey: .href)
         canonicalURL = try container.decode(URL.self, forKey: .canonicalURL)
         attribution = try container.decode(RecipeAttribution.self, forKey: .attribution)
