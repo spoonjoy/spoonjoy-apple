@@ -1281,6 +1281,70 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("signing in again as the same account keeps the edits waiting from before, and the ones made meanwhile, and sends them")
+    func signingInAgainKeepsAndSendsWaitingEdits() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            // The session expired with an edit waiting; the cook signs in again, so the new session has no account id
+            // until its first sync names it.
+            let vault = try await Self.signedInVault(accountID: nil)
+            let recipe = Self.sampleRecipe(id: "recipe_resign", title: "Server Pasta")
+            let waiting = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_resign", clientMutationID: "cm_waiting", title: "Waiting", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [waiting])
+            )
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_ari")))
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
+
+            // The new session is signed in, but until its first sync names the account an edit made now is queued
+            // with the environment and no account.
+            let meanwhile = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_resign", clientMutationID: "cm_meanwhile", title: "Meanwhile", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            _ = try await syncStore.appendMutations([meanwhile], accountID: nil, environment: .production)
+            #expect(try await syncStore.loadQueue().mutations == [waiting])
+
+            await liveStore.bootstrap()
+
+            #expect(await transport.sentClientMutationIDs() == ["cm_waiting", "cm_meanwhile"])
+            #expect(try await syncStore.loadQueue().mutations.isEmpty)
+            #expect(await syncStore.loadSnapshot().accountID == "chef_ari")
+        }
+    }
+
+    @MainActor
+    @Test("an edit made while signed out is never sent to the account that signs in next")
+    func signedOutEditDoesNotJoinTheNextAccount() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let signedOutVault = InMemoryTokenVault()
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let signedOut = Self.liveStore(
+                directory: directory,
+                vault: signedOutVault,
+                syncStore: syncStore,
+                transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: []))
+            )
+            await signedOut.bootstrap()
+            let strayEdit = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_a", clientMutationID: "cm_signed_out", title: "Stray", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            _ = try await signedOut.queueMutations([strayEdit], drainImmediately: false)
+
+            // Someone else signs in on this device; the server names the account on the first sync.
+            let recipe = Self.sampleRecipe(id: "recipe_b", title: "B's Pasta")
+            let transport = CapturingLiveStoreSyncTransport(bootstrap: .syncData(try Self.sampleSyncData(recipe: recipe, shoppingItem: nil, accountID: "chef_b")))
+            let nextAccount = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(accountID: nil),
+                syncStore: syncStore,
+                transport: transport
+            )
+            await nextAccount.bootstrap()
+
+            #expect(await transport.sentClientMutationIDs().isEmpty)
+            #expect(try await syncStore.loadQueue().mutations.isEmpty)
+        }
+    }
+
+    @MainActor
     @Test("repeated sync requests with no new edit run once, even for an empty kitchen")
     func repeatedSyncRequestsDoNotLoopForEmptyKitchen() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6825,6 +6889,7 @@ private actor FlakyRestoreNativeSyncStore: NativeSyncStore {
 private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
     private var bootstrapResults: [NativeSyncBootstrapResult]
     private var bearerTokens: [String?] = []
+    private var sent: [String] = []
 
     init(bootstrap: NativeSyncBootstrapResult) {
         self.bootstrapResults = [bootstrap]
@@ -6843,11 +6908,16 @@ private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
     }
 
     func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
-        .success(serverRevision: .updatedAt(mutation.createdAt))
+        sent.append(mutation.clientMutationID)
+        return .success(serverRevision: .updatedAt(mutation.createdAt))
     }
 
     func capturedBearerTokens() -> [String?] {
         bearerTokens
+    }
+
+    func sentClientMutationIDs() -> [String] {
+        sent
     }
 }
 
