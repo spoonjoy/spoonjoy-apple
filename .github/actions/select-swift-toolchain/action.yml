@@ -1,0 +1,20 @@
+name: Select the newest stable Xcode 26
+description: Selects the newest Xcode 26.x on a macos-26 runner for SwiftPM-only jobs and fails unless Swift is at least 6.2, the package's tools version.
+runs:
+  using: composite
+  steps:
+    - name: Select and verify the Swift toolchain
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Pick the highest stable Xcode_26.<minor>.app; the image keeps 26.0 through the newest 26.x side by side.
+        pick="$(ls -d /Applications/Xcode_26.*.app 2>/dev/null | grep -Ev 'beta|Beta|RC|rc' | sort -V | tail -1)"
+        [[ -n "$pick" ]] || { echo "No stable Xcode 26.x on this runner:" >&2; ls -d /Applications/Xcode*.app >&2; exit 1; }
+        sudo xcode-select -s "$pick"
+        echo "DEVELOPER_DIR=$(xcode-select -p)"
+        xcodebuild -version
+        swift_version="$(swift --version 2>&1)"
+        printf '%s\n' "$swift_version"
+        swift_number="$(sed -n 's/.*Swift version \([0-9]*\.[0-9]*\).*/\1/p' <<<"$swift_version" | head -1)"
+        awk -v version="$swift_number" 'BEGIN { split(version, actual, "."); exit !((actual[1] + 0) > 6 || ((actual[1] + 0) == 6 && (actual[2] + 0) >= 2)) }' \
+          || { echo "Swift $swift_number is older than the package's 6.2 tools version." >&2; exit 1; }

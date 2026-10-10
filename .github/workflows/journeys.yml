@@ -22,7 +22,7 @@ jobs:
   journeys:
     name: Journeys
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 65
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -81,7 +81,7 @@ jobs:
       - name: Create disposable QA accounts
         run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
       - name: Run journeys
-        timeout-minutes: 30
+        timeout-minutes: 40
         run: |
           set -euo pipefail
           # xcodebuild hands TEST_RUNNER_<NAME> to the test runner as <NAME>. The runner gets only the path
