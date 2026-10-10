@@ -406,10 +406,15 @@ private struct RecipeIndexRow: View {
 }
 
 private enum RecipeCoverPrefetcher {
-    /// Downloads the first rows' covers into the disk cache so they open without waiting on the network.
+    /// The pixel size a 56-point row thumbnail decodes at on a 3x screen. A 2x screen decodes smaller,
+    /// and both download the same stored variant.
+    static let rowThumbnailPixelSize = ImageDownsampleBucket.pixelSize(points: 56, scale: 3)
+
+    /// Downloads the first rows' covers, at the size the rows show them, into the disk cache so they open
+    /// without waiting on the network.
     static func prefetch(_ urls: [URL]) async {
         var seen = Set<URL>()
         let uniqueURLs = urls.filter { seen.insert($0).inserted }.prefix(12)
-        AppImagePipeline.shared.prefetch(Array(uniqueURLs))
+        AppImagePipeline.shared.prefetch(Array(uniqueURLs), maxPixelSize: rowThumbnailPixelSize)
     }
 }
