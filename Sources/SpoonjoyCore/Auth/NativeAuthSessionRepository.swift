@@ -39,6 +39,7 @@ public actor NativeAuthSessionRepository {
     private let exchangePasswordCredential: NativePasswordSignInExchangeOperation
     private let revoke: NativeRevokeOperation
     private let reusesSavedClientID: Bool
+    private let serverBaseURL: URL?
     private let now: @Sendable () -> Date
     private let refreshCoordinator: RefreshCoordinator
 
@@ -58,6 +59,7 @@ public actor NativeAuthSessionRepository {
         refresh: @escaping OAuthRefreshOperation,
         revoke: @escaping NativeRevokeOperation,
         reusesSavedClientID: Bool = true,
+        serverBaseURL: URL? = nil,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.vault = vault
@@ -70,8 +72,25 @@ public actor NativeAuthSessionRepository {
         self.exchangePasswordCredential = exchangePasswordCredential
         self.revoke = revoke
         self.reusesSavedClientID = reusesSavedClientID
+        self.serverBaseURL = serverBaseURL
         self.now = now
-        self.refreshCoordinator = RefreshCoordinator(vault: vault, refresh: refresh)
+        // Sessions stored before the app kept the server-issued client id carry the plain native id, which only
+        // production issues. Elsewhere the first refresh uses that stored id (it may still work, because a
+        // rotation keeps the id the tokens were issued to); if the server refuses it, the coordinator tries the
+        // id this server derives, once, and saves only the id that worked.
+        let derivedClientID = serverBaseURL.map(NativeAuthSession.nativeClientID(forServerBaseURL:))
+        self.refreshCoordinator = RefreshCoordinator(
+            vault: vault,
+            refresh: refresh,
+            alternateClientID: { session in
+                guard session.clientID == NativeAuthSession.nativeAppClientID,
+                      let derivedClientID,
+                      derivedClientID != session.clientID else {
+                    return nil
+                }
+                return derivedClientID
+            }
+        )
     }
 
     public func startSignIn(
@@ -140,15 +159,16 @@ public actor NativeAuthSessionRepository {
     public func handleAppleSignInCredential(_ credential: NativeAppleSignInCredential) async throws -> AuthSession {
         _ = try NativeAppleSignInRequests.exchangeCredential(credential)
         let response = try await exchangeAppleCredential(credential)
+        let clientID = nativeClientID(issuedIn: response)
         let session = try AuthSession(
-            clientID: NativeAuthSession.nativeAppClientID,
+            clientID: clientID,
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
             scope: response.scope
         )
-        try await vault.saveClientID(NativeAuthSession.nativeAppClientID)
+        try await vault.saveClientID(clientID)
         try await vault.saveSession(session)
         return session
     }
@@ -156,17 +176,31 @@ public actor NativeAuthSessionRepository {
     public func handlePasswordSignInCredential(_ credential: NativePasswordSignInCredential) async throws -> AuthSession {
         _ = try NativePasswordSignInRequests.exchangeCredential(credential)
         let response = try await exchangePasswordCredential(credential)
+        let clientID = nativeClientID(issuedIn: response)
         let session = try AuthSession(
-            clientID: NativeAuthSession.nativeAppClientID,
+            clientID: clientID,
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
             scope: response.scope
         )
-        try await vault.saveClientID(NativeAuthSession.nativeAppClientID)
+        try await vault.saveClientID(clientID)
         try await vault.saveSession(session)
         return session
+    }
+
+    /// The client id the server issued a native sign-in's tokens to: the response's own `client_id`, else the
+    /// id the server derives for this server origin.
+    private func nativeClientID(issuedIn response: OAuthTokenResponse) -> String {
+        if let issued = response.clientID?.trimmingCharacters(in: .whitespacesAndNewlines), !issued.isEmpty {
+            return issued
+        }
+        return derivedNativeClientID ?? NativeAuthSession.nativeAppClientID
+    }
+
+    private var derivedNativeClientID: String? {
+        serverBaseURL.map(NativeAuthSession.nativeClientID(forServerBaseURL:))
     }
 
     public func restoreState() async throws -> NativeAuthSessionState {
@@ -190,6 +224,12 @@ public actor NativeAuthSessionRepository {
         let boundSession = try session.bindingAccountID(accountID)
         try await vault.saveSession(boundSession)
         return boundSession
+    }
+
+    /// Forgets the stored session and client id without telling the server, for a session the server already
+    /// reported as revoked.
+    public func clearLocalSession() async throws {
+        try await refreshCoordinator.disconnect()
     }
 
     /// Signs this device out. The local session and saved client ID are always
