@@ -187,6 +187,8 @@ struct CookSessionSyncTests {
         let expected = Self.server(attempt: "attempt-1", revision: 2, Self.progress(step: 1, ingredients: ["a"]))
 
         #expect(await client.read(recipeID: "r1") == .state(expected))
+        // A stalled server fails a cook-session request after 15 s, not the system's 60 s.
+        #expect(await session.requests.first?.timeoutInterval == 15)
         #expect(await client.start(recipeID: "r1") == .state(expected))
         #expect(await client.patch(
             recipeID: "r1",
