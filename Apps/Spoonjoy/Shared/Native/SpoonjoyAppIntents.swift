@@ -2308,8 +2308,9 @@ private struct SpoonjoyIntentStateWriter {
             try await authVault.clearSession()
             try await authVault.clearClientID()
         case .revokeAndLogout:
-            if let session = try await authVault.loadSession() {
-                try await executeOAuthRequest(OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID))
+            if let session = try? await authVault.loadSession() {
+                // Best-effort: signing out must clear this device even when the revoke fails.
+                try? await executeOAuthRequest(OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID))
             }
             try await authVault.clearSession()
             try await authVault.clearClientID()
