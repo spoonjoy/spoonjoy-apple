@@ -1163,6 +1163,43 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("an edit queued while a sync is sending survives that sync and reaches the server")
+    func editQueuedWhileSyncSendsSurvives() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_race", title: "Server Pasta")
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: NativeMutationQueue(),
+                cachedRecords: [
+                    NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt))
+                ]
+            )
+            let gate = SendGateNativeSyncTransport()
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: gate)
+            await liveStore.bootstrap()
+            _ = try await liveStore.queueMutations([
+                NativeQueuedMutation.recipeUpdate(recipeID: "recipe_race", clientMutationID: "cm_race_sending", title: "Sending", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            ], drainImmediately: false)
+
+            let sync = liveStore.requestSync(trigger: .foreground)
+            await gate.waitForFirstSend()
+            // The cook edits again while the first edit is on the wire.
+            let late = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_race", clientMutationID: "cm_race_late", title: "Late edit", description: nil, servings: nil, createdAt: Self.isoString(Self.now))
+            _ = try await liveStore.queueMutations([late], drainImmediately: false)
+            await gate.releaseFirstSend()
+            await sync.value
+
+            // The late edit is kept, so the sync's follow-up pass (it saw the queue change) sends it too.
+            #expect(await gate.sentClientMutationIDs() == ["cm_race_sending", "cm_race_late"])
+            #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+            #expect(liveStore.bootstrapState.contentState.queuedMutations.isEmpty)
+        }
+    }
+
+    @MainActor
     @Test("repeated sync requests with no new edit run once, even for an empty kitchen")
     func repeatedSyncRequestsDoNotLoopForEmptyKitchen() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -1421,13 +1458,13 @@ struct NativeLiveStoreTests {
             }
 
             try await liveStore.discardQueuedMutation(clientMutationID: "cm_chain_conflict")
-            guard case .offlineStale(let staleContent) = liveStore.bootstrapState else {
-                Issue.record("Expected dependent follow-up recipe work to be discarded with the conflict; got \(liveStore.bootstrapState)")
-                return
-            }
+            // The follow-up step is on the server's recipe, so it does not need the discarded title change: it stays
+            // queued. Only edits that name something the discarded edit created on this device go with it.
+            let staleContent = liveStore.bootstrapState.contentState
             #expect(staleContent.syncConflicts.isEmpty)
-            #expect(staleContent.queuedMutations.isEmpty)
+            #expect(staleContent.queuedMutations.map(\.clientMutationID) == ["cm_chain_followup"])
             #expect(staleContent.recipe(id: "recipe_conflict_chain")?.title == "Server Chain")
+            #expect(try await syncStore.loadQueue().mutations.map(\.clientMutationID) == ["cm_chain_followup"])
         }
 
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6655,6 +6692,18 @@ private actor FlakyRestoreNativeSyncStore: NativeSyncStore {
         }
         return .empty
     }
+
+    func updateQueue(
+        accountID _: String?,
+        environment _: NativeCacheEnvironment?,
+        _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
+    ) throws -> NativeQueueUpdate {
+        try transform(.empty)
+    }
+
+    func queuedClientMutationIDs() throws -> Set<String> {
+        []
+    }
 }
 
 private actor CapturingLiveStoreSyncTransport: NativeSyncTransport {
@@ -8199,4 +8248,66 @@ struct OffCookSessionClient: CookSessionClient {
     func read(recipeID _: String) async -> CookSyncResult { .stopped }
     func start(recipeID _: String) async -> CookSyncResult { .stopped }
     func patch(recipeID _: String, server _: CookServerSnapshot, changes _: CookSyncChanges, mutationID _: String) async -> CookSyncResult { .stopped }
+}
+
+extension NativeLiveStoreTests {
+    @MainActor
+    @Test("many different searches keep only the most recent ones on disk and in memory")
+    func manySearchesKeepOnlyTheMostRecent() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let cacheStore = NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json"))
+            let recipeRecord = try Self.cacheRecord(
+                domain: .recipeDetail(id: "recipe_kept"),
+                payload: .recipeDetail(id: "recipe_kept", title: "Kept Pasta")
+            )
+            try cacheStore.save(try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "signed-out",
+                environment: .production,
+                createdAt: Self.now,
+                records: [recipeRecord],
+                dismissedIndicators: []
+            ))
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: InMemoryTokenVault(),
+                cacheStore: cacheStore,
+                syncStore: InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue()),
+                transport: ScriptedLiveStoreSyncTransport()
+            )
+            let searchCount = NativeLiveAppStore.maximumCachedSearches + 10
+            for index in 0..<searchCount {
+                let page = SearchSurfacePage(
+                    query: "query \(index)",
+                    scope: .all,
+                    limit: 20,
+                    isAuthenticated: false,
+                    results: [],
+                    source: .live(requestID: "req_search_\(index)", validatedAt: Self.now)
+                )
+                try liveStore.recordSearchSurfacePage(page, expectedIdentity: liveStore.currentSearchSurfaceIdentity)
+            }
+
+            let fallback = try NativeDurableCacheSnapshot(
+                schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
+                accountID: "fallback",
+                environment: .production,
+                createdAt: Self.now,
+                records: [],
+                dismissedIndicators: []
+            )
+            let persistedRecords = try cacheStore.loadOrRecover(fallback: fallback).value.records
+            let persistedQueries = persistedRecords.compactMap { record -> String? in
+                if case .searchResults(let snapshot) = record.payload {
+                    return snapshot.query
+                }
+                return nil
+            }
+            let expected = (10..<searchCount).map { "query \($0)" }
+            #expect(persistedQueries == expected)
+            #expect(liveStore.bootstrapState.contentState.searchSurfaceSnapshots.map(\.query) == expected)
+
+            #expect(persistedRecords.first?.id == recipeRecord.id)
+        }
+    }
 }

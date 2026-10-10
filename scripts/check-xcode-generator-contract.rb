@@ -5,6 +5,7 @@ require "fileutils"
 require "open3"
 require "pathname"
 require "tmpdir"
+require "yaml"
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 GENERATOR = ROOT.join("scripts/generate-xcode-project.rb")
@@ -137,7 +138,17 @@ end
 Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
   text = File.read(path)
   next unless text.include?("xcodebuild") || text.include?("runs-on: xcode-27") || text.include?("runs-on: macos")
-  fail_check("#{File.basename(path)} must not run on macos-26 (Xcode 26 default)") if text.match?(/runs-on:\s*macos-26/)
+  if text.match?(/runs-on:\s*macos-26/)
+    # Only SwiftPM-only jobs in native.yml may use macos-26 (Xcode 26.x): no xcodebuild, and they must use the Swift toolchain action.
+    fail_check("#{File.basename(path)} must not run on macos-26 (Xcode 26 default)") unless File.basename(path) == "native.yml"
+    YAML.safe_load(text).fetch("jobs").each do |job_id, job|
+      next unless job["runs-on"] == "macos-26"
+      fail_check("native.yml job #{job_id} may not run on macos-26") unless %w[swift-tests native-scenario-verifier].include?(job_id)
+      job_text = job.fetch("steps").map { |step| "#{step["uses"]} #{step["run"]}" }.join("\n")
+      fail_check("native.yml job #{job_id} on macos-26 must not call xcodebuild") if job_text.include?("xcodebuild")
+      fail_check("native.yml job #{job_id} on macos-26 must use ./.github/actions/select-swift-toolchain") unless job_text.include?("./.github/actions/select-swift-toolchain")
+    end
+  end
   # beta-sdk.yml is the one workflow that builds with beta Xcodes; it never ships anything.
   if File.basename(path) == "beta-sdk.yml"
     fail_check("beta-sdk.yml must select a beta Xcode explicitly, resolved on its own runner by version") unless text.include?('sudo xcode-select -s "$pick"') && text.include?('want="${{ matrix.xcode }}"') && text.include?("fromJSON(needs.discover.outputs.xcodes)")
