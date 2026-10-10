@@ -775,14 +775,27 @@ private struct CookbookDetailView: View {
                 Color.clear.frame(height: 480)
             }
         }
-        // The scrolled page fades under a solid edge at the top, so its title never collides with the
-        // status bar or the back button.
-        .scrollEdgeEffectStyle(.hard, for: .top)
 #if os(iOS)
-        // The hard edge alone frosts what passes beneath it, leaving a blurred ghost of the masthead
-        // and section headers behind the back button; paper behind the bar makes the edge solid.
-        .toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)
-        .toolbarBackgroundVisibility(.visible, for: .navigationBar)
+        // The system's top scroll edge (soft or hard) still shows a blurred ghost of the masthead and
+        // section headers behind the back button, and toolbarBackground does not change it. So the
+        // edge effect is off and the page's own paper covers the status bar and navigation bar: the
+        // scrolled page slides cleanly under it, and the back button still sits on top.
+        .scrollEdgeEffectHidden(true, for: .top)
+        .overlay(alignment: .top) {
+            // Read from the screen's top edge, so the paper is exactly as tall as the bars above the page.
+            GeometryReader { proxy in
+                KitchenTableTheme.bone
+                    .frame(maxWidth: .infinity)
+                    .frame(height: proxy.safeAreaInsets.top)
+            }
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+#else
+        // The scrolled page fades under a solid edge at the top, so its title never collides with the
+        // window's toolbar.
+        .scrollEdgeEffectStyle(.hard, for: .top)
 #endif
         .confirmationDialog(
             activeConfirmationDialog?.prompt.title ?? "",
