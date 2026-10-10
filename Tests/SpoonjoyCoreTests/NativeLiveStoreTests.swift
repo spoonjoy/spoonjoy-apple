@@ -265,6 +265,87 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("queued shopping edits are kept out of the server cache, so a relaunch applies them once")
+    func queuedShoppingEditsStayOutOfTheServerCache() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_eggs", title: "Eggs")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: Self.sampleShoppingItem(id: "item_salt", name: "salt"))
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)))
+            await liveStore.bootstrap()
+
+            // Two separate edits while offline: add six eggs, then check the salt.
+            try await liveStore.queueMutation(.shoppingAddItem(name: "eggs", quantity: 6, unit: nil, categoryKey: nil, iconKey: nil, clientMutationID: "cm_eggs", createdAt: Self.isoString(Self.now)))
+            try await liveStore.queueMutation(.shoppingCheckItem(itemID: "item_salt", checked: true, clientMutationID: "cm_salt", createdAt: Self.isoString(Self.now)))
+
+            let cachedShopping = await syncStore.loadSnapshot().cachedRecords.filter { $0.kind == .shoppingItem }
+            #expect(cachedShopping.map(\.resourceID) == ["item_salt"])
+            #expect(cachedShopping.first.flatMap { try? JSONDecoder().decode(ShoppingListItem.self, from: JSONEncoder().encode($0.payload)) }?.checked == false)
+
+            let offlineError = APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .retrySameRequest(afterSeconds: nil))
+            let relaunched = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: ThrowingLiveStoreSyncTransport(error: offlineError))
+            await relaunched.bootstrap()
+            let restored = relaunched.bootstrapState.contentState
+            // Checked salt leaves the active list; the eggs are there once, with six.
+            #expect(restored.shoppingList?.activeItems.map(\.name) == ["eggs"])
+            #expect(restored.shoppingList?.item(id: "item_local_cm_eggs")?.quantity == 6)
+            #expect(restored.shoppingList?.item(id: "item_salt")?.checked == true)
+        }
+    }
+
+    @MainActor
+    @Test("a saved copy of the list that already holds a queued add does not get the add twice on relaunch")
+    func syncedEmptyListIgnoresSavedOverlay() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_eggs", title: "Eggs")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil)
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)), appStateStoreProvider: { appStateStore })
+            await liveStore.bootstrap()
+
+            let add = NativeQueuedMutation.shoppingAddItem(name: "eggs", quantity: 6, unit: nil, categoryKey: nil, iconKey: nil, clientMutationID: "cm_eggs", createdAt: Self.isoString(Self.now))
+            try await liveStore.queueMutation(add)
+            // The shopping screen saves the list it shows, which already has the queued eggs.
+            liveStore.recordShoppingList(try #require(liveStore.bootstrapState.contentState.shoppingList))
+
+            let offlineError = APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .retrySameRequest(afterSeconds: nil))
+            let relaunched = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: ThrowingLiveStoreSyncTransport(error: offlineError), appStateStoreProvider: { appStateStore })
+            await relaunched.bootstrap()
+            let restored = relaunched.bootstrapState.contentState
+            #expect(restored.shoppingList?.activeItems.map(\.name) == ["eggs"])
+            #expect(restored.shoppingList?.item(id: "item_local_cm_eggs")?.quantity == 6)
+        }
+    }
+
+    @MainActor
+    @Test("an item whose add was discarded does not come back from the saved copy of the list on relaunch")
+    func discardedLocalItemDoesNotReturnFromSavedList() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_eggs", title: "Eggs")
+            let syncData = try Self.sampleSyncData(recipe: recipe, shoppingItem: nil)
+            let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue())
+            let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
+            let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: CapturingLiveStoreSyncTransport(bootstrap: .syncData(syncData)), appStateStoreProvider: { appStateStore })
+            await liveStore.bootstrap()
+
+            let add = NativeQueuedMutation.shoppingAddItem(name: "eggs", quantity: 6, unit: nil, categoryKey: nil, iconKey: nil, clientMutationID: "cm_eggs", createdAt: Self.isoString(Self.now))
+            try await liveStore.queueMutation(add)
+            // The shopping screen saved the list while it showed the eggs; then the cook discarded the add.
+            liveStore.recordShoppingList(try #require(liveStore.bootstrapState.contentState.shoppingList))
+            try await liveStore.discardQueuedMutation(clientMutationID: "cm_eggs")
+
+            let offlineError = APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .retrySameRequest(afterSeconds: nil))
+            let relaunched = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: ThrowingLiveStoreSyncTransport(error: offlineError), appStateStoreProvider: { appStateStore })
+            await relaunched.bootstrap()
+            #expect(relaunched.bootstrapState.contentState.shoppingList?.item(id: "item_local_cm_eggs") == nil)
+        }
+    }
+
+    @MainActor
     @Test("live store queueMutation optimistically reflects queued cookbook edits")
     func liveStoreQueueMutationOptimisticallyReflectsQueuedCookbookEdits() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -2520,6 +2601,39 @@ struct NativeLiveStoreTests {
                     return
                 }
                 #expect(content.authSessionState == .signedOut)
+                #expect(content.settingsViewModel.authSessionState == .signedOut)
+            }
+        }
+    }
+
+    @MainActor
+    @Test("live store signs out locally when the server revoke fails")
+    func liveStoreSignsOutLocallyWhenServerRevokeFails() async throws {
+        for operation in [SettingsSessionOperation.logout, .revokeAndLogout] {
+            try await withTemporaryLiveStoreDirectory { directory in
+                let vault = try await Self.signedInVault(accountID: "chef_ari")
+                let liveStore = Self.liveStore(
+                    directory: directory,
+                    vault: vault,
+                    syncStore: InMemoryNativeSyncStore(
+                        accountID: "chef_ari",
+                        environment: .production,
+                        checkpoint: nil,
+                        queue: NativeMutationQueue()
+                    ),
+                    transport: CapturingLiveStoreSyncTransport(bootstrap: .success(cursor: nil, tombstones: [])),
+                    revoke: { _, _ in throw URLError(.notConnectedToInternet) }
+                )
+
+                try await liveStore.performSettingsSessionOperation(operation)
+
+                #expect(try await vault.loadSession() == nil)
+                #expect(try await vault.loadClientID() == nil)
+                #expect((try await liveStore.authSessionRepository.restoreState()) == .signedOut)
+                guard case .signedOut(let content) = liveStore.bootstrapState else {
+                    Issue.record("Expected \(operation) with a failing revoke to bootstrap signed out; got \(liveStore.bootstrapState)")
+                    return
+                }
                 #expect(content.settingsViewModel.authSessionState == .signedOut)
             }
         }
@@ -7193,11 +7307,12 @@ private extension NativeLiveStoreTests {
         nativeTelemetryMetadata: NativeTelemetryAppMetadata = .unknown,
         bootstrapMode: NativeLiveAppBootstrapMode = .liveFirst,
         cookSessionClient: @escaping @Sendable (APIClientConfiguration) -> any CookSessionClient = { _ in OffCookSessionClient() },
-        cookSessionPushDelay: Duration = .seconds(3_600)
+        cookSessionPushDelay: Duration = .seconds(3_600),
+        revoke: @escaping NativeRevokeOperation = { _, _ in }
     ) -> NativeLiveAppStore {
         let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: { Self.now })
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
-            authSessionRepository: authRepository(vault: vault),
+            authSessionRepository: authRepository(vault: vault, revoke: revoke),
             cacheStore: cacheStore ?? NativeDurableCacheStore(fileURL: directory.appendingPathComponent("cache.json")),
             syncStore: syncStore,
             syncEngine: engine,
@@ -7238,7 +7353,10 @@ private extension NativeLiveStoreTests {
         return vault
     }
 
-    static func authRepository(vault: InMemoryTokenVault) -> NativeAuthSessionRepository {
+    static func authRepository(
+        vault: InMemoryTokenVault,
+        revoke: @escaping NativeRevokeOperation = { _, _ in }
+    ) -> NativeAuthSessionRepository {
         NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Apple Tests",
@@ -7261,7 +7379,7 @@ private extension NativeLiveStoreTests {
                     scope: NativeAuthSession.defaultScope
                 )
             },
-            revoke: { _, _ in },
+            revoke: revoke,
             now: { Self.now }
         )
     }

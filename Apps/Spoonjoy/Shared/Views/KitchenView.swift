@@ -18,7 +18,7 @@ struct KitchenView: View {
 
     var body: some View {
         KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve) {
-            KitchenMasthead(kitchen: kitchen, ownerName: recipes.first?.chef.username)
+            KitchenMasthead(kitchen: kitchen, ownerName: recipes.first?.chef.username, chef: recipes.first?.chef)
 
             kitchenContent
         }
@@ -68,7 +68,7 @@ struct KitchenView: View {
     @ViewBuilder private var kitchenIndexStack: some View {
         VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
             if !indexedRecipes.isEmpty {
-                RecipeIndex(recipes: indexedRecipes, openRecipe: openRecipe)
+                RecipeIndex(recipes: indexedRecipes, savedCount: recipes.count, openRecipe: openRecipe)
             }
 
             if !cookbooks.isEmpty {
@@ -114,9 +114,14 @@ struct KitchenView: View {
 struct KitchenMasthead: View {
     let kitchen: KitchenFixtureState
     let ownerName: String?
+    var chef: ChefSummary? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let chef {
+                KitchenIdentityLine(chef: chef)
+            }
+
             KitchenTableHeader(eyebrow: dayLabel, title: title, subtitle: countSummary, hidesTitleInCompactNavigation: true)
 
             // "Ready" is the normal state, so it stays quiet; only the preparing state needs a badge.
@@ -185,6 +190,52 @@ struct KitchenMasthead: View {
             return "Spoonjoy kitchen"
         }
         return "\(ownerName.capitalized)'s kitchen"
+    }
+}
+
+/// Whose kitchen this is: the chef's avatar and handle, as the web's kitchen page leads with.
+struct KitchenIdentityLine: View {
+    let chef: ChefSummary
+
+    var body: some View {
+        HStack(spacing: 10) {
+            avatar
+                .frame(width: 36, height: 36)
+                .clipShape(Circle())
+                .overlay(Circle().strokeBorder(KitchenTableTheme.line, lineWidth: 1))
+                .accessibilityHidden(true)
+            Text("@\(chef.username)")
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.brass)
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Chef \(chef.username)")
+        .accessibilityIdentifier("kitchen.identity")
+    }
+
+    @ViewBuilder private var avatar: some View {
+        if let url = chef.photoURL {
+            CachedAsyncImage(url: url, animation: nil) { phase in
+                switch phase {
+                case .success(let image):
+                    image.resizable().scaledToFill()
+                case .empty, .failure:
+                    initial
+                }
+            }
+        } else {
+            initial
+        }
+    }
+
+    private var initial: some View {
+        ZStack {
+            KitchenTableTheme.vellum
+            Text(String(chef.username.prefix(1)).uppercased())
+                .font(.system(.subheadline, design: .serif).weight(.bold))
+                .foregroundStyle(KitchenTableTheme.charcoal)
+        }
     }
 }
 
@@ -331,10 +382,12 @@ struct RecipeLead: View {
 
 struct RecipeIndex: View {
     let recipes: [Recipe]
+    /// Every saved recipe, the one leading the page included, so the count agrees with the masthead.
+    let savedCount: Int
     let openRecipe: (String) -> Void
 
     var body: some View {
-        KitchenTableSection(title: "Recipe Index", subtitle: "\(recipes.count) saved \(recipes.count == 1 ? "recipe" : "recipes")") {
+        KitchenTableSection(title: "Recipe Index", subtitle: KitchenRecipeIndexSummary(recipeCount: savedCount).subtitle) {
             if recipes.isEmpty {
                 KitchenEmptySection(
                     title: "No recipes saved yet",
@@ -365,23 +418,18 @@ struct KitchenRecipeIndexRow: View {
             Button(action: open) {
                 KitchenTableObjectRow(
                     title: recipe.title,
-                    subtitle: rowSubtitle
+                    subtitle: rowSubtitle,
+                    ordinal: ordinalLabel,
+                    titleFont: KitchenTableTheme.indexTitle
                 ) {
-                    ZStack(alignment: .topLeading) {
-                        RecipeCoverImage(
-                            url: recipe.displayCoverImageURL,
-                            title: recipe.title,
-                            subtitle: "Photo not added"
-                        )
-                            .aspectRatio(1, contentMode: .fill)
-
-                        Text(ordinalLabel)
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(KitchenTableTheme.bone)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 3)
-                            .background(KitchenTableTheme.charcoal.opacity(0.72))
-                    }
+                    RecipeCoverImage(
+                        url: recipe.displayCoverImageURL,
+                        title: recipe.title,
+                        subtitle: "Photo not added"
+                    )
+                    .aspectRatio(1, contentMode: .fill)
+                    .frame(width: 56, height: 56)
+                    .clipped()
                 } trailing: {
                     Image(systemName: "chevron.forward")
                         .font(.caption.weight(.semibold))

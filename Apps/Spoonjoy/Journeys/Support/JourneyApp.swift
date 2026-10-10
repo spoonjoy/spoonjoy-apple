@@ -30,6 +30,8 @@ final class JourneyApp {
         // The app records each sync request and the server's answer in a hidden element, read on failure.
         app.launchEnvironment[NativeSyncDiagnostics.environmentKey] = "1"
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        // Animations and spinners never go idle for XCUITest, which then waits 60 seconds per action.
+        app.launchArguments.append(NativeJourneyAnimations.launchArgument)
         app.launch()
 
         let journey = JourneyApp(app: app)
@@ -46,6 +48,14 @@ final class JourneyApp {
         app.terminate()
         app.launchEnvironment.removeValue(forKey: NativeJourneyLaunchReset.environmentKey)
         app.launch()
+    }
+
+    /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
+    /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
+    /// link until sign-in.
+    func openLink(_ url: URL) {
+        app.launchEnvironment.removeValue(forKey: NativeJourneyLaunchReset.environmentKey)
+        app.open(url)
     }
 
     func element(_ id: String) -> XCUIElement {
@@ -173,17 +183,19 @@ final class JourneyApp {
 
     /// Types into an empty field and reads the value back.
     func enterText(_ text: String, into id: String, file: StaticString = #filePath, line: UInt = #line) {
-        waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear. Screen: \(screen)", file: file, line: line)
-        let field = element(id)
-        focus(query(id), named: id, firstTapAt: Self.fieldCentre, file: file, line: line)
+        let fields = fieldQuery(id)
+        let field = fields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: Self.launchTimeout), "\(id) did not appear. Screen: \(screen)", file: file, line: line)
+        focus(fields, named: id, firstTapAt: Self.fieldCentre, file: file, line: line)
         field.typeText(text)
         assertValue(of: field, equals: text, "\(id) does not hold exactly the typed text.", file: file, line: line)
     }
 
     /// Replaces the text in a field that already holds a value.
     func replaceText(in id: String, with text: String, file: StaticString = #filePath, line: UInt = #line) {
-        waitFor(id, timeout: Self.launchTimeout, "\(id) did not appear.", file: file, line: line)
-        replaceText(in: query(id), named: id, with: text, file: file, line: line)
+        let fields = fieldQuery(id)
+        XCTAssertTrue(fields.firstMatch.waitForExistence(timeout: Self.launchTimeout), "\(id) did not appear.", file: file, line: line)
+        replaceText(in: fields, named: id, with: text, file: file, line: line)
     }
 
     /// Presses Return in the focused field.
@@ -193,7 +205,7 @@ final class JourneyApp {
 
     /// Waits for the field `id` to hold exactly `text`, then asserts it.
     func assertFieldValue(_ id: String, equals text: String, file: StaticString = #filePath, line: UInt = #line) {
-        let field = element(id)
+        let field = fieldQuery(id).firstMatch
         XCTAssertTrue(field.waitForExistence(timeout: Self.interactionTimeout), "\(id) did not appear. Screen: \(screen)", file: file, line: line)
         assertValue(of: field, equals: text, "\(id) does not hold \(text).", file: file, line: line)
     }
@@ -348,6 +360,16 @@ final class JourneyApp {
     /// keystrokes, and once crashed the app while fetching a placeholder (runs 36331139692, 36332727373).
     private func query(_ id: String) -> XCUIElementQuery {
         app.descendants(matching: .any).matching(NSPredicate(format: "identifier == %@", id))
+    }
+
+    /// A text input found by its type as well as its identifier. The editor form holds dozens of elements, and
+    /// a query over every element type timed out evaluating on a slow runner (run 37952511182, "Failed to get
+    /// matching snapshot" on `editor.step.2.ingredient.4.quantity`). The multi-line step description and the
+    /// paste box are text views; every other input a journey types into is a text field.
+    private func fieldQuery(_ id: String) -> XCUIElementQuery {
+        let named = NSPredicate(format: "identifier == %@", id)
+        let isTextView = id == JourneyID.editorPasteText || id.hasSuffix(".description")
+        return (isTextView ? app.textViews : app.textFields).matching(named)
     }
 
     private static let fieldCentre = CGVector(dx: 0.5, dy: 0.5)
