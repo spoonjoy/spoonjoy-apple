@@ -81,6 +81,7 @@ final class RecipesJourney: JourneyTestCase {
             journey.element(JourneyID.kitchenRecipe, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
             "The Kitchen does not show the new recipe."
         )
+        journey.attachScreenshot(named: "03a-kitchen-with-recipe", to: self)
         // The account's only recipe is the Kitchen's lead recipe.
         journey.tap(JourneyID.kitchenRecipeOpen)
         let detailTitle = journey.element(JourneyID.recipeDetailTitle)
@@ -114,12 +115,14 @@ final class RecipesJourney: JourneyTestCase {
             journey.element(JourneyID.searchResult, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Searching for the title did not find the recipe."
         )
+        journey.attachScreenshot(named: "05-search-results", to: self)
         // A query with no results clears the list, so the next result can only come from the ingredient search.
         journey.search(for: unmatchedQuery)
         XCTAssertTrue(
             journey.element(JourneyID.searchResult, labelContaining: title).waitForNonExistence(timeout: JourneyApp.networkTimeout),
             "A search that matches nothing still lists the recipe."
         )
+        journey.attachScreenshot(named: "06-search-no-results", to: self)
         journey.search(for: basil)
         XCTAssertTrue(
             journey.element(JourneyID.searchResult, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),

@@ -86,4 +86,12 @@ enum JourneyID {
 
     /// Every result row in Search.
     static let searchResult = "search.result"
+
+    /// A cookbook page's "Search this cookbook" field and its no-match message.
+    static let cookbookSearchField = "cookbook.search.field"
+    static let cookbookSearchEmpty = "cookbook.search.empty"
+
+    /// The not-found page and its "Back to recipes" button.
+    static let routeError = "route.error"
+    static let routeErrorBack = "route.error.back"
 }
