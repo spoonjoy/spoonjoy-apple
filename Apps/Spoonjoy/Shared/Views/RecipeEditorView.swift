@@ -386,22 +386,7 @@ struct RecipeEditorView: View {
         let ingredientID = "editor.step.\(stepNumber).ingredient.\(position)"
         let rowID = ingredient.wrappedValue.id
         return VStack(alignment: .leading, spacing: 8) {
-            // The name wraps over as many lines as it needs, so a long ingredient is never cut off.
-            TextField("Ingredient, like chicken stock", text: ingredient.name, axis: .vertical)
-                .lineLimit(1...4)
-                .submitLabel(.done)
-                .editorInputStyle()
-                .accessibilityLabel("Ingredient name")
-                .accessibilityIdentifier("\(ingredientID).name")
-                // Typing a whole line such as "2 cups rice" and pressing return fills the quantity and unit.
-                .onChange(of: ingredient.wrappedValue.name) { _, newValue in
-                    guard newValue.contains("\n") else {
-                        return
-                    }
-                    ingredient.wrappedValue.name = newValue.replacingOccurrences(of: "\n", with: " ")
-                        .trimmingCharacters(in: .whitespaces)
-                    ingredient.wrappedValue.applyTypedLine()
-                }
+            IngredientNameField(ingredient: ingredient, identifier: "\(ingredientID).name")
             HStack(alignment: .bottom, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Quantity")
@@ -1108,6 +1093,35 @@ private extension View {
     /// padding included, focuses the field. `focus` lets a field watch its own focus.
     func editorInputStyle(focus: FocusState<Bool>.Binding? = nil) -> some View {
         modifier(EditorInputStyle(external: focus))
+    }
+}
+
+/// An ingredient's name. It wraps over as many lines as it needs, so a long ingredient is never cut off.
+/// Typing a whole line such as "2 cups rice" and pressing Return fills the quantity and unit, and Return
+/// ends editing as the keyboard's Done key promises. Autocorrect stays off, because it rewrites food words
+/// such as "gochujang" or even "rice" into other words.
+private struct IngredientNameField: View {
+    @Binding var ingredient: RecipeEditorIngredientDraft
+    let identifier: String
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        TextField("Ingredient, like chicken stock", text: $ingredient.name, axis: .vertical)
+            .lineLimit(1...4)
+            .submitLabel(.done)
+            .autocorrectionDisabled()
+            .editorInputStyle(focus: $isFocused)
+            .accessibilityLabel("Ingredient name")
+            .accessibilityIdentifier(identifier)
+            .onChange(of: ingredient.name) { _, newValue in
+                guard newValue.contains("\n") else {
+                    return
+                }
+                ingredient.name = newValue.replacingOccurrences(of: "\n", with: " ")
+                    .trimmingCharacters(in: .whitespaces)
+                ingredient.applyTypedLine()
+                isFocused = false
+            }
     }
 }
 
