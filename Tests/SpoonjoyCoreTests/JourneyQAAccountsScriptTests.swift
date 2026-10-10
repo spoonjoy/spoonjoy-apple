@@ -36,7 +36,7 @@ struct JourneyQAAccountsScriptTests {
 
             let calls = harness.curlCalls()
             #expect(calls.count == 2)
-            #expect(calls.allSatisfy { $0.hasSuffix("\(Self.baseURL)/signup") })
+            #expect(calls.allSatisfy { $0.hasSuffix("\(Self.baseURL)/signup?redirectTo=%2Frecipes") })
             for entry in accounts.entries {
                 #expect(!calls.contains { $0.contains(entry.password) })
                 #expect(!result.output.contains("password=\(entry.password)"))
@@ -598,6 +598,7 @@ done
 url="${args[${#args[@]}-1]}"
 origin="$(printf '%s' "$url" | sed -E 's#^(https?://[^/]+).*#\1#')"
 path="${url#*://*/}"
+path="${path%%\?*}"
 name="${path//\//_}"
 if [[ -f "$request/headers" ]]; then
   sed "s#^#$name #" "$request/headers" >> "$FAKE_STATE/curl-headers.log"
