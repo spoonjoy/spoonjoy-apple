@@ -364,11 +364,11 @@ final class JourneyApp {
 
     /// A text input found by its type as well as its identifier. The editor form holds dozens of elements, and
     /// a query over every element type timed out evaluating on a slow runner (run 37952511182, "Failed to get
-    /// matching snapshot" on `editor.step.2.ingredient.4.quantity`). The multi-line step description and the
-    /// paste box are text views; every other input a journey types into is a text field.
+    /// matching snapshot" on `editor.step.2.ingredient.4.quantity`). The paste box is a text view; every other
+    /// input a journey types into, the multi-line descriptions (vertical text fields) included, is a text field.
     private func fieldQuery(_ id: String) -> XCUIElementQuery {
         let named = NSPredicate(format: "identifier == %@", id)
-        let isTextView = id == JourneyID.editorPasteText || id.hasSuffix(".description")
+        let isTextView = id == JourneyID.editorPasteText
         return (isTextView ? app.textViews : app.textFields).matching(named)
     }
 
