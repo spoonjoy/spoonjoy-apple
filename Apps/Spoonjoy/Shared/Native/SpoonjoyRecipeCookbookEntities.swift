@@ -188,12 +188,7 @@ struct SpoonjoyCookbookEntityQuery: EntityQuery, EntityStringQuery {
 struct SpoonjoyIntentSyncStoreFactory {
     static func syncStore(fileURL: URL = NativeAppStateLocation.defaultFileURL()) throws -> any NativeSyncStore {
         let appDirectory = fileURL.deletingLastPathComponent()
-        return try FileBackedNativeSyncStore(
-            fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-            mediaResolver: NativeStagedMediaDirectory(
-                directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-            )
-        )
+        return NativeProcessSyncStore.shared(appDirectory: appDirectory)
     }
 }
 

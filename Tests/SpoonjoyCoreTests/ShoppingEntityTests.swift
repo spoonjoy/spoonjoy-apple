@@ -95,7 +95,7 @@ struct ShoppingEntityTests {
                     "NativeIntentActionError.unresolvedShoppingItemEntity",
                     "descriptor.isPlaceholder",
                     "NativeAppStateLocation.defaultFileURL()",
-                    "FileBackedNativeSyncStore",
+                    "NativeProcessSyncStore.shared(appDirectory:",
                     "loadSnapshot()",
                     "trustedIntentScope",
                     "KeychainTokenVault()",
