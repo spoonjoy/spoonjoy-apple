@@ -1708,7 +1708,10 @@ private struct SpoonjoyIntentAPIRefresher: APIAuthenticationRefresher {
         after _: APIError,
         configuration: APIClientConfiguration
     ) async throws -> APIClientConfiguration {
-        let session = try await refreshCoordinator.validSession(at: Date())
+        let session = try await refreshCoordinator.sessionAfterRejecting(
+            accessToken: configuration.bearerToken,
+            at: Date()
+        )
         return APIClientConfiguration(baseURL: configuration.baseURL, bearerToken: session.accessToken)
     }
 }
