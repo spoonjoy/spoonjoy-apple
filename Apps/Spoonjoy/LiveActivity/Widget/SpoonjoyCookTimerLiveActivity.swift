@@ -10,7 +10,9 @@ import WidgetKit
 struct SpoonjoyCookTimerLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AlarmAttributes<SpoonjoyCookTimerMetadata>.self) { context in
+            // The Lock Screen card is drawn on bone with the fixed light palette, so system styles inside it stay light until a designed dark palette ships.
             CookTimerLockScreenView(metadata: context.attributes.metadata, state: context.state)
+                .environment(\.colorScheme, .light)
                 .activityBackgroundTint(KitchenTableTheme.bone)
                 .activitySystemActionForegroundColor(KitchenTableTheme.charcoal)
                 .widgetURL(context.attributes.metadata.flatMap { URL(string: $0.deepLink) })
