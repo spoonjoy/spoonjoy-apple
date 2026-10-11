@@ -180,34 +180,38 @@ struct UpdateNotificationPreferencesIntent: AppIntent {
         self.fellowChefCooks = fellowChefCooks
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let stateWriter = try SpoonjoyIntentStateWriter()
-        let connectivity = try await stateWriter.notificationAPNsConnectivity()
-        let data = try await stateWriter.notificationAPNsSurfaceData()
-        let requiresCurrentPreferences = spoons == nil || forks == nil || cookbookSaves == nil || fellowChefCooks == nil
-        if requiresCurrentPreferences {
-            _ = try NativeIntentActionResolver().readNotificationPreferences(
-                data: data,
-                hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences(),
-                connectivity: connectivity
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let stateWriter = try SpoonjoyIntentStateWriter()
+            let connectivity = try await stateWriter.notificationAPNsConnectivity()
+            let data = try await stateWriter.notificationAPNsSurfaceData()
+            let requiresCurrentPreferences = spoons == nil || forks == nil || cookbookSaves == nil || fellowChefCooks == nil
+            if requiresCurrentPreferences {
+                _ = try NativeIntentActionResolver().readNotificationPreferences(
+                    data: data,
+                    hasCachedPreferences: try await stateWriter.notificationAPNsHasCachedPreferences(),
+                    connectivity: connectivity
+                )
+            }
+            let preferences = SettingsNotificationPreferences(
+                notifySpoonOnMyRecipe: spoons ?? data.preferences.notifySpoonOnMyRecipe,
+                notifyForkOfMyRecipe: forks ?? data.preferences.notifyForkOfMyRecipe,
+                notifyCookbookSaveOfMine: cookbookSaves ?? data.preferences.notifyCookbookSaveOfMine,
+                notifyFellowChefOriginCook: fellowChefCooks ?? data.preferences.notifyFellowChefOriginCook
             )
+            let action = try NativeIntentActionResolver().updateNotificationPreferences(
+                preferences: preferences,
+                connectivity: connectivity,
+                deliveryCapability: data.deliveryCapability,
+                createdAt: createdAt
+            )
+            let status = try await stateWriter.performNotificationAPNsActionStatus(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: status.dialogMessage(completed: "Updated notification preferences in Spoonjoy.", queued: "Queued notification preference update in Spoonjoy."))
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
         }
-        let preferences = SettingsNotificationPreferences(
-            notifySpoonOnMyRecipe: spoons ?? data.preferences.notifySpoonOnMyRecipe,
-            notifyForkOfMyRecipe: forks ?? data.preferences.notifyForkOfMyRecipe,
-            notifyCookbookSaveOfMine: cookbookSaves ?? data.preferences.notifyCookbookSaveOfMine,
-            notifyFellowChefOriginCook: fellowChefCooks ?? data.preferences.notifyFellowChefOriginCook
-        )
-        let action = try NativeIntentActionResolver().updateNotificationPreferences(
-            preferences: preferences,
-            connectivity: connectivity,
-            deliveryCapability: data.deliveryCapability,
-            createdAt: createdAt
-        )
-        let status = try await stateWriter.performNotificationAPNsActionStatus(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Updated notification preferences in Spoonjoy.", queued: "Queued notification preference update in Spoonjoy."))
     }
 }
 
@@ -249,17 +253,21 @@ struct UpdateProfileDisplayIntent: AppIntent {
         self.username = username
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().updateProfileDisplay(
-            email: email,
-            username: username,
-            connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
-            createdAt: createdAt
-        )
-        let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Updated profile in Spoonjoy.", queued: "Queued profile update in Spoonjoy."))
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().updateProfileDisplay(
+                email: email,
+                username: username,
+                connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
+                createdAt: createdAt
+            )
+            let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: status.dialogMessage(completed: "Updated profile in Spoonjoy.", queued: "Queued profile update in Spoonjoy."))
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -279,24 +287,28 @@ struct UpdateProfilePhotoIntent: AppIntent {
         self.photo = photo
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let contentType = photo.type?.preferredMIMEType ?? "application/octet-stream"
-        let media = NativeStagedMediaUpload(
-            localStageID: "intent-profile-photo-\(createdAt)",
-            fileName: photo.filename,
-            contentType: contentType,
-            data: photo.data
-        )
-        _ = SettingsProfilePhotoStagingPolicy.webProfileParity
-        let action = try NativeIntentActionResolver().updateProfilePhoto(
-            photo: media,
-            connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
-            createdAt: createdAt
-        )
-        let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Updated profile photo in Spoonjoy.", queued: "Queued profile photo update in Spoonjoy."))
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let contentType = photo.type?.preferredMIMEType ?? "application/octet-stream"
+            let media = NativeStagedMediaUpload(
+                localStageID: "intent-profile-photo-\(createdAt)",
+                fileName: photo.filename,
+                contentType: contentType,
+                data: photo.data
+            )
+            _ = SettingsProfilePhotoStagingPolicy.webProfileParity
+            let action = try NativeIntentActionResolver().updateProfilePhoto(
+                photo: media,
+                connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
+                createdAt: createdAt
+            )
+            let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: status.dialogMessage(completed: "Updated profile photo in Spoonjoy.", queued: "Queued profile photo update in Spoonjoy."))
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -305,16 +317,20 @@ struct RemoveProfilePhotoIntent: AppIntent {
     static let title: LocalizedStringResource = "Remove Profile Photo"
     static let description = IntentDescription("Remove your Spoonjoy profile photo.")
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().removeProfilePhoto(
-            connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
-            createdAt: createdAt
-        )
-        let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: status.dialogMessage(completed: "Removed profile photo in Spoonjoy.", queued: "Queued profile photo removal in Spoonjoy."))
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().removeProfilePhoto(
+                connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity(),
+                createdAt: createdAt
+            )
+            let status = try await SpoonjoyIntentStateWriter().performSettingsActionStatus(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: status.dialogMessage(completed: "Removed profile photo in Spoonjoy.", queued: "Queued profile photo removal in Spoonjoy."))
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -380,14 +396,18 @@ struct RevokeAPITokenIntent: AppIntent {
         self.token = token
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let action = try NativeIntentActionResolver().revokeAPIToken(token: token.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
-        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
-        let offlineMessage = SettingsOnlineOnlyReason.apiTokenRevoke.message
-        let message = action.onlineOnlyReason?.message ?? "Revoked access key in Spoonjoy."
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        do {
+            let action = try NativeIntentActionResolver().revokeAPIToken(token: token.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+            try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+            let offlineMessage = SettingsOnlineOnlyReason.apiTokenRevoke.message
+            let message = action.onlineOnlyReason?.message ?? "Revoked access key in Spoonjoy."
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -419,14 +439,18 @@ struct DisconnectAccountConnectionIntent: AppIntent {
         self.connection = connection
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let action = try NativeIntentActionResolver().disconnectAccountConnection(connection: connection.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
-        try await SpoonjoyIntentStateWriter().performSettingsAction(action)
-        let offlineMessage = SettingsOnlineOnlyReason.oauthConnectionDisconnect.message
-        let message = action.onlineOnlyReason?.message ?? "Disconnected account connection in Spoonjoy."
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        do {
+            let action = try NativeIntentActionResolver().disconnectAccountConnection(connection: connection.descriptor, connectivity: try await SpoonjoyIntentStateWriter().settingsConnectivity())
+            try await SpoonjoyIntentStateWriter().performSettingsAction(action)
+            let offlineMessage = SettingsOnlineOnlyReason.oauthConnectionDisconnect.message
+            let message = action.onlineOnlyReason?.message ?? "Disconnected account connection in Spoonjoy."
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -491,15 +515,19 @@ struct LogoutIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Out"
     static let description = IntentDescription("Log out of Spoonjoy.")
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let stateWriter = try SpoonjoyIntentStateWriter()
-        let action = try NativeIntentActionResolver().logout(connectivity: try await stateWriter.settingsConnectivity())
-        try await stateWriter.performSettingsAction(action)
-        let offlineMessage = SettingsOnlineOnlyReason.logout.message
-        let message = action.onlineOnlyReason?.message ?? "Logged out of Spoonjoy."
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        do {
+            let stateWriter = try SpoonjoyIntentStateWriter()
+            let action = try NativeIntentActionResolver().logout(connectivity: try await stateWriter.settingsConnectivity())
+            try await stateWriter.performSettingsAction(action)
+            let offlineMessage = SettingsOnlineOnlyReason.logout.message
+            let message = action.onlineOnlyReason?.message ?? "Logged out of Spoonjoy."
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -508,15 +536,19 @@ struct RevokeCurrentSessionIntent: AppIntent {
     static let title: LocalizedStringResource = "Revoke Current Session"
     static let description = IntentDescription("Revoke the current Spoonjoy session.")
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let stateWriter = try SpoonjoyIntentStateWriter()
-        let action = try NativeIntentActionResolver().revokeCurrentSession(connectivity: try await stateWriter.settingsConnectivity())
-        try await stateWriter.performSettingsAction(action)
-        let offlineMessage = SettingsOnlineOnlyReason.sessionRevoke.message
-        let message = action.onlineOnlyReason?.message ?? "Revoked the current Spoonjoy session."
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        do {
+            let stateWriter = try SpoonjoyIntentStateWriter()
+            let action = try NativeIntentActionResolver().revokeCurrentSession(connectivity: try await stateWriter.settingsConnectivity())
+            try await stateWriter.performSettingsAction(action)
+            let offlineMessage = SettingsOnlineOnlyReason.sessionRevoke.message
+            let message = action.onlineOnlyReason?.message ?? "Revoked the current Spoonjoy session."
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            return .result(dialog: "\(action.onlineOnlyReason == nil ? message : offlineMessage)\(action.onlineOnlyReason == nil ? "" : " This action was not queued.")")
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -764,13 +796,17 @@ struct ForkRecipeIntent: AppIntent {
         self.titleOverride = titleOverride
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().forkRecipe(recipe: recipe.descriptor, title: titleOverride, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued recipe fork in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().forkRecipe(recipe: recipe.descriptor, title: titleOverride, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.forkedRecipe(recipeTitle: recipe.descriptor.title, newTitle: titleOverride), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -795,14 +831,18 @@ struct SaveRecipeToCookbookIntent: AppIntent {
         self.cookbook = cookbook
     }
 
-    func perform() async throws -> some IntentResult {
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook save in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.savedRecipeToCookbook(recipeTitle: recipe.descriptor.title, cookbookTitle: cookbook.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -822,14 +862,18 @@ struct CreateCookbookIntent: AppIntent {
         self.title = title
     }
 
-    func perform() async throws -> some IntentResult {
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().createCookbook(title: title, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook creation in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().createCookbook(title: title, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.createdCookbook(title: title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -854,14 +898,18 @@ struct RenameCookbookIntent: AppIntent {
         self.title = title
     }
 
-    func perform() async throws -> some IntentResult {
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().renameCookbook(cookbook: cookbook.descriptor, title: title, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook rename in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().renameCookbook(cookbook: cookbook.descriptor, title: title, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.renamedCookbook(oldTitle: cookbook.descriptor.title, newTitle: title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -881,15 +929,19 @@ struct DeleteCookbookIntent: AppIntent {
         self.cookbook = cookbook
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().deleteCookbook(cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook deletion in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().deleteCookbook(cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.deletedCookbook(title: cookbook.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -914,14 +966,18 @@ struct AddRecipeToCookbookIntent: AppIntent {
         self.cookbook = cookbook
     }
 
-    func perform() async throws -> some IntentResult {
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().addRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook recipe add in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().addRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.addedRecipeToCookbook(recipeTitle: recipe.descriptor.title, cookbookTitle: cookbook.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -946,15 +1002,19 @@ struct RemoveRecipeFromCookbookIntent: AppIntent {
         self.cookbook = cookbook
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cookbook removal in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().removeRecipeFromCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.removedRecipeFromCookbook(recipeTitle: recipe.descriptor.title, cookbookTitle: cookbook.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -974,15 +1034,19 @@ struct DeleteRecipeIntent: AppIntent {
         self.recipe = recipe
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().deleteRecipe(recipe: recipe.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued recipe deletion in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().deleteRecipe(recipe: recipe.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.deletedRecipe(title: recipe.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1012,18 +1076,22 @@ struct AddShoppingListItemIntent: AppIntent {
         self.unit = unit
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().addShoppingListItem(
-            name: name,
-            quantity: quantity,
-            unit: unit,
-            createdAt: createdAt
-        )
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued \(name) in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().addShoppingListItem(
+                name: name,
+                quantity: quantity,
+                unit: unit,
+                createdAt: createdAt
+            )
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.addedShoppingItem(name: name), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1048,18 +1116,22 @@ struct SetShoppingListItemCheckedIntent: AppIntent {
         self.checked = checked
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let itemID = try item.resolvedShoppingItemID()
-        let action = try NativeIntentActionResolver().setShoppingListItemChecked(
-            itemID: itemID,
-            checked: checked,
-            createdAt: createdAt
-        )
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Updated shopping item in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let itemID = try item.resolvedShoppingItemID()
+            let action = try NativeIntentActionResolver().setShoppingListItemChecked(
+                itemID: itemID,
+                checked: checked,
+                createdAt: createdAt
+            )
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.setShoppingItemChecked(title: item.descriptor.title, checked: checked), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1079,18 +1151,22 @@ struct RemoveShoppingListItemIntent: AppIntent {
         self.item = item
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let itemID = try item.resolvedShoppingItemID()
-        let action = try NativeIntentActionResolver().removeShoppingListItem(
-            itemID: itemID,
-            createdAt: createdAt
-        )
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Removed shopping item in Spoonjoy")
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let itemID = try item.resolvedShoppingItemID()
+            let action = try NativeIntentActionResolver().removeShoppingListItem(
+                itemID: itemID,
+                createdAt: createdAt
+            )
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.removedShoppingItem(title: item.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1115,18 +1191,22 @@ struct AddRecipeIngredientsToShoppingListIntent: AppIntent {
         self.scaleFactor = scaleFactor
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let recipeID = try recipe.resolvedRecipeID()
-        let action = try NativeIntentActionResolver().addRecipeIngredientsToShoppingList(
-            recipeID: recipeID,
-            scaleFactor: scaleFactor,
-            createdAt: createdAt
-        )
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued recipe ingredients in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let recipeID = try recipe.resolvedRecipeID()
+            let action = try NativeIntentActionResolver().addRecipeIngredientsToShoppingList(
+                recipeID: recipeID,
+                scaleFactor: scaleFactor,
+                createdAt: createdAt
+            )
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.addedRecipeIngredients(recipeTitle: recipe.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1135,14 +1215,18 @@ struct ClearCompletedShoppingItemsIntent: AppIntent {
     static let title: LocalizedStringResource = "Clear Completed Shopping Items"
     static let description = IntentDescription("Remove completed items from the Spoonjoy shopping list.")
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = NativeIntentActionResolver().clearCompletedShoppingItems(createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Cleared completed shopping items in Spoonjoy")
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = NativeIntentActionResolver().clearCompletedShoppingItems(createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.clearedCompletedShoppingItems, queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1151,14 +1235,18 @@ struct ClearShoppingListIntent: AppIntent {
     static let title: LocalizedStringResource = "Clear Shopping List"
     static let description = IntentDescription("Remove all items from the Spoonjoy shopping list.")
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = NativeIntentActionResolver().clearShoppingList(createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Cleared the Spoonjoy shopping list")
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = NativeIntentActionResolver().clearShoppingList(createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.clearedShoppingList, queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1193,13 +1281,17 @@ struct LogCookIntent: AppIntent {
         self.cookedAt = cookedAt
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().logCook(recipe: recipe.descriptor, note: note, nextTime: nextTime, cookedAt: cookedAt, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cook log in Spoonjoy")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().logCook(recipe: recipe.descriptor, note: note, nextTime: nextTime, cookedAt: cookedAt, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.loggedCook(recipeTitle: recipe.descriptor.title), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1234,15 +1326,19 @@ struct EditCookLogIntent: AppIntent {
         self.cookedAt = cookedAt
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().editCookLog(spoon: spoon.descriptor, note: note, nextTime: nextTime, cookedAt: cookedAt, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cook-log edit in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().editCookLog(spoon: spoon.descriptor, note: note, nextTime: nextTime, cookedAt: cookedAt, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.editedCookLog, queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1262,15 +1358,19 @@ struct DeleteCookLogIntent: AppIntent {
         self.spoon = spoon
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().deleteCookLog(spoon: spoon.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued cook-log deletion in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().deleteCookLog(spoon: spoon.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.deletedCookLog, queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1305,15 +1405,19 @@ struct CreateCoverFromSpoonIntent: AppIntent {
         self.generateEditorial = generateEditorial
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().createCoverFromSpoon(recipe: recipe.descriptor, spoon: spoon.descriptor, activate: activate, generateEditorial: generateEditorial, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued spoon photo as a cover in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().createCoverFromSpoon(recipe: recipe.descriptor, spoon: spoon.descriptor, activate: activate, generateEditorial: generateEditorial, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.createdCoverFromCookLog(recipeTitle: recipe.descriptor.title, activate: activate), queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1333,16 +1437,20 @@ struct CaptureRecipeIntent: AppIntent {
         self.source = source
     }
 
-    func perform() async throws -> some IntentResult {
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().captureRecipe(
-            source: source,
-            createdAt: createdAt
-        )
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Saved a Spoonjoy capture draft")
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        do {
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().captureRecipe(
+                source: source,
+                createdAt: createdAt
+            )
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.capturedRecipe, queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1362,16 +1470,20 @@ struct SubmitCaptureImportIntent: AppIntent {
         self.draft = draft
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "SubmitCaptureImportIntent", returnsValue: false)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Queued capture draft import in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyIntentTelemetry.recordCompleted(action, intentName: "SubmitCaptureImportIntent", returnsValue: false)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.submittedCaptureImport, queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1415,15 +1527,19 @@ struct DiscardCaptureDraftIntent: AppIntent {
         self.draft = draft
     }
 
-    func perform() async throws -> some IntentResult {
+    func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
-        let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
-        let createdAt = SpoonjoyIntentClock.timestamp()
-        let action = try NativeIntentActionResolver().discardCaptureDraft(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
-        try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
-        await SpoonjoyInteractionDonor().donateBestEffort(self)
-
-        return .result(opensIntent: OpenURLIntent(action.url), dialog: "Discarded capture draft in Spoonjoy")
+        do {
+            let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
+            let createdAt = SpoonjoyIntentClock.timestamp()
+            let action = try NativeIntentActionResolver().discardCaptureDraft(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
+            let queued = try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)
+            await SpoonjoyInteractionDonor().donateBestEffort(self)
+            let dialog = await SpoonjoyIntentOutcome.finished(NativeIntentDialog.discardedCaptureDraft, queued: queued)
+            return .result(dialog: dialog)
+        } catch {
+            return .result(dialog: try SpoonjoyIntentOutcome.failed(error))
+        }
     }
 }
 
@@ -1849,6 +1965,28 @@ private func spoonjoyIntentIsOffline(_ code: URLError.Code) -> Bool {
     }
 }
 
+/// How a write intent finishes in place: it sends what it queued and says what happened, or says why it failed.
+@available(iOS 27.0, macOS 27.0, *)
+private enum SpoonjoyIntentOutcome {
+    static func finished(_ message: String, queued clientMutationIDs: [String]) async -> IntentDialog {
+        let sync: NativeIntentSyncOutcome
+        if let stateWriter = try? SpoonjoyIntentStateWriter() {
+            sync = await stateWriter.syncQueued(clientMutationIDs)
+        } else {
+            sync = .pending
+        }
+        return IntentDialog(stringLiteral: NativeIntentDialog.confirmation(message, sync: sync))
+    }
+
+    /// The dialog for a failed write. A cancelled intent ends without one.
+    static func failed(_ error: any Error) throws -> IntentDialog {
+        guard let message = NativeIntentDialog.failureMessage(for: error) else {
+            throw error
+        }
+        return IntentDialog(stringLiteral: message)
+    }
+}
+
 @available(iOS 27.0, macOS 27.0, *)
 private struct SpoonjoyIntentStateWriter {
     private let store: NativeAppStateStore
@@ -1878,12 +2016,16 @@ private struct SpoonjoyIntentStateWriter {
         }
     }
 
-    func apply(_ action: NativeIntentAction, savedAt: String) async throws {
+    /// Queues `action` in the shared sync store and updates the local snapshot. Returns the client mutation IDs it
+    /// queued, so the intent can send them right away.
+    @discardableResult
+    func apply(_ action: NativeIntentAction, savedAt: String) async throws -> [String] {
         switch action {
         case .addShoppingListItem(let mutation, _, _):
             let nativeMutation = try NativeQueuedMutation.intentMutation(from: mutation)
             try await appendNativeMutation(nativeMutation)
             try await applyShoppingMutation(nativeMutation, savedAt: savedAt, legacyQueuedMutation: mutation)
+            return [nativeMutation.clientMutationID]
         case .nativeMutation(let mutation, _, _):
             let appliedMutation: NativeQueuedMutation
             if mutation.queueableKind == .recipeImportSubmit {
@@ -1893,32 +2035,59 @@ private struct SpoonjoyIntentStateWriter {
                 appliedMutation = mutation
             }
             try await applyNativeMutation(appliedMutation, savedAt: savedAt)
+            return [appliedMutation.clientMutationID]
         case .settingsAction(let plan, let route, let url):
             try await performSettingsAction(NativeIntentSettingsAction(plan: plan, route: route, url: url))
+            return []
         case .shoppingMutation(let mutation, _, _):
             try await appendNativeMutation(mutation)
             try await applyShoppingMutation(mutation, savedAt: savedAt)
+            return [mutation.clientMutationID]
         case .captureDraftDiscard(let mutation, let draftID, let draftImportSource, _, _):
             try await discardMatchingCaptureImportMutations(draftImportSource: draftImportSource)
-            try await appendNativeMutationIfNeeded(mutation)
+            let queuedDiscard = try await appendNativeMutationIfNeeded(mutation)
             var snapshot = try await loadSnapshot(savedAt: savedAt)
             snapshot = snapshot.discardingCaptureDraft(id: draftID, savedAt: savedAt)
             try store.save(snapshot)
             if let scope = try? await currentIntentScope() {
                 await purgeCaptureDraftEntitySurfaces(draftID: draftID, scope: scope)
             }
+            return [queuedDiscard.clientMutationID]
         case .captureDraft(let draft, _, _):
-            try await appendNativeMutation(.captureDraftCreate(
+            let draftCreate = NativeQueuedMutation.captureDraftCreate(
                 draftID: draft.id,
                 source: .text(draft.rawText),
                 clientMutationID: "intent-\(draft.id)",
                 createdAt: savedAt
-            ))
+            )
+            try await appendNativeMutation(draftCreate)
             var snapshot = try await loadSnapshot(savedAt: savedAt)
             snapshot = snapshot.updatingCaptureDraft(draft, savedAt: savedAt)
             try store.save(snapshot)
+            return [draftCreate.clientMutationID]
         case .openRoute:
-            break
+            return []
+        }
+    }
+
+    /// Sends `clientMutationIDs` with the same sync engine and shared store the app uses. An edit that cannot be sent
+    /// now stays queued, and the app sends it on its next sync.
+    func syncQueued(_ clientMutationIDs: [String]) async -> NativeIntentSyncOutcome {
+        guard let authVault, let scope = try? await currentIntentScope() else {
+            return .pending
+        }
+        let refresher = SpoonjoyIntentAPIRefresher(vault: authVault)
+        let engine = NativeSyncEngine(
+            store: syncStore,
+            transport: URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(authenticationRefresher: refresher))
+        )
+        let executionScope = NativeSyncExecutionScope(expectedAccountID: scope.accountID, environment: scope.environment)
+        return await NativeIntentWriteSync.drain(clientMutationIDs: clientMutationIDs) {
+            try await engine.bootstrapAndDrain(
+                configuration: try await refresher.validConfiguration(),
+                trigger: .foreground,
+                scope: executionScope
+            )
         }
     }
 
