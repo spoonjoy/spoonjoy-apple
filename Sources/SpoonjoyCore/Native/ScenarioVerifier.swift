@@ -145,7 +145,7 @@ public enum ScenarioVerifier {
                         "SpoonjoyCookbookEntityQuery",
                         "RecipeCookbookEntityCatalog",
                         "EntityStringQuery",
-                        "FileBackedNativeSyncStore"
+                        "NativeProcessSyncStore.shared(appDirectory:"
                     ],
                     forbiddenTokens: [
                         "ShoppingListState.decodeFromBundle()"
@@ -169,7 +169,7 @@ public enum ScenarioVerifier {
                         "SpoonjoyShoppingItemEntityQuery",
                         "ShoppingEntityCatalog",
                         "EntityStringQuery",
-                        "FileBackedNativeSyncStore"
+                        "NativeProcessSyncStore.shared(appDirectory:"
                     ],
                     forbiddenTokens: [
                         "ShoppingListState.decodeFromBundle()"
@@ -191,7 +191,7 @@ public enum ScenarioVerifier {
                         "SpoonjoySpoonEntityQuery",
                         "SpoonEntityCatalog",
                         "EntityStringQuery",
-                        "FileBackedNativeSyncStore"
+                        "NativeProcessSyncStore.shared(appDirectory:"
                     ],
                     forbiddenTokens: [
                         "ShoppingListState.decodeFromBundle()"
@@ -236,7 +236,7 @@ public enum ScenarioVerifier {
                         "SpoonjoyChefProfileEntityQuery",
                         "ChefProfileEntityCatalog",
                         "EntityStringQuery",
-                        "FileBackedNativeSyncStore",
+                        "NativeProcessSyncStore.shared(appDirectory:",
                         "NativeDurableCacheStore"
                     ],
                     forbiddenTokens: [

@@ -886,7 +886,7 @@ struct NativeScenarioTests {
         #expect(appIntentsSource.contains(".result(opensIntent:"))
         #expect(appIntentsSource.contains("dialog:"))
         #expect(appIntentsSource.contains("NativeAppStateLocation.defaultFileURL()"))
-        #expect(appIntentsSource.contains("FileBackedNativeSyncStore"))
+        #expect(appIntentsSource.contains("NativeProcessSyncStore.shared(appDirectory:"))
         #expect(appIntentsSource.contains("NativeQueuedMutation.intentMutation(from:"))
         #expect(appIntentsSource.contains("syncStore.appendMutations("))
         #expect(appIntentsSource.contains("KeychainTokenVault()"))
@@ -917,7 +917,7 @@ struct NativeScenarioTests {
             #expect(appEntitiesSource.contains(declaration))
         }
         #expect(appEntitiesSource.contains("RecipeCookbookEntityCatalog.loading(syncStore:"))
-        #expect(appEntitiesSource.contains("FileBackedNativeSyncStore"))
+        #expect(appEntitiesSource.contains("NativeProcessSyncStore.shared(appDirectory:"))
         #expect(appEntitiesSource.contains("NativeAppStateLocation.defaultFileURL()"))
         #expect(appEntitiesSource.contains("NativeIntentActionError.unresolvedRecipeEntity"))
         #expect(appEntitiesSource.contains("descriptor.isPlaceholder"))
@@ -935,7 +935,7 @@ struct NativeScenarioTests {
             #expect(shoppingEntitiesSource.contains(declaration))
         }
         #expect(shoppingEntitiesSource.contains("ShoppingEntityCatalog.loading(syncStore:"))
-        #expect(shoppingEntitiesSource.contains("FileBackedNativeSyncStore"))
+        #expect(shoppingEntitiesSource.contains("NativeProcessSyncStore.shared(appDirectory:"))
         #expect(shoppingEntitiesSource.contains("NativeAppStateLocation.defaultFileURL()"))
         #expect(shoppingEntitiesSource.contains("NativeIntentActionError.unresolvedShoppingItemEntity"))
         #expect(shoppingEntitiesSource.contains("descriptor.isPlaceholder"))
@@ -951,7 +951,7 @@ struct NativeScenarioTests {
             #expect(spoonEntitiesSource.contains(declaration))
         }
         #expect(spoonEntitiesSource.contains("SpoonEntityCatalog.loading(syncStore:"))
-        #expect(spoonEntitiesSource.contains("FileBackedNativeSyncStore"))
+        #expect(spoonEntitiesSource.contains("NativeProcessSyncStore.shared(appDirectory:"))
         #expect(spoonEntitiesSource.contains("NativeAppStateLocation.defaultFileURL()"))
         #expect(spoonEntitiesSource.contains("NativeIntentActionError.unresolvedSpoonEntity"))
         #expect(spoonEntitiesSource.contains("descriptor.isPlaceholder"))
@@ -985,7 +985,7 @@ struct NativeScenarioTests {
             #expect(settingsEntitiesSource.contains(declaration))
         }
         #expect(settingsEntitiesSource.contains("SpoonjoySettingsEntitySource"))
-        #expect(settingsEntitiesSource.contains("FileBackedNativeSyncStore"))
+        #expect(settingsEntitiesSource.contains("NativeProcessSyncStore.shared(appDirectory:"))
         #expect(settingsEntitiesSource.contains("NativeAppStateLocation.defaultFileURL()"))
         #expect(settingsEntitiesSource.contains("NativeIntentActionError.unresolvedAPITokenEntity"))
         #expect(settingsEntitiesSource.contains("NativeIntentActionError.unresolvedAccountConnectionEntity"))
