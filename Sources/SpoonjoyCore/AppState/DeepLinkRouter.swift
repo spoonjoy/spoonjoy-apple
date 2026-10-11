@@ -143,6 +143,10 @@ public struct DeepLinkRouter: Equatable, Sendable {
             return .savedRecipes
         }
 
+        if segments == ["everyone-recipes"] {
+            return .everyoneRecipes
+        }
+
         if segments.count == 2, segments[0] == "recipes" {
             let id = segments[1]
             guard safeID(id) else {

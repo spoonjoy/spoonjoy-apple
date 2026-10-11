@@ -11,6 +11,14 @@ struct SpoonjoyToolbar: ViewModifier {
     func body(content: Content) -> some View {
         content
             .toolbar {
+                if showsNewRecipe {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("New Recipe", systemImage: "plus") {
+                            navigation.navigate(to: .recipeEditor(id: nil))
+                        }
+                        .accessibilityIdentifier("recipes.new")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button {
@@ -26,6 +34,16 @@ struct SpoonjoyToolbar: ViewModifier {
                     }
                 }
             }
+    }
+
+    /// The kitchen and the recipe drawers carry a create button, like the website's Create Recipe.
+    private var showsNewRecipe: Bool {
+        switch navigation.route {
+        case .kitchen, .recipes, .savedRecipes, .everyoneRecipes:
+            true
+        default:
+            false
+        }
     }
 
 #if os(iOS)

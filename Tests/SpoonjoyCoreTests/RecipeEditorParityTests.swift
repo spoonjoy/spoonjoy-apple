@@ -9,6 +9,30 @@ struct RecipeEditorParityTests {
         bearerToken: "sj_private_token"
     )
 
+    @Test("a New Recipe editor starts blank and leaves the recipe that was being edited untouched")
+    func newRecipeEditorStartsBlankAndLeavesEditedRecipeAlone() {
+        let recipe = recipeEditorRecipe()
+        let edit = RecipeEditorViewModel(
+            mode: .edit(recipe: recipe, currentChefID: "chef_ari"),
+            connectivity: .online,
+            now: Self.now
+        )
+        let editedDraft = edit.draft
+        let create = RecipeEditorViewModel(
+            mode: .create(currentChefID: "chef_ari", draft: .blank(currentChefID: "chef_ari")),
+            connectivity: .online,
+            now: Self.now
+        )
+
+        #expect(create.draft == .blank(currentChefID: "chef_ari"))
+        #expect(create.draft.recipeID == nil)
+        #expect(create.draft.title.isEmpty)
+        #expect(create.draft.steps.isEmpty)
+        #expect(create.route == .recipeEditor(id: nil))
+        #expect(edit.draft == editedDraft)
+        #expect(edit.draft.recipeID == recipe.id)
+    }
+
     @Test("draft hydrates from recipe and exposes owner-only editing affordances")
     func draftHydratesFromRecipeAndExposesOwnerOnlyEditingAffordances() throws {
         let recipe = recipeEditorRecipe()

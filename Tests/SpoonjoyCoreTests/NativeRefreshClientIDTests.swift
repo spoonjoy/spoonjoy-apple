@@ -691,7 +691,7 @@ struct NativeRefreshClientIDTests {
         #expect(restored(.recipeEditor(id: "recipe_1")) == nil)
         #expect(restored(.recipeCoverControls(id: "recipe_1")) == nil)
         #expect(restored(.unknownLink) == nil)
-        for route in [AppRoute.kitchen, .recipes, .savedRecipes, .cookbooks, .chefs, .shoppingList, .capture, .settings,
+        for route in [AppRoute.kitchen, .recipes, .savedRecipes, .everyoneRecipes, .cookbooks, .chefs, .shoppingList, .capture, .settings,
                       .profile(identifier: "ari"), .search(query: "miso", scope: .all),
                       .profileGraph(identifier: "ari", direction: .fellowChefs, page: 1)] {
             #expect(restored(route) == route)
