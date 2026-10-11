@@ -124,11 +124,23 @@ final class EditorJourney: JourneyTestCase {
         journey.assertFieldEmpty(JourneyID.editorTitle)
         journey.assertFieldEmpty(JourneyID.editorServings)
         journey.attachScreenshot(named: "09-new-recipe-while-editing-is-blank", to: self)
+        // Each tab keeps its own stack, so the Recipes tab still shows that recipe's editor with the unsaved edit.
         journey.openTab(JourneyCopy.recipesTab)
+        journey.assertFieldValue(JourneyID.editorServings, equals: unsavedServings)
+        // Cancelling asks before dropping the edit, then returns to the recipe under its saved title.
+        journey.tap(JourneyID.editorCancel)
+        let discard = journey.copy(JourneyCopy.discardChanges)
         XCTAssertTrue(
-            journey.element(JourneyID.recipesRow, labelContaining: title).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "The recipe whose editor was open is missing from My Recipes after New Recipe opened. Screen: \(journey.screen)"
+            discard.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Cancelling an edited recipe did not ask to discard the changes. Screen: \(journey.screen)"
         )
+        discard.tap()
+        let detailTitle = journey.element(JourneyID.recipeDetailTitle)
+        XCTAssertTrue(
+            detailTitle.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Discarding the edit did not return to the recipe. Screen: \(journey.screen)"
+        )
+        XCTAssertEqual(detailTitle.label, title, "The recipe whose editor was open lost its saved title.")
         journey.attachScreenshot(named: "10-existing-recipe-unaffected", to: self)
 
         verifyAfterRelaunch(journey) {

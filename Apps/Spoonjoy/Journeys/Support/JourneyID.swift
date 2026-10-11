@@ -35,6 +35,7 @@ enum JourneyID {
     static let editorServings = "editor.servings"
     static let editorAddStep = "editor.addStep"
     static let editorSave = "editor.save"
+    static let editorCancel = "editor.cancel"
     /// The editor's message when a save is blocked or fails.
     static let editorStatus = "editor.status"
 
