@@ -127,7 +127,7 @@ struct NativeAPIExpansionTests {
             .urlRequest(configuration: Self.privateConfiguration)
         let revokeToken = try TokenCredentialRequests.revokeToken(credentialID: "cred/with spaces")
             .urlRequest(configuration: Self.privateConfiguration)
-        let revokeAPNS = try PrivateAccountRequests.revokeAPNSDevice(deviceID: "device/ios 1")
+        let revokeAPNS = try PrivateAccountRequests.revokeAPNSDevice(deviceID: "device/ios 1", clientMutationID: "cm_apns_revoke")
             .urlRequest(configuration: Self.privateConfiguration)
         let disconnect = try PrivateAccountRequests.disconnectConnection(connectionID: "oauth/cm client")
             .urlRequest(configuration: Self.privateConfiguration)
@@ -175,7 +175,7 @@ struct NativeAPIExpansionTests {
         )
         assertRequest(listTokens, method: .get, path: "/api/v1/tokens", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
         assertRequest(revokeToken, method: .delete, path: "/api/v1/tokens/cred%2Fwith%20spaces", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
-        assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+        assertRequest(revokeAPNS, method: .delete, path: "/api/v1/me/apns-devices/device%2Fios%201", authorization: "Bearer sj_private_token", extraHeaders: ["X-Client-Mutation-Id": "cm_apns_revoke"], responseCachePolicy: .privateNoStore)
         assertRequest(disconnect, method: .delete, path: "/api/v1/me/connections/oauth%2Fcm%20client", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
         assertJSONRequest(telemetry, method: .post, path: "/api/v1/native/telemetry", expected: [
             "event": "settings_refresh_failed",
@@ -248,7 +248,8 @@ struct NativeAPIExpansionTests {
     func profileNotificationTokenAndAPNSMutationsEncodeExpectedBodies() throws {
         let updateProfile = try PrivateAccountRequests.updateProfile(
             email: "ari@example.com",
-            username: "ari"
+            username: "ari",
+            clientMutationID: "cm_profile"
         )
         .urlRequest(configuration: Self.privateConfiguration)
         let uploadPhoto = try PrivateAccountRequests.uploadProfilePhoto(
@@ -256,16 +257,18 @@ struct NativeAPIExpansionTests {
                 fileName: "profile.jpg",
                 contentType: "image/jpeg",
                 data: Data([0xFF, 0xD8, 0xFF])
-            )
+            ),
+            clientMutationID: "cm_photo"
         )
         .urlRequest(configuration: Self.privateConfiguration)
-        let removePhoto = try PrivateAccountRequests.removeProfilePhoto()
+        let removePhoto = try PrivateAccountRequests.removeProfilePhoto(clientMutationID: "cm_remove_photo")
             .urlRequest(configuration: Self.privateConfiguration)
         let updateNotifications = try PrivateAccountRequests.updateNotificationPreferences(
             notifySpoonOnMyRecipe: true,
             notifyForkOfMyRecipe: false,
             notifyCookbookSaveOfMine: true,
-            notifyFellowChefOriginCook: false
+            notifyFellowChefOriginCook: false,
+            clientMutationID: "cm_notifications"
         )
         .urlRequest(configuration: Self.privateConfiguration)
         let registerAPNS = try PrivateAccountRequests.registerAPNSDevice(
@@ -274,7 +277,8 @@ struct NativeAPIExpansionTests {
             environment: APNSEnvironment.development,
             token: "apns-token-value",
             deviceName: "Ari's iPhone",
-            appVersion: "1.0.0"
+            appVersion: "1.0.0",
+            clientMutationID: "cm_apns_register"
         )
         .urlRequest(configuration: Self.privateConfiguration)
         let createToken = try TokenCredentialRequests.createToken(
@@ -284,6 +288,7 @@ struct NativeAPIExpansionTests {
         .urlRequest(configuration: Self.privateConfiguration)
 
         assertJSONRequest(updateProfile, method: .patch, path: "/api/v1/me", expected: [
+            "clientMutationId": "cm_profile",
             "email": "ari@example.com",
             "username": "ari"
         ])
@@ -294,17 +299,20 @@ struct NativeAPIExpansionTests {
             fileField: "photo",
             fileName: "profile.jpg",
             contentType: "image/jpeg",
-            data: Data([0xFF, 0xD8, 0xFF])
+            data: Data([0xFF, 0xD8, 0xFF]),
+            fields: ["clientMutationId": "cm_photo"]
         )
-        assertRequest(removePhoto, method: .delete, path: "/api/v1/me/photo", authorization: "Bearer sj_private_token", responseCachePolicy: .privateNoStore)
+        assertRequest(removePhoto, method: .delete, path: "/api/v1/me/photo", authorization: "Bearer sj_private_token", extraHeaders: ["X-Client-Mutation-Id": "cm_remove_photo"], responseCachePolicy: .privateNoStore)
         #expect(removePhoto.body == nil)
         assertJSONRequest(updateNotifications, method: .patch, path: "/api/v1/me/notification-preferences", expected: [
+            "clientMutationId": "cm_notifications",
             "notifySpoonOnMyRecipe": true,
             "notifyForkOfMyRecipe": false,
             "notifyCookbookSaveOfMine": true,
             "notifyFellowChefOriginCook": false
         ])
         assertJSONRequest(registerAPNS, method: .post, path: "/api/v1/me/apns-devices", expected: [
+            "clientMutationId": "cm_apns_register",
             "deviceId": "ios-device-1",
             "platform": "ios",
             "environment": "development",
@@ -325,9 +333,9 @@ struct NativeAPIExpansionTests {
             contentType: "image/jpeg",
             data: Data([0xFF, 0xD8, 0xFF])
         )
-        let first = try PrivateAccountRequests.uploadProfilePhoto(photo: photo)
+        let first = try PrivateAccountRequests.uploadProfilePhoto(photo: photo, clientMutationID: "cm_photo")
             .urlRequest(configuration: Self.privateConfiguration)
-        let second = try PrivateAccountRequests.uploadProfilePhoto(photo: photo)
+        let second = try PrivateAccountRequests.uploadProfilePhoto(photo: photo, clientMutationID: "cm_photo")
             .urlRequest(configuration: Self.privateConfiguration)
 
         let firstContentType = try #require(first.headers["Content-Type"])
@@ -342,7 +350,8 @@ struct NativeAPIExpansionTests {
             fileField: "photo",
             fileName: "profile.jpg",
             contentType: "image/jpeg",
-            data: Data([0xFF, 0xD8, 0xFF])
+            data: Data([0xFF, 0xD8, 0xFF]),
+            fields: ["clientMutationId": "cm_photo"]
         )
 
         #expect(throws: APIRequestBuildError.self) {
@@ -351,7 +360,8 @@ struct NativeAPIExpansionTests {
                     fileName: "profile\"\r\nX-Injected: true.jpg",
                     contentType: "image/jpeg",
                     data: Data([0xFF])
-                )
+                ),
+                clientMutationID: "cm_photo"
             )
         }
         #expect(throws: APIRequestBuildError.self) {
@@ -360,7 +370,8 @@ struct NativeAPIExpansionTests {
                     fileName: "profile.jpg",
                     contentType: "image/jpeg\r\nX-Injected: true",
                     data: Data([0xFF])
-                )
+                ),
+                clientMutationID: "cm_photo"
             )
         }
     }
