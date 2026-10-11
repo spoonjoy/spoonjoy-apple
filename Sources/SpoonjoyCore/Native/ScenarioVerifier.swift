@@ -505,7 +505,7 @@ public enum ScenarioVerifier {
                 liveStoreShellCheck(
                     name: "signed-out live bootstrap",
                     rootURL: rootURL,
-                    relativePath: "Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift",
+                    relativePaths: ["Apps/Spoonjoy/Shared/AppShell/SignedOutSetupView.swift"],
                     tokens: [
                         "NativeAuthSessionRepository",
                         "SignInWithAppleButton",
@@ -795,7 +795,12 @@ public enum ScenarioVerifier {
     static func liveStoreShellCheck(
         name: String,
         rootURL: URL,
-        relativePath: String = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+        // The root view decides what to show through NativeAppBootstrapState.shellPresentation, so a state's
+        // handling is split between the two files.
+        relativePaths: [String] = [
+            "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift",
+            "Sources/SpoonjoyCore/AppState/NativeShellPresentation.swift"
+        ],
         tokens: [String],
         forbiddenTokens: [String] = []
     ) -> ScenarioCheck {
@@ -803,7 +808,7 @@ public enum ScenarioVerifier {
             name: name,
             detail: "Live shell state \(name) is represented in app source.",
             rootURL: rootURL,
-            relativePath: relativePath,
+            relativePaths: relativePaths,
             tokens: tokens,
             forbiddenTokens: forbiddenTokens
         )
@@ -2051,9 +2056,25 @@ public enum ScenarioVerifier {
         tokens: [String],
         forbiddenTokens: [String] = []
     ) -> ScenarioCheck {
-        let sourceURL = rootURL.appendingPathComponent(relativePath)
+        sourceCheck(name: name, detail: detail, rootURL: rootURL, relativePaths: [relativePath], tokens: tokens, forbiddenTokens: forbiddenTokens)
+    }
+
+    /// Passes when the files, read together, contain every token and none of the forbidden ones. Fails when any
+    /// file is unreadable.
+    private static func sourceCheck(
+        name: String,
+        detail: String,
+        rootURL: URL,
+        relativePaths: [String],
+        tokens: [String],
+        forbiddenTokens: [String] = []
+    ) -> ScenarioCheck {
+        let sources = relativePaths.compactMap {
+            try? String(contentsOf: rootURL.appendingPathComponent($0), encoding: .utf8).uncommentedSwiftSource
+        }
+        let source = sources.joined(separator: "\n")
         guard
-            let source = try? String(contentsOf: sourceURL, encoding: .utf8).uncommentedSwiftSource,
+            sources.count == relativePaths.count,
             tokens.allSatisfy(source.contains),
             forbiddenTokens.allSatisfy({ !source.contains($0) })
         else {
