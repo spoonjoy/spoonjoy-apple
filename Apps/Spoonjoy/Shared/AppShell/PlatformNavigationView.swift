@@ -39,6 +39,7 @@ struct PlatformNavigationView: View {
     private let queueMutations: @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult
     private let discardQueuedMutation: @Sendable (String) async throws -> Void
     private let retryHeldChanges: @Sendable () async -> Void
+    private let resolveRecipeEditConflict: @Sendable (String, NativeRecipeEditChoice) async throws -> Void
     /// Asks the live store to sync. The store owns the sync task, so this view going away cannot cancel it.
     /// Nil only for the hermetic fixture, which supplies its own coordinator.
     private let requestSync: (@MainActor @Sendable () async -> Void)?
@@ -82,6 +83,7 @@ struct PlatformNavigationView: View {
         queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult,
         discardQueuedMutation: @escaping @Sendable (String) async throws -> Void,
         retryHeldChanges: @escaping @Sendable () async -> Void = {},
+        resolveRecipeEditConflict: @escaping @Sendable (String, NativeRecipeEditChoice) async throws -> Void = { _, _ in },
         requestSync: (@MainActor @Sendable () async -> Void)? = nil,
         executeRecipeEditorRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> Void,
         executeRecipeCreateRequest: @escaping @MainActor @Sendable (APIRequestBuilder) async throws -> String?,
@@ -123,6 +125,7 @@ struct PlatformNavigationView: View {
         self.queueMutations = queueMutations
         self.discardQueuedMutation = discardQueuedMutation
         self.retryHeldChanges = retryHeldChanges
+        self.resolveRecipeEditConflict = resolveRecipeEditConflict
         self.requestSync = requestSync
         self.executeRecipeEditorRequest = executeRecipeEditorRequest
         self.executeRecipeCreateRequest = executeRecipeCreateRequest
@@ -839,8 +842,10 @@ struct PlatformNavigationView: View {
                 if let held = recipeEditorConflict(for: id) {
                     HeldChangeBanner(
                         message: held.message,
+                        editConflict: held.recipeEdit,
                         retry: { await retryHeldChanges() },
-                        discard: { try? await discardRecipeEditorLocalChange(held) }
+                        discard: { try? await discardRecipeEditorLocalChange(held) },
+                        resolve: { choice in try? await resolveRecipeEditConflict(held.localClientMutationID, choice) }
                     )
                 }
                 if let pending = pendingCoverUploads[id] {
@@ -1762,12 +1767,7 @@ struct PlatformNavigationView: View {
                 continue
             }
 
-            return RecipeEditorConflict(
-                resourceID: recipeID,
-                serverRevision: conflict.serverRevision,
-                localClientMutationID: conflict.clientMutationID,
-                message: conflict.message
-            )
+            return RecipeEditorConflict(resourceID: recipeID, syncConflict: conflict)
         }
 
         return nil
@@ -1858,6 +1858,15 @@ struct PlatformNavigationView: View {
             } catch let error as APITransportError where error.isOffline {
                 if let offlineFallbackMutation = plan.offlineFallbackMutation {
                     try await queueMutation(offlineFallbackMutation)
+                    return
+                }
+                throw error
+            } catch let error as APITransportError where error.isRecipeEditConflict {
+                // The recipe changed after the editor opened. The queue compares the edit with the current
+                // recipe: it sends it if nobody else changed the same fields, and otherwise holds it on the
+                // recipe page with both versions, for the cook to choose.
+                if let offlineFallbackMutation = plan.offlineFallbackMutation {
+                    _ = try await queueMutations([offlineFallbackMutation], true)
                     return
                 }
                 throw error

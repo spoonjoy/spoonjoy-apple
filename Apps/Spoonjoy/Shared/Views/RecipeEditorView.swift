@@ -29,6 +29,8 @@ struct RecipeEditorView: View {
     @State private var isShowingCamera = false
     @State private var pendingExit: AppRoute?
     @State private var invalidQuantityRows: Set<String> = []
+    /// The view model as the editor opened, which holds the recipe version the cook's edit starts from.
+    @State private var openedViewModel: RecipeEditorViewModel
 
     init(
         viewModel: RecipeEditorViewModel,
@@ -49,6 +51,7 @@ struct RecipeEditorView: View {
         self.shellOfflineIndicatorState = shellOfflineIndicatorState
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
         _draft = State(initialValue: viewModel.draft)
+        _openedViewModel = State(initialValue: viewModel)
     }
 
     var body: some View {
@@ -455,7 +458,7 @@ struct RecipeEditorView: View {
     }
 
     private var hasUnsavedChanges: Bool {
-        draft != viewModel.draft || stagedPhoto != nil
+        draft != liveViewModel.draft || stagedPhoto != nil
     }
 
     private var exitRoute: AppRoute {
@@ -708,14 +711,19 @@ struct RecipeEditorView: View {
         return shellOfflineIndicatorState.display
     }
 
+    /// The shell's current view model, still based on the recipe as the editor opened it.
+    private var liveViewModel: RecipeEditorViewModel {
+        viewModel.keepingRecipe(of: openedViewModel)
+    }
+
     private var activeViewModel: RecipeEditorViewModel {
         if let runtimeConflict {
-            return viewModel.replacingConflict(runtimeConflict)
+            return liveViewModel.replacingConflict(runtimeConflict)
         }
         if conflictOverride {
-            return viewModel.replacingConflict(nil)
+            return liveViewModel.replacingConflict(nil)
         }
-        return viewModel
+        return liveViewModel
     }
 
     private var descriptionText: Binding<String> {
@@ -746,7 +754,7 @@ struct RecipeEditorView: View {
 
     @MainActor private func save() async {
         let actions = RecipeEditorDraftChangePlanner.actions(
-            original: viewModel.draft,
+            original: liveViewModel.draft,
             draft: draft,
             clientMutationID: clientMutationID
         )
@@ -780,8 +788,10 @@ struct RecipeEditorView: View {
                 plannedActions.append((action, plan))
             }
 
-            if plannedActions.count > 1 {
-                let mutations = try plannedActions.map { plannedAction in
+            // A save that changed nothing on the recipe itself still checks the draft, but sends nothing.
+            let sendingActions = plannedActions.filter { $0.plan.sendsChange }
+            if sendingActions.count > 1 {
+                let mutations = try sendingActions.map { plannedAction in
                     guard let mutation = plannedAction.plan.queuedMutation ?? plannedAction.plan.offlineFallbackMutation else {
                         throw RecipeEditorPlanningError.missingQueuedMutation
                     }
@@ -792,7 +802,7 @@ struct RecipeEditorView: View {
                    submittedBatchNeedsAttention(batchResult, mutations: mutations) {
                     return
                 }
-            } else if let plannedAction = plannedActions.first,
+            } else if let plannedAction = sendingActions.first,
                       let stagedPhoto,
                       draft.recipeID == nil,
                       plannedAction.plan.remoteRequestBuilder != nil || plannedAction.plan.queuedMutation?.queueableKind == .recipeCreate {
@@ -805,7 +815,7 @@ struct RecipeEditorView: View {
                 } catch {
                     throw RecipeEditorActionExecutionError(action: plannedAction.action, underlyingError: error)
                 }
-            } else if let plannedAction = plannedActions.first {
+            } else if let plannedAction = sendingActions.first {
                 do {
                     try await mutationDidPlan(plannedAction.plan)
                 } catch {
@@ -881,6 +891,11 @@ struct RecipeEditorView: View {
         _ result: NativeQueuedMutationBatchResult,
         mutations: [NativeQueuedMutation]
     ) -> Bool {
+        // A recipe edit that conflicts with a change made elsewhere is held on the recipe page, where the
+        // banner shows both versions; the editor closes as for a saved edit.
+        if result.holdsRecipeEditChoice {
+            return false
+        }
         if let conflict = result.submittedConflicts.first {
             let mutation = mutations.first { $0.clientMutationID == conflict.clientMutationID }
             let resourceID = mutation?.recipeID ?? draft.recipeID ?? conflict.clientMutationID

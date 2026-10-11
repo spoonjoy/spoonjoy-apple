@@ -1141,6 +1141,119 @@ struct NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("keeping my edit after a conflict sends it on the current version; keeping theirs drops it")
+    func liveStoreResolvesRecipeEditConflict() async throws {
+        for choice in [NativeRecipeEditChoice.mine, .theirs] {
+            try await withTemporaryLiveStoreDirectory { directory in
+                let vault = try await Self.signedInVault(accountID: "chef_ari")
+                let recipe = Self.sampleRecipe(id: "recipe_conflict_choice", title: "Server Pasta")
+                let edit = NativeRecipeEdit(
+                    from: NativeRecipeFields(recipe: recipe),
+                    to: NativeRecipeFields(title: "My Pasta", description: recipe.description, servings: recipe.servings),
+                    expectedUpdatedAt: recipe.updatedAt
+                )
+                let mutation = NativeQueuedMutation.recipeUpdate(recipeID: recipe.id, clientMutationID: "cm_choice", edit: edit, createdAt: Self.isoString(Self.now))
+                let server = NativeRecipeServerVersion(
+                    fields: NativeRecipeFields(title: "Their Pasta", description: recipe.description, servings: recipe.servings),
+                    updatedAt: "2026-10-01T09:00:00.000Z"
+                )
+                let conflict = NativeRecipeEditConflict(
+                    fields: [NativeRecipeEditConflict.Field(field: .title, mine: "My Pasta", theirs: "Their Pasta")],
+                    unconflicted: [],
+                    server: server
+                )
+                let syncStore = InMemoryNativeSyncStore(
+                    accountID: "chef_ari",
+                    environment: .production,
+                    checkpoint: nil,
+                    queue: try NativeMutationQueue(mutations: [mutation]),
+                    cachedRecords: [
+                        NativeSyncCachedRecord(kind: .recipe, resourceID: recipe.id, payload: try Self.jsonValue(recipe), serverRevision: .updatedAt(recipe.updatedAt))
+                    ]
+                )
+                let transport = ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: [])), .result(.success(cursor: nil, tombstones: []))],
+                    sends: [
+                        .conflict(kind: .recipeEdit(conflict), serverRevision: .updatedAt(server.updatedAt), message: NativeRecipeEditConflict.message),
+                        .success(serverRevision: nil)
+                    ]
+                )
+                let liveStore = Self.liveStore(directory: directory, vault: vault, syncStore: syncStore, transport: transport)
+
+                await liveStore.bootstrap()
+                guard case .conflict(let held) = liveStore.bootstrapState else {
+                    Issue.record("Expected a held edit; got \(liveStore.bootstrapState)")
+                    return
+                }
+                #expect(held.syncConflicts.map(\.kind) == [.recipeEdit(conflict)])
+                // The held edit still shows on the recipe until the cook chooses.
+                #expect(held.recipe(id: recipe.id)?.title == "My Pasta")
+
+                // A change that is not a recipe edit conflict, or is not held, is left alone.
+                try await liveStore.resolveRecipeEditConflict(clientMutationID: "cm_missing", keeping: choice)
+                #expect((try await syncStore.loadQueue()).mutations.map(\.clientMutationID) == ["cm_choice"])
+
+                try await liveStore.resolveRecipeEditConflict(clientMutationID: "cm_choice", keeping: choice)
+                let sent = await transport.sentMutations
+                #expect((try await syncStore.loadQueue()).mutations.isEmpty)
+                if case .conflict = liveStore.bootstrapState {
+                    Issue.record("The settled edit is still shown as held")
+                }
+                switch choice {
+                case .mine:
+                    #expect(sent.map(\.clientMutationID) == ["cm_choice", "cm_choice"])
+                    #expect(sent.last?.recipeEdit == NativeRecipeEdit(
+                        changes: [NativeRecipeFieldChange(field: .title, value: "My Pasta", base: NativeRecipeFieldBase("Their Pasta"))],
+                        expectedUpdatedAt: server.updatedAt
+                    ))
+                case .theirs:
+                    #expect(sent.map(\.clientMutationID) == ["cm_choice"])
+                }
+            }
+        }
+    }
+
+    @MainActor
+    @Test("settling a change held for another reason does nothing")
+    func liveStoreIgnoresResolutionOfValidationConflict() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let vault = try await Self.signedInVault(accountID: "chef_ari")
+            let recipe = Self.sampleRecipe(id: "recipe_validation", title: "Server Pasta")
+            let mutation = NativeQueuedMutation.recipeUpdate(
+                recipeID: recipe.id,
+                clientMutationID: "cm_validation",
+                title: "Local Pasta",
+                description: recipe.description,
+                servings: recipe.servings,
+                createdAt: Self.isoString(Self.now)
+            )
+            let syncStore = InMemoryNativeSyncStore(
+                accountID: "chef_ari",
+                environment: .production,
+                checkpoint: nil,
+                queue: try NativeMutationQueue(mutations: [mutation])
+            )
+            let liveStore = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: ScriptedLiveStoreSyncTransport(
+                    bootstraps: [.result(.success(cursor: nil, tombstones: []))],
+                    sends: [.conflict(kind: .validation, serverRevision: nil, message: "Title is taken.")]
+                )
+            )
+            await liveStore.bootstrap()
+            try await liveStore.resolveRecipeEditConflict(clientMutationID: "cm_validation", keeping: .mine)
+            #expect((try await syncStore.loadQueue()).mutations.map(\.clientMutationID) == ["cm_validation"])
+            guard case .conflict(let held) = liveStore.bootstrapState else {
+                Issue.record("Expected the change to stay held")
+                return
+            }
+            #expect(held.syncConflicts.map(\.message) == ["Title is taken."])
+        }
+    }
+
+    @MainActor
     @Test("live store keeps draining an edit when the caller is cancelled right after saving")
     func liveStoreDrainSurvivesCallerCancellation() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
@@ -6811,6 +6924,7 @@ private enum LiveStoreBootstrapResponse {
 private actor ScriptedLiveStoreSyncTransport: NativeSyncTransport {
     private var bootstrapResponses: [LiveStoreBootstrapResponse]
     private var sendResults: [NativeSyncMutationResult]
+    private(set) var sentMutations: [NativeQueuedMutation] = []
 
     init(
         bootstraps: [LiveStoreBootstrapResponse] = [],
@@ -6834,6 +6948,7 @@ private actor ScriptedLiveStoreSyncTransport: NativeSyncTransport {
     }
 
     func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        sentMutations.append(mutation)
         guard !sendResults.isEmpty else {
             return .success(serverRevision: .updatedAt(mutation.createdAt))
         }

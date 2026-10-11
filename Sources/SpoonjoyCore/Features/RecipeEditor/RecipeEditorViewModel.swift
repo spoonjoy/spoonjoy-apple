@@ -57,12 +57,38 @@ public struct RecipeEditorConflict: Equatable, Sendable {
     public let serverRevision: NativeServerRevision?
     public let localClientMutationID: String
     public let message: String
+    /// Both versions of each field, when the recipe was changed elsewhere in a field this edit changes too.
+    public let recipeEdit: NativeRecipeEditConflict?
 
-    public init(resourceID: String, serverRevision: NativeServerRevision?, localClientMutationID: String, message: String) {
+    public init(
+        resourceID: String,
+        serverRevision: NativeServerRevision?,
+        localClientMutationID: String,
+        message: String,
+        recipeEdit: NativeRecipeEditConflict? = nil
+    ) {
         self.resourceID = resourceID
         self.serverRevision = serverRevision
         self.localClientMutationID = localClientMutationID
         self.message = message
+        self.recipeEdit = recipeEdit
+    }
+
+    /// The held change for a sync conflict on a recipe.
+    public init(resourceID: String, syncConflict: NativeSyncConflict) {
+        let recipeEdit: NativeRecipeEditConflict?
+        if case .recipeEdit(let conflict) = syncConflict.kind {
+            recipeEdit = conflict
+        } else {
+            recipeEdit = nil
+        }
+        self.init(
+            resourceID: resourceID,
+            serverRevision: syncConflict.serverRevision,
+            localClientMutationID: syncConflict.clientMutationID,
+            message: syncConflict.message,
+            recipeEdit: recipeEdit
+        )
     }
 }
 
@@ -93,6 +119,11 @@ public struct RecipeEditorMutationPlan: Equatable {
         self.offlineFallbackMutation = offlineFallbackMutation
         self.successRoute = successRoute
         self.blockedReason = blockedReason
+    }
+
+    /// False for a plan with nothing to send, such as a save that changed nothing on the recipe itself.
+    public var sendsChange: Bool {
+        remoteRequestBuilder != nil || queuedMutation != nil || offlineFallbackMutation != nil
     }
 }
 
@@ -215,6 +246,20 @@ public struct RecipeEditorViewModel {
         return copy
     }
 
+    /// This editor's current connectivity, conflict and queue, with the recipe as `opened` read it when the
+    /// editor opened. The shell rebuilds the view model whenever its content refreshes, which can bring in a
+    /// version of the recipe saved elsewhere while the cook edits; the edit must still be compared with, and
+    /// based on, the version the cook started from, or the save would overwrite that version unseen.
+    public func keepingRecipe(of opened: RecipeEditorViewModel) -> RecipeEditorViewModel {
+        RecipeEditorViewModel(
+            mode: opened.mode,
+            connectivity: connectivity,
+            conflict: conflict,
+            queuedRecipeMutations: queuedRecipeMutations,
+            now: now
+        )
+    }
+
     public func replacingConflict(_ conflict: RecipeEditorConflict?) -> RecipeEditorViewModel {
         var copy = self
         copy.conflict = conflict
@@ -291,22 +336,14 @@ public struct RecipeEditorViewModel {
         }
 
         if let recipeID = draft.recipeID {
+            let edit = recipeEdit
+            guard !edit.isEmpty else {
+                // Nothing on the recipe itself changed: there is nothing to send.
+                return RecipeEditorMutationPlan(successRoute: recipeRoute(recipeID))
+            }
             return plan(
-                online: try RecipeWriteRequests.updateRecipe(
-                    id: recipeID,
-                    clientMutationID: clientMutationID,
-                    title: draft.titleForRequest,
-                    description: draft.descriptionForRequest,
-                    servings: draft.servingsForRequest
-                ),
-                offline: NativeQueuedMutation.recipeUpdate(
-                    recipeID: recipeID,
-                    clientMutationID: clientMutationID,
-                    title: draft.titleForRequest,
-                    description: draft.descriptionForRequest,
-                    servings: draft.servingsForRequest,
-                    createdAt: now()
-                ),
+                online: try RecipeWriteRequests.updateRecipe(id: recipeID, clientMutationID: clientMutationID, edit: edit),
+                offline: NativeQueuedMutation.recipeUpdate(recipeID: recipeID, clientMutationID: clientMutationID, edit: edit, createdAt: now()),
                 successRoute: recipeRoute(recipeID)
             )
         }
@@ -328,6 +365,19 @@ public struct RecipeEditorViewModel {
                 createdAt: now()
             ),
             successRoute: .recipes
+        )
+    }
+
+    /// The recipe fields the cook changed, based on the version of the recipe the editor opened. The queued
+    /// edit keeps that version, so an edit sent later is still checked against what the cook saw.
+    public var recipeEdit: NativeRecipeEdit {
+        guard case .edit(let recipe, _) = mode else {
+            return NativeRecipeEdit(changes: [], expectedUpdatedAt: nil)
+        }
+        return NativeRecipeEdit(
+            from: NativeRecipeFields(recipe: recipe),
+            to: NativeRecipeFields(title: draft.title, description: draft.description, servings: draft.servings),
+            expectedUpdatedAt: recipe.updatedAt
         )
     }
 
