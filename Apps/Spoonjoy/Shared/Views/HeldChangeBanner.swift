@@ -124,6 +124,8 @@ private struct ConflictFieldComparison: View {
     private func version(_ title: String, value: String?, identifier: String) -> some View {
         Text("\(Text("\(title):").bold()) \(value ?? "(empty)")")
             .font(KitchenTableTheme.bodyNote)
+            // Both versions wrap in full; a cut-off title would hide the difference the cook is choosing between.
+            .fixedSize(horizontal: false, vertical: true)
             .accessibilityIdentifier("recipe.heldChange.field.\(field.field.rawValue).\(identifier)")
     }
 }

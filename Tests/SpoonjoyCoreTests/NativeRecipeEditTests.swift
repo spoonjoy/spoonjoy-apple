@@ -271,6 +271,19 @@ struct NativeRecipeEditTests {
         #expect(shown.description == recipe.description)
         #expect(shown.servings == recipe.servings)
         #expect(shown.updatedAt == Self.createdAt)
+        // The server's generated credit follows the new title, so the recipe page does not show the old title.
+        #expect(shown.attribution.creditText == "Lemon Pasta by contract_chef on Spoonjoy")
+        #expect(shown.attribution.canonicalURL == recipe.attribution.canonicalURL)
+        #expect(shown.displaySubtitle == recipe.displaySubtitle)
+
+        // A credit the chef or a source wrote stays as it is.
+        var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(recipe)) as? [String: Any])
+        var attribution = try #require(json["attribution"] as? [String: Any])
+        attribution["creditText"] = "Adapted from Grandma's notebook"
+        json["attribution"] = attribution
+        let credited = try JSONDecoder().decode(Recipe.self, from: JSONSerialization.data(withJSONObject: json))
+        let creditedShown = try #require(queued.applyingOptimisticRecipeMutation(to: [credited], fallbackChef: recipe.chef, now: Self.createdAt).first)
+        #expect(creditedShown.attribution == credited.attribution)
 
         let cleared = NativeQueuedMutation.recipeUpdate(recipeID: recipe.id, clientMutationID: "cm_clear", edit: NativeRecipeEdit(
             from: NativeRecipeFields(recipe: recipe),

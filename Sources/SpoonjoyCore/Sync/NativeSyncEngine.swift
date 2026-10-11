@@ -3018,12 +3018,27 @@ private extension Recipe {
             coverVariant: coverVariant ?? self.coverVariant,
             href: href,
             canonicalURL: canonicalURL,
-            attribution: attribution,
+            attribution: attribution(retitled: title),
             createdAt: createdAt,
             updatedAt: updatedAt,
             steps: steps ?? self.steps,
             cookbooks: cookbooks,
             recentSpoons: recentSpoons ?? self.recentSpoons
+        )
+    }
+
+    /// The attribution after a title change. The server's generated credit, "<title> by <chef> on Spoonjoy",
+    /// follows the new title, as the server writes it after the edit; any other credit stays as it is.
+    func attribution(retitled newTitle: String?) -> RecipeAttribution {
+        guard let newTitle, attribution.creditText == "\(title) by \(chef.username) on Spoonjoy" else {
+            return attribution
+        }
+        return RecipeAttribution(
+            creditText: "\(newTitle) by \(chef.username) on Spoonjoy",
+            canonicalURL: attribution.canonicalURL,
+            sourceURLRaw: attribution.sourceURLRaw,
+            sourceHost: attribution.sourceHost,
+            sourceRecipe: attribution.sourceRecipe
         )
     }
 }
