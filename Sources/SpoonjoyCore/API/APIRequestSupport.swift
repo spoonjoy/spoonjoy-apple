@@ -27,15 +27,19 @@ enum APIRequestSupport {
     )
     static let privateNoStore = APIResponseCachePolicy.privateNoStore
 
+    /// A read anyone may make. With `.includeBearerToken` a signed-in app sends its token, and the request then
+    /// asks for no caching (see `APIRequestBuilder`); signed out it stays publicly cacheable.
     static func publicRead(
         method: APIRequestMethod = .get,
         pathComponents: [String],
-        queryItems: [URLQueryItem] = []
+        queryItems: [URLQueryItem] = [],
+        authorization: APIAuthorizationPolicy = .omit
     ) -> APIRequestBuilder {
         APIRequestBuilder(
             method: method,
             pathComponents: pathComponents,
             queryItems: queryItems,
+            defaultAuthorization: authorization,
             responseCachePolicy: publicReadCache
         )
     }

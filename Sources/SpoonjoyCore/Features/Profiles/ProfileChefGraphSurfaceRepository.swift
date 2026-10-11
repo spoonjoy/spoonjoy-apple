@@ -651,9 +651,8 @@ public struct LiveProfileChefGraphSurfaceRepository: ProfileChefGraphSurfaceRepo
     }
 
     public func profile(identifier: String) async throws -> ProfileSurfaceResult {
-        let envelope = try await transport.send(
+        let envelope = try await send(
             PublicProfileRequests.profile(identifier: identifier),
-            configuration: configuration,
             decode: ProfileSurfaceData.self
         )
         return ProfileSurfaceResult(
@@ -670,15 +669,29 @@ public struct LiveProfileChefGraphSurfaceRepository: ProfileChefGraphSurfaceRepo
         case .kitchenVisitors:
             request = PublicProfileRequests.kitchenVisitors(identifier: identifier, page: page, limit: limit)
         }
-        let envelope = try await transport.send(
-            request,
-            configuration: configuration,
-            decode: ProfileGraphPage.self
-        )
+        let envelope = try await send(request, decode: ProfileGraphPage.self)
         return envelope.data.with(
             direction: direction,
             source: .live(requestID: envelope.requestID, validatedAt: now())
         ).withNormalizedProfileLinks()
+    }
+
+    /// Sends the request with the sign-in token when there is one. A profile is public, so a token the server
+    /// refuses (expired or revoked) must not hide it: the request is made again as a visitor. The owner controls
+    /// then come from the signed-in chef's id until the sign-in is renewed.
+    private func send<Value: Decodable & Equatable>(
+        _ request: APIRequestBuilder,
+        decode valueType: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        do {
+            return try await transport.send(request, configuration: configuration, decode: valueType)
+        } catch let error as APITransportError where error.statusCode == 401 && configuration.bearerToken != nil {
+            return try await transport.send(
+                request,
+                configuration: APIClientConfiguration(baseURL: configuration.baseURL),
+                decode: valueType
+            )
+        }
     }
 }
 

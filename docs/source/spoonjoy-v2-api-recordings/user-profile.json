@@ -4,7 +4,7 @@
   "status": 200,
   "body": {
     "ok": true,
-    "requestId": "opaque_084",
+    "requestId": "opaque_085",
     "data": {
       "profile": {
         "id": "id_001",
@@ -15,7 +15,7 @@
         "href": "/users/contract_chef",
         "canonicalUrl": "http://localhost/users/contract_chef"
       },
-      "isOwner": false,
+      "isOwner": true,
       "recipes": [
         {
           "id": "id_016",
