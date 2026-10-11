@@ -78,8 +78,12 @@ public struct AuthSession: Equatable, Codable, Sendable {
         self.accountID = accountID?.isEmpty == true ? nil : accountID
     }
 
+    /// How long before `expiresAt` the access token is treated as expired, so a request never leaves with a
+    /// token that runs out in flight or on a server whose clock is slightly ahead.
+    public static let expiryMargin: TimeInterval = 60
+
     public func state(at date: Date) -> AuthSessionState {
-        if expiresAt > date {
+        if expiresAt > date.addingTimeInterval(Self.expiryMargin) {
             return .authenticated(accessToken: accessToken, expiresAt: expiresAt)
         }
 

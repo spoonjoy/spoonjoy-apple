@@ -4259,9 +4259,9 @@ private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {
 
     func refreshedConfiguration(
         after _: APIError,
-        configuration _: APIClientConfiguration
+        configuration: APIClientConfiguration
     ) async throws -> APIClientConfiguration {
-        let session = try await authSessionRepository.validSession()
+        let session = try await authSessionRepository.sessionAfterRejecting(accessToken: configuration.bearerToken)
         return APIClientConfiguration(baseURL: baseURL, bearerToken: session.accessToken)
     }
 }

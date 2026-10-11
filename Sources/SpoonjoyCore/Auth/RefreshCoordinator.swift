@@ -56,17 +56,29 @@ public actor RefreshCoordinator {
     }
 
     public func validSession(at date: Date) async throws -> AuthSession {
-        try await validSession(at: date, rotationRetriesLeft: 1)
+        try await validSession(at: date, rejectedAccessToken: nil, rotationRetriesLeft: 1)
+    }
+
+    /// The session to retry with after the server answered 401 to `rejectedAccessToken`. The server may have
+    /// revoked that token before its stored expiry, so it is refreshed even when it still looks valid. When the
+    /// stored token already differs, another caller has replaced it, and that session is used without a second
+    /// refresh; callers that hit 401 together share one refresh.
+    public func sessionAfterRejecting(accessToken rejectedAccessToken: String?, at date: Date) async throws -> AuthSession {
+        try await validSession(at: date, rejectedAccessToken: rejectedAccessToken, rotationRetriesLeft: 1)
     }
 
     /// A refresh that loses a rotation race hands back the newer stored session, which may itself need a
     /// refresh, so look again (a bounded number of times) instead of trusting the first answer.
-    private func validSession(at date: Date, rotationRetriesLeft: Int) async throws -> AuthSession {
+    private func validSession(
+        at date: Date,
+        rejectedAccessToken: String?,
+        rotationRetriesLeft: Int
+    ) async throws -> AuthSession {
         guard let session = try await vault.loadSession() else {
             throw TokenRefreshError.missingSession
         }
 
-        if case .authenticated = session.state(at: date) {
+        if session.accessToken != rejectedAccessToken, case .authenticated = session.state(at: date) {
             return session
         }
 
@@ -81,7 +93,11 @@ public actor RefreshCoordinator {
         guard rotationRetriesLeft > 0 else {
             throw TokenRefreshError.refreshInconclusive
         }
-        return try await validSession(at: date, rotationRetriesLeft: rotationRetriesLeft - 1)
+        return try await validSession(
+            at: date,
+            rejectedAccessToken: rejectedAccessToken,
+            rotationRetriesLeft: rotationRetriesLeft - 1
+        )
     }
 
     public func disconnect() async throws {
