@@ -88,6 +88,7 @@ struct V2APIRecordingContractTests {
         "recipe-step-reorder",
         "recipe-step-delete",
         "recipe-update",
+        "recipe-update-edit-conflict",
         "recipe-image-upload",
         "recipe-image-upload-spoon",
         "recipe-covers-list",
@@ -197,6 +198,12 @@ struct V2APIRecordingContractTests {
         case "recipe-step-reorder": try envelope(JSONValue.self, data)
         case "recipe-step-delete": try envelope(JSONValue.self, data)
         case "recipe-update": try envelope(JSONValue.self, data)
+        // The app reads this as an API error. Holding the conflicting edit (spoonjoy-apple#140) also reads the
+        // current recipe from its details.
+        case "recipe-update-edit-conflict":
+            guard case .failure(let apiError) = try APIEnvelope<JSONValue>.decodeResult(data), apiError.code == "edit_conflict" else {
+                throw RecordingError(description: "recipe-update-edit-conflict is not an edit_conflict error")
+            }
         case "recipe-image-upload": try envelope(JSONValue.self, data)
         case "recipe-image-upload-spoon": try envelope(JSONValue.self, data)
         case "recipe-covers-list": try envelope(RecipeCoverListData.self, data)
