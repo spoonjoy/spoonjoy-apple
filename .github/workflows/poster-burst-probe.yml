@@ -1,0 +1,75 @@
+name: Poster burst probe (scratch)
+
+on:
+  push:
+    branches:
+      - worker/poster-burst-probe
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe ${{ matrix.variant }}
+    runs-on: xcode-27
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        variant: [baseline, posterboard-off]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Resolve and boot
+        id: boot
+        run: |
+          set -euo pipefail
+          destination="$(python3 .github/scripts/resolve-ios-simulator-destination.py)"
+          udid="${destination##*,id=}"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices | grep -F "$udid"
+          echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Inventory
+        run: |
+          set -uo pipefail
+          udid="${{ steps.boot.outputs.udid }}"
+          echo "== launchctl poster/wallpaper services"
+          xcrun simctl spawn "$udid" launchctl list | grep -i -E 'poster|wallpaper|springboard|cover' || true
+          for d in com.apple.springboard com.apple.PosterBoard com.apple.wallpaper com.apple.PosterKit; do
+            echo "== defaults $d"; xcrun simctl spawn "$udid" defaults read "$d" 2>&1 | head -40
+          done
+      - name: Apply mitigation
+        run: |
+          set -uo pipefail
+          udid="${{ steps.boot.outputs.udid }}"
+          case "${{ matrix.variant }}" in
+            baseline) echo "no mitigation" ;;
+            posterboard-off)
+              for label in $(xcrun simctl spawn "$udid" launchctl list | awk 'tolower($3) ~ /poster/ {print $3}'); do
+                echo "disable + bootout $label"
+                xcrun simctl spawn "$udid" launchctl disable "system/$label" 2>&1 || true
+                xcrun simctl spawn "$udid" launchctl bootout "system/$label" 2>&1 || true
+              done
+              xcrun simctl spawn "$udid" launchctl list | grep -i poster || echo "no poster services left"
+              ;;
+          esac
+      - name: Watch to 1100 s after boot
+        timeout-minutes: 30
+        run: python3 .github/scripts/probe-poster-burst.py "${{ steps.boot.outputs.udid }}" --booted-at "${{ steps.boot.outputs.booted-at }}" --until 1100 --out "$RUNNER_TEMP/probe"
+      - name: Sanity check the simulator still works
+        if: always()
+        run: |
+          set -uo pipefail
+          udid="${{ steps.boot.outputs.udid }}"
+          xcrun simctl launch "$udid" com.apple.Preferences && sleep 5 && xcrun simctl terminate "$udid" com.apple.Preferences && echo "launch/terminate ok"
+          xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/probe/screen.png" || true
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: probe-${{ matrix.variant }}
+          path: ${{ runner.temp }}/probe
+          retention-days: 7
