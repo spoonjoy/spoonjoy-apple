@@ -1393,7 +1393,7 @@ public enum RecipeImportRequests {
                 "clientMutationId": clientMutationID,
                 "source": source
             ]
-        )
+        ).waiting(upTo: APIRequestTimeout.recipeImportSeconds)
     }
 }
 

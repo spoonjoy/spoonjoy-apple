@@ -1733,6 +1733,7 @@ private enum SpoonjoyIntentOAuthSupport {
             throw spoonjoyIntentInvalidRequestURL()
         }
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = request.timeoutInterval
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {
@@ -1765,6 +1766,16 @@ private enum SpoonjoyIntentOAuthSupport {
         }
 
         guard 200...299 ~= httpResponse.statusCode else {
+            let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+            if let oauthError = OAuthErrorResponse.transportError(
+                statusCode: httpResponse.statusCode,
+                isJSON: contentType.contains("json"),
+                data: response.data,
+                requestID: httpResponse.value(forHTTPHeaderField: "X-Request-ID"),
+                retryAfterSeconds: nil
+            ) {
+                throw oauthError
+            }
             throw APITransportError(
                 kind: .apiError,
                 requestID: httpResponse.value(forHTTPHeaderField: "X-Request-ID"),
@@ -1860,12 +1871,7 @@ private struct SpoonjoyIntentStateWriter {
         if let syncStore {
             self.syncStore = syncStore
         } else {
-            self.syncStore = try FileBackedNativeSyncStore(
-                fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-                mediaResolver: NativeStagedMediaDirectory(
-                    directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-                )
-            )
+            self.syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
         }
     }
 
@@ -2300,8 +2306,9 @@ private struct SpoonjoyIntentStateWriter {
             try await authVault.clearSession()
             try await authVault.clearClientID()
         case .revokeAndLogout:
-            if let session = try await authVault.loadSession() {
-                try await executeOAuthRequest(OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID))
+            if let session = try? await authVault.loadSession() {
+                // Best-effort: signing out must clear this device even when the revoke fails.
+                try? await executeOAuthRequest(OAuthRequests.revoke(refreshToken: session.refreshToken, clientID: session.clientID))
             }
             try await authVault.clearSession()
             try await authVault.clearClientID()
@@ -2507,6 +2514,7 @@ private struct SpoonjoyIntentStateWriter {
         }
 
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = apiRequest.timeoutInterval
         urlRequest.httpMethod = apiRequest.method.rawValue
         urlRequest.httpBody = apiRequest.body
         for (name, value) in apiRequest.headers {
@@ -2545,79 +2553,51 @@ private struct SpoonjoyIntentStateWriter {
     }
 
     private func appendNativeMutation(_ mutation: NativeQueuedMutation) async throws {
-        let syncSnapshot = try await syncStore.loadSnapshot()
-        let scope = try await trustedIntentScope(from: syncSnapshot)
-        let queue: NativeMutationQueue
-        if syncSnapshot.accountID == scope.accountID,
-           syncSnapshot.environment == scope.environment {
-            queue = try await syncStore.loadQueue()
-        } else {
-            queue = NativeMutationQueue()
-        }
-        try await syncStore.saveQueue(
-            try queue.appending(mutation),
-            accountID: scope.accountID,
-            environment: scope.environment
-        )
+        let scope = try await trustedIntentScope(from: try await syncStore.loadSnapshot())
+        try await syncStore.appendMutations([mutation], accountID: scope.accountID, environment: scope.environment)
     }
 
     @discardableResult
     private func appendNativeMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws -> NativeQueuedMutation {
-        let syncSnapshot = try await syncStore.loadSnapshot()
-        let scope = try await trustedIntentScope(from: syncSnapshot)
-        let queue: NativeMutationQueue
-        if syncSnapshot.accountID == scope.accountID,
-           syncSnapshot.environment == scope.environment {
-            queue = try await syncStore.loadQueue()
-        } else {
-            queue = NativeMutationQueue()
+        let scope = try await trustedIntentScope(from: try await syncStore.loadSnapshot())
+        // Check and append in one store step, so an edit the app queues meanwhile is neither lost nor duplicated.
+        let saved = try await syncStore.updateQueue(accountID: scope.accountID, environment: scope.environment) { snapshot in
+            if Self.queuedEquivalent(of: mutation, in: snapshot.queue) != nil {
+                return NativeQueueUpdate(queue: snapshot.queue)
+            }
+            return NativeQueueUpdate(queue: try snapshot.queue.appending(mutation))
         }
-        if queue.mutations.contains(where: { $0.clientMutationID == mutation.clientMutationID }),
-           let existingMutation = queue.mutations.first(where: { $0.clientMutationID == mutation.clientMutationID }) {
+        return Self.queuedEquivalent(of: mutation, in: saved.queue) ?? mutation
+    }
+
+    /// The queued edit that already does what `mutation` does: the same client mutation, or an import of the same source.
+    private static func queuedEquivalent(of mutation: NativeQueuedMutation, in queue: NativeMutationQueue) -> NativeQueuedMutation? {
+        if let existingMutation = queue.mutations.first(where: { $0.clientMutationID == mutation.clientMutationID }) {
             return existingMutation
         }
-        if let source = mutation.recipeImportSource,
-           let existingMutation = queue.mutations.first(where: {
-               $0.queueableKind == .recipeImportSubmit &&
-                   $0.recipeImportSource == source
-           }) {
-            return existingMutation
+        guard let source = mutation.recipeImportSource else {
+            return nil
         }
-        try await syncStore.saveQueue(
-            try queue.appending(mutation),
-            accountID: scope.accountID,
-            environment: scope.environment
-        )
-        return mutation
+        return queue.mutations.first(where: {
+            $0.queueableKind == .recipeImportSubmit &&
+                $0.recipeImportSource == source
+        })
     }
 
     private func discardMatchingCaptureImportMutations(draftImportSource: NativeMutationSource?) async throws {
         guard let draftImportSource else {
             return
         }
-        let syncSnapshot = try await syncStore.loadSnapshot()
-        let scope = try await trustedIntentScope(from: syncSnapshot)
-        let queue: NativeMutationQueue
-        if syncSnapshot.accountID == scope.accountID,
-           syncSnapshot.environment == scope.environment {
-            queue = try await syncStore.loadQueue()
-        } else {
-            queue = NativeMutationQueue()
+        let scope = try await trustedIntentScope(from: try await syncStore.loadSnapshot())
+        try await syncStore.updateQueue(accountID: scope.accountID, environment: scope.environment) { snapshot in
+            let clientMutationIDs = Set(snapshot.queue.mutations
+                .filter {
+                    $0.queueableKind == .recipeImportSubmit &&
+                        $0.recipeImportSource == draftImportSource
+                }
+                .map(\.clientMutationID))
+            return NativeQueueUpdate(queue: try snapshot.queue.removing(clientMutationIDs: clientMutationIDs))
         }
-        let clientMutationIDs = Set(queue.mutations
-            .filter {
-                $0.queueableKind == .recipeImportSubmit &&
-                    $0.recipeImportSource == draftImportSource
-            }
-            .map(\.clientMutationID))
-        guard !clientMutationIDs.isEmpty else {
-            return
-        }
-        try await syncStore.saveQueue(
-            try queue.removing(clientMutationIDs: clientMutationIDs),
-            accountID: scope.accountID,
-            environment: scope.environment
-        )
     }
 
     private func purgeCaptureDraftEntitySurfaces(

@@ -95,7 +95,7 @@ struct ShoppingEntityTests {
                     "NativeIntentActionError.unresolvedShoppingItemEntity",
                     "descriptor.isPlaceholder",
                     "NativeAppStateLocation.defaultFileURL()",
-                    "FileBackedNativeSyncStore",
+                    "NativeProcessSyncStore.shared(appDirectory:",
                     "loadSnapshot()",
                     "trustedIntentScope",
                     "KeychainTokenVault()",
@@ -167,10 +167,19 @@ struct ShoppingEntityTests {
             contracts: [
                 (
                     relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
-                    label: "performSettingsSessionOperation",
+                    label: "performSettingsSessionOperation purges account data",
                     pattern: #"func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)"#,
                     requiredTokens: [
                         "case .logout, .revokeAndLogout",
+                        "await purgeLocalAccountData()"
+                    ],
+                    forbiddenTokens: []
+                ),
+                (
+                    relativePath: "Sources/SpoonjoyCore/AppState/NativeLiveAppStore.swift",
+                    label: "purgeLocalAccountData",
+                    pattern: #"func\s+purgeLocalAccountData\(\)"#,
+                    requiredTokens: [
                         "ShoppingEntityIndexPurgePlan.accountScopePurge",
                         "ShoppingEntityCatalog.purgeEntityIdentifiers(",
                         "ShoppingEntityCatalog.purgeDomainIdentifiers(",

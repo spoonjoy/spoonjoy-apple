@@ -385,6 +385,8 @@ struct AccountLifecycleTests {
             #expect(try await vault.loadSession() == nil)
             #expect(try await store.authSessionRepository.restoreState() == .signedOut)
             #expect(try await syncStore.loadQueue().mutations.isEmpty)
+            // The edit that can never be sent is gone, not parked for a later sign-in.
+            #expect(try await syncStore.loadSnapshot().parkedQueues.isEmpty)
             await #expect(throws: NativeSyncStoreError.missingCheckpoint) { try await syncStore.loadCheckpoint() }
             let cache = try cacheStore.loadOrRecover(fallback: NativeDurableCacheSnapshot(
                 schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
@@ -396,7 +398,7 @@ struct AccountLifecycleTests {
             ))
             #expect(cache.value.accountID == "signed-out")
             #expect(cache.value.records.isEmpty)
-            #expect(try appStateStore.loadOrCreate(fallback: NativeAppSnapshot.bootstrap(shoppingList: nil, savedAt: "x")).value.accountID == nil)
+            #expect(try appStateStore.loadOrCreate(fallback: NativeAppSnapshot.bootstrap(shoppingList: nil, savedAt: "x")).value.accountID == "signed-out")
         }
     }
 

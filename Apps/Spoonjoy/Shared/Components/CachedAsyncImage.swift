@@ -36,6 +36,10 @@ struct CachedAsyncImage<Content: View>: View {
 
     @State private var phase: CachedImagePhase = .empty
     @State private var pixelSize = 0
+    /// The URL and size of the image on screen at full sharpness, if any. A smaller stand-in does not count.
+    @State private var loaded: LoadKey?
+    /// The URL of the image on screen, sharp or a smaller stand-in.
+    @State private var shown: URL?
     @Environment(\.displayScale) private var displayScale
 
     var body: some View {
@@ -48,28 +52,37 @@ struct CachedAsyncImage<Content: View>: View {
                     return
                 }
                 pixelSize = bucket
-                if let cached = AppImagePipeline.shared.memory.image(url: url, maxPixelSize: bucket) {
+                let memory = AppImagePipeline.shared.memory
+                if let cached = memory.image(url: url, maxPixelSize: bucket) {
                     phase = .success(Image(decorative: cached, scale: 1))
+                    loaded = LoadKey(url: url, pixelSize: bucket)
+                    shown = url
+                } else if shown != url, let smaller = memory.image(url: url, below: bucket) {
+                    // A smaller decode (say the list thumbnail) shows at once while the sharp one loads.
+                    phase = .success(Image(decorative: smaller, scale: 1))
+                    shown = url
                 }
             }
             .task(id: LoadKey(url: url, pixelSize: pixelSize)) {
-                guard pixelSize > 0, !isLoaded else {
+                // Load when nothing sharp enough is on screen, including when the view has grown since.
+                if pixelSize == 0 || (loaded?.url == url && (loaded?.pixelSize ?? 0) >= pixelSize) {
                     return
                 }
                 let image = await AppImagePipeline.shared.image(for: url, maxPixelSize: pixelSize)
                 guard !Task.isCancelled else {
                     return
                 }
-                withAnimation(animation) {
-                    phase = image.map { .success(Image(decorative: $0, scale: 1)) } ?? .failure
+                if let image {
+                    loaded = LoadKey(url: url, pixelSize: pixelSize)
+                    shown = url
+                    withAnimation(animation) {
+                        phase = .success(Image(decorative: image, scale: 1))
+                    }
+                } else if shown != url {
+                    withAnimation(animation) {
+                        phase = .failure
+                    }
                 }
             }
-    }
-
-    private var isLoaded: Bool {
-        if case .success = phase {
-            return true
-        }
-        return false
     }
 }

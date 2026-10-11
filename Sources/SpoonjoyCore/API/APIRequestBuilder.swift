@@ -8,6 +8,8 @@ public struct APIRequestBuilder: Equatable, Sendable {
     public let body: Data?
     public let defaultAuthorization: APIAuthorizationPolicy
     public let responseCachePolicy: APIResponseCachePolicy?
+    /// How long the request may go without hearing from the server; see `APIRequestTimeout`.
+    public private(set) var timeoutInterval: TimeInterval = APIRequestTimeout.seconds
 
     public init(
         method: APIRequestMethod,
@@ -57,8 +59,16 @@ public struct APIRequestBuilder: Equatable, Sendable {
             queryItems: queryItems,
             headers: requestHeaders,
             body: body,
-            responseCachePolicy: resolvedResponseCachePolicy(includesBearerToken: includesBearerToken)
+            responseCachePolicy: resolvedResponseCachePolicy(includesBearerToken: includesBearerToken),
+            timeoutInterval: timeoutInterval
         )
+    }
+
+    /// The same request, allowed to wait `seconds` for the server instead of the default.
+    public func waiting(upTo seconds: TimeInterval) -> APIRequestBuilder {
+        var request = self
+        request.timeoutInterval = seconds
+        return request
     }
 
     private func resolvedResponseCachePolicy(includesBearerToken: Bool) -> APIResponseCachePolicy? {

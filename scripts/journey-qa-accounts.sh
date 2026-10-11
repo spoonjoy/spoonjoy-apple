@@ -93,7 +93,8 @@ create_accounts() {
     email="codex-native-${token}-${n}@example.com"
     username="codex_native_${token}_${n}"
 
-    result="$(post_form /dev/null "$base_url/signup" \
+    # Ask for /recipes: sign-up's own default destination is the home page.
+    result="$(post_form /dev/null "$base_url/signup?redirectTo=%2Frecipes" \
       --data-urlencode "email=$email" \
       --data-urlencode "username=$username" \
       --data-urlencode "password@$password_file" \

@@ -5,6 +5,7 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
     case invalidURL(String)
     case unexpectedStatus(Int, path: String)
     case missingRecipeID
+    case missingCookbookID
     case missingIngredient(String)
     case cookSessionNotSynced(String)
 
@@ -16,6 +17,8 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
             "QA answered HTTP \(status) for \(path)."
         case .missingRecipeID:
             "QA created a recipe but the response had no data.recipe.id."
+        case .missingCookbookID:
+            "QA created a cookbook but the response had no cookbook id."
         case .missingIngredient(let name):
             "The recipe QA returned has no ingredient named \(name)."
         case .cookSessionNotSynced(let detail):
@@ -57,6 +60,35 @@ struct JourneyQAClient: Sendable {
             throw JourneyQAClientError.missingRecipeID
         }
         return id
+    }
+
+    /// Creates a cookbook as this account and returns its id.
+    func createCookbook(title: String) async throws -> String {
+        let builder = try CookbookWriteRequests.createCookbook(
+            clientMutationID: "journey-\(UUID().uuidString.lowercased())",
+            title: title
+        )
+        let envelope = try APIEnvelope<JSONValue>.decode(try await Self.send(builder, configuration: configuration))
+        guard case .object(let data) = envelope.data else {
+            throw JourneyQAClientError.missingCookbookID
+        }
+        if case .object(let cookbook)? = data["cookbook"], case .string(let id)? = cookbook["id"] {
+            return id
+        }
+        if case .string(let id)? = data["id"] {
+            return id
+        }
+        throw JourneyQAClientError.missingCookbookID
+    }
+
+    /// Puts a recipe this account owns into a cookbook it owns.
+    func addRecipe(_ recipeID: String, toCookbook cookbookID: String) async throws {
+        let builder = try CookbookWriteRequests.addRecipe(
+            cookbookID: cookbookID,
+            recipeID: recipeID,
+            clientMutationID: "journey-\(UUID().uuidString.lowercased())"
+        )
+        _ = try await Self.send(builder, configuration: configuration)
     }
 
     /// The id QA gave the ingredient called `name` (QA lowercases ingredient names), found by reading the recipe back.
