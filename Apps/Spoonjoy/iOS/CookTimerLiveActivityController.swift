@@ -29,6 +29,10 @@ final class CookTimerAlarmHost {
         }
         // A timer can end without cook mode: it rings and is dismissed, or the cook stops it from the Lock Screen.
         // Following the system's alarm list frees those steps, so each step can be timed again.
+        // A journey's stand-in alarm is not in the system's list, so following that list would drop it at once.
+        guard !CookModeSessionCenter.usesJourneyAlarmFixture else {
+            return
+        }
         let stepTimers = CookModeSessionCenter.shared.stepTimers
         if let alarms = try? AlarmManager.shared.alarms {
             stepTimers.reconcile(activeAlarmIDs: Set(alarms.map(\.id)))

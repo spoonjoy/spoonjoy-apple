@@ -157,3 +157,15 @@ struct CookStepTimerRegistryTests {
         #expect(registry.alarmIDsByStep == [step: alarm])
     }
 }
+
+@Suite("Journey alarm fixture")
+struct NativeJourneyAlarmFixtureTests {
+    @Test("the launch environment key turns the stand-in alarm on")
+    func environmentKey() {
+        #expect(NativeJourneyAlarmFixture.isRequested(environment: [NativeJourneyAlarmFixture.environmentKey: " TRUE "]))
+        #expect(NativeJourneyAlarmFixture.isRequested(environment: [NativeJourneyAlarmFixture.environmentKey: "yes"]))
+        #expect(NativeJourneyAlarmFixture.isRequested(environment: [NativeJourneyAlarmFixture.environmentKey: "1"]))
+        #expect(!NativeJourneyAlarmFixture.isRequested(environment: [NativeJourneyAlarmFixture.environmentKey: "0"]))
+        #expect(!NativeJourneyAlarmFixture.isRequested(environment: [:]))
+    }
+}

@@ -659,12 +659,18 @@ struct CookModeView: View {
     /// Sets the step's system alarm unless one already runs for it, so a second tap or a Siri request never sets a second alarm.
     @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> CookStepTimerStartOutcome {
         try await CookModeSessionCenter.shared.stepTimers.start(step: stepTimerKey(step)) {
-            try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+            if CookModeSessionCenter.usesJourneyAlarmFixture {
+                return UUID()
+            }
+            return try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
         }
     }
 
     @MainActor private func cancelSystemTimer(step: RecipeStep) throws {
         try CookModeSessionCenter.shared.stepTimers.cancel(step: stepTimerKey(step)) { alarmID in
+            if CookModeSessionCenter.usesJourneyAlarmFixture {
+                return
+            }
             try CookModeAlarmKitTimerScheduler.cancel(alarmID: alarmID)
         }
     }

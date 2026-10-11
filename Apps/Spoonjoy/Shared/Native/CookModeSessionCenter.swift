@@ -26,6 +26,15 @@ final class CookModeSessionCenter {
         persist: { UserDefaults.standard.set($0, forKey: CookModeSessionCenter.stepTimersDefaultsKey) }
     )
 
+    /// Journeys run on a simulator that refuses AlarmKit, so they ask for a stand-in alarm (DEBUG builds only).
+    static var usesJourneyAlarmFixture: Bool {
+#if DEBUG
+        NativeJourneyAlarmFixture.isRequested(environment: ProcessInfo.processInfo.environment)
+#else
+        false
+#endif
+    }
+
     private(set) var registration: Registration?
 
     var isCooking: Bool {

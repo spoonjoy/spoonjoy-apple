@@ -4,7 +4,8 @@ import XCTest
 /// Journey 4: checking an ingredient in cook mode reaches QA's cook-session store. The test process reads
 /// the session straight from QA with the account's own bearer token, so a pass proves the server holds the
 /// check and not only this device. The check also survives a relaunch. The step has a duration, so the journey
-/// also sets its system timer, proves a second start sets no second timer, and cancels it.
+/// also sets its timer and cancels it. The CI simulator refuses AlarmKit, so the app records a stand-in alarm
+/// (`NativeJourneyAlarmFixture`); cook mode's per-step registry and Cancel control are the real ones.
 @MainActor
 final class CookSyncJourney: JourneyTestCase {
     func testCookModeCheckReachesTheServerJourney() async throws {
@@ -64,9 +65,8 @@ final class CookSyncJourney: JourneyTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // The step's timer: start it, allow alarms if the system asks, and Cancel replaces the start button.
+        // The step's timer: once it is set, Cancel replaces the start button.
         journey.tap(JourneyID.cookTimerStart)
-        journey.allowAlarmsIfAsked(settledID: JourneyID.cookTimerCancel)
         XCTAssertTrue(
             journey.element(JourneyID.cookTimerCancel).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Starting the step timer did not offer Cancel. Screen: \(journey.screen)"
@@ -81,19 +81,6 @@ final class CookSyncJourney: JourneyTestCase {
         )
         XCTAssertFalse(journey.element(JourneyID.cookTimerCancel).exists, "Cancel stayed after the timer was cancelled.")
         journey.attachScreenshot(named: "03-timer-cancelled", to: self)
-
-        // Two quick taps on start show one Cancel. That the second tap sets no second alarm is proven by CookStepTimerRegistryTests.
-        journey.element(JourneyID.cookTimerStart).doubleTap()
-        XCTAssertTrue(
-            journey.element(JourneyID.cookTimerCancel).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "A double tap on start did not set the timer. Screen: \(journey.screen)"
-        )
-        XCTAssertEqual(journey.count(JourneyID.cookTimerCancel), 1, "A double tap on start showed more than one Cancel.")
-        journey.tap(JourneyID.cookTimerCancel)
-        XCTAssertTrue(
-            journey.element(JourneyID.cookTimerStart).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Cancelling after a double tap did not bring the start button back. Screen: \(journey.screen)"
-        )
 
         // The relaunch keeps this device's own state, so the proof that the server holds the check is the
         // reading above; here the relaunch must still be signed in and must not undo what QA holds.
