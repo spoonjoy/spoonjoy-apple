@@ -13,7 +13,7 @@ public enum CookModeScreenAwakePolicy {
 public enum PullToRefreshPolicy {
     public static func supportsPullToRefresh(_ route: AppRoute) -> Bool {
         switch route {
-        case .kitchen, .recipes, .savedRecipes, .recipeDetail(_, .detail), .cookbooks, .shoppingList:
+        case .kitchen, .recipes, .savedRecipes, .everyoneRecipes, .recipeDetail(_, .detail), .cookbooks, .shoppingList:
             true
         default:
             false

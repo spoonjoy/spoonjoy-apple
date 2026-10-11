@@ -11,7 +11,11 @@ enum JourneyCopy {
     static let cookbooksTab = "Cookbooks"
     static let shoppingTab = "Shopping"
     static let searchTab = "Search"
+    static let mineScope = "Mine"
+    static let everyoneScope = "Everyone"
 
     /// The not-found page's message for a recipe link that matches no recipe.
     static let recipeNotFound = "We couldn't find this recipe."
+    /// The editor's confirmation for leaving with unsaved changes.
+    static let discardChanges = "Discard Changes"
 }

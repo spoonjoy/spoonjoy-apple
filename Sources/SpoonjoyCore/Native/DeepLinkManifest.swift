@@ -26,6 +26,7 @@ public enum DeepLinkManifest {
         "spoonjoy://kitchen",
         "spoonjoy://recipes",
         "spoonjoy://saved-recipes",
+        "spoonjoy://everyone-recipes",
         "spoonjoy://recipes/{id}",
         "spoonjoy://recipes/{id}/edit",
         "spoonjoy://recipes/{id}/covers",
