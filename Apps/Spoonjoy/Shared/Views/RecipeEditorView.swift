@@ -313,7 +313,8 @@ struct RecipeEditorView: View {
             }
 
             Stepper(value: durationBinding(stepBinding.duration), in: 0...720, step: 1) {
-                Text("Duration \(step.duration ?? 0) minutes")
+                // Matches the recipe page, which shows "25 min" and leaves a step with no time unlabeled.
+                Text((step.duration ?? 0) > 0 ? "Duration \(step.duration ?? 0) min" : "Duration: no set time")
                     .font(KitchenTableTheme.uiLabel)
             }
             .accessibilityIdentifier("editor.step.\(number).duration")
