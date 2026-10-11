@@ -51,12 +51,20 @@ struct NativeShellPresentationTests {
             contentsOf: rootURL.appendingPathComponent("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"),
             encoding: .utf8
         )
-        let start = try #require(source.range(of: "private var rootContent: some View {"))
-        let end = try #require(source.range(of: "\n    }\n", range: start.upperBound..<source.endIndex))
-        let rootContent = source[start.upperBound..<end.lowerBound]
-        #expect(rootContent.components(separatedBy: "platformNavigation(").count - 1 == 1)
+        // `rootContent` wraps `bootstrapContent` in the sign-in banner and sheet; `bootstrapContent` picks the screen.
+        func body(of name: String) throws -> Substring {
+            let start = try #require(source.range(of: "private var \(name): some View {"))
+            let end = try #require(source.range(of: "\n    }\n", range: start.upperBound..<source.endIndex))
+            return source[start.upperBound..<end.lowerBound]
+        }
+        let rootContent = try body(of: "rootContent")
+        let bootstrapContent = try body(of: "bootstrapContent")
+        #expect(rootContent.contains("bootstrapContent"))
+        #expect(!rootContent.contains("platformNavigation("))
+        #expect(bootstrapContent.components(separatedBy: "platformNavigation(").count - 1 == 1)
         // An identity keyed on the sync state would reset the shell just the same.
         #expect(!rootContent.contains(".id("))
+        #expect(!bootstrapContent.contains(".id("))
     }
 
     private static func emptyContent() -> NativeShellContentState {
