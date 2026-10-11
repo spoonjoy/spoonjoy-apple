@@ -221,7 +221,7 @@ struct NotificationIntentTests {
                         "performNotificationAPNsActionStatus(action, savedAt: createdAt)",
                         "status.dialogMessage(completed: \"Updated notification preferences in Spoonjoy.\"",
                         "queued: \"Queued notification preference update in Spoonjoy.\"",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: [
                         "try await requestConfirmation(",
