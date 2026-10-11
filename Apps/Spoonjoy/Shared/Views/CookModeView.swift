@@ -418,8 +418,10 @@ struct CookModeView: View {
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
             if let timer = viewModel.systemTimer {
-                CookModeSystemTimer(timer: timer) {
-                    try await scheduleSystemTimer(timer, step: step)
+                CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers, stepKey: stepTimerKey(step)) {
+                    try await scheduleSystemTimer(timer, step: step).message(startedMessage: "\(timer.durationLabel) system timer set.")
+                } cancel: {
+                    try cancelSystemTimer(step: step)
                 }
                     .id(timer.stepID)
             }
@@ -650,9 +652,21 @@ struct CookModeView: View {
         "\(prefix)-\(UUID().uuidString)"
     }
 
-    @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> String {
-        let scheduled = try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
-        return scheduled.message
+    private func stepTimerKey(_ step: RecipeStep) -> String {
+        CookStepTimerRegistry.stepKey(recipeID: recipe.id, stepID: step.id)
+    }
+
+    /// Sets the step's system alarm unless one already runs for it, so a second tap or a Siri request never sets a second alarm.
+    @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> CookStepTimerStartOutcome {
+        try await CookModeSessionCenter.shared.stepTimers.start(step: stepTimerKey(step)) {
+            try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
+        }
+    }
+
+    @MainActor private func cancelSystemTimer(step: RecipeStep) throws {
+        try CookModeSessionCenter.shared.stepTimers.cancel(step: stepTimerKey(step)) { alarmID in
+            try CookModeAlarmKitTimerScheduler.cancel(alarmID: alarmID)
+        }
     }
 
     /// Lets Siri, Shortcuts and the Live Activity drive this screen while it is open.
@@ -663,9 +677,9 @@ struct CookModeView: View {
                 apply: { updateProgress($0) },
                 startTimer: { timer in
                     guard let step = viewModel.activeStep else {
-                        return
+                        throw CookModeSessionError.notCooking
                     }
-                    _ = try await scheduleSystemTimer(timer, step: step)
+                    return try await scheduleSystemTimer(timer, step: step)
                 }
             )
         )
@@ -754,8 +768,10 @@ extension CookModeView {
                     .fixedSize(horizontal: false, vertical: true)
                 if let timer = viewModel.systemTimer {
                     RecipeStepDurationCue(durationLabel: timer.durationLabel)
-                    CookModeSystemTimer(timer: timer) {
-                        try await scheduleSystemTimer(timer, step: currentStep)
+                    CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers, stepKey: stepTimerKey(currentStep)) {
+                        try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) system timer set.")
+                    } cancel: {
+                        try cancelSystemTimer(step: currentStep)
                     }
                     .id(timer.stepID)
                 }
@@ -873,7 +889,10 @@ private extension Recipe {
 
 private struct CookModeSystemTimer: View {
     let timer: CookModeSystemTimerViewModel
+    @ObservedObject var stepTimers: CookStepTimerRegistry
+    let stepKey: String
     let schedule: () async throws -> String
+    let cancel: () throws -> Void
 
     @State private var isScheduling = false
     @State private var statusMessage: String?
@@ -919,23 +938,26 @@ private struct CookModeSystemTimer: View {
         }
     }
 
+    /// Cancelling ends the system alarm, which also removes its Lock Screen and Dynamic Island countdown.
+    private func cancelTimer() {
+        statusMessage = nil
+        errorMessage = nil
+        do {
+            try cancel()
+            statusMessage = "\(timer.durationLabel) timer cancelled."
+        } catch {
+            errorMessage = "Could not cancel the system timer."
+        }
+    }
+
     @ViewBuilder private var timerAction: some View {
 #if os(iOS)
         if #available(iOS 26.1, *) {
-            Button {
-                scheduleTimer()
-            } label: {
-                if isScheduling {
-                    ProgressView()
-                        .controlSize(.small)
-                        .accessibilityLabel("Setting system timer")
-                } else {
-                    Label(timer.startButtonTitle, systemImage: "alarm")
-                }
+            if stepTimers.alarmID(forStep: stepKey) != nil {
+                setTimerRow
+            } else {
+                startButton
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .disabled(isScheduling)
-            .accessibilityLabel(timer.startButtonTitle)
         } else {
             unavailableCue
         }
@@ -943,6 +965,61 @@ private struct CookModeSystemTimer: View {
         unavailableCue
 #endif
     }
+
+#if os(iOS)
+    /// The step already has a system alarm, so the start button gives way to Cancel and a second alarm cannot be set.
+    private var setTimerRow: some View {
+        // At large text sizes the label and Cancel stack instead of squeezing onto one line.
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                setTimerLabel
+                Spacer(minLength: 8)
+                cancelButton
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                setTimerLabel
+                cancelButton
+            }
+        }
+    }
+
+    private var setTimerLabel: some View {
+        Label("\(timer.durationLabel) timer set", systemImage: "alarm.fill")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.herb)
+            .accessibilityIdentifier("cookMode.timer.setLabel")
+    }
+
+    private var cancelButton: some View {
+        Button(role: .cancel) {
+            cancelTimer()
+        } label: {
+            Label("Cancel timer", systemImage: "xmark.circle")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .fixedSize()
+        .accessibilityLabel("Cancel the \(timer.durationLabel) timer")
+        .accessibilityIdentifier("cookMode.timer.cancel")
+    }
+
+    private var startButton: some View {
+        Button {
+            scheduleTimer()
+        } label: {
+            if isScheduling {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Setting system timer")
+            } else {
+                Label(timer.startButtonTitle, systemImage: "alarm")
+            }
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .disabled(isScheduling)
+        .accessibilityLabel(timer.startButtonTitle)
+        .accessibilityIdentifier("cookMode.timer.start")
+    }
+#endif
 
     private var unavailableCue: some View {
         Label(timer.systemUnavailableMessage, systemImage: "iphone")
@@ -955,7 +1032,7 @@ private struct CookModeSystemTimer: View {
 }
 
 private enum CookModeAlarmKitTimerScheduler {
-    @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> (message: String, alarmID: UUID?) {
+    @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> UUID {
 #if os(iOS) && canImport(AlarmKit)
         if #available(iOS 26.1, *) {
             var alarmID: UUID?
@@ -971,7 +1048,20 @@ private enum CookModeAlarmKitTimerScheduler {
                 }
             )
             try await CookModeSystemTimerScheduler.schedule(using: client)
-            return ("\(timer.durationLabel) system timer set.", alarmID)
+            guard let alarmID else {
+                throw CookModeSystemTimerSchedulingError.schedulingFailed
+            }
+            return alarmID
+        }
+#endif
+        throw CookModeSystemTimerSchedulingError.unsupportedPlatform
+    }
+
+    @MainActor static func cancel(alarmID: UUID) throws {
+#if os(iOS) && canImport(AlarmKit)
+        if #available(iOS 26.1, *) {
+            try AlarmManager.shared.cancel(id: alarmID)
+            return
         }
 #endif
         throw CookModeSystemTimerSchedulingError.unsupportedPlatform

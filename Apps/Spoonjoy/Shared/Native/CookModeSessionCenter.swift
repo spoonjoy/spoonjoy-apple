@@ -12,10 +12,19 @@ final class CookModeSessionCenter {
     struct Registration {
         let viewModel: () -> CookModeViewModel
         let apply: (CookModeProgress) -> Void
-        let startTimer: (CookModeSystemTimerViewModel) async throws -> Void
+        /// Returns the outcome, so a second start for a step that already has a timer says so instead of setting another.
+        let startTimer: (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome
     }
 
     static let shared = CookModeSessionCenter()
+
+    private static let stepTimersDefaultsKey = "cookMode.stepTimerAlarms"
+
+    /// The system alarm per step. It outlives cook mode because a step timer keeps running after the cook leaves.
+    let stepTimers = CookStepTimerRegistry(
+        persisted: UserDefaults.standard.dictionary(forKey: CookModeSessionCenter.stepTimersDefaultsKey) as? [String: String] ?? [:],
+        persist: { UserDefaults.standard.set($0, forKey: CookModeSessionCenter.stepTimersDefaultsKey) }
+    )
 
     private(set) var registration: Registration?
 
@@ -47,7 +56,7 @@ final class CookModeSessionCenter {
             registration.apply(outcome.progress)
         }
         if let timer = outcome.timerToStart {
-            try await registration.startTimer(timer)
+            return try await registration.startTimer(timer).message(startedMessage: outcome.message)
         }
         return outcome.message
     }
