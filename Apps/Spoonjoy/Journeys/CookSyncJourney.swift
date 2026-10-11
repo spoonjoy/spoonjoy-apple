@@ -48,7 +48,8 @@ final class CookSyncJourney: JourneyTestCase {
         journey.openTab(JourneyCopy.recipesTab)
         journey.openRecipe(titled: title, from: JourneyID.recipesRow)
 
-        // The recipe page: the step lists lemon, salt and oil in the recipe's order, with nothing to clear yet.
+        // The recipe page lists lemon, salt and oil with nothing to clear yet. The API orders a step's ingredients
+        // by ID (orderBy id in app/lib/api-v1.server.ts), so the journey reads the step's order from the page.
         let pageLemon = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: lemon)
         let pageSalt = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: salt)
         let pageOil = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: oil)
@@ -58,15 +59,19 @@ final class CookSyncJourney: JourneyTestCase {
             pageLemon.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The recipe page does not list the lemon. Screen: \(journey.screen)"
         )
-        XCTAssertLessThan(pageLemon.frame.minY, pageSalt.frame.minY, "The lemon is not first before any check.")
-        XCTAssertLessThan(pageSalt.frame.minY, pageOil.frame.minY, "The salt is not above the oil before any check.")
+        XCTAssertTrue(pageSalt.exists, "The recipe page does not list the salt. Screen: \(journey.screen)")
+        XCTAssertTrue(pageOil.exists, "The recipe page does not list the oil. Screen: \(journey.screen)")
+        let stepOrder = [pageLemon, pageSalt, pageOil].sorted { $0.frame.minY < $1.frame.minY }
+        let firstIngredient = stepOrder[0]
+        let secondIngredient = stepOrder[1]
+        let lastIngredient = stepOrder[2]
         XCTAssertFalse(journey.element(JourneyID.recipeDetailClearProgress).exists, "Clear progress shows with nothing to clear.")
         let stepOffsetBeforeCheck = stepOne.frame.minY - recipeTitle.frame.minY
         journey.attachScreenshot(named: "00-recipe-before-check", to: self)
 
         // Checking the first ingredient sinks it below the others, and the page above the step does not move.
-        pageLemon.tap()
-        XCTAssertEqual(pageLemon.value as? String, "used", "Tapping the lemon on the recipe page did not check it.")
+        firstIngredient.tap()
+        XCTAssertEqual(firstIngredient.value as? String, "used", "Tapping the first ingredient on the recipe page did not check it.")
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailClearProgress).waitForExistence(timeout: JourneyApp.interactionTimeout),
             "Clear progress did not appear after the first check. Screen: \(journey.screen)"
@@ -77,14 +82,14 @@ final class CookSyncJourney: JourneyTestCase {
             accuracy: 0.5,
             "Checking an ingredient moved the step down the page."
         )
-        XCTAssertLessThan(pageSalt.frame.minY, pageOil.frame.minY, "The unchecked salt and oil lost their order.")
-        XCTAssertGreaterThan(pageLemon.frame.minY, pageOil.frame.minY, "The checked lemon did not move below the oil.")
+        XCTAssertLessThan(secondIngredient.frame.minY, lastIngredient.frame.minY, "The unchecked ingredients lost their order.")
+        XCTAssertGreaterThan(firstIngredient.frame.minY, lastIngredient.frame.minY, "The checked ingredient did not move to the bottom.")
         journey.attachScreenshot(named: "00a-recipe-first-ingredient-checked", to: self)
 
-        // Clear progress unchecks it, and the lemon returns to the top of the step.
+        // Clear progress unchecks it, and it returns to the top of the step.
         journey.tap(JourneyID.recipeDetailClearProgress)
-        XCTAssertEqual(pageLemon.value as? String, "not used", "Clear progress did not uncheck the lemon.")
-        XCTAssertLessThan(pageLemon.frame.minY, pageSalt.frame.minY, "The unchecked lemon did not return to the top.")
+        XCTAssertEqual(firstIngredient.value as? String, "not used", "Clear progress did not uncheck the ingredient.")
+        XCTAssertLessThan(firstIngredient.frame.minY, secondIngredient.frame.minY, "The unchecked ingredient did not return to the top.")
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailClearProgress).waitForNonExistence(timeout: JourneyApp.interactionTimeout),
             "Clear progress stayed after there was nothing left to clear."
