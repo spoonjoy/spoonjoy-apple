@@ -5,10 +5,15 @@ import SwiftUI
 import CoreSpotlight
 #endif
 
+#if canImport(Network)
+import Network
+#endif
+
 struct SpoonjoyRootView: View {
     @State private var navigation = AppNavigationState()
     @State private var search = SearchState()
     @State private var hasAppliedRestoredRoute = false
+    @State private var showsReauthSheet = false
     @StateObject private var liveStore: NativeLiveAppStore
 
     private let router: DeepLinkRouter
@@ -122,6 +127,12 @@ struct SpoonjoyRootView: View {
                 await liveStore.bootstrap()
                 applyRestoredRouteIfNeeded()
             }
+            .task {
+#if DEBUG
+                guard !Self.shoppingUITestFixtureEnabled else { return }
+#endif
+                await syncWhenNetworkRecovers()
+            }
             .onOpenURL { url in
                 applyURL(url)
             }
@@ -156,33 +167,88 @@ struct SpoonjoyRootView: View {
     }
 #endif
 
+    /// The sign-in banner and sheet sit at the root, so they work in every state that shows the saved kitchen
+    /// (offline, queued work, a conflict, a failed sync), not only one of them.
     @ViewBuilder private var rootContent: some View {
-        switch liveStore.bootstrapState {
-        case .signedOut(let contentState):
-            signedOutContent(contentState: contentState)
-        case .restoringCache(let contentState):
-            restoringCacheView(contentState: contentState)
-        case .liveSynced(let contentState):
+        bootstrapContent
+            .safeAreaInset(edge: .top, spacing: 0) {
+                sessionExpiredBanner(contentState: liveStore.bootstrapState.contentState)
+            }
+            .sheet(isPresented: $showsReauthSheet) {
+                reauthSheet
+            }
+    }
+
+    /// Every state with a kitchen to show goes through the one `platformNavigation` call below, so a sync that moves
+    /// the app between those states updates the shell in place instead of rebuilding it.
+    @ViewBuilder private var bootstrapContent: some View {
+        let bootstrapState = liveStore.bootstrapState
+        let contentState = bootstrapState.contentState
+        let presentation = bootstrapState.shellPresentation(isShowingSettings: navigation.route == .settings)
+        if presentation == .kitchen {
             platformNavigation(contentState: contentState)
-        case .offlineStale(let contentState):
-            platformNavigation(contentState: contentState)
-        case .queuedWork(let contentState):
-            platformNavigation(contentState: contentState)
-        case .conflict(let contentState):
-            platformNavigation(contentState: contentState)
-        case .blocker(let contentState):
-            platformNavigation(contentState: contentState)
-        case .destructiveConfirmation(let contentState):
-            platformNavigation(contentState: contentState)
-        case .syncFailed(let contentState, let message):
-            if navigation.route == .settings {
+        } else {
+            switch presentation {
+            case .signedOut:
+                signedOutContent(contentState: contentState)
+            case .kitchen:
+                // Handled above; listed so the switch stays exhaustive without hiding a kitchen state here.
+                EmptyView()
+            case .restoring:
+                restoringCacheView(contentState: contentState)
+            case .settingsAfterSyncFailure(let message):
                 settingsContent(contentState: contentState, syncFailureMessage: message)
-            } else if hasRenderableKitchenContent(contentState) {
-                platformNavigation(contentState: contentState)
-            } else {
+            case .syncFailed(let message):
                 syncFailedView(contentState: contentState, message: message)
             }
         }
+    }
+
+    /// Shown over the saved kitchen when the server refused the stored session for good. The saved kitchen
+    /// stays readable; this is the one place the chef is told why syncing stopped and offered a way back.
+    @ViewBuilder private func sessionExpiredBanner(contentState: NativeShellContentState) -> some View {
+        if contentState.isSessionExpired, !isShowingSignedOutScreen {
+            HStack(spacing: 12) {
+                Text("You're signed out. Sign in to sync your kitchen.")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button("Sign In") {
+                    showsReauthSheet = true
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .accessibilityIdentifier("session.signIn")
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(KitchenTableTheme.bone)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("session.signedOutBanner")
+        }
+    }
+
+    private var isShowingSignedOutScreen: Bool {
+        if case .signedOut = liveStore.bootstrapState {
+            return true
+        }
+        return false
+    }
+
+    private var reauthSheet: some View {
+        SignedOutSetupView(
+            authRepository: liveStore.authSessionRepository,
+            pendingRoute: navigation.route,
+            openSettings: {
+                showsReauthSheet = false
+                navigation.navigate(to: .settings)
+            },
+            appleSignInTelemetry: Self.defaultAppleSignInTelemetryClient(),
+            onSignedIn: {
+                showsReauthSheet = false
+                await liveStore.bootstrap()
+                applyRestoredRouteIfNeeded()
+            }
+        )
     }
 
     @ViewBuilder private func signedOutContent(contentState: NativeShellContentState) -> some View {
@@ -240,6 +306,23 @@ struct SpoonjoyRootView: View {
                 }
             }
         }
+    }
+
+    /// Sends edits made with no signal as soon as the network is usable again, instead of waiting for the next
+    /// launch or foreground. Runs for the life of the root view.
+    private func syncWhenNetworkRecovers() async {
+#if canImport(Network)
+        let store = liveStore
+        let monitor = NativeNetworkRecoveryMonitor(onRecovered: {
+            await MainActor.run {
+                _ = store.requestSync(trigger: .networkRecovered)
+            }
+        })
+        for await path in NWPathMonitor() {
+            await monitor.observe(isNetworkUsable: path.status == .satisfied)
+        }
+        await monitor.cancel()
+#endif
     }
 
     private var liveStoreSyncRequest: @MainActor @Sendable () async -> Void {
@@ -577,12 +660,6 @@ struct SpoonjoyRootView: View {
         return "Support code: \(supportText)"
     }
 
-    private func hasRenderableKitchenContent(_ contentState: NativeShellContentState) -> Bool {
-        !contentState.recipes.isEmpty ||
-            !contentState.cookbooks.isEmpty ||
-            !(contentState.shoppingList?.activeItems.isEmpty ?? true)
-    }
-
     private func applyURL(_ url: URL) {
         let route = router.route(for: url)
         search.apply(route: route)
@@ -716,18 +793,15 @@ struct SpoonjoyRootView: View {
                     configuration: configuration
                 )
             },
-            reusesSavedClientID: Self.reusesSavedOAuthClientID(environment: environment)
+            reusesSavedClientID: Self.reusesSavedOAuthClientID(environment: environment),
+            serverBaseURL: configuration.baseURL
         )
         let cacheStore = NativeDurableCacheStore(
             fileURL: appDirectory.appendingPathComponent("native-durable-cache.json")
         )
-        let stagedMediaDirectory = NativeStagedMediaDirectory(
-            directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-        )
-        let syncStore = Self.defaultSyncStore(
-            appDirectory: appDirectory,
-            mediaResolver: stagedMediaDirectory
-        )
+        let stagedMediaDirectory = NativeProcessSyncStore.stagedMediaDirectory(appDirectory: appDirectory)
+        // The same store instance the App Intents use, so neither overwrites the other's queue.
+        let syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
         let syncEngine = NativeSyncEngine(store: syncStore, transport: URLSessionNativeSyncTransport())
         let syncTriggerCoordinator = NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration)
         return NativeLiveAppStoreDependencies(
@@ -1008,20 +1082,6 @@ struct SpoonjoyRootView: View {
         }
     }
 #endif
-
-    private static func defaultSyncStore(
-        appDirectory: URL,
-        mediaResolver: NativeStagedMediaDirectory
-    ) -> any NativeSyncStore {
-        do {
-            return try FileBackedNativeSyncStore(
-                fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-                mediaResolver: mediaResolver
-            )
-        } catch {
-            return UnavailableNativeSyncStore(message: "Could not open Spoonjoy sync store: \(error)")
-        }
-    }
 }
 
 #if DEBUG
@@ -1100,12 +1160,20 @@ private enum OAuthURLSessionSupport {
             throw URLError(.badURL)
         }
         var urlRequest = URLRequest(url: url)
+        urlRequest.timeoutInterval = request.timeoutInterval
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {
             urlRequest.setValue(value, forHTTPHeaderField: name)
         }
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await URLSession.shared.data(for: urlRequest)
+        } catch let error as URLError {
+            // No usable network is an offline answer, not a refusal: the caller keeps the session.
+            throw OAuthErrorResponse.offlineError(for: error) ?? error
+        }
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APITransportError(
                 kind: .nonHTTPResponse,
@@ -1143,6 +1211,17 @@ private enum OAuthURLSessionSupport {
 
     private static func httpError(data: Data, response: HTTPURLResponse) -> APITransportError {
         let retryAfterSeconds = retryAfterSeconds(from: response)
+        // The OAuth endpoints answer with an RFC 6749 body ({"error": ..., "error_description": ...}). Only that
+        // body can say the refresh token itself was refused; a proxy's HTML 403 or a 404 cannot.
+        if let oauthError = OAuthErrorResponse.transportError(
+            statusCode: response.statusCode,
+            isJSON: isJSONResponse(response),
+            data: data,
+            requestID: requestID(from: response),
+            retryAfterSeconds: retryAfterSeconds
+        ) {
+            return oauthError
+        }
         let apiError: APIError
         if isJSONResponse(response),
            let decoded = try? APIEnvelope<JSONValue>.decodeResult(data),

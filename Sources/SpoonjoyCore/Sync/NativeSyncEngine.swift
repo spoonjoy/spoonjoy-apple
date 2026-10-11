@@ -227,6 +227,8 @@ public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
     public let queue: NativeMutationQueue
     public let cachedRecords: [NativeSyncCachedRecord]
     public let tombstones: [NativeSyncTombstone]
+    /// Pending edits kept for other accounts, and edits made before the account was known.
+    public let parkedQueues: [NativeParkedMutationQueue]
 
     public static let empty = NativeSyncSnapshot(
         accountID: nil,
@@ -243,7 +245,8 @@ public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
         checkpoint: NativeSyncCheckpoint?,
         queue: NativeMutationQueue,
         cachedRecords: [NativeSyncCachedRecord] = [],
-        tombstones: [NativeSyncTombstone] = []
+        tombstones: [NativeSyncTombstone] = [],
+        parkedQueues: [NativeParkedMutationQueue] = []
     ) {
         self.accountID = accountID
         self.environment = environment
@@ -251,6 +254,7 @@ public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
         self.queue = queue
         self.cachedRecords = cachedRecords
         self.tombstones = tombstones
+        self.parkedQueues = parkedQueues
     }
 }
 
@@ -262,6 +266,7 @@ extension NativeSyncSnapshot {
         case queue
         case cachedRecords
         case tombstones
+        case parkedQueues
     }
 
     public init(from decoder: Decoder) throws {
@@ -272,6 +277,7 @@ extension NativeSyncSnapshot {
         queue = try container.decodeIfPresent(NativeMutationQueue.self, forKey: .queue) ?? NativeMutationQueue()
         cachedRecords = try container.decodeIfPresent([NativeSyncCachedRecord].self, forKey: .cachedRecords) ?? []
         tombstones = try container.decodeIfPresent([NativeSyncTombstone].self, forKey: .tombstones) ?? []
+        parkedQueues = try container.decodeIfPresent([NativeParkedMutationQueue].self, forKey: .parkedQueues) ?? []
     }
 }
 
@@ -309,6 +315,84 @@ public protocol NativeSyncStore: Actor {
     func cachedRecord(kind: NativeSyncEntryKind, resourceID: String) throws -> NativeSyncCachedRecord?
     func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult
     func loadSnapshot() throws -> NativeSyncSnapshot
+    /// Reads and rewrites the queue in one step of this actor, so no other writer can change the queue in between.
+    /// Every change to a live queue goes through here; nothing writes back a queue it loaded earlier.
+    ///
+    /// `transform` receives the stored state with the queue that belongs to `accountID` and `environment`: the stored
+    /// queue when the stored scope matches, otherwise an empty queue. The store saves what `transform` returns under
+    /// that scope and returns what it saved.
+    @discardableResult
+    func updateQueue(
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
+    ) throws -> NativeQueueUpdate
+    /// The client mutation IDs queued now.
+    func queuedClientMutationIDs() throws -> Set<String>
+}
+
+/// What one `updateQueue` step writes: the next queue and the cache records that change with it.
+public struct NativeQueueUpdate: Sendable {
+    public let queue: NativeMutationQueue
+    public let upsertingCachedRecords: [NativeSyncCachedRecord]
+    public let deletingCachedRecordKeys: Set<String>
+
+    public init(
+        queue: NativeMutationQueue,
+        upsertingCachedRecords: [NativeSyncCachedRecord] = [],
+        deletingCachedRecordKeys: Set<String> = []
+    ) {
+        self.queue = queue
+        self.upsertingCachedRecords = upsertingCachedRecords
+        self.deletingCachedRecordKeys = deletingCachedRecordKeys
+    }
+}
+
+extension NativeSyncStore {
+    /// Appends `mutations` to the queue for this scope in one step.
+    @discardableResult
+    public func appendMutations(
+        _ mutations: [NativeQueuedMutation],
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord] = []
+    ) throws -> NativeMutationQueue {
+        try updateQueue(accountID: accountID, environment: environment) { snapshot in
+            NativeQueueUpdate(queue: try snapshot.queue.appending(contentsOf: mutations), upsertingCachedRecords: cachedRecords)
+        }.queue
+    }
+
+    /// Appends `mutations` in one step and, only while this scope's cache holds no shopping items and no shopping
+    /// edit is queued, seeds the cache with `shoppingRecords`. Those must come from a list with no queued edit
+    /// applied: a cached list that already holds a queued edit gets it applied again on the next launch.
+    @discardableResult
+    public func appendMutations(
+        _ mutations: [NativeQueuedMutation],
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        seedingShoppingRecords shoppingRecords: [NativeSyncCachedRecord]
+    ) throws -> NativeMutationQueue {
+        try updateQueue(accountID: accountID, environment: environment) { snapshot in
+            let canSeed = !snapshot.cachedRecords.contains { $0.kind == .shoppingItem } &&
+                !snapshot.queue.mutations.contains(where: \.mutatesShoppingCache)
+            return NativeQueueUpdate(
+                queue: try snapshot.queue.appending(contentsOf: mutations),
+                upsertingCachedRecords: canSeed ? shoppingRecords : []
+            )
+        }.queue
+    }
+
+    /// Removes the named mutations from the queue for this scope in one step.
+    @discardableResult
+    public func removeMutations(
+        clientMutationIDs: Set<String>,
+        accountID: String?,
+        environment: NativeCacheEnvironment?
+    ) throws -> NativeMutationQueue {
+        try updateQueue(accountID: accountID, environment: environment) { snapshot in
+            NativeQueueUpdate(queue: try snapshot.queue.removing(clientMutationIDs: clientMutationIDs))
+        }.queue
+    }
 }
 
 public actor InMemoryNativeSyncStore: NativeSyncStore {
@@ -318,6 +402,7 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
     private var queue: NativeMutationQueue
     private var records: [String: NativeSyncCachedRecord]
     public private(set) var tombstones: NativeSyncTombstoneLog
+    private var parkedQueues: [NativeParkedMutationQueue] = []
 
     public init(
         accountID: String? = nil,
@@ -353,14 +438,19 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
         upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
         deletingCachedRecordKeys deletedCacheKeys: Set<String>
     ) {
-        let scopeChanged = self.accountID != accountID || self.environment != environment
-        self.accountID = accountID
-        self.environment = environment
-        if scopeChanged {
-            checkpoint = nil
-            records = [:]
-            tombstones = NativeSyncTombstoneLog()
+        var queue = queue
+        if self.accountID != accountID || self.environment != environment {
+            enterScope(accountID: accountID, environment: environment)
+            queue = NativeMutationQueueParking.saving(queue, after: self.queue)
         }
+        commit(queue, upsertingCachedRecords: cachedRecords, deletingCachedRecordKeys: deletedCacheKeys)
+    }
+
+    private func commit(
+        _ queue: NativeMutationQueue,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys deletedCacheKeys: Set<String>
+    ) {
         for deletedCacheKey in deletedCacheKeys {
             records.removeValue(forKey: deletedCacheKey)
         }
@@ -368,6 +458,26 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
             records[cachedRecord.cacheKey] = cachedRecord
         }
         self.queue = queue
+    }
+
+    /// Starts serving another account: parks the current account's edits and clears its cache, then brings back the
+    /// new account's parked edits and any made before the account was known.
+    private func enterScope(accountID: String?, environment: NativeCacheEnvironment?) {
+        let entered = NativeMutationQueueParking.entering(
+            accountID: accountID,
+            environment: environment,
+            leavingAccountID: self.accountID,
+            leavingEnvironment: self.environment,
+            activeQueue: queue,
+            parked: parkedQueues
+        )
+        self.accountID = accountID
+        self.environment = environment
+        checkpoint = nil
+        records = [:]
+        tombstones = NativeSyncTombstoneLog()
+        parkedQueues = entered.parked
+        queue = entered.queue
     }
 
     public func loadCheckpoint() throws -> NativeSyncCheckpoint {
@@ -395,13 +505,16 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
 
     public func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult {
         if shouldResetForIncomingSyncData(syncData) {
-            checkpoint = nil
-            queue = NativeMutationQueue()
-            records = [:]
-            tombstones = NativeSyncTombstoneLog()
+            enterScope(accountID: syncData.freshness.accountID, environment: syncData.freshness.environment)
         }
         accountID = syncData.freshness.accountID
         environment = syncData.freshness.environment
+        // The server has confirmed the account, so edits made before it was known now belong to it.
+        let unbound = NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues)
+        if !unbound.mutations.isEmpty {
+            queue = NativeMutationQueueParking.merged([queue, unbound])
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: NativeMutationQueue(), in: parkedQueues)
+        }
 
         var upserted: [String] = []
         var removed: [String] = []
@@ -430,6 +543,7 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
             }
         }
 
+        tombstones = NativeSyncTombstoneLog(NativeSyncTombstone.pruned(tombstones.entries, cachedRecords: records, serverTime: syncData.freshness.generatedAt))
         if let cursor = syncData.nextCursor {
             checkpoint = try NativeSyncCheckpoint(
                 globalCursor: cursor,
@@ -446,13 +560,50 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
     }
 
     public func loadSnapshot() -> NativeSyncSnapshot {
-        return NativeSyncSnapshot(
+        snapshot(queue: queue)
+    }
+
+    @discardableResult
+    public func updateQueue(
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
+    ) throws -> NativeQueueUpdate {
+        let scopeMatches = self.accountID == accountID && self.environment == environment
+        if !scopeMatches && accountID == nil {
+            let update = try transform(NativeSyncSnapshot(
+                environment: environment,
+                checkpoint: nil,
+                queue: NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues)
+            ))
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: update.queue, in: parkedQueues)
+            return NativeQueueUpdate(queue: update.queue)
+        }
+        if !scopeMatches {
+            enterScope(accountID: accountID, environment: environment)
+        }
+        let update = try transform(snapshot(queue: queue))
+        commit(update.queue, upsertingCachedRecords: update.upsertingCachedRecords, deletingCachedRecordKeys: update.deletingCachedRecordKeys)
+        return NativeQueueUpdate(
+            queue: queue,
+            upsertingCachedRecords: update.upsertingCachedRecords,
+            deletingCachedRecordKeys: update.deletingCachedRecordKeys
+        )
+    }
+
+    public func queuedClientMutationIDs() -> Set<String> {
+        Set(queue.mutations.map(\.clientMutationID))
+    }
+
+    private func snapshot(queue: NativeMutationQueue) -> NativeSyncSnapshot {
+        NativeSyncSnapshot(
             accountID: accountID,
             environment: environment,
             checkpoint: checkpoint,
             queue: queue,
             cachedRecords: records.values.sorted { $0.cacheKey < $1.cacheKey },
-            tombstones: tombstones.entries
+            tombstones: tombstones.entries,
+            parkedQueues: parkedQueues
         )
     }
 
@@ -464,7 +615,7 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
 
     private func shouldResetForIncomingSyncData(_ syncData: NativeSyncData) -> Bool {
         guard let accountID, let environment else {
-            return checkpoint != nil || !queue.mutations.isEmpty || !records.isEmpty || !tombstones.entries.isEmpty
+            return true
         }
         return accountID != syncData.freshness.accountID || environment != syncData.freshness.environment
     }
@@ -479,6 +630,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
     private var queue: NativeMutationQueue
     private var records: [String: NativeSyncCachedRecord]
     private var tombstones: [NativeSyncTombstone]
+    private var parkedQueues: [NativeParkedMutationQueue]
 
     public init(
         fileURL: URL,
@@ -495,6 +647,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         self.queue = snapshot.queue
         self.records = Dictionary(uniqueKeysWithValues: snapshot.cachedRecords.map { ($0.cacheKey, $0) })
         self.tombstones = snapshot.tombstones
+        self.parkedQueues = snapshot.parkedQueues
     }
 
     public func loadQueue() throws -> NativeMutationQueue {
@@ -524,26 +677,55 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
         deletingCachedRecordKeys deletedCacheKeys: Set<String>
     ) throws {
-        let scopeChanged = self.accountID != accountID || self.environment != environment
-        self.accountID = accountID
-        self.environment = environment
-        if scopeChanged {
-            checkpoint = nil
-            records = [:]
-            tombstones = []
+        var queue = queue
+        if self.accountID != accountID || self.environment != environment {
+            enterScope(accountID: accountID, environment: environment)
+            queue = NativeMutationQueueParking.saving(queue, after: self.queue)
         }
+        try commit(queue, upsertingCachedRecords: cachedRecords, deletingCachedRecordKeys: deletedCacheKeys)
+    }
+
+    private func commit(
+        _ queue: NativeMutationQueue,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys deletedCacheKeys: Set<String>
+    ) throws {
         for deletedCacheKey in deletedCacheKeys {
             records.removeValue(forKey: deletedCacheKey)
         }
         for cachedRecord in cachedRecords {
             records[cachedRecord.cacheKey] = cachedRecord
         }
-        if let mediaResolver {
-            self.queue = try queue.resolvingStagedMedia(using: mediaResolver)
-        } else {
-            self.queue = queue
-        }
+        self.queue = try resolved(queue)
         try persist()
+    }
+
+    private func resolved(_ queue: NativeMutationQueue) throws -> NativeMutationQueue {
+        guard let mediaResolver else {
+            return queue
+        }
+        return try queue.resolvingStagedMedia(using: mediaResolver)
+    }
+
+    /// Starts serving another account: parks the current account's edits and clears its cache, then brings back the
+    /// new account's parked edits and any made before the account was known. Parked edits keep their staged photos
+    /// on disk; the photos are read again when the edits come back.
+    private func enterScope(accountID: String?, environment: NativeCacheEnvironment?) {
+        let entered = NativeMutationQueueParking.entering(
+            accountID: accountID,
+            environment: environment,
+            leavingAccountID: self.accountID,
+            leavingEnvironment: self.environment,
+            activeQueue: queue,
+            parked: parkedQueues
+        )
+        self.accountID = accountID
+        self.environment = environment
+        checkpoint = nil
+        records = [:]
+        tombstones = []
+        parkedQueues = entered.parked
+        queue = entered.queue
     }
 
     public func loadCheckpoint() throws -> NativeSyncCheckpoint {
@@ -574,13 +756,16 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
 
     public func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult {
         if shouldResetForIncomingSyncData(syncData) {
-            checkpoint = nil
-            queue = NativeMutationQueue()
-            records = [:]
-            tombstones = []
+            enterScope(accountID: syncData.freshness.accountID, environment: syncData.freshness.environment)
         }
         accountID = syncData.freshness.accountID
         environment = syncData.freshness.environment
+        // The server has confirmed the account, so edits made before it was known now belong to it.
+        let unbound = NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues)
+        if !unbound.mutations.isEmpty {
+            queue = try resolved(NativeMutationQueueParking.merged([queue, unbound]))
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: NativeMutationQueue(), in: parkedQueues)
+        }
 
         var upserted: [String] = []
         var removed: [String] = []
@@ -609,6 +794,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
             }
         }
 
+        tombstones = NativeSyncTombstone.pruned(tombstones, cachedRecords: records, serverTime: syncData.freshness.generatedAt)
         if let cursor = syncData.nextCursor {
             checkpoint = try NativeSyncCheckpoint(
                 globalCursor: cursor,
@@ -629,24 +815,59 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         snapshot()
     }
 
+    @discardableResult
+    public func updateQueue(
+        accountID: String?,
+        environment: NativeCacheEnvironment?,
+        _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
+    ) throws -> NativeQueueUpdate {
+        let scopeMatches = self.accountID == accountID && self.environment == environment
+        if !scopeMatches && accountID == nil {
+            let update = try transform(NativeSyncSnapshot(
+                environment: environment,
+                checkpoint: nil,
+                queue: try resolved(NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues))
+            ))
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: update.queue, in: parkedQueues)
+            try persist()
+            return NativeQueueUpdate(queue: update.queue)
+        }
+        if !scopeMatches {
+            enterScope(accountID: accountID, environment: environment)
+            queue = try resolved(queue)
+        }
+        let update = try transform(snapshot())
+        try commit(update.queue, upsertingCachedRecords: update.upsertingCachedRecords, deletingCachedRecordKeys: update.deletingCachedRecordKeys)
+        return NativeQueueUpdate(
+            queue: queue,
+            upsertingCachedRecords: update.upsertingCachedRecords,
+            deletingCachedRecordKeys: update.deletingCachedRecordKeys
+        )
+    }
+
+    public func queuedClientMutationIDs() -> Set<String> {
+        Set(queue.mutations.map(\.clientMutationID))
+    }
+
     private func persist() throws {
         try store.save(snapshot())
     }
 
-    private func snapshot() -> NativeSyncSnapshot {
+    private func snapshot(queue: NativeMutationQueue? = nil) -> NativeSyncSnapshot {
         return NativeSyncSnapshot(
             accountID: accountID,
             environment: environment,
             checkpoint: checkpoint,
-            queue: queue,
+            queue: queue ?? self.queue,
             cachedRecords: records.values.sorted { $0.cacheKey < $1.cacheKey },
-            tombstones: tombstones
+            tombstones: tombstones,
+            parkedQueues: parkedQueues
         )
     }
 
     private func shouldResetForIncomingSyncData(_ syncData: NativeSyncData) -> Bool {
         guard let accountID, let environment else {
-            return checkpoint != nil || !queue.mutations.isEmpty || !records.isEmpty || !tombstones.isEmpty
+            return true
         }
         return accountID != syncData.freshness.accountID || environment != syncData.freshness.environment
     }
@@ -706,6 +927,18 @@ public actor UnavailableNativeSyncStore: NativeSyncStore {
     }
 
     public func loadSnapshot() throws -> NativeSyncSnapshot {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func updateQueue(
+        accountID _: String?,
+        environment _: NativeCacheEnvironment?,
+        _: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
+    ) throws -> NativeQueueUpdate {
+        throw NativeSyncStoreError.unavailable(message)
+    }
+
+    public func queuedClientMutationIDs() throws -> Set<String> {
         throw NativeSyncStoreError.unavailable(message)
     }
 }
@@ -1471,8 +1704,13 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
             "cookbook:new:\(clientMutationID)"
         case .cookbookUpdate, .cookbookDelete, .cookbookAddRecipe, .cookbookRemoveRecipe:
             "cookbook:\(stringValue("cookbookId") ?? "")"
-        case .shoppingAddItem, .shoppingCheckItem, .shoppingDeleteItem, .shoppingAddFromRecipe, .shoppingClearCompleted, .shoppingClearAll:
-            "shopping-list"
+        case .shoppingAddItem, .shoppingAddFromRecipe:
+            "shopping:new:\(clientMutationID)"
+        case .shoppingCheckItem, .shoppingDeleteItem:
+            // A stored change with no item id cannot be tied to one item, so it orders on the whole list.
+            stringValue("itemId").map(Self.shoppingItemDependencyKey(itemID:)) ?? Self.shoppingListDependencyKey
+        case .shoppingClearCompleted, .shoppingClearAll:
+            Self.shoppingListDependencyKey
         case .profileDisplayUpdate, .profilePhotoUpload, .profilePhotoRemove:
             "profile:me"
         case .notificationPreferenceUpdate:
@@ -1495,6 +1733,41 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         default:
             []
         }
+    }
+
+    static let shoppingListDependencyKey = "shopping-list"
+
+    /// Each shopping item orders on its own, so a change the server turns down holds only that item. An item added on
+    /// this device (`item_local_<id>`, or `item_local_<id>-ingredient-<n>` from a recipe) orders with the edit that
+    /// added it, and waits for it.
+    static func shoppingItemDependencyKey(itemID: String) -> String {
+        let localPrefix = "item_local_"
+        guard itemID.hasPrefix(localPrefix) else {
+            return "shopping:item:\(itemID)"
+        }
+        let local = itemID.dropFirst(localPrefix.count)
+        let addingClientMutationID = local.range(of: "-ingredient-", options: .backwards).map { local[..<$0.lowerBound] } ?? local
+        return "shopping:new:\(addingClientMutationID)"
+    }
+
+    /// Whether a held edit with one of `blockedDependencyKeys` keeps this edit from being sent. Clearing the list waits
+    /// while any shopping change is held, so it never runs ahead of a check it would have cleared. The reverse holds too:
+    /// while a clear is held, the shopping changes queued after it wait, so the clear cannot wipe them when it goes through.
+    func isHeld(byBlockedDependencyKeys blockedDependencyKeys: Set<String>) -> Bool {
+        if blockedDependencyKeys.contains(dependencyKey) {
+            return true
+        }
+        if dependencyKey == Self.shoppingListDependencyKey {
+            return blockedDependencyKeys.contains { $0.hasPrefix("shopping:") }
+        }
+        return dependencyKey.hasPrefix("shopping:") && blockedDependencyKeys.contains(Self.shoppingListDependencyKey)
+    }
+
+    /// True when this edit names an id that the edit `clientMutationID` created on this device (`recipe_local_<id>`,
+    /// `item_local_<id>-ingredient-2` and so on), so it cannot be sent without that edit.
+    func referencesLocalIDs(createdBy clientMutationID: String) -> Bool {
+        let marker = "_local_\(clientMutationID)"
+        return values.values.contains { $0.containsLocalIDMarker(marker) }
     }
 
     private init(
@@ -1719,7 +1992,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         case .apnsDeviceRevoke:
             return try headerDelete(["api", "v1", "me", "apns-devices", requiredString("deviceId")])
         case .recipeImportSubmit:
-            return try json(.post, ["api", "v1", "recipes", "import"])
+            return try json(.post, ["api", "v1", "recipes", "import"]).waiting(upTo: APIRequestTimeout.recipeImportSeconds)
         case .captureDraftCreate, .captureDraftEdit, .captureDraftDiscard:
             throw NativeQueuedMutationRequestError.localOnlyMutation
         }
@@ -3476,10 +3749,20 @@ extension NativeQueuedMutation {
         }
     }
 
+    /// Shown on the held-change banner when a queued edit's photo is no longer on this device.
+    public static let missingStagedPhotoMessage = "The photo for this change is no longer on this device. Discard the change, then add the photo again."
+
+    /// Staged photos this edit names whose bytes are not loaded: after resolving, the ones missing from disk.
+    var missingStagedMediaStageIDs: [String] {
+        media.values.filter { $0.data.isEmpty }.map(\.localStageID).sorted()
+    }
+
+    /// Loads each staged photo from disk. A photo that is gone stays unloaded, so only this edit is affected: the drain
+    /// turns it into a conflict instead of sending it, and every other edit still loads, queues and syncs.
     func resolvingStagedMedia(using resolver: any NativeStagedMediaResolving) throws -> NativeQueuedMutation {
         var resolvedMedia: [String: NativeStagedMediaUpload] = [:]
         for (key, upload) in media {
-            resolvedMedia[key] = upload.data.isEmpty ? upload.replacingData(try resolver.data(for: upload)) : upload
+            resolvedMedia[key] = upload.data.isEmpty ? (try? resolver.data(for: upload)).map(upload.replacingData) ?? upload : upload
         }
 
         return NativeQueuedMutation(
@@ -3548,6 +3831,11 @@ public struct NativeMutationQueue: Codable, Equatable, Sendable {
 
     public init() {
         mutations = []
+    }
+
+    /// For edits taken from queues that were already validated, with duplicates removed.
+    init(validatedMutations mutations: [NativeQueuedMutation]) {
+        self.mutations = mutations
     }
 
     public init(mutations: [NativeQueuedMutation]) throws {
@@ -4192,6 +4480,12 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
             return .authFailure(message: message)
         }
 
+        // Someone else already removed this shopping item. Removing it wanted it gone, and there is nothing left to
+        // check, so the edit is done; holding it would stop every later change to the item.
+        if error.statusCode == 404, mutation.queueableKind == .shoppingCheckItem || mutation.queueableKind == .shoppingDeleteItem {
+            return .success(serverRevision: nil)
+        }
+
         if case .retrySameRequest(let afterSeconds) = error.retryDecision {
             return .retry(
                 afterSeconds: afterSeconds ?? NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: mutation.retryCount),
@@ -4296,7 +4590,10 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let bootstrapTombstones = bootstrapApplication.tombstones
         let bootstrapRemovedCacheKeys = bootstrapApplication.removedCacheKeys
 
-        let canReplayStoredQueue = Self.canReuseStoredState(previousSnapshot, scope: scope)
+        // Applying a bootstrap moves the store to the account the server named, parking any other account's edits and
+        // bringing back that account's, so the stored queue is then that account's. Without an account in the
+        // bootstrap, the stored queue is replayed only when it was stored for the account the session expects.
+        let canReplayStoredQueue = bootstrapAccountID != nil || Self.canReuseStoredState(previousSnapshot, scope: scope)
         let queueAccountID = bootstrapAccountID ?? scope.expectedAccountID
         let queueEnvironment = bootstrapEnvironment ?? scope.environment
         var shoppingEntityPurgeIdentifiers: [String] = []
@@ -4392,18 +4689,19 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 ))
             }
         }
+        // A queue stored for another account is left alone: the save below parks it when it moves the store.
         let originalQueue: NativeMutationQueue
         if canReplayStoredQueue {
             originalQueue = try await store.loadQueue()
+        } else if queueAccountID != nil {
+            // The store still serves another account, and the bootstrap did not name one. Move it to the account
+            // this session expects, in one step: the other account's edits are parked, and this account's come back,
+            // including any queued while the bootstrap request was in flight.
+            originalQueue = try await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
+                NativeQueueUpdate(queue: snapshot.queue)
+            }.queue
         } else {
             originalQueue = NativeMutationQueue()
-            if !previousSnapshot.queue.mutations.isEmpty {
-                try await store.saveQueue(
-                    NativeMutationQueue(),
-                    accountID: queueAccountID,
-                    environment: queueEnvironment
-                )
-            }
         }
         var remaining: [NativeQueuedMutation] = []
         var drainedClientMutationIDs: [String] = []
@@ -4416,142 +4714,154 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         var idReplacements: [String: String] = [:]
 
         var index = 0
-        while index < originalQueue.mutations.count {
-            // A cancelled drain stops here. Every mutation not yet sent stays queued, unchanged, for the
-            // next sync trigger; a cancelled request must not be sent again from inside a cancelled task.
-            if Task.isCancelled {
-                remaining.append(contentsOf: originalQueue.mutations.dropFirst(index).map { $0.replacingResourceIDs(idReplacements) })
-                break
-            }
-            let mutation = originalQueue.mutations[index].replacingResourceIDs(idReplacements)
-            guard !blockedDependencyKeys.contains(mutation.dependencyKey) else {
-                remaining.append(mutation)
-                index += 1
-                continue
-            }
-
-            guard mutation.replayTarget == .remote else {
-                remaining.append(mutation)
-                index += 1
-                continue
-            }
-
-            if let delay = mutation.retryDelayRemaining(at: clock()), delay > 0 {
-                remaining.append(mutation)
-                blockedDependencyKeys.insert(mutation.dependencyKey)
-                retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, delay)
-                index += 1
-                continue
-            }
-
-            let result: NativeSyncMutationResult
-            do {
-                result = try await transport.send(mutation, configuration: configuration)
-            } catch is RecipeCoverImageNormalizationError {
-                result = .conflict(
-                    kind: .validation,
-                    serverRevision: nil,
-                    message: "Queued cover photo is unreadable. Choose the photo again."
-                )
-            }
-            switch result {
-            case .success(let revision, let idRemaps):
-                drainedClientMutationIDs.append(mutation.clientMutationID)
-                drainedMutations.append(mutation.recordingIDRemaps(idRemaps))
-                for remap in idRemaps {
-                    idReplacements[remap.localID] = remap.serverID
-                }
-                if case .tombstone(let token)? = revision {
-                    try await store.appendTombstone(mutation.tombstone(token: token, at: clock()))
-                }
-            case .conflict(let kind, let revision, let message):
-                remaining.append(mutation.recordingError(message))
-                conflicts.append(NativeSyncConflict(
-                    clientMutationID: mutation.clientMutationID,
-                    kind: kind,
-                    serverRevision: revision,
-                    message: message
-                ))
-                blockedDependencyKeys.insert(mutation.dependencyKey)
-                blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
-            case .authFailure(let message):
-                pausedReason = .authRequired(message)
-                remaining.append(mutation)
-                remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1).map { $0.replacingResourceIDs(idReplacements) })
-                index = originalQueue.mutations.count
-                continue
-            case .blocked(let blocker, let message):
-                blockers.append(blocker)
-                remaining.append(mutation.recordingError(message))
-                blockedDependencyKeys.insert(mutation.dependencyKey)
-                blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
-            case .retry(let afterSeconds, let message):
+        // An accepted edit leaves the queue as soon as the server takes it. If the sync then fails, write the
+        // accepted edits into the cache before giving up, so they do not vanish from the screen until the next sync.
+        do {
+            while index < originalQueue.mutations.count {
+                // A cancelled drain stops here. Every mutation not yet sent stays queued, unchanged, for the
+                // next sync trigger; a cancelled request must not be sent again from inside a cancelled task.
                 if Task.isCancelled {
-                    // The request was cut short by cancellation (a screen change cancels the sync task that
-                    // was running). Nothing failed, so do not back the edit off: keep it, unchanged, ready
-                    // for the next drain, which may start right away.
+                    remaining.append(contentsOf: originalQueue.mutations.dropFirst(index).map { $0.replacingResourceIDs(idReplacements) })
+                    break
+                }
+                let mutation = originalQueue.mutations[index].replacingResourceIDs(idReplacements)
+                // An edit discarded while this drain was running is neither sent nor written back.
+                guard try await store.queuedClientMutationIDs().contains(mutation.clientMutationID) else {
+                    index += 1
+                    continue
+                }
+                guard !mutation.isHeld(byBlockedDependencyKeys: blockedDependencyKeys) else {
+                    remaining.append(mutation)
+                    index += 1
+                    continue
+                }
+
+                guard mutation.replayTarget == .remote else {
+                    remaining.append(mutation)
+                    index += 1
+                    continue
+                }
+
+                if let delay = mutation.retryDelayRemaining(at: clock()), delay > 0 {
+                    remaining.append(mutation)
+                    blockedDependencyKeys.insert(mutation.dependencyKey)
+                    retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, delay)
+                    index += 1
+                    continue
+                }
+
+                let result: NativeSyncMutationResult
+                if !mutation.missingStagedMediaStageIDs.isEmpty {
+                    // The photo was removed from this device after the edit was queued; sending would upload nothing.
+                    result = .conflict(kind: .validation, serverRevision: nil, message: NativeQueuedMutation.missingStagedPhotoMessage)
+                } else {
+                    do {
+                        result = try await transport.send(mutation, configuration: configuration)
+                    } catch is RecipeCoverImageNormalizationError {
+                        result = .conflict(
+                            kind: .validation,
+                            serverRevision: nil,
+                            message: "Queued cover photo is unreadable. Choose the photo again."
+                        )
+                    }
+                }
+                switch result {
+                case .success(let revision, let idRemaps):
+                    drainedClientMutationIDs.append(mutation.clientMutationID)
+                    drainedMutations.append(mutation.recordingIDRemaps(idRemaps))
+                    for remap in idRemaps {
+                        idReplacements[remap.localID] = remap.serverID
+                    }
+                    // Take the accepted edit off the queue now, and point the rest at any new server ids, so a failure
+                    // later in this sync cannot send it again.
+                    let acceptedClientMutationID = mutation.clientMutationID
+                    let replacementsSoFar = idReplacements
+                    try await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
+                        NativeQueueUpdate(queue: try NativeMutationQueue(mutations: snapshot.queue.mutations.compactMap { queued in
+                            queued.clientMutationID == acceptedClientMutationID ? nil : queued.replacingResourceIDs(replacementsSoFar)
+                        }))
+                    }
+                    if case .tombstone(let token)? = revision {
+                        try await store.appendTombstone(mutation.tombstone(token: token, at: clock()))
+                    }
+                case .conflict(let kind, let revision, let message):
+                    remaining.append(mutation.recordingError(message))
+                    conflicts.append(NativeSyncConflict(
+                        clientMutationID: mutation.clientMutationID,
+                        kind: kind,
+                        serverRevision: revision,
+                        message: message
+                    ))
+                    blockedDependencyKeys.insert(mutation.dependencyKey)
+                    blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
+                case .authFailure(let message):
+                    pausedReason = .authRequired(message)
                     remaining.append(mutation)
                     remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1).map { $0.replacingResourceIDs(idReplacements) })
                     index = originalQueue.mutations.count
                     continue
+                case .blocked(let blocker, let message):
+                    blockers.append(blocker)
+                    remaining.append(mutation.recordingError(message))
+                    blockedDependencyKeys.insert(mutation.dependencyKey)
+                    blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
+                case .retry(let afterSeconds, let message):
+                    if Task.isCancelled {
+                        // The request was cut short by cancellation (a screen change cancels the sync task that
+                        // was running). Nothing failed, so do not back the edit off: keep it, unchanged, ready
+                        // for the next drain, which may start right away.
+                        remaining.append(mutation)
+                        remaining.append(contentsOf: originalQueue.mutations.dropFirst(index + 1).map { $0.replacingResourceIDs(idReplacements) })
+                        index = originalQueue.mutations.count
+                        continue
+                    }
+                    retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, afterSeconds)
+                    remaining.append(mutation.recordingRetry(
+                        message: message,
+                        nextRetryAt: NativeSyncClockFormatting.isoString(clock().addingTimeInterval(TimeInterval(afterSeconds)))
+                    ))
+                    blockedDependencyKeys.insert(mutation.dependencyKey)
+                    blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
                 }
-                retryAfterSeconds = Self.shortestRetryDelay(retryAfterSeconds, afterSeconds)
-                remaining.append(mutation.recordingRetry(
-                    message: message,
-                    nextRetryAt: NativeSyncClockFormatting.isoString(clock().addingTimeInterval(TimeInterval(afterSeconds)))
-                ))
-                blockedDependencyKeys.insert(mutation.dependencyKey)
-                blockedDependencyKeys.formUnion(mutation.dependentDependencyKeysBlockedWithThisMutation)
-            }
 
-            index += 1
+                index += 1
+            }
+        } catch {
+            if !drainedMutations.isEmpty {
+                let accepted = drainedMutations
+                _ = try? await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
+                    let cachePatch = try Self.drainedCachePatch(drainedMutations: accepted, snapshot: snapshot, accountID: queueAccountID)
+                    return NativeQueueUpdate(
+                        queue: snapshot.queue,
+                        upsertingCachedRecords: cachePatch.upserting,
+                        deletingCachedRecordKeys: cachePatch.deletingCacheKeys
+                    )
+                }
+            }
+            throw error
         }
 
-        let drainedRecipeMutations = drainedMutations.filter(\.mutatesRecipeCache)
-        let drainedShoppingMutations = drainedMutations.filter(\.mutatesShoppingCache)
-        let drainedCookbookMutations = drainedMutations.filter(\.mutatesCookbookCache)
-        var cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) = ([], [])
-        if !drainedRecipeMutations.isEmpty || !drainedShoppingMutations.isEmpty || !drainedCookbookMutations.isEmpty {
-            let snapshot = try await store.loadSnapshot()
-            if !drainedRecipeMutations.isEmpty {
-                let cachePatchAccountID = queueAccountID!
-                let recipePatch = try Self.drainedRecipeCachePatch(
-                    drainedMutations: drainedRecipeMutations,
-                    snapshot: snapshot,
-                    accountID: cachePatchAccountID
-                )
-                cachePatch.upserting.append(contentsOf: recipePatch.upserting)
-                cachePatch.deletingCacheKeys.formUnion(recipePatch.deletingCacheKeys)
-            }
-            if !drainedShoppingMutations.isEmpty {
-                let cachePatchAccountID = queueAccountID!
-                let shoppingPatch = try Self.drainedShoppingCachePatch(
-                    drainedMutations: drainedShoppingMutations,
-                    snapshot: snapshot,
-                    accountID: cachePatchAccountID
-                )
-                cachePatch.upserting.append(contentsOf: shoppingPatch.upserting)
-                cachePatch.deletingCacheKeys.formUnion(shoppingPatch.deletingCacheKeys)
-            }
-            if !drainedCookbookMutations.isEmpty {
-                let cachePatchAccountID = queueAccountID!
-                let cookbookPatch = try Self.drainedCookbookCachePatch(
-                    drainedMutations: drainedCookbookMutations,
-                    snapshot: snapshot,
-                    accountID: cachePatchAccountID
-                )
-                cachePatch.upserting.append(contentsOf: cookbookPatch.upserting)
-                cachePatch.deletingCacheKeys.formUnion(cookbookPatch.deletingCacheKeys)
-            }
+        let drained = drainedMutations
+        let loadedClientMutationIDs = Set(originalQueue.mutations.map(\.clientMutationID))
+        let unsent = remaining
+        let replacements = idReplacements
+        // Write the drain's outcome into the queue as it is now, in one store step: edits this drain loaded are
+        // replaced by what is left of them, and edits queued while it ran stay, pointed at any new server ids.
+        // Writing back the queue loaded at the start would erase those later edits.
+        let savedDrain = try await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
+            let cachePatch = try Self.drainedCachePatch(drainedMutations: drained, snapshot: snapshot, accountID: queueAccountID)
+            return NativeQueueUpdate(
+                queue: try Self.queueAfterDrain(
+                    current: snapshot.queue,
+                    loadedClientMutationIDs: loadedClientMutationIDs,
+                    unsent: unsent,
+                    idReplacements: replacements
+                ),
+                upsertingCachedRecords: cachePatch.upserting,
+                deletingCachedRecordKeys: cachePatch.deletingCacheKeys
+            )
         }
-        try await store.saveQueue(
-            NativeMutationQueue(mutations: remaining),
-            accountID: queueAccountID,
-            environment: queueEnvironment,
-            upsertingCachedRecords: cachePatch.upserting,
-            deletingCachedRecordKeys: cachePatch.deletingCacheKeys
-        )
-        let removedCacheKeys = Set(bootstrapRemovedCacheKeys).union(cachePatch.deletingCacheKeys)
+        let removedCacheKeys = Set(bootstrapRemovedCacheKeys).union(savedDrain.deletingCachedRecordKeys)
         let currentShoppingRequestStart = shoppingEntityPurgeIdentifiers.count
         let currentShoppingDomainRequestStart = shoppingEntityPurgeDomainIdentifiers.count
         let currentSpoonRequestStart = spoonEntityPurgeIdentifiers.count
@@ -4989,14 +5299,42 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         drainedMutations.first.map { .optimistic($0.clientMutationID) }
     }
 
+    /// The cache changes for edits the server accepted: recipes, shopping items and cookbooks.
+    private static func drainedCachePatch(
+        drainedMutations: [NativeQueuedMutation],
+        snapshot: NativeSyncSnapshot,
+        accountID: String?
+    ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
+        var cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) = ([], [])
+        let recipeMutations = drainedMutations.filter(\.mutatesRecipeCache)
+        if !recipeMutations.isEmpty {
+            let recipePatch = try drainedRecipeCachePatch(drainedMutations: recipeMutations, snapshot: snapshot, accountID: accountID!)
+            cachePatch.upserting.append(contentsOf: recipePatch.upserting)
+            cachePatch.deletingCacheKeys.formUnion(recipePatch.deletingCacheKeys)
+        }
+        let shoppingMutations = drainedMutations.filter(\.mutatesShoppingCache)
+        if !shoppingMutations.isEmpty {
+            let shoppingPatch = try drainedShoppingCachePatch(drainedMutations: shoppingMutations, snapshot: snapshot, accountID: accountID!)
+            cachePatch.upserting.append(contentsOf: shoppingPatch.upserting)
+            cachePatch.deletingCacheKeys.formUnion(shoppingPatch.deletingCacheKeys)
+        }
+        let cookbookMutations = drainedMutations.filter(\.mutatesCookbookCache)
+        if !cookbookMutations.isEmpty {
+            let cookbookPatch = try drainedCookbookCachePatch(drainedMutations: cookbookMutations, snapshot: snapshot, accountID: accountID!)
+            cachePatch.upserting.append(contentsOf: cookbookPatch.upserting)
+            cachePatch.deletingCacheKeys.formUnion(cookbookPatch.deletingCacheKeys)
+        }
+        return cachePatch
+    }
+
     private static func drainedRecipeCachePatch(
         drainedMutations: [NativeQueuedMutation],
         snapshot: NativeSyncSnapshot,
         accountID: String
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
-        let cachedRecipes = try snapshot.cachedRecords
+        let cachedRecipes = snapshot.cachedRecords
             .filter { $0.kind == .recipe }
-            .map { try $0.payload.decoded(Recipe.self) }
+            .compactMap { try? $0.payload.decoded(Recipe.self) }
         let fallbackChef = cachedRecipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
         let updatedRecipes = drainedMutations.reduce(cachedRecipes) { recipes, mutation in
             mutation.applyingOptimisticRecipeMutation(to: recipes, fallbackChef: fallbackChef, now: mutation.createdAt)
@@ -5026,12 +5364,12 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         snapshot: NativeSyncSnapshot,
         accountID: String
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
-        let cachedItems = try snapshot.cachedRecords
+        let cachedItems = snapshot.cachedRecords
             .filter { $0.kind == .shoppingItem }
-            .map { try $0.payload.decoded(ShoppingListItem.self) }
-        let cachedRecipes = try snapshot.cachedRecords
+            .compactMap { try? $0.payload.decoded(ShoppingListItem.self) }
+        let cachedRecipes = snapshot.cachedRecords
             .filter { $0.kind == .recipe }
-            .map { try $0.payload.decoded(Recipe.self) }
+            .compactMap { try? $0.payload.decoded(Recipe.self) }
         let fallbackChef = cachedRecipes.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
         let baseShoppingList: ShoppingListState? = cachedItems.isEmpty
             ? nil
@@ -5073,12 +5411,12 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         snapshot: NativeSyncSnapshot,
         accountID: String
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
-        let cachedCookbooks = try snapshot.cachedRecords
+        let cachedCookbooks = snapshot.cachedRecords
             .filter { $0.kind == .cookbook }
-            .map { try $0.payload.decoded(Cookbook.self) }
-        let cachedRecipes = try snapshot.cachedRecords
+            .compactMap { try? $0.payload.decoded(Cookbook.self) }
+        let cachedRecipes = snapshot.cachedRecords
             .filter { $0.kind == .recipe }
-            .map { try $0.payload.decoded(Recipe.self) }
+            .compactMap { try? $0.payload.decoded(Recipe.self) }
         let fallbackChef = cachedRecipes.first?.chef ?? cachedCookbooks.first?.chef ?? ChefSummary(id: accountID, username: "Spoonjoy")
         let updatedCookbooks = drainedMutations.reduce(cachedCookbooks) { cookbooks, mutation in
             mutation.applyingOptimisticCookbookMutation(
@@ -5108,6 +5446,24 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
             return nil
         }
         return snapshot.checkpoint
+    }
+
+    /// The queue after a drain, built from the queue as it is when the drain finishes. An edit the drain loaded is
+    /// replaced by its unsent form, or dropped if it was sent or was discarded meanwhile. An edit queued while the drain
+    /// ran is kept in place, with local ids the drain resolved replaced by server ids.
+    static func queueAfterDrain(
+        current: NativeMutationQueue,
+        loadedClientMutationIDs: Set<String>,
+        unsent: [NativeQueuedMutation],
+        idReplacements: [String: String]
+    ) throws -> NativeMutationQueue {
+        let unsentByID = Dictionary(uniqueKeysWithValues: unsent.map { ($0.clientMutationID, $0) })
+        return try NativeMutationQueue(mutations: current.mutations.compactMap { mutation in
+            guard loadedClientMutationIDs.contains(mutation.clientMutationID) else {
+                return mutation.replacingResourceIDs(idReplacements)
+            }
+            return unsentByID[mutation.clientMutationID]
+        })
     }
 
     private static func canReuseStoredState(
@@ -5220,5 +5576,28 @@ private enum NativeSyncClockFormatting {
         }
 
         return fractionalDate
+    }
+}
+
+private extension JSONValue {
+    /// Whether a string in this value names a local id ending in `marker`, either exactly or followed by a `-` suffix.
+    func containsLocalIDMarker(_ marker: String) -> Bool {
+        switch self {
+        case .string(let string):
+            var searchRange = string.startIndex..<string.endIndex
+            while let found = string.range(of: marker, range: searchRange) {
+                if found.upperBound == string.endIndex || string[found.upperBound] == "-" {
+                    return true
+                }
+                searchRange = found.upperBound..<string.endIndex
+            }
+            return false
+        case .array(let values):
+            return values.contains { $0.containsLocalIDMarker(marker) }
+        case .object(let object):
+            return object.values.contains { $0.containsLocalIDMarker(marker) }
+        default:
+            return false
+        }
     }
 }

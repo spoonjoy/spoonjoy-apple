@@ -179,6 +179,7 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
             url: url,
             cachePolicy: Self.cachePolicy(for: request.responseCachePolicy)
         )
+        urlRequest.timeoutInterval = request.timeoutInterval
         urlRequest.httpMethod = request.method.rawValue
         urlRequest.httpBody = request.body
         for (name, value) in request.headers {
@@ -417,7 +418,7 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
         return nil
     }
 
-    private static func isOffline(_ code: URLError.Code) -> Bool {
+    static func isOffline(_ code: URLError.Code) -> Bool {
         switch code {
         case .notConnectedToInternet,
              .networkConnectionLost,

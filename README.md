@@ -39,7 +39,7 @@ UI journeys are validated in CI, not on your machine: they run against the QA mi
 
 ## CI
 
-All workflows are in `.github/workflows/`. The xcode-27 jobs run on the scarce `xcode-27` runners and share the `.github/actions/select-xcode` composite action.
+All workflows are in `.github/workflows/`. The jobs that need the iOS 27 SDK run on the scarce `xcode-27` runners and share the `.github/actions/select-xcode` composite action. The SwiftPM-only required jobs (Swift tests, Native scenario verifier) run on `macos-26` with Xcode 26.x via `.github/actions/select-swift-toolchain`, so they never wait for an `xcode-27` runner.
 
 - `native.yml` (**Native**): runs on every pull request and push to `main`. Required checks on `main` are `Swift tests`, `Native scenario verifier`, `App bundle` and `Contracts`. `Ruby advisory scan` runs alongside them.
 - `journeys.yml` (**Journeys**): XCUITest journeys and shopping UI tests against QA. Not a required check.

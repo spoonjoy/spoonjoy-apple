@@ -175,6 +175,131 @@ struct NativeSyncEngineTests {
         #expect(try await store.loadQueue().mutations == [second])
     }
 
+    @Test("an edit queued while the drain is sending stays queued after the drain")
+    func editQueuedDuringSendSurvivesDrain() async throws {
+        let sending = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_a", clientMutationID: "cm_sending", title: "A", description: nil, servings: nil, createdAt: Self.createdAt(0))
+        let late = NativeQueuedMutation.shoppingCheckItem(itemID: "item_milk", checked: true, clientMutationID: "cm_late_milk", createdAt: Self.createdAt(1))
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: try NativeMutationQueue(mutations: [sending]))
+        let transport = SendGateNativeSyncTransport()
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+        let scope = boundScope
+        let configuration = configuration
+
+        let drain = Task { try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: scope) }
+        await transport.waitForFirstSend()
+        // Another writer (the app or an intent) queues an edit while the first request is in flight.
+        try await store.appendMutations([late], accountID: "chef_ari", environment: .local)
+        await transport.releaseFirstSend()
+        let report = try await drain.value
+
+        #expect(report.drainedClientMutationIDs == ["cm_sending"])
+        #expect(await transport.sentClientMutationIDs() == ["cm_sending"])
+        #expect(try await store.loadQueue().mutations == [late])
+    }
+
+    @Test("an edit queued under the new account while the first sync after sign-in is fetching is kept and sent")
+    func editQueuedDuringBootstrapForNewAccountSurvives() async throws {
+        let previousAccountEdit = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_old", clientMutationID: "cm_old_account", title: "Old", description: nil, servings: nil, createdAt: Self.createdAt(0))
+        let late = NativeQueuedMutation.shoppingCheckItem(itemID: "item_milk", checked: true, clientMutationID: "cm_during_bootstrap", createdAt: Self.createdAt(1))
+        let store = InMemoryNativeSyncStore(accountID: "chef_old", environment: .local, checkpoint: nil, queue: try NativeMutationQueue(mutations: [previousAccountEdit]))
+        let transport = AppendDuringBootstrapTransport(store: store, mutation: late, accountID: "chef_ari", environment: .local)
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+
+        let report = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: boundScope)
+
+        #expect(await transport.sentClientMutationIDs() == ["cm_during_bootstrap"])
+        #expect(report.drainedClientMutationIDs == ["cm_during_bootstrap"])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+    }
+
+    @Test("an edit queued during the drain that names a just-created local id is rewritten to the server id")
+    func editQueuedDuringSendFollowsIDRemaps() async throws {
+        let create = try NativeQueuedMutation.recipeCreate(clientMutationID: "cm_create_live", title: "Soup", description: nil, servings: nil, steps: [], createdAt: Self.createdAt(0))
+        let localRecipeID = try #require(create.optimisticRecipeID)
+        let late = NativeQueuedMutation.recipeUpdate(recipeID: localRecipeID, clientMutationID: "cm_rename_live", title: "Better soup", description: nil, servings: nil, createdAt: Self.createdAt(1))
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: try NativeMutationQueue(mutations: [create]))
+        let transport = SendGateNativeSyncTransport(results: [
+            .success(serverRevision: nil, idRemaps: [NativeSyncIDRemap(localID: localRecipeID, serverID: "recipe_server_soup")])
+        ])
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+        let scope = boundScope
+        let configuration = configuration
+
+        let drain = Task { try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: scope) }
+        await transport.waitForFirstSend()
+        try await store.appendMutations([late], accountID: "chef_ari", environment: .local)
+        await transport.releaseFirstSend()
+        _ = try await drain.value
+
+        let queued = try await store.loadQueue().mutations
+        #expect(queued.map(\.clientMutationID) == ["cm_rename_live"])
+        #expect(queued.first?.recipeID == "recipe_server_soup")
+    }
+
+    @Test("an edit discarded while the drain is sending is neither sent nor brought back")
+    func editDiscardedDuringSendIsNotSent() async throws {
+        let sending = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_a", clientMutationID: "cm_keep_sending", title: "A", description: nil, servings: nil, createdAt: Self.createdAt(0))
+        let discarded = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_b", clientMutationID: "cm_discarded", title: "B", description: nil, servings: nil, createdAt: Self.createdAt(1))
+        let store = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .local, checkpoint: nil, queue: try NativeMutationQueue(mutations: [sending, discarded]))
+        let transport = SendGateNativeSyncTransport()
+        let engine = NativeSyncEngine(store: store, transport: transport, clock: { now })
+        let scope = boundScope
+        let configuration = configuration
+
+        let drain = Task { try await engine.bootstrapAndDrain(configuration: configuration, trigger: .foreground, scope: scope) }
+        await transport.waitForFirstSend()
+        try await store.removeMutations(clientMutationIDs: ["cm_discarded"], accountID: "chef_ari", environment: .local)
+        await transport.releaseFirstSend()
+        let report = try await drain.value
+
+        #expect(await transport.sentClientMutationIDs() == ["cm_keep_sending"])
+        #expect(report.drainedClientMutationIDs == ["cm_keep_sending"])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+    }
+
+    @Test("queue updates read and write the stored queue in one step, scoped to one account")
+    func queueUpdatesAreAtomicAndScoped() async throws {
+        let first = NativeQueuedMutation.shoppingCheckItem(itemID: "item_a", checked: true, clientMutationID: "cm_scope_a", createdAt: Self.createdAt(0))
+        let second = NativeQueuedMutation.shoppingCheckItem(itemID: "item_b", checked: true, clientMutationID: "cm_scope_b", createdAt: Self.createdAt(1))
+        let record = NativeSyncCachedRecord(kind: .shoppingItem, resourceID: "item_a", payload: .object(["name": .string("milk")]), serverRevision: .updatedAt(Self.createdAt(0)))
+
+        try await withTemporaryDirectory { directory in
+            let fileURL = directory.appendingPathComponent("queue-ops.json")
+            let fileStore = try FileBackedNativeSyncStore(fileURL: fileURL)
+            let memoryStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let stores: [any NativeSyncStore] = [fileStore, memoryStore]
+            for store in stores {
+                let appended = try await store.appendMutations([first, second], accountID: "chef_ari", environment: .local, upsertingCachedRecords: [record])
+                #expect(appended.mutations == [first, second])
+                #expect(try await store.queuedClientMutationIDs() == ["cm_scope_a", "cm_scope_b"])
+                #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_a") == record)
+
+                let removed = try await store.removeMutations(clientMutationIDs: ["cm_scope_a"], accountID: "chef_ari", environment: .local)
+                #expect(removed.mutations == [second])
+
+                // Another account starts from an empty queue and does not inherit the first account's records.
+                let otherAccount = try await store.updateQueue(accountID: "chef_other", environment: .local) { snapshot in
+                    #expect(snapshot.queue.mutations.isEmpty)
+                    return NativeQueueUpdate(queue: try snapshot.queue.appending(first), deletingCachedRecordKeys: ["shoppingItem:item_a"])
+                }
+                #expect(otherAccount.queue.mutations == [first])
+                #expect(otherAccount.deletingCachedRecordKeys == ["shoppingItem:item_a"])
+                #expect(try await store.loadSnapshot().accountID == "chef_other")
+                #expect(try await store.cachedRecord(kind: .shoppingItem, resourceID: "item_a") == nil)
+            }
+            let reloaded = try FileBackedNativeSyncStore(fileURL: fileURL)
+            #expect(try await reloaded.loadQueue().mutations == [first])
+        }
+
+        let unavailable = UnavailableNativeSyncStore(message: "native sync unavailable")
+        await #expect(throws: NativeSyncStoreError.unavailable("native sync unavailable")) {
+            try await unavailable.appendMutations([first], accountID: "chef_ari", environment: .local)
+        }
+        await #expect(throws: NativeSyncStoreError.unavailable("native sync unavailable")) {
+            try await unavailable.queuedClientMutationIDs()
+        }
+    }
+
     @Test("sync tombstones apply to local cache records and checkpoint revisions")
     func syncTombstonesApplyToLocalCacheRecordsAndCheckpointRevisions() async throws {
         let syncData = try APIEnvelope<NativeSyncData>.decode(Self.nativeSyncEnvelope).data
@@ -5864,5 +5989,88 @@ private actor RecordingNativeSyncTriggerRunner: NativeSyncTriggerRunning {
             pausedReason: nil,
             retryAfterSeconds: nil
         )
+    }
+}
+
+/// Holds the first mutation send open until the test releases it, so a test can change the queue while a drain is
+/// sending. Later sends answer at once. Each send answers with the next scripted result, or success.
+actor SendGateNativeSyncTransport: NativeSyncTransport {
+    private var results: [NativeSyncMutationResult]
+    private var sent: [NativeQueuedMutation] = []
+    private var startWaiters: [CheckedContinuation<Void, Never>] = []
+    private var gate: CheckedContinuation<Void, Never>?
+    private var firstSendStarted = false
+
+    init(results: [NativeSyncMutationResult] = []) {
+        self.results = results
+    }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        .success(cursor: nil, tombstones: [])
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        sent.append(mutation)
+        if !firstSendStarted {
+            firstSendStarted = true
+            for waiter in startWaiters {
+                waiter.resume()
+            }
+            startWaiters = []
+            await withCheckedContinuation { gate = $0 }
+        }
+        return results.isEmpty ? .success(serverRevision: nil) : results.removeFirst()
+    }
+
+    /// Returns once the first send is in flight.
+    func waitForFirstSend() async {
+        if firstSendStarted {
+            return
+        }
+        await withCheckedContinuation { startWaiters.append($0) }
+    }
+
+    /// Lets the held first send answer.
+    func releaseFirstSend() {
+        gate?.resume()
+        gate = nil
+    }
+
+    func sentClientMutationIDs() -> [String] {
+        sent.map(\.clientMutationID)
+    }
+
+    func sentMutations() -> [NativeQueuedMutation] {
+        sent
+    }
+}
+
+/// Queues `mutation` in `store` while the bootstrap request is in flight, as the app or an intent would.
+actor AppendDuringBootstrapTransport: NativeSyncTransport {
+    private let store: any NativeSyncStore
+    private let mutation: NativeQueuedMutation
+    private let accountID: String
+    private let environment: NativeCacheEnvironment
+    private var sent: [String] = []
+
+    init(store: any NativeSyncStore, mutation: NativeQueuedMutation, accountID: String, environment: NativeCacheEnvironment) {
+        self.store = store
+        self.mutation = mutation
+        self.accountID = accountID
+        self.environment = environment
+    }
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        try await store.appendMutations([mutation], accountID: accountID, environment: environment)
+        return .success(cursor: nil, tombstones: [])
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration _: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        sent.append(mutation.clientMutationID)
+        return .success(serverRevision: nil)
+    }
+
+    func sentClientMutationIDs() -> [String] {
+        sent
     }
 }
