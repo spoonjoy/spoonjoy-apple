@@ -372,7 +372,7 @@ private struct ProfileGraphList: View {
                         openRoute(row.openRoute)
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(row.username)
+                            Text(ChefDisplayName.forUsername(row.username))
                                 .font(KitchenTableTheme.bodyNote)
                             Text(row.interactionSummary)
                                 .font(KitchenTableTheme.uiLabel)

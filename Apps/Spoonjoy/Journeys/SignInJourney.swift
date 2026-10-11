@@ -32,6 +32,23 @@ final class SignInJourney: JourneyTestCase {
 
         journey.openSettings()
         journey.assertQAEnvironment()
+        // Delete account opens its confirmation sheet; cancelling it leaves the account and the session alone.
+        journey.tap(JourneyID.settingsDeleteAccount)
+        XCTAssertTrue(
+            journey.element(JourneyID.settingsDeleteAccountConfirm).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Delete account did not open its confirmation sheet. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "01-delete-account-sheet", to: self)
+        journey.tap(JourneyID.settingsDeleteAccountCancel)
+        XCTAssertTrue(
+            journey.element(JourneyID.settingsDeleteAccountConfirm).waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Cancel did not close the delete account sheet. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.settingsDownloadData).exists,
+            "Settings has no Download my data row. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "02-your-data-section", to: self)
         journey.signOut()
         journey.closeSettings()
         XCTAssertTrue(

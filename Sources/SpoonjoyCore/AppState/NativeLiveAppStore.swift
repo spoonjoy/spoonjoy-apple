@@ -2089,6 +2089,11 @@ public final class NativeLiveAppStore: ObservableObject {
         if let queue = try? await dependencies.syncStore.loadQueue() {
             dependencies.stagedMediaDirectory?.deleteMedia(ofDrained: queue.mutations)
         }
+        // Empty the queue inside the account's own scope first. Leaving a scope parks its edits for a later sign-in
+        // (see `NativeMutationQueueParking`), so saving straight into the signed-out scope would keep them.
+        if let syncSnapshot = try? await dependencies.syncStore.loadSnapshot() {
+            try? await dependencies.syncStore.saveQueue(NativeMutationQueue(), accountID: syncSnapshot.accountID, environment: syncSnapshot.environment, upsertingCachedRecords: [], deletingCachedRecordKeys: [])
+        }
         try? await dependencies.syncStore.saveQueue(NativeMutationQueue(), accountID: nil, environment: nil, upsertingCachedRecords: [], deletingCachedRecordKeys: [])
         try? await dependencies.syncStore.clearCheckpoint()
         if let emptyCache = try? NativeDurableCacheSnapshot(schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion, accountID: signedOutScope, environment: cacheEnvironment, createdAt: dependencies.now(), records: [], dismissedIndicators: []) {
@@ -2638,6 +2643,25 @@ public final class NativeLiveAppStore: ObservableObject {
             )
             await bootstrap()
             return .createdAPIToken(envelope.data)
+        case .captureAccountExport(let username):
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: JSONValue.self
+            )
+            return .exportedAccountData(try AccountExportFile(
+                username: username,
+                exportedAt: dependencies.now(),
+                export: envelope.data
+            ))
+        case .deleteAccountThenSignOutLocally:
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: AccountDeletionResult.self
+            )
+            try await signOutLocallyAfterAccountDeletion()
+            return .deletedAccount(envelope.data)
         }
     }
 
@@ -2758,15 +2782,32 @@ public final class NativeLiveAppStore: ObservableObject {
 
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
-        case .logout, .revokeAndLogout:
+        case .logout, .revokeAndLogout, .signOutLocally:
             // A sync that is already running belongs to the account signing out: drop whatever it finishes, and
             // make it run one more pass, which finds no session and shows the signed-out screen.
             authGeneration += 1
             queueVersion += 1
             await purgeLocalAccountData()
-            try await dependencies.authSessionRepository.revokeAndLogout()
+            if operation == .signOutLocally {
+                try await dependencies.authSessionRepository.clearLocalSession()
+            } else {
+                try await dependencies.authSessionRepository.revokeAndLogout()
+            }
         }
         await bootstrap()
+    }
+
+    /// After DELETE /api/v1/me succeeds the account, and every token it held, is gone on the server, so a revoke
+    /// has nothing left to do. Wipe what this device kept for the account (the queue of changes waiting to sync,
+    /// which can never be sent now, the durable cache and the app-state snapshot), then sign out locally, which
+    /// also clears the system search index.
+    private func signOutLocallyAfterAccountDeletion() async throws {
+        sessionExpired = false
+        // Drop whatever a sync already running finishes, so it cannot write the deleted account back after the wipe.
+        authGeneration += 1
+        queueVersion += 1
+        await wipeLocalAccountStores()
+        try await performSettingsSessionOperation(.signOutLocally)
     }
 
     public func purgeShoppingEntityIdentifiers(

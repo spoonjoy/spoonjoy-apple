@@ -94,6 +94,25 @@ public enum PrivateAccountRequests {
         )
     }
 
+    /// GET /api/v1/me/export: everything the account put into Spoonjoy, as one JSON document.
+    public static func exportAccount() -> APIRequestBuilder {
+        APIRequestSupport.privateRead(pathComponents: ["api", "v1", "me", "export"])
+    }
+
+    /// DELETE /api/v1/me: permanently deletes the account. The server rejects unknown fields, so only the proof
+    /// that applies is sent.
+    public static func deleteAccount(confirmUsername: String, proof: AccountDeletionProof) throws -> APIRequestBuilder {
+        var body: [String: Any] = ["confirmUsername": confirmUsername]
+        switch proof {
+        case .password(let password):
+            body["password"] = password
+        case .signInWithApple(let identityToken, let rawNonce):
+            body["appleIdentityToken"] = identityToken
+            body["appleRawNonce"] = rawNonce
+        }
+        return try APIRequestSupport.privateJSON(method: .delete, pathComponents: ["api", "v1", "me"], body: body)
+    }
+
     public static func uploadProfilePhoto(photo: UploadFile) throws -> APIRequestBuilder {
         try APIRequestSupport.privateMultipart(
             method: .post,

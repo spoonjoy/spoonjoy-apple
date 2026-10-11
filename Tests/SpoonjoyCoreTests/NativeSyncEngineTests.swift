@@ -2472,7 +2472,9 @@ struct NativeSyncEngineTests {
             (.apnsDeviceTokenAcquisition, "Device token acquisition is online-only and was not queued."),
             (.providerSecretBlockedCoverRegeneration, "Provider-secret-blocked cover regeneration is online-only and was not queued."),
             (.providerSecretBlockedImport, "Provider-secret-blocked import is online-only and was not queued."),
-            (.destructiveProductionApproval, "Destructive production approvals are online-only and were not queued.")
+            (.destructiveProductionApproval, "Destructive production approvals are online-only and were not queued."),
+            (.accountExport, "Downloading your data is online-only and was not queued."),
+            (.accountDeletion, "Deleting your account is online-only and was not queued.")
         ]
 
         for (action, reason) in onlineOnlyCases {

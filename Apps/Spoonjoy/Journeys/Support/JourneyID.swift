@@ -10,6 +10,10 @@ enum JourneyID {
     static let settingsEnvironmentValue = "settings.environment.value"
     static let settingsClose = "settings.close"
     static let settingsSignOut = "settings.signout"
+    static let settingsDownloadData = "settings.downloadData"
+    static let settingsDeleteAccount = "settings.deleteAccount"
+    static let settingsDeleteAccountConfirm = "settings.deleteAccount.confirm"
+    static let settingsDeleteAccountCancel = "settings.deleteAccount.cancel"
 
     /// The Kitchen root's account button, which opens Settings.
     static let kitchenAccount = "kitchen.account"
