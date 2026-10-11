@@ -324,6 +324,13 @@ public struct NativeShellContentState {
     public let offlineIndicatorState: OfflineIndicatorState
     public let settingsSurfaceData: SettingsSurfaceData?
     public let notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
+    /// When the app last finished a real sync with the server, or nil if it never has. Surfaces that have no
+    /// per-record freshness of their own derive "out of date" from this, not from a placeholder.
+    public let lastSyncedAt: Date?
+    /// True while the server has refused the stored session for good. The cached kitchen and its unsynced
+    /// work stay in place under the same account (`authSessionState` keeps the stored session); only syncing
+    /// stops, until the chef signs in again.
+    public let isSessionExpired: Bool
 
     public func recipe(id: String) -> Recipe? {
         recipes.first { $0.id == id }
@@ -417,7 +424,7 @@ public struct NativeShellContentState {
             oauthConnections: [],
             environment: environment,
             offline: .unavailable,
-            source: .cache(lastValidatedAt: .distantPast)
+            source: .cache(lastValidatedAt: lastSyncedAt ?? .distantPast)
         )
         return SettingsSurfaceViewModel(
             data: data,
@@ -1054,7 +1061,10 @@ public struct NativeShellContentState {
         configuration: APIClientConfiguration? = nil,
         offlineIndicatorState: OfflineIndicatorState? = nil,
         settingsSurfaceData: SettingsSurfaceData?? = nil,
-        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?? = nil
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?? = nil,
+        authSessionState: NativeAuthSessionState? = nil,
+        lastSyncedAt: Date?? = nil,
+        isSessionExpired: Bool? = nil
     ) -> NativeShellContentState {
         NativeShellContentState(
             recipes: recipes ?? self.recipes,
@@ -1068,12 +1078,14 @@ public struct NativeShellContentState {
             queuedMutations: queuedMutations ?? self.queuedMutations,
             syncConflicts: syncConflicts ?? self.syncConflicts,
             searchSurfaceSnapshots: searchSurfaceSnapshots ?? self.searchSurfaceSnapshots,
-            authSessionState: authSessionState,
+            authSessionState: authSessionState ?? self.authSessionState,
             environment: environment ?? self.environment,
             configuration: configuration ?? self.configuration,
             offlineIndicatorState: offlineIndicatorState ?? self.offlineIndicatorState,
             settingsSurfaceData: settingsSurfaceData ?? self.settingsSurfaceData,
-            notificationAPNsSurfaceData: notificationAPNsSurfaceData ?? self.notificationAPNsSurfaceData
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData ?? self.notificationAPNsSurfaceData,
+            lastSyncedAt: lastSyncedAt ?? self.lastSyncedAt,
+            isSessionExpired: isSessionExpired ?? self.isSessionExpired
         )
     }
 
@@ -1199,7 +1211,8 @@ public struct NativeShellContentState {
             configuration: configuration,
             offlineIndicatorState: offlineIndicatorState,
             settingsSurfaceData: settingsSurfaceData,
-            notificationAPNsSurfaceData: notificationAPNsSurfaceData
+            notificationAPNsSurfaceData: notificationAPNsSurfaceData,
+            lastSyncedAt: date(from: syncSnapshot.checkpoint?.updatedAt)
         )
     }
 
@@ -1367,7 +1380,7 @@ public struct NativeShellContentState {
         }
     }
 
-    private static func date(from isoString: String?) -> Date? {
+    static func date(from isoString: String?) -> Date? {
         guard let isoString else {
             return nil
         }
@@ -1693,8 +1706,12 @@ public struct NativeShellContentState {
         configuration: APIClientConfiguration,
         offlineIndicatorState: OfflineIndicatorState,
         settingsSurfaceData: SettingsSurfaceData?,
-        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?
+        notificationAPNsSurfaceData: NotificationAPNsSurfaceData?,
+        lastSyncedAt: Date? = nil,
+        isSessionExpired: Bool = false
     ) {
+        self.isSessionExpired = isSessionExpired
+        self.lastSyncedAt = lastSyncedAt
         self.recipes = recipes
         self.cookbooks = cookbooks
         self.cachedProfiles = cachedProfiles
@@ -1800,6 +1817,8 @@ public final class NativeLiveAppStore: ObservableObject {
     private var configuration: APIClientConfiguration
     private var cacheEnvironment: NativeCacheEnvironment
     private var currentContentState: NativeShellContentState
+    /// Set when the server refuses the stored session for good, cleared once a session refreshes or signs in.
+    private var sessionExpired = false
     private lazy var shoppingMutationCoordinator = ShoppingMutationCoordinator(
         persistAlreadyAppliedBatch: { [unowned self] mutations in
             try await self.persistAlreadyAppliedShoppingBatch(mutations)
@@ -1969,12 +1988,16 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func performSync(trigger: NativeSyncTriggerEvent) async {
+        // Set once the vault has been read, so a failure after that point can still show the cached kitchen
+        // under the stored account instead of an empty signed-out scope.
+        var restoredForRecovery = currentContentState.authSessionState
         do {
             guard !dependencies.fixtureFallbackPolicy.allowsProductionFallback() else {
                 throw NativeLiveAppStoreError.fixtureFallbackEnabledInProduction
             }
 
             let restoredAuthState = try await dependencies.authSessionRepository.restoreState()
+            restoredForRecovery = restoredAuthState
             if dependencies.bootstrapMode == .restoreCacheOnly {
                 configureForRestoredAuthState(restoredAuthState)
                 let restoredContent = try await restoreFromCache(authSessionState: restoredAuthState)
@@ -2022,8 +2045,12 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
-            let offlineContent = (try? await restoreFromCache(authSessionState: currentContentState.authSessionState)) ?? currentContentState
+            let offlineContent = (try? await restoreFromCache(authSessionState: restoredForRecovery)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
+        } catch TokenRefreshError.sessionExpired {
+            await applySessionExpired(restoredAuthState: restoredForRecovery)
+        } catch TokenRefreshError.sessionRevoked {
+            await applySessionRevoked(restoredAuthState: restoredForRecovery)
         } catch {
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "launch",
@@ -2041,11 +2068,81 @@ public final class NativeLiveAppStore: ObservableObject {
                 route: restoredRoute,
                 contentState: currentContentState
             )
+            if !hasKitchenContent(currentContentState),
+               let cached = try? await restoreFromCache(authSessionState: restoredForRecovery) {
+                currentContentState = cached
+            }
             apply(.syncFailed(
                 currentContentState.copy(offlineIndicatorState: OfflineIndicatorState(display: .syncFailure(errorID: "bootstrap", retryAfter: nil), dismissal: nil)),
                 message: NativeLiveAppStoreTelemetry.failureMessage(for: error)
             ))
         }
+    }
+
+    /// Empties every store that holds the account's data on disk: the sync queue, checkpoint and cached
+    /// records, staged uploads, the durable cache file, and the app-state snapshot (drafts, routes, progress).
+    /// Without this a revoked session would leave the chef's recipes and unsynced edits readable, and queued
+    /// edits would drain to the server if the same chef signed back in.
+    private func wipeLocalAccountStores() async {
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        let signedOutScope = accountID(for: .signedOut)
+        if let queue = try? await dependencies.syncStore.loadQueue() {
+            dependencies.stagedMediaDirectory?.deleteMedia(ofDrained: queue.mutations)
+        }
+        try? await dependencies.syncStore.saveQueue(NativeMutationQueue(), accountID: nil, environment: nil, upsertingCachedRecords: [], deletingCachedRecordKeys: [])
+        try? await dependencies.syncStore.clearCheckpoint()
+        if let emptyCache = try? NativeDurableCacheSnapshot(schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion, accountID: signedOutScope, environment: cacheEnvironment, createdAt: dependencies.now(), records: [], dismissedIndicators: []) {
+            try? dependencies.cacheStore.save(emptyCache)
+        }
+        try? dependencies.appStateStoreProvider()?.save(NativeAppSnapshot.bootstrap(shoppingList: nil, accountID: signedOutScope, environment: cacheEnvironment, savedAt: savedAt))
+    }
+
+    /// The server refused the stored refresh token for good. Syncing stops and a sign-in is offered, but the
+    /// account scope does not change: the cached kitchen, the queued edits and every unsynced draft stay under
+    /// the chef's own account, still readable and still editable. The expired session stays in the vault (a
+    /// later sync tries it once more at launch), and a fresh sign-in replaces it.
+    private func applySessionExpired(restoredAuthState: NativeAuthSessionState) async {
+        sessionExpired = true
+        configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
+        let scope = restoredAuthState.keepingStoredScope
+        let cached = (try? await restoreFromCache(authSessionState: scope)) ?? emptyContent(authSessionState: scope, display: .stale(domain: .accountBootstrap))
+        let content = cached.copy(
+            offlineIndicatorState: OfflineIndicatorState(display: .stale(domain: .accountBootstrap), dismissal: nil),
+            authSessionState: scope
+        )
+        currentContentState = content
+        if hasKitchenContent(content) || hasUnsyncedWork(content) {
+            apply(.offlineStale(content))
+        } else {
+            apply(.signedOut(content))
+        }
+    }
+
+    /// The server said the chef revoked this session on purpose ("sign out everywhere", a password change,
+    /// account deletion). Unlike an expiry, the device forgets the account: search indexes, the cached kitchen
+    /// and its drafts, and the Keychain session.
+    private func applySessionRevoked(restoredAuthState: NativeAuthSessionState) async {
+        sessionExpired = false
+        let scope = restoredAuthState.keepingStoredScope
+        if let cached = try? await restoreFromCache(authSessionState: scope) {
+            currentContentState = cached
+        }
+        await purgeLocalAccountData()
+        await wipeLocalAccountStores()
+        try? await dependencies.authSessionRepository.clearLocalSession()
+        configuration = APIClientConfiguration(baseURL: dependencies.configuration.baseURL)
+        let content = (try? await restoreFromCache(authSessionState: .signedOut)) ?? emptyContent(authSessionState: .signedOut, display: .synced)
+        apply(.signedOut(content))
+    }
+
+    /// Work the chef made on this device that no server has seen yet. It must stay on screen, under the chef's
+    /// own account, even when no recipe is cached.
+    private func hasUnsyncedWork(_ content: NativeShellContentState) -> Bool {
+        !content.queuedMutations.isEmpty || content.captureDraft != nil || !content.spoonCookLogDraftsByRecipeID.isEmpty
+    }
+
+    private func hasKitchenContent(_ content: NativeShellContentState) -> Bool {
+        !content.recipes.isEmpty || !content.cookbooks.isEmpty || !(content.shoppingList?.activeItems.isEmpty ?? true)
     }
 
     /// Shows the kitchen saved for the restored account when nothing is on screen yet. Returns true when it did.
@@ -2141,6 +2238,10 @@ public final class NativeLiveAppStore: ObservableObject {
             )
             let offlineContent = (try? await restoreFromCache(authSessionState: authSessionState)) ?? currentContentState
             apply(.offlineStale(offlineContent.copy(offlineIndicatorState: OfflineIndicatorState(display: .offline, dismissal: nil))))
+        } catch TokenRefreshError.sessionExpired {
+            await applySessionExpired(restoredAuthState: authSessionState)
+        } catch TokenRefreshError.sessionRevoked {
+            await applySessionRevoked(restoredAuthState: authSessionState)
         } catch {
             NativeLiveAppStoreTelemetry.bootstrapFailed(
                 stage: "environment",
@@ -2564,6 +2665,97 @@ public final class NativeLiveAppStore: ObservableObject {
         return envelope.data
     }
 
+    /// Removes the signed-in account's private data from the system search and entity indexes on this device.
+    private func purgeLocalAccountData() async {
+        shoppingMutationCoordinator.resetScope()
+        let currentAccountID = accountID
+        let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
+        let makePurgePlan = ShoppingEntityIndexPurgePlan.accountScopePurge(accountID:environment:shoppingItemIDs:)
+        let purgePlan = makePurgePlan(currentAccountID, cacheEnvironment, shoppingItemIDs)
+        await purgeShoppingEntityIdentifiers(ShoppingEntityCatalog.purgeEntityIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: purgePlan
+        ), domainIdentifiers: ShoppingEntityCatalog.purgeDomainIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: purgePlan
+        ), accountID: currentAccountID, environment: cacheEnvironment)
+        let spoonIDs = currentContentState.recipes.flatMap { recipe in
+            recipe.recentSpoons.compactMap { spoon in
+                spoon.deletedAt == nil ? spoon.id : nil
+            }
+        }
+        let spoonPurgePlan = SpoonEntityIndexPurgePlan.accountScopePurge(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            spoonIDs: spoonIDs
+        )
+        await purgeSpoonEntityIdentifiers(SpoonEntityCatalog.purgeEntityIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: spoonPurgePlan
+        ), domainIdentifiers: SpoonEntityCatalog.purgeDomainIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: spoonPurgePlan
+        ), accountID: currentAccountID, environment: cacheEnvironment)
+        let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
+        let captureDraftSnapshot = currentContentState.captureDraft.map { draft in
+            NativeAppSnapshot.bootstrap(
+                shoppingList: currentContentState.shoppingList,
+                accountID: currentAccountID,
+                environment: cacheEnvironment,
+                savedAt: savedAt
+            ).recordingCaptureDraft(draft, savedAt: savedAt)
+        }
+        let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
+            appSnapshot: captureDraftSnapshot,
+            cacheSnapshot: nil,
+            accountID: currentAccountID,
+            environment: cacheEnvironment
+        )
+        await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: captureDraftPurgePlan
+        ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: captureDraftPurgePlan
+        ), accountID: currentAccountID, environment: cacheEnvironment)
+        let chefProfileIDs = currentContentState.cachedProfiles.map(\.profile.id)
+        let chefProfilePurgePlan = ChefProfileEntityIndexPurgePlan.accountScopePurge(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            profileIDs: chefProfileIDs
+        )
+        await purgeChefProfileEntityIdentifiers(ChefProfileEntityCatalog.purgeEntityIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: chefProfilePurgePlan
+        ), domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: chefProfilePurgePlan
+        ), accountID: currentAccountID, environment: cacheEnvironment)
+        let recipeCookbookPurgePlan = RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            recipeIDs: currentContentState.recipes.map(\.id),
+            cookbookIDs: currentContentState.cookbooks.map(\.id)
+        )
+        await purgeRecipeCookbookEntityIdentifiers(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: recipeCookbookPurgePlan
+        ), domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
+            accountID: currentAccountID,
+            environment: cacheEnvironment,
+            plan: recipeCookbookPurgePlan
+        ), accountID: currentAccountID, environment: cacheEnvironment)
+    }
+
     public func performSettingsSessionOperation(_ operation: SettingsSessionOperation) async throws {
         switch operation {
         case .logout, .revokeAndLogout:
@@ -2571,93 +2763,7 @@ public final class NativeLiveAppStore: ObservableObject {
             // make it run one more pass, which finds no session and shows the signed-out screen.
             authGeneration += 1
             queueVersion += 1
-            shoppingMutationCoordinator.resetScope()
-            let currentAccountID = accountID
-            let shoppingItemIDs = currentContentState.shoppingList?.activeItems.map(\.id) ?? []
-            let makePurgePlan = ShoppingEntityIndexPurgePlan.accountScopePurge(accountID:environment:shoppingItemIDs:)
-            let purgePlan = makePurgePlan(currentAccountID, cacheEnvironment, shoppingItemIDs)
-            await purgeShoppingEntityIdentifiers(ShoppingEntityCatalog.purgeEntityIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: purgePlan
-            ), domainIdentifiers: ShoppingEntityCatalog.purgeDomainIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: purgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
-            let spoonIDs = currentContentState.recipes.flatMap { recipe in
-                recipe.recentSpoons.compactMap { spoon in
-                    spoon.deletedAt == nil ? spoon.id : nil
-                }
-            }
-            let spoonPurgePlan = SpoonEntityIndexPurgePlan.accountScopePurge(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                spoonIDs: spoonIDs
-            )
-            await purgeSpoonEntityIdentifiers(SpoonEntityCatalog.purgeEntityIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: spoonPurgePlan
-            ), domainIdentifiers: SpoonEntityCatalog.purgeDomainIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: spoonPurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
-            let savedAt = NativeLiveAppStoreClock.isoString(dependencies.now())
-            let captureDraftSnapshot = currentContentState.captureDraft.map { draft in
-                NativeAppSnapshot.bootstrap(
-                    shoppingList: currentContentState.shoppingList,
-                    accountID: currentAccountID,
-                    environment: cacheEnvironment,
-                    savedAt: savedAt
-                ).recordingCaptureDraft(draft, savedAt: savedAt)
-            }
-            let captureDraftPurgePlan = CaptureDraftEntityIndexPurgePlan.accountScopePurge(
-                appSnapshot: captureDraftSnapshot,
-                cacheSnapshot: nil,
-                accountID: currentAccountID,
-                environment: cacheEnvironment
-            )
-            await purgeCaptureDraftEntityIdentifiers(CaptureDraftEntityCatalog.purgeEntityIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: captureDraftPurgePlan
-            ), domainIdentifiers: CaptureDraftEntityCatalog.purgeDomainIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: captureDraftPurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
-            let chefProfileIDs = currentContentState.cachedProfiles.map(\.profile.id)
-            let chefProfilePurgePlan = ChefProfileEntityIndexPurgePlan.accountScopePurge(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                profileIDs: chefProfileIDs
-            )
-            await purgeChefProfileEntityIdentifiers(ChefProfileEntityCatalog.purgeEntityIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: chefProfilePurgePlan
-            ), domainIdentifiers: ChefProfileEntityCatalog.purgeDomainIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: chefProfilePurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
-            let recipeCookbookPurgePlan = RecipeCookbookEntityIndexPurgePlan.accountScopePurge(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                recipeIDs: currentContentState.recipes.map(\.id),
-                cookbookIDs: currentContentState.cookbooks.map(\.id)
-            )
-            await purgeRecipeCookbookEntityIdentifiers(RecipeCookbookEntityCatalog.purgeEntityIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: recipeCookbookPurgePlan
-            ), domainIdentifiers: RecipeCookbookEntityCatalog.purgeDomainIdentifiers(
-                accountID: currentAccountID,
-                environment: cacheEnvironment,
-                plan: recipeCookbookPurgePlan
-            ), accountID: currentAccountID, environment: cacheEnvironment)
+            await purgeLocalAccountData()
             try await dependencies.authSessionRepository.revokeAndLogout()
         }
         await bootstrap()
@@ -3399,7 +3505,6 @@ public final class NativeLiveAppStore: ObservableObject {
             authSessionState: authSessionState,
             savedAt: savedAt
         )
-        restoredRoute = appSnapshot?.lastOpenedRoute.flatMap(AppRoute.init(stateIdentifier:))
         let display: OfflineIndicatorDisplay
         if !syncSnapshot.queue.mutations.isEmpty {
             display = .queuedWork(
@@ -3423,6 +3528,9 @@ public final class NativeLiveAppStore: ObservableObject {
             offlineIndicatorState: OfflineIndicatorState(display: display, dismissal: record.value.dismissedIndicators.first)
         )
         if !isStaleSyncPass {
+            restoredRoute = appSnapshot?.lastOpenedRoute
+                .flatMap(AppRoute.init(stateIdentifier:))?
+                .restorable(recipeIDs: Set(content.recipes.map(\.id)), cookbookIDs: Set(content.cookbooks.map(\.id)))
             currentContentState = content
         }
         return content
@@ -3548,7 +3656,8 @@ public final class NativeLiveAppStore: ObservableObject {
         let content = restoredContent.copy(
             offlineIndicatorState: shouldPreserveRestoredBlocker
                 ? restoredContent.offlineIndicatorState
-                : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now())
+                : OfflineIndicatorState.synced(lastSyncedAt: dependencies.now()),
+            lastSyncedAt: dependencies.now()
         )
 
         let providerSecretResourceID = report.blockers.first.map { blocker -> String in
@@ -3771,6 +3880,10 @@ public final class NativeLiveAppStore: ObservableObject {
         guard !isStaleSyncPass else {
             return
         }
+        var state = state
+        if state.contentState.isSessionExpired != sessionExpired {
+            state = state.replacingContent(state.contentState.copy(isSessionExpired: sessionExpired))
+        }
         currentContentState = state.contentState
         bootstrapState = state
     }
@@ -3913,6 +4026,7 @@ public final class NativeLiveAppStore: ObservableObject {
             return .signedOut
         case .authenticated, .refreshRequired:
             let session = try await dependencies.authSessionRepository.validSession()
+            sessionExpired = false
             configuration = APIClientConfiguration(
                 baseURL: dependencies.configuration.baseURL,
                 bearerToken: session.accessToken
