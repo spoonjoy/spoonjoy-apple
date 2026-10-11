@@ -89,7 +89,7 @@ struct NativeMobileDesignContractTests {
                 "cookModeSpread(layout)",
                 "cookSpreadLeadingControls",
                 "cookSpreadTrailingControls",
-                "CookModeSystemTimer(timer: timer)"
+                "CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers"
             ],
             forbids: hingeAPIs
         )

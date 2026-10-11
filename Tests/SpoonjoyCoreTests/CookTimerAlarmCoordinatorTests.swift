@@ -100,6 +100,39 @@ struct CookTimerLiveActivityWiringTests {
         #expect(!(host + widget + shared).contains("Activity.request"))
     }
 
+    @Test("every timer start goes through the per-step registry, so a step never gets a second alarm")
+    func startsGoThroughTheRegistry() throws {
+        let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
+        let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
+
+        #expect(view.contains("try await CookModeSessionCenter.shared.stepTimers.start(step: stepTimerKey(step))"))
+        #expect(view.contains("return try await scheduleSystemTimer(timer, step: step)"))
+        #expect(center.contains("return try await registration.startTimer(timer).message(startedMessage: outcome.message)"))
+        #expect(center.contains("let stepTimers = CookStepTimerRegistry("))
+    }
+
+    @Test("cook mode swaps the start button for Cancel while the step's alarm runs")
+    func cookModeOffersCancel() throws {
+        let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
+
+        #expect(view.contains("if stepTimers.alarmID(forStep: stepKey) != nil {"))
+        #expect(view.contains(".accessibilityIdentifier(\"cookMode.timer.cancel\")"))
+        #expect(view.contains(".accessibilityIdentifier(\"cookMode.timer.start\")"))
+        #expect(view.contains("try AlarmManager.shared.cancel(id: alarmID)"))
+    }
+
+    @Test("the Live Activity offers Cancel while counting down or paused, and ended alarms free their step")
+    func liveActivityOffersCancel() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookTimerLiveActivity.swift")
+        let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
+
+        let controls = try #require(widget.range(of: "private var showsCancel: Bool {"))
+        #expect(widget[controls.upperBound...].prefix(160).contains("case .countdown, .paused:\n            return true"))
+        #expect(widget.contains(".accessibilityIdentifier(\"cookTimer.liveActivity.cancel\")"))
+        #expect(host.contains("for await alarms in AlarmManager.shared.alarmUpdates"))
+        #expect(host.contains("CookModeSessionCenter.shared.stepTimers.forget(alarmID: alarmID)"))
+    }
+
     @Test("the next step button opens the app so it works when cook mode is not on screen")
     func nextStepOpensApp() throws {
         let shared = try source("Apps/Spoonjoy/LiveActivity/Shared/SpoonjoyCookTimerActivity.swift")

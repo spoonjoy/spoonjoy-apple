@@ -166,6 +166,15 @@ struct CookTimerControls: View {
     private var secondaryText: Color { onDark ? Color.white : KitchenTableTheme.charcoal }
     private var secondaryFill: Color { onDark ? Color.white.opacity(0.18) : KitchenTableTheme.vellum }
 
+    private var showsCancel: Bool {
+        switch mode {
+        case .countdown, .paused:
+            return true
+        default:
+            return false
+        }
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             switch mode {
@@ -198,6 +207,20 @@ struct CookTimerControls: View {
                 .background(primaryFill, in: Capsule())
             @unknown default:
                 EmptyView()
+            }
+
+            // A running or paused timer can be cancelled here, not only stopped after it rings.
+            if showsCancel {
+                Button(intent: StopCookTimerIntent(alarmID: alarmID)) {
+                    Label("Cancel", systemImage: "xmark")
+                        .font(KitchenTableTheme.uiLabel)
+                        .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(secondaryText)
+                .background(secondaryFill, in: Capsule())
+                .accessibilityLabel("Cancel timer")
+                .accessibilityIdentifier("cookTimer.liveActivity.cancel")
             }
 
             Button(intent: NextCookActivityStepIntent(recipeID: recipeID)) {

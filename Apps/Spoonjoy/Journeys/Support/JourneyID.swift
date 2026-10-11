@@ -96,6 +96,9 @@ enum JourneyID {
     static let cookIngredient = "cookMode.ingredient"
     /// The scale stepper sits inline in cook mode; it is not behind Tools.
     static let cookScale = "cookMode.scale"
+    /// The step timer's start button, and the Cancel button that replaces it while the step's system alarm runs.
+    static let cookTimerStart = "cookMode.timer.start"
+    static let cookTimerCancel = "cookMode.timer.cancel"
 
     /// Every result row in Search.
     static let searchResult = "search.result"
