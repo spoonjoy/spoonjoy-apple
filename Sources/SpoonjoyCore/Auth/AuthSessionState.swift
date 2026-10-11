@@ -92,12 +92,24 @@ public struct AuthSession: Equatable, Codable, Sendable {
         }
 
         return try AuthSession(
-            clientID: clientID,
+            clientID: response.clientID ?? clientID,
             accessToken: response.accessToken,
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: receivedAt.addingTimeInterval(TimeInterval(response.expiresIn)),
             scope: response.scope,
+            accountID: accountID
+        )
+    }
+
+    public func replacingClientID(_ clientID: String) throws -> AuthSession {
+        try AuthSession(
+            clientID: clientID,
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            tokenType: tokenType,
+            expiresAt: expiresAt,
+            scope: scope,
             accountID: accountID
         )
     }
