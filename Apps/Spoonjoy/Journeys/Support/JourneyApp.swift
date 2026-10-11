@@ -210,10 +210,8 @@ final class JourneyApp {
         assertValue(of: field, equals: text, "\(id) does not hold \(text).", file: file, line: line)
     }
 
-    /// Saves the recipe editor. Save is the form's last row. Run 36333893304 showed the keyboard still up
-    /// after two swipes, with Save at y 904, under the tab bar, so the tap never reached it. The field
-    /// being edited is closed with Return first, then one swipe reaches the end of the form, and Save must
-    /// sit above the tab bar before it is tapped.
+    /// Saves the recipe editor. Save is in the navigation bar, so it is reachable with the keyboard up. The
+    /// field being edited is closed with Return first, so the last field before Save must be a single-line field.
     func saveRecipeEditor(file: StaticString = #filePath, line: UInt = #line) {
         app.typeText(XCUIKeyboardKey.return.rawValue)
         XCTAssertTrue(
@@ -225,20 +223,11 @@ final class JourneyApp {
         saveOpenRecipeEditor(file: file, line: line)
     }
 
-    /// Saves an editor with no keyboard up (after tapping reorder controls rather than typing): one swipe
-    /// reaches the form's end, Save must sit above the tab bar, and the editor must close.
+    /// Saves an editor from its toolbar Save button and checks the editor closes.
     func saveOpenRecipeEditor(file: StaticString = #filePath, line: UInt = #line) {
-        app.swipeUp()
         let save = element(JourneyID.editorSave)
         XCTAssertTrue(save.waitForExistence(timeout: Self.interactionTimeout), "The editor's Save button is missing.", file: file, line: line)
         XCTAssertTrue(save.isEnabled, "Save is disabled, so the editor rejected the draft.", file: file, line: line)
-        XCTAssertLessThanOrEqual(
-            save.frame.maxY,
-            app.tabBars.firstMatch.frame.minY,
-            "Save is under the tab bar, where a tap would not reach it. Screen: \(screen)",
-            file: file,
-            line: line
-        )
         save.tap()
         // The editor's title field, not Save, shows whether the editor closed: while saving, Save's label
         // becomes a progress view and the Save button query stops matching (run 36337705822).
@@ -375,17 +364,18 @@ final class JourneyApp {
 
     /// A text input found by its type as well as its identifier. The editor form holds dozens of elements, and
     /// a query over every element type timed out evaluating on a slow runner (run 37952511182, "Failed to get
-    /// matching snapshot" on `editor.step.2.ingredient.4.quantity`). The multi-line step description and the
-    /// paste box are text views; every other input a journey types into is a text field.
+    /// matching snapshot" on `editor.step.2.ingredient.4.quantity`). The paste box is a text view; every other
+    /// input a journey types into, the multi-line descriptions (vertical text fields) included, is a text field.
     private func fieldQuery(_ id: String) -> XCUIElementQuery {
         let named = NSPredicate(format: "identifier == %@", id)
-        let isTextView = id == JourneyID.editorPasteText || id.hasSuffix(".description")
+        let isTextView = id == JourneyID.editorPasteText
         return (isTextView ? app.textViews : app.textFields).matching(named)
     }
 
     private static let fieldCentre = CGVector(dx: 0.5, dy: 0.5)
     private static let fieldTrailingEdge = CGVector(dx: 0.97, dy: 0.5)
     private static let focusAttempts = 3
+    private static let scrollDrags = 12
     private static let focusWait: TimeInterval = 4
 
     /// Puts keyboard focus in the first match of `query`. Focus flaked on four heads when a tap landed on a
@@ -415,13 +405,28 @@ final class JourneyApp {
         }
         let field = query.firstMatch
         if scrolls {
-            scrollIntoView(field, dragsLeft: 6)
+            scrollIntoView(field, dragsLeft: Self.scrollDrags)
+        }
+        guard Self.isLocated(field) else {
+            // Tapping an element with no frame throws inside XCUITest; fail with the reason instead.
+            XCTFail("\(query.firstMatch.debugDescription) has no usable frame after scrolling both ways.")
+            return true
         }
         field.coordinate(withNormalizedOffset: offset).tap()
         if query.matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch.waitForExistence(timeout: Self.focusWait) {
             return true
         }
         return tapUntilFocused(query, taps: taps.dropFirst(), scrolls: scrolls)
+    }
+
+    /// An off-screen field can still report `exists` while its frame is infinite or empty (the editor lets
+    /// SwiftUI drop fields far outside the viewport), so a frame, not existence, says where it is.
+    private static func isLocated(_ field: XCUIElement) -> Bool {
+        guard field.exists else {
+            return false
+        }
+        let frame = field.frame
+        return frame.minY.isFinite && frame.maxY.isFinite && !frame.isEmpty && !frame.isInfinite
     }
 
     /// Drags the form until `field` sits fully between the navigation bar and whatever covers the bottom of the
@@ -434,15 +439,24 @@ final class JourneyApp {
             bottom = min(bottom, app.tabBars.firstMatch.frame.minY)
         }
         if app.keyboards.firstMatch.exists {
-            bottom = min(bottom, app.keyboards.firstMatch.frame.minY)
+            // The keyboard's glass top edge sits about 70 pt above its reported frame.
+            bottom = min(bottom, app.keyboards.firstMatch.frame.minY - 70)
         }
-        let visible = field.exists && field.frame.minY >= top + margin && field.frame.maxY <= bottom - margin
+        let located = Self.isLocated(field)
+        let visible = located && field.frame.minY >= top + margin && field.frame.maxY <= bottom - margin
         guard !visible, dragsLeft > 0 else {
             return
         }
-        let towardsTop = !field.exists || field.frame.maxY > bottom - margin
-        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? 0.65 : 0.35))
-        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? 0.35 : 0.65))
+        // A field without a frame may be above or below the viewport (the editor drops
+        // off-screen fields): look below first, then, after a few drags, look above.
+        let towardsTop = located ? field.frame.maxY > bottom - margin : dragsLeft > Self.scrollDrags / 2
+        // The keyboard is drawn taller than its reported frame (a drag started at 0.65 of the screen height
+        // landed on the keys and scrolled nothing), so with it up the drag stays in the top half of the screen.
+        let keyboardUp = app.keyboards.firstMatch.exists
+        let startY = keyboardUp ? 0.45 : 0.65
+        let endY = keyboardUp ? 0.15 : 0.35
+        let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? startY : endY))
+        let to = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: towardsTop ? endY : startY))
         from.press(forDuration: 0.05, thenDragTo: to)
         scrollIntoView(field, dragsLeft: dragsLeft - 1)
     }
