@@ -112,7 +112,7 @@ struct ProfileSettingsIntentTests {
                 "Sources/SpoonjoyCore/API/NativeAPIRequests.swift": [
                     "public static func updateProfile(",
                     "public static func uploadProfilePhoto(",
-                    "public static func removeProfilePhoto()",
+                    "public static func removeProfilePhoto(clientMutationID:",
                     "public static func disconnectConnection(",
                     "public static func listTokens()",
                     "public static func createToken(",
@@ -734,16 +734,17 @@ struct ProfileSettingsIntentTests {
             ),
             "online profile display"
         )
+        let displayFallback = try profileSettingsIntentRequireMutation(displayOnline.plan.offlineFallbackMutation, "online profile fallback")
         try profileSettingsIntentAssertJSONRequest(
             try profileSettingsIntentRemoteRequest(from: displayOnline.plan),
             method: .patch,
             path: "/api/v1/me",
             expected: [
+                "clientMutationId": displayFallback.clientMutationID,
                 "email": "ari@example.com",
                 "username": "ari"
             ]
         )
-        let displayFallback = try profileSettingsIntentRequireMutation(displayOnline.plan.offlineFallbackMutation, "online profile fallback")
         #expect(displayFallback.queueableKind == .profileDisplayUpdate)
         #expect(displayFallback.profileDisplayUpdateValues?.email == "ari@example.com")
         #expect(displayFallback.profileDisplayUpdateValues?.username == "ari")
