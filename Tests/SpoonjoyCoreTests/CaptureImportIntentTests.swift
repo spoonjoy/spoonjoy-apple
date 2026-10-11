@@ -146,7 +146,7 @@ struct CaptureImportIntentTests {
                         "NativeIntentActionResolver().captureRecipe(",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: []
                 ),
@@ -164,7 +164,7 @@ struct CaptureImportIntentTests {
                         "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: [
                         "var draftID: String",
@@ -201,7 +201,7 @@ struct CaptureImportIntentTests {
                         "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: [
                         "var draftID: String",

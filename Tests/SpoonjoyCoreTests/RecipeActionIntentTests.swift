@@ -104,7 +104,7 @@ struct RecipeActionIntentTests {
                         "@Parameter(title: \"Title\")",
                         "NativeIntentActionResolver().forkRecipe(recipe: recipe.descriptor",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: [
                         "var recipeID: String",
