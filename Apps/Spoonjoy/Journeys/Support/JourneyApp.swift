@@ -308,6 +308,26 @@ final class JourneyApp {
         }
     }
 
+    /// Allows the AlarmKit permission prompt when the system shows it after the first timer start. Like the Reminders
+    /// prompt, it waits once for whichever comes first: the system alert, or the element that shows the app already has
+    /// access (`settledID`). A simulator that already granted access shows no prompt, so the wait simply ends.
+    func allowAlarmsIfAsked(settledID: String) {
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let allow = springboard.alerts.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Allow")).firstMatch
+        let settled = element(settledID)
+        let either = NSPredicate { _, _ in allow.exists || settled.exists }
+        let expectation = XCTNSPredicateExpectation(predicate: either, object: nil)
+        _ = XCTWaiter().wait(for: [expectation], timeout: Self.networkTimeout)
+        if allow.exists {
+            allow.tap()
+        }
+    }
+
+    /// How many elements carry this identifier right now.
+    func count(_ id: String) -> Int {
+        query(id).count
+    }
+
     /// The recent sync requests and the server's answers, recorded by the app for this run. It is empty text when
     /// the app does not expose it.
     var syncLog: String {
