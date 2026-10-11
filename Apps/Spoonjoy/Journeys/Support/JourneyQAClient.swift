@@ -7,6 +7,8 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
     case missingRecipeID
     case missingCookbookID
     case missingIngredient(String)
+    case missingRecipeTitle(String)
+    case recipeTitleNotSynced(expected: String, last: String)
     case cookSessionNotSynced(String)
 
     var description: String {
@@ -19,6 +21,10 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
             "QA created a recipe but the response had no data.recipe.id."
         case .missingCookbookID:
             "QA created a cookbook but the response had no cookbook id."
+        case .missingRecipeTitle(let id):
+            "QA returned recipe \(id) without data.recipe.title."
+        case .recipeTitleNotSynced(let expected, let last):
+            "QA's recipe title never became \"\(expected)\". Last reading: \"\(last)\"."
         case .missingIngredient(let name):
             "The recipe QA returned has no ingredient named \(name)."
         case .cookSessionNotSynced(let detail):
@@ -60,6 +66,45 @@ struct JourneyQAClient: Sendable {
             throw JourneyQAClientError.missingRecipeID
         }
         return id
+    }
+
+    /// Renames a recipe as this account without naming a version, the way another device saving over it would.
+    func renameRecipe(_ recipeID: String, to title: String) async throws {
+        let builder = try RecipeWriteRequests.updateRecipe(
+            id: recipeID,
+            clientMutationID: "journey-\(UUID().uuidString.lowercased())",
+            edit: NativeRecipeEdit(
+                changes: [NativeRecipeFieldChange(field: .title, value: title, base: nil)],
+                expectedUpdatedAt: nil
+            )
+        )
+        _ = try await Self.send(builder, configuration: configuration)
+    }
+
+    /// The recipe's title as QA holds it now.
+    func recipeTitle(_ recipeID: String) async throws -> String {
+        let data = try await Self.send(PublicCatalogRequests.recipeDetail(id: recipeID), configuration: configuration)
+        let envelope = try APIEnvelope<JSONValue>.decode(data)
+        guard case .object(let fields) = envelope.data,
+              case .object(let recipe)? = fields["recipe"],
+              case .string(let title)? = recipe["title"] else {
+            throw JourneyQAClientError.missingRecipeTitle(recipeID)
+        }
+        return title
+    }
+
+    /// Waits for the app's queued edit to reach QA: reads the recipe once a second, up to `attempts` times,
+    /// until its title is `expected`. Recursion instead of a loop keeps the journey rules simple.
+    func recipeTitle(_ recipeID: String, waitingFor expected: String, attempts: Int = 30) async throws -> String {
+        let title = try await recipeTitle(recipeID)
+        if title == expected {
+            return title
+        }
+        guard attempts > 1 else {
+            throw JourneyQAClientError.recipeTitleNotSynced(expected: expected, last: title)
+        }
+        try await Task.sleep(for: .seconds(1))
+        return try await recipeTitle(recipeID, waitingFor: expected, attempts: attempts - 1)
     }
 
     /// Creates a cookbook as this account and returns its id.

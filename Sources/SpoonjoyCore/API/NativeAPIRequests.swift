@@ -570,9 +570,15 @@ public enum TokenCredentialRequests {
     }
 }
 
+/// Profile pages. A signed-in app sends its token, so spoonjoy-v2 can answer `isOwner` for the chef's own
+/// profile; that answer is private (v2 sends `Cache-Control: private, no-store`, and the request asks for no
+/// caching too). Signed out, the pages are the same for everyone and stay publicly cacheable.
 public enum PublicProfileRequests {
     public static func profile(identifier: String) -> APIRequestBuilder {
-        APIRequestSupport.publicRead(pathComponents: ["api", "v1", "users", identifier])
+        APIRequestSupport.publicRead(
+            pathComponents: ["api", "v1", "users", identifier],
+            authorization: .includeBearerToken
+        )
     }
 
     public static func kitchenVisitors(identifier: String, page: Int, limit: Int) -> APIRequestBuilder {
@@ -581,7 +587,8 @@ public enum PublicProfileRequests {
             queryItems: [
                 URLQueryItem(name: "page", value: String(page)),
                 URLQueryItem(name: "limit", value: String(limit))
-            ]
+            ],
+            authorization: .includeBearerToken
         )
     }
 
@@ -591,7 +598,8 @@ public enum PublicProfileRequests {
             queryItems: [
                 URLQueryItem(name: "page", value: String(page)),
                 URLQueryItem(name: "limit", value: String(limit))
-            ]
+            ],
+            authorization: .includeBearerToken
         )
     }
 }
@@ -716,6 +724,23 @@ public enum RecipeWriteRequests {
                 "servings": servings ?? NSNull()
             ]
         )
+    }
+
+    /// Sends only the fields `edit` changes, with `expectedUpdatedAt`, so the server applies it only to the
+    /// version of the recipe the edit was based on and answers `409 edit_conflict` otherwise.
+    public static func updateRecipe(
+        id: String,
+        clientMutationID: String,
+        edit: NativeRecipeEdit
+    ) throws -> APIRequestBuilder {
+        var body: [String: Any] = ["clientMutationId": clientMutationID]
+        for change in edit.changes {
+            body[change.field.rawValue] = change.value ?? NSNull()
+        }
+        if let expectedUpdatedAt = edit.expectedUpdatedAt {
+            body["expectedUpdatedAt"] = expectedUpdatedAt
+        }
+        return try APIRequestSupport.privateJSON(method: .patch, pathComponents: ["api", "v1", "recipes", id], body: body)
     }
 
     public static func deleteRecipe(

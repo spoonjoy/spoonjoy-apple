@@ -1464,10 +1464,11 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
                 guard recipe.id == recipeID else {
                     return recipe
                 }
+                // An edit sends only the fields the cook changed; the others keep the recipe's values.
                 return recipe.copy(
                     title: stringValue("title") ?? recipe.title,
-                    description: optionalStringValue("description"),
-                    servings: optionalStringValue("servings"),
+                    description: containsValue("description") ? optionalStringValue("description") : recipe.description,
+                    servings: containsValue("servings") ? optionalStringValue("servings") : recipe.servings,
                     updatedAt: now
                 )
             }
@@ -1918,7 +1919,7 @@ public struct NativeQueuedMutation: Codable, Equatable, Sendable {
         case .recipeCreate:
             return try APIRequestSupport.privateJSON(method: .post, pathComponents: ["api", "v1", "recipes"], body: recipeCreateRequestBody())
         case .recipeUpdate:
-            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId")], excluding: ["recipeId"])
+            return try json(.patch, ["api", "v1", "recipes", requiredString("recipeId")], excluding: ["recipeId", Self.recipeEditBaseKey])
         case .recipeDelete:
             return try queryDeleteNoBody(["api", "v1", "recipes", requiredString("recipeId")])
         case .recipeFork:
@@ -3017,12 +3018,27 @@ private extension Recipe {
             coverVariant: coverVariant ?? self.coverVariant,
             href: href,
             canonicalURL: canonicalURL,
-            attribution: attribution,
+            attribution: attribution(retitled: title),
             createdAt: createdAt,
             updatedAt: updatedAt,
             steps: steps ?? self.steps,
             cookbooks: cookbooks,
             recentSpoons: recentSpoons ?? self.recentSpoons
+        )
+    }
+
+    /// The attribution after a title change. The server's generated credit, "<title> by <chef> on Spoonjoy",
+    /// follows the new title, as the server writes it after the edit; any other credit stays as it is.
+    func attribution(retitled newTitle: String?) -> RecipeAttribution {
+        guard let newTitle, attribution.creditText == "\(title) by \(chef.username) on Spoonjoy" else {
+            return attribution
+        }
+        return RecipeAttribution(
+            creditText: "\(newTitle) by \(chef.username) on Spoonjoy",
+            canonicalURL: attribution.canonicalURL,
+            sourceURLRaw: attribution.sourceURLRaw,
+            sourceHost: attribution.sourceHost,
+            sourceRecipe: attribution.sourceRecipe
         )
     }
 }
@@ -3257,6 +3273,18 @@ public extension NativeQueuedMutation {
             "description": stringOrNull(description),
             "servings": stringOrNull(servings)
         ])
+    }
+
+    /// A recipe edit that sends only the changed fields, based on `edit.expectedUpdatedAt`: the recipe's
+    /// version when the cook made the edit, not when it is sent. The values each field had then travel with it,
+    /// so a turned-down edit can be compared with the recipe as it is now.
+    static func recipeUpdate(recipeID: String, clientMutationID: String, edit: NativeRecipeEdit, createdAt: String) -> NativeQueuedMutation {
+        NativeQueuedMutation(
+            clientMutationID: clientMutationID,
+            createdAt: createdAt,
+            queueableKind: .recipeUpdate,
+            values: recipeEditValues(edit, into: ["recipeId": .string(recipeID)])
+        )
     }
 
     static func recipeDelete(recipeID: String, clientMutationID: String, createdAt: String) -> NativeQueuedMutation {
@@ -4062,6 +4090,9 @@ public enum NativeServerRevision: Codable, Equatable, Sendable {
 
 public enum NativeSyncConflictKind: Equatable, Sendable {
     case validation
+    /// A recipe edit the server turned down because the recipe was changed elsewhere in a field the edit
+    /// changes too. The cook chooses which version to keep.
+    case recipeEdit(NativeRecipeEditConflict)
 }
 
 public struct NativeSyncConflict: Equatable, Sendable {
@@ -4425,7 +4456,51 @@ public struct URLSessionNativeSyncTransport: NativeSyncTransport {
                 throw error
             }
         } catch let error as APITransportError {
+            if let result = try await recipeEditConflictResult(for: error, mutation: mutation, configuration: configuration, mayResend: true) {
+                return result
+            }
             return try Self.mutationResult(for: error, mutation: mutation)
+        }
+    }
+
+    /// A recipe edit the server turned down because the recipe changed after the edit read it. When nobody
+    /// else changed the fields it changes, it is sent once more, based on the current version; when they did,
+    /// it is held as a conflict carrying both versions, for the cook to choose. `nil` for any other failure.
+    private func recipeEditConflictResult(
+        for error: APITransportError,
+        mutation: NativeQueuedMutation,
+        configuration: APIClientConfiguration,
+        mayResend: Bool
+    ) async throws -> NativeSyncMutationResult? {
+        guard error.isRecipeEditConflict,
+              let edit = mutation.recipeEdit,
+              let server = error.apiError.flatMap(NativeRecipeServerVersion.init(editConflict:)) else {
+            return nil
+        }
+        switch edit.merged(with: server) {
+        case .alreadySaved:
+            return .success(serverRevision: .updatedAt(server.updatedAt))
+        case .conflict(let conflict):
+            return .conflict(kind: .recipeEdit(conflict), serverRevision: .updatedAt(server.updatedAt), message: NativeRecipeEditConflict.message)
+        case .resend(let rebased):
+            guard mayResend else {
+                // The recipe changed again between the two requests. Nothing conflicts yet, so try again later;
+                // the next sync compares the edit with the recipe again.
+                return .retry(
+                    afterSeconds: NativeSyncRetrySchedule().baseDelaySeconds(forRetryCount: mutation.retryCount),
+                    message: NativeRecipeEditConflict.message
+                )
+            }
+            let resend = mutation.replacingRecipeEdit(rebased)
+            do {
+                _ = try await apiTransport.send(try resend.requestBuilder(), configuration: configuration, decode: JSONValue.self)
+                return .success(serverRevision: nil)
+            } catch let resendError as APITransportError {
+                if let result = try await recipeEditConflictResult(for: resendError, mutation: resend, configuration: configuration, mayResend: false) {
+                    return result
+                }
+                return try Self.mutationResult(for: resendError, mutation: resend)
+            }
         }
     }
 
@@ -5605,5 +5680,91 @@ private extension JSONValue {
         default:
             return false
         }
+    }
+}
+
+// MARK: - Recipe edits
+
+extension NativeQueuedMutation {
+    /// Where a recipe edit keeps the value each changed field had when the edit was made. It stays on this
+    /// device: the request leaves it out.
+    static let recipeEditBaseKey = "editBase"
+
+    /// The recipe edit this mutation sends, for a recipe update.
+    public var recipeEdit: NativeRecipeEdit? {
+        guard queueableKind == .recipeUpdate else {
+            return nil
+        }
+        let base: [String: JSONValue]
+        if case .object(let object)? = values[Self.recipeEditBaseKey] {
+            base = object
+        } else {
+            base = [:]
+        }
+        return NativeRecipeEdit(
+            changes: NativeRecipeEditField.allCases.compactMap { field in
+                guard containsValue(field.rawValue) else {
+                    return nil
+                }
+                return NativeRecipeFieldChange(
+                    field: field,
+                    value: optionalStringValue(field.rawValue),
+                    base: base[field.rawValue].map { _ in NativeRecipeFieldBase(optionalStringValue(field.rawValue, in: base)) }
+                )
+            },
+            expectedUpdatedAt: stringValue("expectedUpdatedAt")
+        )
+    }
+
+    /// `mutations` with the held recipe edit `clientMutationID` replaced by the edit the cook settled on, or
+    /// removed when nothing is left to send. Every other mutation stays as it is.
+    static func settlingRecipeEdit(
+        _ clientMutationID: String,
+        with resolved: NativeRecipeEdit?,
+        in mutations: [NativeQueuedMutation]
+    ) -> [NativeQueuedMutation] {
+        mutations.compactMap { mutation in
+            guard mutation.clientMutationID == clientMutationID else {
+                return mutation
+            }
+            return resolved.map(mutation.replacingRecipeEdit)
+        }
+    }
+
+    /// This recipe update with `edit` in place of the edit it sends, keeping its identity and its place in
+    /// the queue.
+    public func replacingRecipeEdit(_ edit: NativeRecipeEdit) -> NativeQueuedMutation {
+        var kept = values
+        for key in NativeRecipeEditField.allCases.map(\.rawValue) + ["expectedUpdatedAt", Self.recipeEditBaseKey] {
+            kept[key] = nil
+        }
+        return NativeQueuedMutation(
+            id: id,
+            clientMutationID: clientMutationID,
+            createdAt: createdAt,
+            payloadSchemaVersion: payloadSchemaVersion,
+            retryCount: retryCount,
+            nextRetryAt: nextRetryAt,
+            lastError: lastError,
+            queueableKind: queueableKind,
+            values: Self.recipeEditValues(edit, into: kept),
+            media: media
+        )
+    }
+
+    static func recipeEditValues(_ edit: NativeRecipeEdit, into values: [String: JSONValue]) -> [String: JSONValue] {
+        var values = values
+        var base: [String: JSONValue] = [:]
+        for change in edit.changes {
+            values[change.field.rawValue] = stringOrNull(change.value)
+            if let changeBase = change.base {
+                base[change.field.rawValue] = stringOrNull(changeBase.value)
+            }
+        }
+        if let expectedUpdatedAt = edit.expectedUpdatedAt {
+            values["expectedUpdatedAt"] = .string(expectedUpdatedAt)
+        }
+        values[Self.recipeEditBaseKey] = .object(base)
+        return values
     }
 }

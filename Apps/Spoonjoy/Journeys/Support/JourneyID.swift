@@ -79,6 +79,13 @@ enum JourneyID {
     /// The "Edit recipe" item in the detail page's actions menu.
     static let recipeDetailEdit = "recipeDetail.edit"
 
+    /// The banner over a recipe page when a saved edit was held, and its two choices when the recipe was
+    /// changed elsewhere in a field the edit changes too.
+    static let heldChangeTitle = "recipe.heldChange.title"
+    static let heldChangeKeepMine = "recipe.heldChange.keepMine"
+    static let heldChangeUseTheirs = "recipe.heldChange.useTheirs"
+    static func heldChangeField(_ field: String, version: String) -> String { "recipe.heldChange.field.\(field).\(version)" }
+
     /// The recipe detail page's actions menu ("Recipe actions" on a phone, "More" on a wide screen).
     static let recipeDetailActions = "recipeDetail.actions"
     static let recipeDetailRemindersSend = "recipeDetail.remindersSend"
