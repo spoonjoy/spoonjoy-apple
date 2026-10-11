@@ -219,6 +219,12 @@ public actor NativeAuthSessionRepository {
         try await refreshCoordinator.validSession(at: now())
     }
 
+    /// The session to retry with after the server answered 401 to `rejectedAccessToken`: a forced refresh, or
+    /// the session another caller already refreshed. A refused refresh ends the session as `validSession` does.
+    public func sessionAfterRejecting(accessToken rejectedAccessToken: String?) async throws -> AuthSession {
+        try await refreshCoordinator.sessionAfterRejecting(accessToken: rejectedAccessToken, at: now())
+    }
+
     public func bindAccountID(_ accountID: String) async throws -> AuthSession {
         let session = try await validSession()
         let boundSession = try session.bindingAccountID(accountID)
