@@ -54,6 +54,11 @@ final class JourneyApp {
         app.launch()
     }
 
+    /// Makes the next launch use the largest accessibility text size, so a journey can capture a screen at it.
+    func useLargestAccessibilityTextOnNextLaunch() {
+        app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
+    }
+
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
     /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
     /// link until sign-in.

@@ -972,7 +972,7 @@ struct NativeMobileDesignContractTests {
                 "viewModel.cover.hasRealCover",
                 "Label(\"Log\", systemImage: \"fork.knife.circle\")",
                 ".frame(maxWidth: fillsWidth ? .infinity : 440)",
-                "recipeHeaderControls(fillsWidth: usesCompactRecipeDock)",
+                "recipeHeaderControls(fillsWidth: usesCompactRecipeDock, includesClearProgress: !usesCompactRecipeDock)",
                 ".buttonStyle(.plain)",
                 ".navigationTitle(\"Save to Cookbook\")"
             ],
@@ -1126,7 +1126,7 @@ struct NativeMobileDesignContractTests {
                 "private var cookModeBottomActionRail",
                 "private var stepProgressRail",
                 "private var ingredientChecklistAnimation: Animation?",
-                "accessibilityReduceMotion ? nil : .easeInOut(duration: 0.24)",
+                "KitchenTableTheme.Checklist.reorder(reduceMotion: accessibilityReduceMotion)",
                 "private var ingredientChecklistTransaction: Transaction",
                 "transaction.disablesAnimations = true",
                 "withTransaction(ingredientChecklistTransaction)",

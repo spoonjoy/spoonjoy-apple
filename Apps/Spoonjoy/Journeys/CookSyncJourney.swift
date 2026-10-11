@@ -6,6 +6,10 @@ import XCTest
 /// check and not only this device. The check also survives a relaunch. The step has a duration, so the journey
 /// also sets its timer and cancels it. The CI simulator refuses AlarmKit, so the app records a stand-in alarm
 /// (`NativeJourneyAlarmFixture`); cook mode's per-step registry and Cancel control are the real ones.
+///
+/// Before cook mode, the recipe page checks the step's first ingredient: as on the web it sinks to the bottom of
+/// the step's list, nothing above the step moves (Clear progress has room kept for it in the Steps heading), and
+/// Clear progress puts it back.
 @MainActor
 final class CookSyncJourney: JourneyTestCase {
     func testCookModeCheckReachesTheServerJourney() async throws {
@@ -13,6 +17,8 @@ final class CookSyncJourney: JourneyTestCase {
         let token = try JourneyAccounts.runToken()
         let title = "Journey \(token) Cook Sync J4"
         let lemon = "Journey\(token)lemon"
+        let salt = "Journey\(token)salt"
+        let oil = "Journey\(token)oil"
         let qa = try await JourneyQAClient.signIn(account)
         let recipeID = try await qa.createRecipe(
             title: title,
@@ -22,7 +28,11 @@ final class CookSyncJourney: JourneyTestCase {
                     stepTitle: "Zest the lemon",
                     description: "Zest the lemon into a bowl.",
                     duration: 10,
-                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "whole", name: lemon)],
+                    ingredients: [
+                        RecipeIngredientDraft(quantity: 1, unit: "whole", name: lemon),
+                        RecipeIngredientDraft(quantity: 1, unit: "tsp", name: salt),
+                        RecipeIngredientDraft(quantity: 2, unit: "tbsp", name: oil)
+                    ],
                     outputStepNums: []
                 )
             ]
@@ -37,6 +47,60 @@ final class CookSyncJourney: JourneyTestCase {
         )
         journey.openTab(JourneyCopy.recipesTab)
         journey.openRecipe(titled: title, from: JourneyID.recipesRow)
+
+        // The recipe page lists lemon, salt and oil with nothing to clear yet. The API orders a step's ingredients
+        // by ID (orderBy id in app/lib/api-v1.server.ts), so the journey reads the step's order from the page.
+        let pageLemon = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: lemon)
+        let pageSalt = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: salt)
+        let pageOil = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: oil)
+        let recipeTitle = journey.element(JourneyID.recipeDetailTitle)
+        let stepOne = journey.element(JourneyID.recipeDetailStep(1))
+        XCTAssertTrue(
+            pageLemon.waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The recipe page does not list the lemon. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(pageSalt.exists, "The recipe page does not list the salt. Screen: \(journey.screen)")
+        XCTAssertTrue(pageOil.exists, "The recipe page does not list the oil. Screen: \(journey.screen)")
+        let stepOrder = [pageLemon, pageSalt, pageOil].sorted { $0.frame.minY < $1.frame.minY }
+        let firstIngredient = stepOrder[0]
+        let secondIngredient = stepOrder[1]
+        let lastIngredient = stepOrder[2]
+        XCTAssertFalse(journey.element(JourneyID.recipeDetailClearProgress).exists, "Clear progress shows with nothing to clear.")
+        let stepOffsetBeforeCheck = stepOne.frame.minY - recipeTitle.frame.minY
+        journey.attachScreenshot(named: "00-recipe-before-check", to: self)
+
+        // Checking the first ingredient sinks it below the others, and the page above the step does not move.
+        firstIngredient.tap()
+        XCTAssertEqual(firstIngredient.value as? String, "used", "Tapping the first ingredient on the recipe page did not check it.")
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailClearProgress).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Clear progress did not appear after the first check. Screen: \(journey.screen)"
+        )
+        XCTAssertEqual(
+            stepOne.frame.minY - recipeTitle.frame.minY,
+            stepOffsetBeforeCheck,
+            accuracy: 0.5,
+            "Checking an ingredient moved the step down the page."
+        )
+        XCTAssertLessThan(secondIngredient.frame.minY, lastIngredient.frame.minY, "The unchecked ingredients lost their order.")
+        XCTAssertGreaterThan(firstIngredient.frame.minY, lastIngredient.frame.minY, "The checked ingredient did not move to the bottom.")
+        journey.attachScreenshot(named: "00a-recipe-first-ingredient-checked", to: self)
+
+        // Clear progress unchecks it, and it returns to the top of the step.
+        journey.tap(JourneyID.recipeDetailClearProgress)
+        XCTAssertEqual(firstIngredient.value as? String, "not used", "Clear progress did not uncheck the ingredient.")
+        XCTAssertLessThan(firstIngredient.frame.minY, secondIngredient.frame.minY, "The unchecked ingredient did not return to the top.")
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailClearProgress).waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Clear progress stayed after there was nothing left to clear."
+        )
+        XCTAssertEqual(
+            stepOne.frame.minY - recipeTitle.frame.minY,
+            stepOffsetBeforeCheck,
+            accuracy: 0.5,
+            "Clearing progress moved the step."
+        )
+
         journey.tap(JourneyID.recipeDetailCook)
 
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: lemon)
@@ -72,6 +136,9 @@ final class CookSyncJourney: JourneyTestCase {
             "Starting the step timer did not offer Cancel. Screen: \(journey.screen)"
         )
         XCTAssertFalse(journey.element(JourneyID.cookTimerStart).exists, "The start button stayed while the step's timer runs.")
+        // One status line while the timer runs: the "timer set" row, with no second message under it.
+        XCTAssertTrue(journey.element(JourneyID.cookTimerSetLabel).exists, "The running timer does not say it is set.")
+        XCTAssertFalse(journey.element(JourneyID.cookTimerStatus).exists, "The running timer repeats its status in a second line.")
         journey.attachScreenshot(named: "02-timer-set-with-cancel", to: self)
 
         journey.tap(JourneyID.cookTimerCancel)
@@ -80,6 +147,7 @@ final class CookSyncJourney: JourneyTestCase {
             "Cancelling the step timer did not bring the start button back. Screen: \(journey.screen)"
         )
         XCTAssertFalse(journey.element(JourneyID.cookTimerCancel).exists, "Cancel stayed after the timer was cancelled.")
+        XCTAssertTrue(journey.element(JourneyID.cookTimerStatus).exists, "Cancelling the timer did not say so.")
         journey.attachScreenshot(named: "03-timer-cancelled", to: self)
 
         // The relaunch keeps this device's own state, so the proof that the server holds the check is the

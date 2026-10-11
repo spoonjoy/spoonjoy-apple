@@ -73,6 +73,10 @@ enum JourneyID {
 
     static let recipeDetailTitle = "recipeDetail.title"
     static func recipeDetailStep(_ step: Int) -> String { "recipeDetail.step.\(step)" }
+    /// Every ingredient checkbox in a recipe page step (the label is the ingredient), and the Clear progress
+    /// button, which on a phone sits in the Steps heading and only exists for VoiceOver once there is progress.
+    static let recipeDetailIngredient = "recipeDetail.ingredient"
+    static let recipeDetailClearProgress = "recipeDetail.clearProgress"
 
     /// The recipe's cover image, shown once it has a real cover.
     static let recipeDetailCover = "recipeDetail.cover"
@@ -106,6 +110,9 @@ enum JourneyID {
     /// The step timer's start button, and the Cancel button that replaces it while the step's system alarm runs.
     static let cookTimerStart = "cookMode.timer.start"
     static let cookTimerCancel = "cookMode.timer.cancel"
+    /// The "timer set" line while the step's alarm runs, and the status line under the timer controls.
+    static let cookTimerSetLabel = "cookMode.timer.setLabel"
+    static let cookTimerStatus = "cookMode.timer.status"
 
     /// Every result row in Search.
     static let searchResult = "search.result"

@@ -397,7 +397,9 @@ struct RecipeDetailView: View {
                 recipeNoPhotoStatus
             }
             recipeMastheadActions
-            recipeHeaderControls(fillsWidth: usesCompactRecipeDock)
+            // On a phone, Clear progress lives in the Steps heading instead, so checking an ingredient never
+            // pushes the page down.
+            recipeHeaderControls(fillsWidth: usesCompactRecipeDock, includesClearProgress: !usesCompactRecipeDock)
         }
     }
 
@@ -469,7 +471,7 @@ struct RecipeDetailView: View {
     }
 
     /// On a spread page the yield control fills the page so it lines up with the actions above it.
-    private func recipeHeaderControls(fillsWidth: Bool) -> some View {
+    private func recipeHeaderControls(fillsWidth: Bool, includesClearProgress: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             RecipeScaleSelector(
                 scaleFactor: shoppingScaleFactor,
@@ -479,19 +481,37 @@ struct RecipeDetailView: View {
             )
             .frame(maxWidth: fillsWidth ? .infinity : 440)
 
-            // Nothing to clear on a fresh recipe, so the button only shows once there is progress.
-            if hasRecipeProgress || !usesCompactRecipeDock {
-                Button {
-                    clearRecipeProgress()
-                } label: {
-                    Label("Clear progress", systemImage: "arrow.counterclockwise")
-                }
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .buttonStyle(.plain)
-                .accessibilityHint("Clears checked step ingredients and resets recipe scale.")
+            if includesClearProgress {
+                clearProgressButton
             }
         }
+    }
+
+    private var clearProgressButton: some View {
+        Button {
+            withAnimation(KitchenTableTheme.Checklist.reorder(reduceMotion: accessibilityReduceMotion)) {
+                clearRecipeProgress()
+            }
+        } label: {
+            Label("Clear progress", systemImage: "arrow.counterclockwise")
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .contentShape(Rectangle())
+        }
+        .font(KitchenTableTheme.uiLabel)
+        .foregroundStyle(KitchenTableTheme.inkMuted)
+        .buttonStyle(.plain)
+        .accessibilityHint("Clears checked step ingredients and resets recipe scale.")
+        .accessibilityIdentifier("recipeDetail.clearProgress")
+    }
+
+    /// The Steps heading's Clear progress. Its room is always kept, so the button fades in with the first check
+    /// and nothing on the page moves; while there is nothing to clear it is hidden from VoiceOver and taps.
+    private var stepsClearProgress: some View {
+        clearProgressButton
+            .opacity(hasRecipeProgress ? 1 : 0)
+            .disabled(!hasRecipeProgress)
+            .accessibilityHidden(!hasRecipeProgress)
+            .animation(accessibilityReduceMotion ? nil : .easeOut(duration: 0.2), value: hasRecipeProgress)
     }
 
     private var recipeMastheadActions: some View {
@@ -724,14 +744,24 @@ struct RecipeDetailView: View {
                     .padding(.vertical, 18)
             } else {
                 ForEach(viewModel.stepSections) { section in
-                    recipeStepSection(section)
+                    recipeStepSection(section, isLast: section.id == viewModel.stepSections.last?.id)
                 }
+            }
+        } accessory: {
+            if usesCompactRecipeDock {
+                stepsClearProgress
             }
         }
     }
 
-    private func recipeStepSection(_ section: RecipeDetailStepSection) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
+    /// The step's ingredients as the web shows them: unchecked first, checked ones sunk to the bottom, each
+    /// group in the step's own order.
+    private func orderedIngredients(_ ingredients: [RecipeDetailIngredientRow]) -> [RecipeDetailIngredientRow] {
+        CheckedIngredientOrder.ordered(ingredients, checkedIDs: checkedRecipeIngredientIDs)
+    }
+
+    private func recipeStepSection(_ section: RecipeDetailStepSection, isLast: Bool) -> some View {
+        VStack(alignment: .leading, spacing: KitchenTableTheme.stepBlockSpacing) {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     stepEyebrow(section)
@@ -749,14 +779,16 @@ struct RecipeDetailView: View {
             }
 
             if !section.dependencies.isEmpty || !section.ingredients.isEmpty {
+                let ingredients = orderedIngredients(section.ingredients)
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Ingredients")
                         .font(KitchenTableTheme.uiLabel)
                         .foregroundStyle(KitchenTableTheme.inkMuted)
                         .textCase(.uppercase)
                         .tracking(1.1)
-                        .padding(.bottom, 6)
+                        .padding(.bottom, KitchenTableTheme.Checklist.headingGap)
 
+                    // Step outputs stay above the ingredients in their own order, as on the web.
                     ForEach(section.dependencies) { dependency in
                         RecipeStepChecklistRow(
                             title: dependency.label,
@@ -764,17 +796,21 @@ struct RecipeDetailView: View {
                             amount: "",
                             systemImage: "arrow.triangle.branch",
                             isChecked: dependencyIsChecked(dependency.id),
+                            showsSeparator: !(ingredients.isEmpty && dependency.id == section.dependencies.last?.id),
+                            accessibilityID: "recipeDetail.stepOutput",
                             toggle: { toggleDependency(id: dependency.id) }
                         )
                     }
 
-                    ForEach(section.ingredients) { ingredient in
+                    ForEach(ingredients) { ingredient in
                         RecipeStepChecklistRow(
                             title: ingredient.name,
                             note: ingredient.aisleLabel,
                             amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
                             systemImage: "cart",
                             isChecked: ingredientIsChecked(ingredient.id),
+                            showsSeparator: ingredient.id != ingredients.last?.id,
+                            accessibilityID: "recipeDetail.ingredient",
                             toggle: { toggleIngredient(id: ingredient.id) }
                         )
                     }
@@ -785,13 +821,16 @@ struct RecipeDetailView: View {
             Text(section.body)
                 .font(KitchenTableTheme.bodyNote)
                 .foregroundStyle(KitchenTableTheme.charcoal)
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.vertical, 18)
+        .padding(.vertical, KitchenTableTheme.stepSpacing)
         .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(KitchenTableTheme.line.opacity(0.35))
-                .frame(height: 1)
+            if !isLast {
+                Rectangle()
+                    .fill(KitchenTableTheme.line.opacity(0.35))
+                    .frame(height: 1)
+            }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("recipeDetail.step.\(section.stepNumber)")
@@ -1100,11 +1139,14 @@ struct RecipeDetailView: View {
         checkedRecipeStepDependencyIDs.contains(id)
     }
 
+    /// A checked ingredient moves to the bottom of its step with the web's spring, or at once with Reduce Motion.
     private func toggleIngredient(id: String) {
-        if checkedRecipeIngredientIDs.contains(id) {
-            checkedRecipeIngredientIDs.remove(id)
-        } else {
-            checkedRecipeIngredientIDs.insert(id)
+        withAnimation(KitchenTableTheme.Checklist.reorder(reduceMotion: accessibilityReduceMotion)) {
+            if checkedRecipeIngredientIDs.contains(id) {
+                checkedRecipeIngredientIDs.remove(id)
+            } else {
+                checkedRecipeIngredientIDs.insert(id)
+            }
         }
     }
 
@@ -1305,7 +1347,7 @@ extension RecipeDetailView {
                 recipeNoPhotoStatus
             }
             spreadActions
-            recipeHeaderControls(fillsWidth: true)
+            recipeHeaderControls(fillsWidth: true, includesClearProgress: true)
             spreadIngredientList(index: index)
         }
         .scrollTargetLayout()
@@ -1422,7 +1464,7 @@ extension RecipeDetailView {
                     toggle: { toggleDependency(id: dependency.id) }
                 )
             }
-            ForEach(group.ingredients) { ingredient in
+            ForEach(orderedIngredients(group.ingredients)) { ingredient in
                 RecipeSpreadIngredientRow(
                     name: ingredient.name,
                     amount: ingredient.quantityText(scaleFactor: shoppingScaleFactor),
@@ -1741,54 +1783,51 @@ private struct RecipeScaleSelector: View {
     }
 }
 
+/// An ingredient, or an earlier step's output, in a step's checklist. The separator starts under the text, not
+/// the checkbox, and the name and amount share a baseline. At accessibility text sizes the cart icon gives its
+/// room to the words and the amount moves under the name.
 private struct RecipeStepChecklistRow: View {
     let title: String
     let note: String?
     let amount: String
     let systemImage: String
     let isChecked: Bool
+    let showsSeparator: Bool
+    let accessibilityID: String
     let toggle: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .title3) private var checkColumn = KitchenTableTheme.Checklist.checkColumn
+    @ScaledMetric(relativeTo: .body) private var iconColumn = KitchenTableTheme.Checklist.iconColumn
+    @ScaledMetric(relativeTo: .body) private var rowPadding = KitchenTableTheme.Checklist.rowVerticalPadding
 
     var body: some View {
         Button(action: toggle) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: KitchenTableTheme.Checklist.columnGap) {
                 Image(systemName: isChecked ? "checkmark.circle.fill" : "circle")
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(isChecked ? KitchenTableTheme.herb : KitchenTableTheme.brass)
-                    .frame(width: 32, alignment: .center)
+                    .frame(width: checkColumn, alignment: .center)
                     .accessibilityHidden(true)
 
-                Image(systemName: systemImage)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.brass)
-                    .frame(width: 22)
-                    .accessibilityHidden(true)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    Image(systemName: systemImage)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.brass.opacity(0.85))
+                        .frame(width: iconColumn)
+                        .accessibilityHidden(true)
+                }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
-                        .strikethrough(isChecked, color: KitchenTableTheme.inkMuted)
-                        .lineLimit(2)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if let note, !note.isEmpty {
-                        Text(note)
-                            .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
-                            .textCase(.uppercase)
+                rowText
+                    .padding(.vertical, rowPadding)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay(alignment: .bottom) {
+                        if showsSeparator {
+                            Rectangle()
+                                .fill(KitchenTableTheme.ruleSoft)
+                                .frame(height: KitchenTableTheme.hairline)
+                        }
                     }
-                }
-
-                Spacer(minLength: 12)
-
-                if !amount.isEmpty {
-                    Text(amount)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
-                        .multilineTextAlignment(.trailing)
-                        .frame(minWidth: 72, alignment: .trailing)
-                }
             }
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             .contentShape(Rectangle())
@@ -1796,10 +1835,51 @@ private struct RecipeStepChecklistRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(isChecked ? "used" : "not used")
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(KitchenTableTheme.line.opacity(0.34))
-                .frame(height: 1)
+        .accessibilityIdentifier(accessibilityID)
+    }
+
+    @ViewBuilder private var rowText: some View {
+        if dynamicTypeSize.isAccessibilitySize {
+            VStack(alignment: .leading, spacing: 4) {
+                nameAndNote
+                amountText
+            }
+        } else {
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                nameAndNote
+                Spacer(minLength: 0)
+                amountText
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+    }
+
+    private var nameAndNote: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(isChecked ? KitchenTableTheme.inkMuted : KitchenTableTheme.charcoal)
+                .strikethrough(isChecked, color: KitchenTableTheme.inkMuted)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let note, !note.isEmpty {
+                Text(note)
+                    .font(KitchenTableTheme.uiLabel)
+                    .tracking(0.8)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .textCase(.uppercase)
+            }
+        }
+    }
+
+    @ViewBuilder private var amountText: some View {
+        if !amount.isEmpty {
+            Text(amount)
+                .font(KitchenTableTheme.uiLabel)
+                .monospacedDigit()
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

@@ -38,7 +38,9 @@ struct HeldChangeBanner: View {
             .font(KitchenTableTheme.uiLabel)
             .foregroundStyle(KitchenTableTheme.tomato)
             .accessibilityIdentifier("recipe.heldChange.title")
-            Text(message)
+            // A conflict's heading already says the recipe changed somewhere else, so the body only asks for
+            // the choice instead of repeating it.
+            Text(editConflict == nil ? message : NativeRecipeEditConflict.choicePrompt)
                 .font(KitchenTableTheme.bodyNote)
                 .accessibilityIdentifier("recipe.heldChange.message")
             if let editConflict {
