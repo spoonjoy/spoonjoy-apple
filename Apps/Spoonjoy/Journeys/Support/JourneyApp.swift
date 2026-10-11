@@ -29,6 +29,8 @@ final class JourneyApp {
         app.launchEnvironment[NativeJourneyPhotoFixture.environmentKey] = "1"
         // The app records each sync request and the server's answer in a hidden element, read on failure.
         app.launchEnvironment[NativeSyncDiagnostics.environmentKey] = "1"
+        // A blocked stderr write would stall the main thread that XCUITest evaluates queries on.
+        app.launchEnvironment[NativeJourneyConsole.environmentKey] = NativeJourneyConsole.value
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         // Animations and spinners never go idle for XCUITest, which then waits 60 seconds per action.
         app.launchArguments.append(NativeJourneyAnimations.launchArgument)
