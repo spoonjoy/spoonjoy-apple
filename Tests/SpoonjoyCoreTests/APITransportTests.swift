@@ -1376,6 +1376,159 @@ struct APITransportTests {
         }
     }
 
+    @Test("a temporarily_unavailable 503 is retried after Retry-After, the error details, or one second")
+    func temporarilyUnavailableIsRetriedAfterItsDelay() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "application/json", "Retry-After": "4"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_d1_header",
+                        code: "temporarily_unavailable",
+                        message: "The database was briefly unavailable.",
+                        status: 503,
+                        details: #""retryAfterSeconds": 1"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_d1_details",
+                        code: "temporarily_unavailable",
+                        message: "The database was briefly unavailable.",
+                        status: 503,
+                        details: #""retryAfterSeconds": 2"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_d1_bare",
+                        code: "temporarily_unavailable",
+                        message: "The database was briefly unavailable.",
+                        status: 503
+                    )
+                ))
+            ]
+        )
+        let transport = URLSessionAPITransport(session: session)
+        var decisions: [APIRetryDecision] = []
+        for _ in 0..<3 {
+            do {
+                _ = try await transport.send(
+                    Self.privateReadRequest(),
+                    configuration: Self.configuration(bearerToken: "sj_access"),
+                    decode: TransportPayload.self
+                )
+                Issue.record("Expected temporarily_unavailable to throw")
+            } catch let error as APITransportError {
+                #expect(error.statusCode == 503)
+                #expect(error.apiError?.code == "temporarily_unavailable")
+                decisions.append(error.retryDecision)
+            }
+        }
+
+        // The Retry-After header wins, then the error's details, then the server's one-second default
+        // (rather than the generic backoff an unnamed 5xx gets).
+        #expect(decisions == [
+            .retrySameRequest(afterSeconds: 4),
+            .retrySameRequest(afterSeconds: 2),
+            .retrySameRequest(afterSeconds: APIRetryPolicy.temporarilyUnavailableDefaultRetrySeconds)
+        ])
+        #expect(APIRetryPolicy.temporarilyUnavailableDefaultRetrySeconds == 1)
+        #expect(APIRetryPolicy.decision(for: APIError(
+            requestID: "req_other_5xx",
+            code: "database_unavailable",
+            message: "Try again soon",
+            status: 503
+        )) == .retrySameRequest(afterSeconds: nil))
+    }
+
+    @Test("a queued write that meets temporarily_unavailable stays queued and is sent again unchanged after Retry-After")
+    func queuedWriteMeetingTemporarilyUnavailableIsResentUnchanged() async throws {
+        let session = RecordingURLSession(
+            responses: [
+                .success(Self.response(
+                    statusCode: 503,
+                    headers: ["Content-Type": "application/json", "Retry-After": "1"],
+                    body: Self.errorEnvelope(
+                        requestID: "req_d1_queued",
+                        code: "temporarily_unavailable",
+                        message: "The database was briefly unavailable.",
+                        status: 503,
+                        details: #""retryAfterSeconds": 1"#
+                    )
+                )),
+                .success(Self.response(
+                    statusCode: 201,
+                    headers: ["Content-Type": "application/json"],
+                    body: Self.successEnvelope(requestID: "req_d1_queued_retry", name: "queued")
+                ))
+            ]
+        )
+        let mutation = NativeQueuedMutation.shoppingAddItem(
+            name: "parmesan",
+            quantity: 50,
+            unit: "g",
+            categoryKey: nil,
+            iconKey: nil,
+            clientMutationID: "cm_d1_unavailable",
+            createdAt: "2026-06-16T12:00:00.000Z"
+        )
+        let store = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .local,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: [mutation])
+        )
+        let clock = TemporarilyUnavailableClock(Date(timeIntervalSince1970: 1_780_010_000))
+        let engine = NativeSyncEngine(
+            store: store,
+            transport: FixedBootstrapNativeSyncTransport(
+                mutations: URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(session: session))
+            ),
+            clock: { clock.now }
+        )
+        let configuration = Self.configuration(bearerToken: "sj_access_native")
+        let scope = NativeSyncExecutionScope(expectedAccountID: "chef_ari", environment: .local)
+
+        let first = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: scope)
+        let queuedAfterFirst = try await store.loadQueue().mutations
+
+        // Retrying, not failed: no conflict or pause, the same mutation still queued, due in one second.
+        #expect(first.retryAfterSeconds == 1)
+        #expect(first.conflicts.isEmpty)
+        #expect(first.pausedReason == nil)
+        #expect(first.drainedClientMutationIDs.isEmpty)
+        #expect(queuedAfterFirst.map(\.clientMutationID) == ["cm_d1_unavailable"])
+        #expect(queuedAfterFirst.first?.retryCount == 1)
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        #expect(queuedAfterFirst.first?.nextRetryAt == isoFormatter.string(from: clock.now.addingTimeInterval(1)))
+
+        // Before Retry-After has passed, the write waits.
+        let early = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: scope)
+        #expect(early.drainedClientMutationIDs.isEmpty)
+        #expect(await session.capturedRequests().count == 1)
+
+        clock.advance(by: 1)
+        let retried = try await engine.bootstrapAndDrain(configuration: configuration, trigger: .networkRecovered, scope: scope)
+        let requests = await session.capturedRequests()
+
+        #expect(retried.drainedClientMutationIDs == ["cm_d1_unavailable"])
+        #expect(try await store.loadQueue().mutations.isEmpty)
+        #expect(requests.count == 2)
+        #expect(requests.map(\.httpMethod) == ["POST", "POST"])
+        #expect(requests[0].url == requests[1].url)
+        // The retry is the same request: same body, so the same clientMutationId, never a new one.
+        #expect(requests[0].httpBody == requests[1].httpBody)
+        let body = try #require(requests[1].httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })
+        #expect(body["clientMutationId"] as? String == "cm_d1_unavailable")
+    }
+
     @Test("ordinary server error envelopes preserve full API error fields")
     func ordinaryServerErrorEnvelopesPreserveFullAPIErrorFields() async throws {
         let session = RecordingURLSession(
@@ -2239,5 +2392,40 @@ private actor RecordingAuthenticationRefresher: APIAuthenticationRefresher {
 
     func capturedErrors() -> [APIError] {
         errors
+    }
+}
+
+/// A clock the queue test moves forward by hand.
+private final class TemporarilyUnavailableClock: @unchecked Sendable {
+    private let lock = NSLock()
+    private var current: Date
+
+    init(_ start: Date) {
+        current = start
+    }
+
+    var now: Date {
+        lock.lock()
+        defer { lock.unlock() }
+        return current
+    }
+
+    func advance(by seconds: TimeInterval) {
+        lock.lock()
+        current = current.addingTimeInterval(seconds)
+        lock.unlock()
+    }
+}
+
+/// Answers every bootstrap with an empty page and sends mutations through the real URLSession transport.
+private struct FixedBootstrapNativeSyncTransport: NativeSyncTransport {
+    let mutations: URLSessionNativeSyncTransport
+
+    func bootstrap(request _: APIRequest, configuration _: APIClientConfiguration) async throws -> NativeSyncBootstrapResult {
+        .success(cursor: nil, tombstones: [])
+    }
+
+    func send(_ mutation: NativeQueuedMutation, configuration: APIClientConfiguration) async throws -> NativeSyncMutationResult {
+        try await mutations.send(mutation, configuration: configuration)
     }
 }
