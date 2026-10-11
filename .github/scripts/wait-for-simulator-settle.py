@@ -82,7 +82,10 @@ def wait(udid: str, booted_at: int, deadline_minutes: float) -> str:
     burst_seen = booted_at <= 0
     history_unreadable = False
     try:
-        since_boot = poster_lines(udid, history_seconds, min(LOG_READ_LIMIT_SECONDS, deadline - time.time()))
+        # The history read always gets its full limit. Bounding it by the deadline gave it 5 s whenever the build had
+        # outlasted the cap, which is too short to read the log since boot even on a quiet simulator, so the step
+        # assumed a burst it never saw (Shopping UI tests runs 38143999736, 38146868410 and 38152804640).
+        since_boot = poster_lines(udid, history_seconds, LOG_READ_LIMIT_SECONDS)
         burst_seen = burst_seen or since_boot >= BURST_LINES_SINCE_BOOT
         print(f"Poster log lines in the last {history_seconds} s: {since_boot}; burst {'already seen' if burst_seen else 'not seen yet'}.")
     except LogReadTimedOut as error:
@@ -113,7 +116,10 @@ def wait(udid: str, booted_at: int, deadline_minutes: float) -> str:
         if not burst_seen and booted_at > 0 and time.time() - booted_at >= NO_BURST_AFTER_BOOT_SECONDS and quiet_readings >= QUIET_READINGS_NEEDED:
             return f"no burst within {NO_BURST_AFTER_BOOT_SECONDS} s of boot"
         if time.time() >= deadline:
-            return "cap: burst still running" if burst_seen else "cap: log never quiet"
+            # Name what the last reading showed, so a quiet log is not reported as a running burst.
+            if recent >= QUIET_LINES_PER_WINDOW:
+                return "cap: burst still running" if burst_active else "cap: log not quiet"
+            return f"cap: log quiet for {quiet_readings} of {QUIET_READINGS_NEEDED} readings"
         time.sleep(POLL_SECONDS)
 
 
