@@ -19,13 +19,23 @@ final class SpoonjoyShoppingUITests: XCTestCase {
     override func tearDown() async throws {
         try await super.tearDown()
         await MainActor.run {
+            // A failure in this block must be recorded, not interrupt the test. With continueAfterFailure false,
+            // XCTest answers a failed terminate() by interrupting the test and running the teardown sequence
+            // again, nested on the main thread. That nested pass waits for this async tearDown, which needs the
+            // main actor this block is still holding, so the runner deadlocks until the 5-minute allowance
+            // expires and xcodebuild restarts it (runs 38085281435 and 38152804640: the spindump shows
+            // `MainActor.run` -> `terminate` -> `_interruptTest` -> `_performTearDownSequence` waiting forever).
+            // The failure itself still fails the test.
+            continueAfterFailure = true
             // Turn the device upright while the app is still in front. With no app open, an iPhone's
             // SpringBoard stays portrait, so a later rotation request never gets the confirmation XCUITest
             // waits for (run 37059261350: "Timed out waiting for confirmation of orientation change").
-            if launchedApp != nil && XCUIDevice.shared.orientation != .portrait {
-                XCUIDevice.shared.orientation = .portrait
+            if let launchedApp, launchedApp.state != .notRunning {
+                if XCUIDevice.shared.orientation != .portrait {
+                    XCUIDevice.shared.orientation = .portrait
+                }
+                launchedApp.terminate()
             }
-            launchedApp?.terminate()
             launchedApp = nil
         }
     }
