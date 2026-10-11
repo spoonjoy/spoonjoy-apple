@@ -2619,7 +2619,7 @@ struct NativeLiveStoreTests {
             )
 
             let refreshOnly = try await liveStore.executeSettingsActionRequest(
-                PrivateAccountRequests.updateProfile(email: "settings@example.com", username: "settingsari"),
+                PrivateAccountRequests.updateProfile(email: "settings@example.com", username: "settingsari", clientMutationID: "cm_settings_profile"),
                 responseHandling: .refreshOnly
             )
             let tokenOutcome = try await liveStore.executeSettingsActionRequest(

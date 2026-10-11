@@ -83,11 +83,14 @@ public enum PrivateAccountRequests {
         APIRequestSupport.privateRead(pathComponents: ["api", "v1", "me", "connections"])
     }
 
-    public static func updateProfile(email: String, username: String) throws -> APIRequestBuilder {
+    /// PATCH /api/v1/me. Like every account write, v2 requires a client mutation ID and rejects the
+    /// request without one.
+    public static func updateProfile(email: String, username: String, clientMutationID: String) throws -> APIRequestBuilder {
         try APIRequestSupport.privateJSON(
             method: .patch,
             pathComponents: ["api", "v1", "me"],
             body: [
+                "clientMutationId": clientMutationID,
                 "email": email,
                 "username": username
             ]
@@ -113,19 +116,21 @@ public enum PrivateAccountRequests {
         return try APIRequestSupport.privateJSON(method: .delete, pathComponents: ["api", "v1", "me"], body: body)
     }
 
-    public static func uploadProfilePhoto(photo: UploadFile) throws -> APIRequestBuilder {
+    public static func uploadProfilePhoto(photo: UploadFile, clientMutationID: String) throws -> APIRequestBuilder {
         try APIRequestSupport.privateMultipart(
             method: .post,
             pathComponents: ["api", "v1", "me", "photo"],
             fileField: "photo",
-            file: photo
+            file: photo,
+            fields: ["clientMutationId": clientMutationID]
         )
     }
 
-    public static func removeProfilePhoto() -> APIRequestBuilder {
-        APIRequestSupport.privateRead(
-            method: .delete,
-            pathComponents: ["api", "v1", "me", "photo"]
+    public static func removeProfilePhoto(clientMutationID: String) throws -> APIRequestBuilder {
+        try APIRequestSupport.privateJSONDelete(
+            pathComponents: ["api", "v1", "me", "photo"],
+            clientMutationID: clientMutationID,
+            idempotency: .header
         )
     }
 
@@ -133,12 +138,14 @@ public enum PrivateAccountRequests {
         notifySpoonOnMyRecipe: Bool,
         notifyForkOfMyRecipe: Bool,
         notifyCookbookSaveOfMine: Bool,
-        notifyFellowChefOriginCook: Bool
+        notifyFellowChefOriginCook: Bool,
+        clientMutationID: String
     ) throws -> APIRequestBuilder {
         try APIRequestSupport.privateJSON(
             method: .patch,
             pathComponents: ["api", "v1", "me", "notification-preferences"],
             body: [
+                "clientMutationId": clientMutationID,
                 "notifySpoonOnMyRecipe": notifySpoonOnMyRecipe,
                 "notifyForkOfMyRecipe": notifyForkOfMyRecipe,
                 "notifyCookbookSaveOfMine": notifyCookbookSaveOfMine,
@@ -153,12 +160,14 @@ public enum PrivateAccountRequests {
         environment: APNSEnvironment,
         token: String,
         deviceName: String,
-        appVersion: String
+        appVersion: String,
+        clientMutationID: String
     ) throws -> APIRequestBuilder {
         try APIRequestSupport.privateJSON(
             method: .post,
             pathComponents: ["api", "v1", "me", "apns-devices"],
             body: [
+                "clientMutationId": clientMutationID,
                 "deviceId": deviceID,
                 "platform": platform.rawValue,
                 "environment": environment.rawValue,
@@ -169,10 +178,11 @@ public enum PrivateAccountRequests {
         )
     }
 
-    public static func revokeAPNSDevice(deviceID: String) -> APIRequestBuilder {
-        APIRequestSupport.privateRead(
-            method: .delete,
-            pathComponents: ["api", "v1", "me", "apns-devices", deviceID]
+    public static func revokeAPNSDevice(deviceID: String, clientMutationID: String) throws -> APIRequestBuilder {
+        try APIRequestSupport.privateJSONDelete(
+            pathComponents: ["api", "v1", "me", "apns-devices", deviceID],
+            clientMutationID: clientMutationID,
+            idempotency: .header
         )
     }
 

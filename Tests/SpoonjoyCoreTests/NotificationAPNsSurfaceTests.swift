@@ -230,13 +230,15 @@ struct NotificationAPNsSurfaceTests {
             environment: .production,
             token: "production-token",
             deviceName: "Kitchen iPad",
-            appVersion: "2.0.0"
+            appVersion: "2.0.0",
+            clientMutationID: "cm_apns_register"
         )
         .urlRequest(configuration: Self.configuration)
-        let revoke = try SnapshotNotificationAPNsSurfaceRepository.revokeRequest(deviceID: "device/ios 1")
+        let revoke = try SnapshotNotificationAPNsSurfaceRepository.revokeRequest(deviceID: "device/ios 1", clientMutationID: "cm_apns_revoke")
             .urlRequest(configuration: Self.configuration)
 
         try assertJSONRequest(register, method: .post, path: "/api/v1/me/apns-devices", expected: [
+            "clientMutationId": "cm_apns_register",
             "deviceId": "device/ios 1",
             "platform": "ios",
             "environment": "production",
@@ -251,6 +253,7 @@ struct NotificationAPNsSurfaceTests {
             authorization: "Bearer sj_private_token",
             responseCachePolicy: .privateNoStore
         )
+        #expect(revoke.headers["X-Client-Mutation-Id"] == "cm_apns_revoke")
         #expect(revoke.body == nil)
     }
 
@@ -566,6 +569,7 @@ struct NotificationAPNsSurfaceTests {
         let onlinePreference = try onlinePlanner.plan(.updatePreferences(preferences, clientMutationID: "cm_notifications_update"))
         let preferenceFallback = try #require(onlinePreference.offlineFallbackMutation)
         try assertJSONRequest(try #require(onlinePreference.remoteRequestBuilder).urlRequest(configuration: Self.configuration), method: .patch, path: "/api/v1/me/notification-preferences", expected: [
+            "clientMutationId": "cm_notifications_update",
             "notifySpoonOnMyRecipe": true,
             "notifyForkOfMyRecipe": true,
             "notifyCookbookSaveOfMine": false,
@@ -591,6 +595,7 @@ struct NotificationAPNsSurfaceTests {
             clientMutationID: "cm_defaulted_register"
         ))
         try assertJSONRequest(try #require(defaultedRegister.remoteRequestBuilder).urlRequest(configuration: Self.configuration), method: .post, path: "/api/v1/me/apns-devices", expected: [
+            "clientMutationId": "cm_defaulted_register",
             "deviceId": "device_defaulted",
             "platform": "macos",
             "environment": "development",
@@ -604,13 +609,15 @@ struct NotificationAPNsSurfaceTests {
         #expect(offlineRevoke.userFacingMessage == "Notification change queued.")
 
         let onlineRevoke = try onlinePlanner.plan(.revokeDevice(deviceID: "device_defaulted", clientMutationID: "cm_revoke_online"))
+        let onlineRevokeRequest = try #require(onlineRevoke.remoteRequestBuilder).urlRequest(configuration: Self.configuration)
         assertRequest(
-            try #require(onlineRevoke.remoteRequestBuilder).urlRequest(configuration: Self.configuration),
+            onlineRevokeRequest,
             method: .delete,
             path: "/api/v1/me/apns-devices/device_defaulted",
             authorization: "Bearer sj_private_token",
             responseCachePolicy: .privateNoStore
         )
+        #expect(onlineRevokeRequest.headers["X-Client-Mutation-Id"] == "cm_revoke_online")
 
         let permissionPrompt = try onlinePlanner.plan(.requestPermission)
         #expect(permissionPrompt.onlineOnlyReason == .permissionPrompt)

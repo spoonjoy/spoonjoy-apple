@@ -326,7 +326,7 @@ public struct SettingsActionPlanner: Sendable {
                 createdAt: timestamp()
             )
             return try queueablePlan(
-                online: PrivateAccountRequests.updateProfile(email: email, username: username),
+                online: PrivateAccountRequests.updateProfile(email: email, username: username, clientMutationID: clientMutationID),
                 mutation: mutation
             )
         case .uploadProfilePhoto(let photo, let clientMutationID):
@@ -337,13 +337,14 @@ public struct SettingsActionPlanner: Sendable {
             )
             return try queueablePlan(
                 online: PrivateAccountRequests.uploadProfilePhoto(
-                    photo: UploadFile(fileName: photo.fileName, contentType: photo.contentType, data: photo.data)
+                    photo: UploadFile(fileName: photo.fileName, contentType: photo.contentType, data: photo.data),
+                    clientMutationID: clientMutationID
                 ),
                 mutation: mutation
             )
         case .removeProfilePhoto(let clientMutationID):
             let mutation = NativeQueuedMutation.profilePhotoRemove(clientMutationID: clientMutationID, createdAt: timestamp())
-            return try queueablePlan(online: PrivateAccountRequests.removeProfilePhoto(), mutation: mutation)
+            return try queueablePlan(online: PrivateAccountRequests.removeProfilePhoto(clientMutationID: clientMutationID), mutation: mutation)
         case .updateNotificationPreferences(let preferences, let clientMutationID):
             let mutation = NativeQueuedMutation.notificationPreferenceUpdate(
                 notifySpoonOnMyRecipe: preferences.notifySpoonOnMyRecipe,
@@ -358,7 +359,8 @@ public struct SettingsActionPlanner: Sendable {
                     notifySpoonOnMyRecipe: preferences.notifySpoonOnMyRecipe,
                     notifyForkOfMyRecipe: preferences.notifyForkOfMyRecipe,
                     notifyCookbookSaveOfMine: preferences.notifyCookbookSaveOfMine,
-                    notifyFellowChefOriginCook: preferences.notifyFellowChefOriginCook
+                    notifyFellowChefOriginCook: preferences.notifyFellowChefOriginCook,
+                    clientMutationID: clientMutationID
                 ),
                 mutation: mutation
             )
