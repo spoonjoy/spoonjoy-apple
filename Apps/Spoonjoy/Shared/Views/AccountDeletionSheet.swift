@@ -10,6 +10,7 @@ struct AccountDeletionSheet: View {
     static let passwordFieldIdentifier = "settings.deleteAccount.password"
     static let confirmButtonIdentifier = "settings.deleteAccount.confirm"
     static let failureIdentifier = "settings.deleteAccount.failure"
+    static let cancelButtonIdentifier = "settings.deleteAccount.cancel"
 
     @State private var form: AccountDeletionForm
     @State private var currentNonce: String?
@@ -59,6 +60,7 @@ struct AccountDeletionSheet: View {
                 .font(KitchenTableTheme.bodyNote.weight(.semibold))
                 .foregroundStyle(KitchenTableTheme.charcoal)
                 .disabled(isDeleting)
+                .accessibilityIdentifier(Self.cancelButtonIdentifier)
             }
 
             KitchenTableHeader(
