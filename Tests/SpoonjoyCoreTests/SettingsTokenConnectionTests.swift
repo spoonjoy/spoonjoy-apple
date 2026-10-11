@@ -96,6 +96,7 @@ struct SettingsTokenConnectionTests {
             .notifications,
             .apiTokens,
             .connections,
+            .yourData,
             .environment,
             .offline
         ])

@@ -2291,6 +2291,8 @@ private struct SpoonjoyIntentStateWriter {
                 decode: SettingsCreatedAPIToken.self
             )
             return .createdAPIToken(envelope.data)
+        case .captureAccountExport, .deleteAccountThenSignOutLocally:
+            throw NativeIntentActionError.settingsActionUnavailable("Download my data and Delete account run from Settings in the app.")
         }
     }
 
@@ -2300,7 +2302,7 @@ private struct SpoonjoyIntentStateWriter {
         }
         try await purgePrivateEntityIndexesForCurrentScope()
         switch operation {
-        case .logout:
+        case .logout, .signOutLocally:
             try await authVault.clearSession()
             try await authVault.clearClientID()
         case .revokeAndLogout:

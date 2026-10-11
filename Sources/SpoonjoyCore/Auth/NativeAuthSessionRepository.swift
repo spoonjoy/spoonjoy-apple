@@ -227,7 +227,7 @@ public actor NativeAuthSessionRepository {
     }
 
     /// Forgets the stored session and client id without telling the server, for a session the server already
-    /// reported as revoked.
+    /// reported as revoked, or after the account itself was deleted (the server dropped every token with it).
     public func clearLocalSession() async throws {
         try await refreshCoordinator.disconnect()
     }
