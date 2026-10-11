@@ -227,6 +227,8 @@ public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
     public let queue: NativeMutationQueue
     public let cachedRecords: [NativeSyncCachedRecord]
     public let tombstones: [NativeSyncTombstone]
+    /// Pending edits kept for other accounts, and edits made before the account was known.
+    public let parkedQueues: [NativeParkedMutationQueue]
 
     public static let empty = NativeSyncSnapshot(
         accountID: nil,
@@ -243,7 +245,8 @@ public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
         checkpoint: NativeSyncCheckpoint?,
         queue: NativeMutationQueue,
         cachedRecords: [NativeSyncCachedRecord] = [],
-        tombstones: [NativeSyncTombstone] = []
+        tombstones: [NativeSyncTombstone] = [],
+        parkedQueues: [NativeParkedMutationQueue] = []
     ) {
         self.accountID = accountID
         self.environment = environment
@@ -251,6 +254,7 @@ public struct NativeSyncSnapshot: Codable, Equatable, Sendable {
         self.queue = queue
         self.cachedRecords = cachedRecords
         self.tombstones = tombstones
+        self.parkedQueues = parkedQueues
     }
 }
 
@@ -262,6 +266,7 @@ extension NativeSyncSnapshot {
         case queue
         case cachedRecords
         case tombstones
+        case parkedQueues
     }
 
     public init(from decoder: Decoder) throws {
@@ -272,6 +277,7 @@ extension NativeSyncSnapshot {
         queue = try container.decodeIfPresent(NativeMutationQueue.self, forKey: .queue) ?? NativeMutationQueue()
         cachedRecords = try container.decodeIfPresent([NativeSyncCachedRecord].self, forKey: .cachedRecords) ?? []
         tombstones = try container.decodeIfPresent([NativeSyncTombstone].self, forKey: .tombstones) ?? []
+        parkedQueues = try container.decodeIfPresent([NativeParkedMutationQueue].self, forKey: .parkedQueues) ?? []
     }
 }
 
@@ -396,6 +402,7 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
     private var queue: NativeMutationQueue
     private var records: [String: NativeSyncCachedRecord]
     public private(set) var tombstones: NativeSyncTombstoneLog
+    private var parkedQueues: [NativeParkedMutationQueue] = []
 
     public init(
         accountID: String? = nil,
@@ -431,14 +438,19 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
         upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
         deletingCachedRecordKeys deletedCacheKeys: Set<String>
     ) {
-        let scopeChanged = self.accountID != accountID || self.environment != environment
-        self.accountID = accountID
-        self.environment = environment
-        if scopeChanged {
-            checkpoint = nil
-            records = [:]
-            tombstones = NativeSyncTombstoneLog()
+        var queue = queue
+        if self.accountID != accountID || self.environment != environment {
+            enterScope(accountID: accountID, environment: environment)
+            queue = NativeMutationQueueParking.saving(queue, after: self.queue)
         }
+        commit(queue, upsertingCachedRecords: cachedRecords, deletingCachedRecordKeys: deletedCacheKeys)
+    }
+
+    private func commit(
+        _ queue: NativeMutationQueue,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys deletedCacheKeys: Set<String>
+    ) {
         for deletedCacheKey in deletedCacheKeys {
             records.removeValue(forKey: deletedCacheKey)
         }
@@ -446,6 +458,26 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
             records[cachedRecord.cacheKey] = cachedRecord
         }
         self.queue = queue
+    }
+
+    /// Starts serving another account: parks the current account's edits and clears its cache, then brings back the
+    /// new account's parked edits and any made before the account was known.
+    private func enterScope(accountID: String?, environment: NativeCacheEnvironment?) {
+        let entered = NativeMutationQueueParking.entering(
+            accountID: accountID,
+            environment: environment,
+            leavingAccountID: self.accountID,
+            leavingEnvironment: self.environment,
+            activeQueue: queue,
+            parked: parkedQueues
+        )
+        self.accountID = accountID
+        self.environment = environment
+        checkpoint = nil
+        records = [:]
+        tombstones = NativeSyncTombstoneLog()
+        parkedQueues = entered.parked
+        queue = entered.queue
     }
 
     public func loadCheckpoint() throws -> NativeSyncCheckpoint {
@@ -473,13 +505,16 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
 
     public func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult {
         if shouldResetForIncomingSyncData(syncData) {
-            checkpoint = nil
-            queue = NativeMutationQueue()
-            records = [:]
-            tombstones = NativeSyncTombstoneLog()
+            enterScope(accountID: syncData.freshness.accountID, environment: syncData.freshness.environment)
         }
         accountID = syncData.freshness.accountID
         environment = syncData.freshness.environment
+        // The server has confirmed the account, so edits made before it was known now belong to it.
+        let unbound = NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues)
+        if !unbound.mutations.isEmpty {
+            queue = NativeMutationQueueParking.merged([queue, unbound])
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: NativeMutationQueue(), in: parkedQueues)
+        }
 
         var upserted: [String] = []
         var removed: [String] = []
@@ -535,14 +570,20 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
         _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
     ) throws -> NativeQueueUpdate {
         let scopeMatches = self.accountID == accountID && self.environment == environment
-        let update = try transform(snapshot(queue: scopeMatches ? queue : NativeMutationQueue()))
-        saveQueue(
-            update.queue,
-            accountID: accountID,
-            environment: environment,
-            upsertingCachedRecords: update.upsertingCachedRecords,
-            deletingCachedRecordKeys: update.deletingCachedRecordKeys
-        )
+        if !scopeMatches && accountID == nil {
+            let update = try transform(NativeSyncSnapshot(
+                environment: environment,
+                checkpoint: nil,
+                queue: NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues)
+            ))
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: update.queue, in: parkedQueues)
+            return NativeQueueUpdate(queue: update.queue)
+        }
+        if !scopeMatches {
+            enterScope(accountID: accountID, environment: environment)
+        }
+        let update = try transform(snapshot(queue: queue))
+        commit(update.queue, upsertingCachedRecords: update.upsertingCachedRecords, deletingCachedRecordKeys: update.deletingCachedRecordKeys)
         return NativeQueueUpdate(
             queue: queue,
             upsertingCachedRecords: update.upsertingCachedRecords,
@@ -561,7 +602,8 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
             checkpoint: checkpoint,
             queue: queue,
             cachedRecords: records.values.sorted { $0.cacheKey < $1.cacheKey },
-            tombstones: tombstones.entries
+            tombstones: tombstones.entries,
+            parkedQueues: parkedQueues
         )
     }
 
@@ -573,7 +615,7 @@ public actor InMemoryNativeSyncStore: NativeSyncStore {
 
     private func shouldResetForIncomingSyncData(_ syncData: NativeSyncData) -> Bool {
         guard let accountID, let environment else {
-            return checkpoint != nil || !queue.mutations.isEmpty || !records.isEmpty || !tombstones.entries.isEmpty
+            return true
         }
         return accountID != syncData.freshness.accountID || environment != syncData.freshness.environment
     }
@@ -588,6 +630,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
     private var queue: NativeMutationQueue
     private var records: [String: NativeSyncCachedRecord]
     private var tombstones: [NativeSyncTombstone]
+    private var parkedQueues: [NativeParkedMutationQueue]
 
     public init(
         fileURL: URL,
@@ -604,6 +647,7 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         self.queue = snapshot.queue
         self.records = Dictionary(uniqueKeysWithValues: snapshot.cachedRecords.map { ($0.cacheKey, $0) })
         self.tombstones = snapshot.tombstones
+        self.parkedQueues = snapshot.parkedQueues
     }
 
     public func loadQueue() throws -> NativeMutationQueue {
@@ -633,26 +677,55 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
         deletingCachedRecordKeys deletedCacheKeys: Set<String>
     ) throws {
-        let scopeChanged = self.accountID != accountID || self.environment != environment
-        self.accountID = accountID
-        self.environment = environment
-        if scopeChanged {
-            checkpoint = nil
-            records = [:]
-            tombstones = []
+        var queue = queue
+        if self.accountID != accountID || self.environment != environment {
+            enterScope(accountID: accountID, environment: environment)
+            queue = NativeMutationQueueParking.saving(queue, after: self.queue)
         }
+        try commit(queue, upsertingCachedRecords: cachedRecords, deletingCachedRecordKeys: deletedCacheKeys)
+    }
+
+    private func commit(
+        _ queue: NativeMutationQueue,
+        upsertingCachedRecords cachedRecords: [NativeSyncCachedRecord],
+        deletingCachedRecordKeys deletedCacheKeys: Set<String>
+    ) throws {
         for deletedCacheKey in deletedCacheKeys {
             records.removeValue(forKey: deletedCacheKey)
         }
         for cachedRecord in cachedRecords {
             records[cachedRecord.cacheKey] = cachedRecord
         }
-        if let mediaResolver {
-            self.queue = try queue.resolvingStagedMedia(using: mediaResolver)
-        } else {
-            self.queue = queue
-        }
+        self.queue = try resolved(queue)
         try persist()
+    }
+
+    private func resolved(_ queue: NativeMutationQueue) throws -> NativeMutationQueue {
+        guard let mediaResolver else {
+            return queue
+        }
+        return try queue.resolvingStagedMedia(using: mediaResolver)
+    }
+
+    /// Starts serving another account: parks the current account's edits and clears its cache, then brings back the
+    /// new account's parked edits and any made before the account was known. Parked edits keep their staged photos
+    /// on disk; the photos are read again when the edits come back.
+    private func enterScope(accountID: String?, environment: NativeCacheEnvironment?) {
+        let entered = NativeMutationQueueParking.entering(
+            accountID: accountID,
+            environment: environment,
+            leavingAccountID: self.accountID,
+            leavingEnvironment: self.environment,
+            activeQueue: queue,
+            parked: parkedQueues
+        )
+        self.accountID = accountID
+        self.environment = environment
+        checkpoint = nil
+        records = [:]
+        tombstones = []
+        parkedQueues = entered.parked
+        queue = entered.queue
     }
 
     public func loadCheckpoint() throws -> NativeSyncCheckpoint {
@@ -683,13 +756,16 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
 
     public func apply(syncData: NativeSyncData, validatedAt: Date) throws -> NativeSyncApplyResult {
         if shouldResetForIncomingSyncData(syncData) {
-            checkpoint = nil
-            queue = NativeMutationQueue()
-            records = [:]
-            tombstones = []
+            enterScope(accountID: syncData.freshness.accountID, environment: syncData.freshness.environment)
         }
         accountID = syncData.freshness.accountID
         environment = syncData.freshness.environment
+        // The server has confirmed the account, so edits made before it was known now belong to it.
+        let unbound = NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues)
+        if !unbound.mutations.isEmpty {
+            queue = try resolved(NativeMutationQueueParking.merged([queue, unbound]))
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: NativeMutationQueue(), in: parkedQueues)
+        }
 
         var upserted: [String] = []
         var removed: [String] = []
@@ -746,14 +822,22 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
         _ transform: @Sendable (NativeSyncSnapshot) throws -> NativeQueueUpdate
     ) throws -> NativeQueueUpdate {
         let scopeMatches = self.accountID == accountID && self.environment == environment
-        let update = try transform(snapshot(queue: scopeMatches ? queue : NativeMutationQueue()))
-        try saveQueue(
-            update.queue,
-            accountID: accountID,
-            environment: environment,
-            upsertingCachedRecords: update.upsertingCachedRecords,
-            deletingCachedRecordKeys: update.deletingCachedRecordKeys
-        )
+        if !scopeMatches && accountID == nil {
+            let update = try transform(NativeSyncSnapshot(
+                environment: environment,
+                checkpoint: nil,
+                queue: try resolved(NativeMutationQueueParking.unboundQueue(environment: environment, in: parkedQueues))
+            ))
+            parkedQueues = NativeMutationQueueParking.replacingUnboundQueue(environment: environment, with: update.queue, in: parkedQueues)
+            try persist()
+            return NativeQueueUpdate(queue: update.queue)
+        }
+        if !scopeMatches {
+            enterScope(accountID: accountID, environment: environment)
+            queue = try resolved(queue)
+        }
+        let update = try transform(snapshot())
+        try commit(update.queue, upsertingCachedRecords: update.upsertingCachedRecords, deletingCachedRecordKeys: update.deletingCachedRecordKeys)
         return NativeQueueUpdate(
             queue: queue,
             upsertingCachedRecords: update.upsertingCachedRecords,
@@ -776,13 +860,14 @@ public actor FileBackedNativeSyncStore: NativeSyncStore {
             checkpoint: checkpoint,
             queue: queue ?? self.queue,
             cachedRecords: records.values.sorted { $0.cacheKey < $1.cacheKey },
-            tombstones: tombstones
+            tombstones: tombstones,
+            parkedQueues: parkedQueues
         )
     }
 
     private func shouldResetForIncomingSyncData(_ syncData: NativeSyncData) -> Bool {
         guard let accountID, let environment else {
-            return checkpoint != nil || !queue.mutations.isEmpty || !records.isEmpty || !tombstones.isEmpty
+            return true
         }
         return accountID != syncData.freshness.accountID || environment != syncData.freshness.environment
     }
@@ -3748,6 +3833,11 @@ public struct NativeMutationQueue: Codable, Equatable, Sendable {
         mutations = []
     }
 
+    /// For edits taken from queues that were already validated, with duplicates removed.
+    init(validatedMutations mutations: [NativeQueuedMutation]) {
+        self.mutations = mutations
+    }
+
     public init(mutations: [NativeQueuedMutation]) throws {
         self.mutations = try Self.validatedMutations(mutations)
     }
@@ -4500,7 +4590,10 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         let bootstrapTombstones = bootstrapApplication.tombstones
         let bootstrapRemovedCacheKeys = bootstrapApplication.removedCacheKeys
 
-        let canReplayStoredQueue = Self.canReuseStoredState(previousSnapshot, scope: scope)
+        // Applying a bootstrap moves the store to the account the server named, parking any other account's edits and
+        // bringing back that account's, so the stored queue is then that account's. Without an account in the
+        // bootstrap, the stored queue is replayed only when it was stored for the account the session expects.
+        let canReplayStoredQueue = bootstrapAccountID != nil || Self.canReuseStoredState(previousSnapshot, scope: scope)
         let queueAccountID = bootstrapAccountID ?? scope.expectedAccountID
         let queueEnvironment = bootstrapEnvironment ?? scope.environment
         var shoppingEntityPurgeIdentifiers: [String] = []
@@ -4596,17 +4689,19 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 ))
             }
         }
+        // A queue stored for another account is left alone: the save below parks it when it moves the store.
         let originalQueue: NativeMutationQueue
         if canReplayStoredQueue {
             originalQueue = try await store.loadQueue()
-        } else if previousSnapshot.queue.mutations.isEmpty {
-            originalQueue = NativeMutationQueue()
-        } else {
-            // The stored queue belonged to another account or environment. Move the store to this sync's scope in
-            // one step: edits queued under this scope while the bootstrap request was in flight stay, and are sent.
+        } else if queueAccountID != nil {
+            // The store still serves another account, and the bootstrap did not name one. Move it to the account
+            // this session expects, in one step: the other account's edits are parked, and this account's come back,
+            // including any queued while the bootstrap request was in flight.
             originalQueue = try await store.updateQueue(accountID: queueAccountID, environment: queueEnvironment) { snapshot in
                 NativeQueueUpdate(queue: snapshot.queue)
             }.queue
+        } else {
+            originalQueue = NativeMutationQueue()
         }
         var remaining: [NativeQueuedMutation] = []
         var drainedClientMutationIDs: [String] = []
