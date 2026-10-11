@@ -143,7 +143,7 @@ struct SpoonIntentTests {
                         "@Parameter(title: \"Cooked At\")",
                         "NativeIntentActionResolver().logCook(recipe: recipe.descriptor",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: [
                         "var recipeID: String",

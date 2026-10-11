@@ -131,7 +131,7 @@ struct CookbookIntentTests {
                         "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
                 ),
@@ -149,7 +149,7 @@ struct CookbookIntentTests {
                         "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
                 ),
@@ -167,7 +167,7 @@ struct CookbookIntentTests {
                         "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
                 ),
@@ -186,7 +186,7 @@ struct CookbookIntentTests {
                         "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Cookbook ID\")"]
                 ),
@@ -206,7 +206,7 @@ struct CookbookIntentTests {
                         "currentChefID: currentChefID",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Cookbook ID\")"]
                 )

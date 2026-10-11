@@ -266,7 +266,7 @@ struct ProfileSettingsIntentTests {
                         "status.dialogMessage(completed: \"Updated profile in Spoonjoy.\"",
                         "queued: \"Queued profile update in Spoonjoy.\"",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["ReturnsValue<String>", "token", "secret"]
                 ),
@@ -282,7 +282,7 @@ struct ProfileSettingsIntentTests {
                         "status.dialogMessage(completed: \"Updated profile photo in Spoonjoy.\"",
                         "queued: \"Queued profile photo update in Spoonjoy.\"",
                         "SettingsProfilePhotoStagingPolicy.webProfileParity",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["var photoPath: String", "@Parameter(title: \"Photo Path\")"]
                 ),
@@ -296,7 +296,7 @@ struct ProfileSettingsIntentTests {
                         "performSettingsActionStatus(action, savedAt: createdAt)",
                         "status.dialogMessage(completed: \"Removed profile photo in Spoonjoy.\"",
                         "queued: \"Queued profile photo removal in Spoonjoy.\"",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: ["ReturnsValue<String>", "token", "secret"]
                 ),

@@ -1772,7 +1772,7 @@ if domain == "shopping-intents"
         "@Parameter(title: \"Unit\")",
         "NativeIntentActionResolver().addShoppingListItem(",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var itemID: String", "@Parameter(title: \"Item ID\")"]
     },
@@ -1982,7 +1982,7 @@ if domain == "recipe-action"
         "@Parameter(title: \"Title\")",
         "NativeIntentActionResolver().forkRecipe(recipe: recipe.descriptor",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var recipeID: String", "@Parameter(title: \"Recipe ID\")"]
     },
@@ -2238,7 +2238,7 @@ if domain == "spoon-intents"
         "@Parameter(title: \"Cooked At\")",
         "NativeIntentActionResolver().logCook(recipe: recipe.descriptor",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var recipeID: String", "@Parameter(title: \"Recipe ID\")"]
     },
@@ -2840,7 +2840,7 @@ if domain == "cookbook-intents"
         "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
     },
@@ -2855,7 +2855,7 @@ if domain == "cookbook-intents"
         "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
     },
@@ -2870,7 +2870,7 @@ if domain == "cookbook-intents"
         "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var cookbookID: String", "@Parameter(title: \"Cookbook ID\")"]
     },
@@ -2886,7 +2886,7 @@ if domain == "cookbook-intents"
         "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Cookbook ID\")"]
     },
@@ -2903,7 +2903,7 @@ if domain == "cookbook-intents"
         "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var recipeID: String", "var cookbookID: String", "@Parameter(title: \"Recipe ID\")", "@Parameter(title: \"Cookbook ID\")"]
     }
@@ -3113,7 +3113,7 @@ if domain == "capture-import-intents"
       "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
       "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
       "SpoonjoyInteractionDonor",
-      "OpenURLIntent(action.url)",
+      "return .result(dialog:",
       "String(describing: SubmitCaptureImportIntent())",
       "String(describing: OpenCaptureDraftIntent())",
       "String(describing: DiscardCaptureDraftIntent())"
@@ -3159,7 +3159,7 @@ if domain == "capture-import-intents"
         "NativeIntentActionResolver().captureRecipe(",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: []
     },
@@ -3174,7 +3174,7 @@ if domain == "capture-import-intents"
         "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var draftID: String", "@Parameter(title: \"Draft ID\")"]
     },
@@ -3199,7 +3199,7 @@ if domain == "capture-import-intents"
         "currentChefID: currentChefID",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var draftID: String", "@Parameter(title: \"Draft ID\")"]
     }
@@ -3487,7 +3487,7 @@ if domain == "profile-settings-intents"
       "SpoonjoyIntentClock.timestamp()",
       "SpoonjoyInteractionDonor",
       "requestConfirmation(",
-      "OpenURLIntent(action.url)",
+      "return .result(dialog:",
       "OpenURLIntent(plan.secureHandoff.url)",
       "String(describing: OpenSettingsIntent())",
       "String(describing: UpdateProfileDisplayIntent())",
@@ -3700,7 +3700,7 @@ if domain == "profile-settings-intents"
         "status.dialogMessage(completed: \"Updated profile in Spoonjoy.\"",
         "queued: \"Queued profile update in Spoonjoy.\"",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["ReturnsValue<String>", "token", "secret"]
     },
@@ -3713,7 +3713,7 @@ if domain == "profile-settings-intents"
         "status.dialogMessage(completed: \"Updated profile photo in Spoonjoy.\"",
         "queued: \"Queued profile photo update in Spoonjoy.\"",
         "SettingsProfilePhotoStagingPolicy.webProfileParity",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["var photoPath: String", "@Parameter(title: \"Photo Path\")"]
     },
@@ -3724,7 +3724,7 @@ if domain == "profile-settings-intents"
         "performSettingsActionStatus(action, savedAt: createdAt)",
         "status.dialogMessage(completed: \"Removed profile photo in Spoonjoy.\"",
         "queued: \"Queued profile photo removal in Spoonjoy.\"",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: ["ReturnsValue<String>", "token", "secret"]
     },
@@ -4223,7 +4223,7 @@ if domain == "notification-intents"
       "performNotificationAPNsActionStatus",
       "SpoonjoyIntentClock.timestamp()",
       "SpoonjoyInteractionDonor",
-      "OpenURLIntent(action.url)",
+      "return .result(dialog:",
       "ReturnsValue<String>",
       "APNsDeliveryBlockerState",
       "AppleDeveloperProgramBlocker.artifactFileName",
@@ -4388,7 +4388,7 @@ if domain == "notification-intents"
         "performNotificationAPNsActionStatus(action, savedAt: createdAt)",
         "status.dialogMessage(completed: \"Updated notification preferences in Spoonjoy.\"",
         "queued: \"Queued notification preference update in Spoonjoy.\"",
-        "OpenURLIntent(action.url)"
+        "return .result(dialog:"
       ],
       forbidden: [
         "try await requestConfirmation(",
