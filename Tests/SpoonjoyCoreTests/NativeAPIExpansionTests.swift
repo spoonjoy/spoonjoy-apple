@@ -376,44 +376,37 @@ struct NativeAPIExpansionTests {
         }
     }
 
-    @Test("optional public profile and search requests omit bearer by default but can include it")
-    func optionalPublicProfileAndSearchRequestsOmitBearerByDefaultButCanIncludeIt() throws {
-        let anonymousProfile = try PublicProfileRequests.profile(identifier: "ari/space")
-            .urlRequest(configuration: Self.privateConfiguration)
-        let visitors = try PublicProfileRequests.kitchenVisitors(identifier: "ari", page: 2, limit: 30)
-            .urlRequest(configuration: Self.privateConfiguration)
-        let fellowChefs = try PublicProfileRequests.fellowChefs(identifier: "ari", page: 3, limit: 15)
-            .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
+    @Test("profile requests send the sign-in token and stay public signed out; search includes it on request")
+    func profileRequestsSendTheSignInTokenAndStayPublicSignedOut() throws {
+        let signedOut = APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!)
+        let publicCache = APIResponseCachePolicy.publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+        let visitorsQuery = [URLQueryItem(name: "page", value: "2"), URLQueryItem(name: "limit", value: "30")]
+        let fellowChefsQuery = [URLQueryItem(name: "page", value: "3"), URLQueryItem(name: "limit", value: "15")]
+        let builders: [(APIRequestBuilder, String, [URLQueryItem])] = [
+            (PublicProfileRequests.profile(identifier: "ari/space"), "/api/v1/users/ari%2Fspace", []),
+            (PublicProfileRequests.kitchenVisitors(identifier: "ari", page: 2, limit: 30), "/api/v1/users/ari/kitchen-visitors", visitorsQuery),
+            (PublicProfileRequests.fellowChefs(identifier: "ari", page: 3, limit: 15), "/api/v1/users/ari/fellow-chefs", fellowChefsQuery)
+        ]
+
+        for (builder, path, queryItems) in builders {
+            // Signed in: the token goes, so the chef's own profile answers isOwner, and nothing is cached.
+            let signedIn = try builder.urlRequest(configuration: Self.privateConfiguration)
+            assertRequest(signedIn, method: .get, path: path, authorization: "Bearer sj_private_token", queryItems: queryItems, responseCachePolicy: .privateNoStore)
+            #expect(signedIn.body == nil)
+            // Signed out: the same page for everyone, publicly cacheable.
+            let anonymous = try builder.urlRequest(configuration: signedOut)
+            assertRequest(anonymous, method: .get, path: path, authorization: nil, queryItems: queryItems, responseCachePolicy: publicCache)
+            // A caller can still ask for the visitor's view while signed in.
+            let omitted = try builder.urlRequest(configuration: Self.privateConfiguration, authorization: .omit)
+            assertRequest(omitted, method: .get, path: path, authorization: nil, queryItems: queryItems, responseCachePolicy: publicCache)
+        }
+
         let search = try SearchRequests.search(
             query: "lemon pasta",
             scope: SearchScope.shoppingList,
             limit: 99
         )
         .urlRequest(configuration: Self.privateConfiguration, authorization: APIAuthorizationPolicy.includeBearerToken)
-
-        assertRequest(anonymousProfile, method: .get, path: "/api/v1/users/ari%2Fspace", authorization: nil, responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300))
-        assertRequest(
-            visitors,
-            method: .get,
-            path: "/api/v1/users/ari/kitchen-visitors",
-            authorization: nil,
-            queryItems: [
-                URLQueryItem(name: "page", value: "2"),
-                URLQueryItem(name: "limit", value: "30")
-            ],
-            responseCachePolicy: .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
-        )
-        assertRequest(
-            fellowChefs,
-            method: .get,
-            path: "/api/v1/users/ari/fellow-chefs",
-            authorization: "Bearer sj_private_token",
-            queryItems: [
-                URLQueryItem(name: "page", value: "3"),
-                URLQueryItem(name: "limit", value: "15")
-            ],
-            responseCachePolicy: .privateNoStore
-        )
         assertRequest(
             search,
             method: .get,
@@ -426,9 +419,6 @@ struct NativeAPIExpansionTests {
             ],
             responseCachePolicy: .privateNoStore
         )
-        #expect(anonymousProfile.body == nil)
-        #expect(visitors.body == nil)
-        #expect(fellowChefs.body == nil)
         #expect(search.body == nil)
     }
 

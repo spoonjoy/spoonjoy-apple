@@ -570,9 +570,15 @@ public enum TokenCredentialRequests {
     }
 }
 
+/// Profile pages. A signed-in app sends its token, so spoonjoy-v2 can answer `isOwner` for the chef's own
+/// profile; that answer is private (v2 sends `Cache-Control: private, no-store`, and the request asks for no
+/// caching too). Signed out, the pages are the same for everyone and stay publicly cacheable.
 public enum PublicProfileRequests {
     public static func profile(identifier: String) -> APIRequestBuilder {
-        APIRequestSupport.publicRead(pathComponents: ["api", "v1", "users", identifier])
+        APIRequestSupport.publicRead(
+            pathComponents: ["api", "v1", "users", identifier],
+            authorization: .includeBearerToken
+        )
     }
 
     public static func kitchenVisitors(identifier: String, page: Int, limit: Int) -> APIRequestBuilder {
@@ -581,7 +587,8 @@ public enum PublicProfileRequests {
             queryItems: [
                 URLQueryItem(name: "page", value: String(page)),
                 URLQueryItem(name: "limit", value: String(limit))
-            ]
+            ],
+            authorization: .includeBearerToken
         )
     }
 
@@ -591,7 +598,8 @@ public enum PublicProfileRequests {
             queryItems: [
                 URLQueryItem(name: "page", value: String(page)),
                 URLQueryItem(name: "limit", value: String(limit))
-            ]
+            ],
+            authorization: .includeBearerToken
         )
     }
 }

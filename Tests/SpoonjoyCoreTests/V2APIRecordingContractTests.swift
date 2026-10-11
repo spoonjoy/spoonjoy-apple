@@ -152,12 +152,47 @@ struct V2APIRecordingContractTests {
         "me-export",
         "connections-list",
         "connection-disconnect",
-        "account-delete"
+        "account-delete",
+        "cook-session-read-empty",
+        "cook-session-start",
+        "cook-session-start-resume",
+        "cook-session-patch",
+        "cook-session-read",
+        "cook-session-patch-stale-revision"
     ]
+
+    /// The cook-session answers are not the envelope. The app reads them with `URLSessionCookSessionClient.classify`,
+    /// which turns a state it cannot decode into a retry, so this also decodes the state into `CookServerSnapshot`
+    /// itself and checks that `classify` gives the result the app acts on.
+    @discardableResult
+    static func cookSession(_ data: Data, status: Int) throws -> CookSyncResult {
+        let result = URLSessionCookSessionClient.classify(status: status, body: data, retryAfter: nil)
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        let state = status == 409 ? (object?["error"] as? [String: Any])?["state"] : object?["state"]
+        if state is NSNull {
+            guard result == .state(nil) else {
+                throw RecordingError(description: "A null cook-session state classifies as \(result)")
+            }
+            return result
+        }
+        guard let state else {
+            throw RecordingError(description: "The cook-session answer has no state")
+        }
+        let snapshot = try JSONDecoder().decode(CookServerSnapshot.self, from: JSONSerialization.data(withJSONObject: state))
+        let expected: CookSyncResult = status == 409 ? .conflict(snapshot) : .state(snapshot)
+        guard result == expected else {
+            throw RecordingError(description: "The cook-session answer classifies as \(result), expected \(expected)")
+        }
+        return result
+    }
 
     /// Decodes a recording with the model the app decodes that endpoint's response into.
     /// Returns false for a recording this suite does not know yet.
-    static func decode(_ name: String, _ data: Data) throws -> Bool {
+    static func decode(_ name: String, _ data: Data, status: Int = 200) throws -> Bool {
+        if name.hasPrefix("cook-session-") {
+            try cookSession(data, status: status)
+            return true
+        }
         switch name {
         case "auth-password-native": try envelopeOrBare(OAuthTokenResponse.self, data)
         case "auth-apple-native": try envelopeOrBare(OAuthTokenResponse.self, data)
@@ -246,7 +281,7 @@ struct V2APIRecordingContractTests {
         #expect(!entries.isEmpty)
         for entry in entries {
             do {
-                if try !Self.decode(entry.name, Self.body(entry.name)) {
+                if try !Self.decode(entry.name, Self.body(entry.name), status: entry.status) {
                     Issue.record("No decoder for \(entry.name) (\(entry.endpoint))")
                 }
             } catch {
@@ -406,5 +441,56 @@ struct V2APIRecordingContractTests {
         )
         #expect(!expectedFromRecipeRemaps.isEmpty)
         #expect(addFromRecipe.idRemaps(from: fromRecipeResponse) == expectedFromRecipeRemaps)
+    }
+
+    static func cookResult(_ name: String) throws -> CookSyncResult {
+        guard let entry = try index().first(where: { $0.name == name }) else {
+            throw RecordingError(description: "\(name) is not in the index")
+        }
+        return try cookSession(body(name), status: entry.status)
+    }
+
+    static func snapshot(_ result: CookSyncResult) throws -> CookServerSnapshot {
+        switch result {
+        case .state(let snapshot?), .conflict(let snapshot):
+            return snapshot
+        default:
+            throw RecordingError(description: "\(result) carries no cook-session state")
+        }
+    }
+
+    @Test("cook-session recordings give the app the states its sync reconciles")
+    func cookSessionRecordingsDriveSync() throws {
+        #expect(try Self.cookResult("cook-session-read-empty") == .state(nil))
+
+        let started = try Self.snapshot(Self.cookResult("cook-session-start"))
+        #expect(started.revision == 0)
+        #expect(started.progress == .initial)
+        #expect(try Self.cookResult("cook-session-start-resume") == .state(started))
+
+        // The app sends the step by index (CookSyncChanges has no step id); the server answers with the step's
+        // id as well, which the app ignores, and drops a checked ingredient the recipe no longer has.
+        let written = try Self.snapshot(Self.cookResult("cook-session-patch"))
+        #expect(written.attemptID == started.attemptID)
+        #expect(written.revision == 1)
+        #expect(written.progress.activeStepIndex == 1)
+        #expect(written.progress.scaleFactor == 2)
+        #expect(written.progress.checkedIngredientIDs.count == 1)
+        #expect(written.progress.checkedStepOutputIDs.count == 1)
+        let progress = try #require(
+            (JSONSerialization.jsonObject(with: Self.body("cook-session-patch")) as? [String: Any])
+                .flatMap { $0["state"] as? [String: Any] }
+                .flatMap { $0["progress"] as? [String: Any] }
+        )
+        #expect(progress["activeStepId"] is String)
+
+        #expect(try Self.cookResult("cook-session-read") == .state(written))
+        // A write against an older revision is refused with the newer state, which the app merges its changes onto.
+        #expect(try Self.cookResult("cook-session-patch-stale-revision") == .conflict(written))
+    }
+
+    @Test("signed-in profile recordings say the chef owns their own profile")
+    func signedInProfileRecordingsAreOwned() throws {
+        #expect(try APIEnvelope<ProfileSurfaceData>.decode(Self.body("user-profile")).data.isOwner)
     }
 }
