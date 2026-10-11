@@ -40,8 +40,9 @@ jobs:
           echo "== launchctl poster/wallpaper services"
           xcrun simctl spawn "$udid" launchctl list | grep -i -E 'poster|wallpaper|springboard|cover' || true
           for d in com.apple.springboard com.apple.PosterBoard com.apple.wallpaper com.apple.PosterKit; do
-            echo "== defaults $d"; xcrun simctl spawn "$udid" defaults read "$d" 2>&1 | head -40
+            echo "== defaults $d"; xcrun simctl spawn "$udid" defaults read "$d" 2>&1 | head -40 || true
           done
+          exit 0
       - name: Apply mitigation
         run: |
           set -uo pipefail
@@ -66,7 +67,7 @@ jobs:
           set -uo pipefail
           udid="${{ steps.boot.outputs.udid }}"
           xcrun simctl launch "$udid" com.apple.Preferences && sleep 5 && xcrun simctl terminate "$udid" com.apple.Preferences && echo "launch/terminate ok"
-          xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/probe/screen.png" || true
+          mkdir -p "$RUNNER_TEMP/probe"; xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/probe/screen.png" || true
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:
