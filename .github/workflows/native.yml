@@ -66,6 +66,10 @@ jobs:
         run: ruby scripts/check-coverage-warning-contract.rb
       - name: Check launch screenshot contract
         run: ruby scripts/check-launch-screenshot-contract.rb
+      - name: Check design accessibility contract
+        run: ruby scripts/check-design-accessibility-contract.rb
+      - name: Check App Intents contract (every domain)
+        run: bundle exec ruby scripts/check-app-intents-contract.rb --domain all
 
   swift-tests:
     # One job runs the whole suite once, with coverage. It is the required "Swift tests" check.

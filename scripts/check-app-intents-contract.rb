@@ -96,6 +96,16 @@ until args.empty?
 end
 
 supported_domains = ["recipe-cookbook", "shopping", "spoon", "capture-draft", "chef-profile", "spotlight-shortcuts", "open-search-share-cook", "shopping-intents", "recipe-action", "spoon-intents", "capture-import-intents", "cookbook-intents", "profile-settings-intents", "notification-intents"]
+if domain == "all"
+  # Each domain runs in its own process because the domain blocks below share top-level local variable names.
+  require "rbconfig"
+  failed = supported_domains.reject do |each_domain|
+    system(RbConfig.ruby, __FILE__, "--domain", each_domain)
+  end
+  fail_check("AppIntents contract failed for #{failed.join(", ")}") unless failed.empty?
+  puts "app intents contract ok: all #{supported_domains.length} domains"
+  exit 0
+end
 fail_check("unsupported AppIntents contract domain #{domain.inspect}") unless supported_domains.include?(domain)
 
 failures = []
@@ -312,7 +322,7 @@ if domain == "recipe-cookbook"
       "NativeIntentActionError.unresolvedRecipeEntity",
       "descriptor.isPlaceholder",
       "NativeAppStateLocation.defaultFileURL()",
-      "FileBackedNativeSyncStore",
+      "NativeProcessSyncStore.shared(appDirectory:",
       "loadSnapshot()",
       "trustedIntentScope",
       "KeychainTokenVault()",
@@ -482,12 +492,23 @@ if domain == "shopping"
     failures
   )
 
+  # Sign-out runs the account purge through purgeLocalAccountData(), which also serves account deletion.
   require_body_tokens(
     live_store,
     "performSettingsSessionOperation",
     /\bfunc\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/,
     [
       "case .logout, .revokeAndLogout",
+      "await purgeLocalAccountData()"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    live_store,
+    "purgeLocalAccountData",
+    /\bfunc\s+purgeLocalAccountData\(\)/,
+    [
       "ShoppingEntityIndexPurgePlan.accountScopePurge",
       "ShoppingEntityCatalog.purgeEntityIdentifiers(",
       "ShoppingEntityCatalog.purgeDomainIdentifiers(",
@@ -508,10 +529,19 @@ if domain == "shopping"
     failures
   )
 
+  # Launch, environment changes, scene activation and pull-to-refresh all run the foreground sync through runForegroundSync().
+  require_body_tokens(
+    ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"),
+    "environment task runs foreground sync",
+    /\.task\(id: contentState\.environment\.rawValue\)/,
+    ["await runForegroundSync()"],
+    failures
+  )
+
   require_body_tokens(
     ROOT.join("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"),
     "foreground sync consumes sync purge report",
-    /\.task\(id: contentState\.environment\.rawValue\)/,
+    /\bfunc\s+runForegroundSync\(\)/,
     [
       "let report = try? await syncTriggerCoordinator.handle(.foreground)",
       "report.shoppingEntityPurgeRequests",
@@ -592,7 +622,7 @@ if domain == "shopping"
       "NativeIntentActionError.unresolvedShoppingItemEntity",
       "descriptor.isPlaceholder",
       "NativeAppStateLocation.defaultFileURL()",
-      "FileBackedNativeSyncStore",
+      "NativeProcessSyncStore.shared(appDirectory:",
       "loadSnapshot()",
       "trustedIntentScope",
       "KeychainTokenVault()",
@@ -769,12 +799,23 @@ if domain == "spoon"
     failures
   )
 
+  # Sign-out runs the account purge through purgeLocalAccountData(), which also serves account deletion.
   require_body_tokens(
     live_store,
     "performSettingsSessionOperation",
     /\bfunc\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/,
     [
       "case .logout, .revokeAndLogout",
+      "await purgeLocalAccountData()"
+    ],
+    failures
+  )
+
+  require_body_tokens(
+    live_store,
+    "purgeLocalAccountData",
+    /\bfunc\s+purgeLocalAccountData\(\)/,
+    [
       "SpoonEntityIndexPurgePlan.accountScopePurge",
       "SpoonEntityCatalog.purgeEntityIdentifiers(",
       "SpoonEntityCatalog.purgeDomainIdentifiers(",
@@ -795,10 +836,19 @@ if domain == "spoon"
     failures
   )
 
+  # Launch, environment changes, scene activation and pull-to-refresh all run the foreground sync through runForegroundSync().
+  require_body_tokens(
+    platform_navigation,
+    "environment task runs foreground sync",
+    /\.task\(id: contentState\.environment\.rawValue\)/,
+    ["await runForegroundSync()"],
+    failures
+  )
+
   require_body_tokens(
     platform_navigation,
     "foreground sync consumes spoon sync purge report",
-    /\.task\(id: contentState\.environment\.rawValue\)/,
+    /\bfunc\s+runForegroundSync\(\)/,
     [
       "let report = try? await syncTriggerCoordinator.handle(.foreground)",
       "report.spoonEntityPurgeRequests",
@@ -876,7 +926,7 @@ if domain == "spoon"
       "descriptor.isPlaceholder",
       "DeepLinkURLBuilder.url(for:",
       "NativeAppStateLocation.defaultFileURL()",
-      "FileBackedNativeSyncStore",
+      "NativeProcessSyncStore.shared(appDirectory:",
       "loadSnapshot()",
       "trustedIntentScope",
       "KeychainTokenVault()",
@@ -1026,7 +1076,7 @@ if domain == "chef-profile"
       "descriptor.isPlaceholder",
       "DeepLinkURLBuilder.url(for:",
       "NativeAppStateLocation.defaultFileURL()",
-      "FileBackedNativeSyncStore",
+      "NativeProcessSyncStore.shared(appDirectory:",
       "NativeDurableCacheStore",
       "trustedIntentScope",
       "KeychainTokenVault()",
@@ -1245,7 +1295,8 @@ if domain == "capture-draft"
     failures
   )
 
-  require_body_tokens(live_store, "performSettingsSessionOperation", /func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/, ["CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
+  require_body_tokens(live_store, "performSettingsSessionOperation", /func\s+performSettingsSessionOperation\(_ operation: SettingsSessionOperation\)/, ["await purgeLocalAccountData()"], failures)
+  require_body_tokens(live_store, "purgeLocalAccountData", /func\s+purgeLocalAccountData\(\)/, ["CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
   require_body_tokens(live_store, "restoreFromCache account or environment switch", /func\s+restoreFromCache\(\s*authSessionState: NativeAuthSessionState,\s*optimisticMutations: \[NativeQueuedMutation\] = \[\]\s*\)/, ["preFilterCacheRecord", "preFilterAppStateRecord", "dependencies.cacheStore.loadOrRecover(fallback:", "appStateStore.loadOrCreate(fallback:", "previousCacheSnapshot", "previousAppSnapshot", "preFilterCacheRecord.value", "preFilterAppStateRecord.value", "previousCacheSnapshot.accountID", "previousCacheSnapshot.environment", "previousAppSnapshot.accountID", "previousAppSnapshot.environment", "CaptureDraftEntityIndexPurgePlan.accountScopePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "CaptureDraftEntityCatalog.purgeDomainIdentifiers(", "purgeCaptureDraftEntityIdentifiers", "accountID: previousCacheSnapshot.accountID", "environment: previousCacheSnapshot.environment", "accountID: previousAppSnapshot.accountID", "environment: previousAppSnapshot.environment", "!= accountID(for: authSessionState)", "!= cacheEnvironment"], failures)
   require_body_tokens(live_store, "discardCaptureDraft", /func\s+discardCaptureDraft\(id draftID: String\)/, ["CaptureDraftEntityIndexPurgePlan.draftDiscardPurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
   require_body_tokens(live_store, "recordCaptureDraft", /func\s+recordCaptureDraft\(_ draft: CaptureDraft\)/, ["CaptureDraftEntityIndexPurgePlan.cacheDeletePurge", "CaptureDraftEntityCatalog.purgeEntityIdentifiers(", "purgeCaptureDraftEntityIdentifiers"], failures)
@@ -1547,7 +1598,7 @@ if domain == "spotlight-shortcuts"
   require_nested_body_tokens(
     root_view,
     "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    /private\s+func\s+platformNavigation\(\s*contentState:\s+NativeShellContentState\b[^)]*\)\s*->\s*some\s+View/,
     "purgeShoppingEntityIndexes",
     /purgeShoppingEntityIndexes:/,
     [
@@ -1559,7 +1610,7 @@ if domain == "spotlight-shortcuts"
   require_nested_body_tokens(
     root_view,
     "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    /private\s+func\s+platformNavigation\(\s*contentState:\s+NativeShellContentState\b[^)]*\)\s*->\s*some\s+View/,
     "purgeSpoonEntityIndexes",
     /purgeSpoonEntityIndexes:/,
     [
@@ -1571,7 +1622,7 @@ if domain == "spotlight-shortcuts"
   require_nested_body_tokens(
     root_view,
     "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    /private\s+func\s+platformNavigation\(\s*contentState:\s+NativeShellContentState\b[^)]*\)\s*->\s*some\s+View/,
     "purgeCaptureDraftEntityIndexes",
     /purgeCaptureDraftEntityIndexes:/,
     [
@@ -1583,7 +1634,7 @@ if domain == "spotlight-shortcuts"
   require_nested_body_tokens(
     root_view,
     "platformNavigation",
-    /private\s+func\s+platformNavigation\(contentState:\s+NativeShellContentState\)\s*->\s*some\s+View/,
+    /private\s+func\s+platformNavigation\(\s*contentState:\s+NativeShellContentState\b[^)]*\)\s*->\s*some\s+View/,
     "purgeChefProfileEntityIndexes",
     /purgeChefProfileEntityIndexes:/,
     [
@@ -3215,7 +3266,7 @@ if domain == "capture-import-intents"
     /\bprivate\s+struct\s+SpoonjoyIntentStateWriter\b/,
     [
       ".recipeImportSubmit",
-      "queue.mutations.contains(where:",
+      "queue.mutations.first(where:",
       "clientMutationID == mutation.clientMutationID",
       "recipeImportSource == source",
       "recordingCaptureImportRetry",
