@@ -78,6 +78,15 @@ struct V2APIRecordingContractTests {
         }
     }
 
+    /// A `temporarily_unavailable` error envelope, which the app retries as the same request.
+    static func temporarilyUnavailable(_ data: Data) throws -> APIError {
+        guard case .failure(let error) = try APIEnvelope<JSONValue>.decodeResult(data),
+              error.code == APIRetryPolicy.temporarilyUnavailableCode else {
+            throw RecordingError(description: "The recording is not a temporarily_unavailable error envelope")
+        }
+        return error
+    }
+
     static func json(_ data: Data) throws -> JSONValue {
         try APIEnvelope<JSONValue>.decode(data).data
     }
@@ -89,6 +98,7 @@ struct V2APIRecordingContractTests {
         "oauth-token-refresh",
         "oauth-register",
         "recipe-create",
+        "recipe-create-temporarily-unavailable",
         "recipe-step-create",
         "recipe-step-update",
         "recipe-ingredient-create",
@@ -199,6 +209,7 @@ struct V2APIRecordingContractTests {
         case "oauth-token-refresh": try envelopeOrBare(OAuthTokenResponse.self, data)
         case "oauth-register": try envelopeOrBare(OAuthRegisterResponse.self, data)
         case "recipe-create": try envelope(JSONValue.self, data)
+        case "recipe-create-temporarily-unavailable": _ = try temporarilyUnavailable(data)
         case "recipe-step-create": try envelope(JSONValue.self, data)
         case "recipe-step-update": try envelope(JSONValue.self, data)
         case "recipe-ingredient-create": try envelope(JSONValue.self, data)
@@ -298,6 +309,14 @@ struct V2APIRecordingContractTests {
     }
 
     static let createdAt = "2026-01-01T00:00:00.000Z"
+
+    @Test("a temporarily_unavailable response is retried as the same request after its retryAfterSeconds")
+    func temporarilyUnavailableIsRetried() throws {
+        let error = try Self.temporarilyUnavailable(Self.body("recipe-create-temporarily-unavailable"))
+        #expect(error.status == 503)
+        #expect(error.retryAfterSeconds == 1)
+        #expect(APIRetryPolicy.decision(for: error) == .retrySameRequest(afterSeconds: 1))
+    }
 
     @Test("recipe create response gives the app the recipe, step and ingredient IDs it remaps")
     func recipeCreateRemaps() throws {
