@@ -58,6 +58,11 @@ private enum SpoonjoyMacLaunchProof {
 
 @MainActor
 final class SpoonjoyMacAppDelegate: NSObject, NSApplicationDelegate {
+    /// Spoonjoy has one fixed light palette (`KitchenTableTheme`). Until a designed dark palette ships, pin the whole app to the light Aqua appearance so system windows, sheets, forms and the sidebar stay light behind bone content instead of turning dark in system Dark Mode.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        NSApp.appearance = NSAppearance(named: .aqua)
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         SpoonjoyMacLaunchProof.record("delegate-did-finish-launching")
         SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()
