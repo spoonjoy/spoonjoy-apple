@@ -118,33 +118,18 @@ public struct CookModeViewModel: Equatable {
         }
 
         let checkedIDs = Set(progress.checkedIngredientIDs)
-        let checkedOrder = Dictionary(uniqueKeysWithValues: progress.checkedIngredientIDs.enumerated().map { ($1, $0) })
-        return activeStep.ingredients
-            .enumerated()
-            .map { index, ingredient in
-                (
-                    index,
-                    CookModeChecklistRow(
-                        id: ingredient.id,
-                        title: ingredient.name,
-                        quantityText: RecipeQuantityFormatter.quantityText(
-                            quantity: ingredient.quantity * progress.scaleFactor,
-                            unit: ingredient.unit
-                        ),
-                        isChecked: checkedIDs.contains(ingredient.id)
-                    )
-                )
-            }
-            .sorted { left, right in
-                if left.1.isChecked != right.1.isChecked {
-                    return !left.1.isChecked && right.1.isChecked
-                }
-                if left.1.isChecked, right.1.isChecked {
-                    return checkedOrder[left.1.id]! < checkedOrder[right.1.id]!
-                }
-                return left.0 < right.0
-            }
-            .map(\.1)
+        let rows = activeStep.ingredients.map { ingredient in
+            CookModeChecklistRow(
+                id: ingredient.id,
+                title: ingredient.name,
+                quantityText: RecipeQuantityFormatter.quantityText(
+                    quantity: ingredient.quantity * progress.scaleFactor,
+                    unit: ingredient.unit
+                ),
+                isChecked: checkedIDs.contains(ingredient.id)
+            )
+        }
+        return CheckedIngredientOrder.ordered(rows, isChecked: \.isChecked)
     }
 
     public var stepOutputChecklistRows: [CookModeChecklistRow] {

@@ -229,8 +229,9 @@ struct CookModeView: View {
         )
     }
 
+    /// The same spring the recipe page and the web use when a checked ingredient moves to the bottom.
     private var ingredientChecklistAnimation: Animation? {
-        accessibilityReduceMotion ? nil : .easeInOut(duration: 0.24)
+        KitchenTableTheme.Checklist.reorder(reduceMotion: accessibilityReduceMotion)
     }
 
     private var ingredientChecklistTransaction: Transaction {
@@ -909,10 +910,13 @@ private struct CookModeSystemTimer: View {
             timerAction
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let statusMessage {
+            // While the step's alarm runs, its "timer set" row is the one status line, so the message from
+            // setting it is not repeated underneath.
+            if let statusMessage, !stepTimerIsSet {
                 Label(statusMessage, systemImage: "checkmark.circle")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.herb)
+                    .accessibilityIdentifier("cookMode.timer.status")
             } else if let errorMessage {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .font(KitchenTableTheme.uiLabel)
@@ -922,6 +926,10 @@ private struct CookModeSystemTimer: View {
         .padding(12)
         .background(KitchenTableTheme.vellum.opacity(0.42))
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var stepTimerIsSet: Bool {
+        stepTimers.alarmID(forStep: stepKey) != nil
     }
 
     private func scheduleTimer() {

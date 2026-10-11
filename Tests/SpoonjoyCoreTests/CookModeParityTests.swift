@@ -177,11 +177,13 @@ struct CookModeParityTests {
             .togglingIngredient(id: "ingredient_lemon_pasta_lemon", checked: true, updatedAt: "2026-06-25T12:02:00.000Z")
             .togglingIngredient(id: "ingredient_lemon_pasta_garlic", checked: true, updatedAt: "2026-06-25T12:03:00.000Z")
 
+        // As on the web, checked ingredients keep the step's own order (garlic before lemon), not the order
+        // they were checked in.
         let rows = CookModeViewModel(recipe: recipe, progress: progress).ingredientChecklistRows
         #expect(rows.map(\.id) == [
             "ingredient_lemon_pasta_oil",
-            "ingredient_lemon_pasta_lemon",
-            "ingredient_lemon_pasta_garlic"
+            "ingredient_lemon_pasta_garlic",
+            "ingredient_lemon_pasta_lemon"
         ])
         #expect(rows.map(\.isChecked) == [false, true, true])
 

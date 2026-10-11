@@ -81,6 +81,9 @@ struct NativeRecipeEditTests {
         #expect(conflict.unconflicted == [NativeRecipeFieldChange(field: .description, value: "Hot.", base: NativeRecipeFieldBase("Warm."))])
         #expect(conflict.server == server)
         #expect(NativeRecipeEditConflict.message.contains("Choose which version to keep"))
+        // The banner's heading already says the recipe changed elsewhere, so its body only asks for the choice.
+        #expect(NativeRecipeEditConflict.choicePrompt == "Choose which version to keep.")
+        #expect(!NativeRecipeEditConflict.choicePrompt.contains("somewhere else"))
     }
 
     @Test("a field whose starting value is unknown conflicts unless the server already has it")

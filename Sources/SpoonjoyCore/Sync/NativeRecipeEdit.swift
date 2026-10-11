@@ -217,6 +217,9 @@ public struct NativeRecipeEditConflict: Equatable, Sendable {
     /// What the banner says above the two versions.
     public static let message = "This recipe was changed somewhere else after you started editing it. Choose which version to keep."
 
+    /// What the conflict banner says under its heading, which already says the recipe changed somewhere else.
+    public static let choicePrompt = "Choose which version to keep."
+
     /// The edit to send once the cook has chosen, based on the current version, or `nil` when there is
     /// nothing left to send.
     public func resolved(keeping choice: NativeRecipeEditChoice) -> NativeRecipeEdit? {

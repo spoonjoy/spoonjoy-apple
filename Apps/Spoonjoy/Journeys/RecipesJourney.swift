@@ -129,6 +129,8 @@ final class RecipesJourney: JourneyTestCase {
             "Searching for an ingredient did not find the recipe."
         )
 
+        // The relaunch also takes the largest accessibility text size, to capture the recipe page's ingredients at it.
+        journey.useLargestAccessibilityTextOnNextLaunch()
         verifyAfterRelaunch(journey) {
             journey.openTab(JourneyCopy.recipesTab)
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
@@ -141,6 +143,12 @@ final class RecipesJourney: JourneyTestCase {
                 journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
                 "Step 2 lost its spaghetti after a relaunch. Screen: \(journey.screen)"
             )
+            // Rice is step 2's last ingredient, so checking it keeps the list's order; the tap scrolls the list
+            // into view for the capture.
+            let rice = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: "rice")
+            rice.tap()
+            XCTAssertEqual(rice.value as? String, "used", "Tapping the rice at the largest text size did not check it.")
+            journey.attachScreenshot(named: "07-ingredients-accessibility-text-size", to: self)
         }
     }
 }

@@ -29,6 +29,31 @@ enum KitchenTableTheme {
     static let pageSpacing: CGFloat = 24
     static let sectionSpacing: CGFloat = 12
     static let minimumTouchTarget: CGFloat = 44
+    /// The room between a step's blocks: its heading, its ingredients and its method.
+    static let stepBlockSpacing: CGFloat = 20
+    /// The room above and below each step on the recipe page, either side of the rule between steps.
+    static let stepSpacing: CGFloat = 22
+    /// A separator a shade lighter than `line`, for rules between rows that should be felt more than seen.
+    static let ruleSoft = line.opacity(0.42)
+    static let hairline: CGFloat = 0.5
+
+    /// A step's ingredient checklist. The column widths are base sizes; rows scale them with Dynamic Type.
+    enum Checklist {
+        /// The room above and below each row's text.
+        static let rowVerticalPadding: CGFloat = 12
+        static let checkColumn: CGFloat = 28
+        static let iconColumn: CGFloat = 20
+        static let columnGap: CGFloat = 12
+        /// The room under the list's "Ingredients" label.
+        static let headingGap: CGFloat = 4
+        /// The spring the web's IngredientList uses when a checked ingredient moves to the bottom
+        /// (`stiffness: 420, damping: 38, mass: 0.7`); with Reduce Motion the move is instant.
+        static let reorderAnimation = Animation.interpolatingSpring(mass: 0.7, stiffness: 420, damping: 38)
+
+        static func reorder(reduceMotion: Bool) -> Animation? {
+            reduceMotion ? nil : reorderAnimation
+        }
+    }
     static let compactDockReserve: CGFloat = 148
 
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
@@ -220,15 +245,24 @@ extension EnvironmentValues {
     }
 }
 
-struct KitchenTableSection<Content: View>: View {
+/// A titled section. An accessory, such as a quiet control for the section, sits at the trailing end of the
+/// subtitle line, so it never adds a line of its own.
+struct KitchenTableSection<Content: View, Accessory: View>: View {
     let title: String
     let subtitle: String?
     @ViewBuilder let content: () -> Content
+    @ViewBuilder let accessory: () -> Accessory
 
-    init(title: String, subtitle: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        @ViewBuilder content: @escaping () -> Content,
+        @ViewBuilder accessory: @escaping () -> Accessory
+    ) {
         self.title = title
         self.subtitle = subtitle
         self.content = content
+        self.accessory = accessory
     }
 
     var body: some View {
@@ -251,11 +285,39 @@ struct KitchenTableSection<Content: View>: View {
                     .frame(height: 1)
                     .layoutPriority(-1)
             }
-            if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+            if Accessory.self == EmptyView.self {
+                subtitleText
+            } else {
+                // At large text sizes the accessory drops under the subtitle instead of squeezing it.
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .center, spacing: 12) {
+                        subtitleText
+                        Spacer(minLength: 0)
+                        accessory()
+                    }
+                    VStack(alignment: .leading, spacing: 0) {
+                        subtitleText
+                        accessory()
+                    }
+                }
             }
+        }
+    }
+
+    @ViewBuilder private var subtitleText: some View {
+        if let subtitle, !subtitle.isEmpty {
+            Text(subtitle)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+extension KitchenTableSection where Accessory == EmptyView {
+    init(title: String, subtitle: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.init(title: title, subtitle: subtitle, content: content) {
+            EmptyView()
         }
     }
 }
