@@ -1,3 +1,4 @@
+import SpoonjoyCore
 import XCTest
 
 /// Journey 4: a new account creates a two-step recipe with a photo in the native editor, the photo becomes the
@@ -173,6 +174,86 @@ final class EditorJourney: JourneyTestCase {
                 "The cover is missing after a relaunch. Screen: \(journey.screen)"
             )
             journey.attachScreenshot(named: "08-cover-after-relaunch", to: self)
+        }
+    }
+
+    /// Journey 4b: the recipe is renamed somewhere else while the cook has it open in the editor, and the cook
+    /// saves a different title. The app never overwrites the other version unseen: the recipe page shows both
+    /// titles, and the cook keeps their own. QA then holds the cook's title, which survives a relaunch.
+    func testRecipeEditConflictJourney() async throws {
+        let account = try JourneyAccounts.account(4)
+        let token = try JourneyAccounts.runToken()
+        let original = "Journey \(token) Soup J4b Original"
+        let elsewhere = "Journey \(token) Soup J4b Elsewhere"
+        let mine = "Journey \(token) Soup J4b Mine"
+        let qa = try await JourneyQAClient.signIn(account)
+        let recipeID = try await qa.createRecipe(
+            title: original,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Simmer",
+                    description: "Simmer the stock.",
+                    duration: nil,
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "l", name: "stock")],
+                    outputStepNums: []
+                )
+            ]
+        )
+        let journey = JourneyApp.launchFresh()
+
+        journey.signIn(as: account.username, password: account.password)
+        XCTAssertTrue(
+            journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Signing in did not open the kitchen."
+        )
+        journey.openTab(JourneyCopy.recipesTab)
+        journey.openRecipe(titled: original, from: JourneyID.recipesRow)
+        journey.tap(JourneyID.recipeDetailActions)
+        journey.tap(JourneyID.recipeDetailEdit)
+        journey.assertFieldValue(JourneyID.editorTitle, equals: original)
+
+        // Another device renames the recipe while this editor is open.
+        try await qa.renameRecipe(recipeID, to: elsewhere)
+
+        journey.replaceText(in: JourneyID.editorTitle, with: mine)
+        journey.saveOpenRecipeEditor()
+        XCTAssertTrue(
+            journey.element(JourneyID.heldChangeKeepMine).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The recipe page does not offer to keep the edit after the recipe was renamed elsewhere. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.heldChangeField("title", version: "mine"), labelContaining: mine).exists,
+            "The conflict banner does not show the cook's title. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.heldChangeField("title", version: "theirs"), labelContaining: elsewhere).exists,
+            "The conflict banner does not show the title saved elsewhere. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.heldChangeUseTheirs).exists,
+            "The conflict banner does not offer the version saved elsewhere. Screen: \(journey.screen)"
+        )
+        let heldTitle = try await qa.recipeTitle(recipeID)
+        XCTAssertEqual(heldTitle, elsewhere, "The held edit overwrote the title saved elsewhere.")
+        journey.attachScreenshot(named: "12-recipe-edit-conflict-banner", to: self)
+
+        journey.tap(JourneyID.heldChangeKeepMine)
+        XCTAssertTrue(
+            journey.element(JourneyID.heldChangeTitle).waitForNonExistence(timeout: JourneyApp.networkTimeout),
+            "The conflict banner stayed after keeping the edit. Screen: \(journey.screen)"
+        )
+        let saved = try await qa.recipeTitle(recipeID, waitingFor: mine)
+        XCTAssertEqual(saved, mine, "QA does not hold the cook's title after Keep My Edit.")
+        journey.attachScreenshot(named: "13-recipe-edit-conflict-kept-mine", to: self)
+
+        verifyAfterRelaunch(journey) {
+            journey.openTab(JourneyCopy.recipesTab)
+            journey.openRecipe(titled: mine, from: JourneyID.recipesRow)
+            XCTAssertFalse(
+                journey.element(JourneyID.heldChangeTitle).exists,
+                "The conflict banner came back after a relaunch. Screen: \(journey.screen)"
+            )
         }
     }
 }

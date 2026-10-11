@@ -529,7 +529,9 @@ struct RecipeEditorParityTests {
             now: Self.now
         )
 
-        let save = try editor.plan(.save(clientMutationID: "cm_update"))
+        var renamed = editor.draft
+        renamed.title = "Lemon Pantry Pasta, edited"
+        let save = try editor.updatingDraft(renamed).plan(.save(clientMutationID: "cm_update"))
         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete", confirmation: .confirmed))
         let createStep = try editor.plan(.createStep(
             clientMutationID: "cm_step_create",
@@ -580,11 +582,11 @@ struct RecipeEditorParityTests {
             clientMutationID: "cm_dependencies"
         ))
 
+        // Only the changed field, based on the version the editor opened.
         try assertJSONRequest(try remoteRequest(from: save), method: .patch, path: "/api/v1/recipes/recipe_lemon_pantry_pasta", expected: [
             "clientMutationId": "cm_update",
-            "title": "Lemon Pantry Pasta",
-            "description": "Bright pantry pasta with lemon, garlic, and parmesan.",
-            "servings": "4"
+            "title": "Lemon Pantry Pasta, edited",
+            "expectedUpdatedAt": "2026-06-25T12:20:00.000Z"
         ])
         assertRequest(
             try remoteRequest(from: deleteRecipe),
@@ -664,7 +666,9 @@ struct RecipeEditorParityTests {
         )
 
         let createRecipe = try createEditor.plan(.save(clientMutationID: "cm_create_offline"))
-        let save = try editor.plan(.save(clientMutationID: "cm_update_offline"))
+        var renamed = editor.draft
+        renamed.servings = "6"
+        let save = try editor.updatingDraft(renamed).plan(.save(clientMutationID: "cm_update_offline"))
         let deleteRecipe = try editor.plan(.deleteRecipe(clientMutationID: "cm_delete_offline", confirmation: .confirmed))
         let createStep = try editor.plan(.createStep(
             clientMutationID: "cm_step_create_offline",

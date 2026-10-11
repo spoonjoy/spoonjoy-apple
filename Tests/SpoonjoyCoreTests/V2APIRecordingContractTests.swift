@@ -69,6 +69,15 @@ struct V2APIRecordingContractTests {
         _ = try JSONDecoder().decode(Value.self, from: data)
     }
 
+    /// A `409 edit_conflict` goes through the transport's error path; the sync engine reads the current
+    /// recipe from its details.
+    static func editConflict(_ data: Data) throws {
+        guard case .failure(let apiError) = try APIEnvelope<JSONValue>.decodeResult(data),
+              NativeRecipeServerVersion(editConflict: apiError) != nil else {
+            throw RecordingError(description: "The edit conflict has no current recipe the app can read")
+        }
+    }
+
     static func json(_ data: Data) throws -> JSONValue {
         try APIEnvelope<JSONValue>.decode(data).data
     }
@@ -198,12 +207,7 @@ struct V2APIRecordingContractTests {
         case "recipe-step-reorder": try envelope(JSONValue.self, data)
         case "recipe-step-delete": try envelope(JSONValue.self, data)
         case "recipe-update": try envelope(JSONValue.self, data)
-        // The app reads this as an API error. Holding the conflicting edit (spoonjoy-apple#140) also reads the
-        // current recipe from its details.
-        case "recipe-update-edit-conflict":
-            guard case .failure(let apiError) = try APIEnvelope<JSONValue>.decodeResult(data), apiError.code == "edit_conflict" else {
-                throw RecordingError(description: "recipe-update-edit-conflict is not an edit_conflict error")
-            }
+        case "recipe-update-edit-conflict": try editConflict(data)
         case "recipe-image-upload": try envelope(JSONValue.self, data)
         case "recipe-image-upload-spoon": try envelope(JSONValue.self, data)
         case "recipe-covers-list": try envelope(RecipeCoverListData.self, data)

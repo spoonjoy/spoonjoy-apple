@@ -242,6 +242,17 @@ public struct NativeQueuedMutationBatchResult: Equatable, Sendable {
         self.remainingSubmittedClientMutationIDs = remainingSubmittedClientMutationIDs
         self.submittedConflicts = submittedConflicts
     }
+
+    /// True when a submitted recipe edit is held because the recipe was changed elsewhere too. The recipe
+    /// page's banner shows both versions for the cook to choose, and the edits queued behind it wait there.
+    public var holdsRecipeEditChoice: Bool {
+        submittedConflicts.contains { conflict in
+            if case .recipeEdit = conflict.kind {
+                return true
+            }
+            return false
+        }
+    }
 }
 
 public enum NativeAppBootstrapState {
@@ -2537,6 +2548,30 @@ public final class NativeLiveAppStore: ObservableObject {
     /// message; this runs another sync so it is submitted once more. If the server still turns it down it
     /// returns to the held state with the new message.
     public func retryHeldChanges() async {
+        await bootstrap()
+    }
+
+    /// Settles a recipe edit held because the recipe was changed elsewhere too. Keeping the cook's edit sends
+    /// it again on top of the current version; keeping the other version drops only the conflicting fields and
+    /// still sends the cook's other changes. Either way the edit is based on the version the cook just saw, so
+    /// a change made elsewhere after that is caught again rather than overwritten.
+    public func resolveRecipeEditConflict(clientMutationID: String, keeping choice: NativeRecipeEditChoice) async throws {
+        guard let conflict = currentContentState.syncConflicts.first(where: { $0.clientMutationID == clientMutationID }),
+              case .recipeEdit(let editConflict) = conflict.kind else {
+            return
+        }
+        let resolved = editConflict.resolved(keeping: choice)
+        let scope = currentQueueScope()
+        try await dependencies.syncStore.updateQueue(accountID: scope.accountID, environment: scope.environment) { snapshot in
+            NativeQueueUpdate(queue: try NativeMutationQueue(mutations: NativeQueuedMutation.settlingRecipeEdit(
+                clientMutationID,
+                with: resolved,
+                in: snapshot.queue.mutations
+            )))
+        }
+        apply(.queuedWork(currentContentState.copy(
+            syncConflicts: currentContentState.syncConflicts.filter { $0.clientMutationID != clientMutationID }
+        )))
         await bootstrap()
     }
 

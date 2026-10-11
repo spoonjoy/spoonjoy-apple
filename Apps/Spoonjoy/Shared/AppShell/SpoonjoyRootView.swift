@@ -358,6 +358,9 @@ struct SpoonjoyRootView: View {
             retryHeldChanges: {
                 await liveStore.retryHeldChanges()
             },
+            resolveRecipeEditConflict: { clientMutationID, choice in
+                try await liveStore.resolveRecipeEditConflict(clientMutationID: clientMutationID, keeping: choice)
+            },
             requestSync: overrideSyncTriggerCoordinator == nil ? liveStoreSyncRequest : nil,
             executeRecipeEditorRequest: { request in
                 try await liveStore.executeRecipeEditorRequest(request)
