@@ -239,6 +239,24 @@ struct NativeRecipeEditTests {
         ])
     }
 
+    @Test("settling a held edit rewrites or removes only that edit in the queue")
+    func settlingHeldEditInQueue() {
+        let held = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_soup", clientMutationID: "cm_held", edit: Self.edit(title: "Better Soup"), createdAt: Self.createdAt)
+        let other = NativeQueuedMutation.recipeUpdate(recipeID: "recipe_stew", clientMutationID: "cm_other", edit: Self.edit(servings: "6"), createdAt: Self.createdAt)
+        let rebased = NativeRecipeEdit(
+            changes: [NativeRecipeFieldChange(field: .title, value: "Better Soup", base: NativeRecipeFieldBase("Their Soup"))],
+            expectedUpdatedAt: Self.serverUpdatedAt
+        )
+
+        let kept = NativeQueuedMutation.settlingRecipeEdit("cm_held", with: rebased, in: [held, other])
+        #expect(kept.map(\.clientMutationID) == ["cm_held", "cm_other"])
+        #expect(kept.first?.recipeEdit == rebased)
+        #expect(kept.last == other)
+
+        let dropped = NativeQueuedMutation.settlingRecipeEdit("cm_held", with: nil, in: [held, other])
+        #expect(dropped == [other])
+    }
+
     @Test("a queued edit shows only the fields it changes on the recipe")
     func optimisticEditKeepsUnchangedFields() throws {
         let recipe = try Self.recordedRecipe()

@@ -2563,12 +2563,11 @@ public final class NativeLiveAppStore: ObservableObject {
         let resolved = editConflict.resolved(keeping: choice)
         let scope = currentQueueScope()
         try await dependencies.syncStore.updateQueue(accountID: scope.accountID, environment: scope.environment) { snapshot in
-            NativeQueueUpdate(queue: try NativeMutationQueue(mutations: snapshot.queue.mutations.compactMap { mutation in
-                guard mutation.clientMutationID == clientMutationID else {
-                    return mutation
-                }
-                return resolved.map(mutation.replacingRecipeEdit)
-            }))
+            NativeQueueUpdate(queue: try NativeMutationQueue(mutations: NativeQueuedMutation.settlingRecipeEdit(
+                clientMutationID,
+                with: resolved,
+                in: snapshot.queue.mutations
+            )))
         }
         apply(.queuedWork(currentContentState.copy(
             syncConflicts: currentContentState.syncConflicts.filter { $0.clientMutationID != clientMutationID }

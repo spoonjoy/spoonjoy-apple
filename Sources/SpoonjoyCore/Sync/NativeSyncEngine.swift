@@ -5701,6 +5701,21 @@ extension NativeQueuedMutation {
         )
     }
 
+    /// `mutations` with the held recipe edit `clientMutationID` replaced by the edit the cook settled on, or
+    /// removed when nothing is left to send. Every other mutation stays as it is.
+    static func settlingRecipeEdit(
+        _ clientMutationID: String,
+        with resolved: NativeRecipeEdit?,
+        in mutations: [NativeQueuedMutation]
+    ) -> [NativeQueuedMutation] {
+        mutations.compactMap { mutation in
+            guard mutation.clientMutationID == clientMutationID else {
+                return mutation
+            }
+            return resolved.map(mutation.replacingRecipeEdit)
+        }
+    }
+
     /// This recipe update with `edit` in place of the edit it sends, keeping its identity and its place in
     /// the queue.
     public func replacingRecipeEdit(_ edit: NativeRecipeEdit) -> NativeQueuedMutation {
