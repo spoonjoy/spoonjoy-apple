@@ -144,7 +144,7 @@ public enum AppRoute: Hashable, Sendable {
             cookbookIDs.contains(id) ? self : nil
         case .recipeEditor, .recipeCoverControls, .unknownLink:
             nil
-        case .kitchen, .recipes, .savedRecipes, .cookbooks, .chefs, .profile, .profileGraph,
+        case .kitchen, .recipes, .savedRecipes, .everyoneRecipes, .cookbooks, .chefs, .profile, .profileGraph,
              .shoppingList, .search, .capture, .settings:
             self
         }
