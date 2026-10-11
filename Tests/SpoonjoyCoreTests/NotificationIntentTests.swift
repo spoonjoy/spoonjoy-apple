@@ -406,6 +406,7 @@ struct NotificationIntentTests {
         let onlinePreference = try onlinePlanner.plan(.updatePreferences(preferences, clientMutationID: "cm_siri_notifications"))
         let onlineRequest = try #require(onlinePreference.remoteRequestBuilder).urlRequest(configuration: Self.configuration)
         try notificationIntentAssertJSONRequest(onlineRequest, method: .patch, path: "/api/v1/me/notification-preferences", expected: [
+            "clientMutationId": "cm_siri_notifications",
             "notifySpoonOnMyRecipe": true,
             "notifyForkOfMyRecipe": false,
             "notifyCookbookSaveOfMine": true,
@@ -457,6 +458,7 @@ struct NotificationIntentTests {
             method: .post,
             path: "/api/v1/me/apns-devices",
             expected: [
+                "clientMutationId": "cm_apns_development",
                 "deviceId": "device_development",
                 "platform": "ios",
                 "environment": "development",

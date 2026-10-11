@@ -142,7 +142,8 @@ public struct NotificationAPNsActionPlanner: Sendable {
                     notifySpoonOnMyRecipe: preferences.notifySpoonOnMyRecipe,
                     notifyForkOfMyRecipe: preferences.notifyForkOfMyRecipe,
                     notifyCookbookSaveOfMine: preferences.notifyCookbookSaveOfMine,
-                    notifyFellowChefOriginCook: preferences.notifyFellowChefOriginCook
+                    notifyFellowChefOriginCook: preferences.notifyFellowChefOriginCook,
+                    clientMutationID: clientMutationID
                 ),
                 mutation: mutation
             )
@@ -182,7 +183,8 @@ public struct NotificationAPNsActionPlanner: Sendable {
                     environment: environment,
                     token: token,
                     deviceName: normalizedDeviceName,
-                    appVersion: normalizedAppVersion
+                    appVersion: normalizedAppVersion,
+                    clientMutationID: clientMutationID
                 ),
                 mutation: mutation
             )
@@ -193,7 +195,7 @@ public struct NotificationAPNsActionPlanner: Sendable {
                 createdAt: now()
             )
             return try queueablePlan(
-                online: PrivateAccountRequests.revokeAPNSDevice(deviceID: deviceID),
+                online: PrivateAccountRequests.revokeAPNSDevice(deviceID: deviceID, clientMutationID: clientMutationID),
                 mutation: mutation
             )
         }

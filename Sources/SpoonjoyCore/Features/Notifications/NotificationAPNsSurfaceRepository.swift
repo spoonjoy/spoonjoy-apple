@@ -281,7 +281,8 @@ public struct SnapshotNotificationAPNsSurfaceRepository: NotificationAPNsSurface
         environment: APNSEnvironment,
         token: String,
         deviceName: String,
-        appVersion: String
+        appVersion: String,
+        clientMutationID: String
     ) throws -> APIRequestBuilder {
         try PrivateAccountRequests.registerAPNSDevice(
             deviceID: deviceID,
@@ -289,12 +290,13 @@ public struct SnapshotNotificationAPNsSurfaceRepository: NotificationAPNsSurface
             environment: environment,
             token: token,
             deviceName: deviceName,
-            appVersion: appVersion
+            appVersion: appVersion,
+            clientMutationID: clientMutationID
         )
     }
 
-    public static func revokeRequest(deviceID: String) -> APIRequestBuilder {
-        PrivateAccountRequests.revokeAPNSDevice(deviceID: deviceID)
+    public static func revokeRequest(deviceID: String, clientMutationID: String) throws -> APIRequestBuilder {
+        try PrivateAccountRequests.revokeAPNSDevice(deviceID: deviceID, clientMutationID: clientMutationID)
     }
 }
 

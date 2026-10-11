@@ -112,7 +112,7 @@ struct ProfileSettingsIntentTests {
                 "Sources/SpoonjoyCore/API/NativeAPIRequests.swift": [
                     "public static func updateProfile(",
                     "public static func uploadProfilePhoto(",
-                    "public static func removeProfilePhoto()",
+                    "public static func removeProfilePhoto(clientMutationID:",
                     "public static func disconnectConnection(",
                     "public static func listTokens()",
                     "public static func createToken(",

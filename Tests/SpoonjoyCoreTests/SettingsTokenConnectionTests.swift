@@ -798,7 +798,8 @@ struct SettingsTokenConnectionTests {
         ))
         try assertJSONRequest(try remoteRequest(from: profile), method: .patch, path: "/api/v1/me", expected: [
             "email": "new-ari@example.com",
-            "username": "newari"
+            "username": "newari",
+            "clientMutationId": "cm_profile"
         ])
         #expect(profile.queuedMutation == nil)
         let profileFallback = try requireMutation(profile.offlineFallbackMutation, "profile fallback")
@@ -820,6 +821,7 @@ struct SettingsTokenConnectionTests {
             try remoteRequest(from: upload),
             method: .post,
             path: "/api/v1/me/photo",
+            fields: ["clientMutationId": "cm_photo"],
             fileField: "photo",
             fileName: "avatar.gif",
             contentType: "image/gif",
@@ -833,7 +835,8 @@ struct SettingsTokenConnectionTests {
             try remoteRequest(from: removePhoto),
             method: .delete,
             path: "/api/v1/me/photo",
-            queryItems: []
+            queryItems: [],
+            extraHeaders: ["X-Client-Mutation-Id": "cm_remove_photo"]
         )
         #expect(try requireMutation(removePhoto.offlineFallbackMutation, "remove photo fallback").queueableKind == .profilePhotoRemove)
 
@@ -851,6 +854,7 @@ struct SettingsTokenConnectionTests {
             method: .patch,
             path: "/api/v1/me/notification-preferences",
             expected: [
+                "clientMutationId": "cm_notifications",
                 "notifySpoonOnMyRecipe": false,
                 "notifyForkOfMyRecipe": true,
                 "notifyCookbookSaveOfMine": false,
