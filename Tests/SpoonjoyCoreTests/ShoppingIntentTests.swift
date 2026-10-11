@@ -97,7 +97,7 @@ struct ShoppingIntentTests {
                         "@Parameter(title: \"Unit\")",
                         "NativeIntentActionResolver().addShoppingListItem(",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
-                        "OpenURLIntent(action.url)"
+                        "return .result(dialog:"
                     ],
                     forbiddenTokens: [
                         "var itemID: String",
