@@ -57,101 +57,176 @@ struct V2APIRecordingContractTests {
         return current as? String
     }
 
-    static func envelope<Value: Decodable & Equatable>(_ type: Value.Type) -> @Sendable (Data) throws -> Void {
-        { data in _ = try APIEnvelope<Value>.decode(data) }
+    static func envelope<Value: Decodable & Equatable>(_ type: Value.Type, _ data: Data) throws {
+        _ = try APIEnvelope<Value>.decode(data)
     }
 
     /// OAuth responses go through the app's `sendDecoded`, which tries the envelope and then the bare body.
-    static func envelopeOrBare<Value: Decodable & Equatable>(_ type: Value.Type) -> @Sendable (Data) throws -> Void {
-        { data in
-            if (try? APIEnvelope<Value>.decode(data)) != nil {
-                return
-            }
-            _ = try JSONDecoder().decode(Value.self, from: data)
+    static func envelopeOrBare<Value: Decodable & Equatable>(_ type: Value.Type, _ data: Data) throws {
+        if (try? APIEnvelope<Value>.decode(data)) != nil {
+            return
         }
+        _ = try JSONDecoder().decode(Value.self, from: data)
     }
 
     static func json(_ data: Data) throws -> JSONValue {
         try APIEnvelope<JSONValue>.decode(data).data
     }
 
-    /// Each recording's decoder, matching what the app decodes that endpoint's response into.
-    static let decoders: [String: @Sendable (Data) throws -> Void] = [
-        "auth-password-native": envelopeOrBare(OAuthTokenResponse.self),
-        "auth-apple-native": envelopeOrBare(OAuthTokenResponse.self),
-        "oauth-token-refresh": envelopeOrBare(OAuthTokenResponse.self),
-        "oauth-register": envelopeOrBare(OAuthRegisterResponse.self),
-        "recipe-create": envelope(JSONValue.self),
-        "recipe-step-create": envelope(JSONValue.self),
-        "recipe-step-update": envelope(JSONValue.self),
-        "recipe-ingredient-create": envelope(JSONValue.self),
-        "recipe-ingredient-delete": envelope(JSONValue.self),
-        "recipe-output-uses-replace": envelope(JSONValue.self),
-        "recipe-step-reorder": envelope(JSONValue.self),
-        "recipe-step-delete": envelope(JSONValue.self),
-        "recipe-update": envelope(JSONValue.self),
-        "recipe-image-upload": envelope(JSONValue.self),
-        "recipe-image-upload-spoon": envelope(JSONValue.self),
-        "recipe-covers-list": envelope(RecipeCoverListData.self),
-        "recipe-cover-activate": envelope(JSONValue.self),
-        "recipe-cover-from-spoon": envelope(JSONValue.self),
-        "recipe-cover-set-no-cover": envelope(JSONValue.self),
-        "recipe-cover-archive": envelope(JSONValue.self),
-        "recipe-spoon-create": envelope(JSONValue.self),
-        "recipe-spoon-create-photo": envelope(JSONValue.self),
-        "recipe-spoon-update": envelope(JSONValue.self),
-        "recipe-spoon-delete": envelope(JSONValue.self),
-        "recipe-spoons-list": envelope(SpoonCookLogListData.self),
-        "recipe-fork": envelope(JSONValue.self),
-        "recipe-delete": envelope(JSONValue.self),
-        "cookbook-create": envelope(JSONValue.self),
-        "cookbook-update": envelope(JSONValue.self),
-        "cookbook-add-recipe": envelope(JSONValue.self),
-        "cookbook-remove-recipe": envelope(JSONValue.self),
-        "cookbook-delete": envelope(JSONValue.self),
-        "cookbooks-list": envelope(CookbookListData.self),
-        "cookbook-detail": envelope(CookbookDetailData.self),
-        "shopping-list-read": envelope(ShoppingListReadData.self),
-        "shopping-list-read-full": envelope(ShoppingListReadData.self),
-        "shopping-item-add": envelope(ShoppingItemMutationData.self),
-        "shopping-item-check": envelope(ShoppingItemMutationData.self),
-        "shopping-item-delete": envelope(ShoppingItemMutationData.self),
-        "shopping-add-from-recipe": envelope(JSONValue.self),
-        "shopping-clear-completed": envelope(JSONValue.self),
-        "shopping-clear-all": envelope(JSONValue.self),
-        "recipes-list": envelope(RecipeListData.self),
-        "recipe-detail": envelope(RecipeDetailData.self),
-        "search": envelope(SearchSurfaceData.self),
-        "user-profile": envelope(ProfileSurfaceData.self),
-        "user-kitchen-visitors": envelope(ProfileGraphPage.self),
-        "user-fellow-chefs": envelope(ProfileGraphPage.self),
-        "me-chefs": envelope(NativeChefsData.self),
-        "me-sync": envelope(NativeSyncData.self),
-        "recipe-import-blocked": envelope(RecipeImportResponse.self),
-        "recipe-import": envelope(RecipeImportResponse.self),
-        "me": envelope(SettingsAccountProfile.self),
-        "me-update": envelope(SettingsAccountProfile.self),
-        "me-photo-upload": envelope(SettingsAccountProfile.self),
-        "me-photo-remove": envelope(SettingsAccountProfile.self),
-        "notification-preferences": envelope(SettingsNotificationPreferences.self),
-        "notification-preferences-update": envelope(SettingsNotificationPreferences.self),
-        "apns-device-register": envelope(JSONValue.self),
-        "apns-device-revoke": envelope(JSONValue.self),
-        "tokens-list": envelope(SettingsAPITokenListResponse.self),
-        "token-create": envelope(SettingsCreatedAPIToken.self),
-        "token-revoke": envelope(JSONValue.self),
-        "native-telemetry": envelope(NativeTelemetryResponse.self),
-        "me-export": envelope(JSONValue.self),
-        "connections-list": envelope(SettingsOAuthConnectionListResponse.self),
-        "connection-disconnect": envelope(JSONValue.self),
-        "account-delete": envelope(AccountDeletionResult.self)
+    /// The recordings `decode(_:_:)` knows, one per endpoint response the app reads.
+    static let decodedNames: Set<String> = [
+        "auth-password-native",
+        "auth-apple-native",
+        "oauth-token-refresh",
+        "oauth-register",
+        "recipe-create",
+        "recipe-step-create",
+        "recipe-step-update",
+        "recipe-ingredient-create",
+        "recipe-ingredient-delete",
+        "recipe-output-uses-replace",
+        "recipe-step-reorder",
+        "recipe-step-delete",
+        "recipe-update",
+        "recipe-image-upload",
+        "recipe-image-upload-spoon",
+        "recipe-covers-list",
+        "recipe-cover-activate",
+        "recipe-cover-from-spoon",
+        "recipe-cover-set-no-cover",
+        "recipe-cover-archive",
+        "recipe-spoon-create",
+        "recipe-spoon-create-photo",
+        "recipe-spoon-update",
+        "recipe-spoon-delete",
+        "recipe-spoons-list",
+        "recipe-fork",
+        "recipe-delete",
+        "cookbook-create",
+        "cookbook-update",
+        "cookbook-add-recipe",
+        "cookbook-remove-recipe",
+        "cookbook-delete",
+        "cookbooks-list",
+        "cookbook-detail",
+        "shopping-list-read",
+        "shopping-list-read-full",
+        "shopping-item-add",
+        "shopping-item-check",
+        "shopping-item-delete",
+        "shopping-add-from-recipe",
+        "shopping-clear-completed",
+        "shopping-clear-all",
+        "recipes-list",
+        "recipe-detail",
+        "search",
+        "user-profile",
+        "user-kitchen-visitors",
+        "user-fellow-chefs",
+        "me-chefs",
+        "me-sync",
+        "recipe-import-blocked",
+        "recipe-import",
+        "me",
+        "me-update",
+        "me-photo-upload",
+        "me-photo-remove",
+        "notification-preferences",
+        "notification-preferences-update",
+        "apns-device-register",
+        "apns-device-revoke",
+        "tokens-list",
+        "token-create",
+        "token-revoke",
+        "native-telemetry",
+        "me-export",
+        "connections-list",
+        "connection-disconnect",
+        "account-delete"
     ]
+
+    /// Decodes a recording with the model the app decodes that endpoint's response into.
+    /// Returns false for a recording this suite does not know yet.
+    static func decode(_ name: String, _ data: Data) throws -> Bool {
+        switch name {
+        case "auth-password-native": try envelopeOrBare(OAuthTokenResponse.self, data)
+        case "auth-apple-native": try envelopeOrBare(OAuthTokenResponse.self, data)
+        case "oauth-token-refresh": try envelopeOrBare(OAuthTokenResponse.self, data)
+        case "oauth-register": try envelopeOrBare(OAuthRegisterResponse.self, data)
+        case "recipe-create": try envelope(JSONValue.self, data)
+        case "recipe-step-create": try envelope(JSONValue.self, data)
+        case "recipe-step-update": try envelope(JSONValue.self, data)
+        case "recipe-ingredient-create": try envelope(JSONValue.self, data)
+        case "recipe-ingredient-delete": try envelope(JSONValue.self, data)
+        case "recipe-output-uses-replace": try envelope(JSONValue.self, data)
+        case "recipe-step-reorder": try envelope(JSONValue.self, data)
+        case "recipe-step-delete": try envelope(JSONValue.self, data)
+        case "recipe-update": try envelope(JSONValue.self, data)
+        case "recipe-image-upload": try envelope(JSONValue.self, data)
+        case "recipe-image-upload-spoon": try envelope(JSONValue.self, data)
+        case "recipe-covers-list": try envelope(RecipeCoverListData.self, data)
+        case "recipe-cover-activate": try envelope(JSONValue.self, data)
+        case "recipe-cover-from-spoon": try envelope(JSONValue.self, data)
+        case "recipe-cover-set-no-cover": try envelope(JSONValue.self, data)
+        case "recipe-cover-archive": try envelope(JSONValue.self, data)
+        case "recipe-spoon-create": try envelope(JSONValue.self, data)
+        case "recipe-spoon-create-photo": try envelope(JSONValue.self, data)
+        case "recipe-spoon-update": try envelope(JSONValue.self, data)
+        case "recipe-spoon-delete": try envelope(JSONValue.self, data)
+        case "recipe-spoons-list": try envelope(SpoonCookLogListData.self, data)
+        case "recipe-fork": try envelope(JSONValue.self, data)
+        case "recipe-delete": try envelope(JSONValue.self, data)
+        case "cookbook-create": try envelope(JSONValue.self, data)
+        case "cookbook-update": try envelope(JSONValue.self, data)
+        case "cookbook-add-recipe": try envelope(JSONValue.self, data)
+        case "cookbook-remove-recipe": try envelope(JSONValue.self, data)
+        case "cookbook-delete": try envelope(JSONValue.self, data)
+        case "cookbooks-list": try envelope(CookbookListData.self, data)
+        case "cookbook-detail": try envelope(CookbookDetailData.self, data)
+        case "shopping-list-read": try envelope(ShoppingListReadData.self, data)
+        case "shopping-list-read-full": try envelope(ShoppingListReadData.self, data)
+        case "shopping-item-add": try envelope(ShoppingItemMutationData.self, data)
+        case "shopping-item-check": try envelope(ShoppingItemMutationData.self, data)
+        case "shopping-item-delete": try envelope(ShoppingItemMutationData.self, data)
+        case "shopping-add-from-recipe": try envelope(JSONValue.self, data)
+        case "shopping-clear-completed": try envelope(JSONValue.self, data)
+        case "shopping-clear-all": try envelope(JSONValue.self, data)
+        case "recipes-list": try envelope(RecipeListData.self, data)
+        case "recipe-detail": try envelope(RecipeDetailData.self, data)
+        case "search": try envelope(SearchSurfaceData.self, data)
+        case "user-profile": try envelope(ProfileSurfaceData.self, data)
+        case "user-kitchen-visitors": try envelope(ProfileGraphPage.self, data)
+        case "user-fellow-chefs": try envelope(ProfileGraphPage.self, data)
+        case "me-chefs": try envelope(NativeChefsData.self, data)
+        case "me-sync": try envelope(NativeSyncData.self, data)
+        case "recipe-import-blocked": try envelope(RecipeImportResponse.self, data)
+        case "recipe-import": try envelope(RecipeImportResponse.self, data)
+        case "me": try envelope(SettingsAccountProfile.self, data)
+        case "me-update": try envelope(SettingsAccountProfile.self, data)
+        case "me-photo-upload": try envelope(SettingsAccountProfile.self, data)
+        case "me-photo-remove": try envelope(SettingsAccountProfile.self, data)
+        case "notification-preferences": try envelope(SettingsNotificationPreferences.self, data)
+        case "notification-preferences-update": try envelope(SettingsNotificationPreferences.self, data)
+        case "apns-device-register": try envelope(JSONValue.self, data)
+        case "apns-device-revoke": try envelope(JSONValue.self, data)
+        case "tokens-list": try envelope(SettingsAPITokenListResponse.self, data)
+        case "token-create": try envelope(SettingsCreatedAPIToken.self, data)
+        case "token-revoke": try envelope(JSONValue.self, data)
+        case "native-telemetry": try envelope(NativeTelemetryResponse.self, data)
+        case "me-export": try envelope(JSONValue.self, data)
+        case "connections-list": try envelope(SettingsOAuthConnectionListResponse.self, data)
+        case "connection-disconnect": try envelope(JSONValue.self, data)
+        case "account-delete": try envelope(AccountDeletionResult.self, data)
+        default: return false
+        }
+        return true
+    }
 
     @Test("every recording has a decoder and every decoder has a recording")
     func everyRecordingHasADecoder() throws {
         let names = try Self.index().map(\.name)
         #expect(Set(names).count == names.count)
-        #expect(Set(names) == Set(Self.decoders.keys))
+        #expect(Set(names) == Self.decodedNames)
     }
 
     @Test("every recorded v2 response decodes into the app's model")
@@ -159,12 +234,10 @@ struct V2APIRecordingContractTests {
         let entries = try Self.index()
         #expect(!entries.isEmpty)
         for entry in entries {
-            guard let decode = Self.decoders[entry.name] else {
-                Issue.record("No decoder for \(entry.name) (\(entry.endpoint))")
-                continue
-            }
             do {
-                try decode(Self.body(entry.name))
+                if try !Self.decode(entry.name, Self.body(entry.name)) {
+                    Issue.record("No decoder for \(entry.name) (\(entry.endpoint))")
+                }
             } catch {
                 Issue.record("\(entry.name) (\(entry.endpoint)) does not decode: \(error)")
             }
