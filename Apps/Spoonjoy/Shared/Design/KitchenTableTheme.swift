@@ -88,6 +88,39 @@ struct KitchenTablePage<Content: View>: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(KitchenTableTheme.bone.ignoresSafeArea())
+        .paperTopEdge()
+    }
+}
+
+extension View {
+    /// Covers the status bar and navigation bar with the page's paper, so a scrolled page slides cleanly
+    /// under them. The system's top scroll edge (soft or hard) leaves a blurred ghost of the content behind
+    /// the clock and the bar buttons, and toolbarBackground does not change it, so on iOS the edge effect is
+    /// off and a zero-height line at the top of the safe area carries paper up to the screen edge. (A
+    /// GeometryReader that ignores the safe area reports a top inset of zero, so it cannot size this.) Bar
+    /// buttons still sit on top. On the Mac the page fades under a solid edge instead.
+    func paperTopEdge() -> some View {
+        modifier(PaperTopEdge())
+    }
+}
+
+private struct PaperTopEdge: ViewModifier {
+    func body(content: Content) -> some View {
+#if os(iOS)
+        content
+            .scrollEdgeEffectHidden(true, for: .top)
+            .overlay(alignment: .top) {
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 0)
+                    .background(KitchenTableTheme.bone.ignoresSafeArea(edges: .top))
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+#else
+        content
+            .scrollEdgeEffectStyle(.hard, for: .top)
+#endif
     }
 }
 
