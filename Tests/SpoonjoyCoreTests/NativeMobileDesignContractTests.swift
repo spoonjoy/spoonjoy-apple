@@ -546,7 +546,8 @@ struct NativeMobileDesignContractTests {
             editor,
             in: editorPath,
             contains: [
-                "Duration \\(step.duration ?? 0) minutes",
+                "Duration \\(step.duration ?? 0) min\"",
+                "Duration: no set time",
                 "in: 0...720, step: 1"
             ],
             forbids: [
