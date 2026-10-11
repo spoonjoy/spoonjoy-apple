@@ -27,6 +27,8 @@ final class JourneyApp {
         app.launchEnvironment[NativeJourneyLaunchReset.environmentKey] = "1"
         // "Add Photo" stages a built-in picture instead of opening the system photo picker.
         app.launchEnvironment[NativeJourneyPhotoFixture.environmentKey] = "1"
+        // The CI simulator refuses AlarmKit without a prompt, so a step timer records a stand-in alarm instead.
+        app.launchEnvironment[NativeJourneyAlarmFixture.environmentKey] = "1"
         // The app records each sync request and the server's answer in a hidden element, read on failure.
         app.launchEnvironment[NativeSyncDiagnostics.environmentKey] = "1"
         // A blocked stderr write would stall the main thread that XCUITest evaluates queries on.

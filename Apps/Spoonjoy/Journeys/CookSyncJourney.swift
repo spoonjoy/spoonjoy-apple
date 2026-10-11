@@ -3,7 +3,9 @@ import XCTest
 
 /// Journey 4: checking an ingredient in cook mode reaches QA's cook-session store. The test process reads
 /// the session straight from QA with the account's own bearer token, so a pass proves the server holds the
-/// check and not only this device. The check also survives a relaunch.
+/// check and not only this device. The check also survives a relaunch. The step has a duration, so the journey
+/// also sets its timer and cancels it. The CI simulator refuses AlarmKit, so the app records a stand-in alarm
+/// (`NativeJourneyAlarmFixture`); cook mode's per-step registry and Cancel control are the real ones.
 @MainActor
 final class CookSyncJourney: JourneyTestCase {
     func testCookModeCheckReachesTheServerJourney() async throws {
@@ -19,7 +21,7 @@ final class CookSyncJourney: JourneyTestCase {
                     stepNum: 1,
                     stepTitle: "Zest the lemon",
                     description: "Zest the lemon into a bowl.",
-                    duration: nil,
+                    duration: 10,
                     ingredients: [RecipeIngredientDraft(quantity: 1, unit: "whole", name: lemon)],
                     outputStepNums: []
                 )
@@ -62,6 +64,23 @@ final class CookSyncJourney: JourneyTestCase {
         attachment.name = "qa-cook-session-response (bearer token redacted)"
         attachment.lifetime = .keepAlways
         add(attachment)
+
+        // The step's timer: once it is set, Cancel replaces the start button.
+        journey.tap(JourneyID.cookTimerStart)
+        XCTAssertTrue(
+            journey.element(JourneyID.cookTimerCancel).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Starting the step timer did not offer Cancel. Screen: \(journey.screen)"
+        )
+        XCTAssertFalse(journey.element(JourneyID.cookTimerStart).exists, "The start button stayed while the step's timer runs.")
+        journey.attachScreenshot(named: "02-timer-set-with-cancel", to: self)
+
+        journey.tap(JourneyID.cookTimerCancel)
+        XCTAssertTrue(
+            journey.element(JourneyID.cookTimerStart).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Cancelling the step timer did not bring the start button back. Screen: \(journey.screen)"
+        )
+        XCTAssertFalse(journey.element(JourneyID.cookTimerCancel).exists, "Cancel stayed after the timer was cancelled.")
+        journey.attachScreenshot(named: "03-timer-cancelled", to: self)
 
         // The relaunch keeps this device's own state, so the proof that the server holds the check is the
         // reading above; here the relaunch must still be signed in and must not undo what QA holds.

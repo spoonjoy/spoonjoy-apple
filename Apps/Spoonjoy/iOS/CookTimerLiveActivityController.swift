@@ -14,16 +14,33 @@ private struct AlarmKitCookTimerController: CookTimerAlarmControlling {
 }
 
 /// Runs the Live Activity buttons. AlarmKit owns the countdown and its Lock Screen and Dynamic Island presentation
-/// (drawn by the widget extension), so this host forwards pause, resume and stop to the alarm. A timer keeps running when the user
-/// leaves cook mode; only pressing stop or cancel ends it.
+/// (drawn by the widget extension), so this host forwards pause, resume and cancel to the alarm. A timer keeps running when the user
+/// leaves cook mode; only pressing Stop or Cancel ends it.
 @available(iOS 26.0, *)
 @MainActor
 final class CookTimerAlarmHost {
     private let coordinator = CookTimerAlarmCoordinator(controller: AlarmKitCookTimerController())
 
+    private var alarmUpdatesTask: Task<Void, Never>?
+
     init() {
         SpoonjoyCookActivityBridge.handler = { [weak self] command in
             await self?.handle(command)
+        }
+        // A timer can end without cook mode: it rings and is dismissed, or the cook stops it from the Lock Screen.
+        // Following the system's alarm list frees those steps, so each step can be timed again.
+        // A journey's stand-in alarm is not in the system's list, so following that list would drop it at once.
+        guard !CookModeSessionCenter.usesJourneyAlarmFixture else {
+            return
+        }
+        let stepTimers = CookModeSessionCenter.shared.stepTimers
+        if let alarms = try? AlarmManager.shared.alarms {
+            stepTimers.reconcile(activeAlarmIDs: Set(alarms.map(\.id)))
+        }
+        alarmUpdatesTask = Task { @MainActor in
+            for await alarms in AlarmManager.shared.alarmUpdates {
+                stepTimers.reconcile(activeAlarmIDs: Set(alarms.map(\.id)))
+            }
         }
     }
 
@@ -35,6 +52,7 @@ final class CookTimerAlarmHost {
             try? coordinator.resume(alarmID: alarmID)
         case .stop(let alarmID):
             try? coordinator.stop(alarmID: alarmID)
+            CookModeSessionCenter.shared.stepTimers.forget(alarmID: alarmID)
         case .nextStep(let recipeID):
             // Cook mode owns step state. After the user left it there is no session, so open the recipe in cook mode instead.
             if (try? await CookModeSessionCenter.shared.perform(.nextStep)) == nil {
