@@ -165,9 +165,10 @@ jobs:
           echo "booted-at=$booted_at" >> "$GITHUB_OUTPUT"
           xcrun simctl bootstatus "$udid" -b
       - name: Build shopping UI tests
-        # Step limits sum to 44 of the job's 50 minutes, leaving room for checkout, setup and the upload. The settle
-        # wait ends 8 minutes after boot at the latest, so most of it overlaps this build.
-        timeout-minutes: 12
+        # Step limits sum to 47 of the job's 50 minutes, leaving room for checkout, setup and the upload. The settle
+        # wait ends 8 minutes after boot at the latest, so most of it overlaps this build. The build takes 4 to 11.5
+        # minutes on hosted runners, so it gets the same 15 minutes as the journeys build.
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/shopping"
