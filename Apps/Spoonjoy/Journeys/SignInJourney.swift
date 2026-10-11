@@ -32,6 +32,9 @@ final class SignInJourney: JourneyTestCase {
 
         journey.openSettings()
         journey.assertQAEnvironment()
+        // A swiped page slides under the status bar and the back button; its paper must cover them cleanly.
+        journey.app.swipeUp()
+        journey.attachScreenshot(named: "00-settings-swiped", to: self)
         // Delete account opens its confirmation sheet; cancelling it leaves the account and the session alone.
         journey.tap(JourneyID.settingsDeleteAccount)
         XCTAssertTrue(
