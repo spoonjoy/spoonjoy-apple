@@ -386,7 +386,7 @@ struct AccountLifecycleTests {
             #expect(try await store.authSessionRepository.restoreState() == .signedOut)
             #expect(try await syncStore.loadQueue().mutations.isEmpty)
             // The edit that can never be sent is gone, not parked for a later sign-in.
-            #expect(try await syncStore.loadSnapshot().parkedQueues.isEmpty)
+            #expect(await syncStore.loadSnapshot().parkedQueues.isEmpty)
             await #expect(throws: NativeSyncStoreError.missingCheckpoint) { try await syncStore.loadCheckpoint() }
             let cache = try cacheStore.loadOrRecover(fallback: NativeDurableCacheSnapshot(
                 schemaVersion: NativeDurableCacheSnapshot.currentSchemaVersion,
