@@ -76,6 +76,55 @@ struct ProfileChefGraphSurfaceTests {
             URLQueryItem(name: "page", value: "1"),
             URLQueryItem(name: "limit", value: "50")
         ])
+        // Signed in, every profile request carries the token (so v2 can answer isOwner) and asks for no caching.
+        for request in transport.requests {
+            #expect(request.headers["Authorization"] == "Bearer sj_private_token")
+            #expect(request.responseCachePolicy == .privateNoStore)
+        }
+    }
+
+    @Test("profile repository reads the profile as a visitor when the server refuses the sign-in token")
+    @MainActor
+    func profileRepositoryFallsBackToVisitorWhenTokenIsRefused() async throws {
+        let profileEnvelope = try APIEnvelope(requestID: "req_profile", data: Self.profileData())
+        let graphEnvelope = try APIEnvelope(requestID: "req_graph", data: Self.graphPage(direction: .fellowChefs))
+        let transport = RecordingProfileAPITransport(
+            profileEnvelope: profileEnvelope,
+            fellowChefsEnvelope: graphEnvelope,
+            kitchenVisitorsEnvelope: graphEnvelope,
+            refuses: { $0.headers["Authorization"] != nil }
+        )
+        let repository = LiveProfileChefGraphSurfaceRepository(transport: transport, configuration: Self.configuration, now: { Self.now })
+
+        let profile = try await repository.profile(identifier: "ari")
+        let graph = try await repository.graph(identifier: "ari", direction: .fellowChefs, page: 1, limit: 50)
+
+        #expect(profile.data.profile.id == "chef_ari")
+        #expect(graph.rows.map(\.username) == ["jules"])
+        #expect(transport.requests.map { $0.headers["Authorization"] } == ["Bearer sj_private_token", nil, "Bearer sj_private_token", nil])
+        #expect(transport.requests.map(\.responseCachePolicy) == [
+            .privateNoStore,
+            .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300),
+            .privateNoStore,
+            .publicCache(maxAgeSeconds: 60, staleWhileRevalidateSeconds: 300)
+        ])
+
+        // Signed out there is no token to drop, so a 401 is not retried.
+        let signedOutTransport = RecordingProfileAPITransport(
+            profileEnvelope: profileEnvelope,
+            fellowChefsEnvelope: graphEnvelope,
+            kitchenVisitorsEnvelope: graphEnvelope,
+            refuses: { _ in true }
+        )
+        let signedOut = LiveProfileChefGraphSurfaceRepository(
+            transport: signedOutTransport,
+            configuration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!),
+            now: { Self.now }
+        )
+        await #expect(throws: APITransportError.self) {
+            _ = try await signedOut.profile(identifier: "ari")
+        }
+        #expect(signedOutTransport.requests.count == 1)
     }
 
     @Test("profile repository normalizes server profile links for encoded identifiers")
@@ -603,16 +652,20 @@ private final class RecordingProfileAPITransport: SpoonjoyAPITransport, @uncheck
     private let profileEnvelope: APIEnvelope<ProfileSurfaceData>
     private let fellowChefsEnvelope: APIEnvelope<ProfileGraphPage>
     private let kitchenVisitorsEnvelope: APIEnvelope<ProfileGraphPage>
+    /// Answers 401 to the requests this picks.
+    private let refuses: @Sendable (APIRequest) -> Bool
     private var sentRequests: [APIRequest] = []
 
     init(
         profileEnvelope: APIEnvelope<ProfileSurfaceData>,
         fellowChefsEnvelope: APIEnvelope<ProfileGraphPage>,
-        kitchenVisitorsEnvelope: APIEnvelope<ProfileGraphPage>
+        kitchenVisitorsEnvelope: APIEnvelope<ProfileGraphPage>,
+        refuses: @escaping @Sendable (APIRequest) -> Bool = { _ in false }
     ) {
         self.profileEnvelope = profileEnvelope
         self.fellowChefsEnvelope = fellowChefsEnvelope
         self.kitchenVisitorsEnvelope = kitchenVisitorsEnvelope
+        self.refuses = refuses
     }
 
     var requests: [APIRequest] {
@@ -627,6 +680,15 @@ private final class RecordingProfileAPITransport: SpoonjoyAPITransport, @uncheck
         let builtRequest = try request.urlRequest(configuration: configuration)
         sentRequests.append(builtRequest)
 
+        if refuses(builtRequest) {
+            throw APITransportError(
+                kind: .apiError,
+                requestID: "req_refused",
+                statusCode: 401,
+                apiError: nil,
+                retryDecision: .refreshAuthentication
+            )
+        }
         if valueType == ProfileSurfaceData.self {
             return profileEnvelope as! APIEnvelope<Value>
         }
