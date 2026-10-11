@@ -107,12 +107,7 @@ struct SpoonjoyChefProfileEntityQuery: EntityQuery, EntityStringQuery {
         scope: (accountID: String, environment: NativeCacheEnvironment)
     ) {
         let appDirectory = fileURL.deletingLastPathComponent()
-        let syncStore = try FileBackedNativeSyncStore(
-            fileURL: appDirectory.appendingPathComponent("native-sync-store.json"),
-            mediaResolver: NativeStagedMediaDirectory(
-                directoryURL: appDirectory.appendingPathComponent("native-staged-media", isDirectory: true)
-            )
-        )
+        let syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
         let syncSnapshot = try await syncStore.loadSnapshot()
         let scope = try await SpoonjoyIntentScopeProvider(authVault: KeychainTokenVault()).trustedIntentScope(from: syncSnapshot)
         let cacheStore = NativeDurableCacheStore(fileURL: appDirectory.appendingPathComponent("native-durable-cache.json"))
