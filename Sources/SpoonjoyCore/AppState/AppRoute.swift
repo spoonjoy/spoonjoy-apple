@@ -127,6 +127,23 @@ public enum AppRoute: Hashable, Sendable {
         }
     }
 
+    /// The route to reopen on relaunch, or nil to stay on the kitchen. Only places the chef can land on
+    /// safely come back: editors, cover controls and unknown links are in-progress or one-shot
+    /// surfaces, and a recipe or cookbook that is no longer in the saved kitchen would open an empty page.
+    public func restorable(recipeIDs: Set<String>, cookbookIDs: Set<String>) -> AppRoute? {
+        switch self {
+        case .recipeDetail(let id, _):
+            recipeIDs.contains(id) ? self : nil
+        case .cookbookDetail(let id):
+            cookbookIDs.contains(id) ? self : nil
+        case .recipeEditor, .recipeCoverControls, .unknownLink:
+            nil
+        case .kitchen, .recipes, .savedRecipes, .cookbooks, .chefs, .profile, .profileGraph,
+             .shoppingList, .search, .capture, .settings:
+            self
+        }
+    }
+
     public init?(stateIdentifier: String) {
         let parts = stateIdentifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
         if parts == ["kitchen"] {

@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 
 public enum NativeAuthSessionError: Error, Equatable, Sendable {
@@ -15,6 +16,20 @@ public enum NativeAuthSessionState: Equatable, Sendable {
     case refreshRequired(AuthSession)
 }
 
+extension NativeAuthSessionState {
+    /// The state a session that can no longer refresh (expired or revoked) is shown under. A stored session keeps
+    /// its account, so every writer keeps using that account's snapshot and queue; with no stored session there
+    /// is no account to keep.
+    var keepingStoredScope: NativeAuthSessionState {
+        switch self {
+        case .signedOut:
+            .signedOut
+        case .authenticated(let session), .refreshRequired(let session):
+            .refreshRequired(session)
+        }
+    }
+}
+
 public struct NativeAuthSignInStart: Equatable, Sendable {
     public let clientID: String
     public let redirectURI: URL
@@ -27,6 +42,31 @@ public enum NativeAuthSession {
     public static let localDogfoodRedirectURI = URL(string: "http://127.0.0.1:53123/callback")!
     public static let nativeAppClientID = "spoonjoy-apple-native"
     public static let nativeAppleClientID = nativeAppClientID
+    /// The origin whose native client id is the plain `nativeAppClientID`. Every other server issues native
+    /// tokens under `nativeAppClientID:<sha256 hex of its origin>` (spoonjoy-v2 `nativeAppleOAuthClientId`).
+    public static let productionServerOrigin = "https://spoonjoy.app"
+
+    /// The client id a server at `serverBaseURL` issues native sign-in tokens under, derived the way the
+    /// server derives it. The sign-in response's own `client_id` is the better source; this covers sessions
+    /// stored before the app kept that value.
+    public static func nativeClientID(forServerBaseURL serverBaseURL: URL) -> String {
+        let origin = canonicalOrigin(of: serverBaseURL)
+        guard origin != productionServerOrigin else {
+            return nativeAppClientID
+        }
+        let digest = SHA256.hash(data: Data(origin.utf8))
+        return nativeAppClientID + ":" + digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func canonicalOrigin(of url: URL) -> String {
+        let scheme = url.scheme?.lowercased() ?? ""
+        let host = url.host(percentEncoded: false)?.lowercased() ?? ""
+        var origin = "\(scheme)://\(host)"
+        if let port = url.port, !(scheme == "https" && port == 443), !(scheme == "http" && port == 80) {
+            origin += ":\(port)"
+        }
+        return origin
+    }
     public static let requiredSessionScopes = [
         "kitchen:read",
         "kitchen:write",
