@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "handoff_id": "audit-release-train-unit-0",
+  "final_web_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "final_native_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "merged_prs": [
+    {
+      "repo": "spoonjoy/spoonjoy-v2",
+      "number": 272,
+      "url": "https://github.com/spoonjoy/spoonjoy-v2/pull/272",
+      "merge_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "repo": "spoonjoy/spoonjoy-apple",
+      "number": 52,
+      "url": "https://github.com/spoonjoy/spoonjoy-apple/pull/52",
+      "merge_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "ci_runs": [
+    {
+      "repo": "spoonjoy/spoonjoy-v2",
+      "workflow": "CI",
+      "run_id": 1001,
+      "url": "https://github.com/spoonjoy/spoonjoy-v2/actions/runs/1001",
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "repo": "spoonjoy/spoonjoy-v2",
+      "workflow": "Storybook",
+      "run_id": 1002,
+      "url": "https://github.com/spoonjoy/spoonjoy-v2/actions/runs/1002",
+      "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "repo": "spoonjoy/spoonjoy-apple",
+      "workflow": "Native",
+      "run_id": 2001,
+      "url": "https://github.com/spoonjoy/spoonjoy-apple/actions/runs/2001",
+      "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "deployments": [
+    {
+      "repo": "spoonjoy/spoonjoy-v2",
+      "environment": "production",
+      "run_id": 3001,
+      "url": "https://github.com/spoonjoy/spoonjoy-v2/actions/runs/3001",
+      "source_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "success"
+    }
+  ],
+  "residual_work": [
+    {
+      "owner_thread_id": "019f2e25-2fc3-75b2-8ba3-335f3777115a",
+      "scope": "release_cleanup",
+      "status": "pending",
+      "description": "Run inventory-only cleanup after the owner-release barrier."
+    }
+  ],
+  "zero_in_flight_web_merges": true,
+  "zero_in_flight_web_deploys": true,
+  "web_cleanup_owner": "019f2e25-2fc3-75b2-8ba3-335f3777115a",
+  "testflight_owners": [
+    {
+      "thread_id": "019f2e25-2fc3-75b2-8ba3-335f3777115a",
+      "scope": "internal_only_testflight_publication",
+      "exclusive": true
+    }
+  ],
+  "receiver_thread_id": "019f2e25-2fc3-75b2-8ba3-335f3777115a",
+  "receiver_pushed_commit_sha": "dddddddddddddddddddddddddddddddddddddddd",
+  "acknowledged_at": "2026-07-16T17:50:00Z",
+  "cleanup_scope_acknowledged": true
+}
