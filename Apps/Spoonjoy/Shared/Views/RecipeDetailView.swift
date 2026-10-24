@@ -518,17 +518,16 @@ struct RecipeDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
             if !usesCompactRecipeDock {
-                if hasAction(.logCook) || hasSecondaryRecipeActions {
+                // Owner tools close the Log and More row rather than sitting alone on a line beneath it.
+                if hasAction(.logCook) || hasSecondaryRecipeActions || viewModel.ownerTools.isVisible {
                     HStack(spacing: 10) {
                         if hasAction(.logCook) {
                             recipeMastheadLogCookAction
                         }
                         recipeSecondaryActions
+                        ownerTools
                     }
                 }
-            }
-            if !usesCompactRecipeDock {
-                ownerTools
             }
             actionStatus
         }
