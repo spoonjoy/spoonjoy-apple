@@ -61,8 +61,19 @@ final class TabletopJourney: JourneyTestCase {
             TabletopLayout.foldMargin * 2 - 0.5,
             "The step and the controls are closer to the fold than its margin."
         )
-        XCTAssertGreaterThanOrEqual(stepHalf.frame.height, TabletopLayout.minimumHalfHeight, "The step half is a sliver.")
-        XCTAssertGreaterThanOrEqual(controlsHalf.frame.height, TabletopLayout.minimumHalfHeight, "The controls half is a sliver.")
+        // XCUITest reports each half as the union of its contents, not the row it fills, so check where the halves sit in
+        // the window: neither may be pushed against the far edge.
+        let window = journey.app.windows.firstMatch.frame
+        XCTAssertLessThanOrEqual(
+            stepHalf.frame.maxY,
+            window.maxY - TabletopLayout.minimumHalfHeight,
+            "The step half runs too far down."
+        )
+        XCTAssertGreaterThanOrEqual(
+            controlsHalf.frame.minY,
+            window.minY + TabletopLayout.minimumHalfHeight,
+            "The controls half starts too high."
+        )
 
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: flour)
         XCTAssertTrue(
@@ -81,7 +92,7 @@ final class TabletopJourney: JourneyTestCase {
         journey.attachScreenshot(named: "01-tabletop-flour-checked", to: self)
 
         // Next, below the fold, turns to the second step; cook mode stays split.
-        let next = journey.element(JourneyID.cookNext)
+        let next = journey.element(JourneyID.cookDockNext)
         XCTAssertGreaterThanOrEqual(next.frame.minY, controlsHalf.frame.minY, "Next step is not below the fold.")
         next.tap()
         let jamIngredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: jam)

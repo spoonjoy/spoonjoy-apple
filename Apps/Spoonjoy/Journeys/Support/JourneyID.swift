@@ -111,7 +111,7 @@ enum JourneyID {
     static let cookTabletopStep = "cookMode.tabletopStep"
     static let cookTabletopControls = "cookMode.tabletopControls"
     /// Cook mode's "Next step" button in the step controls (regular width and tabletop).
-    static let cookNext = "cookMode.next"
+    static let cookDockNext = "spoonDock.cook.next"
     /// The step timer's start button, and the Cancel button that replaces it while the step's system alarm runs.
     static let cookTimerStart = "cookMode.timer.start"
     static let cookTimerCancel = "cookMode.timer.cancel"
