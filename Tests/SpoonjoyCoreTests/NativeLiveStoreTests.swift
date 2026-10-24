@@ -4988,6 +4988,10 @@ struct NativeLiveStoreTests {
                 transport: ScriptedLiveStoreSyncTransport(),
                 appStateStoreProvider: { routeStore }
             )
+            // A route is recorded only once the saved state has loaded, so load it, then put the other
+            // account's snapshot back for the route to find.
+            await routeLiveStore.bootstrap()
+            _ = try mismatchedStore("route")
             routeLiveStore.recordingOpenedRoute(.settings)
             #expect(try routeStore.loadOrCreate(fallback: .bootstrap(
                 shoppingList: nil,
