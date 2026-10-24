@@ -174,7 +174,7 @@ The workflow pins every external action to a full commit SHA. Its checkout of
 then built with pinned Node `22.17.1` from its lockfile under
 `.ci/apple-distribution-kit`. The complete generated `dist/` tree must match the
 audited aggregate SHA-256
-`d7e9de5971c036eb180114b1eb648ae9f9fcdffdb44dbcb7fe4cdf670befdac0`.
+`09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9`.
 Only after the
 candidate verifier succeeds does the job prepare App Store Connect credentials,
 compute the next dynamic build number, archive the exact source, upload the IPA,

@@ -57,8 +57,8 @@ struct TestFlightAutomationContractTests {
                 "name: Upload verified candidate note",
                 "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
                 "node-version: 22.17.1",
-                "ref: 15ba23ed8a38ef562302db66c68218d8d95aa3a6",
-                "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: d7e9de5971c036eb180114b1eb648ae9f9fcdffdb44dbcb7fe4cdf670befdac0",
+                "ref: c296021af0e7eacb424dc9c7f924c9cda8df9d64",
+                "EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9",
                 "actual_dist_sha256",
                 "apple-distribution-kit dist checksum mismatch",
                 "SPOONJOY_TESTFLIGHT_SOURCE_SHA",
@@ -123,7 +123,7 @@ struct TestFlightAutomationContractTests {
         }
 
         let testFlightWorkflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
-        let expectedToolkitRevision = "15ba23ed8a38ef562302db66c68218d8d95aa3a6"
+        let expectedToolkitRevision = "c296021af0e7eacb424dc9c7f924c9cda8df9d64"
         let toolkitRepositoryPattern = /repository:\s+ourostack\/apple-distribution-kit/
         let toolkitRefPattern = /repository:\s+ourostack\/apple-distribution-kit\n\s+ref:\s+([0-9a-f]{40})/
         let toolkitCheckoutCount = testFlightWorkflow.matches(of: toolkitRepositoryPattern).count
@@ -826,7 +826,7 @@ struct TestFlightAutomationContractTests {
                 "allow_rollback",
                 "rollback_reason",
                 "rollback_notes",
-                "d7e9de5971c036eb180114b1eb648ae9f9fcdffdb44dbcb7fe4cdf670befdac0",
+                "09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9",
                 "GitHub-hosted runner trust boundary",
                 "runner-provided `gh`",
                 "last known-good main commit",
