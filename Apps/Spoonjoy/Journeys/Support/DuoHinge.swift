@@ -22,6 +22,12 @@ enum DuoHinge {
         try send(posture.rawValue, file: file, line: line)
     }
 
+    /// Turns the Duo a quarter turn clockwise, as Device Hub's Rotate Right does. The open Duo starts held sideways,
+    /// and `XCUIDevice.orientation` does not turn the inner screen.
+    static func rotateRight(file: StaticString = #filePath, line: UInt = #line) throws {
+        try send("Rotate Right", file: file, line: line)
+    }
+
     /// Saves the Mac's screenshots of both Duo displays, which show every window of the app at once.
     static func shot(_ name: String, file: StaticString = #filePath, line: UInt = #line) throws {
         try send("shot \(name)", file: file, line: line)

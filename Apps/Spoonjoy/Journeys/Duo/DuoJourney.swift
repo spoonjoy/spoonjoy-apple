@@ -108,7 +108,7 @@ final class DuoJourney: JourneyTestCase {
 
         // Open flat, held sideways: the inner screen as a two-page spread.
         try DuoHinge.set(.open)
-        XCUIDevice.shared.orientation = .landscapeLeft
+        // Device Hub opens the Duo with the inner screen held sideways.
         XCTAssertTrue(
             card.waitForExistence(timeout: JourneyApp.networkTimeout),
             "Opening the Duo lost the Kitchen. Screen: \(journey.screen)"
@@ -134,17 +134,17 @@ final class DuoJourney: JourneyTestCase {
         try capture("06-open-landscape-recipe", journey)
 
         // Open flat, held tall.
-        XCUIDevice.shared.orientation = .portrait
+        try DuoHinge.rotateRight()
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailTitle).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Turning the open Duo upright lost the recipe. Screen: \(journey.screen)"
         )
         try capture("07-open-portrait-recipe", journey)
 
-        journey.openTab(JourneyCopy.kitchenTab)
+        journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://kitchen")))
         XCTAssertTrue(
             card.waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The Kitchen tab did not open the Kitchen with its Cooking now card. Screen: \(journey.screen)"
+            "The kitchen link did not open the Kitchen with its Cooking now card. Screen: \(journey.screen)"
         )
         try capture("08-open-portrait-kitchen", journey)
 
@@ -169,7 +169,7 @@ final class DuoJourney: JourneyTestCase {
 
         journey.useForcedPostureOnNextLaunch("book")
         journey.relaunch()
-        XCUIDevice.shared.orientation = .landscapeLeft
+        try DuoHinge.rotateRight()
         XCTAssertTrue(
             jamInCook.waitForExistence(timeout: JourneyApp.networkTimeout),
             "Book cook mode is not on step 2. Screen: \(journey.screen)"
@@ -183,7 +183,7 @@ final class DuoJourney: JourneyTestCase {
             jamInCook.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The app did not reopen in cook mode on step 2 with the real hinge. Screen: \(journey.screen)"
         )
-        journey.openTab(JourneyCopy.kitchenTab)
+        journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://kitchen")))
         let recipe = journey.element(JourneyID.kitchenRecipe, labelContaining: title)
         XCTAssertTrue(
             recipe.waitForExistence(timeout: JourneyApp.networkTimeout),

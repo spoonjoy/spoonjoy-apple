@@ -3,7 +3,7 @@
 //
 // Usage: posture-driver <request directory> <simulator udid> <screenshot directory>
 //
-// The journey writes `<n>.request` holding a Device Hub hinge button ("Closed", "Partially Open" or "Open") or
+// The journey writes `<n>.request` holding a Device Hub button ("Closed", "Partially Open", "Open" or "Rotate Right") or
 // "shot <name>". The driver presses the button in Device Hub (or saves both displays' screenshots), waits for the
 // simulator to settle, and writes `<n>.done`. It handles requests in order and stops when `stop` appears or after
 // two hours.
@@ -73,7 +73,9 @@ func findButton(described description: String) -> AXUIElement? {
     var queue: [(AXUIElement, Int)] = [(root, 0)]
     while !queue.isEmpty {
         let (element, depth) = queue.removeFirst()
-        if text(element, kAXRoleAttribute) == "AXButton", text(element, kAXDescriptionAttribute) == description {
+        // Rotate Right names itself in its help text rather than its description.
+        if text(element, kAXRoleAttribute) == "AXButton",
+           text(element, kAXDescriptionAttribute) == description || text(element, kAXHelpAttribute) == description {
             return element
         }
         if depth < 12, let children = attribute(element, kAXChildrenAttribute) as? [AXUIElement] {
