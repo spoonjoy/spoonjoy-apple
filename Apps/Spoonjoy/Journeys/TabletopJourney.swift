@@ -45,6 +45,8 @@ final class TabletopJourney: JourneyTestCase {
         )
 
         let cookLink = try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook"))
+        // The Duo tour workflow reads this line to open the same cook mode when it photographs each pose.
+        print("Duo tour cook link: \(cookLink.absoluteString)")
         journey.useTabletopPostureOnNextLaunch()
         // The link opens cook mode in both shells: the tab bar, and the sidebar a wide screen such as the Duo's inner
         // screen gets.

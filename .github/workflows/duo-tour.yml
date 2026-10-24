@@ -99,9 +99,14 @@ jobs:
           udid="${{ steps.sim.outputs.udid }}"
           hub="$RUNNER_TEMP/duo/devicehub"
           shots="$RUNNER_TEMP/duo/shots"
+          # The journey prints the cook link of the recipe it made; the running app (pointed at QA) opens it.
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          echo "cook link: ${cook_link:-none}"
           launch() {
             SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
-            sleep 10
+            sleep 8
+            [ -n "$cook_link" ] && xcrun simctl openurl "$udid" "$cook_link"
+            sleep 8
           }
           shoot() {
             screencapture -x "$shots/$1-devicehub.png" || true
@@ -111,6 +116,10 @@ jobs:
           }
           launch
           shoot 10-half-open-tall
+          SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+          sleep 10
+          shoot 10b-kitchen-half-open-tall
+          launch
           "$hub" press "Open"; sleep 6
           shoot 11-open-tall
           for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
