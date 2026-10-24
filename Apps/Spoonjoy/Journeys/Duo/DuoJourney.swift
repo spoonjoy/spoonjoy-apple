@@ -194,9 +194,7 @@ final class DuoJourney: JourneyTestCase {
         )
         try capture("12-open-landscape-recipe-menu", journey)
         openInNewWindow.tap()
-        let windows = journey.app.windows
-        let twoWindows = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in windows.count >= 2 }, object: nil)
-        let windowCount = XCTWaiter().wait(for: [twoWindows], timeout: JourneyApp.networkTimeout)
+        let windowCount = waitForTwoWindows(journey)
         try captureScreen("13-two-windows", journey)
         XCTAssertEqual(windowCount, .completed, "Open in New Window did not open a second window. Screen: \(journey.screen)")
         XCTAssertTrue(
@@ -211,6 +209,13 @@ final class DuoJourney: JourneyTestCase {
             "The recipe window did not come back after the app was killed. Screen: \(journey.screen)"
         )
         try captureScreen("14-two-windows-after-relaunch", journey)
+    }
+
+    /// XCTWaiter's synchronous wait is unavailable in an async test, so it waits here.
+    private func waitForTwoWindows(_ journey: JourneyApp) -> XCTWaiter.Result {
+        let windows = journey.app.windows
+        let twoWindows = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in windows.count >= 2 }, object: nil)
+        return XCTWaiter().wait(for: [twoWindows], timeout: JourneyApp.networkTimeout)
     }
 
     /// Saves the app's screenshot in the result bundle and the Mac's screenshots of both Duo displays.
