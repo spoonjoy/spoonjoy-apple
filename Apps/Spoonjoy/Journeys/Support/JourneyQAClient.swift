@@ -77,12 +77,17 @@ struct JourneyQAClient: Sendable {
     }
 
     /// Creates a recipe as this account and returns its id.
-    func createRecipe(title: String, steps: [RecipeStepDraft]) async throws -> String {
+    func createRecipe(
+        title: String,
+        description: String? = nil,
+        servings: String? = nil,
+        steps: [RecipeStepDraft]
+    ) async throws -> String {
         let builder = try RecipeWriteRequests.createRecipe(
             clientMutationID: "journey-\(UUID().uuidString.lowercased())",
             title: title,
-            description: nil,
-            servings: nil,
+            description: description,
+            servings: servings,
             steps: steps
         )
         let envelope = try APIEnvelope<JSONValue>.decode(try await Self.send(builder, configuration: configuration))
@@ -92,6 +97,19 @@ struct JourneyQAClient: Sendable {
             throw JourneyQAClientError.missingRecipeID
         }
         return id
+    }
+
+    /// Uploads `photo` as the recipe's cover and makes it the active one, without an editorial rendition.
+    func uploadCover(recipeID: String, photo: UploadFile) async throws {
+        let builder = try RecipeCoverRequests.uploadImage(
+            recipeID: recipeID,
+            photo: photo,
+            clientMutationID: "journey-\(UUID().uuidString.lowercased())",
+            activateWhenReady: true,
+            generateEditorial: false,
+            postAsSpoon: false
+        )
+        _ = try await Self.send(builder, configuration: configuration)
     }
 
     /// Renames a recipe as this account without naming a version, the way another device saving over it would.

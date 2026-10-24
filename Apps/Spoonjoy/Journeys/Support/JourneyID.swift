@@ -130,6 +130,7 @@ enum JourneyID {
     static let kitchenCookingNowCard = "kitchen.cookingNow.card"
     /// The tab bar accessory's button that goes back to the newest recipe in progress.
     static let cookingNowAccessoryResume = "cookingNow.accessory.resume"
+    static let cookingNowAccessoryBar = "cookingNow.accessory"
     /// Cook mode's Close button: in the phone layout's toolbar, and in the wide two-page cook spread.
     static let cookClose = "cook.close"
     static let cookSpreadClose = "cookSpread.close"

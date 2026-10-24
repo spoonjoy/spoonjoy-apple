@@ -365,6 +365,22 @@ final class JourneyApp {
         return log.exists ? ((log.value as? String) ?? "unreadable") : "no Cooking now log element"
     }
 
+    /// The labels of buttons that `cover` overlaps while they can still be tapped: a floating bar must not sit
+    /// over a control at rest. Buttons inside `cover` are its own.
+    func hittableButtons(coveredBy cover: XCUIElement) -> [String] {
+        let area = cover.frame
+        return app.buttons.allElementsBoundByIndex.compactMap { button in
+            guard button.exists, button.isHittable else {
+                return nil
+            }
+            let frame = button.frame
+            guard !frame.isEmpty, frame.intersects(area), !area.contains(frame) else {
+                return nil
+            }
+            return button.label.isEmpty ? button.identifier : button.label
+        }
+    }
+
     /// Keeps a screenshot of the current screen in the result bundle.
     func attachScreenshot(named name: String, to testCase: XCTestCase) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
