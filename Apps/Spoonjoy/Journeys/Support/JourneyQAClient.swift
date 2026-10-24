@@ -59,13 +59,20 @@ struct JourneyQAClient: Sendable {
         let data = try await send(builder, configuration: APIClientConfiguration(baseURL: JourneyQA.baseURL))
         let token = try (try? APIEnvelope<OAuthTokenResponse>.decode(data).data) ??
             JSONDecoder().decode(OAuthTokenResponse.self, from: data)
+        // Bound to its account, as the app binds a session after its first sync, so what the app saves under this
+        // account is found again after a relaunch.
+        let sync = try APIEnvelope<NativeSyncData>.decode(try await send(
+            NativeSyncBootstrapRequest.defaultRequest(cursor: nil),
+            configuration: APIClientConfiguration(baseURL: JourneyQA.baseURL, bearerToken: token.accessToken)
+        ))
         return try AuthSession(
             clientID: token.clientID ?? NativeAuthSession.nativeClientID(forServerBaseURL: JourneyQA.baseURL),
             accessToken: token.accessToken,
             refreshToken: token.refreshToken,
             tokenType: token.tokenType,
             expiresAt: Date().addingTimeInterval(TimeInterval(token.expiresIn)),
-            scope: token.scope
+            scope: token.scope,
+            accountID: sync.data.freshness.accountID
         )
     }
 
