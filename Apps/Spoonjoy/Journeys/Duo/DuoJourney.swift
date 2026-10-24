@@ -47,7 +47,10 @@ final class DuoJourney: JourneyTestCase {
         try DuoHinge.set(.closed)
         XCUIDevice.shared.orientation = .portrait
         let journey = JourneyApp.launchFresh()
-        journey.signIn(as: account.username, password: account.password)
+        journey.signIn(as: account.username, password: account.password) {
+            try DuoHinge.pastePassword(ofAccount: 1)
+        }
+        try DuoHinge.clearPasteboard()
         XCTAssertTrue(
             journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Signing in did not open the kitchen."

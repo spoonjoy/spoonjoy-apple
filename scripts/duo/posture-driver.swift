@@ -128,6 +128,45 @@ func press(_ description: String) -> Bool {
     return true
 }
 
+/// Puts account `number`'s password (1-based, from the accounts file in `SPOONJOY_DUO_ACCOUNTS_FILE`) on the
+/// simulator's pasteboard, or empties it for "clear". The test runner's own pasteboard write did not reach the app on
+/// the Duo simulator (run 40111789546), and typing the password would record it in the result bundle. The password
+/// is never logged.
+func paste(_ argument: String) -> Bool {
+    var text = ""
+    if argument != "clear" {
+        struct Accounts: Decodable {
+            struct Account: Decodable { let password: String }
+            let accounts: [Account]
+        }
+        guard let number = Int(argument), number > 0,
+              let path = ProcessInfo.processInfo.environment["SPOONJOY_DUO_ACCOUNTS_FILE"],
+              let data = FileManager.default.contents(atPath: path),
+              let accounts = try? JSONDecoder().decode(Accounts.self, from: data),
+              accounts.accounts.indices.contains(number - 1) else {
+            log("no password for account \(argument)")
+            return false
+        }
+        text = accounts.accounts[number - 1].password
+    }
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/xcrun")
+    process.arguments = ["simctl", "pbcopy", udid]
+    let input = Pipe()
+    process.standardInput = input
+    do {
+        try process.run()
+    } catch {
+        log("pbcopy did not start: \(error)")
+        return false
+    }
+    input.fileHandleForWriting.write(Data(text.utf8))
+    try? input.fileHandleForWriting.close()
+    process.waitUntilExit()
+    log("pasteboard \(argument == "clear" ? "cleared" : "set for account \(argument)"): \(process.terminationStatus)")
+    return process.terminationStatus == 0
+}
+
 func screenshot(_ name: String) {
     // Display 1 is the outer screen and 3 the inner one on the Duo (probe run 40067861333).
     ["1": "", "3": "-inner"].forEach { display, suffix in
@@ -156,6 +195,8 @@ while Date() < deadline {
     if command.hasPrefix("shot ") {
         screenshot(String(command.dropFirst("shot ".count)))
         outcome = "ok"
+    } else if command.hasPrefix("paste ") {
+        outcome = paste(String(command.dropFirst("paste ".count))) ? "ok" : "missing"
     } else {
         outcome = press(command) ? "ok" : "missing"
     }

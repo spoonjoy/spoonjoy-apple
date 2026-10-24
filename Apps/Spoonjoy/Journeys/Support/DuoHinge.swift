@@ -26,6 +26,16 @@ enum DuoHinge {
         try send("shot \(name)", file: file, line: line)
     }
 
+    /// Puts the QA account's password on the simulator's pasteboard from the Mac, so the journey can paste it.
+    static func pastePassword(ofAccount number: Int, file: StaticString = #filePath, line: UInt = #line) throws {
+        try send("paste \(number)", file: file, line: line)
+    }
+
+    /// Empties the simulator's pasteboard.
+    static func clearPasteboard(file: StaticString = #filePath, line: UInt = #line) throws {
+        try send("paste clear", file: file, line: line)
+    }
+
     private static func send(_ request: String, file: StaticString, line: UInt) throws {
         let directory = try requestDirectory()
         sequence += 1

@@ -118,7 +118,14 @@ final class JourneyApp {
 
     /// Signs in with the native password form. The password is pasted, never typed, so it cannot
     /// appear in XCUITest activity titles, the xcodebuild log or the result bundle.
-    func signIn(as identifier: String, password: String, file: StaticString = #filePath, line: UInt = #line) {
+    /// `preparePaste` puts the password on the pasteboard instead of this process (the Duo journey has the Mac do it).
+    func signIn(
+        as identifier: String,
+        password: String,
+        preparePaste: (() throws -> Void)? = nil,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
         let field = element(JourneyID.signInIdentifier)
         waitFor(JourneyID.signInIdentifier, timeout: Self.interactionTimeout, "The email or username field is missing.", file: file, line: line)
         let current = field.value as? String ?? ""
@@ -136,7 +143,7 @@ final class JourneyApp {
         }
         assertValue(of: field, equals: identifier, "The identifier field does not hold exactly the identifier. Screen: \(screen)", file: file, line: line)
 
-        pastePassword(password, file: file, line: line)
+        pastePassword(password, preparePaste: preparePaste, file: file, line: line)
         tap(JourneyID.passwordSignIn, file: file, line: line)
     }
 
@@ -528,10 +535,11 @@ final class JourneyApp {
         app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", title)).firstMatch
     }
 
-    private func pastePassword(_ password: String, file: StaticString, line: UInt) {
+    private func pastePassword(_ password: String, preparePaste: (() throws -> Void)?, file: StaticString, line: UInt) {
         let field = element(JourneyID.signInPassword)
         waitFor(JourneyID.signInPassword, timeout: Self.interactionTimeout, "The password field is missing.", file: file, line: line)
-        UIPasteboard.general.string = password
+        let prepare = preparePaste ?? { UIPasteboard.general.string = password }
+        XCTAssertNoThrow(try prepare(), "The password could not be put on the pasteboard.", file: file, line: line)
         defer { UIPasteboard.general.items = [] }
         field.tap()
         field.press(forDuration: 1.2)
