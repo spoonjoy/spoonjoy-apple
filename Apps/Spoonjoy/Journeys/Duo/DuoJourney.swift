@@ -225,6 +225,10 @@ final class DuoJourney: JourneyTestCase {
     /// Saves the app's screenshot in the result bundle and the Mac's screenshots of both Duo displays.
     private func capture(_ name: String, _ journey: JourneyApp) throws {
         journey.attachScreenshot(named: name, to: self)
+        let log = XCTAttachment(string: "Sync log: \(journey.syncLog)\nCooking now: \(journey.cookingNowLog)")
+        log.name = "\(name)-log"
+        log.lifetime = .keepAlways
+        add(log)
         try DuoHinge.shot(name)
     }
 
