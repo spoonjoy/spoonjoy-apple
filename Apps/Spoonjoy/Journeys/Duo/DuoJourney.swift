@@ -53,8 +53,7 @@ final class DuoJourney: JourneyTestCase {
             journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Signing in did not open the kitchen."
         )
-        // The closed Duo shows its tabs as a rail XCUITest does not report as a tab bar, so pages open by link.
-        let kitchenLink = try XCTUnwrap(URL(string: "spoonjoy://kitchen"))
+        // The recipe opens by link; tabs are tapped on the closed Duo's side rail.
         journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)")))
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailTitle).waitForExistence(timeout: JourneyApp.networkTimeout),
@@ -74,7 +73,7 @@ final class DuoJourney: JourneyTestCase {
         try capture("01-closed-cook-step-2", journey)
 
         journey.tap(JourneyID.cookClose)
-        journey.openLink(kitchenLink)
+        journey.openTab(JourneyCopy.kitchenTab)
         let card = journey.element(JourneyID.kitchenCookingNowCard, labelContaining: title)
         XCTAssertTrue(
             card.waitForExistence(timeout: JourneyApp.networkTimeout),
@@ -104,7 +103,7 @@ final class DuoJourney: JourneyTestCase {
         try capture("03-closed-restored-cook-step-2", journey)
 
         journey.tap(JourneyID.cookClose)
-        journey.openLink(kitchenLink)
+        journey.openTab(JourneyCopy.kitchenTab)
         XCTAssertTrue(card.waitForExistence(timeout: JourneyApp.networkTimeout), "The Cooking now card is gone. Screen: \(journey.screen)")
 
         // Open flat, held sideways: the inner screen as a two-page spread.
@@ -142,10 +141,10 @@ final class DuoJourney: JourneyTestCase {
         )
         try capture("07-open-portrait-recipe", journey)
 
-        journey.openLink(kitchenLink)
+        journey.openTab(JourneyCopy.kitchenTab)
         XCTAssertTrue(
             card.waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The kitchen link did not open the Kitchen with its Cooking now card. Screen: \(journey.screen)"
+            "The Kitchen tab did not open the Kitchen with its Cooking now card. Screen: \(journey.screen)"
         )
         try capture("08-open-portrait-kitchen", journey)
 
@@ -184,7 +183,7 @@ final class DuoJourney: JourneyTestCase {
             jamInCook.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The app did not reopen in cook mode on step 2 with the real hinge. Screen: \(journey.screen)"
         )
-        journey.openLink(kitchenLink)
+        journey.openTab(JourneyCopy.kitchenTab)
         let recipe = journey.element(JourneyID.kitchenRecipe, labelContaining: title)
         XCTAssertTrue(
             recipe.waitForExistence(timeout: JourneyApp.networkTimeout),

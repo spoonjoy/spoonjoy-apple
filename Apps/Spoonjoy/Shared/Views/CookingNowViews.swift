@@ -16,6 +16,7 @@ final class CookingNowCenter {
     @ObservationIgnored private var lastFetch = "not fetched"
     @ObservationIgnored private var lastRecorded = "nothing recorded"
     @ObservationIgnored private let instance = String(UUID().uuidString.prefix(4))
+    @ObservationIgnored private var signIn = ""
 
     func noteRecorded(_ progress: CookModeProgress, stored: Int) {
         lastRecorded = "recorded step \(progress.activeStepIndex) at \(progress.updatedAt), store holds \(stored)"
@@ -42,6 +43,7 @@ final class CookingNowCenter {
         let nextScope = contentState.spotlightIndexScope.map {
             CookingNowCache.scope(accountID: $0.accountID, environment: $0.environment)
         }
+        let previousSignIn = [scope, configuration?.bearerToken]
         if nextScope != scope {
             scope = nextScope
             let cache = nextScope.flatMap(cacheStore.load(scope:))
@@ -55,8 +57,14 @@ final class CookingNowCenter {
         progressSummary = contentState.cookProgressByRecipeID.values.map { progress in
             "\(recipeIDs.contains(progress.recipeID) ? "known" : "unknown") step \(progress.activeStepIndex) at \(progress.updatedAt)"
         }.sorted().joined(separator: "; ")
+        signIn = "\(nextScope == nil ? "no account" : "account") \(configuration == nil ? "no token" : "token")"
 #endif
         publish()
+        // The Kitchen asks for the list when it appears, which can be before the saved sign-in is read; the list is
+        // read again once the account and its token are known.
+        if [scope, configuration?.bearerToken] != previousSignIn, scope != nil, configuration != nil {
+            Task { await refresh() }
+        }
     }
 
     /// Reads the server's list. Offline, signed out or on a server without the list, the saved list stays.
@@ -100,7 +108,7 @@ final class CookingNowCenter {
 #else
         let scenes = 1
 #endif
-        let summary = "center \(instance) of \(scenes) scene(s); \(lastRecorded); progress [\(progressSummary)] local \(local.count) server \(server.count) fetch \(lastFetch) shown \(merged.count)"
+        let summary = "center \(instance) of \(scenes) scene(s), \(signIn); \(lastRecorded); progress [\(progressSummary)] local \(local.count) server \(server.count) fetch \(lastFetch) shown \(merged.count)"
         if summary != journeySummary {
             journeySummary = summary
         }

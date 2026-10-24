@@ -177,9 +177,22 @@ final class JourneyApp {
     /// After the content scrolls, iOS minimizes the tab bar to one button for the selected tab (its value is
     /// "Collapsed") and hides the others. The page now updates in place instead of being rebuilt, so that state
     /// survives. Tapping the collapsed button expands the bar, and only then is the wanted tab tapped.
+    ///
+    /// The closed iPhone Duo shows the tabs as a rail at the side, which XCUITest does not report as a tab bar; there
+    /// the tab is the button with its title.
     func openTab(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
         let tabButtons = app.tabBars.buttons
-        XCTAssertTrue(tabButtons.firstMatch.waitForExistence(timeout: Self.launchTimeout), "The tab bar is missing.", file: file, line: line)
+        let railTab = app.buttons.matching(NSPredicate(format: "label == %@", title)).firstMatch
+        XCTAssertTrue(
+            tabButtons.firstMatch.waitForExistence(timeout: Self.launchTimeout) || railTab.exists,
+            "The tab bar is missing.",
+            file: file,
+            line: line
+        )
+        guard tabButtons.firstMatch.exists else {
+            railTab.tap()
+            return
+        }
         let collapsed = tabButtons.matching(NSPredicate(format: "value == %@", "Collapsed")).firstMatch
         if collapsed.exists {
             collapsed.tap()
