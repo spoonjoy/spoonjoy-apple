@@ -374,7 +374,9 @@ final class JourneyApp {
                 return nil
             }
             let frame = button.frame
-            guard !frame.isEmpty, frame.intersects(area), !area.contains(frame) else {
+            // The cover's own controls can reach past the frame reported for it, so they are skipped by identifier.
+            guard !frame.isEmpty, frame.intersects(area), !area.contains(frame),
+                  !button.identifier.hasPrefix(cover.identifier) else {
                 return nil
             }
             return button.label.isEmpty ? button.identifier : button.label
