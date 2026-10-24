@@ -7,9 +7,6 @@ name: Duo tour
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - claude/duo-tour
 
 permissions:
   contents: read
