@@ -16,9 +16,7 @@ def state_rank(state: str) -> int:
 
 def family_device_rank(name: str, family: str) -> int:
     if family != "ipad":
-        # The iPhone Duo boots folded, on its small outer screen; the journeys and UI tests expect an ordinary
-        # iPhone. Pick it only when it is the only iPhone (or by SPOONJOY_IOS_SIMULATOR_NAME).
-        return -1 if name.startswith("iPhone Duo") else 0
+        return 0
     if name.startswith("iPad Pro 13-inch"):
         return 5
     if name.startswith("iPad Air 13-inch"):
@@ -107,9 +105,22 @@ if not default_family_matches:
     print(f"No available {preferred_family} simulator found.", file=sys.stderr)
     sys.exit(1)
 
+# The iPhone Duo boots folded, on its small outer screen, and the journeys and UI tests expect an ordinary iPhone.
+# Xcode 27.1's iOS 27.1 runtime supports only the Duo, so an ordinary iPhone on an older iOS 27 runtime wins over
+# it. Ask for the Duo by SPOONJOY_IOS_SIMULATOR_NAME.
+def ordinary_rank(name: str) -> int:
+    return 0 if name.startswith("iPhone Duo") else 1
+
+
 _, _, _, selected_udid, _ = sorted(
     default_family_matches,
-    key=lambda match: (match[0], match[1], family_device_rank(match[2], preferred_family), match[2]),
+    key=lambda match: (
+        ordinary_rank(match[2]),
+        match[0],
+        match[1],
+        family_device_rank(match[2], preferred_family),
+        match[2],
+    ),
     reverse=True,
 )[0]
 print(destination(selected_udid))
