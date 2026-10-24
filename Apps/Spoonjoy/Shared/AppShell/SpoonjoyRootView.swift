@@ -433,7 +433,12 @@ struct SpoonjoyRootView: View {
             },
             recordNotificationAPNsBlocker: liveStore.recordNotificationAPNsBlocker,
             recordShoppingList: liveStore.recordShoppingList,
-            recordCookProgress: liveStore.recordCookProgress,
+            recordCookProgress: { [liveStore, cookingNow] progress in
+                liveStore.recordCookProgress(progress)
+#if DEBUG
+                cookingNow.noteRecorded(progress, stored: liveStore.bootstrapState.contentState.cookProgressByRecipeID.count)
+#endif
+            },
             cookModeOpened: liveStore.cookModeOpened(recipeID:),
             recordCaptureDraft: liveStore.recordCaptureDraft,
             discardCaptureDraft: liveStore.discardCaptureDraft,

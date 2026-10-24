@@ -170,7 +170,7 @@ struct CookingNowTests {
         let pasta = merged[1]
         #expect(pasta.stepIndex == 3)
         #expect(pasta.timers == [timer])
-        #expect(pasta.slug == nil)
+        #expect(pasta.slug == "lemon-pasta")
         #expect(pasta.coverURL == URL(string: "https://spoonjoy.app/p.jpg"))
         #expect(merged[2].stepIndex == 1)
         #expect(merged[3].stepIndex == 2)

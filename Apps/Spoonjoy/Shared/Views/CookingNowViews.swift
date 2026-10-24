@@ -14,6 +14,12 @@ final class CookingNowCenter {
     private(set) var journeySummary = "not updated"
     @ObservationIgnored private var progressSummary = ""
     @ObservationIgnored private var lastFetch = "not fetched"
+    @ObservationIgnored private var lastRecorded = "nothing recorded"
+
+    func noteRecorded(_ progress: CookModeProgress, stored: Int) {
+        lastRecorded = "recorded step \(progress.activeStepIndex) at \(progress.updatedAt), store holds \(stored)"
+        publish()
+    }
 #endif
 
     @ObservationIgnored private var server: [CookingNowEntry] = []
@@ -88,7 +94,7 @@ final class CookingNowCenter {
             entries = merged
         }
 #if DEBUG
-        let summary = "progress [\(progressSummary)] local \(local.count) server \(server.count) fetch \(lastFetch) shown \(merged.count)"
+        let summary = "\(lastRecorded); progress [\(progressSummary)] local \(local.count) server \(server.count) fetch \(lastFetch) shown \(merged.count)"
         if summary != journeySummary {
             journeySummary = summary
         }

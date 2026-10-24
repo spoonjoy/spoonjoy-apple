@@ -300,7 +300,7 @@ final class JourneyApp {
 
     /// The app's current accessibility hierarchy, for failure messages only.
     var screen: String {
-        "Sync log: \(syncLog)\n" + app.debugDescription
+        "Sync log: \(syncLog)\nCooking now: \(cookingNowLog)\n" + app.debugDescription
     }
 
     /// Asserts the visible Settings screen's Environment row names the QA mirror.
@@ -338,6 +338,12 @@ final class JourneyApp {
     var syncLog: String {
         let log = element("journey.syncLog")
         return log.exists ? ((log.value as? String) ?? "unreadable") : "no sync log element"
+    }
+
+    /// What the app built its Cooking now list from, recorded for this run.
+    var cookingNowLog: String {
+        let log = element("journey.cookingNow")
+        return log.exists ? ((log.value as? String) ?? "unreadable") : "no Cooking now log element"
     }
 
     /// Keeps a screenshot of the current screen in the result bundle.
