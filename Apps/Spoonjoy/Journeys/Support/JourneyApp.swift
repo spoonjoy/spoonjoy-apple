@@ -536,6 +536,11 @@ final class JourneyApp {
         field.tap()
         field.press(forDuration: 1.2)
         let paste = editMenuItem(Self.pasteMenuTitle)
+        // On the iPhone Duo simulator (iOS 27.1) a long press on the empty focused field shows no menu (run
+        // 40110150926); tapping the focused field again shows its callout with Paste.
+        if !paste.waitForExistence(timeout: 3) {
+            field.tap()
+        }
         XCTAssertTrue(paste.waitForExistence(timeout: Self.interactionTimeout), "The Paste action did not appear on the password field.", file: file, line: line)
         paste.tap()
     }
