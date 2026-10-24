@@ -50,6 +50,25 @@ struct JourneyQAClient: Sendable {
         )
     }
 
+    /// Signs `account` in as the app would and returns the session the app saves, for a journey that installs it
+    /// instead of typing into the sign-in form (the Duo journey; see `DuoHinge.installSession`).
+    static func nativeSession(_ account: JourneyAccount) async throws -> AuthSession {
+        let builder = try NativePasswordSignInRequests.exchangeCredential(
+            NativePasswordSignInCredential(emailOrUsername: account.username, password: account.password)
+        )
+        let data = try await send(builder, configuration: APIClientConfiguration(baseURL: JourneyQA.baseURL))
+        let token = try (try? APIEnvelope<OAuthTokenResponse>.decode(data).data) ??
+            JSONDecoder().decode(OAuthTokenResponse.self, from: data)
+        return try AuthSession(
+            clientID: token.clientID ?? NativeAuthSession.nativeClientID(forServerBaseURL: JourneyQA.baseURL),
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            tokenType: token.tokenType,
+            expiresAt: Date().addingTimeInterval(TimeInterval(token.expiresIn)),
+            scope: token.scope
+        )
+    }
+
     /// Creates a recipe as this account and returns its id.
     func createRecipe(title: String, steps: [RecipeStepDraft]) async throws -> String {
         let builder = try RecipeWriteRequests.createRecipe(

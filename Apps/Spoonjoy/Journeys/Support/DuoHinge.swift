@@ -1,4 +1,5 @@
 import Foundation
+import SpoonjoyCore
 import XCTest
 
 /// Folds and opens the iPhone Duo simulator from inside a journey. Only Device Hub, on the Mac, can move the
@@ -26,14 +27,19 @@ enum DuoHinge {
         try send("shot \(name)", file: file, line: line)
     }
 
-    /// Puts the QA account's password on the simulator's pasteboard from the Mac, so the journey can paste it.
-    static func pastePassword(ofAccount number: Int, file: StaticString = #filePath, line: UInt = #line) throws {
-        try send("paste \(number)", file: file, line: line)
-    }
-
-    /// Empties the simulator's pasteboard.
-    static func clearPasteboard(file: StaticString = #filePath, line: UInt = #line) throws {
-        try send("paste clear", file: file, line: line)
+    /// Has the Mac install `session` as the app's saved sign-in (the DEBUG file vault in the app's data container),
+    /// so the next launch is signed in. On the Duo simulator the sign-in form's paste failed every way tried (runs
+    /// 40110150926, 40111789546, 40113266863, 40114806670), and typing the password would record it in the result
+    /// bundle. The session file sits in the driver's request directory, which is never uploaded, until the driver
+    /// moves it.
+    static func installSession(_ session: AuthSession, file: StaticString = #filePath, line: UInt = #line) throws {
+        struct VaultFile: Encodable {
+            let clientID: String
+            let session: AuthSession
+        }
+        let data = try JSONEncoder().encode(VaultFile(clientID: session.clientID, session: session))
+        try data.write(to: try requestDirectory().appendingPathComponent("session.json"), options: .atomic)
+        try send("session", file: file, line: line)
     }
 
     private static func send(_ request: String, file: StaticString, line: UInt) throws {

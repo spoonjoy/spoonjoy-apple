@@ -175,8 +175,6 @@ jobs:
           mkdir -p "$RUNNER_TEMP/duo/posture" "$RUNNER_TEMP/duo/screens"
           open -a /Applications/Xcode_27.1.app/Contents/Applications/DeviceHub.app
           swiftc -O scripts/duo/posture-driver.swift -o "$RUNNER_TEMP/duo/posture-driver"
-          # The driver reads the accounts file only when the journey asks it to paste a password.
-          export SPOONJOY_DUO_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
           nohup "$RUNNER_TEMP/duo/posture-driver" "$RUNNER_TEMP/duo/posture" "${{ steps.sim.outputs.udid }}" "$RUNNER_TEMP/duo/screens" > "$RUNNER_TEMP/duo/driver.log" 2>&1 &
           echo "posture driver started"
       - name: Create a disposable QA account

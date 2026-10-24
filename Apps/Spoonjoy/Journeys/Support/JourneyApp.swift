@@ -118,15 +118,7 @@ final class JourneyApp {
 
     /// Signs in with the native password form. The password is pasted, never typed, so it cannot
     /// appear in XCUITest activity titles, the xcodebuild log or the result bundle.
-    /// With `preparePaste`, something other than this process fills the pasteboard and the password is pasted with
-    /// Command-V (the Duo journey; see `keyboardPastePassword`).
-    func signIn(
-        as identifier: String,
-        password: String,
-        preparePaste: (() throws -> Void)? = nil,
-        file: StaticString = #filePath,
-        line: UInt = #line
-    ) {
+    func signIn(as identifier: String, password: String, file: StaticString = #filePath, line: UInt = #line) {
         let field = element(JourneyID.signInIdentifier)
         waitFor(JourneyID.signInIdentifier, timeout: Self.interactionTimeout, "The email or username field is missing.", file: file, line: line)
         let current = field.value as? String ?? ""
@@ -144,11 +136,7 @@ final class JourneyApp {
         }
         assertValue(of: field, equals: identifier, "The identifier field does not hold exactly the identifier. Screen: \(screen)", file: file, line: line)
 
-        if let preparePaste {
-            keyboardPastePassword(preparePaste, file: file, line: line)
-        } else {
-            pastePassword(password, file: file, line: line)
-        }
+        pastePassword(password, file: file, line: line)
         tap(JourneyID.passwordSignIn, file: file, line: line)
     }
 
@@ -550,25 +538,5 @@ final class JourneyApp {
         let paste = editMenuItem(Self.pasteMenuTitle)
         XCTAssertTrue(paste.waitForExistence(timeout: Self.interactionTimeout), "The Paste action did not appear on the password field.", file: file, line: line)
         paste.tap()
-    }
-
-    /// Pastes with Command-V after `preparePaste` fills the simulator's pasteboard. On the iPhone Duo simulator the
-    /// edit menu came and went (runs 40110150926, 40113266863) and the runner's own pasteboard write did not reach
-    /// the app, so the Duo journey has the Mac fill the pasteboard and pastes from the keyboard.
-    private func keyboardPastePassword(_ preparePaste: () throws -> Void, file: StaticString, line: UInt) {
-        let field = element(JourneyID.signInPassword)
-        waitFor(JourneyID.signInPassword, timeout: Self.interactionTimeout, "The password field is missing.", file: file, line: line)
-        XCTAssertNoThrow(try preparePaste(), "The password could not be put on the pasteboard.", file: file, line: line)
-        field.tap()
-        field.typeKey("v", modifierFlags: .command)
-        let signIn = element(JourneyID.passwordSignIn)
-        let enabled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isEnabled == true"), object: signIn)
-        XCTAssertEqual(
-            XCTWaiter().wait(for: [enabled], timeout: Self.interactionTimeout),
-            .completed,
-            "Command-V did not paste the password: Sign in stayed disabled. Screen: \(screen)",
-            file: file,
-            line: line
-        )
     }
 }
