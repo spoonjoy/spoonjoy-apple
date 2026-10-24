@@ -62,7 +62,8 @@ final class TabletopJourney: JourneyTestCase {
             "The step and the controls are closer to the fold than its margin."
         )
         // XCUITest reports each half as the union of its contents, not the row it fills, so check where the halves sit in
-        // the window: neither may be pushed against the far edge.
+        // the window: neither may be pushed against the far edge. For the same reason, "below the fold" below compares
+        // against the bottom of the step half, never the controls half that contains the element.
         let window = journey.app.windows.firstMatch.frame
         XCTAssertLessThanOrEqual(
             stepHalf.frame.maxY,
@@ -74,13 +75,18 @@ final class TabletopJourney: JourneyTestCase {
             window.minY + TabletopLayout.minimumHalfHeight,
             "The controls half starts too high."
         )
+        XCTAssertLessThanOrEqual(
+            controlsHalf.frame.minY,
+            window.maxY - TabletopLayout.minimumHalfHeight,
+            "The controls half starts too low."
+        )
 
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: flour)
         XCTAssertTrue(
             ingredient.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "Tabletop cook mode does not list the flour. Screen: \(journey.screen)"
         )
-        XCTAssertGreaterThanOrEqual(ingredient.frame.minY, controlsHalf.frame.minY, "The checklist is not below the fold.")
+        XCTAssertGreaterThanOrEqual(ingredient.frame.minY, stepHalf.frame.maxY, "The checklist is not below the fold.")
         journey.attachScreenshot(named: "00-tabletop-cook-mode", to: self)
 
         ingredient.tap()
@@ -93,7 +99,7 @@ final class TabletopJourney: JourneyTestCase {
 
         // Next, below the fold, turns to the second step; cook mode stays split.
         let next = journey.element(JourneyID.cookDockNext)
-        XCTAssertGreaterThanOrEqual(next.frame.minY, controlsHalf.frame.minY, "Next step is not below the fold.")
+        XCTAssertGreaterThanOrEqual(next.frame.minY, stepHalf.frame.maxY, "Next step is not below the fold.")
         next.tap()
         let jamIngredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: jam)
         XCTAssertTrue(
@@ -101,7 +107,7 @@ final class TabletopJourney: JourneyTestCase {
             "Next step did not turn to the second step in tabletop cook mode. Screen: \(journey.screen)"
         )
         XCTAssertTrue(stepHalf.exists, "Turning the step undid the split. Screen: \(journey.screen)")
-        XCTAssertGreaterThanOrEqual(jamIngredient.frame.minY, controlsHalf.frame.minY, "The second step's checklist is not below the fold.")
+        XCTAssertGreaterThanOrEqual(jamIngredient.frame.minY, stepHalf.frame.maxY, "The second step's checklist is not below the fold.")
         journey.attachScreenshot(named: "02-tabletop-second-step", to: self)
 
         // The relaunch keeps the forced posture and this device's cook progress: cook mode opens split again, on the
