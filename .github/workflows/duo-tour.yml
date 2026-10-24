@@ -1,0 +1,150 @@
+name: Duo tour
+
+# Runs Spoonjoy on an iPhone Duo simulator in its real poses. DeviceHub (Xcode 27.1) stands the inner screen tall and
+# half-open, the tabletop journey runs there with the real hinge instead of the forced posture, and the app is then
+# photographed half-open, open tall, open wide and closed. It drives DeviceHub's window through accessibility, so it
+# runs on demand rather than on every pull request.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/duo-tour
+
+permissions:
+  contents: read
+
+concurrency:
+  group: duo-tour-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SPOONJOY_QA_BASE_URL: https://spoonjoy-v2-qa.mendelow-studio.workers.dev
+
+jobs:
+  duo-tour:
+    name: Duo tour
+    runs-on: xcode-27
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - uses: ./.github/actions/select-xcode
+      - name: Create and boot an iPhone Duo
+        id: sim
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          runtime="$(xcrun simctl list runtimes --json | python3 -c 'import json,sys; r=[x for x in json.load(sys.stdin)["runtimes"] if x["platform"]=="iOS" and x["isAvailable"] and any(d["name"].startswith("iPhone Duo") for d in x.get("supportedDeviceTypes",[]))]; print(max(r, key=lambda x: [int(p) for p in x["version"].split(".")])["identifier"])')"
+          udid="$(xcrun simctl create spoonjoy-duo com.apple.CoreSimulator.SimDeviceType.iPhone-Duo "$runtime")"
+          echo "Created iPhone Duo $udid on $runtime"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "destination=platform=iOS Simulator,arch=$(uname -m),id=$udid" >> "$GITHUB_OUTPUT"
+          echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Build for testing
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/duo"
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys/TabletopJourney \
+            -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/duo/build.log"
+      - name: Wait for the simulator to settle
+        timeout-minutes: 8
+        run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
+      - name: Open the inner screen tall and half-open
+        timeout-minutes: 4
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/duo/shots"
+          swiftc -O .github/scripts/duo/devicehub.swift -o "$RUNNER_TEMP/duo/devicehub"
+          open -a "$(xcode-select -p)/Applications/DeviceHub.app"
+          sleep 20
+          "$RUNNER_TEMP/duo/devicehub" dump
+          "$RUNNER_TEMP/duo/devicehub" press "Open"
+          sleep 4
+          "$RUNNER_TEMP/duo/devicehub" press "Rotate Right"
+          sleep 4
+          "$RUNNER_TEMP/duo/devicehub" press "Partially Open"
+          sleep 6
+          screencapture -x "$RUNNER_TEMP/duo/shots/00-devicehub-half-open-tall.png" || true
+          xcrun simctl io "${{ steps.sim.outputs.udid }}" enumerate || true
+      - name: Create disposable QA accounts
+        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/duo-secrets/accounts.json"
+      - name: Run the tabletop journey on the real hinge
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          # See journeys.yml: the runner gets only the path of the 0600 accounts file.
+          export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys/TabletopJourney \
+            -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
+            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/duo/DuoTour.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test.log"
+      - name: Photograph every pose
+        if: ${{ !cancelled() }}
+        timeout-minutes: 6
+        run: |
+          set -uo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          hub="$RUNNER_TEMP/duo/devicehub"
+          shots="$RUNNER_TEMP/duo/shots"
+          launch() {
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+            sleep 10
+          }
+          shoot() {
+            screencapture -x "$shots/$1-devicehub.png" || true
+            for display in 0 1 2 3 4; do
+              xcrun simctl io "$udid" screenshot --display="$display" "$shots/$1-display$display.png" >/dev/null 2>&1 || true
+            done
+          }
+          launch
+          shoot 10-half-open-tall
+          "$hub" press "Open"; sleep 6
+          shoot 11-open-tall
+          for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
+          sleep 4
+          shoot 12-open-wide
+          launch
+          shoot 13-open-wide-relaunched
+          "$hub" press "Closed"; sleep 6
+          shoot 14-closed
+          ls -la "$shots"
+      - name: Print app crash reports
+        if: failure()
+        run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
+      - name: Rotate journey account passwords
+        id: rotate
+        if: always()
+        run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/duo-secrets/accounts.json"
+      - name: Scan artifacts for passwords
+        id: scan
+        if: always()
+        run: |
+          scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/duo-secrets/accounts.json" \
+            "$RUNNER_TEMP/duo/build.log" "$RUNNER_TEMP/duo/test.log" "$RUNNER_TEMP/duo/DuoTour.xcresult"
+      - name: Remove credentials
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/duo-secrets"
+      - name: Upload the tour
+        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: duo-tour-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/duo/DuoTour.xcresult
+            ${{ runner.temp }}/duo/shots
+            ${{ runner.temp }}/duo/test.log
+          if-no-files-found: warn
+          retention-days: 30
