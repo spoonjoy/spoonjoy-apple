@@ -42,7 +42,7 @@ enum JourneyRecipes {
             description: "Wipe out the skillet, add the rest of the oil, the garlic and the chili flakes, and cook gently until the garlic is pale gold, about 2 minutes. Take the pan off the heat.",
             duration: 2,
             ingredients: [
-                RecipeIngredientDraft(quantity: 4, unit: nil, name: "garlic cloves, thinly sliced"),
+                RecipeIngredientDraft(quantity: 4, unit: "cloves", name: "garlic, thinly sliced"),
                 RecipeIngredientDraft(quantity: 0.5, unit: "tsp", name: "red chili flakes")
             ],
             outputStepNums: []
@@ -61,7 +61,7 @@ enum JourneyRecipes {
             description: "Add the pasta to the skillet with the lemon zest and juice, the butter and a splash of pasta water. Toss over low heat until glossy, fold in the pecorino and basil, and scatter the crumbs over the top.",
             duration: nil,
             ingredients: [
-                RecipeIngredientDraft(quantity: 2, unit: nil, name: "lemons, zested and juiced"),
+                RecipeIngredientDraft(quantity: 2, unit: "whole", name: "lemons, zested and juiced"),
                 RecipeIngredientDraft(quantity: 2, unit: "tbsp", name: "unsalted butter, cubed"),
                 RecipeIngredientDraft(quantity: 1, unit: "cup", name: "pecorino romano, finely grated"),
                 RecipeIngredientDraft(quantity: 0.5, unit: "cup", name: "basil leaves, torn")
@@ -100,7 +100,7 @@ enum JourneyRecipes {
             duration: nil,
             ingredients: [
                 RecipeIngredientDraft(quantity: 1.5, unit: "cup", name: "greek yogurt"),
-                RecipeIngredientDraft(quantity: 1, unit: nil, name: "garlic clove, finely grated"),
+                RecipeIngredientDraft(quantity: 1, unit: "clove", name: "garlic, finely grated"),
                 RecipeIngredientDraft(quantity: 0.25, unit: "cup", name: "dill, chopped")
             ],
             outputStepNums: []
@@ -111,7 +111,7 @@ enum JourneyRecipes {
             description: "Spread the yogurt in a shallow bowl, pile the hot chickpeas on top and finish with the rest of the lemon and a pinch of flaky salt.",
             duration: nil,
             ingredients: [
-                RecipeIngredientDraft(quantity: 1, unit: nil, name: "lemon, juiced"),
+                RecipeIngredientDraft(quantity: 1, unit: "whole", name: "lemon, juiced"),
                 RecipeIngredientDraft(quantity: 1, unit: "tsp", name: "flaky sea salt")
             ],
             outputStepNums: []
