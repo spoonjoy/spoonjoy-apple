@@ -11,7 +11,7 @@ enum DuoHinge {
         case open = "Open"
     }
 
-    static let directoryVariable = "SPOONJOY_DUO_POSTURE_DIR"
+    nonisolated static let directoryVariable = "SPOONJOY_DUO_POSTURE_DIR"
     /// A press reopens Device Hub, finds the button and waits eight seconds for the simulator to settle.
     private static let requestTimeout: TimeInterval = 90
     private static var sequence = 0
