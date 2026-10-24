@@ -56,16 +56,17 @@ struct KitchenView: View {
             cookingNowStrip
             KitchenEmptyHero(createRecipe: createRecipe, importRecipe: importRecipe)
         } else if usesWideKitchenSpread, let leadRecipe {
-            VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
-                cookingNowStrip
+            // Two pages: the lead recipe on the left, and on the right what is on the stove and the rest of the index,
+            // so a wide screen with one recipe still reads as a full spread.
+            HStack(alignment: .top, spacing: 28) {
+                RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
+                    .frame(maxWidth: 640, alignment: .topLeading)
 
-                HStack(alignment: .top, spacing: 28) {
-                    RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
-                        .frame(maxWidth: 640, alignment: .topLeading)
-
+                VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+                    cookingNowStrip
                     kitchenIndexStack
-                        .frame(maxWidth: 408, alignment: .topLeading)
                 }
+                .frame(maxWidth: 408, alignment: .topLeading)
             }
         } else {
             VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {

@@ -24,7 +24,9 @@ struct BookSpreadLayoutTests {
 
     @Test("a narrow landscape window reads as one page")
     func narrowLandscapeIsOnePage() {
-        #expect(BookSpreadLayout.resolve(width: 880, height: 600, isRegularWidth: true) == .singlePage)
+        #expect(BookSpreadLayout.resolve(width: 800, height: 600, isRegularWidth: true) == .singlePage)
+        // The open iPhone Duo held sideways, less the status bar edge, is a spread.
+        #expect(BookSpreadLayout.resolve(width: 891, height: 669, isRegularWidth: true).isSpread)
     }
 
     @Test("a wide landscape screen opens into two pages split down the middle")
@@ -66,10 +68,10 @@ struct BookSpreadLayoutTests {
     @Test("a hardware division opens the spread even below the minimum spread width")
     func divisionOverridesMinimumWidth() {
         let layout = BookSpreadLayout.resolve(
-            width: 860,
+            width: 800,
             height: 600,
             isRegularWidth: true,
-            division: SpreadDivision(minX: 430, width: 0)
+            division: SpreadDivision(minX: 400, width: 0)
         )
         #expect(layout.isSpread)
     }
