@@ -749,12 +749,9 @@ extension CookModeView {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                 }
-                // On a phone-width screen the button row truncates Next; use the dock, as standard cook mode does.
-                if usesEmbeddedSpoonDock {
-                    cookModeBottomActionRail
-                } else {
-                    bottomControls
-                }
+                // The dock at every width: the button row truncates Next on a phone-width screen, and the half on
+                // the counter wants the few large controls the dock carries.
+                cookModeBottomActionRail
             }
             .frame(height: bottomHeight)
             .accessibilityElement(children: .contain)
