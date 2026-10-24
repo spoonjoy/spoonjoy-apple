@@ -21,7 +21,7 @@ final class DuoJourney: JourneyTestCase {
         let flour = "Journey\(token)flour"
         let jam = "Journey\(token)jam"
         let qa = try await JourneyQAClient.signIn(account)
-        _ = try await qa.createRecipe(
+        let recipeID = try await qa.createRecipe(
             title: title,
             steps: [
                 RecipeStepDraft(
@@ -53,8 +53,13 @@ final class DuoJourney: JourneyTestCase {
             journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Signing in did not open the kitchen."
         )
-        journey.openTab(JourneyCopy.recipesTab)
-        journey.openRecipe(titled: title, from: JourneyID.recipesRow)
+        // The closed Duo shows its tabs as a rail XCUITest does not report as a tab bar, so pages open by link.
+        let kitchenLink = try XCTUnwrap(URL(string: "spoonjoy://kitchen"))
+        journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)")))
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailTitle).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The recipe link did not open the recipe. Screen: \(journey.screen)"
+        )
         journey.tap(JourneyID.recipeDetailCook)
         XCTAssertTrue(
             journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: flour).waitForExistence(timeout: JourneyApp.networkTimeout),
@@ -69,7 +74,7 @@ final class DuoJourney: JourneyTestCase {
         try capture("01-closed-cook-step-2", journey)
 
         journey.tap(JourneyID.cookClose)
-        journey.openTab(JourneyCopy.kitchenTab)
+        journey.openLink(kitchenLink)
         let card = journey.element(JourneyID.kitchenCookingNowCard, labelContaining: title)
         XCTAssertTrue(
             card.waitForExistence(timeout: JourneyApp.networkTimeout),
@@ -77,12 +82,10 @@ final class DuoJourney: JourneyTestCase {
         )
         XCTAssertTrue(card.label.contains("Step 2 of 2"), "The Cooking now card does not say step 2: \(card.label)")
         let accessory = journey.element(JourneyID.cookingNowAccessoryResume)
-        XCTAssertTrue(
-            accessory.waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "The tab bar has no Cooking now switcher. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(accessory.label.contains(title), "The switcher does not name the recipe: \(accessory.label)")
+        _ = accessory.waitForExistence(timeout: JourneyApp.interactionTimeout)
         try capture("02-closed-kitchen-strip-and-switcher", journey)
+        XCTAssertTrue(accessory.exists, "The tab bar has no Cooking now switcher. Screen: \(journey.screen)")
+        XCTAssertTrue(accessory.label.contains(title), "The switcher does not name the recipe: \(accessory.label)")
 
         accessory.tap()
         XCTAssertTrue(
@@ -101,7 +104,7 @@ final class DuoJourney: JourneyTestCase {
         try capture("03-closed-restored-cook-step-2", journey)
 
         journey.tap(JourneyID.cookClose)
-        journey.openTab(JourneyCopy.kitchenTab)
+        journey.openLink(kitchenLink)
         XCTAssertTrue(card.waitForExistence(timeout: JourneyApp.networkTimeout), "The Cooking now card is gone. Screen: \(journey.screen)")
 
         // Open flat, held sideways: the inner screen as a two-page spread.
@@ -139,7 +142,7 @@ final class DuoJourney: JourneyTestCase {
         )
         try capture("07-open-portrait-recipe", journey)
 
-        journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://kitchen")))
+        journey.openLink(kitchenLink)
         XCTAssertTrue(
             card.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The kitchen link did not open the Kitchen with its Cooking now card. Screen: \(journey.screen)"
@@ -181,7 +184,7 @@ final class DuoJourney: JourneyTestCase {
             jamInCook.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The app did not reopen in cook mode on step 2 with the real hinge. Screen: \(journey.screen)"
         )
-        journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://kitchen")))
+        journey.openLink(kitchenLink)
         let recipe = journey.element(JourneyID.kitchenRecipe, labelContaining: title)
         XCTAssertTrue(
             recipe.waitForExistence(timeout: JourneyApp.networkTimeout),
