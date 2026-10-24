@@ -6,10 +6,10 @@ import UIKit
 
 /// Opens a page in a window of its own. Present in the environment only where the device can show two windows of
 /// the app at once (the iPhone Duo open in landscape, an iPad), so a menu item reading it hides everywhere else.
-struct OpenInNewWindowAction {
-    let open: (AppRoute) -> Void
+struct OpenInNewWindowAction: Sendable {
+    let open: @MainActor @Sendable (AppRoute) -> Void
 
-    func callAsFunction(_ route: AppRoute) {
+    @MainActor func callAsFunction(_ route: AppRoute) {
         open(route)
     }
 }

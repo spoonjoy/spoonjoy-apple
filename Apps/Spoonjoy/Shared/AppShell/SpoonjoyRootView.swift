@@ -697,7 +697,7 @@ struct SpoonjoyRootView: View {
         let route = router.route(for: url)
         search.apply(route: route)
         navigation.navigate(to: route)
-        liveStore.recordingOpenedRoute(route)
+        openedFromOutside(route)
     }
 
     private func applySpotlightIdentifier(_ uniqueIdentifier: String) {
@@ -709,7 +709,15 @@ struct SpoonjoyRootView: View {
         }
         search.apply(route: route)
         navigation.navigate(to: route)
+        openedFromOutside(route)
+    }
+
+    /// A link or Spotlight result opened from outside wins over the page this window would reopen on, and becomes
+    /// this window's page even when the window was already showing it.
+    private func openedFromOutside(_ route: AppRoute) {
+        hasAppliedRestoredRoute = true
         liveStore.recordingOpenedRoute(route)
+        rememberSceneRoute(route)
     }
 
     private func openKitchenFromStandaloneSettings() {
@@ -772,8 +780,12 @@ struct SpoonjoyRootView: View {
             return
         }
         liveStore.recordingOpenedRoute(route)
+        rememberSceneRoute(route)
+    }
+
+    private func rememberSceneRoute(_ route: AppRoute) {
 #if os(iOS)
-        if let sceneID {
+        if let sceneID, SceneRestoration.remembers(route) {
             SceneRouteBookLocation.store.update { book in
                 book.record(route, scene: sceneID, at: Date())
             }

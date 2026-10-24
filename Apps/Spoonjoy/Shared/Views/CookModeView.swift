@@ -890,6 +890,7 @@ extension CookModeView {
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
             .accessibilityLabel("Return to recipe detail")
+            .accessibilityIdentifier("cookSpread.close")
             .fixedSize()
 
             Spacer(minLength: 0)

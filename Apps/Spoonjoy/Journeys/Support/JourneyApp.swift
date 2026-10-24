@@ -62,8 +62,20 @@ final class JourneyApp {
     /// Makes the next launch report a half-open hinge, so a journey can see tabletop cook mode on a simulator whose
     /// hinge cannot stand half-open. DEBUG builds only (`FoldReading.forcedHinge`).
     func useTabletopPostureOnNextLaunch() {
-        app.launchArguments += ["-SpoonjoyForcePosture", "tabletop"]
+        useForcedPostureOnNextLaunch("tabletop")
     }
+
+    /// Makes the next launch report the hinge `posture` ("tabletop", "book" or "flat"), or the real hinge when nil.
+    func useForcedPostureOnNextLaunch(_ posture: String?) {
+        if let flag = app.launchArguments.firstIndex(of: Self.forcePostureArgument) {
+            app.launchArguments.removeSubrange(flag...min(flag + 1, app.launchArguments.count - 1))
+        }
+        if let posture {
+            app.launchArguments += [Self.forcePostureArgument, posture]
+        }
+    }
+
+    private static let forcePostureArgument = "-SpoonjoyForcePosture"
 
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
     /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
