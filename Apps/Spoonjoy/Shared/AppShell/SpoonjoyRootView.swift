@@ -14,15 +14,26 @@ struct SpoonjoyRootView: View {
     @State private var search = SearchState()
     @State private var hasAppliedRestoredRoute = false
     @State private var showsReauthSheet = false
+    @State private var cookingNow = CookingNowCenter()
     @StateObject private var liveStore: NativeLiveAppStore
+#if os(iOS)
+    /// The system's identifier for this window, which outlives the app being killed; nil until the window is up.
+    @State private var sceneID: String?
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
+#endif
 
     private let router: DeepLinkRouter
+    /// The page this window was opened for with "Open in New Window", or nil for the app's first window.
+    private let windowValue: WindowRoute?
 
     init(
         router: DeepLinkRouter = .spoonjoy,
-        liveStore: NativeLiveAppStore = NativeLiveAppStore(dependencies: Self.defaultDependencies())
+        liveStore: NativeLiveAppStore = NativeLiveAppStore(dependencies: Self.defaultDependencies()),
+        windowValue: WindowRoute? = nil
     ) {
         self.router = router
+        self.windowValue = windowValue
         _liveStore = StateObject(wrappedValue: liveStore)
 #if DEBUG
         if Self.shoppingUITestFixtureEnabled {
@@ -133,6 +144,25 @@ struct SpoonjoyRootView: View {
 #endif
                 await syncWhenNetworkRecovers()
             }
+            .onChange(of: navigation.route) { _, route in
+                rememberRoute(route)
+            }
+            .onChange(of: liveStore.restoredRoute) { _, _ in
+                applyRestoredRouteIfNeeded()
+            }
+            .onChange(of: CookingNowInputs(liveStore.bootstrapState.contentState), initial: true) {
+                cookingNow.update(contentState: liveStore.bootstrapState.contentState)
+            }
+            .environment(cookingNow)
+#if os(iOS)
+            .readingSceneIdentifier($sceneID)
+            .onChange(of: sceneID) { _, _ in
+                applyRestoredRouteIfNeeded()
+            }
+            .environment(\.openInNewWindow, openInNewWindowAction)
+            // A link opened from outside goes to a window already open instead of starting another one.
+            .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
+#endif
             .onOpenURL { url in
                 applyURL(url)
             }
@@ -688,10 +718,34 @@ struct SpoonjoyRootView: View {
         liveStore.recordingOpenedRoute(.kitchen)
     }
 
+    /// Reopens this window on the page it was on when the app was closed or killed: its own page first, then the
+    /// page it was opened for, and for the app's only window the app's last page. Cook mode reopens on the saved
+    /// step, which the recipe's cook progress keeps.
     private func applyRestoredRouteIfNeeded() {
         guard !hasAppliedRestoredRoute,
               navigation.route == .kitchen,
-              let route = liveStore.restoredRoute else {
+              liveStore.bootstrapState.shellPresentation(isShowingSettings: false) == .kitchen else {
+            return
+        }
+#if os(iOS)
+        guard let sceneID else {
+            return
+        }
+        let content = liveStore.bootstrapState.contentState
+        let scenePage = SceneRouteBookLocation.store.load().route(forScene: sceneID)?.restorable(
+            recipeIDs: Set(content.recipes.map(\.id)),
+            cookbookIDs: Set(content.cookbooks.map(\.id))
+        )
+        let restored = SceneRestoration.route(
+            scenePage: scenePage,
+            windowValue: windowValue?.route,
+            appLastRoute: liveStore.restoredRoute,
+            isOnlyWindow: SceneWindowCount.isOnlyWindow
+        )
+#else
+        let restored = liveStore.restoredRoute
+#endif
+        guard let route = restored else {
             return
         }
 
@@ -700,7 +754,34 @@ struct SpoonjoyRootView: View {
         navigation.navigate(to: route)
     }
 
-    private static func defaultDependencies() -> NativeLiveAppStoreDependencies {
+#if os(iOS)
+    private var openInNewWindowAction: OpenInNewWindowAction? {
+        guard supportsMultipleWindows else {
+            return nil
+        }
+        let openWindow = openWindow
+        return OpenInNewWindowAction(open: { route in
+            openWindow(value: WindowRoute(route))
+        })
+    }
+#endif
+
+    /// Saves every page worth reopening on, for the app and for this window, as the chef moves.
+    private func rememberRoute(_ route: AppRoute) {
+        guard SceneRestoration.remembers(route) else {
+            return
+        }
+        liveStore.recordingOpenedRoute(route)
+#if os(iOS)
+        if let sceneID {
+            SceneRouteBookLocation.store.update { book in
+                book.record(route, scene: sceneID, at: Date())
+            }
+        }
+#endif
+    }
+
+    static func defaultDependencies() -> NativeLiveAppStoreDependencies {
         let environment = ProcessInfo.processInfo.environment
         let configuration = Self.defaultAPIConfiguration(environment: environment)
         let appDirectory = NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()

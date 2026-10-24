@@ -26,6 +26,11 @@
 	<string>Spoonjoy can set system cooking timers for timed recipe steps.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Spoonjoy uses selected photos to create local recipe capture drafts.</string>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<true/>
+	</dict>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

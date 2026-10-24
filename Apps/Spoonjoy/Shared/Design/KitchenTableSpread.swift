@@ -105,12 +105,14 @@ struct FoldReading: Equatable {
     var band: FoldBand?
     var hinge: HingePosture = .unknown
 
-    /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop`), so screenshots and previews
+    /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop` or `book`), so screenshots and previews
     /// can show tabletop cook mode on a simulator that cannot half-open its hinge. Always nil in release builds.
     static let forcedHinge: HingePosture? = {
 #if DEBUG
         switch UserDefaults.standard.string(forKey: "SpoonjoyForcePosture") {
         case "tabletop": .partiallyOpen
+        // Book is the same half-open hinge held sideways, so the fold runs down the middle like a spine.
+        case "book": .partiallyOpen
         case "flat": .fullyOpen
         default: nil
         }

@@ -14,6 +14,7 @@ struct KitchenView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(CookingNowCenter.self) private var cookingNow: CookingNowCenter?
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -26,6 +27,9 @@ struct KitchenView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("kitchen.root")
+        .task {
+            await cookingNow?.refresh()
+        }
         .task {
             await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                 route: "kitchen",
@@ -49,23 +53,37 @@ struct KitchenView: View {
 
     @ViewBuilder private var kitchenContent: some View {
         if recipes.isEmpty && cookbooks.isEmpty {
+            cookingNowStrip
             KitchenEmptyHero(createRecipe: createRecipe, importRecipe: importRecipe)
         } else if usesWideKitchenSpread, let leadRecipe {
-            HStack(alignment: .top, spacing: 28) {
-                RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
-                    .frame(maxWidth: 640, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+                cookingNowStrip
 
-                kitchenIndexStack
-                    .frame(maxWidth: 408, alignment: .topLeading)
+                HStack(alignment: .top, spacing: 28) {
+                    RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
+                        .frame(maxWidth: 640, alignment: .topLeading)
+
+                    kitchenIndexStack
+                        .frame(maxWidth: 408, alignment: .topLeading)
+                }
             }
         } else {
             VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+                cookingNowStrip
+
                 if let leadRecipe {
                     RecipeLead(recipe: leadRecipe, openRecipe: openRecipe, startCooking: startCooking)
                 }
 
                 kitchenIndexStack
             }
+        }
+    }
+
+    /// What the chef is part-way through comes first: the table opens on the pans already on the stove.
+    @ViewBuilder private var cookingNowStrip: some View {
+        if let entries = cookingNow?.entries, !entries.isEmpty {
+            CookingNowStrip(entries: entries, resume: startCooking, isWide: usesWideKitchenSpread)
         }
     }
 
@@ -326,6 +344,7 @@ struct RecipeLead: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(recipe.title)
         .accessibilityIdentifier("kitchen.recipe")
+        .openInNewWindowMenu(.recipeDetail(id: recipe.id, presentation: .detail))
     }
 
     private var hasRealCover: Bool {
@@ -501,6 +520,7 @@ struct KitchenRecipeIndexRow: View {
             .accessibilityLabel(recipe.title)
             .accessibilityHint("Opens recipe detail")
             .accessibilityIdentifier("kitchen.recipe")
+            .openInNewWindowMenu(.recipeDetail(id: recipe.id, presentation: .detail))
 
             ShareLink(item: shareRecipe) {
                 Image(systemName: "square.and.arrow.up")

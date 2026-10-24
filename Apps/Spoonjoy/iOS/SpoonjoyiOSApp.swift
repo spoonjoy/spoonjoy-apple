@@ -5,6 +5,8 @@ import UIKit
 @main
 struct SpoonjoyiOSApp: App {
     @UIApplicationDelegateAdaptor(SpoonjoyiOSAppDelegate.self) private var appDelegate
+    /// One store for every window, so two windows side by side show the same kitchen and sync it once.
+    @StateObject private var liveStore = NativeLiveAppStore(dependencies: SpoonjoyRootView.defaultDependencies())
 
     init() {
         #if DEBUG
@@ -15,8 +17,10 @@ struct SpoonjoyiOSApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            SpoonjoyRootView()
+        // Each window carries the page it was opened for; the system keeps that value with the window, and the root
+        // view keeps where the window went from there.
+        WindowGroup(for: WindowRoute.self) { $windowRoute in
+            SpoonjoyRootView(liveStore: liveStore, windowValue: windowRoute)
                 .journeyQuietMode()
         }
     }
@@ -34,6 +38,14 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
             cookTimerAlarmHost = CookTimerAlarmHost()
         }
         return true
+    }
+
+    /// A window the chef closed will not come back, so its page leaves the book.
+    func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
+        let identifiers = sceneSessions.map(\.persistentIdentifier)
+        SceneRouteBookLocation.store.update { book in
+            book.forget(scenes: identifiers)
+        }
     }
 
     func application(

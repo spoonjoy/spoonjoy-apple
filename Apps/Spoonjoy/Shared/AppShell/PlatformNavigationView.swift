@@ -24,6 +24,7 @@ struct PlatformNavigationView: View {
     @State private var isSidebarCookbookContentsExpanded = true
     /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(CookingNowCenter.self) private var cookingNow: CookingNowCenter?
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
 #if os(iOS)
@@ -169,6 +170,10 @@ struct PlatformNavigationView: View {
                 desktopClassShell(spotlightPayload: spotlightPayload)
             }
         }
+    }
+
+    private var cookingNowEntries: [CookingNowEntry] {
+        cookingNow?.entries ?? []
     }
 
     private var usesCompactMobileShell: Bool {
@@ -381,6 +386,10 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewSearchActivation(.searchTabSelection)
+        // While a recipe is part-way cooked, the tab bar carries it: one tap back to its step from any tab.
+        .tabViewBottomAccessory(isEnabled: !cookingNowEntries.isEmpty) {
+            CookingNowAccessory(entries: cookingNowEntries, resume: startCooking)
+        }
 #endif
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
         // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the
