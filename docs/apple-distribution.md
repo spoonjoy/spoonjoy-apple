@@ -32,8 +32,8 @@ Store Connect authentication arguments from streamed `xcodebuild` output.
 `scripts/package-testflight-ios.sh` defaults
 `SPOONJOY_TESTFLIGHT_IOS_DEPLOYMENT_TARGET` to `26.0` so the archive is accepted
 by older Xcode 26.x iOS SDKs. CI and TestFlight builds now run on the GitHub
-`xcode-27` runner image and select `/Applications/Xcode_27.0.app` explicitly
-(the iOS 27 SDK; the workflow fails below Xcode 27.0), so overriding the target
+`xcode-27` runner image and select `/Applications/Xcode_27.1.app` explicitly
+(the iOS 27.1 SDK, the first with the iPhone Duo hinge APIs; the workflow fails below Xcode 27.1), so overriding the target
 to the repo's iOS 27 baseline is possible.
 
 Set `SPOONJOY_TESTFLIGHT_BUILD_NUMBER` to let automation archive a build number

@@ -61,7 +61,7 @@ jobs:
       - name: Select Xcode 27
         run: |
           set -euo pipefail
-          sudo xcode-select -s /Applications/Xcode_27.0.app
+          sudo xcode-select -s /Applications/Xcode_27.1.app
           xcodebuild -version
 
       - name: Prepare App Store Connect credentials

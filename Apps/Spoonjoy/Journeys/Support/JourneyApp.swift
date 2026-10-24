@@ -59,6 +59,12 @@ final class JourneyApp {
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
     }
 
+    /// Makes the next launch report a half-open hinge, so a journey can see tabletop cook mode on a simulator whose
+    /// hinge cannot stand half-open. DEBUG builds only (`FoldReading.forcedHinge`).
+    func useTabletopPostureOnNextLaunch() {
+        app.launchArguments += ["-SpoonjoyForcePosture", "tabletop"]
+    }
+
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
     /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
     /// link until sign-in.

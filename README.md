@@ -20,7 +20,7 @@ The native iOS, iPadOS and macOS app for [Spoonjoy](https://spoonjoy.app), writt
 
 ## Requirements
 
-Xcode 27 (CI pins `/Applications/Xcode_27.0.app`) and Ruby 3.3 with Bundler for the scripts (`bundle install`). The app targets iOS 27 and macOS 27.
+Xcode 27 (CI pins `/Applications/Xcode_27.1.app`; 27.0 works locally but compiles out the iPhone Duo hinge code) and Ruby 3.3 with Bundler for the scripts (`bundle install`). The app targets iOS 27 and macOS 27.
 
 ## Build and test
 

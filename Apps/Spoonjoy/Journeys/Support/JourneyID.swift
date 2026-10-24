@@ -107,6 +107,11 @@ enum JourneyID {
     static let cookIngredient = "cookMode.ingredient"
     /// The scale stepper sits inline in cook mode; it is not behind Tools.
     static let cookScale = "cookMode.scale"
+    /// Tabletop cook mode's two halves: the step above the fold and the checklist and controls below it.
+    static let cookTabletopStep = "cookMode.tabletopStep"
+    static let cookTabletopControls = "cookMode.tabletopControls"
+    /// Cook mode's "Next step" button in the dock, which compact-width cook mode (tabletop included) uses.
+    static let cookDockNext = "spoonDock.cook.next"
     /// The step timer's start button, and the Cancel button that replaces it while the step's system alarm runs.
     static let cookTimerStart = "cookMode.timer.start"
     static let cookTimerCancel = "cookMode.timer.cancel"

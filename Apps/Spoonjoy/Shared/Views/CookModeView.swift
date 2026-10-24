@@ -100,6 +100,8 @@ struct CookModeView: View {
     @State private var shoppingStatusMessage: String?
     @State private var shoppingErrorMessage: String?
     @State private var isCookModeUtilityPresented = false
+    /// The fold and hinge of a foldable, read from the system (iOS 27.1 SDK); empty everywhere else.
+    @State private var foldReading = FoldReading()
     private let incomingProgress: CookModeProgress?
     private let progressDidChange: (CookModeProgress) -> Void
     private let shoppingViewModel: ShoppingSurfaceViewModel
@@ -176,7 +178,26 @@ struct CookModeView: View {
         }
     }
 
-    @ViewBuilder private var cookModeBody: some View {
+    /// Stood half-open on the counter (or laid open tall), a foldable's inner screen folds across the middle: the
+    /// step goes above the fold and the controls below it. Everywhere else cook mode is unchanged.
+    private var cookModeBody: some View {
+        GeometryReader { proxy in
+            let tabletop = TabletopLayout.resolve(
+                width: Double(proxy.size.width),
+                height: Double(proxy.size.height),
+                hinge: FoldReading.forcedHinge ?? foldReading.hinge,
+                band: foldReading.band
+            )
+            if tabletop.isSplit {
+                cookModeTabletop(tabletop)
+            } else {
+                standardCookModeBody
+            }
+        }
+        .readingFold($foldReading)
+    }
+
+    @ViewBuilder private var standardCookModeBody: some View {
         if usesEmbeddedSpoonDock {
             ScrollView {
                 cookModeScrollContent
@@ -696,6 +717,72 @@ struct CookModeView: View {
 // MARK: - Cookbook spread
 
 extension CookModeView {
+    /// Tabletop cook mode: the step on the half above the fold, angled toward the cook, and the checklist and step
+    /// controls on the half below it, flat on the counter. Nothing sits on the fold.
+    private func cookModeTabletop(_ layout: TabletopLayout) -> some View {
+        let topHeight = CGFloat(layout.top?.height ?? 0)
+        let foldHeight = CGFloat(layout.fold?.height ?? 0)
+        let bottomHeight = CGFloat(layout.bottom?.height ?? 0)
+        return VStack(spacing: 0) {
+            ViewThatFits(in: .vertical) {
+                tabletopStepPage
+                    .frame(maxHeight: .infinity, alignment: .center)
+                ScrollView {
+                    tabletopStepPage
+                }
+            }
+            .frame(height: topHeight)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("cookMode.tabletopStep")
+
+            tabletopFoldRule
+                .frame(height: foldHeight)
+
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        cookControls
+                        dependencyChecklist
+                        ingredientChecklist
+                    }
+                    .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
+                }
+                // On a phone-width screen the button row truncates Next; use the dock, as standard cook mode does.
+                if usesEmbeddedSpoonDock {
+                    cookModeBottomActionRail
+                } else {
+                    bottomControls
+                }
+            }
+            .frame(height: bottomHeight)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("cookMode.tabletopControls")
+        }
+    }
+
+    private var tabletopStepPage: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            cookContextHeader
+            currentStepCard
+        }
+        .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The hairline that marks the fold, like the gutter of an open spread.
+    private var tabletopFoldRule: some View {
+        ZStack {
+            Color.clear
+            Rectangle()
+                .fill(KitchenTableTheme.spreadGutterRule)
+                .frame(height: 1)
+        }
+        .accessibilityHidden(true)
+    }
+
     /// Cook mode laid open across a wide landscape screen. The left page gathers what this step needs, as a
     /// checklist; the right page is the step itself in large type with its timer. Back sits at the outer corner
     /// of the left page and Next at the outer corner of the right page, like turning a page, so every control
@@ -710,6 +797,7 @@ extension CookModeView {
                 cookSpreadLeadingControls
                     .spreadPagePadding(.leading, top: 12, bottom: 16)
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookSpread.gatherPage")
         } trailing: {
             VStack(alignment: .leading, spacing: 0) {
@@ -720,6 +808,7 @@ extension CookModeView {
                 cookSpreadTrailingControls
                     .spreadPagePadding(.trailing, top: 12, bottom: 16)
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookSpread.stepPage")
         }
     }
