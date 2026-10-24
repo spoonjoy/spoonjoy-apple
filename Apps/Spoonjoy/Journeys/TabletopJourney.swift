@@ -3,8 +3,9 @@ import XCTest
 
 /// Journey 6: cook mode on a foldable stood half-open on the counter, like a small laptop. The step sits on the half
 /// above the fold, facing the cook, and the ingredient checklist sits on the half below it, flat on the counter;
-/// nothing sits on the fold. The CI simulator's hinge cannot stand half-open, so the app is launched reporting a
-/// half-open hinge (`-SpoonjoyForcePosture tabletop`); the split itself is the shipping layout. Next turns the step from
+/// nothing sits on the fold. The Journeys job's simulator hinge cannot stand half-open, so the app is launched reporting
+/// a half-open hinge (`-SpoonjoyForcePosture tabletop`); the split itself is the shipping layout. The Duo tour workflow
+/// runs this journey on an iPhone Duo stood half-open, where the app reads the real hinge. Next turns the step from
 /// below the fold, and the step survives a relaunch.
 @MainActor
 final class TabletopJourney: JourneyTestCase {
@@ -15,7 +16,7 @@ final class TabletopJourney: JourneyTestCase {
         let flour = "Journey\(token)flour"
         let jam = "Journey\(token)jam"
         let qa = try await JourneyQAClient.signIn(account)
-        _ = try await qa.createRecipe(
+        let recipeID = try await qa.createRecipe(
             title: title,
             steps: [
                 RecipeStepDraft(
@@ -43,11 +44,13 @@ final class TabletopJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
+        let cookLink = try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook"))
+        // The Duo tour workflow reads this line to open the same cook mode when it photographs each pose.
+        print("Duo tour cook link: \(cookLink.absoluteString)")
         journey.useTabletopPostureOnNextLaunch()
-        journey.relaunch()
-        journey.openTab(JourneyCopy.recipesTab)
-        journey.openRecipe(titled: title, from: JourneyID.recipesRow)
-        journey.tap(JourneyID.recipeDetailCook)
+        // The link opens cook mode in both shells: the tab bar, and the sidebar a wide screen such as the Duo's inner
+        // screen gets.
+        journey.openLink(cookLink)
 
         let stepHalf = journey.element(JourneyID.cookTabletopStep)
         let controlsHalf = journey.element(JourneyID.cookTabletopControls)
@@ -115,9 +118,9 @@ final class TabletopJourney: JourneyTestCase {
         verifyAfterRelaunch(journey) {
             XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
         }
-        journey.openTab(JourneyCopy.recipesTab)
-        journey.openRecipe(titled: title, from: JourneyID.recipesRow)
-        journey.tap(JourneyID.recipeDetailCook)
+        // The link opens cook mode in both shells: the tab bar, and the sidebar a wide screen such as the Duo's inner
+        // screen gets.
+        journey.openLink(cookLink)
         let jamAfterRelaunch = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: jam)
         XCTAssertTrue(
             jamAfterRelaunch.waitForExistence(timeout: JourneyApp.networkTimeout),
