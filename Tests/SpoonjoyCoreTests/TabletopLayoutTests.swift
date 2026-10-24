@@ -53,6 +53,33 @@ struct TabletopLayoutTests {
         #expect(bottom.maxY == height)
     }
 
+    @Test("a reported fold wider than the margin is used as it is")
+    func wideHardwareFoldIsNotWidened() throws {
+        let layout = TabletopLayout.resolve(
+            width: width,
+            height: height,
+            hinge: .partiallyOpen,
+            band: FoldBand(minY: 450, height: 60)
+        )
+        let fold = try #require(layout.fold)
+        #expect(fold.minY == 450)
+        #expect(fold.height == 60)
+        #expect(layout.top?.height == 450)
+    }
+
+    @Test("a reported fold narrower than the margin is widened to it, centred")
+    func narrowHardwareFoldIsWidened() throws {
+        let layout = TabletopLayout.resolve(
+            width: width,
+            height: height,
+            hinge: .partiallyOpen,
+            band: FoldBand(minY: 470, height: 10)
+        )
+        let fold = try #require(layout.fold)
+        #expect(fold.height == TabletopLayout.foldMargin * 2)
+        #expect(fold.minY + fold.height / 2 == 475)
+    }
+
     @Test("half-open with no fold rect splits at the middle")
     func halfOpenSplitsAtTheMiddle() throws {
         let layout = TabletopLayout.resolve(width: width, height: height, hinge: .partiallyOpen)

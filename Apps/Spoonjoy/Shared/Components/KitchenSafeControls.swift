@@ -48,6 +48,7 @@ struct KitchenSafeControlDeck: View {
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             .disabled(!canAdvance)
             .accessibilityLabel("Move to the next step")
+            .accessibilityIdentifier("cookMode.next")
 
             Button(action: close) {
                 Label("Close", systemImage: "text.book.closed")

@@ -4,8 +4,8 @@ import XCTest
 /// Journey 6: cook mode on a foldable stood half-open on the counter, like a small laptop. The step sits on the half
 /// above the fold, facing the cook, and the ingredient checklist sits on the half below it, flat on the counter;
 /// nothing sits on the fold. The CI simulator's hinge cannot stand half-open, so the app is launched reporting a
-/// half-open hinge (`-SpoonjoyForcePosture tabletop`); the split itself is the shipping layout. A check made in
-/// tabletop cook mode survives a relaunch.
+/// half-open hinge (`-SpoonjoyForcePosture tabletop`); the split itself is the shipping layout. Next turns the step from
+/// below the fold, and the step survives a relaunch.
 @MainActor
 final class TabletopJourney: JourneyTestCase {
     func testTabletopCookModeSplitsAtTheFoldJourney() async throws {
@@ -13,6 +13,7 @@ final class TabletopJourney: JourneyTestCase {
         let token = try JourneyAccounts.runToken()
         let title = "Journey \(token) Tabletop J6"
         let flour = "Journey\(token)flour"
+        let jam = "Journey\(token)jam"
         let qa = try await JourneyQAClient.signIn(account)
         _ = try await qa.createRecipe(
             title: title,
@@ -23,6 +24,14 @@ final class TabletopJourney: JourneyTestCase {
                     description: "Rub the butter into the flour until it looks like breadcrumbs.",
                     duration: nil,
                     ingredients: [RecipeIngredientDraft(quantity: 2, unit: "cup", name: flour)],
+                    outputStepNums: []
+                ),
+                RecipeStepDraft(
+                    stepNum: 2,
+                    stepTitle: "Fill the tart",
+                    description: "Spread the jam over the pastry.",
+                    duration: nil,
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: jam)],
                     outputStepNums: []
                 )
             ]
@@ -71,24 +80,33 @@ final class TabletopJourney: JourneyTestCase {
         )
         journey.attachScreenshot(named: "01-tabletop-flour-checked", to: self)
 
-        // The relaunch keeps the forced posture and this device's state: cook mode opens split again with the
-        // flour still checked.
+        // Next, below the fold, turns to the second step; cook mode stays split.
+        let next = journey.element(JourneyID.cookNext)
+        XCTAssertGreaterThanOrEqual(next.frame.minY, controlsHalf.frame.minY, "Next step is not below the fold.")
+        next.tap()
+        let jamIngredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: jam)
+        XCTAssertTrue(
+            jamIngredient.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Next step did not turn to the second step in tabletop cook mode. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(stepHalf.exists, "Turning the step undid the split. Screen: \(journey.screen)")
+        XCTAssertGreaterThanOrEqual(jamIngredient.frame.minY, controlsHalf.frame.minY, "The second step's checklist is not below the fold.")
+        journey.attachScreenshot(named: "02-tabletop-second-step", to: self)
+
+        // The relaunch keeps the forced posture and this device's cook progress: cook mode opens split again, on the
+        // second step it was left on.
         verifyAfterRelaunch(journey) {
             XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
         }
         journey.openTab(JourneyCopy.recipesTab)
         journey.openRecipe(titled: title, from: JourneyID.recipesRow)
         journey.tap(JourneyID.recipeDetailCook)
-        let flourAfterRelaunch = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: flour)
+        let jamAfterRelaunch = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: jam)
         XCTAssertTrue(
-            flourAfterRelaunch.waitForExistence(timeout: JourneyApp.networkTimeout),
-            "Cook mode did not list the flour after a relaunch. Screen: \(journey.screen)"
+            jamAfterRelaunch.waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Cook mode did not reopen on the second step after a relaunch. Screen: \(journey.screen)"
         )
         XCTAssertTrue(stepHalf.exists, "Cook mode was not split at the fold after a relaunch. Screen: \(journey.screen)")
-        XCTAssertTrue(
-            ["1", "checked"].contains(flourAfterRelaunch.value as? String ?? ""),
-            "The flour was not still checked after a relaunch. Value: \(String(describing: flourAfterRelaunch.value))"
-        )
-        journey.attachScreenshot(named: "02-tabletop-after-relaunch", to: self)
+        journey.attachScreenshot(named: "03-tabletop-after-relaunch", to: self)
     }
 }

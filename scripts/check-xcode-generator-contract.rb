@@ -129,8 +129,8 @@ matrix = ROOT.join("scripts/validate-native-local.sh").read
 end
 [
   'xcode_version="$(xcodebuild -version)"',
-  'minimum_xcode_version="27.0"',
-  'sudo xcode-select -s /Applications/Xcode_27.0.app',
+  'minimum_xcode_version="27.1"',
+  'sudo xcode-select -s /Applications/Xcode_27.1.app',
   'version="${first_line#Xcode }"'
 ].each do |token|
   fail_check("select-xcode action missing #{token}") unless select_xcode.include?(token)
@@ -154,7 +154,7 @@ Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
     fail_check("beta-sdk.yml must select a beta Xcode explicitly, resolved on its own runner by version") unless text.include?('sudo xcode-select -s "$pick"') && text.include?('want="${{ matrix.xcode }}"') && text.include?("fromJSON(needs.discover.outputs.xcodes)")
     next
   end
-  fail_check("#{File.basename(path)} must select Xcode 27.0 explicitly") if text.include?("runs-on: xcode-27") && !text.include?("sudo xcode-select -s /Applications/Xcode_27.0.app") && !text.include?("uses: ./.github/actions/select-xcode")
+  fail_check("#{File.basename(path)} must select Xcode 27.1 explicitly") if text.include?("runs-on: xcode-27") && !text.include?("sudo xcode-select -s /Applications/Xcode_27.1.app") && !text.include?("uses: ./.github/actions/select-xcode")
   fail_check("#{File.basename(path)} still requires an Xcode 26 minimum") if text.include?('minimum_xcode_version="26')
 end
 fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep") || select_xcode.include?("xcodebuild -version | grep")

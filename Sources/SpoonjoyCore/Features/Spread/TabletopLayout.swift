@@ -90,7 +90,8 @@ public enum TabletopLayout: Equatable, Sendable {
 
     /// The shortest either half may be. Below this the split would leave the step or the controls a sliver.
     public static let minimumHalfHeight: Double = 260
-    /// Space kept clear on each side of the fold, so text and tap targets stay off the crease.
+    /// Space kept clear on each side of the fold, so text and tap targets stay off the crease. A fold the system
+    /// reports already includes its own margins, so it is only widened to this when it is narrower.
     public static let foldMargin: Double = 24
 
     /// Resolves the layout for a container.
@@ -124,7 +125,8 @@ public enum TabletopLayout: Equatable, Sendable {
         } else {
             return .singlePage
         }
-        let fold = TabletopRow(minY: max(0, foldMinY - foldMargin), height: foldHeight + foldMargin * 2)
+        let padding = max(0, foldMargin - foldHeight / 2)
+        let fold = TabletopRow(minY: max(0, foldMinY - padding), height: foldHeight + padding * 2)
         let top = TabletopRow(minY: 0, height: fold.minY)
         let bottom = TabletopRow(minY: fold.maxY, height: max(0, height - fold.maxY))
         guard top.height >= minimumHalfHeight, bottom.height >= minimumHalfHeight else {

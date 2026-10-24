@@ -732,6 +732,7 @@ extension CookModeView {
                 }
             }
             .frame(height: topHeight)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookMode.tabletopStep")
 
             tabletopFoldRule
@@ -751,6 +752,7 @@ extension CookModeView {
                 bottomControls
             }
             .frame(height: bottomHeight)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookMode.tabletopControls")
         }
     }
@@ -790,6 +792,7 @@ extension CookModeView {
                 cookSpreadLeadingControls
                     .spreadPagePadding(.leading, top: 12, bottom: 16)
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookSpread.gatherPage")
         } trailing: {
             VStack(alignment: .leading, spacing: 0) {
@@ -800,6 +803,7 @@ extension CookModeView {
                 cookSpreadTrailingControls
                     .spreadPagePadding(.trailing, top: 12, bottom: 16)
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookSpread.stepPage")
         }
     }

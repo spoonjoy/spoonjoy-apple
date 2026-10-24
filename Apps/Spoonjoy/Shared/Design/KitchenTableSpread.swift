@@ -107,7 +107,7 @@ struct FoldReading: Equatable {
 
     /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop`), so screenshots and previews
     /// can show tabletop cook mode on a simulator that cannot half-open its hinge. Always nil in release builds.
-    static var forcedHinge: HingePosture? {
+    static let forcedHinge: HingePosture? = {
 #if DEBUG
         switch UserDefaults.standard.string(forKey: "SpoonjoyForcePosture") {
         case "tabletop": .partiallyOpen
@@ -117,7 +117,7 @@ struct FoldReading: Equatable {
 #else
         nil
 #endif
-    }
+    }()
 }
 
 extension View {
@@ -199,6 +199,24 @@ private final class HingeDivisionView: UIView {
         }
     }
 
+    /// With a half-open hinge and no reported fold, the fold is at the middle of the screen, which is not the middle
+    /// of this view when it sits under a navigation bar.
+    private var screenMidline: FoldBand? {
+        guard hinge == .partiallyOpen, let window else {
+            return nil
+        }
+        let midY = Double(convert(CGPoint(x: 0, y: window.bounds.midY), from: window).y)
+        guard midY > 0, midY < Double(bounds.height) else {
+            return nil
+        }
+        return FoldBand(minY: midY, height: 0)
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        setNeedsLayout()
+    }
+
     override func layoutSubviews() {
         super.layoutSubviews()
         let region = reservedRegions(kind: .division).first(where: \.isActive)
@@ -220,7 +238,7 @@ private final class HingeDivisionView: UIView {
                 containerHeight: Double(bounds.height)
             )
         }
-        let reading = FoldReading(division: division, band: band, hinge: hinge)
+        let reading = FoldReading(division: division, band: band ?? screenMidline, hinge: hinge)
         guard reading != reported else {
             return
         }
