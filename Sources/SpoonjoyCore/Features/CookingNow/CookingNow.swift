@@ -202,34 +202,35 @@ public struct CookingNowServerList: Decodable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case items
+        case recipes
     }
 
     public init(from decoder: Decoder) throws {
-        if let rows = try? decoder.singleValueContainer().decode([CookingNowServerRow].self) {
-            entries = rows.map(\.entry)
-        } else {
-            entries = try decoder.container(keyedBy: CodingKeys.self).decode([CookingNowServerRow].self, forKey: .items).map(\.entry)
-        }
+        entries = try decoder.container(keyedBy: CodingKeys.self)
+            .decode([CookingNowServerRow].self, forKey: .recipes)
+            .map(\.entry)
     }
 }
 
-/// One server row. Unknown or missing optional fields fall back instead of failing the whole list.
+/// One server row. Missing counts and timers fall back instead of failing the whole list.
 struct CookingNowServerRow: Decodable {
     let entry: CookingNowEntry
 
     private enum CodingKeys: String, CodingKey {
-        case recipeId
-        case title
-        case slug
-        case coverUrl
+        case recipe
         case activeStepId
-        case stepIndex
+        case activeStepIndex
         case stepCount
         case checkedCount
         case totalCount
-        case lastTouchedAt
+        case touchedAt
         case timers
+    }
+
+    private struct RecipeSummary: Decodable {
+        let id: String
+        let title: String
+        let coverImageUrl: String?
     }
 
     private struct Timer: Decodable {
@@ -239,23 +240,23 @@ struct CookingNowServerRow: Decodable {
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let lastTouched = try container.decode(String.self, forKey: .lastTouchedAt)
-        guard let lastTouchedAt = CookingNowBoard.date(lastTouched) else {
-            throw DecodingError.dataCorruptedError(forKey: .lastTouchedAt, in: container, debugDescription: "Not an ISO 8601 date: \(lastTouched)")
+        let touched = try container.decode(String.self, forKey: .touchedAt)
+        guard let touchedAt = CookingNowBoard.date(touched) else {
+            throw DecodingError.dataCorruptedError(forKey: .touchedAt, in: container, debugDescription: "Not an ISO 8601 date: \(touched)")
         }
-        // A timer shape this build does not know drops the timers, not the row.
+        let recipe = try container.decode(RecipeSummary.self, forKey: .recipe)
+        // The server does not send timers yet; a timer shape this build does not know drops the timers, not the row.
         let timers = (try? container.decodeIfPresent([Timer].self, forKey: .timers)) ?? []
         entry = CookingNowEntry(
-            recipeID: try container.decode(String.self, forKey: .recipeId),
-            title: try container.decode(String.self, forKey: .title),
-            slug: try container.decodeIfPresent(String.self, forKey: .slug),
-            coverURL: (try container.decodeIfPresent(String.self, forKey: .coverUrl)).flatMap(URL.init(string:)),
+            recipeID: recipe.id,
+            title: recipe.title,
+            coverURL: recipe.coverImageUrl.flatMap(URL.init(string:)),
             activeStepID: try container.decodeIfPresent(String.self, forKey: .activeStepId),
-            stepIndex: try container.decode(Int.self, forKey: .stepIndex),
+            stepIndex: try container.decode(Int.self, forKey: .activeStepIndex),
             stepCount: try container.decode(Int.self, forKey: .stepCount),
             checkedCount: try container.decodeIfPresent(Int.self, forKey: .checkedCount) ?? 0,
             totalCount: try container.decodeIfPresent(Int.self, forKey: .totalCount) ?? 0,
-            lastTouchedAt: lastTouchedAt,
+            lastTouchedAt: touchedAt,
             timers: timers.compactMap { timer in
                 CookingNowBoard.date(timer.endsAt).map { CookingNowTimer(label: timer.label, endsAt: $0) }
             }

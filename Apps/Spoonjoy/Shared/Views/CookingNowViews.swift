@@ -9,6 +9,12 @@ import SwiftUI
 @Observable
 final class CookingNowCenter {
     private(set) var entries: [CookingNowEntry] = []
+#if DEBUG
+    /// Journey runs only: what the list was built from, so a journey that finds no card can say why.
+    private(set) var journeySummary = "not updated"
+    @ObservationIgnored private var progressSummary = ""
+    @ObservationIgnored private var lastFetch = "not fetched"
+#endif
 
     @ObservationIgnored private var server: [CookingNowEntry] = []
     @ObservationIgnored private var serverFetchedAt: Date?
@@ -37,6 +43,12 @@ final class CookingNowCenter {
         }
         configuration = contentState.configuration.bearerToken == nil ? nil : contentState.configuration
         local = CookingNowBoard.localEntries(progress: contentState.cookProgressByRecipeID, recipes: contentState.recipes)
+#if DEBUG
+        let recipeIDs = Set(contentState.recipes.map(\.id))
+        progressSummary = contentState.cookProgressByRecipeID.values.map { progress in
+            "\(recipeIDs.contains(progress.recipeID) ? "known" : "unknown") step \(progress.activeStepIndex) at \(progress.updatedAt)"
+        }.sorted().joined(separator: "; ")
+#endif
         publish()
     }
 
@@ -47,10 +59,22 @@ final class CookingNowCenter {
         }
         isFetching = true
         defer { isFetching = false }
-        guard let fetched = try? await LiveCookingNowRepository(configuration: configuration).fetchCookingNow(),
-              scope == self.scope else {
+        let fetched: [CookingNowEntry]
+        do {
+            fetched = try await LiveCookingNowRepository(configuration: configuration).fetchCookingNow()
+        } catch {
+#if DEBUG
+            lastFetch = "failed: \(error)"
+            publish()
+#endif
             return
         }
+        guard scope == self.scope else {
+            return
+        }
+#if DEBUG
+        lastFetch = "\(fetched.count) from the server"
+#endif
         let fetchedAt = Date()
         server = fetched
         serverFetchedAt = fetchedAt
@@ -63,6 +87,12 @@ final class CookingNowCenter {
         if merged != entries {
             entries = merged
         }
+#if DEBUG
+        let summary = "progress [\(progressSummary)] local \(local.count) server \(server.count) fetch \(lastFetch) shown \(merged.count)"
+        if summary != journeySummary {
+            journeySummary = summary
+        }
+#endif
     }
 }
 

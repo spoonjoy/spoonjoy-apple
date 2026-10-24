@@ -193,6 +193,12 @@ struct SpoonjoyRootView: View {
                 .accessibilityIdentifier("journey.syncLog")
                 .accessibilityValue(NativeSyncDiagnostics.shared.summary)
                 .allowsHitTesting(false)
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("journey.cookingNow")
+                .accessibilityValue(cookingNow.journeySummary)
+                .allowsHitTesting(false)
         }
     }
 #endif

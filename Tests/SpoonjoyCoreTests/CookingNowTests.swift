@@ -11,14 +11,16 @@ struct CookingNowTests {
       "ok": true,
       "requestId": "req_cooking_now",
       "data": {
-        "items": [
-          { "recipeId": "recipe_pasta", "title": "Lemon pasta", "slug": "lemon-pasta",
-            "coverUrl": "https://spoonjoy.app/covers/pasta.jpg", "activeStepId": "step_2",
-            "stepIndex": 2, "stepCount": 7, "checkedCount": 3, "totalCount": 9,
-            "lastTouchedAt": "2026-10-24T10:00:00.000Z",
+        "recipes": [
+          { "recipe": { "id": "recipe_pasta", "title": "Lemon pasta", "coverImageUrl": "https://spoonjoy.app/covers/pasta.jpg",
+                        "href": "/recipes/recipe_pasta", "canonicalUrl": "https://spoonjoy.app/recipes/recipe_pasta" },
+            "activeStepId": "step_2", "activeStepIndex": 2, "stepCount": 7, "checkedCount": 3, "totalCount": 9,
+            "allCheckedAt": null, "touchedAt": "2026-10-24T10:00:00.000Z", "expiresAt": "2026-10-27T10:00:00.000Z",
             "timers": [ { "label": "Boil", "endsAt": "2026-10-24T10:08:00Z" }, { "label": null, "endsAt": "not a date" } ] },
-          { "recipeId": "recipe_tart", "title": "Jam tart", "slug": null, "coverUrl": null, "activeStepId": null,
-            "stepIndex": 0, "stepCount": 2, "lastTouchedAt": "2026-10-24T09:00:00Z" }
+          { "recipe": { "id": "recipe_tart", "title": "Jam tart", "coverImageUrl": null, "href": "/recipes/recipe_tart",
+                        "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tart" },
+            "activeStepId": null, "activeStepIndex": 0, "stepCount": 2, "touchedAt": "2026-10-24T09:00:00Z",
+            "expiresAt": "2026-10-27T09:00:00Z" }
         ]
       }
     }
@@ -37,7 +39,7 @@ struct CookingNowTests {
         #expect(entries.map(\.recipeID) == ["recipe_pasta", "recipe_tart"])
         let pasta = try #require(entries.first)
         #expect(pasta.title == "Lemon pasta")
-        #expect(pasta.slug == "lemon-pasta")
+        #expect(pasta.slug == nil)
         #expect(pasta.coverURL == URL(string: "https://spoonjoy.app/covers/pasta.jpg"))
         #expect(pasta.activeStepID == "step_2")
         #expect(pasta.stepLabel == "Step 3 of 7")
@@ -54,19 +56,19 @@ struct CookingNowTests {
         _ = LiveCookingNowRepository(configuration: .spoonjoyProduction)
     }
 
-    @Test("a bare array decodes as the list, and a row with a bad date or bad timers fails or drops only the timers")
+    @Test("a row with a bad date fails the list, and timers of an unknown shape are dropped, not the row")
     func decodingShapes() throws {
-        let array = """
-        [ { "recipeId": "r1", "title": "Soup", "stepIndex": 1, "stepCount": 3, "lastTouchedAt": "2026-10-24T10:00:00Z",
-            "timers": { "unexpected": true } } ]
+        let oddTimers = """
+        { "recipes": [ { "recipe": { "id": "r1", "title": "Soup", "coverImageUrl": null }, "activeStepIndex": 1,
+            "stepCount": 3, "touchedAt": "2026-10-24T10:00:00Z", "timers": { "unexpected": true } } ] }
         """
-        let list = try JSONDecoder().decode(CookingNowServerList.self, from: Data(array.utf8))
+        let list = try JSONDecoder().decode(CookingNowServerList.self, from: Data(oddTimers.utf8))
         #expect(list.entries.map(\.stepLabel) == ["Step 2 of 3"])
         #expect(list.entries[0].timers.isEmpty)
         #expect(CookingNowServerList(entries: list.entries) == list)
 
         let badDate = """
-        { "items": [ { "recipeId": "r1", "title": "Soup", "stepIndex": 1, "stepCount": 3, "lastTouchedAt": "yesterday" } ] }
+        { "recipes": [ { "recipe": { "id": "r1", "title": "Soup" }, "activeStepIndex": 1, "stepCount": 3, "touchedAt": "yesterday" } ] }
         """
         #expect(throws: DecodingError.self) {
             try JSONDecoder().decode(CookingNowServerList.self, from: Data(badDate.utf8))
@@ -168,7 +170,7 @@ struct CookingNowTests {
         let pasta = merged[1]
         #expect(pasta.stepIndex == 3)
         #expect(pasta.timers == [timer])
-        #expect(pasta.slug == "lemon-pasta")
+        #expect(pasta.slug == nil)
         #expect(pasta.coverURL == URL(string: "https://spoonjoy.app/p.jpg"))
         #expect(merged[2].stepIndex == 1)
         #expect(merged[3].stepIndex == 2)
