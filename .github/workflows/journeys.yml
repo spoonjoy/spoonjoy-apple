@@ -38,6 +38,8 @@ jobs:
           settings="$(xcodebuild -project Spoonjoy.xcodeproj -target 'Spoonjoy iOS' -configuration BootstrapDebug -sdk iphonesimulator -showBuildSettings)"
           printf '%s\n' "$settings" | grep -Eq '^[[:space:]]*SWIFT_ACTIVE_COMPILATION_CONDITIONS = (.* )?DEBUG( |$)' \
             || { echo "::error::BootstrapDebug does not define DEBUG; SPOONJOY_API_BASE_URL would be ignored and the app would talk to production."; exit 1; }
+      - name: Make an ordinary iPhone on the newest runtime
+        run: python3 .github/scripts/ensure-ordinary-iphone-simulator.py
       - name: Resolve iPhone simulator
         id: sim
         run: |
@@ -141,6 +143,8 @@ jobs:
           ruby-version: '3.3'
           bundler-cache: true
       - uses: ./.github/actions/select-xcode
+      - name: Make an ordinary iPhone on the newest runtime
+        run: python3 .github/scripts/ensure-ordinary-iphone-simulator.py
       - name: Resolve iPhone simulator
         id: sim
         run: |
