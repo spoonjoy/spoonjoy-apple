@@ -97,12 +97,44 @@ struct SpreadLayoutReader<Content: View>: View {
     }
 }
 
+/// What the system says about a foldable's fold, in one view's coordinate space.
+struct FoldReading: Equatable {
+    /// A vertical fold (the screen held like a book).
+    var division: SpreadDivision?
+    /// A horizontal fold (the screen held tall, or stood half-open on the counter).
+    var band: FoldBand?
+    var hinge: HingePosture = .unknown
+
+    /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop`), so screenshots and previews
+    /// can show tabletop cook mode on a simulator that cannot half-open its hinge. Always nil in release builds.
+    static var forcedHinge: HingePosture? {
+#if DEBUG
+        switch UserDefaults.standard.string(forKey: "SpoonjoyForcePosture") {
+        case "tabletop": .partiallyOpen
+        case "flat": .fullyOpen
+        default: nil
+        }
+#else
+        nil
+#endif
+    }
+}
+
 extension View {
     /// Reports the hinge division in this view's coordinate space, or nil when there is none. Compiles to a no-op
     /// unless the app is built with the iOS 27.1 SDK, and does nothing at run time before iOS 27.1.
-    @ViewBuilder func readingHingeDivision(_ division: Binding<SpreadDivision?>) -> some View {
+    func readingHingeDivision(_ division: Binding<SpreadDivision?>) -> some View {
+        readingFold(Binding(
+            get: { FoldReading(division: division.wrappedValue) },
+            set: { division.wrappedValue = $0.division }
+        ))
+    }
+
+    /// Reports the fold and the hinge posture in this view's coordinate space. Compiles to a no-op unless the app is
+    /// built with the iOS 27.1 SDK, and does nothing at run time before iOS 27.1.
+    @ViewBuilder func readingFold(_ reading: Binding<FoldReading>) -> some View {
 #if os(iOS) && SPOONJOY_IOS_27_1_SDK
-        background(HingeDivisionProbe(division: division))
+        background(HingeDivisionProbe(reading: reading))
 #else
         self
 #endif
@@ -110,19 +142,20 @@ extension View {
 }
 
 #if os(iOS) && SPOONJOY_IOS_27_1_SDK
-/// An invisible view that fills the space it measures and reads the `.division` Reserved Region from UIKit.
+/// An invisible view that fills the space it measures and reads the `.division` Reserved Region and the hinge from
+/// UIKit.
 ///
-/// SwiftUI has no Reserved Region API in the iOS 27.1 SDK; UIKit's `UIView.reservedRegions(kind:options:)` is the
-/// source. `UIHingeInteraction` asks for a fresh read when the hinge moves.
+/// UIKit's `UIView.reservedRegions(kind:options:)` gives the fold's rect; `UIHingeInteraction` gives the hinge's
+/// status, and asks for a fresh read of the rect when the hinge moves.
 private struct HingeDivisionProbe: UIViewRepresentable {
-    @Binding var division: SpreadDivision?
+    @Binding var reading: FoldReading
 
     func makeUIView(context: Context) -> UIView {
         guard #available(iOS 27.1, *) else {
             return UIView()
         }
         let view = HingeDivisionView()
-        view.onChange = { [binding = $division] new in binding.wrappedValue = new }
+        view.onChange = { [binding = $reading] new in binding.wrappedValue = new }
         return view
     }
 
@@ -130,26 +163,40 @@ private struct HingeDivisionProbe: UIViewRepresentable {
         guard #available(iOS 27.1, *), let view = view as? HingeDivisionView else {
             return
         }
-        view.onChange = { [binding = $division] new in binding.wrappedValue = new }
+        view.onChange = { [binding = $reading] new in binding.wrappedValue = new }
     }
 }
 
 @available(iOS 27.1, *)
 private final class HingeDivisionView: UIView {
-    var onChange: ((SpreadDivision?) -> Void)?
-    private var reported: SpreadDivision?
+    var onChange: ((FoldReading) -> Void)?
+    private var reported: FoldReading?
+    private var hinge: HingePosture = .unknown
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         isUserInteractionEnabled = false
         isAccessibilityElement = false
-        addInteraction(UIHingeInteraction { [weak self] _, _ in
-            self?.setNeedsLayout()
+        addInteraction(UIHingeInteraction { [weak self] _, update in
+            guard let self else {
+                return
+            }
+            self.hinge = Self.posture(update.hinge?.status)
+            self.setNeedsLayout()
         })
     }
 
     required init?(coder: NSCoder) {
         fatalError("HingeDivisionView is created in code only")
+    }
+
+    private static func posture(_ status: UIHinge.Status?) -> HingePosture {
+        switch status {
+        case .closed: .closed
+        case .partiallyOpen: .partiallyOpen
+        case .fullyOpen: .fullyOpen
+        default: .unknown
+        }
     }
 
     override func layoutSubviews() {
@@ -164,12 +211,22 @@ private final class HingeDivisionView: UIView {
                 containerHeight: Double(bounds.height)
             )
         }
-        guard division != reported else {
+        let band = region.flatMap { region in
+            FoldBand(
+                frameMinY: Double(region.frame.minY),
+                frameHeight: Double(region.frame.height),
+                frameWidth: Double(region.frame.width),
+                containerWidth: Double(bounds.width),
+                containerHeight: Double(bounds.height)
+            )
+        }
+        let reading = FoldReading(division: division, band: band, hinge: hinge)
+        guard reading != reported else {
             return
         }
-        reported = division
+        reported = reading
         DispatchQueue.main.async { [onChange] in
-            onChange?(division)
+            onChange?(reading)
         }
     }
 }

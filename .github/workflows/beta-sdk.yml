@@ -2,7 +2,8 @@ name: Beta SDK
 
 # Builds the iOS app against the newest beta Xcodes on the runner image so code behind new-SDK guards (the iOS 27.1
 # hinge APIs) is compiled before that SDK ships. The image has no simulator runtime for these betas, so this proves
-# compilation only. It is not a required check and never feeds a shipping build: TestFlight stays on stable Xcode 27.0.
+# compilation only. It is not a required check and never feeds a shipping build: Native and TestFlight build with stable
+# Xcode 27.1, so this job now proves the next betas.
 on:
   pull_request:
   push:
@@ -26,7 +27,7 @@ jobs:
     outputs:
       xcodes: ${{ steps.find.outputs.xcodes }}
     steps:
-      - name: List every Xcode newer than 27.0
+      - name: List every Xcode 27.1 or newer
         id: find
         # The image renames and drops beta Xcodes over time, so the matrix is read from the runner, never hard-coded.
         # Stable 27.1+ counts too: once it ships, this job keeps proving the hinge code until CI moves to it.
