@@ -126,6 +126,13 @@ struct SpoonjoyRootView: View {
 #endif
                 await liveStore.bootstrap()
                 applyRestoredRouteIfNeeded()
+#if DEBUG
+                // The Duo tour opens a link at launch: `simctl openurl` stops at the "Open in Spoonjoy?" prompt.
+                if let rawURL = ProcessInfo.processInfo.environment["SPOONJOY_LAUNCH_URL"],
+                   let url = URL(string: rawURL) {
+                    applyURL(url)
+                }
+#endif
             }
             .task {
 #if DEBUG
