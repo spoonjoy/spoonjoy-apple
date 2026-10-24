@@ -16,7 +16,9 @@ def state_rank(state: str) -> int:
 
 def family_device_rank(name: str, family: str) -> int:
     if family != "ipad":
-        return 0
+        # The iPhone Duo boots folded, on its small outer screen; the journeys and UI tests expect an ordinary
+        # iPhone. Pick it only when it is the only iPhone (or by SPOONJOY_IOS_SIMULATOR_NAME).
+        return -1 if name.startswith("iPhone Duo") else 0
     if name.startswith("iPad Pro 13-inch"):
         return 5
     if name.startswith("iPad Air 13-inch"):
