@@ -1334,7 +1334,7 @@ extension RecipeDetailView {
                     showsFallbackLabel: false
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 220)
+                .frame(height: 176)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
@@ -1346,7 +1346,7 @@ extension RecipeDetailView {
                 recipeNoPhotoStatus
             }
             spreadActions
-            recipeHeaderControls(fillsWidth: true, includesClearProgress: true)
+            // The yield sits with the ingredients it scales, so the list starts on the first screen of the page.
             spreadIngredientList(index: index)
         }
         .scrollTargetLayout()
@@ -1406,14 +1406,27 @@ extension RecipeDetailView {
     }
 
     @ViewBuilder private func spreadIngredientList(index: RecipeSpreadIngredientIndex) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Ingredients")
-                .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .accessibilityAddTraits(.isHeader)
-            Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Ingredients")
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .accessibilityAddTraits(.isHeader)
+                Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                if hasRecipeProgress {
+                    clearProgressButton
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            RecipeScaleSelector(
+                scaleFactor: shoppingScaleFactor,
+                displayValue: scaledYieldLabel,
+                setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) },
+                isCompact: true
+            )
+            .frame(width: 196)
         }
         .padding(.top, 6)
 

@@ -144,7 +144,7 @@ struct CookingNowStrip: View {
     var body: some View {
         KitchenTableSection(title: "Cooking now", subtitle: subtitle) {
             if isWide {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260, maximum: 360), spacing: 16, alignment: .top)], alignment: .leading, spacing: 16) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16, alignment: .top)], alignment: .leading, spacing: 16) {
                     cards
                 }
             } else {
@@ -182,6 +182,67 @@ struct CookingNowCard: View {
 
     var body: some View {
         Button(action: resume) {
+            if isWide {
+                plate
+            } else {
+                row
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(entry.title), \(entry.stepLabel)")
+        .accessibilityHint("Goes back to cooking on this step")
+        .accessibilityIdentifier("kitchen.cookingNow.card")
+        .openInNewWindowMenu(entry.route)
+    }
+
+    /// On a wide page the card is a plate of its own: the dish's photo across the top, then the recipe and its step.
+    private var plate: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            RecipeCoverImage(url: entry.coverURL, title: entry.title, subtitle: nil, showsFallbackLabel: false)
+                .aspectRatio(16 / 10, contentMode: .fill)
+                .frame(maxWidth: .infinity)
+                .frame(height: 188)
+                .clipped()
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Text(entry.stepLabel.uppercased())
+                        .font(KitchenTableTheme.runningHead)
+                        .tracking(1.2)
+                        .foregroundStyle(KitchenTableTheme.brass)
+                    if let timer = entry.nextTimer(now: Date()) {
+                        Text(timerInterval: Date()...max(Date(), timer.endsAt), countsDown: true)
+                            .font(KitchenTableTheme.uiLabel.monospacedDigit())
+                            .foregroundStyle(KitchenTableTheme.tomato)
+                    }
+                    Spacer(minLength: 8)
+                    Label("Resume", systemImage: "fork.knife")
+                        .font(KitchenTableTheme.uiLabel.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.brass)
+                        .labelStyle(.titleAndIcon)
+                }
+                Text(entry.title)
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                CookingNowProgressRule(fraction: entry.fractionComplete)
+            }
+            .padding(16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(KitchenTableTheme.paper)
+        .overlay {
+            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
+                .stroke(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .contentShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+    }
+
+    private var row: some View {
             HStack(alignment: .center, spacing: 12) {
                 RecipeCoverImage(url: entry.coverURL, title: entry.title, subtitle: nil, showsFallbackLabel: false)
                     .aspectRatio(1, contentMode: .fill)
@@ -217,7 +278,7 @@ struct CookingNowCard: View {
                     .accessibilityHidden(true)
             }
             .padding(12)
-            .frame(width: isWide ? nil : 300, alignment: .leading)
+            .frame(width: 300, alignment: .leading)
             .frame(minHeight: 88)
             .background(KitchenTableTheme.paper)
             .overlay(alignment: .top) {
@@ -229,12 +290,6 @@ struct CookingNowCard: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
             .contentShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(entry.title), \(entry.stepLabel)")
-        .accessibilityHint("Goes back to cooking on this step")
-        .accessibilityIdentifier("kitchen.cookingNow.card")
-        .openInNewWindowMenu(entry.route)
     }
 }
 

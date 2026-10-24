@@ -102,6 +102,9 @@ struct CookModeView: View {
     @State private var isCookModeUtilityPresented = false
     /// The fold and hinge of a foldable, read from the system (iOS 27.1 SDK); empty everywhere else.
     @State private var foldReading = FoldReading()
+    /// Tabletop type, read from across the counter, still follows the chef's text size.
+    @ScaledMetric(relativeTo: .largeTitle) private var tabletopNumberSize: CGFloat = 76
+    @ScaledMetric(relativeTo: .title) private var tabletopInstructionSize: CGFloat = 31
     private let incomingProgress: CookModeProgress?
     private let progressDidChange: (CookModeProgress) -> Void
     private let shoppingViewModel: ShoppingSurfaceViewModel
@@ -742,6 +745,7 @@ extension CookModeView {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         cookControls
+                        tabletopTimer
                         dependencyChecklist
                         ingredientChecklist
                     }
@@ -757,16 +761,62 @@ extension CookModeView {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookMode.tabletopControls")
         }
+#if os(iOS)
+        // The half above the fold is read from across the counter, so the bar's large title gives its room to the step.
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
 
-    private var tabletopStepPage: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            cookContextHeader
-            currentStepCard
+    /// The half standing up, read from a step back: the step number and the instruction large and centred, and
+    /// only how long it takes beside them. Everything to touch is on the half lying on the counter.
+    @ViewBuilder private var tabletopStepPage: some View {
+        if let currentStep {
+            VStack(spacing: 14) {
+                Text("\(viewModel.stepProgressLabel) · \(recipe.title)")
+                    .spreadRunningHead()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                HStack(alignment: .firstTextBaseline, spacing: 16) {
+                    Text("\(currentStep.stepNum)")
+                        .font(.system(size: tabletopNumberSize, weight: .bold, design: .serif))
+                        .foregroundStyle(KitchenTableTheme.brass)
+                        .accessibilityHidden(true)
+                    Text(currentStep.stepTitle ?? "Step \(currentStep.stepNum)")
+                        .font(KitchenTableTheme.displayTitle)
+                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityAddTraits(.isHeader)
+                        .accessibilityLabel("Current cooking step \(currentStep.stepNum), \(currentStep.stepTitle ?? "Step")")
+                }
+                Text(currentStep.description)
+                    .font(.system(size: tabletopInstructionSize, design: .serif))
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(6)
+                    .minimumScaleFactor(0.75)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let timer = viewModel.systemTimer {
+                    RecipeStepDurationCue(durationLabel: timer.durationLabel)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, KitchenTableTheme.pagePadding + 16)
+            .padding(.vertical, 20)
+            .frame(maxWidth: 760)
+            .frame(maxWidth: .infinity)
         }
-        .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// The step's timer sits with the other controls on the counter half.
+    @ViewBuilder private var tabletopTimer: some View {
+        if let currentStep, let timer = viewModel.systemTimer {
+            CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers, stepKey: stepTimerKey(currentStep)) {
+                try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) system timer set.")
+            } cancel: {
+                try cancelSystemTimer(step: currentStep)
+            }
+            .id(timer.stepID)
+        }
     }
 
     /// The hairline that marks the fold, like the gutter of an open spread.
@@ -808,6 +858,11 @@ extension CookModeView {
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookSpread.stepPage")
         }
+#if os(iOS)
+        // The spread's running heads name the recipe and the step, so the bar's large "Cook" title would only push
+        // both pages down.
+        .navigationBarTitleDisplayMode(.inline)
+#endif
     }
 
     private var cookSpreadGatherPage: some View {
@@ -868,9 +923,48 @@ extension CookModeView {
                     }
                     .id(timer.stepID)
                 }
+                if let next = stepAfter(currentStep) {
+                    upNext(next)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private func stepAfter(_ step: RecipeStep) -> RecipeStep? {
+        guard let index = recipe.steps.firstIndex(where: { $0.id == step.id }), index + 1 < recipe.steps.count else {
+            return nil
+        }
+        return recipe.steps[index + 1]
+    }
+
+    /// The facing page's foot: what comes after this step, so the cook can read ahead without turning the page.
+    private func upNext(_ step: RecipeStep) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Rectangle()
+                .fill(KitchenTableTheme.spreadGutterRule)
+                .frame(height: 1)
+                .padding(.bottom, 10)
+            Text("Up next")
+                .spreadRunningHead()
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("\(step.stepNum)")
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.brass.opacity(0.8))
+                Text(step.stepTitle ?? "Step \(step.stepNum)")
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(step.description)
+                .font(KitchenTableTheme.spreadInstruction)
+                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .lineSpacing(4)
+                .lineLimit(4)
+        }
+        .padding(.top, 18)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Up next, step \(step.stepNum), \(step.stepTitle ?? "Step")")
     }
 
     private var cookSpreadLeadingControls: some View {
