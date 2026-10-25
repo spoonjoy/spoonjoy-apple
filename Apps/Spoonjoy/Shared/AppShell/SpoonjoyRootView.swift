@@ -19,6 +19,9 @@ struct SpoonjoyRootView: View {
 #if os(iOS)
     /// The system's identifier for this window, which outlives the app being killed; nil until the window is up.
     @State private var sceneID: String?
+    /// A page this window moved to before the system named the window, such as the link that launched the app.
+    /// It is saved as the window's page once the name arrives, or the window would reopen on its older page.
+    @State private var scenePageBeforeID: AppRoute?
     @Environment(\.openWindow) private var openWindow
     @Environment(\.supportsMultipleWindows) private var supportsMultipleWindows
 #endif
@@ -164,6 +167,10 @@ struct SpoonjoyRootView: View {
 #if os(iOS)
             .readingSceneIdentifier($sceneID)
             .onChange(of: sceneID) { _, _ in
+                if let page = scenePageBeforeID {
+                    scenePageBeforeID = nil
+                    rememberSceneRoute(page)
+                }
                 applyRestoredRouteIfNeeded()
             }
             .environment(\.openInNewWindow, openInNewWindowAction)
@@ -803,7 +810,13 @@ struct SpoonjoyRootView: View {
 
     private func rememberSceneRoute(_ route: AppRoute) {
 #if os(iOS)
-        if let sceneID, SceneRestoration.remembers(route) {
+        guard let sceneID else {
+            if SceneRestoration.remembers(route) {
+                scenePageBeforeID = route
+            }
+            return
+        }
+        if SceneRestoration.remembers(route) {
             SceneRouteBookLocation.store.update { book in
                 book.record(route, scene: sceneID, at: Date())
             }

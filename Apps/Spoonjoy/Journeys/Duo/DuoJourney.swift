@@ -220,27 +220,43 @@ final class DuoJourney: JourneyTestCase {
             "The new window did not open on the recipe. Screen: \(journey.screen)"
         )
 
-        // Killed with two windows open, each window comes back on its own page: the recipe in the new window, and the
-        // Kitchen, not the app's last page, in the first.
+        // Killed with two windows open, each window comes back on its own page: the chickpeas in the new window, and
+        // the Kitchen, which a link opened, in the first. The system chooses which window is in front.
         journey.relaunch()
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailTitle).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The recipe window did not come back after the app was killed. Screen: \(journey.screen)"
+        XCTAssertEqual(
+            waitForEither(journey.element(JourneyID.recipeDetailTitle), journey.element(JourneyID.kitchenRoot)),
+            .completed,
+            "Neither window came back on its own page after the app was killed. Screen: \(journey.screen)"
         )
         try captureScreen("14-two-windows-after-relaunch", journey)
+        XCTAssertTrue(
+            journey.bringWindowForward(named: JourneyRecipes.chickpeasTitle, to: self),
+            "The window list did not offer the chickpeas window after the app was killed. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailTitle, labelContaining: JourneyRecipes.chickpeasTitle)
+                .waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The new window did not come back on the chickpeas after the app was killed. Screen: \(journey.screen)"
+        )
         XCTAssertTrue(
             journey.bringWindowForward(named: JourneyCopy.kitchenTab, to: self),
             "The window list did not offer the Kitchen window after the app was killed. Screen: \(journey.screen)"
         )
         XCTAssertTrue(
             journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The first window did not come back on the Kitchen after the app was killed. Screen: \(journey.screen)"
+            "The first window did not come back on the Kitchen, the page the link opened. Screen: \(journey.screen)"
         )
         XCTAssertFalse(
-            journey.element(JourneyID.recipeDetailTitle).isHittable,
-            "The first window came back on the recipe, the app's last page, instead of its own. Screen: \(journey.screen)"
+            stepTwoInCook.exists,
+            "The first window came back in cook mode, its page before the link, instead of the Kitchen. Screen: \(journey.screen)"
         )
         try captureScreen("15-kitchen-window-after-relaunch", journey)
+    }
+
+    /// Waits until either element exists. XCTWaiter's synchronous wait is unavailable in an async test.
+    private func waitForEither(_ first: XCUIElement, _ second: XCUIElement) -> XCTWaiter.Result {
+        let either = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in first.exists || second.exists }, object: nil)
+        return XCTWaiter().wait(for: [either], timeout: JourneyApp.networkTimeout)
     }
 
     /// XCTWaiter's synchronous wait is unavailable in an async test, so it waits here.

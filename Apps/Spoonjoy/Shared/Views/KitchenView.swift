@@ -104,9 +104,9 @@ struct KitchenView: View {
         }
     }
 
-    /// Below this, the lead and the right-hand page each get less than a Cooking now card's width, so the Kitchen
-    /// stacks them instead (the open Duo held tall).
-    private static let spreadMinimumWidth: CGFloat = 860
+    /// Below this, the right-hand page would be narrower than a Cooking now card, so the Kitchen stacks the lead
+    /// and the cards instead: the open Duo held tall (about 630 points) stacks, held sideways (about 850) spreads.
+    private static let spreadMinimumWidth: CGFloat = 760
 
     private var usesWideKitchenSpread: Bool {
 #if os(iOS)
