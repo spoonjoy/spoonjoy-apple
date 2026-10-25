@@ -5,7 +5,7 @@
   "version": {
     "versionString": "1.0",
     "copyright": "2026 Ari Mendelow",
-    "releaseType": "MANUAL"
+    "releaseType": "AFTER_APPROVAL"
   },
   "categories": {
     "primary": "FOOD_AND_DRINK",
@@ -105,6 +105,42 @@
           2064
         ]
       ]
+    }
+  },
+  "mac": {
+    "platform": "MAC_OS",
+    "localizations": {
+      "en-US": {
+        "promotionalText": "Every recipe has a story: who wrote it, who changed it, who cooked it last night. On the Mac, each opens like a cookbook: ingredients on the left, method on the right.",
+        "description": "Recipes have always been passed hand to hand: a card in a grandmother's writing, a friend's note in the margin, \"less sugar\" scribbled after the third try. Spoonjoy is a home for recipes like that. Every recipe has its own page, every version keeps credit to the cook who started it, and every cook leaves a photo and a note for the next person.\n\nOn the Mac, every recipe opens like a cookbook: the ingredients on the left, the method on the right. Cook mode takes you through it one step at a time, and your place follows you to iPhone, iPad and the web.\n\nA RECIPE THAT OPENS LIKE A COOKBOOK\nIn a wide window, a recipe becomes a two-page spread, with each step's ingredients on the left page and the method on the right. Cook mode keeps the spread, so what a step needs sits beside the step itself.\n\nFORK IT, WITH CREDIT\nLike another cook's recipe? Fork it into your kitchen and make it yours. Your version keeps a \"forked from\" line back to the original chef and recipe, so the credit travels with it.\n\nCOOKED BY REAL PEOPLE\nEvery recipe shows its cooks: who made it, what they changed, what they'd do next time, and a photo. Log your own with a photo from your library, and turn a great cook photo into the recipe's cover.\n\nRECIPES WITH A HOME ON THE WEB\nEvery recipe you publish has its own link on spoonjoy.app, and every chef has a kitchen page. Share a recipe and the link opens for anyone, with or without the app.\n\nONE STEP AT A TIME, ON ANY SCREEN\nCook mode shows one step at a time with just what that step needs. Your step, scaling and checked ingredients sync, so you can plan at your desk and carry on in the kitchen on iPhone, iPad or the web.\n\nA SHOPPING LIST THAT WORKS LIKE A RECEIPT\nAdd a recipe's ingredients in one click. Filter by aisle, and keep checking items off even when you're offline. Prefer Reminders? Send a recipe or your whole list to the Reminders list you choose, without duplicates.\n\nCOOKBOOKS YOU SHAPE\nSave any recipe to your own cookbooks, browse them as a shelf, and share a whole cookbook with one link.\n\nMADE FOR THE MAC\n- A sidebar keeps your kitchen, recipes, cookbooks, shopping list and search one click away. Press Command-N for a new recipe and Command-comma for Settings.\n- Siri and Shortcuts: \"Start cooking in Spoonjoy\", \"Next step in Spoonjoy\", \"Read the step in Spoonjoy\", \"Add to my Spoonjoy shopping list\".\n- Spotlight finds your recipes, cookbooks and shopping items.\n- Save a recipe link from Shortcuts or your AI assistant, and Spoonjoy imports it.\n\nYOUR KITCHEN, YOUR CONTROL\nUse the same account as spoonjoy.app: sign in with Apple, Google, GitHub or a Spoonjoy password. Connect an AI assistant to your kitchen with access you approve and can revoke. Report a recipe or block a chef from any recipe or kitchen page. Download your data or delete your account at any time. No ads, no subscriptions.\n\nRecipes, cookbooks and cook logs you publish are public. Your email, shopping list and sign-in methods stay private.\n\nPrivacy policy: https://spoonjoy.app/privacy\nTerms of service: https://spoonjoy.app/terms",
+        "keywords": "cooking,meal,grocery,shopping list,kitchen,ingredient,organizer,keeper,food,dinner,baking,home cook"
+      }
+    },
+    "review": {
+      "notes": "Spoonjoy for Mac is the free native Mac app for spoonjoy.app, built from the same code as the iPhone and iPad app. Sign-in is required because recipes, cookbooks, cook logs and shopping lists live in the user's Spoonjoy account and sync with the website and the iPhone and iPad app.\n\nWhat makes Spoonjoy different from other recipe managers: every published recipe is a public page on spoonjoy.app (the Share button produces a link anyone can open); recipes can be forked with a permanent \"forked from\" credit to the original chef; each recipe shows Cooks, which are photo logs from everyone who cooked it; cook-mode progress (current step, scale, checked ingredients) syncs with the server, so it continues on another device or the website; and users can connect an AI assistant through Spoonjoy's MCP connector with OAuth access they can disconnect in Settings → Connections. There are no in-app purchases.\n\nDemo account: sign in on the first screen with the username and password provided. It is Johnny Appleseed's kitchen: seven apple recipes (Honeycrisp Galette, Tarte Tatin, Waldorf Salad and more), the cookbooks \"The Orchard\" and \"One More Thing\", a recipe forked from Tim's Test Kitchen, cook logs from Tim, and a shopping list. Sign in with Apple also works and creates a new, empty kitchen.\n\nWhere to find key features (everything is in the sidebar):\n- Two-page spread: open any recipe in a window at least 900 points wide (the default window size is wider). Ingredients sit on the left page and the method on the right. Cook mode keeps the spread; its Close button leaves cook mode.\n- Fork credit: My Recipes → \"Brown Butter Apple Crumble, with pecans\"; the credit line sits under the title. Recipe actions (···) → Fork to try it.\n- Cooks: on any recipe, scroll to Cooks; click Log to add one (optional photo from the Photos library).\n- Cook mode and sync: open a recipe → Cook mode, check an ingredient, then open the same recipe on spoonjoy.app (same account) to see the same step and checks.\n- Shopping: Shopping List in the sidebar; checkoff works offline. Send to Reminders asks for Reminders access so it can avoid duplicates.\n- Cookbooks: Cookbooks in the sidebar; open one and use Share Cookbook for a link.\n- Siri and Shortcuts: \"Start cooking in Spoonjoy\", \"Next step in Spoonjoy\".\n- AI features: restyling a cover or importing a recipe first shows a consent sheet naming the provider (Google Gemini or OpenAI) and what is sent. It can be turned off in Settings → Safety & privacy.\n- Report and block: on any recipe or chef page, ··· → Report… or Block. Reported content is hidden for the reporter at once and reviewed within 24 hours; blocked chefs disappear from feeds, search and notifications. Manage blocks in Settings → Safety & privacy.\n- Settings: Spoonjoy → Settings… (Command-comma), or Settings in the sidebar.\n- Privacy policy, terms and support: Settings → About.\n- Account deletion: Settings → Delete account…\n\nContact: ari@spoonjoy.app"
+    },
+    "screenshots": {
+      "mac": {
+        "displayType": "APP_DESKTOP",
+        "sizes": [
+          [
+            2880,
+            1800
+          ],
+          [
+            2560,
+            1600
+          ],
+          [
+            1440,
+            900
+          ],
+          [
+            1280,
+            800
+          ]
+        ]
+      }
     }
   }
 }
