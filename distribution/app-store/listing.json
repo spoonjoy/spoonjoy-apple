@@ -41,7 +41,10 @@
     "ageAssurance": false,
     "userGeneratedContent": true,
     "advertising": false,
-    "healthOrWellnessTopics": false
+    "healthOrWellnessTopics": false,
+    "gunsOrOtherWeapons": "NONE",
+    "socialMedia": true,
+    "socialMediaAgeRestricted": false
   },
   "review": {
     "contactFirstName": "Ari",
