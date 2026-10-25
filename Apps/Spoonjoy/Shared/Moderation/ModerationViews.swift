@@ -276,6 +276,8 @@ struct BlockedChefsView: View {
                     .accessibilityIdentifier("blockedChefs.unblock")
                 }
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                // Contain keeps the name and the Unblock button as their own elements under the row's identifier.
+                .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("blockedChefs.row")
             }
         }
