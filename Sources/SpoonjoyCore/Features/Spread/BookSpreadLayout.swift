@@ -197,3 +197,17 @@ public enum BookSpreadLayout: Equatable, Sendable {
         return nil
     }
 }
+
+extension BookSpreadLayout {
+    /// How a DEBUG build records each layout a spread reader resolves, so the Duo tour can check the spread without
+    /// a UI test: `single-page`, or `spread source=hardware-division leading=… gutter=minX+width trailing=…`.
+    public var probeDescription: String {
+        switch self {
+        case .singlePage:
+            return "single-page"
+        case .spread(let leading, let gutter, let trailing, let source):
+            let sourceName = source == .hardwareDivision ? "hardware-division" : "screen-middle"
+            return "spread source=\(sourceName) leading=\(leading.width) gutter=\(gutter.minX)+\(gutter.width) trailing=\(trailing.width)"
+        }
+    }
+}

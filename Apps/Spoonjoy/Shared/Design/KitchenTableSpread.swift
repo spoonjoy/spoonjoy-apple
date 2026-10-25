@@ -84,18 +84,40 @@ struct SpreadLayoutReader<Content: View>: View {
 
     var body: some View {
         GeometryReader { proxy in
-            content(
-                BookSpreadLayout.resolve(
-                    width: Double(proxy.size.width),
-                    height: Double(proxy.size.height),
-                    isRegularWidth: isRegularWidth,
-                    division: division
-                )
+            let layout = BookSpreadLayout.resolve(
+                width: Double(proxy.size.width),
+                height: Double(proxy.size.height),
+                isRegularWidth: isRegularWidth,
+                division: division
             )
+            content(layout)
+#if DEBUG
+                .onChange(of: layout, initial: true) { _, layout in
+                    SpreadLayoutProbe.record(layout, size: proxy.size)
+                }
+#endif
         }
         .readingHingeDivision($division)
     }
 }
+
+#if DEBUG
+/// Appends each resolved layout to `tmp/spoonjoy-spread-layout.log` in the app's data container. The Duo tour workflow
+/// reads it to check that the iPhone Duo held open flat opens recipes and cook mode as a spread on the hinge.
+enum SpreadLayoutProbe {
+    static func record(_ layout: BookSpreadLayout, size: CGSize) {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-spread-layout.log")
+        let line = Data("container=\(size.width)x\(size.height) \(layout.probeDescription)\n".utf8)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(line)
+            try? handle.close()
+        } else {
+            try? line.write(to: url)
+        }
+    }
+}
+#endif
 
 /// What the system says about a foldable's fold, in one view's coordinate space.
 struct FoldReading: Equatable {
@@ -219,25 +241,20 @@ private final class HingeDivisionView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        let region = reservedRegions(kind: .division).first(where: \.isActive)
-        let division = region.flatMap { region in
-            SpreadDivision(
-                frameMinX: Double(region.frame.minX),
-                frameWidth: Double(region.frame.width),
-                frameHeight: Double(region.frame.height),
-                containerWidth: Double(bounds.width),
-                containerHeight: Double(bounds.height)
+        // Open flat, iOS marks the fold inactive, and a plain query drops it; see FoldRegionChoice.
+        let regions = reservedRegions(kind: .division, options: .includeInactive).map { region in
+            ReportedFoldRegion(
+                minX: Double(region.frame.minX),
+                minY: Double(region.frame.minY),
+                width: Double(region.frame.width),
+                height: Double(region.frame.height),
+                isActive: region.isActive
             )
         }
-        let band = region.flatMap { region in
-            FoldBand(
-                frameMinY: Double(region.frame.minY),
-                frameHeight: Double(region.frame.height),
-                frameWidth: Double(region.frame.width),
-                containerWidth: Double(bounds.width),
-                containerHeight: Double(bounds.height)
-            )
-        }
+        let width = Double(bounds.width)
+        let height = Double(bounds.height)
+        let division = FoldRegionChoice.division(from: regions, containerWidth: width, containerHeight: height)
+        let band = FoldRegionChoice.band(from: regions, containerWidth: width, containerHeight: height)
         let reading = FoldReading(division: division, band: band ?? screenMidline, hinge: hinge)
         guard reading != reported else {
             return
