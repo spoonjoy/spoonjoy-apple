@@ -157,7 +157,7 @@ struct ReportContentSheet: View {
                             .accessibilityIdentifier("moderation.reportThanks")
                         Text("We've hidden \(subject) for you.")
                             .font(KitchenTableTheme.bodyNote)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                     }
                 } else {
                     Section("What's wrong with \(subject)?") {
@@ -167,7 +167,7 @@ struct ReportContentSheet: View {
                             } label: {
                                 HStack {
                                     Text(option.title)
-                                        .foregroundStyle(KitchenTableTheme.charcoal)
+                                        .foregroundStyle(KitchenTableTheme.ink)
                                     Spacer()
                                     if reason == option {
                                         Image(systemName: "checkmark")
@@ -252,7 +252,7 @@ struct BlockedChefsView: View {
             if moderation.ledger.blockedChefs.isEmpty {
                 Text(isLoading ? "Loading…" : "You haven't blocked anyone.")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .accessibilityIdentifier("blockedChefs.empty")
             }
             ForEach(moderation.ledger.blockedChefs) { chef in
@@ -260,11 +260,11 @@ struct BlockedChefsView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(chef.name)
                             .font(KitchenTableTheme.objectTitle)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .foregroundStyle(KitchenTableTheme.ink)
                         if chef.displayName?.isEmpty == false {
                             Text("@\(chef.username)")
                                 .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(KitchenTableTheme.inkMuted)
+                                .foregroundStyle(KitchenTableTheme.ink2)
                         }
                     }
                     Spacer()
@@ -282,7 +282,7 @@ struct BlockedChefsView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .navigationTitle("Blocked Chefs")
         .task { await refresh() }
         .refreshable { await refresh() }
@@ -318,10 +318,10 @@ struct ModerationHiddenView: View {
         VStack(spacing: 14) {
             Image(systemName: "hand.raised")
                 .font(.largeTitle)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
             Text(message)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .multilineTextAlignment(.center)
                 .accessibilityIdentifier("moderation.hidden")
             if let unblockChef {
@@ -333,6 +333,6 @@ struct ModerationHiddenView: View {
         }
         .padding(KitchenTableTheme.pagePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
     }
 }

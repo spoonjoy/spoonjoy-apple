@@ -174,7 +174,7 @@ struct ShoppingListView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Shopping")
                 .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Text(viewModel.activeCountLabel)
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.brass)
@@ -191,7 +191,7 @@ struct ShoppingListView: View {
             if currentEditMode == .active {
                 Label("Editing", systemImage: "slider.horizontal.3")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
 #endif
         }
@@ -235,13 +235,13 @@ struct ShoppingListView: View {
                     }
                 }
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .padding(.horizontal, 12)
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                .background(KitchenTableTheme.paper, in: Capsule())
+                .background(KitchenTableTheme.raised, in: Capsule())
                 .overlay {
                     Capsule()
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
                 }
             }
         }
@@ -285,8 +285,8 @@ struct ShoppingListView: View {
                                 .textCase(.uppercase)
                                 .tracking(1.2)
                                 .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
-                                .foregroundStyle(viewMode == option.mode ? KitchenTableTheme.paper : KitchenTableTheme.inkMuted)
-                                .background(viewMode == option.mode ? KitchenTableTheme.charcoal : Color.clear)
+                                .foregroundStyle(viewMode == option.mode ? KitchenTableTheme.onInk : KitchenTableTheme.ink2)
+                                .background(viewMode == option.mode ? KitchenTableTheme.ink : Color.clear)
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(viewMode == option.mode ? .isSelected : [])
@@ -327,10 +327,10 @@ struct ShoppingListView: View {
                                     .font(KitchenTableTheme.uiLabel)
                                     .padding(.horizontal, 14)
                                     .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                                    .foregroundStyle(isSelected ? KitchenTableTheme.paper : KitchenTableTheme.charcoal)
-                                    .background(isSelected ? KitchenTableTheme.charcoal : KitchenTableTheme.paper, in: Capsule())
+                                    .foregroundStyle(isSelected ? KitchenTableTheme.onInk : KitchenTableTheme.ink)
+                                    .background(isSelected ? KitchenTableTheme.ink : KitchenTableTheme.raised, in: Capsule())
                                     .overlay {
-                                        Capsule().strokeBorder(KitchenTableTheme.line.opacity(0.6), lineWidth: isSelected ? 0 : 1)
+                                        Capsule().strokeBorder(KitchenTableTheme.hairline.opacity(0.6), lineWidth: isSelected ? 0 : 1)
                                     }
                             }
                             .buttonStyle(.plain)
@@ -371,10 +371,10 @@ struct ShoppingListView: View {
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 12)
             .frame(minHeight: 46)
-            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
             .overlay {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
             }
             .focused($isItemFieldFocused)
             .onSubmit(addItem)
@@ -386,10 +386,10 @@ struct ShoppingListView: View {
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 12)
             .frame(minHeight: 46)
-            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
             .overlay {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
             }
             .frame(maxWidth: 120)
 #if os(iOS)
@@ -403,10 +403,10 @@ struct ShoppingListView: View {
             .font(KitchenTableTheme.bodyNote)
             .padding(.horizontal, 12)
             .frame(minHeight: 46)
-            .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
             .overlay {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
             }
             .frame(maxWidth: .infinity)
     }
@@ -423,7 +423,7 @@ struct ShoppingListView: View {
             Image(systemName: "plus")
                 .font(.headline.weight(.bold))
                 .frame(width: 46, height: 46)
-                .foregroundStyle(KitchenTableTheme.paper)
+                .foregroundStyle(KitchenTableTheme.onInk)
                 .background(KitchenTableTheme.action, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         }
         .buttonStyle(.plain)
@@ -453,11 +453,11 @@ struct ShoppingListView: View {
                     .labelStyle(.iconOnly)
                     .font(.headline)
                     .frame(width: 46, height: 46)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .foregroundStyle(KitchenTableTheme.ink)
+                    .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
                     .overlay {
                         RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                            .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                            .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
                     }
             }
             .buttonStyle(.plain)
@@ -467,11 +467,11 @@ struct ShoppingListView: View {
                     .labelStyle(.iconOnly)
                     .font(.headline)
                     .frame(width: 46, height: 46)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
-                    .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                    .foregroundStyle(KitchenTableTheme.ink)
+                    .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
                     .overlay {
                         RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                            .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                            .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
                     }
             }
             .buttonStyle(.plain)
@@ -545,10 +545,10 @@ struct ShoppingListView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Text(message)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
         }
         .padding(.vertical, 22)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -826,16 +826,16 @@ private struct ShoppingReceiptStateView: View {
                 .font(.title2.weight(.semibold))
                 .foregroundStyle(state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass)
                 .frame(width: 44, height: 44)
-                .background(KitchenTableTheme.paper, in: Circle())
+                .background(KitchenTableTheme.raised, in: Circle())
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(state.title)
                     .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(2)
                 Text(state.message)
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -853,10 +853,10 @@ private struct ShoppingReceiptStateView: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         .overlay {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
     }

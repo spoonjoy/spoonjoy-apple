@@ -44,14 +44,14 @@ struct ThirdPartyAIConsentSheet: View {
         VStack(alignment: .leading, spacing: 16) {
             Label(use.title, systemImage: "sparkles")
                 .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Text(use.disclosure)
                 .font(KitchenTableTheme.instructionBody)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text(ThirdPartyAIUse.sharedTerms)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
             Link("Read Spoonjoy's privacy policy", destination: URL(string: "https://spoonjoy.app/privacy")!)
                 .font(KitchenTableTheme.uiLabel)
@@ -74,6 +74,6 @@ struct ThirdPartyAIConsentSheet: View {
             .accessibilityIdentifier("aiConsent.decline")
         }
         .padding(KitchenTableTheme.pagePadding)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
     }
 }

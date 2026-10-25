@@ -238,11 +238,11 @@ private struct ProfileRecipeCard: View {
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
             Text(recipe.title)
                 .font(.headline)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             if let subtitle = recipeSubtitle {
                 Text(subtitle)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
         }
         .frame(width: 144, alignment: .leading)
@@ -425,7 +425,7 @@ private struct ProfileGraphList: View {
                                 .font(KitchenTableTheme.bodyNote)
                             Text(row.interactionSummary)
                                 .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(KitchenTableTheme.inkMuted)
+                                .foregroundStyle(KitchenTableTheme.ink2)
                         }
                     }
                     .buttonStyle(.plain)
@@ -433,7 +433,7 @@ private struct ProfileGraphList: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .overlay(alignment: .bottomLeading) {
             if viewModel.offlineIndicator.display != .synced {
                 OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)

@@ -128,11 +128,11 @@ struct KitchenEmptyHero: View {
                 .accessibilityHidden(true)
             Text("The table is set")
                 .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             Text("Write down the first recipe, or bring one in from a link, a photo or a screenshot. Everything you cook lives here.")
                 .font(KitchenTableTheme.instructionBody)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
@@ -263,7 +263,7 @@ struct KitchenIdentityLine: View {
             avatar
                 .frame(width: 36, height: 36)
                 .clipShape(Circle())
-                .overlay(Circle().strokeBorder(KitchenTableTheme.line, lineWidth: 1))
+                .overlay(Circle().strokeBorder(KitchenTableTheme.hairline, lineWidth: 1))
                 .accessibilityHidden(true)
             Text("@\(chef.username)")
                 .font(KitchenTableTheme.uiLabel)
@@ -295,7 +295,7 @@ struct KitchenIdentityLine: View {
             KitchenTableTheme.vellum
             Text(String(chef.username.prefix(1)).uppercased())
                 .font(.system(.subheadline, design: .serif).weight(.bold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
         }
     }
 }
@@ -347,7 +347,7 @@ struct RecipeLead: View {
                 }
                 .accessibilityLabel("\(recipe.title) cover image")
 
-            leadText(foreground: .white, secondary: .white.opacity(0.82), label: .white.opacity(0.72))
+            leadText(foreground: KitchenTableTheme.onPhoto, secondary: KitchenTableTheme.onPhoto.opacity(0.82), label: KitchenTableTheme.onPhotoMuted)
                 .padding()
         }
     }
@@ -355,11 +355,11 @@ struct RecipeLead: View {
     private var coverlessLead: some View {
         VStack(alignment: .leading, spacing: 14) {
             coverlessNoPhotoBadge
-            leadText(foreground: KitchenTableTheme.charcoal, secondary: KitchenTableTheme.inkMuted, label: KitchenTableTheme.brass)
+            leadText(foreground: KitchenTableTheme.ink, secondary: KitchenTableTheme.ink2, label: KitchenTableTheme.brass)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.paper)
+        .background(KitchenTableTheme.raised)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(KitchenTableTheme.brass.opacity(0.22))
@@ -367,7 +367,7 @@ struct RecipeLead: View {
         }
         .overlay {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                .stroke(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
@@ -383,7 +383,7 @@ struct RecipeLead: View {
 
             Text("Photo not added")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
         }
         .accessibilityLabel("Photo not added")
     }
@@ -505,7 +505,7 @@ struct KitchenRecipeIndexRow: View {
             ShareLink(item: shareRecipe) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
             }
             .buttonStyle(.plain)
@@ -546,12 +546,12 @@ struct KitchenEmptySection: View {
                 .frame(width: 28)
             Text(title)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.72))
+                .foregroundStyle(KitchenTableTheme.ink.opacity(0.72))
             Spacer(minLength: 0)
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-        .background(KitchenTableTheme.paper)
+        .background(KitchenTableTheme.raised)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 }

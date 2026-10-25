@@ -10,11 +10,11 @@ import WidgetKit
 struct SpoonjoyCookTimerLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: AlarmAttributes<SpoonjoyCookTimerMetadata>.self) { context in
-            // The Lock Screen card is drawn on bone with the fixed light palette, so system styles inside it stay light until a designed dark palette ships.
+            // The Lock Screen card keeps the day palette, so system styles inside it stay light. Release 1.1 Task 6 rebuilds it for both appearances.
             CookTimerLockScreenView(metadata: context.attributes.metadata, state: context.state)
                 .environment(\.colorScheme, .light)
-                .activityBackgroundTint(KitchenTableTheme.bone)
-                .activitySystemActionForegroundColor(KitchenTableTheme.charcoal)
+                .activityBackgroundTint(KitchenTableTheme.Day.bone)
+                .activitySystemActionForegroundColor(KitchenTableTheme.Day.charcoal)
                 .widgetURL(context.attributes.metadata.flatMap { URL(string: $0.deepLink) })
         } dynamicIsland: { context in
             DynamicIsland {
@@ -22,7 +22,7 @@ struct SpoonjoyCookTimerLiveActivity: Widget {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(stepLabel(context.attributes.metadata))
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.brass)
+                            .foregroundStyle(KitchenTableTheme.Day.brass)
                         Text(context.attributes.metadata?.stepTitle ?? "Timer")
                             .font(.subheadline.weight(.semibold))
                             .lineLimit(2)
@@ -43,16 +43,16 @@ struct SpoonjoyCookTimerLiveActivity: Widget {
                 }
             } compactLeading: {
                 Image(systemName: "fork.knife")
-                    .foregroundStyle(KitchenTableTheme.brass)
+                    .foregroundStyle(KitchenTableTheme.Day.brass)
             } compactTrailing: {
                 CookTimerReadout(mode: context.state.mode, font: .caption.monospacedDigit().weight(.semibold), onDark: true)
                     .frame(maxWidth: 52)
             } minimal: {
                 Image(systemName: isPaused(context.state.mode) ? "pause.fill" : "timer")
-                    .foregroundStyle(KitchenTableTheme.brass)
+                    .foregroundStyle(KitchenTableTheme.Day.brass)
             }
             .widgetURL(context.attributes.metadata.flatMap { URL(string: $0.deepLink) })
-            .keylineTint(KitchenTableTheme.brass)
+            .keylineTint(KitchenTableTheme.Day.brass)
         }
     }
 }
@@ -80,18 +80,18 @@ private struct CookTimerLockScreenView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(metadata?.recipeTitle ?? "Spoonjoy")
                     .font(.system(.headline, design: .serif).weight(.bold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.Day.charcoal)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 Text(stepLabel(metadata))
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
+                    .foregroundStyle(KitchenTableTheme.Day.brass)
             }
 
             HStack(alignment: .center, spacing: 12) {
                 Text(metadata?.stepTitle ?? "Timer")
                     .font(.system(.title3, design: .serif).weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.Day.charcoal)
                     .lineLimit(2)
                 Spacer(minLength: 8)
                 CookTimerReadout(mode: state.mode, font: .system(.largeTitle, design: .rounded).weight(.bold).monospacedDigit())
@@ -127,7 +127,7 @@ struct CookTimerReadout: View {
         }
         .font(font)
         .multilineTextAlignment(.trailing)
-        .foregroundStyle(isAlert ? KitchenTableTheme.herb : (onDark ? Color.white : KitchenTableTheme.charcoal))
+        .foregroundStyle(isAlert ? KitchenTableTheme.Day.herb : (onDark ? Color.white : KitchenTableTheme.Day.charcoal))
         .minimumScaleFactor(0.6)
         .lineLimit(1)
         .accessibilityLabel(accessibilityText)
@@ -161,10 +161,10 @@ struct CookTimerControls: View {
     let mode: AlarmPresentationState.Mode
     var onDark = false
 
-    private var primaryText: Color { onDark ? KitchenTableTheme.charcoal : KitchenTableTheme.bone }
-    private var primaryFill: Color { onDark ? KitchenTableTheme.bone : KitchenTableTheme.action }
-    private var secondaryText: Color { onDark ? Color.white : KitchenTableTheme.charcoal }
-    private var secondaryFill: Color { onDark ? Color.white.opacity(0.18) : KitchenTableTheme.vellum }
+    private var primaryText: Color { onDark ? KitchenTableTheme.Day.charcoal : KitchenTableTheme.Day.bone }
+    private var primaryFill: Color { onDark ? KitchenTableTheme.Day.bone : KitchenTableTheme.Day.action }
+    private var secondaryText: Color { onDark ? Color.white : KitchenTableTheme.Day.charcoal }
+    private var secondaryFill: Color { onDark ? Color.white.opacity(0.18) : KitchenTableTheme.Day.vellum }
 
     private var showsCancel: Bool {
         switch mode {

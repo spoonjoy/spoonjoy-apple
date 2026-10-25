@@ -378,7 +378,7 @@ private struct SearchSurfaceThumbnail: View {
         case .chef:
             KitchenTableTheme.herb
         case .shoppingListItem:
-            KitchenTableTheme.charcoal
+            KitchenTableTheme.ink
         }
     }
 
@@ -451,10 +451,10 @@ private struct SearchSurfaceMessageView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.headline)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                 Text(message)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
         } icon: {
             Image(systemName: systemImage)
@@ -463,6 +463,6 @@ private struct SearchSurfaceMessageView: View {
         .padding(.vertical, 8)
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
     }
 }

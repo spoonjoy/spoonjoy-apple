@@ -104,7 +104,7 @@ struct NotificationAPNsSettingsView: View {
                             .foregroundStyle(KitchenTableTheme.tomato)
                         Text(banner.message)
                             .font(KitchenTableTheme.bodyNote)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                             .fixedSize(horizontal: false, vertical: true)
                         Button {
                             openNotificationSettings()
@@ -149,7 +149,7 @@ struct NotificationAPNsSettingsView: View {
                 } else {
                     Text("This device is not set up for Spoonjoy notifications yet.")
                         .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                     Button {
                         requestDeviceRegistration()
                     } label: {
@@ -204,7 +204,7 @@ struct NotificationAPNsSettingsView: View {
         Toggle(isOn: isOn) {
             Text(title)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
         }
         .tint(KitchenTableTheme.herb)
     }
@@ -394,10 +394,10 @@ private struct AppleDeveloperProgramBlockerView: View {
         VStack(alignment: .leading, spacing: 8) {
             Label("Push delivery is limited on this build.", systemImage: "lock.shield.fill")
                 .font(KitchenTableTheme.objectTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Text("You can still save notification preferences and device setup here.")
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
             Text("When full push delivery is available, Spoonjoy will use it automatically.")
                 .font(KitchenTableTheme.uiLabel)
@@ -445,7 +445,7 @@ private struct NotificationDiagnosticsDisclosure: View {
         } label: {
             Label("Details", systemImage: "info.circle")
                 .font(KitchenTableTheme.bodyNote.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
         }
     }
 
@@ -507,7 +507,7 @@ private struct NotificationFactRow: View {
     private var valueText: some View {
         Text(value)
             .font(KitchenTableTheme.bodyNote)
-            .foregroundStyle(KitchenTableTheme.charcoal)
+            .foregroundStyle(KitchenTableTheme.ink)
             .lineLimit(3)
             .minimumScaleFactor(0.82)
             .textSelection(.enabled)
@@ -522,9 +522,9 @@ private enum NotificationRowProminence {
     var foreground: Color {
         switch self {
         case .primary:
-            KitchenTableTheme.paper
+            KitchenTableTheme.onInk
         case .secondary:
-            KitchenTableTheme.charcoal
+            KitchenTableTheme.ink
         case .destructive:
             KitchenTableTheme.tomato
         }
@@ -535,7 +535,7 @@ private enum NotificationRowProminence {
         case .primary:
             KitchenTableTheme.brass
         case .secondary, .destructive:
-            KitchenTableTheme.paper
+            KitchenTableTheme.raised
         }
     }
 
@@ -544,7 +544,7 @@ private enum NotificationRowProminence {
         case .primary:
             KitchenTableTheme.brass
         case .secondary:
-            KitchenTableTheme.line.opacity(0.55)
+            KitchenTableTheme.hairline.opacity(0.55)
         case .destructive:
             KitchenTableTheme.tomato.opacity(0.42)
         }

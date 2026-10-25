@@ -269,21 +269,21 @@ struct KitchenTableNoPhotoView: View {
     private var noPhotoBackground: some View {
         ZStack {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                .fill(KitchenTableTheme.paper)
+                .fill(KitchenTableTheme.raised)
 
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                 .fill(KitchenTableTheme.vellum.opacity(mode == .loading ? 0.30 : 0.18))
                 .padding(7)
 
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                .strokeBorder(KitchenTableTheme.line.opacity(0.58), lineWidth: 1)
+                .strokeBorder(KitchenTableTheme.hairline.opacity(0.58), lineWidth: 1)
         }
     }
 
     private var compactMark: some View {
         ZStack {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                .fill(KitchenTableTheme.paper.opacity(0.94))
+                .fill(KitchenTableTheme.raised.opacity(0.94))
                 .overlay {
                     RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                         .stroke(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
@@ -293,7 +293,7 @@ struct KitchenTableNoPhotoView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(KitchenTableTheme.brass.opacity(mode == .loading ? 0.62 : 1))
         }
-        .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 5, y: 3)
+        .shadow(color: KitchenTableTheme.ink.opacity(0.08), radius: 5, y: 3)
         .frame(width: 44, height: 44)
     }
 
@@ -301,7 +301,7 @@ struct KitchenTableNoPhotoView: View {
         VStack(alignment: .center, spacing: 10) {
             ZStack {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                    .fill(KitchenTableTheme.paper.opacity(0.94))
+                    .fill(KitchenTableTheme.raised.opacity(0.94))
                     .frame(width: 48, height: 48)
                     .overlay {
                         RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
@@ -314,7 +314,7 @@ struct KitchenTableNoPhotoView: View {
 
             Text(displaySubtitle)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
         }

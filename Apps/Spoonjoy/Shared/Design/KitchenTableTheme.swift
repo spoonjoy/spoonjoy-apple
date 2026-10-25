@@ -1,21 +1,72 @@
 import SwiftUI
 
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
+
 enum KitchenTableTheme {
-    static let bone = webColor(0xFBFAF4) // --sj-bone
-    static let paper = webColor(0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
-    static let vellum = webColor(0xE8E9DF) // --sj-vellum / --sj-flour
-    static let charcoal = webColor(0x28231D) // --sj-charcoal / --sj-action
-    static let inkMuted = webColor(0x635D54) // --sj-charcoal-soft / --sj-ink-soft
-    static let line = charcoal.opacity(0.18) // --sj-border
-    static let lineStrong = charcoal.opacity(0.32) // --sj-border-strong
-    static let brass = webColor(0x9B6834) // --sj-brass
-    static let action = webColor(0x28231D) // --sj-action
-    static let actionDeep = webColor(0x1F1B17) // --sj-action-deep
-    static let tomato = webColor(0xA24A38) // --sj-tomato
-    static let herb = webColor(0x596A4F) // --sj-herb
-    static let onPhoto = bone // --sj-on-photo
-    static let onPhotoMuted = bone.opacity(0.76) // --sj-on-photo-muted
-    static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
+    /// The web's light palette, verbatim from spoonjoy-v2 `:root`. Surfaces never use these directly; they use the
+    /// roles below, which pick the light or night value for the current appearance.
+    enum Day {
+        static let bone = webColor(0xFBFAF4) // --sj-bone
+        static let paper = webColor(0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
+        static let vellum = webColor(0xE8E9DF) // --sj-vellum / --sj-flour
+        static let charcoal = webColor(0x28231D) // --sj-charcoal / --sj-action
+        static let inkMuted = webColor(0x635D54) // --sj-charcoal-soft / --sj-ink-soft
+        static let brass = webColor(0x9B6834) // --sj-brass
+        static let action = webColor(0x28231D) // --sj-action
+        static let actionDeep = webColor(0x1F1B17) // --sj-action-deep
+        static let tomato = webColor(0xA24A38) // --sj-tomato
+        static let herb = webColor(0x596A4F) // --sj-herb
+        static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
+    }
+
+    /// The web's designed `.dark` palette, verbatim from spoonjoy-v2 `.dark`: the night kitchen.
+    enum Night {
+        static let boneNight = webColor(0xF2EEE6) // .dark --sj-bone
+        static let paperNight = webColor(0x282522) // .dark --sj-bone-lift
+        static let vellumNight = webColor(0x34302B) // .dark --sj-vellum
+        static let charcoalNight = webColor(0x1F1D1A) // .dark --sj-charcoal
+        static let inkMutedNight = webColor(0xC8C0B4) // .dark --sj-charcoal-soft
+        static let brassNight = webColor(0xC4945C) // .dark --sj-brass
+        static let actionNight = webColor(0xB9854B) // .dark --sj-action
+        static let actionDeepNight = webColor(0x95683A) // .dark --sj-action-deep
+        static let tomatoNight = webColor(0xE58263) // .dark --sj-tomato
+        static let herbNight = webColor(0xA4B578) // .dark --sj-herb
+        static let photoCharcoalNight = webColor(0x1D1915) // .dark --sj-photo-charcoal
+        static let pageNight = webColor(0x1E1C19) // .dark --sj-page
+        static let onPhotoNight = webColor(0xF1E6D3) // .dark --sj-on-photo
+    }
+
+    // Roles. Each picks its light or night value from the current appearance, so every surface follows Dark Mode.
+
+    /// The page behind everything: bone by day, the web's `--sj-page` at night.
+    static let page = dynamic(Day.bone, Night.pageNight)
+    /// A lifted surface on the page (a panel, a card, a sheet).
+    static let raised = dynamic(Day.paper, Night.paperNight)
+    /// Primary text and the one filled action.
+    static let ink = dynamic(Day.charcoal, Night.boneNight)
+    /// Secondary text.
+    static let ink2 = dynamic(Day.inkMuted, Night.inkMutedNight)
+    /// Text and symbols drawn on an `ink` or `action` fill.
+    static let onInk = dynamic(Day.bone, Night.charcoalNight)
+    /// A rule between rows: 18% ink by day, 16% bone at night, as the web's `--sj-border`.
+    static let hairline = dynamic(Day.charcoal.opacity(0.18), Night.boneNight.opacity(0.16))
+    static let lineStrong = dynamic(Day.charcoal.opacity(0.32), Night.boneNight.opacity(0.28)) // --sj-border-strong
+    static let vellum = dynamic(Day.vellum, Night.vellumNight)
+    static let brass = dynamic(Day.brass, Night.brassNight)
+    static let action = dynamic(Day.action, Night.actionNight)
+    static let actionDeep = dynamic(Day.actionDeep, Night.actionDeepNight)
+    static let tomato = dynamic(Day.tomato, Night.tomatoNight)
+    static let herb = dynamic(Day.herb, Night.herbNight)
+    /// Text on a photo stays light in both appearances.
+    static let onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo
+    static let onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted
+    /// A light edge on an ink fill. At night ink is light, so the edge would turn dark; it is dropped there instead.
+    static let inkHighlight = dynamic(Day.bone.opacity(0.22), Color.clear)
+    static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
     static let photoOverlay = Color.black.opacity(0.28)
 
     enum Radius {
@@ -34,8 +85,8 @@ enum KitchenTableTheme {
     /// The room above and below each step on the recipe page, either side of the rule between steps.
     static let stepSpacing: CGFloat = 22
     /// A separator a shade lighter than `line`, for rules between rows that should be felt more than seen.
-    static let ruleSoft = line.opacity(0.42)
-    static let hairline: CGFloat = 0.5
+    static let ruleSoft = hairline.opacity(0.42)
+    static let hairlineWidth: CGFloat = 0.5
 
     /// A step's ingredient checklist. The column widths are base sizes; rows scale them with Dynamic Type.
     enum Checklist {
@@ -56,6 +107,26 @@ enum KitchenTableTheme {
     }
     static let compactDockReserve: CGFloat = 148
 
+    /// The 1.1 layout grid: every spacing value is a multiple of 4 pt. Screen margins are 24 pt on iPhone,
+    /// 32 pt on iPad and Mac, and 40 pt on the side of a page that meets the iPhone Duo fold.
+    enum Spacing {
+        static let unit: CGFloat = 4
+        static let marginCompact: CGFloat = 24
+        static let marginRegular: CGFloat = 32
+        static let marginFold: CGFloat = 40
+    }
+
+    // 1.1 type roles. Serif roles use the system serif (New York); every role follows Dynamic Type.
+    static let largeTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
+    static let recipeTitle = Font.system(.title, design: .serif).weight(.semibold)
+    /// The cook step is read from arm's length, so it starts at the 34 pt large-title size (the closest Dynamic
+    /// Type style to the 33 pt the design asks for) and scales from there.
+    static let cookStep = Font.system(.largeTitle, design: .serif)
+    static let story = Font.system(.body, design: .serif)
+    static let control = Font.body.weight(.semibold)
+    static let meta = Font.footnote
+    static let timer = Font.system(.largeTitle).weight(.light).monospacedDigit()
+
     static let displayTitle = Font.system(.largeTitle, design: .serif).weight(.bold)
     static let sectionTitle = Font.system(.title2, design: .serif).weight(.bold)
     static let objectTitle = Font.system(.headline, design: .rounded).weight(.semibold)
@@ -72,7 +143,19 @@ enum KitchenTableTheme {
     static let stepNumeral = Font.system(.title, design: .serif).weight(.semibold)
     static let runningHead = Font.caption2.weight(.bold)
     static let selectionWash = brass.opacity(0.09)
-    static let spreadGutterRule = line
+    static let spreadGutterRule = hairline
+
+    private static func dynamic(_ light: Color, _ night: Color) -> Color {
+        #if os(macOS)
+        Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? NSColor(night) : NSColor(light)
+        })
+        #else
+        Color(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(night) : UIColor(light)
+        })
+        #endif
+    }
 
     private static func webColor(_ hex: UInt32) -> Color {
         Color(
@@ -112,7 +195,7 @@ struct KitchenTablePage<Content: View>: View {
             .frame(maxWidth: maxContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+        .background(KitchenTableTheme.page.ignoresSafeArea())
         .paperTopEdge()
     }
 }
@@ -138,7 +221,7 @@ private struct PaperTopEdge: ViewModifier {
                 Color.clear
                     .frame(maxWidth: .infinity)
                     .frame(height: 0)
-                    .background(KitchenTableTheme.bone.ignoresSafeArea(edges: .top))
+                    .background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
@@ -199,14 +282,14 @@ struct KitchenTableHeader<Trailing: View>: View {
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
                     .font(titleFont)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if let subtitle, !subtitle.isEmpty {
                 Text(subtitle)
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -277,11 +360,11 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
             HStack(alignment: .firstTextBaseline, spacing: 10) {
                 Text(title)
                     .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(1)
                     .layoutPriority(1)
                 Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.55))
+                    .fill(KitchenTableTheme.hairline.opacity(0.55))
                     .frame(height: 1)
                     .layoutPriority(-1)
             }
@@ -308,7 +391,7 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
         if let subtitle, !subtitle.isEmpty {
             Text(subtitle)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -370,19 +453,19 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(titleFont)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(2)
                 }
                 if let detail, !detail.isEmpty {
                     Text(detail)
                         .font(.footnote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(2)
                 }
             }
@@ -393,7 +476,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
         .padding(.vertical, 10)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(KitchenTableTheme.line.opacity(0.35))
+                .fill(KitchenTableTheme.hairline.opacity(0.35))
                 .frame(height: 1)
         }
         .contentShape(Rectangle())
@@ -424,20 +507,20 @@ struct KitchenTableReceiptRow<Leading: View>: View {
             leading()
             Text(name)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 12)
             Text(amount)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .multilineTextAlignment(.trailing)
                 .frame(minWidth: 72, alignment: .trailing)
         }
         .padding(.vertical, 9)
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(KitchenTableTheme.line.opacity(0.34))
+                .fill(KitchenTableTheme.hairline.opacity(0.34))
                 .frame(height: 1)
         }
     }
@@ -481,9 +564,9 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     private var foreground: Color {
         switch prominence {
         case .primary, .destructive:
-            KitchenTableTheme.paper
+            KitchenTableTheme.onInk
         case .secondary, .quiet:
-            KitchenTableTheme.charcoal
+            KitchenTableTheme.ink
         }
     }
 
@@ -492,9 +575,9 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
         case .primary:
             KitchenTableTheme.action
         case .secondary:
-            KitchenTableTheme.paper
+            KitchenTableTheme.raised
         case .quiet:
-            KitchenTableTheme.bone.opacity(0.01)
+            KitchenTableTheme.page.opacity(0.01)
         case .destructive:
             KitchenTableTheme.tomato
         }
@@ -505,7 +588,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
         case .primary:
             KitchenTableTheme.action
         case .secondary, .quiet:
-            KitchenTableTheme.line.opacity(0.75)
+            KitchenTableTheme.hairline.opacity(0.75)
         case .destructive:
             KitchenTableTheme.tomato
         }

@@ -32,7 +32,7 @@ struct NativeMobileDesignContractTests {
             forbids: [
                 ".toolbarBackground(.regularMaterial, for: .tabBar)",
                 ".toolbarBackground(.visible, for: .tabBar)",
-                ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
+                ".toolbarBackground(KitchenTableTheme.page, for: .navigationBar)",
                 ".safeAreaPadding(.bottom, KitchenTableTheme.compactTabBarContentInset)"
             ]
         )
@@ -359,7 +359,7 @@ struct NativeMobileDesignContractTests {
                 "compactOfflineStatusBar",
                 "desktopClassShell",
                 "NavigationSplitView",
-                ".background(KitchenTableTheme.bone.ignoresSafeArea())",
+                ".background(KitchenTableTheme.page.ignoresSafeArea())",
                 ".navigationBarTitleDisplayMode(.large)",
                 ".navigationBarTitleDisplayMode(.inline)"
             ],
@@ -368,7 +368,7 @@ struct NativeMobileDesignContractTests {
                 "Image(systemName: \"ellipsis\")",
                 "shell.more",
                 "compactBackAction",
-                ".toolbarBackground(KitchenTableTheme.bone, for: .navigationBar)",
+                ".toolbarBackground(KitchenTableTheme.page, for: .navigationBar)",
                 "compactBottomChrome",
                 ".safeAreaInset(edge: .bottom, spacing: 0)",
                 "compactTabContent(for: .search)",
@@ -1042,7 +1042,7 @@ struct NativeMobileDesignContractTests {
                 ".toggleStyle(.largeCheck)",
                 ".padding(.horizontal, KitchenTableTheme.pagePadding + 4)",
                 ".padding(.bottom, compactScrollBottomPadding)",
-                ".background(KitchenTableTheme.bone)",
+                ".background(KitchenTableTheme.page)",
                 ".overlay(alignment: .top)"
             ],
             forbids: [
@@ -1215,7 +1215,7 @@ struct NativeMobileDesignContractTests {
                 ".buttonStyle(.borderedProminent)",
                 ".controlSize(.large)",
                 "ViewThatFits(in: .horizontal)",
-                ".background(KitchenTableTheme.paper)"
+                ".background(KitchenTableTheme.raised)"
             ]
         )
 
@@ -1560,9 +1560,12 @@ struct NativeMobileDesignContractTests {
                 "webColor(0x1F1B17) // --sj-action-deep",
                 "webColor(0xA24A38) // --sj-tomato",
                 "webColor(0x596A4F) // --sj-herb",
-                "onPhoto = bone // --sj-on-photo",
-                "onPhotoMuted = bone.opacity(0.76) // --sj-on-photo-muted",
-                "webColor(0x211F1B) // --sj-photo-charcoal"
+                "onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo",
+                "onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted",
+                "webColor(0x211F1B) // --sj-photo-charcoal",
+                "webColor(0xF2EEE6) // .dark --sj-bone",
+                "webColor(0x1E1C19) // .dark --sj-page",
+                "webColor(0xF1E6D3) // .dark --sj-on-photo"
             ],
             forbids: [
                 "Color(red: 0.97, green: 0.95, blue: 0.90)",
@@ -1614,7 +1617,7 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableNoPhotoView",
                 "CachedAsyncImage(url: url, animation: imageAnimation)",
                 ".id(url.absoluteString)",
-                "KitchenTableTheme.paper",
+                "KitchenTableTheme.raised",
                 "KitchenTableTheme.vellum",
                 "Photo not added",
                 "photo.badge.plus",

@@ -167,7 +167,7 @@ struct RecipeCoverControlsView: View {
             }
             .padding()
         }
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
     }
 
     private var header: some View {
@@ -181,10 +181,10 @@ struct RecipeCoverControlsView: View {
 
             Text("Photo Studio")
                 .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Text(recipe.title)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
             if connectivity == .offline {
                 Label("Changes will queue until Spoonjoy is online.", systemImage: "wifi.slash")
                     .font(KitchenTableTheme.uiLabel)
@@ -223,7 +223,7 @@ struct RecipeCoverControlsView: View {
             if blocker.ownerActionRequired {
                 Text("Owner setup is required before editorial cover generation can run.")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
         }
         .padding()
@@ -261,11 +261,11 @@ struct RecipeCoverControlsView: View {
 
             Text(hasStagedPhoto ? "Photo ready for this recipe." : "JPEG, PNG, WebP, HEIC, HEIF")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
 
             Text("Original photo stays on the Spoon.")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
 
             VStack(alignment: .leading, spacing: 8) {
                 Toggle("Use as recipe cover", isOn: $shouldActivateUploadedCover)
@@ -301,10 +301,10 @@ struct RecipeCoverControlsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("AI placeholder")
                     .font(.headline)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                 Text("Generate a temporary cover, then regenerate with direction when it needs tuning.")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             TextField("Placeholder direction", text: $placeholderPromptAddition)
                 .textFieldStyle(.roundedBorder)
@@ -324,10 +324,10 @@ struct RecipeCoverControlsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("No cover selected")
                     .font(.headline)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                 Text("Use an explicit empty state for this recipe.")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             Spacer()
             Button {
@@ -346,12 +346,12 @@ struct RecipeCoverControlsView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Saved Covers")
                 .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
 
             if data.covers.isEmpty {
                 Text("No saved covers yet.")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .padding()
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(.background)
@@ -375,7 +375,7 @@ struct RecipeCoverControlsView: View {
                     HStack {
                         Text(cover.statusLabel)
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                         if cover.isActive {
                             Text("Current")
                                 .font(KitchenTableTheme.uiLabel)
@@ -384,11 +384,11 @@ struct RecipeCoverControlsView: View {
                     }
                     Text(cover.createdAtLabel)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                     if let provenanceLabel = cover.provenanceLabel {
                         Text(provenanceLabel)
                             .font(KitchenTableTheme.bodyNote)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .foregroundStyle(KitchenTableTheme.ink)
                     }
                     if let providerBlocker = cover.providerBlocker {
                         OfflineStatusView(display: providerBlocker.offlineIndicatorDisplay, onDismiss: onDismissOfflineIndicator)
@@ -419,7 +419,7 @@ struct RecipeCoverControlsView: View {
                             .font(KitchenTableTheme.bodyNote)
                         Text(variant.variant.label)
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                     }
                     Spacer()
                     if variant.isActive {
@@ -516,7 +516,7 @@ struct RecipeCoverControlsView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Spoon Photos")
                     .font(.title2)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
 
                 ForEach(data.spoonImages) { spoon in
                     HStack(spacing: 12) {
@@ -528,7 +528,7 @@ struct RecipeCoverControlsView: View {
                                 .font(KitchenTableTheme.bodyNote)
                             Text(spoon.cookedAtLabel)
                                 .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(KitchenTableTheme.inkMuted)
+                                .foregroundStyle(KitchenTableTheme.ink2)
                         }
                         Spacer()
                         Button {

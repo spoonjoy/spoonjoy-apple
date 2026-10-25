@@ -26,13 +26,13 @@ struct IngredientPasteSheet: View {
                         }
                     Text("One ingredient per line, like 2 cups rice.")
                         .font(.footnote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
 
                 Section("Preview") {
                     if rows.isEmpty {
                         Text("Parsed ingredients appear here.")
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                     }
                     ForEach($rows) { $row in
                         let number = (rows.firstIndex { $0.id == row.id } ?? 0) + 1

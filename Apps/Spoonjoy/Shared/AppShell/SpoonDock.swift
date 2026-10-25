@@ -17,12 +17,12 @@ struct SpoonDock: View {
         .padding(.vertical, SpoonDockMetrics.verticalPadding)
         .frame(maxWidth: SpoonDockMetrics.maximumWidth)
         .background(.ultraThinMaterial, in: Capsule())
-        .background(KitchenTableTheme.paper.opacity(0.82), in: Capsule())
+        .background(KitchenTableTheme.raised.opacity(0.82), in: Capsule())
         .overlay {
             Capsule()
-                .strokeBorder(KitchenTableTheme.line.opacity(0.42), lineWidth: 1)
+                .strokeBorder(KitchenTableTheme.hairline.opacity(0.42), lineWidth: 1)
         }
-        .shadow(color: KitchenTableTheme.charcoal.opacity(0.12), radius: 10, x: 0, y: 4)
+        .shadow(color: KitchenTableTheme.ink.opacity(0.12), radius: 10, x: 0, y: 4)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(context.accessibilityLabel)
     }
@@ -112,10 +112,10 @@ struct SpoonDock: View {
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .frame(width: SpoonDockMetrics.primaryIconWidth, height: SpoonDockMetrics.toolTargetSize)
-                .background(KitchenTableTheme.charcoal, in: Capsule())
+                .background(KitchenTableTheme.ink, in: Capsule())
                 .overlay {
                     Capsule()
-                        .strokeBorder(KitchenTableTheme.paper.opacity(0.22), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.inkHighlight, lineWidth: 1)
                 }
         } else if prominence == .supporting {
             dockTrigger(action, prominence: prominence)
@@ -123,10 +123,10 @@ struct SpoonDock: View {
                 .padding(.horizontal, 10)
                 .frame(minHeight: SpoonDockMetrics.minimumTargetSize)
                 .background(.thinMaterial, in: Capsule())
-                .background(KitchenTableTheme.paper.opacity(0.78), in: Capsule())
+                .background(KitchenTableTheme.raised.opacity(0.78), in: Capsule())
                 .overlay {
                     Capsule()
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.35), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.hairline.opacity(0.35), lineWidth: 1)
                 }
         } else {
             dockTrigger(action, prominence: prominence)
@@ -135,7 +135,7 @@ struct SpoonDock: View {
                 .background(toolBackground(for: action), in: Circle())
                 .overlay {
                     Circle()
-                        .strokeBorder(KitchenTableTheme.line.opacity(action.isEnabled ? 0.55 : 0.34), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.hairline.opacity(action.isEnabled ? 0.55 : 0.34), lineWidth: 1)
                 }
         }
     }
@@ -145,7 +145,7 @@ struct SpoonDock: View {
     }
 
     private func toolBackground(for action: SpoonDockAction) -> Color {
-        action.isEnabled ? KitchenTableTheme.paper.opacity(0.92) : KitchenTableTheme.vellum.opacity(0.72)
+        action.isEnabled ? KitchenTableTheme.raised.opacity(0.92) : KitchenTableTheme.vellum.opacity(0.72)
     }
 
     @ViewBuilder
@@ -178,14 +178,14 @@ struct SpoonDock: View {
         if prominence == .tool || prominence == .primaryIcon {
             Image(systemName: action.systemImage)
                 .font(.system(size: prominence == .primaryIcon ? 18 : 17, weight: .semibold))
-                .foregroundStyle(prominence == .primaryIcon ? KitchenTableTheme.paper : toolForeground(for: action))
+                .foregroundStyle(prominence == .primaryIcon ? KitchenTableTheme.onInk : toolForeground(for: action))
                 .frame(width: SpoonDockMetrics.toolGlyphFrame, height: SpoonDockMetrics.toolGlyphFrame)
         } else {
             HStack(spacing: prominence == .primary ? 7 : 6) {
                 if prominence != .primary || action.role == .status {
                     Image(systemName: action.systemImage)
                         .font(.system(size: prominence == .primary ? 16 : 15, weight: .semibold))
-                        .foregroundStyle(prominence == .supporting ? KitchenTableTheme.charcoal : KitchenTableTheme.paper)
+                        .foregroundStyle(prominence == .supporting ? KitchenTableTheme.ink : KitchenTableTheme.onInk)
                 }
 
                 VStack(alignment: prominence == .primary ? .center : .leading, spacing: 1) {
@@ -193,14 +193,14 @@ struct SpoonDock: View {
                         .font(prominence == .primary ? .headline.weight(.bold) : .caption.weight(.bold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
-                        .foregroundStyle(prominence == .supporting ? KitchenTableTheme.charcoal : KitchenTableTheme.paper)
+                        .foregroundStyle(prominence == .supporting ? KitchenTableTheme.ink : KitchenTableTheme.onInk)
 
                     if let subtitle = action.subtitle {
                         Text(subtitle)
                             .font(.caption2)
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
-                            .foregroundStyle(prominence == .supporting ? KitchenTableTheme.inkMuted : KitchenTableTheme.paper.opacity(0.72))
+                            .foregroundStyle(prominence == .supporting ? KitchenTableTheme.ink2 : KitchenTableTheme.onInk.opacity(0.72))
                     }
                 }
             }
@@ -213,7 +213,7 @@ struct SpoonDock: View {
         if action.role == .destructive {
             return KitchenTableTheme.tomato
         }
-        return action.isEnabled ? KitchenTableTheme.charcoal : KitchenTableTheme.inkMuted
+        return action.isEnabled ? KitchenTableTheme.ink : KitchenTableTheme.ink2
     }
 }
 

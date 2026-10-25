@@ -442,7 +442,7 @@ struct SettingsView: View {
                         if surface.oauthConnectionRows.isEmpty {
                             Text("No connected apps.")
                                 .font(KitchenTableTheme.bodyNote)
-                                .foregroundStyle(KitchenTableTheme.inkMuted)
+                                .foregroundStyle(KitchenTableTheme.ink2)
                         }
                         ForEach(surface.oauthConnectionRows) { connection in
                             VStack(alignment: .leading, spacing: 8) {
@@ -480,14 +480,14 @@ struct SettingsView: View {
                 SettingsPanel {
                     Text("Account sync has not finished yet.")
                         .font(KitchenTableTheme.objectTitle)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                     Text("Spoonjoy is signed in, but the latest sync did not finish loading your profile, security, and notification settings.")
                         .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                     if let syncFailureDiagnosticText {
                         Text(syncFailureDiagnosticText)
                             .font(.caption.monospaced())
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                             .textSelection(.enabled)
                     }
                     Button {
@@ -617,10 +617,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("AI features")
                             .font(KitchenTableTheme.objectTitle)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .foregroundStyle(KitchenTableTheme.ink)
                         Text(ThirdPartyAIUse.settingsSummary)
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -695,7 +695,7 @@ struct SettingsView: View {
                 if onlineOnlyActionsDisabled(surface) {
                     Label("Connect to the internet to download your data or delete your account.", systemImage: "wifi.slash")
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
             }
         }
@@ -746,16 +746,16 @@ struct SettingsView: View {
     }
 
     private func settingsTextField(_ placeholder: String, text: Binding<String>) -> some View {
-        TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(KitchenTableTheme.inkMuted))
+        TextField(placeholder, text: text, prompt: Text(placeholder).foregroundStyle(KitchenTableTheme.ink2))
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
-            .foregroundStyle(KitchenTableTheme.charcoal)
+            .foregroundStyle(KitchenTableTheme.ink)
             .padding(.horizontal, 12)
             .frame(minHeight: 46)
-            .background(KitchenTableTheme.bone.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .background(KitchenTableTheme.page.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
             .overlay {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
             }
     }
 
@@ -773,7 +773,7 @@ struct SettingsView: View {
     @ViewBuilder private func settingsFactValue(_ value: String, identifier: String?) -> some View {
         let text = Text(value)
             .font(KitchenTableTheme.bodyNote)
-            .foregroundStyle(KitchenTableTheme.charcoal)
+            .foregroundStyle(KitchenTableTheme.ink)
             .multilineTextAlignment(.trailing)
         if let identifier {
             text.accessibilityIdentifier(identifier)
@@ -792,12 +792,12 @@ struct SettingsView: View {
                 .foregroundStyle(KitchenTableTheme.brass)
             Text(credentialValue)
                 .font(.system(.body, design: .monospaced))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .textSelection(.enabled)
             if let credentialPrefix {
                 Text(credentialPrefix)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
         }
     }
@@ -1149,13 +1149,13 @@ private enum SettingsRowProminence {
     var foreground: Color {
         switch self {
         case .primary:
-            KitchenTableTheme.paper
+            KitchenTableTheme.onInk
         case .secondary:
-            KitchenTableTheme.charcoal
+            KitchenTableTheme.ink
         case .destructive:
             KitchenTableTheme.tomato
         case .disabled:
-            KitchenTableTheme.inkMuted.opacity(0.62)
+            KitchenTableTheme.ink2.opacity(0.62)
         }
     }
 
@@ -1164,11 +1164,11 @@ private enum SettingsRowProminence {
         case .primary:
             KitchenTableTheme.brass
         case .secondary:
-            KitchenTableTheme.paper
+            KitchenTableTheme.raised
         case .destructive:
-            KitchenTableTheme.paper
+            KitchenTableTheme.raised
         case .disabled:
-            KitchenTableTheme.paper.opacity(0.72)
+            KitchenTableTheme.raised.opacity(0.72)
         }
     }
 
@@ -1177,11 +1177,11 @@ private enum SettingsRowProminence {
         case .primary:
             KitchenTableTheme.brass
         case .secondary:
-            KitchenTableTheme.line.opacity(0.55)
+            KitchenTableTheme.hairline.opacity(0.55)
         case .destructive:
             KitchenTableTheme.tomato.opacity(0.42)
         case .disabled:
-            KitchenTableTheme.line.opacity(0.38)
+            KitchenTableTheme.hairline.opacity(0.38)
         }
     }
 }
@@ -1194,14 +1194,14 @@ struct SettingsPanel<Content: View>: View {
             content()
         }
         .font(KitchenTableTheme.bodyNote)
-        .foregroundStyle(KitchenTableTheme.charcoal)
+        .foregroundStyle(KitchenTableTheme.ink)
         .tint(KitchenTableTheme.herb)
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         .overlay {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(KitchenTableTheme.line.opacity(0.42), lineWidth: 1)
+                .strokeBorder(KitchenTableTheme.hairline.opacity(0.42), lineWidth: 1)
         }
     }
 }

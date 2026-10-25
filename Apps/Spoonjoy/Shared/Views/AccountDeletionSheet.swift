@@ -58,7 +58,7 @@ struct AccountDeletionSheet: View {
                     cancel()
                 }
                 .font(KitchenTableTheme.bodyNote.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .disabled(isDeleting)
                 .accessibilityIdentifier(Self.cancelButtonIdentifier)
             }
@@ -141,7 +141,7 @@ struct AccountDeletionSheet: View {
             } else if isOffline {
                 Label(SettingsOnlineOnlyReason.accountDeletion.message, systemImage: "wifi.slash")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
 
             Button(role: .destructive) {
@@ -149,7 +149,7 @@ struct AccountDeletionSheet: View {
             } label: {
                 if isDeleting {
                     ProgressView()
-                        .tint(KitchenTableTheme.paper)
+                        .tint(KitchenTableTheme.raised)
                 } else {
                     Text("Delete account")
                 }
@@ -187,7 +187,7 @@ struct AccountDeletionSheet: View {
             } else {
                 Text("Sign in with Apple needs a signed Spoonjoy build. Delete your account on the web instead.")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                 webLink(url: webDeletionURL)
             }
             if let appleStatus {
@@ -202,7 +202,7 @@ struct AccountDeletionSheet: View {
         SettingsPanel {
             Text("Your account signs in with Google or GitHub, so the app can't confirm it's you. Delete it in Account settings on the web.")
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
             webLink(url: url)
         }
@@ -224,27 +224,27 @@ struct AccountDeletionSheet: View {
                 .foregroundStyle(KitchenTableTheme.brass)
             Text(body)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     /// The palette is fixed-light, so placeholders get an explicit muted ink instead of the system color that fades in dark mode.
     private static func placeholder(_ text: String) -> Text {
-        Text(text).foregroundStyle(KitchenTableTheme.inkMuted)
+        Text(text).foregroundStyle(KitchenTableTheme.ink2)
     }
 
     private func sheetField<Field: View>(@ViewBuilder _ field: () -> Field) -> some View {
         field()
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
-            .foregroundStyle(KitchenTableTheme.charcoal)
+            .foregroundStyle(KitchenTableTheme.ink)
             .padding(.horizontal, 12)
             .frame(minHeight: 46)
-            .background(KitchenTableTheme.bone.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+            .background(KitchenTableTheme.page.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
             .overlay {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.line.opacity(0.55), lineWidth: 1)
+                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
             }
     }
 

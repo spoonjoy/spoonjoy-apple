@@ -454,7 +454,7 @@ struct RecipeDetailView: View {
     private var recipeNoPhotoStatus: some View {
         Label(viewModel.cover.noPhotoLabel, systemImage: "photo.badge.plus")
             .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.inkMuted)
+            .foregroundStyle(KitchenTableTheme.ink2)
             .accessibilityLabel(viewModel.cover.accessibilityLabel)
     }
 
@@ -467,14 +467,14 @@ struct RecipeDetailView: View {
 
             Text(viewModel.title)
                 .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("recipeDetail.title")
             if let subtitle = viewModel.recipe.displaySubtitle {
                 Text(subtitle)
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -485,7 +485,7 @@ struct RecipeDetailView: View {
             if let servingsLabel = viewModel.servingsLabel {
                 Text(servingsLabel)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
 
             recipeProvenance
@@ -496,7 +496,7 @@ struct RecipeDetailView: View {
         if let sourceAttribution = viewModel.sourceAttribution {
             Label(sourceAttribution.creditLine, systemImage: Self.provenanceIconName)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
         }
     }
 
@@ -528,7 +528,7 @@ struct RecipeDetailView: View {
                 .contentShape(Rectangle())
         }
         .font(KitchenTableTheme.uiLabel)
-        .foregroundStyle(KitchenTableTheme.inkMuted)
+        .foregroundStyle(KitchenTableTheme.ink2)
         .buttonStyle(.plain)
         .accessibilityHint("Clears checked step ingredients and resets recipe scale.")
         .accessibilityIdentifier("recipeDetail.clearProgress")
@@ -787,7 +787,7 @@ struct RecipeDetailView: View {
             if viewModel.stepSections.isEmpty {
                 Text("No steps added yet")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 18)
             } else {
@@ -821,7 +821,7 @@ struct RecipeDetailView: View {
                 if let title = section.title, !title.isEmpty {
                     Text(title)
                         .font(KitchenTableTheme.sectionTitle)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
             }
@@ -831,7 +831,7 @@ struct RecipeDetailView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Ingredients")
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .textCase(.uppercase)
                         .tracking(1.1)
                         .padding(.bottom, KitchenTableTheme.Checklist.headingGap)
@@ -868,7 +868,7 @@ struct RecipeDetailView: View {
 
             Text(section.body)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -876,7 +876,7 @@ struct RecipeDetailView: View {
         .overlay(alignment: .bottom) {
             if !isLast {
                 Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.35))
+                    .fill(KitchenTableTheme.hairline.opacity(0.35))
                     .frame(height: 1)
             }
         }
@@ -932,7 +932,7 @@ struct RecipeDetailView: View {
                 .padding(.vertical, 6)
                 .overlay(alignment: .bottom) {
                     Rectangle()
-                        .fill(KitchenTableTheme.line.opacity(0.35))
+                        .fill(KitchenTableTheme.hairline.opacity(0.35))
                         .frame(height: 1)
                 }
             }
@@ -973,11 +973,11 @@ struct RecipeDetailView: View {
             Image(systemName: "ellipsis")
                 .font(.headline.weight(.semibold))
                 .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                .foregroundStyle(KitchenTableTheme.ink)
+                .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
                 .overlay {
                     RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.hairline.opacity(0.75), lineWidth: 1)
                 }
         }
         .buttonStyle(.plain)
@@ -1458,11 +1458,11 @@ extension RecipeDetailView {
         VStack(alignment: .leading, spacing: 4) {
             Text("Ingredients")
                 .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .accessibilityAddTraits(.isHeader)
             Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
         }
         .padding(.top, 6)
 
@@ -1489,7 +1489,7 @@ extension RecipeDetailView {
                     if let title = group.title {
                         Text(title)
                             .font(KitchenTableTheme.instructionBody.italic())
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .foregroundStyle(KitchenTableTheme.ink)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
                     }
@@ -1528,7 +1528,7 @@ extension RecipeDetailView {
         .background(isHighlighted ? KitchenTableTheme.selectionWash : Color.clear)
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(isHighlighted ? KitchenTableTheme.brass : KitchenTableTheme.line)
+                .fill(isHighlighted ? KitchenTableTheme.brass : KitchenTableTheme.hairline)
                 .frame(width: isHighlighted ? 3 : 1)
         }
         .animation(accessibilityReduceMotion ? nil : .easeOut(duration: 0.2), value: isHighlighted)
@@ -1544,18 +1544,18 @@ extension RecipeDetailView {
                     .lineLimit(1)
                 Text("Method")
                     .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text(spreadMethodSummary)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             .padding(.bottom, 12)
 
             if viewModel.stepSections.isEmpty {
                 Text("No steps added yet")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .padding(.vertical, 18)
             } else {
                 ForEach(viewModel.stepSections) { section in
@@ -1594,11 +1594,11 @@ extension RecipeDetailView {
                     if let title = section.title, !title.isEmpty {
                         Text(title)
                             .font(KitchenTableTheme.objectTitle)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .foregroundStyle(KitchenTableTheme.ink)
                     }
                     Text(section.body)
                         .font(KitchenTableTheme.instructionBody)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .lineSpacing(3)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
@@ -1613,7 +1613,7 @@ extension RecipeDetailView {
             .background(isSelected ? KitchenTableTheme.selectionWash : Color.clear)
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.35))
+                    .fill(KitchenTableTheme.hairline.opacity(0.35))
                     .frame(height: 1)
             }
             .contentShape(Rectangle())
@@ -1707,19 +1707,19 @@ private struct RecipeSpreadIngredientRow: View {
                 Text(amount)
                     .font(KitchenTableTheme.uiLabel)
                     .monospacedDigit()
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .frame(width: 72, alignment: .leading)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(name)
                         .font(KitchenTableTheme.instructionBody)
-                        .foregroundStyle(isChecked ? KitchenTableTheme.inkMuted : KitchenTableTheme.charcoal)
-                        .strikethrough(isChecked, color: KitchenTableTheme.inkMuted)
+                        .foregroundStyle(isChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
+                        .strikethrough(isChecked, color: KitchenTableTheme.ink2)
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
                     if let note {
                         Text(note)
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                     }
                 }
                 Spacer(minLength: 0)
@@ -1780,12 +1780,12 @@ private struct RecipeScaleSelector: View {
             VStack(spacing: isCompact ? 0 : 2) {
                 Text("Yield")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .textCase(.uppercase)
                     .tracking(1.2)
                 Text(displayValue)
                     .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.72)
@@ -1797,10 +1797,10 @@ private struct RecipeScaleSelector: View {
                 setScaleFactor(min(maximum, rounded(scaleFactor + step)))
             }
         }
-        .background(KitchenTableTheme.paper)
+        .background(KitchenTableTheme.raised)
         .overlay {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.line.opacity(0.72), lineWidth: 1)
+                .stroke(KitchenTableTheme.hairline.opacity(0.72), lineWidth: 1)
         }
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         .accessibilityElement(children: .combine)
@@ -1822,7 +1822,7 @@ private struct RecipeScaleSelector: View {
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
-        .foregroundStyle(isDisabled ? KitchenTableTheme.inkMuted.opacity(0.42) : KitchenTableTheme.charcoal)
+        .foregroundStyle(isDisabled ? KitchenTableTheme.ink2.opacity(0.42) : KitchenTableTheme.ink)
         .accessibilityLabel(label)
     }
 
@@ -1873,7 +1873,7 @@ private struct RecipeStepChecklistRow: View {
                         if showsSeparator {
                             Rectangle()
                                 .fill(KitchenTableTheme.ruleSoft)
-                                .frame(height: KitchenTableTheme.hairline)
+                                .frame(height: KitchenTableTheme.hairlineWidth)
                         }
                     }
             }
@@ -1906,8 +1906,8 @@ private struct RecipeStepChecklistRow: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(isChecked ? KitchenTableTheme.inkMuted : KitchenTableTheme.charcoal)
-                .strikethrough(isChecked, color: KitchenTableTheme.inkMuted)
+                .foregroundStyle(isChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
+                .strikethrough(isChecked, color: KitchenTableTheme.ink2)
                 .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -1915,7 +1915,7 @@ private struct RecipeStepChecklistRow: View {
                 Text(note)
                     .font(KitchenTableTheme.uiLabel)
                     .tracking(0.8)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .textCase(.uppercase)
             }
         }
@@ -1926,7 +1926,7 @@ private struct RecipeStepChecklistRow: View {
             Text(amount)
                 .font(KitchenTableTheme.uiLabel)
                 .monospacedDigit()
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

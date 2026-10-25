@@ -128,7 +128,7 @@ struct CookModeView: View {
     var body: some View {
         cookModeBody
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .onChange(of: incomingProgress) { _, incoming in
             // Progress from another device arrives through the store. The step, scale and checked
             // ingredients follow it; completed steps stay as they are on this device. A change made
@@ -317,7 +317,7 @@ struct CookModeView: View {
 
             Text(recipe.title)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityAddTraits(.isHeader)
@@ -436,7 +436,7 @@ struct CookModeView: View {
             }
             Text(step.description)
                 .font(KitchenTableTheme.spreadInstruction)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .lineSpacing(5)
                 .fixedSize(horizontal: false, vertical: true)
             if let timer = viewModel.systemTimer {
@@ -455,7 +455,7 @@ struct CookModeView: View {
     private func currentStepTitle(_ step: RecipeStep) -> some View {
         Text(step.stepTitle ?? "Step \(step.stepNum)")
             .font(KitchenTableTheme.displayTitle)
-            .foregroundStyle(KitchenTableTheme.charcoal)
+            .foregroundStyle(KitchenTableTheme.ink)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)
             .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
@@ -472,7 +472,7 @@ struct CookModeView: View {
                                     .foregroundStyle(KitchenTableTheme.brass)
                                     .accessibilityHidden(true)
                                 Text(row.title)
-                                    .foregroundStyle(KitchenTableTheme.charcoal)
+                                    .foregroundStyle(KitchenTableTheme.ink)
                             }
                         }
                         .toggleStyle(.largeCheck)
@@ -527,7 +527,7 @@ struct CookModeView: View {
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.horizontal, KitchenTableTheme.pagePadding)
         .padding(.vertical, 12)
-        .background(KitchenTableTheme.paper.opacity(0.72))
+        .background(KitchenTableTheme.raised.opacity(0.72))
     }
 
     private var cookModeBottomActionRail: some View {
@@ -543,7 +543,7 @@ struct CookModeView: View {
         .padding(.horizontal, 12)
         .padding(.top, 10)
         .padding(.bottom, 8)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .overlay(alignment: .top) {
             Divider()
         }
@@ -819,7 +819,7 @@ extension CookModeView {
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Gather")
                         .font(KitchenTableTheme.displayTitle)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .accessibilityAddTraits(.isHeader)
                 }
                 stepProgressRail
@@ -830,7 +830,7 @@ extension CookModeView {
             if viewModel.stepOutputChecklistRows.isEmpty && viewModel.ingredientChecklistRows.isEmpty {
                 Text("Nothing new to gather for this step.")
                     .font(KitchenTableTheme.instructionBody)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             dependencyChecklist
             ingredientChecklist
@@ -850,13 +850,13 @@ extension CookModeView {
                         .accessibilityHidden(true)
                     Text(currentStep.stepTitle ?? "Step \(currentStep.stepNum)")
                         .font(KitchenTableTheme.sectionTitle)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                         .accessibilityLabel("Current cooking step \(currentStep.stepNum), \(currentStep.stepTitle ?? "Step")")
                 }
                 Text(currentStep.description)
                     .font(KitchenTableTheme.cookInstruction)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
                 if let timer = viewModel.systemTimer {
@@ -923,7 +923,7 @@ private struct CookModeIngredientChecklistLabel: View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text(row.title)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
@@ -933,7 +933,7 @@ private struct CookModeIngredientChecklistLabel: View {
             if !row.quantityText.isEmpty {
                 Text(row.quantityText)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
@@ -953,7 +953,7 @@ private struct ScaleSelector: View {
         Stepper(value: scaleBinding, in: 0.25...50, step: 0.25) {
             Label("Scale \(scaleFactor.formatted(.number.precision(.fractionLength(0...2))))×", systemImage: "person.2")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
         }
         .tint(KitchenTableTheme.herb)
     }
@@ -1124,7 +1124,7 @@ private struct CookModeSystemTimer: View {
     private var unavailableCue: some View {
         Label(timer.systemUnavailableMessage, systemImage: "iphone")
             .font(KitchenTableTheme.uiLabel)
-            .foregroundStyle(KitchenTableTheme.inkMuted)
+            .foregroundStyle(KitchenTableTheme.ink2)
             .lineLimit(2)
             .multilineTextAlignment(.trailing)
             .fixedSize(horizontal: false, vertical: true)

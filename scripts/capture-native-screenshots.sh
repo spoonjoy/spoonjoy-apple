@@ -9,6 +9,7 @@ requested_shopping_variant=""
 requested_shopping_mode="all"
 requested_shopping_category="all"
 requested_dynamic_type="default"
+requested_appearance="light"
 requested_ios_orientation="portrait"
 requested_macos_window="900x620"
 while [[ $# -gt 0 ]]; do
@@ -45,6 +46,10 @@ while [[ $# -gt 0 ]]; do
       requested_dynamic_type="$2"
       shift 2
       ;;
+    --appearance)
+      requested_appearance="$2"
+      shift 2
+      ;;
     --ios-orientation)
       requested_ios_orientation="$2"
       shift 2
@@ -64,8 +69,9 @@ case "$capture_platform" in all|iphone|ipad|macos) ;; *) printf 'Unsupported cap
 case "$requested_shopping_variant" in ""|normal|empty|all-complete|pending|row-error|offline-queued|conflict|duplicate) ;; *) printf 'Unsupported shopping variant: %s\n' "$requested_shopping_variant" >&2; exit 2 ;; esac
 case "$requested_shopping_mode" in need|basket|all) ;; *) printf 'Unsupported shopping mode: %s\n' "$requested_shopping_mode" >&2; exit 2 ;; esac
 case "$requested_dynamic_type" in default|accessibility5) ;; *) printf 'Unsupported dynamic type: %s\n' "$requested_dynamic_type" >&2; exit 2 ;; esac
+case "$requested_appearance" in light|dark) ;; *) printf 'Unsupported appearance: %s\n' "$requested_appearance" >&2; exit 2 ;; esac
 case "$requested_ios_orientation" in portrait|landscape) ;; *) printf 'Unsupported iOS orientation: %s\n' "$requested_ios_orientation" >&2; exit 2 ;; esac
-if [[ "$capture_platform" != "all" ]]; then
+if [[ "$capture_platform" != "all" && -z "$requested_route" ]]; then
   requested_route="shopping-list"
 fi
 
@@ -1463,7 +1469,7 @@ wait_for_ios_foreground() {
 
 validate_ios_screenshot() {
   local screenshot_path="$1"
-  python3 - "$screenshot_path" <<'PY'
+  python3 - "$screenshot_path" "$requested_appearance" <<'PY'
 import sys
 import struct
 import zlib
@@ -1536,6 +1542,7 @@ for y in list(range(0, int(height * 0.18))) + list(range(int(height * 0.90), hei
         if red < 20 and green < 20 and blue < 20:
             black += 1
 
+night = len(sys.argv) > 2 and sys.argv[2] == "dark"
 bone = 0
 bone_total = 0
 for y in range(int(height * 0.20), int(height * 0.88)):
@@ -1543,7 +1550,11 @@ for y in range(int(height * 0.20), int(height * 0.88)):
         bone_total += 1
         index = x * channels
         red, green, blue = rows[y][index], rows[y][index + 1], rows[y][index + 2]
-        if red >= 220 and green >= 210 and blue >= 185 and abs(red - green) < 35 and red >= blue:
+        if night:
+            # The night page (#1E1C19) and raised surfaces (#282522) are warm near-blacks.
+            if 22 <= red <= 64 and 20 <= green <= 60 and abs(red - green) < 12 and red >= blue:
+                bone += 1
+        elif red >= 220 and green >= 210 and blue >= 185 and abs(red - green) < 35 and red >= blue:
             bone += 1
 
 black_ratio = black / max(black_total, 1)
@@ -1943,6 +1954,7 @@ capture_ios_app() {
   else
     xcrun simctl ui "$udid" content_size large >> "$capture_log" 2>&1
   fi
+  xcrun simctl ui "$udid" appearance "$requested_appearance" >> "$capture_log" 2>&1
   if [[ "$expected_platform" == "ipad" ]]; then
     set_simulator_orientation "$udid" "$requested_ios_orientation" || return 1
   fi

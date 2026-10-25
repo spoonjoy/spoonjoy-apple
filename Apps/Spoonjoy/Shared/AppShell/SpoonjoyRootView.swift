@@ -235,7 +235,7 @@ struct SpoonjoyRootView: View {
             HStack(spacing: 12) {
                 Text("You're signed out. Sign in to sync your kitchen.")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Button("Sign In") {
                     showsReauthSheet = true
@@ -245,7 +245,7 @@ struct SpoonjoyRootView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(KitchenTableTheme.bone)
+            .background(KitchenTableTheme.page)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("session.signedOutBanner")
         }
@@ -602,11 +602,11 @@ struct SpoonjoyRootView: View {
                 .accessibilityHidden(true)
             Text("Spoonjoy")
                 .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             ProgressView {
                 Text("Restoring your kitchen")
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
             }
             .controlSize(.large)
             OfflineStatusView(display: contentState.offlineIndicatorState.display, onDismiss: liveStore.dismissOfflineIndicator)
@@ -614,7 +614,7 @@ struct SpoonjoyRootView: View {
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .padding(32)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
     }
 
     private func syncFailedView(contentState: NativeShellContentState, message failureMessage: String) -> some View {
@@ -627,15 +627,15 @@ struct SpoonjoyRootView: View {
                 .foregroundStyle(KitchenTableTheme.tomato)
             Text("We couldn't load your kitchen")
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Text(bodyText)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.78))
+                .foregroundStyle(KitchenTableTheme.ink.opacity(0.78))
                 .multilineTextAlignment(.center)
             if let diagnosticText {
                 Text(diagnosticText)
                     .font(.caption.monospaced())
-                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.68))
+                    .foregroundStyle(KitchenTableTheme.ink.opacity(0.68))
                     .multilineTextAlignment(.center)
                     .textSelection(.enabled)
             }
@@ -662,7 +662,7 @@ struct SpoonjoyRootView: View {
         .frame(maxWidth: 440)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .padding(32)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
     }
 
     private func syncFailureBodyText(_ message: String) -> String {

@@ -165,12 +165,12 @@ struct CookbooksView: View {
                 .foregroundStyle(KitchenTableTheme.brass)
             Text(cookbook.title)
                 .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
             Text("\(cookbook.chefLine) - \(cookbook.recipeCountLabel)")
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
             leadCookbookActions(cookbook)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -275,10 +275,10 @@ struct CookbooksView: View {
                 .foregroundStyle(KitchenTableTheme.brass)
             Text(emptyState.title)
                 .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Text(emptyState.message)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 28)
@@ -480,9 +480,9 @@ struct CookbookThumb: View {
         } else {
             Text(String(title.prefix(1)).uppercased())
                 .font(.system(.title2, design: .serif).weight(.bold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .frame(width: 56, height: 56)
-                .background(KitchenTableTheme.paper)
+                .background(KitchenTableTheme.raised)
                 .overlay {
                     RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                         .strokeBorder(KitchenTableTheme.lineStrong.opacity(0.55), lineWidth: 1)
@@ -544,7 +544,7 @@ private struct CookbookCoverArt: View {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
                 .strokeBorder(KitchenTableTheme.lineStrong.opacity(0.56), lineWidth: 1)
         }
-        .shadow(color: KitchenTableTheme.charcoal.opacity(0.08), radius: 10, y: 6)
+        .shadow(color: KitchenTableTheme.ink.opacity(0.08), radius: 10, y: 6)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title), \(recipeCountLabel)")
         .accessibilityIdentifier("CookbookCoverArt")
@@ -559,7 +559,7 @@ private struct CookbookImageCover: View {
         GeometryReader { proxy in
             coverMosaic(in: proxy.size)
         }
-        .background(KitchenTableTheme.paper)
+        .background(KitchenTableTheme.raised)
     }
 
     @ViewBuilder private func coverMosaic(in size: CGSize) -> some View {
@@ -614,7 +614,7 @@ private struct CookbookFallbackCover: View {
                     .font(.caption2.weight(.bold))
                     .tracking(0.8)
                     .textCase(.uppercase)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             .padding([.horizontal, .top], 14)
             .padding(.bottom, 12)
@@ -628,7 +628,7 @@ private struct CookbookFallbackCover: View {
 
             Text(title)
                 .font(.system(.title2, design: .serif).weight(.bold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .lineLimit(2)
                 .minimumScaleFactor(0.66)
                 .allowsTightening(true)
@@ -639,11 +639,11 @@ private struct CookbookFallbackCover: View {
                 Rectangle().frame(width: 120, height: 1)
                 Rectangle().frame(width: 88, height: 1)
             }
-            .foregroundStyle(KitchenTableTheme.line.opacity(0.72))
+            .foregroundStyle(KitchenTableTheme.hairline.opacity(0.72))
             .padding(14)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.paper)
+        .background(KitchenTableTheme.raised)
     }
 }
 
@@ -915,10 +915,10 @@ private struct CookbookDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("No recipes yet")
                         .font(KitchenTableTheme.sectionTitle)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                     Text(viewModel.ownerTools.isVisible ? "Add recipes with owner tools below." : "This cookbook is empty.")
                         .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
                 .padding(.vertical, 24)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -942,10 +942,10 @@ private struct CookbookDetailView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("No recipes match \u{201C}\(recipeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}")
                             .font(KitchenTableTheme.bodyNote)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .foregroundStyle(KitchenTableTheme.ink)
                         Text(SearchSurfaceEmptyState.noMatchHelp)
                             .font(KitchenTableTheme.bodyNote)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                     }
                     .padding(.vertical, 12)
                     .accessibilityElement(children: .combine)
@@ -979,7 +979,7 @@ private struct CookbookDetailView: View {
     private var recipeSearchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .accessibilityHidden(true)
             TextField("Search this cookbook", text: $recipeQuery)
                 .textFieldStyle(.plain)
@@ -994,7 +994,7 @@ private struct CookbookDetailView: View {
                     recipeQuery = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Clear search")
@@ -1002,10 +1002,10 @@ private struct CookbookDetailView: View {
         }
         .padding(.horizontal, 12)
         .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-        .background(KitchenTableTheme.paper, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         .overlay {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(KitchenTableTheme.line.opacity(0.75), lineWidth: 1)
+                .strokeBorder(KitchenTableTheme.hairline.opacity(0.75), lineWidth: 1)
         }
     }
 
@@ -1016,7 +1016,7 @@ private struct CookbookDetailView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Cookbook details")
                             .font(KitchenTableTheme.sectionTitle)
-                            .foregroundStyle(KitchenTableTheme.charcoal)
+                            .foregroundStyle(KitchenTableTheme.ink)
                         TextField("Title", text: $renameTitle)
                             .textFieldStyle(.roundedBorder)
                         Button {
@@ -1035,7 +1035,7 @@ private struct CookbookDetailView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Add recipe to cookbook")
                                 .font(KitchenTableTheme.sectionTitle)
-                                .foregroundStyle(KitchenTableTheme.charcoal)
+                                .foregroundStyle(KitchenTableTheme.ink)
                             Picker("Recipe", selection: selectedRecipeBinding) {
                                 ForEach(viewModel.ownerTools.availableRecipes, id: \.id) { recipe in
                                     Text(recipe.title).tag(Optional(recipe.id))
@@ -1071,12 +1071,12 @@ private struct CookbookDetailView: View {
             } label: {
                 Label("Owner tools", systemImage: "wrench.and.screwdriver")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
             }
             .padding(.vertical, 12)
             .overlay(alignment: .top) {
                 Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.55))
+                    .fill(KitchenTableTheme.hairline.opacity(0.55))
                     .frame(height: 1)
             }
             .accessibilityIdentifier("CookbookOwnerToolsDisclosure")
@@ -1189,7 +1189,7 @@ private struct CookbookRecipeIndexRow: View {
         }
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(KitchenTableTheme.line.opacity(0.35))
+                .fill(KitchenTableTheme.hairline.opacity(0.35))
                 .frame(height: 1)
         }
     }
@@ -1220,13 +1220,13 @@ private struct CookbookRecipeIndexRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(recipe.title)
                         .font(KitchenTableTheme.indexTitle)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     if let servingsLabel = recipe.servingsLabel {
                         Text(servingsLabel)
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                     }
                 }
 

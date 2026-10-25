@@ -31,7 +31,7 @@ struct KitchenTableLoadingStateView: View {
             VStack(spacing: 5) {
                 Text(title)
                     .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.82)
@@ -39,7 +39,7 @@ struct KitchenTableLoadingStateView: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
                 }
@@ -47,7 +47,7 @@ struct KitchenTableLoadingStateView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         .padding(32)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .transition(accessibilityReduceMotion ? .identity : .opacity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
@@ -103,16 +103,16 @@ struct KitchenTableRouteErrorView: View {
 
             Text(message)
                 .font(KitchenTableTheme.displayTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(guidance)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
 
             Rectangle()
-                .fill(KitchenTableTheme.line.opacity(0.55))
+                .fill(KitchenTableTheme.hairline.opacity(0.55))
                 .frame(height: 1)
 
             if let backToRecipes {
@@ -127,7 +127,7 @@ struct KitchenTableRouteErrorView: View {
         .padding(KitchenTableTheme.pagePadding)
         .frame(maxWidth: 720, maxHeight: .infinity, alignment: .topLeading)
         .frame(maxWidth: .infinity, alignment: .center)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .transition(accessibilityReduceMotion ? .identity : .opacity)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("route.error")

@@ -386,7 +386,7 @@ struct PlatformNavigationView: View {
         // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the
         // selected tab, matching the web dock's brass primary button. Pages set their own action tint.
         .tint(KitchenTableTheme.brass)
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+        .background(KitchenTableTheme.page.ignoresSafeArea())
     }
 
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
@@ -472,7 +472,7 @@ struct PlatformNavigationView: View {
             .environment(\.spoonjoyCompactNavigation, true)
             // Screens keep the charcoal action tint; only the tab bar uses brass.
             .tint(KitchenTableTheme.action)
-            .background(KitchenTableTheme.bone.ignoresSafeArea())
+            .background(KitchenTableTheme.page.ignoresSafeArea())
     }
 
     /// Mine, Saved and Everyone share the Recipes tab.
@@ -688,10 +688,10 @@ struct PlatformNavigationView: View {
             OfflineStatusView(display: offlineIndicatorState.display, onDismiss: dismissOfflineIndicator)
                 .frame(maxWidth: 372, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .center)
                 .padding(.horizontal, 12)
-                .background(KitchenTableTheme.paper.opacity(0.94), in: Capsule())
+                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule())
                 .overlay {
                     Capsule()
-                        .strokeBorder(KitchenTableTheme.line.opacity(0.7), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.hairline.opacity(0.7), lineWidth: 1)
                 }
         }
     }
@@ -705,7 +705,7 @@ struct PlatformNavigationView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal)
             .padding(.vertical, 6)
-            .background(KitchenTableTheme.bone.opacity(0.98))
+            .background(KitchenTableTheme.page.opacity(0.98))
             .overlay(alignment: .top) {
                 Divider()
             }
@@ -757,7 +757,7 @@ struct PlatformNavigationView: View {
                     .lineLimit(1)
                 Text(entry.recipeCountLabel)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
         } icon: {
             Image(systemName: "book.closed.fill")
@@ -784,7 +784,7 @@ struct PlatformNavigationView: View {
                 .shellRefreshable(for: route) { await runForegroundSync() }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+        .background(KitchenTableTheme.page.ignoresSafeArea())
     }
 
     private func recipeDetailRoute(id: String) -> some View {
@@ -2459,7 +2459,7 @@ private struct ShellPlaceholderView: View {
             Label(title, systemImage: systemImage)
                 .font(.title)
             Text(detail)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
