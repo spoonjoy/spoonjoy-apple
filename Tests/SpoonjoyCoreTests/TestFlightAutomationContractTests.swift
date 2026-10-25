@@ -161,7 +161,7 @@ struct TestFlightAutomationContractTests {
         let jobPattern = /(?m)^  ([A-Za-z0-9_-]+):\n/
         let names = jobsSection.matches(of: jobPattern).map { String($0.1) }
         let bodies = jobsSection.split(separator: jobPattern, omittingEmptySubsequences: true).map(String.init)
-        #expect(names == ["journeys", "shopping-ui-tests"])
+        #expect(names == ["journeys", "duo-journeys", "shopping-ui-tests"])
         #expect(bodies.count == names.count)
 
         for (name, body) in zip(names, bodies) {

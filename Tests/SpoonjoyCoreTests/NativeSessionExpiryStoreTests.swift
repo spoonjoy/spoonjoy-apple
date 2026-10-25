@@ -834,6 +834,37 @@ struct NativeSessionExpiryStoreTests {
         #expect(missing.store.restoredRoute == nil)
     }
 
+    @MainActor
+    @Test("a link that launches the app keeps the chef's saved cook progress")
+    func linkOpenedBeforeRestoreKeepsCookProgress() async throws {
+        let fixture = try await Self.fixture(outcomes: [.success])
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let progress = CookModeProgress(recipeID: "recipe_cached", completedStepIDs: [], currentStepID: "step_2")
+        try fixture.appStateStore.save(
+            NativeAppSnapshot.bootstrap(
+                shoppingList: nil,
+                accountID: "chef_ari",
+                environment: .production,
+                savedAt: "2026-06-16T11:00:00.000Z"
+            ).updatingCookProgress(progress, savedAt: "2026-06-16T11:00:00.000Z")
+        )
+
+        // The link arrives before the store has read the saved sign-in.
+        fixture.store.recordingOpenedRoute(.kitchen)
+        await fixture.store.bootstrap()
+
+        #expect(fixture.store.bootstrapState.contentState.cookProgressByRecipeID["recipe_cached"]?.currentStepID == "step_2")
+        let saved = try fixture.appStateStore.loadOrCreate(fallback: NativeAppSnapshot.bootstrap(
+            shoppingList: nil,
+            accountID: nil,
+            environment: nil,
+            savedAt: "2026-06-16T11:00:00.000Z"
+        )).value
+        #expect(saved.accountID == "chef_ari")
+        #expect(saved.cookProgress(for: "recipe_cached")?.currentStepID == "step_2")
+        #expect(saved.lastOpenedRoute == AppRoute.kitchen.stateIdentifier)
+    }
+
     // MARK: Sync age
 
     @MainActor

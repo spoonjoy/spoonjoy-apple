@@ -28,6 +28,8 @@ UI_TEST_TARGET = "SpoonjoyShoppingUITests"
 UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 JOURNEYS_TARGET = "SpoonjoyJourneys"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
+DUO_JOURNEYS_TARGET = "SpoonjoyDuoJourneys"
+DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
 WIDGET_TARGET = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
@@ -200,18 +202,33 @@ widget_target.build_configuration_list.build_configurations.each do |configurati
 end
 fail_check("#{WIDGET_BUNDLE_ID} must sit under #{IOS_BUNDLE_ID} so the app's automatic signing covers it") unless WIDGET_BUNDLE_ID.start_with?("#{IOS_BUNDLE_ID}.")
 
-journeys_target = target_by_name[JOURNEYS_TARGET] || fail_check("missing target #{JOURNEYS_TARGET}")
-fail_check("#{JOURNEYS_TARGET} must be a UI test bundle") unless journeys_target.symbol_type == :ui_test_bundle
-fail_check("#{JOURNEYS_TARGET} must depend only on #{IOS_TARGET}") unless journeys_target.dependencies.map { |dependency| dependency.target&.name }.compact == [IOS_TARGET]
-journeys_target.build_configuration_list.build_configurations.each do |configuration|
-  settings = configuration.build_settings
-  assert_setting(settings, "PRODUCT_BUNDLE_IDENTIFIER", JOURNEYS_BUNDLE_ID, "#{JOURNEYS_TARGET} #{configuration.name}")
-  assert_setting(settings, "TEST_TARGET_NAME", IOS_TARGET, "#{JOURNEYS_TARGET} #{configuration.name}")
-  assert_setting(settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", "#{JOURNEYS_TARGET} #{configuration.name}")
+all_journeys_sources = APP_ROOT.join("Journeys").find.select { |path| path.file? && path.extname == ".swift" }.map(&:to_s).sort
+duo_dir = "#{APP_ROOT.join("Journeys/Duo")}/"
+support_dir = "#{APP_ROOT.join("Journeys/Support")}/"
+{
+  JOURNEYS_TARGET => {
+    bundle_id: JOURNEYS_BUNDLE_ID,
+    sources: all_journeys_sources.reject { |path| path.start_with?(duo_dir) },
+    rule: "Apps/Spoonjoy/Journeys/**/*.swift outside Journeys/Duo"
+  },
+  DUO_JOURNEYS_TARGET => {
+    bundle_id: DUO_JOURNEYS_BUNDLE_ID,
+    sources: all_journeys_sources.select { |path| path.start_with?(duo_dir) || path.start_with?(support_dir) },
+    rule: "Apps/Spoonjoy/Journeys/Duo/**/*.swift plus Journeys/Support"
+  }
+}.each do |name, expected|
+  target = target_by_name[name] || fail_check("missing target #{name}")
+  fail_check("#{name} must be a UI test bundle") unless target.symbol_type == :ui_test_bundle
+  fail_check("#{name} must depend only on #{IOS_TARGET}") unless target.dependencies.map { |dependency| dependency.target&.name }.compact == [IOS_TARGET]
+  target.build_configuration_list.build_configurations.each do |configuration|
+    settings = configuration.build_settings
+    assert_setting(settings, "PRODUCT_BUNDLE_IDENTIFIER", expected.fetch(:bundle_id), "#{name} #{configuration.name}")
+    assert_setting(settings, "TEST_TARGET_NAME", IOS_TARGET, "#{name} #{configuration.name}")
+    assert_setting(settings, "SWIFT_TREAT_WARNINGS_AS_ERRORS", "YES", "#{name} #{configuration.name}")
+  end
+  sources = target.source_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact.sort
+  fail_check("#{name} sources must be exactly #{expected.fetch(:rule)}") unless sources == expected.fetch(:sources)
 end
-journeys_sources = journeys_target.source_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact.sort
-expected_journeys_sources = APP_ROOT.join("Journeys").find.select { |path| path.file? && path.extname == ".swift" }.map(&:to_s).sort
-fail_check("#{JOURNEYS_TARGET} sources must be exactly Apps/Spoonjoy/Journeys/**/*.swift") unless journeys_sources == expected_journeys_sources
 
 {
   IOS_SCHEME => { required: IOS_TARGET, forbidden: MAC_TARGET },
@@ -264,7 +281,7 @@ def assert_package_product(target, product_name)
   fail_check("#{target.name} has duplicate #{product_name} Frameworks entries") if framework_entries.length > 1
 end
 
-[ios_target, mac_target, journeys_target].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
+[ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[DUO_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
 
 mac_bootstrap = Gem::Version.new(
   mac_target.build_configuration_list["BootstrapDebug"].build_settings.fetch("MACOSX_DEPLOYMENT_TARGET")

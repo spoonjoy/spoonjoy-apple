@@ -275,11 +275,25 @@ struct V2APIRecordingContractTests {
         case "connections-list": try envelope(SettingsOAuthConnectionListResponse.self, data)
         case "connection-disconnect": try envelope(JSONValue.self, data)
         case "account-delete": try envelope(AccountDeletionResult.self, data)
-        // The app does not read the cooking-now list yet; this keeps the recording decodable as an envelope.
-        case "cooking-now": try envelope(JSONValue.self, data)
+        case "cooking-now": try envelope(CookingNowServerList.self, data)
         default: return false
         }
         return true
+    }
+
+    @Test("the cooking-now recording reads as the Kitchen's card")
+    func cookingNowRecordingReads() throws {
+        let entries = try APIEnvelope<CookingNowServerList>.decode(Self.body("cooking-now")).data.entries
+        let entry = try #require(entries.first)
+        #expect(entries.count == 1)
+        #expect(entry.recipeID == "id_004")
+        #expect(entry.title == "Lemon Pantry Pasta")
+        #expect(entry.coverURL == nil)
+        #expect(entry.activeStepID == "id_005")
+        #expect(entry.stepLabel == "Step 1 of 2")
+        #expect(entry.checkedCount == 1)
+        #expect(entry.totalCount == 5)
+        #expect(entry.timers.isEmpty)
     }
 
     @Test("every recording has a decoder and every decoder has a recording")

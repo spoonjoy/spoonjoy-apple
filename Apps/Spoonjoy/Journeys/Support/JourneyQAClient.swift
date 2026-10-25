@@ -50,13 +50,44 @@ struct JourneyQAClient: Sendable {
         )
     }
 
+    /// Signs `account` in as the app would and returns the session the app saves, for a journey that installs it
+    /// instead of typing into the sign-in form (the Duo journey; see `DuoHinge.installSession`).
+    static func nativeSession(_ account: JourneyAccount) async throws -> AuthSession {
+        let builder = try NativePasswordSignInRequests.exchangeCredential(
+            NativePasswordSignInCredential(emailOrUsername: account.username, password: account.password)
+        )
+        let data = try await send(builder, configuration: APIClientConfiguration(baseURL: JourneyQA.baseURL))
+        let token = try (try? APIEnvelope<OAuthTokenResponse>.decode(data).data) ??
+            JSONDecoder().decode(OAuthTokenResponse.self, from: data)
+        // Bound to its account, as the app binds a session after its first sync, so what the app saves under this
+        // account is found again after a relaunch.
+        let sync = try APIEnvelope<NativeSyncData>.decode(try await send(
+            NativeSyncBootstrapRequest.defaultRequest(cursor: nil),
+            configuration: APIClientConfiguration(baseURL: JourneyQA.baseURL, bearerToken: token.accessToken)
+        ))
+        return try AuthSession(
+            clientID: token.clientID ?? NativeAuthSession.nativeClientID(forServerBaseURL: JourneyQA.baseURL),
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            tokenType: token.tokenType,
+            expiresAt: Date().addingTimeInterval(TimeInterval(token.expiresIn)),
+            scope: token.scope,
+            accountID: sync.data.freshness.accountID
+        )
+    }
+
     /// Creates a recipe as this account and returns its id.
-    func createRecipe(title: String, steps: [RecipeStepDraft]) async throws -> String {
+    func createRecipe(
+        title: String,
+        description: String? = nil,
+        servings: String? = nil,
+        steps: [RecipeStepDraft]
+    ) async throws -> String {
         let builder = try RecipeWriteRequests.createRecipe(
             clientMutationID: "journey-\(UUID().uuidString.lowercased())",
             title: title,
-            description: nil,
-            servings: nil,
+            description: description,
+            servings: servings,
             steps: steps
         )
         let envelope = try APIEnvelope<JSONValue>.decode(try await Self.send(builder, configuration: configuration))
@@ -66,6 +97,19 @@ struct JourneyQAClient: Sendable {
             throw JourneyQAClientError.missingRecipeID
         }
         return id
+    }
+
+    /// Uploads `photo` as the recipe's cover and makes it the active one, without an editorial rendition.
+    func uploadCover(recipeID: String, photo: UploadFile) async throws {
+        let builder = try RecipeCoverRequests.uploadImage(
+            recipeID: recipeID,
+            photo: photo,
+            clientMutationID: "journey-\(UUID().uuidString.lowercased())",
+            activateWhenReady: true,
+            generateEditorial: false,
+            postAsSpoon: false
+        )
+        _ = try await Self.send(builder, configuration: configuration)
     }
 
     /// Renames a recipe as this account without naming a version, the way another device saving over it would.

@@ -35,17 +35,18 @@ final class CookbooksJourney: JourneyTestCase {
         journey.attachScreenshot(named: "01-cookbook-shelf", to: self)
         shelfRow.tap()
 
-        // The page shows the title, the first recipe and the search field, which appears for more than one recipe.
+        // The page shows the title and the search field, which appears for more than one recipe.
         let title = journey.app.staticTexts.matching(NSPredicate(format: "label == %@", cookbookTitle)).firstMatch
         XCTAssertTrue(title.waitForExistence(timeout: JourneyApp.networkTimeout), "The cookbook page does not show its title. Screen: \(journey.screen)")
+        journey.attachScreenshot(named: "02-cookbook-top", to: self)
+
+        // Scrolling moves the title under the solid top edge while the contents and search field stay reachable.
+        // The contents start below the fold when Cooking now's bar sits over the tab bar, and only rows on screen load.
+        journey.app.swipeUp()
         XCTAssertTrue(
             cookbookRow(journey, titles[0]).waitForExistence(timeout: JourneyApp.networkTimeout),
             "The cookbook page does not list its first recipe. Screen: \(journey.screen)"
         )
-        journey.attachScreenshot(named: "02-cookbook-top", to: self)
-
-        // Scrolling moves the title under the solid top edge while the contents and search field stay reachable.
-        journey.app.swipeUp()
         journey.attachScreenshot(named: "03-cookbook-scrolled", to: self)
         XCTAssertTrue(journey.element(JourneyID.cookbookSearchField).exists, "The scrolled cookbook page lost its search field. Screen: \(journey.screen)")
 

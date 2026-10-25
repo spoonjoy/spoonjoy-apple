@@ -92,8 +92,9 @@ public enum BookSpreadLayout: Equatable, Sendable {
     case singlePage
     case spread(leading: SpreadColumn, gutter: SpreadColumn, trailing: SpreadColumn, source: GutterSource)
 
-    /// The narrowest landscape screen that opens into a spread without a hardware division.
-    public static let minimumSpreadWidth: Double = 900
+    /// The narrowest landscape screen that opens into a spread without a hardware division. The iPhone Duo's inner
+    /// screen held sideways is 951 points wide, and less once the status bar's edge is set aside, so it opens here.
+    public static let minimumSpreadWidth: Double = 840
     /// The narrowest a page may be. Below this a division cannot open a spread.
     public static let minimumPageWidth: Double = 360
     /// The margin on the side of a page away from the gutter.

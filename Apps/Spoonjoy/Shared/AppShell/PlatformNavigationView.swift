@@ -22,8 +22,11 @@ struct PlatformNavigationView: View {
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
     @State private var splitColumnVisibility: NavigationSplitViewVisibility = .automatic
     @State private var isSidebarCookbookContentsExpanded = true
-    /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
+    /// Where the Cooking now accessory floats, so pages can end above it where the system does not allow for it.
+    @State private var bottomAccessoryFrame: CGRect?
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(CookingNowCenter.self) private var cookingNow: CookingNowCenter?
+    /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
 #if os(iOS)
@@ -169,6 +172,10 @@ struct PlatformNavigationView: View {
                 desktopClassShell(spotlightPayload: spotlightPayload)
             }
         }
+    }
+
+    private var cookingNowEntries: [CookingNowEntry] {
+        cookingNow?.entries ?? []
     }
 
     private var usesCompactMobileShell: Bool {
@@ -381,6 +388,12 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
         .tabViewSearchActivation(.searchTabSelection)
+        // While a recipe is part-way cooked, the tab bar carries it: one tap back to its step from any tab.
+        .tabViewBottomAccessory(isEnabled: !cookingNowEntries.isEmpty) {
+            CookingNowAccessory(entries: cookingNowEntries, resume: startCooking)
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { bottomAccessoryFrame = $0 }
+        }
+        .environment(\.bottomAccessoryFrame, cookingNowEntries.isEmpty ? nil : bottomAccessoryFrame)
 #endif
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
         // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the

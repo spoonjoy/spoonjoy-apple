@@ -112,8 +112,43 @@ struct KitchenTablePage<Content: View>: View {
             .frame(maxWidth: maxContentWidth, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
+        .modifier(ClearsBottomAccessory())
         .background(KitchenTableTheme.bone.ignoresSafeArea())
         .paperTopEdge()
+    }
+}
+
+private struct BottomAccessoryFrameKey: EnvironmentKey {
+    static let defaultValue: CGRect? = nil
+}
+
+extension EnvironmentValues {
+    /// Where the tab bar's floating accessory sits, in window coordinates, while it shows.
+    var bottomAccessoryFrame: CGRect? {
+        get { self[BottomAccessoryFrameKey.self] }
+        set { self[BottomAccessoryFrameKey.self] = newValue }
+    }
+}
+
+/// Ends the page above the tab bar's floating accessory where the system does not: with the tabs on a side rail,
+/// as on the closed iPhone Duo, the accessory floats over the page and covered its lowest buttons at rest. Where the
+/// safe area already allows for the accessory, the page ends above it and nothing changes.
+private struct ClearsBottomAccessory: ViewModifier {
+    @Environment(\.bottomAccessoryFrame) private var accessory
+    @State private var frame: CGRect = .zero
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.bottom, overlap)
+            // Measured around the padding, so the padding does not change what is measured.
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame = $0 }
+    }
+
+    private var overlap: CGFloat {
+        guard let accessory, accessory.minX < frame.maxX, accessory.maxX > frame.minX else {
+            return 0
+        }
+        return max(0, frame.maxY - accessory.minY + 8)
     }
 }
 

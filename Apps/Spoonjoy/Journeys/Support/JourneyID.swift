@@ -126,6 +126,15 @@ enum JourneyID {
     static let cookbookSearchField = "cookbook.search.field"
     static let cookbookSearchEmpty = "cookbook.search.empty"
 
+    /// Every card in the Kitchen's "Cooking now" strip; the label is "<recipe title>, <step>".
+    static let kitchenCookingNowCard = "kitchen.cookingNow.card"
+    /// The tab bar accessory's button that goes back to the newest recipe in progress.
+    static let cookingNowAccessoryResume = "cookingNow.accessory.resume"
+    static let cookingNowAccessoryBar = "cookingNow.accessory"
+    /// Cook mode's Close button: in the phone layout's toolbar, and in the wide two-page cook spread.
+    static let cookClose = "cook.close"
+    static let cookSpreadClose = "cookSpread.close"
+
     /// The not-found page and its "Back to recipes" button.
     static let routeError = "route.error"
     static let routeErrorBack = "route.error.back"

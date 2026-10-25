@@ -518,17 +518,16 @@ struct RecipeDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             recipePrimaryActions
             if !usesCompactRecipeDock {
-                if hasAction(.logCook) || hasSecondaryRecipeActions {
+                // Owner tools close the Log and More row rather than sitting alone on a line beneath it.
+                if hasAction(.logCook) || hasSecondaryRecipeActions || viewModel.ownerTools.isVisible {
                     HStack(spacing: 10) {
                         if hasAction(.logCook) {
                             recipeMastheadLogCookAction
                         }
                         recipeSecondaryActions
+                        ownerTools
                     }
                 }
-            }
-            if !usesCompactRecipeDock {
-                ownerTools
             }
             actionStatus
         }
@@ -1325,7 +1324,7 @@ extension RecipeDetailView {
     }
 
     private func spreadIngredientPage(index: RecipeSpreadIngredientIndex) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 16) {
             offlineIndicator
             if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
                 RecipeCoverImage(
@@ -1335,7 +1334,7 @@ extension RecipeDetailView {
                     showsFallbackLabel: false
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 220)
+                .frame(height: 132)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
@@ -1347,7 +1346,7 @@ extension RecipeDetailView {
                 recipeNoPhotoStatus
             }
             spreadActions
-            recipeHeaderControls(fillsWidth: true, includesClearProgress: true)
+            // The yield sits with the ingredients it scales, so the list starts on the first screen of the page.
             spreadIngredientList(index: index)
         }
         .scrollTargetLayout()
@@ -1355,15 +1354,16 @@ extension RecipeDetailView {
         .coordinateSpace(name: Self.spreadIngredientContentSpace)
     }
 
-    /// Cooking is the page's one primary action, so it gets its own full-width row; the utilities share the row
-    /// beneath it. A single row truncated every label at page width.
+    /// Cooking is the page's one primary action, so it takes the row's width; the utilities sit beside it as
+    /// icons (their names stay for VoiceOver), which keeps the row to one line and the ingredients near the top.
     private var spreadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if hasAction(.startCooking) {
-                startCookingButton
-            }
             HStack(spacing: 10) {
+                if hasAction(.startCooking) {
+                    startCookingButton
+                }
                 spreadUtilityButtons
+                    .labelStyle(.iconOnly)
             }
             actionStatus
         }
@@ -1377,6 +1377,7 @@ extension RecipeDetailView {
                 Label("Save", systemImage: "book.closed")
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .frame(width: 64)
         }
         if hasAction(.addToShoppingList) {
             Button {
@@ -1390,6 +1391,7 @@ extension RecipeDetailView {
             }
             .disabled(hasIngredientsInShoppingList)
             .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
+            .frame(width: 64)
         }
         if hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders {
             Menu {
@@ -1407,14 +1409,27 @@ extension RecipeDetailView {
     }
 
     @ViewBuilder private func spreadIngredientList(index: RecipeSpreadIngredientIndex) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Ingredients")
-                .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.charcoal)
-                .accessibilityAddTraits(.isHeader)
-            Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+        HStack(alignment: .center, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Ingredients")
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .accessibilityAddTraits(.isHeader)
+                Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                if hasRecipeProgress {
+                    clearProgressButton
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            RecipeScaleSelector(
+                scaleFactor: shoppingScaleFactor,
+                displayValue: scaledYieldLabel,
+                setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) },
+                isCompact: true
+            )
+            .frame(width: 196)
         }
         .padding(.top, 6)
 

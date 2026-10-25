@@ -5,7 +5,7 @@ import Foundation
 /// `if`/`!` conditions and `&&` lists that swallow a test command's failure, `xargs` re-runs, retry
 /// wrappers, `continue-on-error`, and test selection that drops journeys. The check is lexical.
 struct JourneyShellRuleScanner {
-    static let allowedTestTargets: Set<String> = ["SpoonjoyJourneys", "SpoonjoyShoppingUITests"]
+    static let allowedTestTargets: Set<String> = ["SpoonjoyJourneys", "SpoonjoyDuoJourneys", "SpoonjoyShoppingUITests"]
     static let loopKeywords: Set<String> = ["for", "while", "until"]
     static let neutralCommands: Set<String> = ["", "[[", "[", "test", "{", "(", "!", "true", "false"]
 
@@ -82,7 +82,7 @@ struct JourneyShellRuleScanner {
             found.append(violation(logical.line, .noSkippedJourneys, "test skipping drops journeys; select whole test targets only"))
         }
         for target in Self.onlyTestingTargets(in: text) where !Self.allowedTestTargets.contains(target) {
-            found.append(violation(logical.line, .noSkippedJourneys, "`-only-testing:\(target)` runs part of a target; select SpoonjoyJourneys or SpoonjoyShoppingUITests whole"))
+            found.append(violation(logical.line, .noSkippedJourneys, "`-only-testing:\(target)` runs part of a target; select SpoonjoyJourneys, SpoonjoyDuoJourneys or SpoonjoyShoppingUITests whole"))
         }
         return found
     }
