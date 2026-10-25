@@ -7,8 +7,8 @@ public enum CookPageTurn {
 
     /// The page to settle on. `dragFraction` is the drag as a fraction of the page width and `velocity` is in points
     /// per second. Negative values (a drag or flick to the left) move forward and positive values move back. The turn
-    /// commits at a third of the page or 600 pt/s, and the result stays inside `0..<count`. Task 5 derives `velocity`
-    /// from `DragGesture.Value.predictedEndTranslation`.
+    /// commits at a third of the page or 600 pt/s, and the result stays inside `0..<count`. `DragGesture.Value.predictedEndTranslation`
+    /// is a distance in points, not a velocity, so Task 5 converts it to pt/s before calling this.
     public static func target(from index: Int, count: Int, dragFraction: Double, velocity: Double) -> Int {
         let last = max(count - 1, 0)
         let current = min(max(index, 0), last)

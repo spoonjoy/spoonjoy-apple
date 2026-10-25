@@ -82,14 +82,14 @@ struct CookSessionSnapshotTests {
 
     @Test func longStepTextCutsOnAWordBoundaryWithEllipsis() {
         let text = (0..<200).map { _ in "simmer" }.joined(separator: " ")
-        let cut = CookSessionSnapshot.truncated(text, limit: CookSessionSnapshot.maxStepTextLength)
+        let cut = CookSessionSnapshot.truncated(text, limit: CookSessionSnapshot.maxStepTextLength, maxBytes: 10_000)
         #expect(cut.count <= CookSessionSnapshot.maxStepTextLength)
         #expect(cut.hasSuffix("simmer\u{2026}"))
-        #expect(CookSessionSnapshot.truncated("short", limit: 280) == "short")
+        #expect(CookSessionSnapshot.truncated("short", limit: 280, maxBytes: 800) == "short")
     }
 
     @Test func textWithoutSpacesCutsHard() {
-        let cut = CookSessionSnapshot.truncated(String(repeating: "x", count: 500), limit: 80)
+        let cut = CookSessionSnapshot.truncated(String(repeating: "x", count: 500), limit: 80, maxBytes: 200)
         #expect(cut.count == 80)
         #expect(cut.hasSuffix("\u{2026}"))
     }
@@ -135,5 +135,72 @@ struct CookSessionSnapshotTests {
         let snap = CookSessionSnapshot.make(recipe: recipe, progress: progress, board: CookTimerBoard(timers: []))
         #expect(snap.ingredientCount == 0)
         #expect(snap.checkedCount == 0)
+    }
+
+    @Test func checkedCountIgnoresGhostIDsButKeepsRecipeOnes() throws {
+        let data = Data(#"{"recipeID":"r1","stepIDs":["s1","s2"],"ingredientIDs":["i1","i2"],"checkedIngredientIDs":["i1","ghost","i2"]}"#.utf8)
+        let progress = try CookModeProgress.restore(from: data)
+        let recipe = Self.recipe(steps: Self.steps)
+        let snap = CookSessionSnapshot.make(recipe: recipe, progress: progress, board: CookTimerBoard(timers: []))
+        #expect(snap.ingredientCount == 2)
+        #expect(snap.checkedCount == 2)
+        let partial = Data(#"{"recipeID":"r1","stepIDs":["s1"],"ingredientIDs":["i1","i2"],"checkedIngredientIDs":["i1"]}"#.utf8)
+        let one = CookSessionSnapshot.make(recipe: recipe, progress: try CookModeProgress.restore(from: partial), board: CookTimerBoard(timers: []))
+        #expect(one.checkedCount == 1)
+    }
+
+    @Test func wordCutInTheFirstHalfFallsBackToTheCharacterLimit() {
+        let cut = CookSessionSnapshot.truncated("a " + String(repeating: "x", count: 400), limit: 280, maxBytes: 800)
+        #expect(cut.count == 280)
+        #expect(cut.hasPrefix("a xxx"))
+    }
+
+    @Test func byteBudgetCutsEmojiOnACharacterBoundary() {
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{200D}\u{1F466}"
+        let cut = CookSessionSnapshot.truncated(String(repeating: family, count: 200), limit: 280, maxBytes: 800)
+        #expect(cut.utf8.count <= 800)
+        #expect(cut.dropLast().allSatisfy { String($0) == family })
+        #expect(cut.hasSuffix("\u{2026}"))
+    }
+
+    @Test func hugeCombiningMarkClusterIsDropped() {
+        let cut = CookSessionSnapshot.truncated("e" + String(repeating: "\u{0301}", count: 2000), limit: 80, maxBytes: 200)
+        #expect(cut == "\u{2026}")
+    }
+
+    @Test func worstCaseEmojiAndCombiningMarksStayUnder4KB() throws {
+        let family = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}\u{200D}\u{1F466}"
+        let emoji = String(repeating: family, count: 400)
+        let marks = String(repeating: "e\u{0301}\u{0302}\u{0303}\u{0304} ", count: 400)
+        let ids = String(repeating: family, count: 100)
+        let steps = [
+            RecipeStep(id: ids + "1", stepNum: 1, stepTitle: emoji, description: emoji, duration: 5, ingredients: []),
+            RecipeStep(id: ids + "2", stepNum: 2, stepTitle: marks, description: marks, duration: 5, ingredients: []),
+        ]
+        let base = Self.recipe(steps: steps)
+        let recipe = Recipe(
+            id: ids, title: emoji, description: nil, servings: nil, chef: base.chef,
+            coverImageURL: nil, coverProvenanceLabel: nil, coverSourceType: nil, coverVariant: nil,
+            href: base.href, canonicalURL: base.canonicalURL, attribution: base.attribution,
+            createdAt: base.createdAt, updatedAt: base.updatedAt, steps: steps, cookbooks: []
+        )
+        let timers = (0..<9).map {
+            CookTimerEntry(id: ids + "\($0)", stepNumber: $0, label: emoji, endsAt: Date(timeIntervalSince1970: Double($0)), isPaused: true)
+        }
+        let board = CookTimerBoard(timers: timers)
+        for text in [emoji, marks] {
+            let tweaked = Recipe(
+                id: ids, title: text, description: nil, servings: nil, chef: base.chef,
+                coverImageURL: nil, coverProvenanceLabel: nil, coverSourceType: nil, coverVariant: nil,
+                href: base.href, canonicalURL: base.canonicalURL, attribution: base.attribution,
+                createdAt: base.createdAt, updatedAt: base.updatedAt, steps: steps, cookbooks: []
+            )
+            for index in 0..<2 {
+                let progress = try CookModeProgress.starting(recipe: tweaked, startedAt: "t").selectingStep(id: steps[index].id, updatedAt: "t")
+                let snap = CookSessionSnapshot.make(recipe: tweaked, progress: progress, board: board)
+                #expect(try JSONEncoder().encode(snap).count < 4096)
+            }
+        }
+        _ = recipe
     }
 }
