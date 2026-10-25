@@ -51,5 +51,10 @@ jobs:
           CONFIRM: ${{ inputs.confirm }}
         run: |
           apply=
-          if [ "$CONFIRM" = "submit $PLATFORM $VERSION" ]; then apply=--apply; fi
+          if [ "$CONFIRM" = "submit $PLATFORM $VERSION" ]; then
+            apply=--apply
+          elif [ -n "$CONFIRM" ]; then
+            echo "::error::confirm must read exactly \"submit $PLATFORM $VERSION\" (or be empty for a dry run)"
+            exit 1
+          fi
           ruby scripts/submit-app-store-review.rb --platform "$PLATFORM" --version "$VERSION" $apply

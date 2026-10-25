@@ -19,7 +19,7 @@ class AppStoreReviewSubmissionTest < Minitest::Test
   end
 
   def test_reuses_an_open_submission_that_already_holds_the_version
-    steps = plan(version: ready, submission: { "id" => "s1", "versionIds" => ["v1"] })["steps"]
+    steps = plan(version: ready, submission: { "id" => "s1", "state" => "READY_FOR_REVIEW", "versionIds" => ["v1"], "otherItems" => 0 })["steps"]
     assert_equal %w[submit], steps.map { |s| s["action"] }
   end
 
@@ -29,8 +29,28 @@ class AppStoreReviewSubmissionTest < Minitest::Test
     assert_match(/WAITING_FOR_REVIEW/, plan(version: ready.merge("state" => "WAITING_FOR_REVIEW"))["error"])
   end
 
+  def test_resubmits_a_rejected_version_through_its_unresolved_submission
+    rejected = ready.merge("state" => "REJECTED")
+    steps = plan(version: rejected, submission: { "id" => "s1", "state" => "UNRESOLVED_ISSUES", "versionIds" => ["v1"], "otherItems" => 0 })["steps"]
+    assert_equal %w[submit], steps.map { |s| s["action"] }
+  end
+
+  def test_refuses_a_submission_that_holds_other_items
+    error = plan(version: ready, submission: { "id" => "s1", "state" => "READY_FOR_REVIEW", "versionIds" => [], "otherItems" => 2 })["error"]
+    assert_match(/2 other item/, error)
+  end
+
+  def test_finds_the_unresolved_submission_holding_the_version_even_without_a_platform
+    client = runner_client
+    client.responses["/v1/reviewSubmissions"] = { "data" => [{ "id" => "s9", "attributes" => { "state" => "UNRESOLVED_ISSUES", "platform" => nil } }] }
+    client.responses["/v1/reviewSubmissions/s9/items"] = { "data" => [{ "relationships" => { "appStoreVersion" => { "data" => { "id" => "v1" } } } }] }
+    client.responses["/v1/apps/app1/appStoreVersions"] = { "data" => [{ "id" => "v1", "attributes" => { "appVersionState" => "REJECTED" } }] }
+    AppStoreReviewSubmission::Runner.new(client, bundle_id: "app.spoonjoy", platform: "IOS", version_string: "1.0", log: StringIO.new).run(apply: true)
+    assert_equal [[:patch, "/v1/reviewSubmissions/s9"]], client.writes.map { |w| w.first(2) }
+  end
+
   class FakeClient
-    attr_reader :writes
+    attr_reader :writes, :responses
 
     def initialize(responses)
       @responses = responses

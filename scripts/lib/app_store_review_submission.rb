@@ -8,20 +8,27 @@ module AppStoreReviewSubmission
   SUBMITTABLE_STATES = %w[PREPARE_FOR_SUBMISSION DEVELOPER_REJECTED REJECTED METADATA_REJECTED].freeze
 
   # Pure decision from what App Store Connect reports. Returns {steps: [...]} or {error: "..."}.
-  #   version: {id, state, buildId}|nil   submission: {id, versionIds: [...]}|nil (an open READY_FOR_REVIEW one)
+  #   version: {id, state, buildId}|nil
+  #   submission: {id, state, versionIds: [...], otherItems: n}|nil — the open submission (READY_FOR_REVIEW, or
+  #   UNRESOLVED_ISSUES after a rejection) that holds this version, else an empty-handed READY_FOR_REVIEW one.
   def self.plan(version:, submission:, platform:, version_string:)
     return { "error" => "No #{platform} version #{version_string} in App Store Connect" } if version.nil?
     unless SUBMITTABLE_STATES.include?(version["state"])
       return { "error" => "#{platform} #{version_string} is #{version['state']}, not ready to submit" }
     end
     return { "error" => "#{platform} #{version_string} has no build attached" } if version["buildId"].nil?
+    if submission && submission["otherItems"].to_i.positive?
+      return { "error" => "Review submission #{submission['id']} also holds #{submission['otherItems']} other item(s); " \
+                          "submitting it would send them too. Remove them in App Store Connect first." }
+    end
 
     steps = []
     steps << { "action" => "create_submission", "summary" => "Create a #{platform} review submission" } if submission.nil?
     unless submission && submission["versionIds"].include?(version["id"])
       steps << { "action" => "add_version", "summary" => "Add #{platform} #{version_string} to the submission" }
     end
-    steps << { "action" => "submit", "summary" => "Submit #{platform} #{version_string} for App Review" }
+    steps << { "action" => "submit", "summary" => "Submit #{platform} #{version_string} for App Review" \
+                                                  "#{submission ? " (submission #{submission['id']}, #{submission['state']})" : ''}" }
     { "steps" => steps }
   end
 
@@ -54,19 +61,23 @@ module AppStoreReviewSubmission
         "buildId" => build && build["id"] }
     end
 
-    def open_submission
-      data = @client.get("/v1/reviewSubmissions", "filter[app]" => app_id, "filter[platform]" => @platform,
-                                                  "filter[state]" => "READY_FOR_REVIEW")["data"]
-      return nil if data.empty?
-
-      sub = data.first
-      items = @client.get("/v1/reviewSubmissions/#{sub['id']}/items", "include" => "appStoreVersion")["data"]
-      { "id" => sub["id"], "versionIds" => items.map { |item| item.dig("relationships", "appStoreVersion", "data", "id") }.compact }
+    # Open submissions are matched by the version they hold, not by platform: a submission may carry no platform.
+    def open_submission(version_id)
+      subs = @client.get("/v1/reviewSubmissions", "filter[app]" => app_id,
+                                                  "filter[state]" => "READY_FOR_REVIEW,UNRESOLVED_ISSUES")["data"]
+      described = subs.map do |sub|
+        items = @client.get("/v1/reviewSubmissions/#{sub['id']}/items", "include" => "appStoreVersion")["data"]
+        ids = items.map { |item| item.dig("relationships", "appStoreVersion", "data", "id") }
+        { "id" => sub["id"], "state" => sub.dig("attributes", "state"), "platform" => sub.dig("attributes", "platform"),
+          "versionIds" => ids.compact, "otherItems" => ids.count { |id| id != version_id } }
+      end
+      described.find { |sub| sub["versionIds"].include?(version_id) } ||
+        described.find { |sub| sub["state"] == "READY_FOR_REVIEW" && [nil, @platform].include?(sub["platform"]) }
     end
 
     def run(apply:)
       v = version
-      submission = open_submission
+      submission = v && open_submission(v["id"])
       result = AppStoreReviewSubmission.plan(version: v, submission: submission, platform: @platform, version_string: @version_string)
       raise AppStoreListing::Error, result["error"] if result["error"]
 
