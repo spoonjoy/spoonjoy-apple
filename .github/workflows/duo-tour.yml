@@ -7,6 +7,11 @@ name: Duo tour
 
 on:
   workflow_dispatch:
+    inputs:
+      store_links:
+        description: Space-separated spoonjoy:// links to photograph open wide, half-open and closed (for App Store art)
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -133,6 +138,41 @@ jobs:
           shoot 13-open-wide-relaunched
           "$hub" press "Closed"; sleep 6
           shoot 14-closed
+          ls -la "$shots"
+      - name: Photograph the store links
+        if: ${{ !cancelled() && inputs.store_links != '' }}
+        timeout-minutes: 15
+        env:
+          STORE_LINKS: ${{ inputs.store_links }}
+        run: |
+          set -uo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          hub="$RUNNER_TEMP/duo/devicehub"
+          shots="$RUNNER_TEMP/duo/shots/store"
+          mkdir -p "$shots"
+          # The previous step leaves the Duo closed in its default (wide) orientation, signed in as a journey account.
+          shoot_links() {
+            pose="$1"; n=0
+            for link in $STORE_LINKS; do
+              n=$((n + 1))
+              SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$link" \
+                xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+              sleep 14
+              for display in 1 3; do
+                xcrun simctl io "$udid" screenshot --display="$display" "$shots/$pose-$n-display$display.png" >/dev/null 2>&1 || true
+              done
+              echo "$pose-$n: $link"
+            done
+          }
+          xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+          "$hub" press "Open"; sleep 6
+          shoot_links open-wide
+          "$hub" press "Rotate Right"; sleep 4
+          shoot_links open-tall
+          "$hub" press "Partially Open"; sleep 6
+          shoot_links half-open-tall
+          "$hub" press "Closed"; sleep 6
+          shoot_links closed
           ls -la "$shots"
       - name: Print app crash reports
         if: failure()
