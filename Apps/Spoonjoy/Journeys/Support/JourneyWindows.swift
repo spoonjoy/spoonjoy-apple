@@ -48,7 +48,9 @@ extension JourneyApp {
             return false
         }
         attach("windows-switcher", springboard.debugDescription, to: testCase)
-        card.tap()
+        // The cards overlap, the newer on top, so a tap at a card's centre can land on the card above it. Its
+        // leading edge is always its own.
+        card.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)).tap()
         _ = card.waitForNonExistence(timeout: Self.interactionTimeout)
         attach("windows-after-card", springboard.debugDescription, to: testCase)
         return true
