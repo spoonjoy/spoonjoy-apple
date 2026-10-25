@@ -102,7 +102,9 @@ struct NativeMobileDesignContractTests {
                 "division: division",
                 "SPOONJOY_IOS_27_1_SDK",
                 "#available(iOS 27.1, *)",
-                "reservedRegions(kind: .division)",
+                "reservedRegions(kind: .division, options: .includeInactive)",
+                "FoldRegionChoice.division(from: regions",
+                "FoldRegionChoice.band(from: regions",
                 "UIHingeInteraction",
                 "BookSpreadLayout.pageInsets(for: side)",
                 "KitchenTableTheme.spreadGutterRule"
