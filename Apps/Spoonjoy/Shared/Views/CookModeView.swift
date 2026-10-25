@@ -745,7 +745,7 @@ extension CookModeView {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         cookControls
-                        tabletopTimer
+                        stepTimer
                         dependencyChecklist
                         ingredientChecklist
                     }
@@ -793,29 +793,15 @@ extension CookModeView {
                     .foregroundStyle(KitchenTableTheme.charcoal)
                     .multilineTextAlignment(.center)
                     .lineSpacing(6)
+                    // Not fixed-size: a long step shrinks to fit the top half instead of running into the fold.
+                    // The step's timer is on the counter half, so no duration cue repeats it here.
                     .minimumScaleFactor(0.75)
-                    .fixedSize(horizontal: false, vertical: true)
-                if let timer = viewModel.systemTimer {
-                    RecipeStepDurationCue(durationLabel: timer.durationLabel)
-                }
             }
             .multilineTextAlignment(.center)
             .padding(.horizontal, KitchenTableTheme.pagePadding + 16)
             .padding(.vertical, 20)
             .frame(maxWidth: 760)
             .frame(maxWidth: .infinity)
-        }
-    }
-
-    /// The step's timer sits with the other controls on the counter half.
-    @ViewBuilder private var tabletopTimer: some View {
-        if let currentStep, let timer = viewModel.systemTimer {
-            CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers, stepKey: stepTimerKey(currentStep)) {
-                try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) system timer set.")
-            } cancel: {
-                try cancelSystemTimer(step: currentStep)
-            }
-            .id(timer.stepID)
         }
     }
 
@@ -831,7 +817,7 @@ extension CookModeView {
     }
 
     /// Cook mode laid open across a wide landscape screen. The left page gathers what this step needs, as a
-    /// checklist; the right page is the step itself in large type with its timer. Back sits at the outer corner
+    /// checklist, with the step's timer; the right page is the step itself in large type, then a look at the next step. Back sits at the outer corner
     /// of the left page and Next at the outer corner of the right page, like turning a page, so every control
     /// stays well away from the fold in the middle.
     fileprivate func cookModeSpread(_ layout: BookSpreadLayout) -> some View {
@@ -889,6 +875,7 @@ extension CookModeView {
             }
             dependencyChecklist
             ingredientChecklist
+            stepTimer
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -914,20 +901,24 @@ extension CookModeView {
                     .foregroundStyle(KitchenTableTheme.charcoal)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
-                if let timer = viewModel.systemTimer {
-                    RecipeStepDurationCue(durationLabel: timer.durationLabel)
-                    CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers, stepKey: stepTimerKey(currentStep)) {
-                        try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) system timer set.")
-                    } cancel: {
-                        try cancelSystemTimer(step: currentStep)
-                    }
-                    .id(timer.stepID)
-                }
                 if let next = stepAfter(currentStep) {
                     upNext(next)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// The step's timer, set with the other controls: on the counter half on a tabletop, and with the gathered
+    /// ingredients on a spread, so the step's own page keeps room for the instruction and what comes next.
+    @ViewBuilder private var stepTimer: some View {
+        if let currentStep, let timer = viewModel.systemTimer {
+            CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers, stepKey: stepTimerKey(currentStep)) {
+                try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) system timer set.")
+            } cancel: {
+                try cancelSystemTimer(step: currentStep)
+            }
+            .id(timer.stepID)
         }
     }
 

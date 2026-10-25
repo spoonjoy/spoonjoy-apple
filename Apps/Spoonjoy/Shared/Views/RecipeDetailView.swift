@@ -1324,7 +1324,7 @@ extension RecipeDetailView {
     }
 
     private func spreadIngredientPage(index: RecipeSpreadIngredientIndex) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
+        VStack(alignment: .leading, spacing: 16) {
             offlineIndicator
             if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
                 RecipeCoverImage(
@@ -1334,7 +1334,7 @@ extension RecipeDetailView {
                     showsFallbackLabel: false
                 )
                 .frame(maxWidth: .infinity)
-                .frame(height: 176)
+                .frame(height: 132)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
@@ -1354,15 +1354,16 @@ extension RecipeDetailView {
         .coordinateSpace(name: Self.spreadIngredientContentSpace)
     }
 
-    /// Cooking is the page's one primary action, so it gets its own full-width row; the utilities share the row
-    /// beneath it. A single row truncated every label at page width.
+    /// Cooking is the page's one primary action, so it takes the row's width; the utilities sit beside it as
+    /// icons (their names stay for VoiceOver), which keeps the row to one line and the ingredients near the top.
     private var spreadActions: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if hasAction(.startCooking) {
-                startCookingButton
-            }
             HStack(spacing: 10) {
+                if hasAction(.startCooking) {
+                    startCookingButton
+                }
                 spreadUtilityButtons
+                    .labelStyle(.iconOnly)
             }
             actionStatus
         }
@@ -1376,6 +1377,7 @@ extension RecipeDetailView {
                 Label("Save", systemImage: "book.closed")
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            .frame(width: 64)
         }
         if hasAction(.addToShoppingList) {
             Button {
@@ -1389,6 +1391,7 @@ extension RecipeDetailView {
             }
             .disabled(hasIngredientsInShoppingList)
             .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
+            .frame(width: 64)
         }
         if hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders {
             Menu {

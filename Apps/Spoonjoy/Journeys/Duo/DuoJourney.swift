@@ -198,10 +198,11 @@ final class DuoJourney: JourneyTestCase {
             "The app did not reopen in cook mode on step 2 with the real hinge. Screen: \(journey.screen)"
         )
         journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://kitchen")))
-        let recipe = journey.element(JourneyID.kitchenRecipe, labelContaining: title)
+        // The newest recipe, the chickpeas, leads the Kitchen, so it is the one opened in a window of its own.
+        let recipe = journey.element(JourneyID.kitchenRecipe, labelContaining: JourneyRecipes.chickpeasTitle)
         XCTAssertTrue(
             recipe.waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The Kitchen does not list the recipe. Screen: \(journey.screen)"
+            "The Kitchen does not lead with the chickpeas. Screen: \(journey.screen)"
         )
         recipe.press(forDuration: 1.2)
         let openInNewWindow = journey.copy(JourneyCopy.openInNewWindow)

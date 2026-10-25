@@ -18,12 +18,16 @@ struct KitchenView: View {
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
+    /// The page's content width, so the two-page spread is used only where both pages have room.
+    @State private var contentWidth: CGFloat = 0
 
     var body: some View {
         KitchenTablePage(maxContentWidth: pageMaxContentWidth, bottomReserve: pageBottomReserve) {
             KitchenMasthead(kitchen: kitchen, ownerName: recipes.first?.chef.username, chef: recipes.first?.chef)
 
             kitchenContent
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { contentWidth = $0 }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("kitchen.root")
@@ -55,7 +59,7 @@ struct KitchenView: View {
         if recipes.isEmpty && cookbooks.isEmpty {
             cookingNowStrip
             KitchenEmptyHero(createRecipe: createRecipe, importRecipe: importRecipe)
-        } else if usesWideKitchenSpread, let leadRecipe {
+        } else if usesWideKitchenSpread, contentWidth >= Self.spreadMinimumWidth, let leadRecipe {
             // Two pages: the lead recipe on the left, and on the right what is on the stove and the rest of the index,
             // so a wide screen with one recipe still reads as a full spread.
             HStack(alignment: .top, spacing: 28) {
@@ -99,6 +103,10 @@ struct KitchenView: View {
             }
         }
     }
+
+    /// Below this, the lead and the right-hand page each get less than a Cooking now card's width, so the Kitchen
+    /// stacks them instead (the open Duo held tall).
+    private static let spreadMinimumWidth: CGFloat = 860
 
     private var usesWideKitchenSpread: Bool {
 #if os(iOS)
@@ -354,17 +362,23 @@ struct RecipeLead: View {
 
     private var photoLead: some View {
         ZStack(alignment: .bottomLeading) {
-            RecipeCoverImage(
-                url: recipe.displayCoverImageURL,
-                title: recipe.title,
-                subtitle: "Cover",
-                showsFallbackLabel: false
-            )
+            // The page sets the width and the photo fills it: a filled photo laid out directly reports its own,
+            // wider size and pushes the lead past the page edge.
+            Color.clear
                 .frame(maxWidth: .infinity, minHeight: coverHeight, maxHeight: coverHeight)
+                .overlay {
+                    RecipeCoverImage(
+                        url: recipe.displayCoverImageURL,
+                        title: recipe.title,
+                        subtitle: "Cover",
+                        showsFallbackLabel: false
+                    )
+                }
                 .clipped()
                 .overlay {
                     KitchenTableTheme.photoOverlay
                 }
+                .accessibilityElement()
                 .accessibilityLabel("\(recipe.title) cover image")
 
             leadText(foreground: .white, secondary: .white.opacity(0.82), label: .white.opacity(0.72))

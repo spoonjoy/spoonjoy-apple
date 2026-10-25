@@ -144,7 +144,7 @@ struct CookingNowStrip: View {
     var body: some View {
         KitchenTableSection(title: "Cooking now", subtitle: subtitle) {
             if isWide {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 16, alignment: .top)], alignment: .leading, spacing: 16) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 16, alignment: .top)], alignment: .leading, spacing: 16) {
                     cards
                 }
             } else {
@@ -154,8 +154,8 @@ struct CookingNowStrip: View {
                     }
                     .scrollTargetLayout()
                 }
+                // Clipped to the page, so a card scrolled aside never slides under the bar buttons at the edge.
                 .scrollTargetBehavior(.viewAligned)
-                .scrollClipDisabled()
             }
         }
         .accessibilityElement(children: .contain)
@@ -198,10 +198,13 @@ struct CookingNowCard: View {
     /// On a wide page the card is a plate of its own: the dish's photo across the top, then the recipe and its step.
     private var plate: some View {
         VStack(alignment: .leading, spacing: 0) {
-            RecipeCoverImage(url: entry.coverURL, title: entry.title, subtitle: nil, showsFallbackLabel: false)
-                .aspectRatio(16 / 10, contentMode: .fill)
+            // The card sets the width and the photo fills it; a filled photo laid out directly widens the card.
+            Color.clear
                 .frame(maxWidth: .infinity)
                 .frame(height: 188)
+                .overlay {
+                    RecipeCoverImage(url: entry.coverURL, title: entry.title, subtitle: nil, showsFallbackLabel: false)
+                }
                 .clipped()
                 .accessibilityHidden(true)
 
