@@ -5,8 +5,10 @@ public enum CookPageTurn {
     static let commitFraction = 0.33
     static let commitVelocity = 600.0
 
-    /// The page to settle on. A drag left (negative) moves forward. The turn commits at a third of the page or a fast
-    /// flick, and the result stays inside `0..<count`.
+    /// The page to settle on. `dragFraction` is the drag as a fraction of the page width and `velocity` is in points
+    /// per second. Negative values (a drag or flick to the left) move forward and positive values move back. The turn
+    /// commits at a third of the page or 600 pt/s, and the result stays inside `0..<count`. Task 5 derives `velocity`
+    /// from `DragGesture.Value.predictedEndTranslation`.
     public static func target(from index: Int, count: Int, dragFraction: Double, velocity: Double) -> Int {
         let last = max(count - 1, 0)
         let current = min(max(index, 0), last)

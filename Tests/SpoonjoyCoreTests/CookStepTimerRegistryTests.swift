@@ -85,6 +85,17 @@ struct CookStepTimerRegistryTests {
         #expect(registry.runningStepKeys == [step, otherStep])
     }
 
+    @Test("running step ids are bare ids for one recipe")
+    func runningStepIDsForRecipe() async throws {
+        let registry = CookStepTimerRegistry()
+        _ = try await registry.start(step: CookStepTimerRegistry.stepKey(recipeID: "r1", stepID: "s1")) { UUID() }
+        _ = try await registry.start(step: CookStepTimerRegistry.stepKey(recipeID: "r1", stepID: "s2")) { UUID() }
+        _ = try await registry.start(step: CookStepTimerRegistry.stepKey(recipeID: "r10", stepID: "s9")) { UUID() }
+
+        #expect(registry.runningStepIDs(forRecipe: "r1") == ["s1", "s2"])
+        #expect(registry.runningStepIDs(forRecipe: "none").isEmpty)
+    }
+
     @Test("cancel ends the step's alarm and frees the step")
     func cancelEndsAlarm() async throws {
         let alarm = UUID()

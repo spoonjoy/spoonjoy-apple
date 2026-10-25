@@ -79,4 +79,61 @@ struct CookSessionSnapshotTests {
         #expect(decoded == snap)
         #expect(Set([snap, decoded]).count == 1)
     }
+
+    @Test func longStepTextCutsOnAWordBoundaryWithEllipsis() {
+        let text = (0..<200).map { _ in "simmer" }.joined(separator: " ")
+        let cut = CookSessionSnapshot.truncated(text, limit: CookSessionSnapshot.maxStepTextLength)
+        #expect(cut.count <= CookSessionSnapshot.maxStepTextLength)
+        #expect(cut.hasSuffix("simmer\u{2026}"))
+        #expect(CookSessionSnapshot.truncated("short", limit: 280) == "short")
+    }
+
+    @Test func textWithoutSpacesCutsHard() {
+        let cut = CookSessionSnapshot.truncated(String(repeating: "x", count: 500), limit: 80)
+        #expect(cut.count == 80)
+        #expect(cut.hasSuffix("\u{2026}"))
+    }
+
+    @Test func snapshotBoundsStepTextAndTimers() {
+        let long = Array(repeating: "Stir gently until thick.", count: 60).joined(separator: " ")
+        let step = RecipeStep(id: "s1", stepNum: 1, stepTitle: nil, description: long, duration: nil, ingredients: [])
+        let recipe = Self.recipe(steps: [step])
+        let timers = (0..<6).map {
+            CookTimerEntry(id: "k\($0)", stepNumber: $0, label: "T\($0)", endsAt: Date(timeIntervalSince1970: Double(100 - $0)), isPaused: false)
+        }
+        let snap = CookSessionSnapshot.make(recipe: recipe, progress: .starting(recipe: recipe, startedAt: "t"), board: CookTimerBoard(timers: timers))
+        #expect(snap.stepText.count <= CookSessionSnapshot.maxStepTextLength)
+        #expect(snap.stepText.hasSuffix("\u{2026}"))
+        #expect(snap.timers.map(\.id) == ["k5", "k4", "k3"])
+    }
+
+    @Test func worstCaseSnapshotStaysUnder4KB() throws {
+        let word = String(repeating: "w", count: 12)
+        let long = Array(repeating: word, count: 400).joined(separator: " ")
+        let steps = (1...3).map {
+            RecipeStep(id: String(repeating: "s", count: 100) + "\($0)", stepNum: $0, stepTitle: long, description: long, duration: 5, ingredients: [])
+        }
+        var recipe = Self.recipe(steps: steps)
+        recipe = Recipe(
+            id: String(repeating: "r", count: 100), title: long, description: nil, servings: nil,
+            chef: recipe.chef, coverImageURL: nil, coverProvenanceLabel: nil, coverSourceType: nil, coverVariant: nil,
+            href: recipe.href, canonicalURL: recipe.canonicalURL, attribution: recipe.attribution,
+            createdAt: recipe.createdAt, updatedAt: recipe.updatedAt, steps: steps, cookbooks: []
+        )
+        let timers = (0..<20).map {
+            CookTimerEntry(id: String(repeating: "k", count: 200) + "\($0)", stepNumber: $0, label: long, endsAt: Date(timeIntervalSince1970: Double($0)), isPaused: true)
+        }
+        let snap = CookSessionSnapshot.make(recipe: recipe, progress: .starting(recipe: recipe, startedAt: "t"), board: CookTimerBoard(timers: timers))
+        let bytes = try JSONEncoder().encode(snap).count
+        #expect(bytes < 4096)
+    }
+
+    @Test func checkedCountNeverExceedsIngredientCount() throws {
+        let data = Data(#"{"recipeID":"r1","stepIDs":["s1"],"checkedIngredientIDs":["i1","ghost"]}"#.utf8)
+        let progress = try CookModeProgress.restore(from: data)
+        let recipe = Self.recipe(steps: Self.steps)
+        let snap = CookSessionSnapshot.make(recipe: recipe, progress: progress, board: CookTimerBoard(timers: []))
+        #expect(snap.ingredientCount == 0)
+        #expect(snap.checkedCount == 0)
+    }
 }
