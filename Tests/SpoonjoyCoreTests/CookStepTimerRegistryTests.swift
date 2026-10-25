@@ -82,6 +82,7 @@ struct CookStepTimerRegistryTests {
 
         #expect(other == .started(second))
         #expect(registry.alarmIDsByStep == [step: first, otherStep: second])
+        #expect(registry.runningStepKeys == [step, otherStep])
     }
 
     @Test("cancel ends the step's alarm and frees the step")
