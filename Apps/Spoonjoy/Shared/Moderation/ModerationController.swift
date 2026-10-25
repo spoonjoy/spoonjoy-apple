@@ -36,9 +36,9 @@ final class ModerationController {
         update { $0.hide(target) }
     }
 
-    func block(_ chef: BlockedChef) async throws {
+    func block(_ chef: BlockedChef, from target: ContentReportTarget?) async throws {
         _ = try await send(try ModerationRequests.block(chefID: chef.id), .refreshOnly)
-        update { $0.block(chef) }
+        update { $0.block(chef, from: target) }
     }
 
     func unblock(chefID: String) async throws {

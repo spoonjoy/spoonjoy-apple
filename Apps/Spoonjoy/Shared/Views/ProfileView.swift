@@ -9,11 +9,15 @@ struct ProfileRouteView: View {
 
     @State private var profile: ProfileViewModel?
     @State private var errorMessage: String?
+    @Environment(\.moderation) private var moderation
 
     var body: some View {
         Group {
             if let profile {
                 ProfileView(viewModel: profile, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
+            } else if let chef = moderation.ledger.blockedChefs.first(where: { $0.id == identifier || $0.username == identifier }) {
+                // The server stops returning a blocked chef's kitchen.
+                ModerationHiddenView(message: "You blocked \(chef.name), so their kitchen is hidden.", unblockChef: chef)
             } else if let errorMessage {
                 KitchenTableRouteErrorView(message: errorMessage, systemImage: "person.crop.circle")
             } else {

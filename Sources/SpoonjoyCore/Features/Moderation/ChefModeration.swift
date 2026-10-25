@@ -137,10 +137,19 @@ public enum ModerationRequests {
 public struct ChefModerationLedger: Codable, Equatable, Sendable {
     public private(set) var blockedChefs: [BlockedChef]
     public private(set) var hiddenTargets: Set<ContentReportTarget>
+    /// Where the person blocked each chef from. The server answers 404 for a blocked chef's recipe, so this is how
+    /// the app still says why the page is gone and offers Unblock.
+    public private(set) var blockedFrom: [String: Set<ContentReportTarget>]
 
-    public init(blockedChefs: [BlockedChef] = [], hiddenTargets: Set<ContentReportTarget> = []) {
+    public init(blockedChefs: [BlockedChef] = [], hiddenTargets: Set<ContentReportTarget> = [], blockedFrom: [String: Set<ContentReportTarget>] = [:]) {
         self.blockedChefs = blockedChefs
         self.hiddenTargets = hiddenTargets
+        self.blockedFrom = blockedFrom
+    }
+
+    /// The blocked chef whose content `target` is, when the person blocked them from it.
+    public func blockedChef(hiding target: ContentReportTarget) -> BlockedChef? {
+        blockedChefs.first { blockedFrom[$0.id]?.contains(target) == true }
     }
 
     public func isBlocked(chefID: String) -> Bool {
@@ -173,13 +182,17 @@ public struct ChefModerationLedger: Codable, Equatable, Sendable {
         }
     }
 
-    public mutating func block(_ chef: BlockedChef) {
+    public mutating func block(_ chef: BlockedChef, from target: ContentReportTarget? = nil) {
         blockedChefs.removeAll { $0.id == chef.id }
         blockedChefs.append(chef)
+        if let target {
+            blockedFrom[chef.id, default: []].insert(target)
+        }
     }
 
     public mutating func unblock(chefID: String) {
         blockedChefs.removeAll { $0.id == chefID }
+        blockedFrom[chefID] = nil
     }
 
     public mutating func hide(_ target: ContentReportTarget) {
@@ -189,6 +202,7 @@ public struct ChefModerationLedger: Codable, Equatable, Sendable {
     /// The server's list is the truth for blocks; reports stay hidden on this device.
     public mutating func replaceBlocks(with blocks: [ChefBlock]) {
         blockedChefs = blocks.map(\.chef)
+        blockedFrom = blockedFrom.filter { chefID, _ in blockedChefs.contains { $0.id == chefID } }
     }
 }
 

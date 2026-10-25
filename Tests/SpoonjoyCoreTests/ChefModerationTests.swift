@@ -110,6 +110,25 @@ struct ChefModerationTests {
         #expect(ledger.blockedChefs == [BlockedChef(id: "c3", username: "lee")])
     }
 
+    @Test("a chef blocked from a recipe still explains that recipe after the server stops returning it")
+    func blockedFrom() {
+        var ledger = ChefModerationLedger()
+        let recipe = ContentReportTarget(type: .recipe, id: "r7")
+        let sam = BlockedChef(id: "c2", username: "sam")
+        let lee = BlockedChef(id: "c3", username: "lee")
+        ledger.block(sam, from: recipe)
+        ledger.block(lee, from: ContentReportTarget(type: .chef, id: "c3"))
+
+        #expect(ledger.blockedChef(hiding: recipe) == sam)
+        #expect(ledger.blockedChef(hiding: ContentReportTarget(type: .recipe, id: "r8")) == nil)
+
+        ledger.replaceBlocks(with: [ChefBlock(chef: sam, createdAt: "x")])
+        #expect(ledger.blockedFrom.keys.sorted() == ["c2"])
+        ledger.unblock(chefID: "c2")
+        #expect(ledger.blockedChef(hiding: recipe) == nil)
+        #expect(ledger.blockedFrom.isEmpty)
+    }
+
     private static func result(_ type: SearchSurfaceResultType, id: String, ownerID: String?) -> SearchSurfaceResult {
         SearchSurfaceResult(
             type: type,

@@ -5,7 +5,7 @@ import SwiftUI
 struct ModerationPrompt: Identifiable, Equatable {
     enum Kind: Equatable {
         case report(ContentReportTarget, subject: String)
-        case block(BlockedChef)
+        case block(BlockedChef, from: ContentReportTarget)
     }
 
     let kind: Kind
@@ -13,7 +13,7 @@ struct ModerationPrompt: Identifiable, Equatable {
     var id: String {
         switch kind {
         case .report(let target, _): "report-\(target.type.rawValue)-\(target.id)"
-        case .block(let chef): "block-\(chef.id)"
+        case .block(let chef, _): "block-\(chef.id)"
         }
     }
 
@@ -23,7 +23,12 @@ struct ModerationPrompt: Identifiable, Equatable {
     }
 
     var blockedChef: BlockedChef? {
-        if case .block(let chef) = kind { return chef }
+        if case .block(let chef, _) = kind { return chef }
+        return nil
+    }
+
+    var blockedFrom: ContentReportTarget? {
+        if case .block(_, let target) = kind { return target }
         return nil
     }
 }
@@ -44,7 +49,7 @@ struct ModerationMenuItems: View {
         }
         .accessibilityIdentifier("moderation.report")
         Button(role: .destructive) {
-            prompt = ModerationPrompt(kind: .block(chef))
+            prompt = ModerationPrompt(kind: .block(chef, from: reportTarget))
         } label: {
             Label("Block \(chef.name)", systemImage: "hand.raised")
         }
@@ -83,7 +88,8 @@ private struct ModerationPromptsModifier: ViewModifier {
                 presenting: prompt?.blockedChef
             ) { chef in
                 Button("Block \(chef.name)", role: .destructive) {
-                    Task { await block(chef) }
+                    let target = prompt?.blockedFrom
+                    Task { await block(chef, from: target) }
                 }
                 .accessibilityIdentifier("moderation.blockConfirm")
                 Button("Cancel", role: .cancel) {}
@@ -115,9 +121,9 @@ private struct ModerationPromptsModifier: ViewModifier {
         prompt?.blockedChef.map { "Block \($0.name)?" } ?? "Block chef?"
     }
 
-    @MainActor private func block(_ chef: BlockedChef) async {
+    @MainActor private func block(_ chef: BlockedChef, from target: ContentReportTarget?) async {
         do {
-            try await moderation.block(chef)
+            try await moderation.block(chef, from: target)
             prompt = nil
             onHidden()
         } catch {

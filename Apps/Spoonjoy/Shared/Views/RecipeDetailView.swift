@@ -31,6 +31,11 @@ struct RecipeDetailRouteView: View {
 
     @State private var routeState: RecipeDetailRouteState
     @State private var errorMessage: String?
+    @Environment(\.moderation) private var moderation
+
+    private var moderatedTarget: ContentReportTarget {
+        ContentReportTarget(type: .recipe, id: recipeID)
+    }
 
     init(
         recipeID: String,
@@ -100,12 +105,22 @@ struct RecipeDetailRouteView: View {
                     systemImage: "text.book.closed"
                 )
             case .missing(let errorMessage), .failed(let errorMessage):
-                KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
+                // The server answers 404 for a recipe the person reported or whose chef they blocked.
+                if let chef = moderation.ledger.blockedChef(hiding: moderatedTarget) {
+                    ModerationHiddenView(message: "You blocked \(chef.name), so their recipes are hidden.", unblockChef: chef)
+                } else if moderation.ledger.isHidden(moderatedTarget) {
+                    ModerationHiddenView(message: "You reported this recipe, so it's hidden for you.", unblockChef: nil)
+                } else {
+                    KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
+                }
             }
         }
         .reloadsOnPull { await loadRecipe() }
         .task(id: recipeID) {
             await loadRecipe()
+        }
+        .onChange(of: moderation.ledger.blockedChefs) {
+            Task { await loadRecipe() }
         }
         .onChange(of: snapshotViewModel) { _, nextViewModel in
             guard let nextViewModel, nextViewModel != routeState.currentViewModel else {
