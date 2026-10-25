@@ -183,6 +183,16 @@ class AppStoreListingTest < Minitest::Test
     assert_equal({ "scheduled" => false, "freePricePointId" => "pp-free" }, price_snapshot(nil))
   end
 
+  def test_placeholder_schedule_whose_prices_404_is_replaced_with_free
+    responses = {
+      "/v1/apps" => { "data" => [{ "id" => "app1" }] },
+      "/v1/apps/app1/appPricePoints" => { "data" => [{ "id" => "pp-free", "attributes" => { "customerPrice" => "0.0" } }] },
+      "/v1/apps/app1/appPriceSchedule" => { "data" => { "id" => "app1" } }
+    }
+    snapshot = AppStoreListing::Reader.new(FakePriceClient.new(responses), listing).send(:price)
+    assert_equal({ "scheduled" => false, "freePricePointId" => "pp-free" }, snapshot)
+  end
+
   def test_der_signature_becomes_64_raw_bytes
     key = OpenSSL::PKey::EC.generate("prime256v1")
     der = key.sign(OpenSSL::Digest.new("SHA256"), "payload")

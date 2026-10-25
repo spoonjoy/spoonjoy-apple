@@ -456,7 +456,14 @@ module AppStoreListing
       end
       if schedule
         # An existing schedule only counts if every manual price is free; otherwise plan to replace it.
-        body = @client.get("/v1/appPriceSchedules/#{schedule['id']}/manualPrices", "include" => "appPricePoint", "limit" => 200)
+        # A new app answers the schedule with a placeholder whose manual prices 404, which means no price yet.
+        body = begin
+          @client.get("/v1/appPriceSchedules/#{schedule['id']}/manualPrices", "include" => "appPricePoint", "limit" => 200)
+        rescue Error => e
+          raise unless e.message.include?("HTTP 404")
+
+          {}
+        end
         prices = (body["included"] || []).select { |item| item["type"] == "appPricePoints" }
         return { "scheduled" => true } if !prices.empty? && prices.all? { |point| point.dig("attributes", "customerPrice").to_f.zero? }
       end
