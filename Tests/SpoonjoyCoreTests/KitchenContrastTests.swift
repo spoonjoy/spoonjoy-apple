@@ -46,6 +46,29 @@ struct KitchenContrastTests {
         }
     }
 
+    /// Vellum is a panel and chip surface. Ink, secondary ink, herb and tomato sit on it as text; brass only marks
+    /// icons on it (the no-photo badge), so brass is held to the 3:1 non-text bar there.
+    @Test("text on vellum meets AA, and brass icons on vellum meet the 3:1 non-text bar, in both appearances")
+    func vellumPairsMeetTheirBars() throws {
+        let tokens = try themeTokens()
+        let texts = [("charcoal", "boneNight"), ("inkMuted", "inkMutedNight"), ("tomato", "tomatoNight"), ("herb", "herbNight")]
+        for (dayText, nightText) in texts {
+            let day = KitchenContrast.ratio(foreground: try #require(tokens[dayText]), background: try #require(tokens["vellum"]))
+            let night = KitchenContrast.ratio(foreground: try #require(tokens[nightText]), background: try #require(tokens["vellumNight"]))
+            #expect(day >= 4.5, "\(dayText) on vellum is \(day):1 by day")
+            #expect(night >= 4.5, "\(nightText) on vellum is \(night):1 at night")
+        }
+        #expect(KitchenContrast.ratio(foreground: try #require(tokens["brass"]), background: try #require(tokens["vellum"])) >= 3)
+        #expect(KitchenContrast.ratio(foreground: try #require(tokens["brassNight"]), background: try #require(tokens["vellumNight"])) >= 3)
+    }
+
+    @Test("text on photographs meets AA on the photo charcoal in both appearances")
+    func onPhotoMeetsAAOnPhotoCharcoal() throws {
+        let tokens = try themeTokens()
+        #expect(KitchenContrast.ratio(foreground: try #require(tokens["bone"]), background: try #require(tokens["photoCharcoal"])) >= 4.5)
+        #expect(KitchenContrast.ratio(foreground: try #require(tokens["onPhotoNight"]), background: try #require(tokens["photoCharcoalNight"])) >= 4.5)
+    }
+
     private func themeTokens() throws -> [String: UInt32] {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let theme = try String(contentsOf: root.appendingPathComponent("Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"), encoding: .utf8)

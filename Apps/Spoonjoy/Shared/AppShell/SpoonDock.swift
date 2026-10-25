@@ -115,7 +115,7 @@ struct SpoonDock: View {
                 .background(KitchenTableTheme.ink, in: Capsule())
                 .overlay {
                     Capsule()
-                        .strokeBorder(KitchenTableTheme.raised.opacity(0.22), lineWidth: 1)
+                        .strokeBorder(KitchenTableTheme.inkHighlight, lineWidth: 1)
                 }
         } else if prominence == .supporting {
             dockTrigger(action, prominence: prominence)

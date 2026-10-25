@@ -3,14 +3,19 @@ import Testing
 
 @Suite("Kitchen motion")
 struct KitchenMotionTests {
-    @Test("reduced motion drops springs, so the caller crossfades")
-    func reducedMotionDropsSprings() {
-        #expect(KitchenMotion.spring(.glide, reduceMotion: true) == nil)
+    @Test("reduced motion turns every spring into the same short crossfade")
+    func reducedMotionCrossfades() {
+        for spring in [KitchenSpring.snappy, .glide, .pageTurn, .zoom, .bounce] {
+            #expect(KitchenMotion.step(spring, reduceMotion: true) == .crossfade(duration: 0.2))
+        }
+        #expect(KitchenMotion.reducedMotionCrossfadeDuration == 0.2)
+        #expect(KitchenMotion.crossfades(reduceMotion: true))
     }
 
-    @Test("with motion on, the spring passes through unchanged")
+    @Test("with motion on, the spring passes through unchanged and nothing crossfades")
     func motionOnKeepsSpring() {
-        #expect(KitchenMotion.spring(.pageTurn, reduceMotion: false) == .pageTurn)
+        #expect(KitchenMotion.step(.pageTurn, reduceMotion: false) == .spring(.pageTurn))
+        #expect(!KitchenMotion.crossfades(reduceMotion: false))
     }
 
     @Test("the named springs carry the design system's values")

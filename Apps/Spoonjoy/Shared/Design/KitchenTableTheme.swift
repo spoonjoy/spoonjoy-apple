@@ -64,6 +64,8 @@ enum KitchenTableTheme {
     /// Text on a photo stays light in both appearances.
     static let onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo
     static let onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted
+    /// A light edge on an ink fill. At night ink is light, so the edge would turn dark; it is dropped there instead.
+    static let inkHighlight = dynamic(Day.bone.opacity(0.22), Color.clear)
     static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
     static let photoOverlay = Color.black.opacity(0.28)
 

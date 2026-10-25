@@ -347,7 +347,7 @@ struct RecipeLead: View {
                 }
                 .accessibilityLabel("\(recipe.title) cover image")
 
-            leadText(foreground: .white, secondary: .white.opacity(0.82), label: .white.opacity(0.72))
+            leadText(foreground: KitchenTableTheme.onPhoto, secondary: KitchenTableTheme.onPhoto.opacity(0.82), label: KitchenTableTheme.onPhotoMuted)
                 .padding()
         }
     }

@@ -116,7 +116,7 @@ Every text role passes WCAG AA (4.5:1) on `page` and `raised` in both appearance
 
 **Radii.** Corners keep their meaning: 0 pt for full-bleed edges, 4 pt for media, 8 pt for panels and sheets, and 999 pt (a capsule) for controls.
 
-**Motion.** Motion uses springs in SwiftUI's response and damping terms (`KitchenSpring`): snappy 0.32/0.86 for small state changes, glide 0.42/0.82 for the tab lens and glass morphs, page turn 0.5/0.88 for cook steps, zoom 0.45/0.9 for a cover opening into its recipe, and bounce 0.35/0.6 for a checked ingredient. With Reduce Motion on, every spring becomes a short crossfade (`kitchenAnimation`, `KitchenMotion.transition`).
+**Motion.** Motion uses springs in SwiftUI's response and damping terms (`KitchenSpring`): snappy 0.32/0.86 for small state changes, glide 0.42/0.82 for the tab lens and glass morphs, page turn 0.5/0.88 for cook steps, zoom 0.45/0.9 for a cover opening into its recipe, and bounce 0.35/0.6 for a checked ingredient. With Reduce Motion on, every spring becomes a 0.2 s crossfade and nothing moves: `KitchenMotion.step` makes the decision, `KitchenMotion.animation` and `kitchenAnimation` animate with it, and `kitchenTransition` swaps any slide, zoom or page turn for opacity.
 
 **Haptics.** Haptics mark moments, not every tap (`KitchenHapticMoment`, played through `sensoryFeedback`): checking an ingredient or a list item plays selection, turning a step a light impact, starting a timer a medium impact, a timer or cook finishing success, and confirming a destructive action warning.
 

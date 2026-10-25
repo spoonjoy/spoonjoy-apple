@@ -22,9 +22,24 @@ public struct KitchenSpring: Equatable, Sendable {
     public static let bounce = KitchenSpring(response: 0.35, dampingFraction: 0.6)
 }
 
+/// How a change should move: on its spring, or, with Reduce Motion on, as a short crossfade with no movement.
+public enum KitchenMotionStep: Equatable, Sendable {
+    case spring(KitchenSpring)
+    case crossfade(duration: Double)
+}
+
 public enum KitchenMotion {
-    /// The spring to animate with, or nil when Reduce Motion is on so the caller crossfades instead.
-    public static func spring(_ spring: KitchenSpring, reduceMotion: Bool) -> KitchenSpring? {
-        reduceMotion ? nil : spring
+    /// The crossfade length every spring falls back to under Reduce Motion.
+    public static let reducedMotionCrossfadeDuration = 0.2
+
+    /// The one Reduce Motion rule: springs, zooms, page turns and slides become a short crossfade. Callers animate with
+    /// the resolved step and, when it is a crossfade, swap any spatial transition for opacity.
+    public static func step(_ spring: KitchenSpring, reduceMotion: Bool) -> KitchenMotionStep {
+        reduceMotion ? .crossfade(duration: reducedMotionCrossfadeDuration) : .spring(spring)
+    }
+
+    /// Whether movement must be replaced by a crossfade.
+    public static func crossfades(reduceMotion: Bool) -> Bool {
+        reduceMotion
     }
 }
