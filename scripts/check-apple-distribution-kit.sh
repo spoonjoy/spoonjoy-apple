@@ -76,7 +76,7 @@ if (manifest.app?.name !== "Spoonjoy") fail("app.name must be Spoonjoy");
 if (manifest.app?.bundleId !== expectedBundleId) fail(`app.bundleId must be ${expectedBundleId}`);
 if (manifest.app?.sku !== "app-spoonjoy-ios") fail("app.sku must be app-spoonjoy-ios");
 if (manifest.team?.teamId !== "743GT2AJ24") fail("team.teamId must be 743GT2AJ24");
-if (manifest.team?.providerPublicId !== "9735080289") fail("team.providerPublicId must be 9735080289");
+if (manifest.team?.providerPublicId !== "b25f0f77-25c0-44b8-9d21-2e95083f09ae") fail("team.providerPublicId must be b25f0f77-25c0-44b8-9d21-2e95083f09ae");
 
 const channels = new Map((manifest.channels ?? []).map((channel) => [channel.id, channel]));
 const testflight = channels.get("ios-testflight");
