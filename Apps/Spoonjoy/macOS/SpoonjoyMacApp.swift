@@ -29,6 +29,12 @@ struct SpoonjoyMacApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
             }
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    NotificationCenter.default.post(name: .spoonjoyOpenSettings, object: nil)
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 }

@@ -14,13 +14,15 @@ PROJECT_PATH = ROOT.join("#{PROJECT_NAME}.xcodeproj")
 APP_ROOT = ROOT.join("Apps/Spoonjoy")
 INFO_PLIST = APP_ROOT.join("Shared/Info.plist")
 ENTITLEMENTS = APP_ROOT.join("Shared/Spoonjoy.entitlements")
+MAC_ENTITLEMENTS = APP_ROOT.join("macOS/SpoonjoyMac.entitlements")
 SCHEME_DIR = PROJECT_PATH.join("xcshareddata/xcschemes")
 IOS_SCHEME = SCHEME_DIR.join("Spoonjoy iOS.xcscheme")
 MAC_SCHEME = SCHEME_DIR.join("Spoonjoy macOS.xcscheme")
 IOS_TARGET = "#{PROJECT_NAME} iOS"
 MAC_TARGET = "#{PROJECT_NAME} macOS"
 IOS_BUNDLE_ID = "app.spoonjoy"
-MAC_BUNDLE_ID = "app.spoonjoy.mac"
+# One bundle ID for both apps, so a single App Store record sells iPhone, iPad and Mac (universal purchase).
+MAC_BUNDLE_ID = IOS_BUNDLE_ID
 ASSOCIATED_DOMAIN = "applinks:spoonjoy.app"
 URL_SCHEME = "spoonjoy"
 PACKAGE_PRODUCT = "SpoonjoyCore"
@@ -45,11 +47,12 @@ EXPECTED_FILES = [
   WIDGET_INFO_PLIST,
   INFO_PLIST,
   ENTITLEMENTS,
+  MAC_ENTITLEMENTS,
   PRIVACY_MANIFEST
 ].freeze
 
 DEPLOYMENT_TARGETS = {
-	  IOS_BUNDLE_ID => {
+	  IOS_TARGET => {
 	    "Debug" => {
 	      "IPHONEOS_DEPLOYMENT_TARGET" => "27.0",
 	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG SPOONJOY_SIGNED_APPLE_AUTH"
@@ -63,7 +66,7 @@ DEPLOYMENT_TARGETS = {
 	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
 	    }
 	  },
-	  MAC_BUNDLE_ID => {
+	  MAC_TARGET => {
 	    "Debug" => {
 	      "MACOSX_DEPLOYMENT_TARGET" => "27.0",
 	      "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG SPOONJOY_SIGNED_APPLE_AUTH"
@@ -167,6 +170,11 @@ fail_check("#{relative(WIDGET_INFO_PLIST)} must declare the com.apple.widgetkit-
 entitlements = plist_json(ENTITLEMENTS)
 associated_domains = Array(entitlements["com.apple.developer.associated-domains"])
 fail_check("#{relative(ENTITLEMENTS)} missing #{ASSOCIATED_DOMAIN}") unless associated_domains.include?(ASSOCIATED_DOMAIN)
+mac_entitlements = plist_json(MAC_ENTITLEMENTS)
+fail_check("#{relative(MAC_ENTITLEMENTS)} must enable App Sandbox for the Mac App Store") unless mac_entitlements["com.apple.security.app-sandbox"] == true
+fail_check("#{relative(MAC_ENTITLEMENTS)} must allow outgoing network connections") unless mac_entitlements["com.apple.security.network.client"] == true
+fail_check("#{relative(MAC_ENTITLEMENTS)} missing #{ASSOCIATED_DOMAIN}") unless Array(mac_entitlements["com.apple.developer.associated-domains"]).include?(ASSOCIATED_DOMAIN)
+fail_check("#{relative(MAC_ENTITLEMENTS)} must keep Sign in with Apple") unless Array(mac_entitlements["com.apple.developer.applesignin"]) == ["Default"]
 
 project = Xcodeproj::Project.open(PROJECT_PATH.to_s)
 target_by_name = project.targets.each_with_object({}) { |target, index| index[target.name] = target }
@@ -224,10 +232,10 @@ fail_check("#{JOURNEYS_TARGET} sources must be exactly Apps/Spoonjoy/Journeys/**
 end
 
 {
-  ios_target => IOS_BUNDLE_ID,
-  mac_target => MAC_BUNDLE_ID
-}.each do |target, bundle_id|
-  expected_settings = DEPLOYMENT_TARGETS.fetch(bundle_id)
+  ios_target => [IOS_BUNDLE_ID, ENTITLEMENTS],
+  mac_target => [MAC_BUNDLE_ID, MAC_ENTITLEMENTS]
+}.each do |target, (bundle_id, target_entitlements)|
+  expected_settings = DEPLOYMENT_TARGETS.fetch(target.name)
   expected_settings.each do |configuration, settings|
     build_configuration = target.build_configuration_list[configuration] || fail_check("missing #{target.name} #{configuration}")
     build_settings = build_configuration.build_settings
@@ -241,8 +249,9 @@ end
     if configuration == "BootstrapDebug"
       assert_absent_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", label)
     else
-      assert_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", relative(ENTITLEMENTS), label)
+      assert_setting(build_settings, "CODE_SIGN_ENTITLEMENTS", relative(target_entitlements), label)
     end
+    assert_setting(build_settings, "ENABLE_HARDENED_RUNTIME", "YES", label) if target == mac_target
     assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_APPICON_NAME", "appiconset", label, required: true)
     assert_named_asset_exists(build_settings, "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME", "colorset", label)
 

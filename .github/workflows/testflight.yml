@@ -334,3 +334,239 @@ jobs:
           path: release-source/artifacts/apple/ci-testflight
           if-no-files-found: error
           retention-days: 90
+
+  # The Mac app is the macOS platform of the same universal-purchase App Store record. It ships in its own job so a
+  # Mac failure never blocks the iPhone build, and it stops at a VALID upload: release to the App Store stays manual.
+  publish-mac-app-store:
+    name: Upload Mac App Store build
+    needs: release-gate
+    if: needs.release-gate.outputs.publish == 'true'
+    environment: internal-testflight
+    runs-on: xcode-27
+    timeout-minutes: 120
+    steps:
+      - name: Check out trusted release controls
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Check out selected source revision
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          ref: ${{ needs.release-gate.outputs.source_sha }}
+          path: release-source
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact Native release evidence
+        id: candidate
+        working-directory: release-source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ needs.release-gate.outputs.source_sha }}
+          ALLOW_ROLLBACK: ${{ inputs.allow_rollback || false }}
+          ROLLBACK_REASON: ${{ inputs.rollback_reason }}
+          ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
+        run: |
+          set -euo pipefail
+          ../scripts/verify-testflight-release-candidate.rb \
+            --source-sha "$SOURCE_SHA" \
+            --repository "$GITHUB_REPOSITORY" \
+            --allow-rollback "$ALLOW_ROLLBACK" \
+            --rollback-reason "$ROLLBACK_REASON" \
+            --rollback-notes "$ROLLBACK_NOTES" \
+            --output-dir artifacts/apple/ci-mac-app-store/release-candidate
+
+      - name: Install pinned source Ruby bundle
+        uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: release-source
+
+      - name: Check out pinned apple-distribution-kit
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: ourostack/apple-distribution-kit
+          ref: c296021af0e7eacb424dc9c7f924c9cda8df9d64
+          path: .ci/apple-distribution-kit
+          persist-credentials: false
+
+      - name: Set up pinned Node runtime
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22.17.1
+          cache: npm
+          cache-dependency-path: .ci/apple-distribution-kit/package-lock.json
+
+      - name: Build pinned apple-distribution-kit
+        working-directory: .ci/apple-distribution-kit
+        env:
+          EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9
+        run: |
+          set -euo pipefail
+          npm ci --loglevel=error
+          npm audit --audit-level=moderate
+          npm run build
+          actual_dist_sha256="$(find dist -type f -print0 | sort -z | xargs -0 shasum -a 256 | shasum -a 256 | awk '{print $1}')"
+          if [[ "$actual_dist_sha256" != "$EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256" ]]; then
+            echo "apple-distribution-kit dist checksum mismatch: $actual_dist_sha256" >&2
+            exit 1
+          fi
+          echo "APPLE_DISTRIBUTION_KIT_BIN=$PWD/dist/cli.js" >> "$GITHUB_ENV"
+
+      - name: Select and verify Xcode 27 runner
+        run: |
+          set -euo pipefail
+          sudo xcode-select -s /Applications/Xcode_27.1.app
+          xcrun --sdk macosx --show-sdk-version
+          xcodebuild -version
+
+      - name: Prepare App Store Connect credentials
+        id: asc_credentials
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          ASC_PROVIDER_PUBLIC_ID: ${{ secrets.APP_STORE_CONNECT_PROVIDER_PUBLIC_ID }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$ASC_KEY_ID" ]] || missing+=("APP_STORE_CONNECT_API_KEY_ID")
+          [[ -n "$ASC_ISSUER_ID" ]] || missing+=("APP_STORE_CONNECT_API_ISSUER_ID")
+          [[ -n "$ASC_KEY_BASE64" ]] || missing+=("APP_STORE_CONNECT_API_KEY_BASE64")
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing GitHub secret(s): %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+          asc_dir="$RUNNER_TEMP/app-store-connect-mac"
+          mkdir -p "$asc_dir"
+          key_path="$asc_dir/AuthKey.p8"
+          config_path="$asc_dir/config.json"
+          python3 - "$key_path" "$config_path" "$ASC_KEY_ID" "$ASC_ISSUER_ID" <<'PY'
+          import base64, json, os, pathlib, sys
+          key_path, config_path, key_id, issuer_id = sys.argv[1:5]
+          pathlib.Path(key_path).write_bytes(base64.b64decode(os.environ["ASC_KEY_BASE64"], validate=True))
+          os.chmod(key_path, 0o600)
+          pathlib.Path(config_path).write_text(json.dumps({"keyId": key_id, "issuerId": issuer_id, "privateKeyPath": key_path}), encoding="utf-8")
+          os.chmod(config_path, 0o600)
+          PY
+          {
+            echo "APPLE_DISTRIBUTION_KIT_CONFIG=$config_path"
+            echo "APP_STORE_CONNECT_PROVIDER_PUBLIC_ID=${ASC_PROVIDER_PUBLIC_ID:-9735080289}"
+          } >> "$GITHUB_ENV"
+
+      - name: Import long-lived signing identity
+        id: signing_identity
+        env:
+          APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
+          APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          signing_dir="$RUNNER_TEMP/adk-signing-mac"
+          node "$APPLE_DISTRIBUTION_KIT_BIN" signing import \
+            --keychain "$signing_dir/spoonjoy-mac-ci.keychain-db" \
+            --state "$signing_dir/state.json"
+          echo "ADK_MAC_SIGNING_DIR=$signing_dir" >> "$GITHUB_ENV"
+
+      # The kit imports code signing identities only, so the Mac Installer Distribution identity that signs the .pkg
+      # gets its own temporary keychain. The keychain password is random and never leaves this step.
+      - name: Import Mac installer identity
+        id: installer_identity
+        env:
+          MAC_INSTALLER_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_INSTALLER_CERTIFICATE_P12_BASE64 }}
+          MAC_INSTALLER_CERTIFICATE_PASSWORD: ${{ secrets.MAC_INSTALLER_CERTIFICATE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          [[ -n "$MAC_INSTALLER_CERTIFICATE_P12_BASE64" && -n "$MAC_INSTALLER_CERTIFICATE_PASSWORD" ]] || {
+            echo "Missing GitHub secret(s): MAC_INSTALLER_CERTIFICATE_P12_BASE64 / MAC_INSTALLER_CERTIFICATE_PASSWORD" >&2
+            exit 1
+          }
+          keychain="$ADK_MAC_SIGNING_DIR/spoonjoy-mac-installer.keychain-db"
+          p12="$ADK_MAC_SIGNING_DIR/installer.p12"
+          keychain_password="$(openssl rand -base64 24)"
+          printf '%s' "$MAC_INSTALLER_CERTIFICATE_P12_BASE64" | base64 --decode > "$p12"
+          chmod 600 "$p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$p12" -k "$keychain" -P "$MAC_INSTALLER_CERTIFICATE_PASSWORD" -f pkcs12 \
+            -T /usr/bin/productbuild -T /usr/bin/productsign -T /usr/bin/pkgbuild -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" >/dev/null
+          : > "$p12"
+          existing=()
+          while IFS= read -r line; do
+            line="${line#"${line%%[![:space:]]*}"}"; line="${line%\"}"; line="${line#\"}"
+            if [[ -n "$line" && "$line" != "$keychain" ]]; then existing+=("$line"); fi
+          done < <(security list-keychains -d user)
+          security list-keychains -d user -s "$keychain" ${existing[@]+"${existing[@]}"}
+          installer_sha1="$(security find-certificate -a -c "Mac Installer Distribution" -Z "$keychain" | awk '/^SHA-1 hash:/ {print $3; exit}')"
+          if [[ -z "$installer_sha1" ]]; then
+            installer_sha1="$(security find-certificate -a -c "3rd Party Mac Developer Installer" -Z "$keychain" | awk '/^SHA-1 hash:/ {print $3; exit}')"
+          fi
+          [[ -n "$installer_sha1" ]] || { echo "The installer p12 has no Mac installer certificate." >&2; exit 1; }
+          {
+            echo "MAC_INSTALLER_KEYCHAIN=$keychain"
+            echo "MAC_INSTALLER_SHA1=$installer_sha1"
+          } >> "$GITHUB_ENV"
+
+      - name: Install Mac App Store provisioning profile
+        run: |
+          set -euo pipefail
+          node "$APPLE_DISTRIBUTION_KIT_BIN" signing profiles \
+            --state "$ADK_MAC_SIGNING_DIR/state.json" \
+            --team-id 743GT2AJ24 \
+            --bundle-id app.spoonjoy \
+            --profile-type MAC_APP_STORE \
+            --name-prefix "ADK CI Mac" \
+            --xcconfig "$ADK_MAC_SIGNING_DIR/signing.xcconfig" \
+            --export-options "$ADK_MAC_SIGNING_DIR/ExportOptions.plist" \
+            --export-options-base release-source/distribution/ExportOptions.mac-app-store.plist
+          # macOS Xcode looks for .provisionprofile files; the kit writes .mobileprovision.
+          profiles_dir="$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles"
+          mkdir -p "$profiles_dir" "$HOME/Library/MobileDevice/Provisioning Profiles"
+          for profile in "$profiles_dir"/*.mobileprovision "$HOME/Library/MobileDevice/Provisioning Profiles"/*.mobileprovision; do
+            if [[ -f "$profile" ]]; then cp -f "$profile" "${profile%.mobileprovision}.provisionprofile"; fi
+          done
+          /usr/libexec/PlistBuddy -c "Add :installerSigningCertificate string $MAC_INSTALLER_SHA1" "$ADK_MAC_SIGNING_DIR/ExportOptions.plist"
+          {
+            echo "SPOONJOY_MAC_SIGNING_XCCONFIG=$ADK_MAC_SIGNING_DIR/signing.xcconfig"
+            echo "SPOONJOY_MAC_EXPORT_OPTIONS_PLIST=$ADK_MAC_SIGNING_DIR/ExportOptions.plist"
+          } >> "$GITHUB_ENV"
+
+      - name: Upload exact candidate to App Store Connect
+        working-directory: release-source
+        env:
+          SPOONJOY_MAC_SOURCE_ROOT: ${{ github.workspace }}/release-source
+          SPOONJOY_MAC_SOURCE_SHA: ${{ steps.candidate.outputs.source_sha }}
+        run: ../scripts/ci-publish-mac-app-store.sh
+
+      - name: Delete signing keychains
+        if: always() && steps.signing_identity.outcome != 'skipped'
+        continue-on-error: true
+        run: |
+          node "$APPLE_DISTRIBUTION_KIT_BIN" signing delete-keychain --keychain "$RUNNER_TEMP/adk-signing-mac/spoonjoy-mac-ci.keychain-db" || true
+          security delete-keychain "$RUNNER_TEMP/adk-signing-mac/spoonjoy-mac-installer.keychain-db" || true
+
+      - name: Summarize upload
+        if: always()
+        run: |
+          summary_path="release-source/artifacts/apple/ci-mac-app-store/mac-app-store-publish-summary.json"
+          if [[ -f "$summary_path" ]]; then
+            {
+              echo "## Mac App Store upload"
+              echo
+              jq -r '"- Source SHA: \(.sourceSha)", "- Build: \(.buildNumber) (\(.buildId))", "- State: \(.processingState)"' "$summary_path"
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Mac publish artifacts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: mac-app-store-publish-artifacts-${{ needs.release-gate.outputs.source_sha }}
+          path: release-source/artifacts/apple/ci-mac-app-store
+          if-no-files-found: warn
+          retention-days: 90

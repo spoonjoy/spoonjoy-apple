@@ -276,6 +276,18 @@ The certificate secrets `APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64` and `APPLE_D
 
 `scripts/revoke-ci-signing-certificates.rb` is the earlier version of the safety net. CI no longer calls it.
 
+## Mac App Store Build
+
+The Mac app ships as the macOS platform of the same App Store record as the iPhone app (universal purchase), so both targets use the bundle ID `app.spoonjoy`. The Mac target signs with its own entitlements, `Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements`, which turn on App Sandbox (the Mac App Store rejects apps without it), and it builds with the hardened runtime.
+
+The `publish-mac-app-store` job in `.github/workflows/testflight.yml` runs beside the iPhone job for the same verified commit. A Mac failure never blocks the iPhone build:
+
+1. `signing import` imports the same Apple Distribution identity. A separate step imports the Mac Installer Distribution identity, which signs the `.pkg`, from the repository secrets `MAC_INSTALLER_CERTIFICATE_P12_BASE64` and `MAC_INSTALLER_CERTIFICATE_PASSWORD` into its own temporary keychain. That certificate (`VW477JD8WC`) expires on 2027-10-25.
+2. `signing profiles --profile-type MAC_APP_STORE` installs the `ADK CI Mac app.spoonjoy <certificate id>` profile and writes export options on top of `distribution/ExportOptions.mac-app-store.plist`, with the installer identity added.
+3. `scripts/ci-publish-mac-app-store.sh` numbers the build after the newest `MAC_OS` build, runs `scripts/package-mac-app-store.sh` (which refuses an archive that is not sandboxed or not `app.spoonjoy`), uploads with `altool --type macos` and waits until App Store Connect marks the build `VALID`.
+
+The job never submits for review. Attach the build to the macOS App Store version and submit it from App Store Connect.
+
 ## Reactive TestFlight Feedback
 
 Spoonjoy uses an App Store Connect webhook for TestFlight screenshot and crash
