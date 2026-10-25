@@ -23,7 +23,7 @@ also rejects committed Apple credential files.
 
 ## TestFlight Flow
 
-The manifest declares the canonical Apple provider (`9735080289`) and the first
+The manifest declares the canonical Apple provider public ID (`b25f0f77-25c0-44b8-9d21-2e95083f09ae`) and the first
 beta group, `Spoonjoy Internal`. The package command archives the `Spoonjoy iOS`
 Release scheme and exports an IPA under `build/apple/testflight/` using
 `distribution/ExportOptions.testflight.plist`. The package script redacts App
@@ -64,7 +64,7 @@ scripts/apple-distribution-kit.sh xcode run \
   --api-key "$ASC_API_KEY" \
   --api-issuer "$ASC_API_ISSUER" \
   --p8-file-path "$ASC_P8_FILE" \
-  --provider-public-id 9735080289 \
+  --provider-public-id b25f0f77-25c0-44b8-9d21-2e95083f09ae \
   --json
 ```
 
@@ -235,7 +235,6 @@ Required GitHub Actions secrets for the `internal-testflight` environment:
 - `APP_STORE_CONNECT_API_KEY_ID`
 - `APP_STORE_CONNECT_API_ISSUER_ID`
 - `APP_STORE_CONNECT_API_KEY_BASE64`
-- `APP_STORE_CONNECT_PROVIDER_PUBLIC_ID`
 
 The private key secret is the base64-encoded `.p8` contents. The workflow writes
 the decoded key to `$RUNNER_TEMP`, creates an Apple Distribution Kit config file,

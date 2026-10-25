@@ -86,6 +86,12 @@ run_xcodebuild \
   IPHONEOS_DEPLOYMENT_TARGET="$IOS_DEPLOYMENT_TARGET" \
   SDK_STAT_CACHE_ENABLE="$SDK_STAT_CACHE_ENABLE_VALUE"
 
+# The app registers for remote notifications, which needs production push under an App Store profile.
+archived_app="$ARCHIVE_PATH/Products/Applications/Spoonjoy.app"
+[[ -d "$archived_app" ]] || fail "archive has no Spoonjoy.app"
+aps="$(codesign -d --entitlements - --xml "$archived_app" 2>/dev/null | /usr/libexec/PlistBuddy -c 'Print :aps-environment' /dev/stdin 2>/dev/null || true)"
+[[ "$aps" == "production" ]] || fail "the archived app has aps-environment '$aps', expected production"
+
 run_xcodebuild \
   ${signing_args[@]+"${signing_args[@]}"} \
   -exportArchive \

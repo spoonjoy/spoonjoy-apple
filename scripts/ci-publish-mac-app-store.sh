@@ -7,7 +7,8 @@ set -euo pipefail
 CONTROL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ROOT_DIR="${SPOONJOY_MAC_SOURCE_ROOT:-$CONTROL_ROOT}"
 BUNDLE_ID="${SPOONJOY_MAC_BUNDLE_ID:-app.spoonjoy}"
-ASC_PROVIDER_PUBLIC_ID="${APP_STORE_CONNECT_PROVIDER_PUBLIC_ID:-}"
+# altool needs the provider's public ID (a UUID); it comes from the manifest, never from a secret.
+ASC_PROVIDER_PUBLIC_ID="$(jq -er '.team.providerPublicId' "$ROOT_DIR/distribution/apple-distribution.json")"
 ASC_CONFIG="${APPLE_DISTRIBUTION_KIT_CONFIG:-$HOME/Library/Application Support/AppleDistributionKit/app-store-connect/config.json}"
 ARTIFACT_DIR="${SPOONJOY_MAC_ARTIFACT_DIR:-$ROOT_DIR/artifacts/apple/ci-mac-app-store}"
 PKG_PATH="$ROOT_DIR/build/apple/mac/app-store/Spoonjoy.pkg"
@@ -80,8 +81,6 @@ printf 'Packaging Spoonjoy Mac App Store build %s from this source revision\n' "
 "$ROOT_DIR/scripts/package-mac-app-store.sh" | tee "$ARTIFACT_DIR/package-mac-app-store.log"
 require_file "$PKG_PATH" "exported Mac installer package"
 
-provider_args=()
-[[ -z "$ASC_PROVIDER_PUBLIC_ID" ]] || provider_args=(--provider-public-id "$ASC_PROVIDER_PUBLIC_ID")
 kit xcode run \
   --kind altool-upload \
   --mode apply \
@@ -90,7 +89,7 @@ kit xcode run \
   --api-key "$ASC_API_KEY" \
   --api-issuer "$ASC_API_ISSUER" \
   --p8-file-path "$ASC_P8_FILE" \
-  ${provider_args[@]+"${provider_args[@]}"} \
+  --provider-public-id "$ASC_PROVIDER_PUBLIC_ID" \
   --json \
   | tee "$ARTIFACT_DIR/altool-upload.json"
 
