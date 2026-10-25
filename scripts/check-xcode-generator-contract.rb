@@ -77,14 +77,17 @@ def build_configuration_objects(project_content)
   end
 end
 
-def find_build_settings_block(project_content, bundle_id, configuration)
+# The iOS and Mac apps share one bundle ID (universal purchase), so `sdkroot` tells their build settings apart.
+def find_build_settings_block(project_content, bundle_id, configuration, sdkroot: nil)
   matches = build_configuration_objects(project_content).select do |object|
     object[:configuration] == configuration &&
-      object[:settings].match?(/PRODUCT_BUNDLE_IDENTIFIER = "?#{Regexp.escape(bundle_id)}"?;/)
+      object[:settings].match?(/PRODUCT_BUNDLE_IDENTIFIER = "?#{Regexp.escape(bundle_id)}"?;/) &&
+      (sdkroot.nil? || object[:settings].match?(/^\s*SDKROOT = #{Regexp.escape(sdkroot)};/m))
   end
 
-  fail_check("missing build settings for #{bundle_id} #{configuration}") if matches.empty?
-  fail_check("multiple build settings for #{bundle_id} #{configuration}") if matches.length > 1
+  label = [bundle_id, sdkroot, configuration].compact.join(" ")
+  fail_check("missing build settings for #{label}") if matches.empty?
+  fail_check("multiple build settings for #{label}") if matches.length > 1
 
   matches.first[:settings]
 end
@@ -227,7 +230,7 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   end
 
   {
-	    "app.spoonjoy" => {
+	    ["app.spoonjoy", "iphoneos"] => {
 	      "Debug" => {
 	        "IPHONEOS_DEPLOYMENT_TARGET" => "27.0",
 	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_SIGNED_APPLE_AUTH\""
@@ -241,7 +244,7 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
 	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
 	      }
 	    },
-	    "app.spoonjoy.mac" => {
+	    ["app.spoonjoy", "macosx"] => {
 	      "Debug" => {
 	        "MACOSX_DEPLOYMENT_TARGET" => "27.0",
 	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_SIGNED_APPLE_AUTH\""
@@ -255,11 +258,15 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
 	        "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG"
 	      }
 	    }
-	  }.each do |bundle_id, configurations|
+	  }.each do |(bundle_id, sdkroot), configurations|
     configurations.each do |configuration, settings|
-      block = find_build_settings_block(project_content, bundle_id, configuration)
+      block = find_build_settings_block(project_content, bundle_id, configuration, sdkroot: sdkroot)
       if configuration == "BootstrapDebug"
         assert_absent_setting(block, "CODE_SIGN_ENTITLEMENTS")
+      elsif sdkroot == "macosx"
+        # The Mac App Store requires App Sandbox, which lives only in the Mac entitlements.
+        assert_setting(block, "CODE_SIGN_ENTITLEMENTS", "Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements")
+        assert_setting(block, "ENABLE_HARDENED_RUNTIME", "YES")
       else
         assert_setting(block, "CODE_SIGN_ENTITLEMENTS", "Apps/Spoonjoy/Shared/Spoonjoy.entitlements")
       end
@@ -268,6 +275,20 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
       end
     end
   end
+
+  mac_entitlements = ROOT.join("Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements")
+  fail_check("Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements is missing") unless mac_entitlements.file?
+  mac_entitlements_text = mac_entitlements.read
+  [
+    "com.apple.security.app-sandbox",
+    "com.apple.security.network.client",
+    "com.apple.developer.applesignin",
+    "com.apple.developer.associated-domains"
+  ].each do |key|
+    fail_check("Mac entitlements must enable #{key}") unless mac_entitlements_text.include?("<key>#{key}</key>")
+  end
+  info_plist_text = ROOT.join("Apps/Spoonjoy/Shared/Info.plist").read
+  fail_check("Info.plist needs LSApplicationCategoryType for Mac App Store uploads") unless info_plist_text.include?("<key>LSApplicationCategoryType</key>")
 
   {
     "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG" },

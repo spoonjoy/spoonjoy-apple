@@ -154,6 +154,12 @@ struct SpoonjoyRootView: View {
             .onOpenURL { url in
                 applyURL(url)
             }
+#if os(macOS)
+            // The app menu's Settings… item (⌘,) opens the same Settings screen as the sidebar.
+            .onReceive(NotificationCenter.default.publisher(for: .spoonjoyOpenSettings)) { _ in
+                navigation.navigate(to: .settings)
+            }
+#endif
             .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { userActivity in
                 if let url = userActivity.webpageURL {
                     applyURL(url)
@@ -1321,5 +1327,12 @@ private actor SpotlightMaintenanceQueue {
             await job()
         }
     }
+}
+#endif
+
+#if os(macOS)
+extension Notification.Name {
+    /// Posted by the Mac app menu's Settings… command.
+    static let spoonjoyOpenSettings = Notification.Name("app.spoonjoy.openSettings")
 }
 #endif
