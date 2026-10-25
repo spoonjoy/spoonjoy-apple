@@ -214,7 +214,7 @@ def accessibility_proof(platform)
     "route" => "kitchen",
     "source" => "KitchenView",
     "emittedBy" => "SpoonjoyApp",
-    "bundleIdentifier" => platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy",
+    "bundleIdentifier" => "app.spoonjoy",
     "minimumTargetSize" => 44,
     "textFits" => true,
     "noTinyClusters" => true,

@@ -25,6 +25,12 @@ module AppStoreListing
   VERSION_LOCALIZATION_FIELDS = %w[description keywords promotionalText supportUrl marketingUrl whatsNew].freeze
   REVIEW_FIELDS = %w[contactFirstName contactLastName contactEmail contactPhone demoAccountName demoAccountRequired notes].freeze
   SCREENSHOT_NAME = /\A\d{2}-[a-z0-9-]+\.png\z/.freeze
+  # listing.json describes the iOS version. Another platform's version reads its overrides from the named section.
+  PLATFORM_SECTIONS = { "IOS" => nil, "MAC_OS" => "mac" }.freeze
+  PLATFORM_NAMES = { "IOS" => "iOS", "MAC_OS" => "macOS" }.freeze
+  # App-level data (name, categories, age rating, price, availability...) is shared by every platform, so only the
+  # iOS listing writes it.
+  APP_LEVEL_PLATFORM = "IOS"
 
   class Error < StandardError; end
 
@@ -53,6 +59,31 @@ module AppStoreListing
     raise Error, "#{path} has no IHDR chunk" unless width
 
     PngInfo.new(width: width, height: height, alpha: transparency || [4, 6].include?(color_type))
+  end
+
+  # The listing as one platform's version sees it. IOS returns listing.json unchanged. Another platform takes its
+  # section's localization fields, review fields, version fields and screenshot folders over the iOS ones.
+  def self.for_platform(listing, platform)
+    raise Error, "Unknown platform #{platform}; choose #{PLATFORM_SECTIONS.keys.join(' or ')}" unless PLATFORM_SECTIONS.key?(platform)
+    return listing if platform == listing.fetch("platform")
+
+    key = PLATFORM_SECTIONS.fetch(platform)
+    section = listing[key]
+    raise Error, "listing.json has no \"#{key}\" section for #{platform}" unless section.is_a?(Hash)
+
+    effective = JSON.parse(JSON.generate(listing.reject { |name, _| PLATFORM_SECTIONS.value?(name) }))
+    effective["platform"] = platform
+    effective["version"] = effective.fetch("version").merge(section.fetch("version", {}))
+    effective["review"] = effective.fetch("review").merge(section.fetch("review", {}))
+    section.fetch("localizations", {}).each do |locale, fields|
+      effective["localizations"][locale] = effective["localizations"].fetch(locale, {}).merge(fields)
+    end
+    effective["screenshots"] = section.fetch("screenshots")
+    effective
+  end
+
+  def self.app_level?(listing)
+    listing.fetch("platform") == APP_LEVEL_PLATFORM
   end
 
   # Every problem with the listing and its screenshots, as human-readable strings. Empty means valid.
@@ -121,39 +152,20 @@ module AppStoreListing
   #   version: {id, attributes, buildId, localization: {id, attributes}|nil, reviewDetail: {id, attributes}|nil,
   #             screenshotSets: {displayType => {id, checksums: [...]}}}|nil
   #   build: {id}|nil      price: {scheduled: bool, freePricePointId}      availability: {exists: bool, territoryIds: [...]}
+  # app, appInfo, price and availability are app-level: only the iOS listing reads or writes them.
   #
   # Returns the writes needed, in order. Each step: {"action", "summary", ...data the executor needs}.
   def self.plan(listing:, snapshot:, screenshots:, secrets:, locale: "en-US")
     steps = []
     fields = listing.fetch("localizations").fetch(locale)
-    app = snapshot.fetch("app")
-
-    if app["contentRightsDeclaration"] != listing["contentRightsDeclaration"]
-      steps << { "action" => "patch_app", "summary" => "Set content rights to #{listing['contentRightsDeclaration']}",
-                 "attributes" => { "contentRightsDeclaration" => listing["contentRightsDeclaration"] } }
-    end
-
-    info = snapshot.fetch("appInfo")
-    categories = listing.fetch("categories")
-    if info["primaryCategory"] != categories["primary"] || info["secondaryCategory"] != categories["secondary"]
-      steps << { "action" => "patch_categories", "summary" => "Set categories to #{categories['primary']} / #{categories['secondary']}",
-                 "appInfoId" => info["id"], "primary" => categories["primary"], "secondary" => categories["secondary"] }
-    end
-
-    age_changes = changed(info["ageRating"] || {}, listing.fetch("ageRating"))
-    unless age_changes.empty?
-      steps << { "action" => "patch_age_rating", "summary" => "Update #{age_changes.length} age rating answers",
-                 "ageRatingId" => info["ageRatingId"], "attributes" => age_changes }
-    end
-
-    wanted_info = fields.slice(*APP_INFO_LOCALIZATION_FIELDS)
-    steps.concat(localization_step("app_info_localization", info["localization"], wanted_info, locale, "appInfoId" => info["id"]))
+    steps.concat(app_level_steps(listing, snapshot, fields, locale)) if app_level?(listing)
 
     version = snapshot["version"]
     wanted_version = listing.fetch("version")
     if version.nil?
-      steps << { "action" => "create_version", "summary" => "Create iOS version #{wanted_version['versionString']}",
-                 "attributes" => wanted_version }
+      platform = listing.fetch("platform")
+      steps << { "action" => "create_version", "summary" => "Create #{PLATFORM_NAMES.fetch(platform)} version #{wanted_version['versionString']}",
+                 "platform" => platform, "attributes" => wanted_version }
       version = { "id" => "$version", "attributes" => wanted_version, "localization" => nil, "reviewDetail" => nil,
                   "screenshotSets" => {} }
     else
@@ -177,19 +189,7 @@ module AppStoreListing
     steps.concat(localization_steps)
 
     steps.concat(review_steps(listing.fetch("review"), version, secrets))
-
-    price = snapshot.fetch("price")
-    unless price["scheduled"]
-      steps << { "action" => "set_free_price", "summary" => "Make the app free in every territory (base #{listing.dig('price', 'baseTerritory')})",
-                 "baseTerritory" => listing.dig("price", "baseTerritory"), "pricePointId" => price["freePricePointId"] }
-    end
-
-    availability = snapshot.fetch("availability")
-    unless availability["exists"]
-      steps << { "action" => "set_availability", "summary" => "Make the app available in all #{availability['territoryIds'].length} territories",
-                 "territoryIds" => availability["territoryIds"],
-                 "availableInNewTerritories" => listing.dig("availability", "availableInNewTerritories") }
-    end
+    steps.concat(pricing_steps(listing, snapshot)) if app_level?(listing)
 
     localization_ref = version["localization"] ? version["localization"]["id"] : "$version_localization"
     listing.fetch("screenshots").each do |folder, spec|
@@ -204,6 +204,52 @@ module AppStoreListing
                  "summary" => "Replace #{spec['displayType']} screenshots with #{files.length} from #{folder}",
                  "displayType" => spec["displayType"], "localizationId" => localization_ref,
                  "setId" => existing && existing["id"], "files" => files }
+    end
+    steps
+  end
+
+  # Content rights, categories, age rating and the app name, subtitle and privacy URL. Shared by every platform.
+  def self.app_level_steps(listing, snapshot, fields, locale)
+    steps = []
+    app = snapshot.fetch("app")
+
+    if app["contentRightsDeclaration"] != listing["contentRightsDeclaration"]
+      steps << { "action" => "patch_app", "summary" => "Set content rights to #{listing['contentRightsDeclaration']}",
+                 "attributes" => { "contentRightsDeclaration" => listing["contentRightsDeclaration"] } }
+    end
+
+    info = snapshot.fetch("appInfo")
+    categories = listing.fetch("categories")
+    if info["primaryCategory"] != categories["primary"] || info["secondaryCategory"] != categories["secondary"]
+      steps << { "action" => "patch_categories", "summary" => "Set categories to #{categories['primary']} / #{categories['secondary']}",
+                 "appInfoId" => info["id"], "primary" => categories["primary"], "secondary" => categories["secondary"] }
+    end
+
+    age_changes = changed(info["ageRating"] || {}, listing.fetch("ageRating"))
+    unless age_changes.empty?
+      steps << { "action" => "patch_age_rating", "summary" => "Update #{age_changes.length} age rating answers",
+                 "ageRatingId" => info["ageRatingId"], "attributes" => age_changes }
+    end
+
+    wanted_info = fields.slice(*APP_INFO_LOCALIZATION_FIELDS)
+    steps.concat(localization_step("app_info_localization", info["localization"], wanted_info, locale, "appInfoId" => info["id"]))
+    steps
+  end
+
+  # Free in every territory. Shared by every platform.
+  def self.pricing_steps(listing, snapshot)
+    steps = []
+    price = snapshot.fetch("price")
+    unless price["scheduled"]
+      steps << { "action" => "set_free_price", "summary" => "Make the app free in every territory (base #{listing.dig('price', 'baseTerritory')})",
+                 "baseTerritory" => listing.dig("price", "baseTerritory"), "pricePointId" => price["freePricePointId"] }
+    end
+
+    availability = snapshot.fetch("availability")
+    unless availability["exists"]
+      steps << { "action" => "set_availability", "summary" => "Make the app available in all #{availability['territoryIds'].length} territories",
+                 "territoryIds" => availability["territoryIds"],
+                 "availableInNewTerritories" => listing.dig("availability", "availableInNewTerritories") }
     end
     steps
   end
@@ -377,15 +423,19 @@ module AppStoreListing
     end
 
     def snapshot(build_number: nil)
+      snapshot = {
+        "version" => version,
+        "build" => build_number ? build(build_number) : nil
+      }
+      return snapshot unless AppStoreListing.app_level?(@listing)
+
       app = @client.get("/v1/apps/#{app_id}")["data"]
-      {
+      snapshot.merge(
         "app" => { "id" => app_id, "contentRightsDeclaration" => app.dig("attributes", "contentRightsDeclaration") },
         "appInfo" => app_info,
-        "version" => version,
-        "build" => build_number ? build(build_number) : nil,
         "price" => price,
         "availability" => availability
-      }
+      )
     end
 
     def app_info
@@ -441,20 +491,32 @@ module AppStoreListing
     def build(build_number)
       builds = @client.get("/v1/builds", "filter[app]" => app_id, "filter[version]" => build_number.to_s,
                                          "filter[processingState]" => "VALID", "filter[preReleaseVersion.platform]" => @listing["platform"])["data"]
-      raise Error, "No VALID iOS build #{build_number} in App Store Connect" if builds.empty?
+      raise Error, "No VALID #{PLATFORM_NAMES.fetch(@listing['platform'])} build #{build_number} in App Store Connect" if builds.empty?
 
       { "id" => builds.first["id"], "version" => build_number.to_s }
     end
 
     def price
-      scheduled = begin
-        @client.get("/v1/apps/#{app_id}/appPriceSchedule")["data"] ? true : false
+      schedule = begin
+        @client.get("/v1/apps/#{app_id}/appPriceSchedule")["data"]
       rescue Error => e
         raise unless e.message.include?("HTTP 404")
 
-        false
+        nil
       end
-      return { "scheduled" => true } if scheduled
+      if schedule
+        # An existing schedule only counts if every manual price is free; otherwise plan to replace it.
+        # A new app answers the schedule with a placeholder whose manual prices 404, which means no price yet.
+        body = begin
+          @client.get("/v1/appPriceSchedules/#{schedule['id']}/manualPrices", "include" => "appPricePoint", "limit" => 200)
+        rescue Error => e
+          raise unless e.message.include?("HTTP 404")
+
+          {}
+        end
+        prices = (body["included"] || []).select { |item| item["type"] == "appPricePoints" }
+        return { "scheduled" => true } if !prices.empty? && prices.all? { |point| point.dig("attributes", "customerPrice").to_f.zero? }
+      end
 
       territory = @listing.dig("price", "baseTerritory")
       points = @client.get_all("/v1/apps/#{app_id}/appPricePoints", "filter[territory]" => territory)
@@ -532,7 +594,7 @@ module AppStoreListing
 
     def apply_create_version(step)
       body = @client.post("/v1/appStoreVersions", data: {
-        type: "appStoreVersions", attributes: step["attributes"].merge("platform" => "IOS"),
+        type: "appStoreVersions", attributes: step["attributes"].merge("platform" => step.fetch("platform", "IOS")),
         relationships: { app: { data: { type: "apps", id: @app_id } } }
       })
       @refs["$version"] = body.dig("data", "id")

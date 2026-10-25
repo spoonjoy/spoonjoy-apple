@@ -15,7 +15,8 @@ MAC_SCHEME_NAME = "Spoonjoy macOS"
 UI_TEST_TARGET_NAME = "SpoonjoyShoppingUITests"
 JOURNEYS_TARGET_NAME = "SpoonjoyJourneys"
 IOS_BUNDLE_ID = "app.spoonjoy"
-MAC_BUNDLE_ID = "app.spoonjoy.mac"
+# The Mac app shares the iOS bundle ID so one App Store record sells both (universal purchase).
+MAC_BUNDLE_ID = "app.spoonjoy"
 UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 WIDGET_TARGET_NAME = "SpoonjoyCookTimerWidget"
@@ -25,6 +26,8 @@ THEME_SOURCE = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
 INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
 ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
+# The Mac App Store requires App Sandbox, so the Mac app carries its own entitlements.
+MAC_ENTITLEMENTS = "Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements"
 ASSET_CATALOG = "Apps/Spoonjoy/Shared/Assets.xcassets"
 # App Store privacy manifest: required-reason API declarations and collected data types for both apps.
 PRIVACY_MANIFEST = "Apps/Spoonjoy/Shared/PrivacyInfo.xcprivacy"
@@ -75,7 +78,7 @@ project = Xcodeproj::Project.new(project_path.to_s)
 project.build_configuration_list.build_configurations.each(&:remove_from_project)
 CONFIGURATIONS.each { |name| project.add_build_configuration(name, name == "Release" ? :release : :debug) }
 
-def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, deployment_targets:)
+def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, deployment_targets:, entitlements: ENTITLEMENTS)
   CONFIGURATIONS.each do |configuration|
     build_configuration = target.build_configuration_list[configuration]
     build_configuration.build_settings["PRODUCT_BUNDLE_IDENTIFIER"] = bundle_id
@@ -91,7 +94,7 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
     if configuration == "BootstrapDebug"
       build_configuration.build_settings.delete("CODE_SIGN_ENTITLEMENTS")
     else
-      build_configuration.build_settings["CODE_SIGN_ENTITLEMENTS"] = ENTITLEMENTS
+      build_configuration.build_settings["CODE_SIGN_ENTITLEMENTS"] = entitlements
     end
     build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "32"
@@ -245,10 +248,14 @@ apply_common_settings(
     "Debug" => "27.0",
     "Release" => "27.0",
     "BootstrapDebug" => "26.2"
-  }
+  },
+  entitlements: MAC_ENTITLEMENTS
 )
+CONFIGURATIONS.each do |configuration|
+  mac_target.build_configuration_list[configuration].build_settings["ENABLE_HARDENED_RUNTIME"] = "YES"
+end
 
-[INFO_PLIST, ENTITLEMENTS].each { |path| file_reference(project, path) }
+[INFO_PLIST, ENTITLEMENTS, MAC_ENTITLEMENTS].each { |path| file_reference(project, path) }
 add_sources(project, ios_target, SHARED_SWIFT + IOS_SWIFT + LIVE_ACTIVITY_SHARED_SWIFT)
 add_sources(project, mac_target, SHARED_SWIFT + MAC_SWIFT)
 add_resources(project, ios_target, [ASSET_CATALOG, PRIVACY_MANIFEST])

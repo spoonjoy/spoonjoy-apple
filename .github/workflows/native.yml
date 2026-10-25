@@ -74,7 +74,10 @@ jobs:
         run: |
           ruby scripts/test/app_store_listing_test.rb
           ruby scripts/test/review_demo_kitchen_test.rb
+          ruby scripts/test/app_store_review_submission_test.rb
+          ruby scripts/test/app_store_release_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
+          ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only
 
   swift-tests:

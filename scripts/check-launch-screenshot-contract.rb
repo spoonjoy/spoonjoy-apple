@@ -522,7 +522,7 @@ def add_accessibility_proofs!(root, manifest, stem)
         "route" => route,
         "source" => accessibility_source(route),
         "emittedBy" => "SpoonjoyApp",
-        "bundleIdentifier" => platform == "macos" ? "app.spoonjoy.mac" : "app.spoonjoy",
+        "bundleIdentifier" => "app.spoonjoy",
         "minimumTargetSize" => 44,
         "textFits" => true,
         "noTinyClusters" => true,
@@ -1831,7 +1831,7 @@ PY
           accessibility_source="CaptureDraftView"
           ;;
       esac
-      write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy.mac" "$accessibility_source"
+      write_accessibility_proof "$accessibility_proof_path" "$accessibility_route" "macos" "app.spoonjoy" "$accessibility_source"
     fi
   SH
   write_executable(bin_dir.join("pgrep"), "#!/usr/bin/env bash\nprintf '12345\\n'\n")
@@ -2405,7 +2405,7 @@ PY
     output_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
     if [[ -n "$output_path" ]]; then
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the Counter","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy.mac"}\n' > "$output_path"
+      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the Counter","Start Cooking","Recipe index","RecipeIndexRow ordinal","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","ordinal"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy"}\n' > "$output_path"
     fi
   SH
 

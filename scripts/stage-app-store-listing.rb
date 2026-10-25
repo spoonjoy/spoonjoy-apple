@@ -6,6 +6,10 @@
 #   ruby scripts/stage-app-store-listing.rb --validate-only
 #   ruby scripts/stage-app-store-listing.rb --dry-run [--build-number N]
 #   ruby scripts/stage-app-store-listing.rb --apply --build-number N
+#   ruby scripts/stage-app-store-listing.rb --dry-run --platform MAC_OS --build-number N
+#
+# --platform defaults to IOS. MAC_OS stages the Mac version from listing.json's "mac" section and leaves app-level
+# data (name, categories, age rating, price, availability) alone, because the iOS listing owns it.
 #
 # Credentials come from the environment: ASC_KEY_ID, ASC_ISSUER_ID and ASC_KEY_BASE64 (the base64 of the .p8
 # key). Review details read SPOONJOY_REVIEW_DEMO_USERNAME, SPOONJOY_REVIEW_DEMO_PASSWORD and, if set,
@@ -15,19 +19,25 @@ require "optparse"
 require_relative "lib/app_store_listing"
 
 root = File.expand_path("..", __dir__)
-options = { mode: nil, build_number: nil, listing: File.join(root, "distribution/app-store/listing.json"),
+options = { mode: nil, build_number: nil, platform: "IOS", listing: File.join(root, "distribution/app-store/listing.json"),
             screenshots: File.join(root, "distribution/app-store/screenshots") }
 OptionParser.new do |opts|
   opts.on("--validate-only") { options[:mode] = :validate }
   opts.on("--dry-run") { options[:mode] = :dry_run }
   opts.on("--apply") { options[:mode] = :apply }
   opts.on("--build-number N") { |value| options[:build_number] = value.strip.empty? ? nil : value.strip }
+  opts.on("--platform PLATFORM") { |value| options[:platform] = value.strip.empty? ? "IOS" : value.strip }
   opts.on("--listing PATH") { |value| options[:listing] = value }
   opts.on("--screenshots DIR") { |value| options[:screenshots] = value }
 end.parse!
 abort "Choose --validate-only, --dry-run or --apply" unless options[:mode]
 
-listing = JSON.parse(File.read(options[:listing]))
+begin
+  listing = AppStoreListing.for_platform(JSON.parse(File.read(options[:listing])), options[:platform])
+rescue AppStoreListing::Error => e
+  abort e.message
+end
+puts "Platform: #{options[:platform]}"
 errors = AppStoreListing.validate(listing, options[:screenshots])
 unless errors.empty?
   warn "The listing is not valid:"

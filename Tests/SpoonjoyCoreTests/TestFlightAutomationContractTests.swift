@@ -129,15 +129,15 @@ struct TestFlightAutomationContractTests {
         let toolkitCheckoutCount = testFlightWorkflow.matches(of: toolkitRepositoryPattern).count
         let toolkitRevisions = testFlightWorkflow.matches(of: toolkitRefPattern).map { String($0.1) }
         #expect(
-            toolkitCheckoutCount == 1 && toolkitRevisions == [expectedToolkitRevision],
-            "TestFlight must have one toolkit checkout pinned to the audited revision: \(toolkitRevisions)"
+            toolkitCheckoutCount == 2 && toolkitRevisions == [expectedToolkitRevision, expectedToolkitRevision],
+            "The iPhone and Mac jobs must each check out the toolkit pinned to the audited revision: \(toolkitRevisions)"
         )
 
         let sourceRubyBundlePattern = /- name: Install pinned source Ruby bundle\n\s+uses: ruby\/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1\n\s+with:\n\s+ruby-version: '3\.3'\n\s+bundler-cache: true\n\s+working-directory: release-source/
         let sourceRubyBundleMatches = testFlightWorkflow.matches(of: sourceRubyBundlePattern)
         #expect(
-            sourceRubyBundleMatches.count == 1,
-            "TestFlight must install the selected source Gemfile.lock through pinned ruby/setup-ruby before publish"
+            sourceRubyBundleMatches.count == 2,
+            "The iPhone and Mac jobs must each install the selected source Gemfile.lock through pinned ruby/setup-ruby before publish"
         )
         let candidateVerification = testFlightWorkflow.range(of: "- name: Verify exact Native release evidence")
         let sourceRubyBundle = testFlightWorkflow.range(of: "- name: Install pinned source Ruby bundle")
@@ -729,11 +729,11 @@ struct TestFlightAutomationContractTests {
         let toolkitPin = /repository:\s+ourostack\/apple-distribution-kit\n\s+ref:\s+([0-9a-f]{40})/
         let checksum = /EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256:\s+([0-9a-f]{64})/
         #expect(
-            dryRun.matches(of: toolkitPin).map { String($0.1) } == testFlight.matches(of: toolkitPin).map { String($0.1) },
+            Set(dryRun.matches(of: toolkitPin).map { String($0.1) }) == Set(testFlight.matches(of: toolkitPin).map { String($0.1) }),
             "the dry run must pin the same apple-distribution-kit revision as TestFlight"
         )
         #expect(
-            dryRun.matches(of: checksum).map { String($0.1) } == testFlight.matches(of: checksum).map { String($0.1) },
+            Set(dryRun.matches(of: checksum).map { String($0.1) }) == Set(testFlight.matches(of: checksum).map { String($0.1) }),
             "the dry run must verify the same apple-distribution-kit dist checksum as TestFlight"
         )
     }
@@ -761,6 +761,78 @@ struct TestFlightAutomationContractTests {
             "-allowProvisioningUpdates may appear only in comments or the local automatic-signing branch"
         )
         #expect(script.contains("signing_args+=(-allowProvisioningUpdates)"))
+    }
+
+    @Test("Mac App Store build uploads the exact candidate in its own job and never submits for review")
+    func macAppStoreJobUploadsExactCandidateOnly() throws {
+        let workflow = try readTestFlightAutomationRepoFile(".github/workflows/testflight.yml")
+        let macJob = try #require(workflow.components(separatedBy: "\n  publish-mac-app-store:\n").dropFirst().first)
+        expectTestFlightAutomationContent(
+            macJob,
+            in: ".github/workflows/testflight.yml publish-mac-app-store",
+            contains: [
+                "needs: release-gate",
+                "if: needs.release-gate.outputs.publish == 'true'",
+                "environment: internal-testflight",
+                "../scripts/verify-testflight-release-candidate.rb",
+                "signing import",
+                "MAC_INSTALLER_CERTIFICATE_P12_BASE64",
+                "--profile-type MAC_APP_STORE",
+                "--bundle-id app.spoonjoy",
+                "--export-options-base release-source/distribution/ExportOptions.mac-app-store.plist",
+                "installerSigningCertificate",
+                "SPOONJOY_MAC_SOURCE_SHA: ${{ steps.candidate.outputs.source_sha }}",
+                "../scripts/ci-publish-mac-app-store.sh",
+                "security delete-keychain"
+            ],
+            forbids: [
+                "needs: publish-internal",
+                "ci-publish-testflight.sh",
+                "-allowProvisioningUpdates",
+                "appStoreVersionSubmissions",
+                "reviewSubmissions"
+            ]
+        )
+        let profiles = try #require(macJob.range(of: "signing profiles"))
+        let publish = try #require(macJob.range(of: "../scripts/ci-publish-mac-app-store.sh"))
+        let cleanup = try #require(macJob.range(of: "security delete-keychain"))
+        #expect(profiles.lowerBound < publish.lowerBound && publish.lowerBound < cleanup.lowerBound)
+
+        let package = try readTestFlightAutomationRepoFile("scripts/package-mac-app-store.sh")
+        expectTestFlightAutomationContent(
+            package,
+            in: "scripts/package-mac-app-store.sh",
+            contains: [
+                "-scheme \"Spoonjoy macOS\"",
+                "-destination \"generic/platform=macOS\"",
+                "SPOONJOY_MAC_SIGNING_XCCONFIG",
+                "CI must sign manually",
+                "com.apple.security.app-sandbox",
+                "expected app.spoonjoy",
+                "distribution/ExportOptions.mac-app-store.plist",
+                "pkgutil --check-signature"
+            ]
+        )
+
+        let publishScript = try readTestFlightAutomationRepoFile("scripts/ci-publish-mac-app-store.sh")
+        expectTestFlightAutomationContent(
+            publishScript,
+            in: "scripts/ci-publish-mac-app-store.sh",
+            contains: [
+                "filter[preReleaseVersion.platform]=MAC_OS",
+                "--platform macos",
+                "processingState == \"VALID\"",
+                "checked-out SHA does not match SPOONJOY_MAC_SOURCE_SHA"
+            ],
+            forbids: [
+                "appStoreVersionSubmissions",
+                "reviewSubmissions",
+                "testflight publish"
+            ]
+        )
+
+        let exportOptions = try readTestFlightAutomationRepoFile("distribution/ExportOptions.mac-app-store.plist")
+        #expect(exportOptions.contains("<string>app-store-connect</string>"))
     }
 
     @Test("certificate cleanup revokes only API-created development certificates")
