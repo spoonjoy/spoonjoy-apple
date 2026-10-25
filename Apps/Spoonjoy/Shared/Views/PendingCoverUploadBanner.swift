@@ -40,7 +40,7 @@ struct PendingCoverUploadBanner: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .accessibilityElement(children: .contain)
     }
 }

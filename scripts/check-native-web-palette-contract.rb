@@ -51,9 +51,19 @@ assert_file(web_css)
 assert_file(native_theme)
 options.fetch(:app_source_roots).each { |path| assert_file(path) unless path.directory? }
 
-web_tokens = web_css.read.scan(/--(sj-[a-z-]+):\s*(#[0-9a-fA-F]{6});/).to_h do |name, value|
-  [name, value.delete_prefix("#").upcase]
+def hex_tokens(block)
+  block.scan(/--(sj-[a-z-]+):\s*(#[0-9a-fA-F]{6});/).to_h do |name, value|
+    [name, value.delete_prefix("#").upcase]
+  end
 end
+
+web_css_content = web_css.read
+root_block = web_css_content[/:root\s*\{(.*?)\}/m, 1]
+dark_block = web_css_content[/\.dark\s*\{(.*?)\}/m, 1]
+fail_check("#{display_path(web_css)} must contain a :root token block") if root_block.nil?
+fail_check("#{display_path(web_css)} must contain the web .dark token block") if dark_block.nil?
+web_tokens = hex_tokens(root_block)
+web_night_tokens = hex_tokens(dark_block)
 
 required_mapping = {
   "sj-bone" => "bone",
@@ -79,6 +89,22 @@ required_mapping.each do |web_token, native_name|
   next if native_content.match?(pattern)
 
   fail_check("#{display_path(native_theme)} must map #{native_name} to --#{web_token} ##{expected_hex}")
+end
+
+required_night_mapping = required_mapping.transform_values { |name| "#{name}Night" }.merge(
+  "sj-page" => "pageNight",
+  "sj-on-photo" => "onPhotoNight"
+).freeze
+
+missing_night_tokens = required_night_mapping.keys.reject { |token| web_night_tokens.key?(token) }
+fail_check("#{display_path(web_css)} .dark block missing web tokens: #{missing_night_tokens.join(", ")}") unless missing_night_tokens.empty?
+
+required_night_mapping.each do |web_token, native_name|
+  expected_hex = web_night_tokens.fetch(web_token)
+  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*webColor\(0x#{expected_hex}\)\s*\/\/\s*\.dark\s+--#{Regexp.escape(web_token)}\b/
+  next if native_content.match?(pattern)
+
+  fail_check("#{display_path(native_theme)} must map #{native_name} to .dark --#{web_token} ##{expected_hex}")
 end
 
 raw_color_literals = native_content.scan(/Color\s*\(\s*red:/m).length

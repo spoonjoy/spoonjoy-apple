@@ -99,15 +99,15 @@ struct CaptureDraftView: View {
                 CaptureImportEntryPointRow(entryPoint: entryPoint)
                 if entryPoint.id != CaptureImportEntryPoint.allCases.last?.id {
                     Divider()
-                        .overlay(KitchenTableTheme.line.opacity(0.55))
+                        .overlay(KitchenTableTheme.hairline.opacity(0.55))
                 }
             }
         }
-        .background(KitchenTableTheme.paper)
+        .background(KitchenTableTheme.raised)
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         .overlay {
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.line.opacity(0.45), lineWidth: 1)
+                .stroke(KitchenTableTheme.hairline.opacity(0.45), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
     }
@@ -135,7 +135,7 @@ struct CaptureDraftView: View {
         } else if let statusMessage {
             Label(statusMessage, systemImage: "info.circle")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
         }
     }
 
@@ -147,23 +147,23 @@ struct CaptureDraftView: View {
             ForEach(draft.previewLines, id: \.self) { line in
                 Text(line)
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if draft.importReadiness == .needsTextRecognition {
                 Label("Needs text recognition", systemImage: "text.viewfinder")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             if isOffline {
                 Label("Saved locally", systemImage: "externaldrive.badge.checkmark")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             if hasPendingImport {
                 Label("Retry when online", systemImage: "arrow.clockwise")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             HStack(alignment: .center, spacing: 10) {
                 Button {
@@ -188,7 +188,7 @@ struct CaptureDraftView: View {
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .overlay(alignment: .top) {
             Rectangle()
                 .fill(KitchenTableTheme.brass.opacity(0.24))
@@ -321,14 +321,14 @@ private struct CaptureImportEntryPointRow: View {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(entryPoint.title)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                     Text(entryPoint.status)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
                 Text(entryPoint.detail)
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -350,7 +350,7 @@ private struct ImportStatusPanel: View {
                 .foregroundStyle(statusForeground)
             Text(statusBody)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
@@ -415,7 +415,7 @@ private struct ImportStatusPanel: View {
         if hasPendingImport {
             return KitchenTableTheme.brass
         }
-        return KitchenTableTheme.charcoal
+        return KitchenTableTheme.ink
     }
 
     private var statusBackground: Color {
@@ -425,7 +425,7 @@ private struct ImportStatusPanel: View {
         if hasPendingImport {
             return KitchenTableTheme.brass.opacity(0.10)
         }
-        return KitchenTableTheme.paper
+        return KitchenTableTheme.raised
     }
 
     private var statusStroke: Color {
@@ -435,6 +435,6 @@ private struct ImportStatusPanel: View {
         if hasPendingImport {
             return KitchenTableTheme.brass.opacity(0.35)
         }
-        return KitchenTableTheme.line.opacity(0.45)
+        return KitchenTableTheme.hairline.opacity(0.45)
     }
 }

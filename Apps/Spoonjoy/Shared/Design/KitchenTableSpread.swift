@@ -33,7 +33,7 @@ struct KitchenTableSpread<Leading: View, Trailing: View>: View {
                 .frame(width: max(0, trailingWidth - overlap))
                 .frame(maxHeight: .infinity, alignment: .top)
         }
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+        .background(KitchenTableTheme.page.ignoresSafeArea())
     }
 
     private func gutter(width: CGFloat) -> some View {

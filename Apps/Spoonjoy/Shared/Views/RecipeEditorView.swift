@@ -69,9 +69,9 @@ struct RecipeEditorView: View {
                 }
 
                 recipeCardSection
-                Divider().overlay(KitchenTableTheme.line)
+                Divider().overlay(KitchenTableTheme.hairline)
                 methodSection
-                Divider().overlay(KitchenTableTheme.line)
+                Divider().overlay(KitchenTableTheme.hairline)
                 footerSection
             }
             .padding(.horizontal, KitchenTableTheme.pagePadding)
@@ -81,7 +81,7 @@ struct RecipeEditorView: View {
             .frame(maxWidth: .infinity)
         }
         .scrollDismissesKeyboard(.interactively)
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+        .background(KitchenTableTheme.page.ignoresSafeArea())
         // The scrolled editor would show through the glass behind Cancel, the title and Save.
         .paperTopEdge()
         .navigationTitle(draft.recipeID == nil ? "New Recipe" : "Edit Recipe")
@@ -164,7 +164,7 @@ struct RecipeEditorView: View {
             OfflineStatusView(display: offlineDisplayOverride ?? effectiveOfflineIndicator(activeViewModel.offlineIndicator.display), onDismiss: onDismissOfflineIndicator)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal)
-                .background(KitchenTableTheme.bone.opacity(0.94))
+                .background(KitchenTableTheme.page.opacity(0.94))
         }
     }
 
@@ -176,14 +176,14 @@ struct RecipeEditorView: View {
                 Text("RECIPE CARD")
                     .font(KitchenTableTheme.runningHead)
                     .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                 Text("Give the dish a home.")
                     .font(Font.system(.largeTitle, design: .serif).weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Text("Capture the name, story, serving cue, and photo someone will need when they cook this later.")
                     .font(KitchenTableTheme.instructionBody)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
 
             coverControl
@@ -239,16 +239,16 @@ struct RecipeEditorView: View {
                 Text("METHOD")
                     .font(KitchenTableTheme.runningHead)
                     .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                 Text("Build the cooking path.")
                     .font(Font.system(.title, design: .serif).weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
             }
 
             ForEach($draft.steps) { $step in
                 stepEditor($step)
-                Divider().overlay(KitchenTableTheme.line)
+                Divider().overlay(KitchenTableTheme.hairline)
             }
 
             Button {
@@ -271,7 +271,7 @@ struct RecipeEditorView: View {
             HStack(spacing: 4) {
                 Text("Step \(number)")
                     .font(KitchenTableTheme.stepNumeral)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .accessibilityAddTraits(.isHeader)
                 Spacer()
                 stepIconButton("Move Step Up", systemImage: "chevron.up", disabled: isSubmitting || number == 1) {
@@ -323,7 +323,7 @@ struct RecipeEditorView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Ingredients")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                 ForEach(stepBinding.ingredients) { ingredient in
                     ingredientRow(ingredient, stepNumber: number, stepID: step.id, position: ingredientNumber(ingredient.wrappedValue.id, in: step))
                 }
@@ -358,7 +358,7 @@ struct RecipeEditorView: View {
         _ title: String,
         systemImage: String,
         disabled: Bool,
-        tint: Color = KitchenTableTheme.charcoal,
+        tint: Color = KitchenTableTheme.ink,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -367,7 +367,7 @@ struct RecipeEditorView: View {
                 .frame(width: KitchenTableTheme.minimumTouchTarget, height: KitchenTableTheme.minimumTouchTarget)
         }
         .buttonStyle(.borderless)
-        .foregroundStyle(disabled ? KitchenTableTheme.inkMuted.opacity(0.5) : tint)
+        .foregroundStyle(disabled ? KitchenTableTheme.ink2.opacity(0.5) : tint)
         .disabled(disabled)
     }
 
@@ -380,7 +380,7 @@ struct RecipeEditorView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Quantity")
                         .font(KitchenTableTheme.runningHead)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                     QuantityField(
                         quantity: ingredient.quantity,
                         rowID: rowID,
@@ -392,7 +392,7 @@ struct RecipeEditorView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Unit")
                         .font(KitchenTableTheme.runningHead)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                     TextField("cup", text: optionalText(ingredient.unit))
 #if os(iOS)
                         .textInputAutocapitalization(.never)
@@ -427,7 +427,7 @@ struct RecipeEditorView: View {
             if let hint = saveHint {
                 Text(hint)
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .accessibilityIdentifier("editor.hint")
             }
             if draft.recipeID != nil {
@@ -490,7 +490,7 @@ struct RecipeEditorView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Choose, take or generate a cover from the recipe's cover controls. Your edits here stay put until you save.")
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
             Button {
                 leave(to: .recipeCoverControls(id: recipeID))
             } label: {
@@ -523,10 +523,10 @@ struct RecipeEditorView: View {
                         Text("Add a cover photo")
                             .font(KitchenTableTheme.uiLabel)
                     }
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .frame(maxWidth: .infinity)
                     .frame(height: 200)
-                    .background(KitchenTableTheme.paper)
+                    .background(KitchenTableTheme.raised)
                     .accessibilityHidden(true)
                 }
             }
@@ -605,7 +605,7 @@ struct RecipeEditorView: View {
                     ? "Uploads as the cover when you save."
                     : "Optional. Without a photo, Spoonjoy makes a placeholder cover."))
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
             if let photoMessage {
                 Label(photoMessage, systemImage: "exclamationmark.triangle")
                     .font(KitchenTableTheme.uiLabel)
@@ -1076,7 +1076,7 @@ private struct EditorField<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
                 .font(Font.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
                 .accessibilityHidden(true)
             if boxed {
                 content
@@ -1137,7 +1137,7 @@ private struct EditorInputStyle: ViewModifier {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .topLeading)
-            .background(KitchenTableTheme.paper)
+            .background(KitchenTableTheme.raised)
             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
             .overlay(
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)

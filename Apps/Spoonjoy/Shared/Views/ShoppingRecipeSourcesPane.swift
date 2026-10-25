@@ -61,18 +61,18 @@ struct ShoppingRecipeSourcesPane: View {
                         .spreadRunningHead()
                     Text("For these recipes")
                         .font(KitchenTableTheme.sectionTitle)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .accessibilityAddTraits(.isHeader)
                     Text("Recipes that call for what you are buying.")
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if sources.isEmpty {
                     Text("Add a recipe's ingredients to the list and the recipe shows up here.")
                         .font(KitchenTableTheme.instructionBody)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .fixedSize(horizontal: false, vertical: true)
                 } else {
                     VStack(alignment: .leading, spacing: 0) {
@@ -87,7 +87,7 @@ struct ShoppingRecipeSourcesPane: View {
             .padding(.bottom, 40)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(KitchenTableTheme.bone.ignoresSafeArea())
+        .background(KitchenTableTheme.page.ignoresSafeArea())
         .accessibilityIdentifier("shopping.recipeSources")
     }
 
@@ -103,24 +103,24 @@ struct ShoppingRecipeSourcesPane: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(source.title)
                         .font(KitchenTableTheme.instructionBody.weight(.semibold))
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
                     Text(source.summary)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(source.remainingItemIDs.isEmpty ? KitchenTableTheme.herb : KitchenTableTheme.inkMuted)
+                        .foregroundStyle(source.remainingItemIDs.isEmpty ? KitchenTableTheme.herb : KitchenTableTheme.ink2)
                 }
                 Spacer(minLength: 0)
                 Image(systemName: "chevron.forward")
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .accessibilityHidden(true)
             }
             .padding(.vertical, 12)
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(KitchenTableTheme.line.opacity(0.5))
+                    .fill(KitchenTableTheme.hairline.opacity(0.5))
                     .frame(height: 1)
             }
             .contentShape(Rectangle())

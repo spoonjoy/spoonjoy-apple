@@ -48,7 +48,7 @@ struct SignedOutSetupView: View {
 
     var body: some View {
         signedOutLayout
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .task {
             appleSignInCapability = Self.currentAppleSignInCapability()
             await restoreState()
@@ -63,10 +63,10 @@ struct SignedOutSetupView: View {
                 .frame(width: 300)
                 .frame(maxHeight: .infinity)
                 .padding(.horizontal, 36)
-                .background(KitchenTableTheme.paper)
+                .background(KitchenTableTheme.raised)
 
             Rectangle()
-                .fill(KitchenTableTheme.charcoal.opacity(0.10))
+                .fill(KitchenTableTheme.ink.opacity(0.10))
                 .frame(width: 1)
 
             credentialPanel
@@ -103,12 +103,12 @@ struct SignedOutSetupView: View {
             VStack(spacing: 5) {
                 Text("Spoonjoy")
                     .font(.system(.largeTitle, design: .serif).weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .multilineTextAlignment(.center)
 
                 Text("Open your kitchen table.")
                     .font(.body)
-                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.72))
+                    .foregroundStyle(KitchenTableTheme.ink.opacity(0.72))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -124,11 +124,11 @@ struct SignedOutSetupView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Spoonjoy")
                     .font(.system(.largeTitle, design: .serif).weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
 
                 Text("Open your kitchen table on this Mac.")
                     .font(.title3)
-                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.70))
+                    .foregroundStyle(KitchenTableTheme.ink.opacity(0.70))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -136,7 +136,7 @@ struct SignedOutSetupView: View {
 
             Label("spoonjoy.app", systemImage: "link")
                 .font(KitchenTableTheme.uiLabel.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.58))
+                .foregroundStyle(KitchenTableTheme.ink.opacity(0.58))
                 .labelStyle(.titleAndIcon)
             }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -148,11 +148,11 @@ struct SignedOutSetupView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sign in")
                     .font(.title2.weight(.semibold))
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
 
                 Text("Use the same Spoonjoy account you use on spoonjoy.app.")
                     .font(.body)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -212,24 +212,24 @@ struct SignedOutSetupView: View {
                 .padding(.vertical, 12)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(canSubmitPassword && !isSigningIn ? KitchenTableTheme.paper : KitchenTableTheme.charcoal.opacity(0.46))
+            .foregroundStyle(canSubmitPassword && !isSigningIn ? KitchenTableTheme.onInk : KitchenTableTheme.ink.opacity(0.46))
             .background(passwordButtonBackground, in: Capsule())
             .overlay {
                 Capsule()
-                    .stroke(KitchenTableTheme.charcoal.opacity(canSubmitPassword ? 0 : 0.10), lineWidth: 1)
+                    .stroke(KitchenTableTheme.ink.opacity(canSubmitPassword ? 0 : 0.10), lineWidth: 1)
             }
             .disabled(isSigningIn || !canSubmitPassword)
             .accessibilityIdentifier(Self.livePasswordSignInIdentifier)
 
             HStack(alignment: .center, spacing: 12) {
                 Rectangle()
-                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
+                    .fill(KitchenTableTheme.ink.opacity(0.14))
                     .frame(height: 1)
                 Text("or")
                     .font(.caption.weight(.medium))
-                    .foregroundStyle(KitchenTableTheme.charcoal.opacity(0.56))
+                    .foregroundStyle(KitchenTableTheme.ink.opacity(0.56))
                 Rectangle()
-                    .fill(KitchenTableTheme.charcoal.opacity(0.14))
+                    .fill(KitchenTableTheme.ink.opacity(0.14))
                     .frame(height: 1)
             }
             .accessibilityHidden(true)
@@ -255,11 +255,11 @@ struct SignedOutSetupView: View {
                         .padding(.vertical, 12)
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(isSigningIn ? KitchenTableTheme.charcoal.opacity(0.46) : KitchenTableTheme.charcoal)
-                    .background(KitchenTableTheme.paper, in: Capsule())
+                    .foregroundStyle(isSigningIn ? KitchenTableTheme.ink.opacity(0.46) : KitchenTableTheme.ink)
+                    .background(KitchenTableTheme.raised, in: Capsule())
                     .overlay {
                         Capsule()
-                            .stroke(KitchenTableTheme.charcoal.opacity(0.14), lineWidth: 1)
+                            .stroke(KitchenTableTheme.ink.opacity(0.14), lineWidth: 1)
                     }
                     .disabled(isSigningIn)
                     .accessibilityIdentifier(provider.signInAccessibilityIdentifier)
@@ -343,7 +343,7 @@ struct SignedOutSetupView: View {
         if canSubmitPassword {
             return KitchenTableTheme.herb
         }
-        return KitchenTableTheme.charcoal.opacity(0.08)
+        return KitchenTableTheme.ink.opacity(0.08)
     }
 
     private var statusRow: some View {
@@ -367,7 +367,7 @@ struct SignedOutSetupView: View {
     private var statusColor: Color {
         switch statusTone {
         case .neutral:
-            return KitchenTableTheme.charcoal.opacity(0.72)
+            return KitchenTableTheme.ink.opacity(0.72)
         case .progress:
             return KitchenTableTheme.herb
         case .success:
@@ -882,8 +882,11 @@ private extension View {
 
 struct SpoonjoyIdentityMark: View {
     var body: some View {
+        // The mark is drawn in ink so it reads on the night page as well as on bone.
         Image("SpoonjoyMark")
+            .renderingMode(.template)
             .resizable()
             .scaledToFit()
+            .foregroundStyle(KitchenTableTheme.ink)
     }
 }

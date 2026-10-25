@@ -34,7 +34,7 @@ struct ReceiptListView: View {
                         .toggleStyle(.largeCheck)
                         .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: 2, trailing: 0))
                         .listRowSeparator(.hidden)
-                        .listRowBackground(KitchenTableTheme.bone)
+                        .listRowBackground(KitchenTableTheme.page)
                         .accessibilityHint(item.isEffectivelyChecked ? "Double tap to move this item back to Need." : "Double tap to move this item to Basket.")
                         .accessibilityIdentifier(pendingItemIDs.contains(item.id)
                             ? "shopping.item.\(item.id).pending"
@@ -67,7 +67,7 @@ struct ReceiptListView: View {
 #if os(iOS)
         .listSectionSpacing(0)
 #endif
-        .background(KitchenTableTheme.bone)
+        .background(KitchenTableTheme.page)
         .frame(minHeight: receiptListHeight)
     }
 
@@ -120,7 +120,7 @@ private struct ShoppingReceiptRow: View {
                     if item.item.isEffectivelyChecked {
                         Text("already in basket")
                             .font(KitchenTableTheme.uiLabel)
-                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .foregroundStyle(KitchenTableTheme.ink2)
                             .lineLimit(1)
                     }
                 }
@@ -128,7 +128,7 @@ private struct ShoppingReceiptRow: View {
                 if !item.item.displayQuantity.isEmpty {
                     Text(item.item.displayQuantity)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(1)
                 }
             }
@@ -146,8 +146,8 @@ private struct ShoppingReceiptRow: View {
     private var nameText: some View {
         Text(item.item.name)
             .font(KitchenTableTheme.objectTitle)
-            .foregroundStyle(KitchenTableTheme.charcoal)
-            .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.inkMuted)
+            .foregroundStyle(KitchenTableTheme.ink)
+            .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.ink2)
             .lineLimit(2)
     }
 
@@ -161,7 +161,7 @@ private struct ShoppingReceiptRow: View {
             }
         }
         .font(KitchenTableTheme.uiLabel)
-        .foregroundStyle(KitchenTableTheme.inkMuted)
+        .foregroundStyle(KitchenTableTheme.ink2)
         .lineLimit(1)
     }
 

@@ -142,16 +142,16 @@ struct OfflineStatusView: View {
         case .offline, .stale:
             effectiveProminence == .quiet ? quietInformationalForegroundStyle : KitchenTableTheme.brass
         case .dismissed:
-            KitchenTableTheme.charcoal.opacity(0.7)
+            KitchenTableTheme.ink.opacity(0.7)
         case .queuedWork:
-            KitchenTableTheme.charcoal
+            KitchenTableTheme.ink
         case .syncFailure, .conflict, .blocker, .destructiveConfirmation:
             KitchenTableTheme.tomato
         }
     }
 
     private var quietInformationalForegroundStyle: Color {
-        KitchenTableTheme.inkMuted
+        KitchenTableTheme.ink2
     }
 }
 

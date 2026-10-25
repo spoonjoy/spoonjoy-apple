@@ -112,7 +112,7 @@ struct SpoonCookLogView: View {
         HStack(alignment: .firstTextBaseline) {
             Text("Cooks")
                 .font(.title2)
-                .foregroundStyle(KitchenTableTheme.charcoal)
+                .foregroundStyle(KitchenTableTheme.ink)
             Spacer()
             if let queuedWorkSummary = viewModel.queuedWorkSummary {
                 Label(queuedWorkSummary, systemImage: "clock.arrow.circlepath")
@@ -199,11 +199,11 @@ struct SpoonCookLogView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(hasStagedPhoto ? "Photo ready" : "Add photo")
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                         .lineLimit(1)
                     Text(hasStagedPhoto ? "Ready to attach to this cook." : "Optional cook photo.")
                         .font(.caption)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(1)
                 }
 
@@ -245,7 +245,7 @@ struct SpoonCookLogView: View {
         }
         .buttonStyle(.plain)
         .font(KitchenTableTheme.uiLabel)
-        .foregroundStyle(KitchenTableTheme.inkMuted)
+        .foregroundStyle(KitchenTableTheme.ink2)
         .disabled(actionInFlight)
         .accessibilityLabel("Clear cook photo")
     }
@@ -279,7 +279,7 @@ struct SpoonCookLogView: View {
         if let emptyState = viewModel.emptyState {
             Label(emptyState.title, systemImage: emptyState.systemImage)
                 .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .accessibilityHint(emptyState.message)
         } else {
@@ -299,16 +299,16 @@ struct SpoonCookLogView: View {
                 HStack {
                     Label(row.chefLine, systemImage: "fork.knife")
                         .font(.headline)
-                        .foregroundStyle(KitchenTableTheme.charcoal)
+                        .foregroundStyle(KitchenTableTheme.ink)
                     Spacer()
                     Text(row.cookedAtLabel)
                         .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
                 if let note = row.note {
                     Text(note)
                         .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.inkMuted)
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
                 if let nextTime = row.nextTime {
                     Label(nextTime, systemImage: "arrow.clockwise")
@@ -375,7 +375,7 @@ struct SpoonCookLogView: View {
         } else {
             ZStack {
                 RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                    .fill(KitchenTableTheme.bone)
+                    .fill(KitchenTableTheme.page)
                 Image(systemName: "fork.knife.circle")
                     .font(.system(size: 30, weight: .semibold))
                     .foregroundStyle(KitchenTableTheme.brass)

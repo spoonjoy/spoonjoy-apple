@@ -72,9 +72,53 @@ The iPhone Duo opens like a passport: a compact outer screen and a regular-width
 - **The library sidebar is a table of contents.** On regular width the `NavigationSplitView` sidebar lists the kitchen's sections, with the chef's own cookbooks listed under `Cookbooks` in a disclosure group (`LibrarySidebar`), then Chefs, Imports and Settings under More. When a recipe opens as a spread on iOS, the sidebar steps aside (`.detailOnly`) so the spread gets the whole screen and its gutter lands on the fold; the sidebar button brings the library back, and leaving the recipe restores it. We keep `NavigationSplitView` instead of `TabView` with `.sidebarAdaptable` because a `TabView` sidebar cannot be collapsed from code, and the spread needs that to put its gutter on the fold; the split view is also the path macOS already shares.
 - **Shopping shows where the list came from.** On regular width at least 740 pt wide, the shopping list sits beside a "For these recipes" pane: the recipes whose ingredients are on the list, matched by name (`ShoppingRecipeSources`), each with what is left to buy. Items do not record their recipe, so the pane only claims exact name matches after folding case, accents, punctuation and simple plurals.
 
-**Fold seam (iOS 27.1).** Built with the iOS 27.1 SDK and running on iOS 27.1 or later, the spread follows the hinge. The SDK adds Reserved Regions to UIKit (`UIView.reservedRegions(kind:)`, with `UIHingeInteraction` for hinge changes); SwiftUI has no equivalent. `SpreadLayoutReader` wraps the old `GeometryReader`, reads the Reserved Region `.division` rects through an invisible UIKit probe, asking for inactive ones too (open flat, iOS marks the iPhone Duo's fold inactive and a plain query leaves it out), picks one with `FoldRegionChoice` (a vertical fold may be inactive; the tabletop band takes only an active fold) and passes it to `BookSpreadLayout.resolve(division:)`; `KitchenTableSpread` then draws the gutter across the hinge and the pages fill each side. The shell's sidebar decision gets the same division. The code sits behind `SPOONJOY_IOS_27_1_SDK`, which the iOS target defines only for the 27.1 and newer SDKs, plus `#available(iOS 27.1, *)`. CI and TestFlight build with Xcode 27.1, so shipping builds include it; a build on an older Xcode compiles it out and keeps the width heuristic. The shopping pane has not been checked against the fold.
+**Fold seam (iOS 27.1).** Built with the iOS 27.1 SDK and running on iOS 27.1 or later, the spread follows the hinge. The SDK adds Reserved Regions to UIKit (`UIView.reservedRegions(kind:)`, with `UIHingeInteraction` for hinge changes) and to SwiftUI (`GeometryProxy.reservedRegions`, `DeviceHinge` and `onHingeChange`). The current code still reads them through UIKit; moving it to the SwiftUI API is Release 1.1 work. `SpreadLayoutReader` wraps the old `GeometryReader`, reads the Reserved Region `.division` rects through an invisible UIKit probe, asking for inactive ones too (open flat, iOS marks the iPhone Duo's fold inactive and a plain query leaves it out), picks one with `FoldRegionChoice` (a vertical fold may be inactive; the tabletop band takes only an active fold) and passes it to `BookSpreadLayout.resolve(division:)`; `KitchenTableSpread` then draws the gutter across the hinge and the pages fill each side. The shell's sidebar decision gets the same division. The code sits behind `SPOONJOY_IOS_27_1_SDK`, which the iOS target defines only for the 27.1 and newer SDKs, plus `#available(iOS 27.1, *)`. CI and TestFlight build with Xcode 27.1, so shipping builds include it; a build on an older Xcode compiles it out and keeps the width heuristic. The shopping pane has not been checked against the fold.
 
 **Tabletop cook mode (iOS 27.1).** Held tall, the Duo's inner screen folds across the middle. When the probe reports a horizontal `.division` rect (`FoldBand`) or a half-open hinge (`UIHinge.Status.partiallyOpen`), `TabletopLayout.resolve` splits cook mode at the fold: the step above it, facing the cook, and the checklist and step controls below it, flat on the counter, with `TabletopLayout.foldMargin` kept clear on each side and a hairline on the fold. A half-open hinge with no rect splits at the middle. Either half shorter than `TabletopLayout.minimumHalfHeight` keeps the single page, as does a wide or closed screen. DEBUG builds launched with `-SpoonjoyForcePosture tabletop` report a half-open hinge on any simulator, which is how the Tabletop journey checks the split. Sources: Apple's iPhone Duo tech talks, <https://developer.apple.com/videos/play/tech-talks/111464/> and <https://developer.apple.com/videos/play/tech-talks/111466/>.
+
+## System (1.1)
+
+Release 1.1 turns the Kitchen Table into a full system with a night appearance. The app follows the system appearance; nothing pins it to light. Native tokens live in `KitchenTableTheme` (app) and `SpoonjoyCore/Design` (motion, haptics, contrast), and every night value is copied from the web `.dark` block in `docs/source/spoonjoy-v2-tailwind-colors.css`, which `scripts/check-native-web-palette-contract.rb` enforces.
+
+**Type scale.** Serif roles use the system serif, New York. Every role is a Dynamic Type text style, so it scales up to AX5; primary surfaces never set a fixed point size for text.
+
+| Role | Style | Use |
+| --- | --- | --- |
+| `largeTitle` | Large Title, serif, bold | Screen titles such as Kitchen |
+| `recipeTitle` | Title, serif, semibold | A recipe's name |
+| `cookStep` | Large Title (34 pt base), serif, regular | The step in cook mode, read from arm's length |
+| `story` | Body, serif | Recipe descriptions and notes |
+| `control` | Body, SF, semibold | Buttons and controls |
+| `meta` | Footnote, SF | Times, counts, attributions |
+| `timer` | Large Title, SF light, monospaced digits | Running timers, so digits don't jitter |
+
+**Roles in both appearances.** Each role is one dynamic colour that resolves per appearance.
+
+| Role | Day | Night | Job |
+| --- | --- | --- | --- |
+| `page` | Bone #FBFAF4 | #1E1C19 | The page behind everything |
+| `raised` | #FFFEFA | #282522 | Sheets, panels and raised rows |
+| `ink` | Charcoal #28231D | #F2EEE6 | Primary text and the one filled button |
+| `ink2` | #635D54 | #C8C0B4 | Secondary text |
+| `onInk` | Bone #FBFAF4 | #1F1D1A | Labels on ink, action and brass fills |
+| `hairline` | Charcoal at 18% | Bone at 16% | Rules and borders |
+| `brass` | #9B6834 | #C4945C | State and selection, never large fills |
+| `action` | Charcoal #28231D | Amber #B9854B | The primary action fill |
+| `tomato` | #A24A38 | #E58263 | Errors and destructive actions |
+| `herb` | #596A4F | #A4B578 | Success |
+| `onPhoto` | Bone | #F1E6D3 | Text over photographs |
+
+Every text role passes WCAG AA (4.5:1) on `page` and `raised` in both appearances, as do labels on the action, brass and tomato fills; `KitchenContrastTests` measures each pair from the theme source.
+
+**Glass.** Liquid Glass is for controls that float over content: the tab bar, toolbars, the cook dock and the timer chip. Prefer system components, which bring their own glass. Content (recipe text, lists, photos) never sits on glass. There is one filled button per screen, in ink or `.glassProminent` tinted ink; everything else is glass or text. Group neighbouring glass controls in one `GlassEffectContainer` so they merge and split together.
+
+**Grid.** Spacing is a multiple of 4 pt (`KitchenTableTheme.Spacing`). Screen margins are 24 pt on iPhone, 32 pt on iPad and Mac, and 40 pt on the side of a page that meets the iPhone Duo fold. Touch targets stay at least 44 pt.
+
+**Radii.** Corners keep their meaning: 0 pt for full-bleed edges, 4 pt for media, 8 pt for panels and sheets, and 999 pt (a capsule) for controls.
+
+**Motion.** Motion uses springs in SwiftUI's response and damping terms (`KitchenSpring`): snappy 0.32/0.86 for small state changes, glide 0.42/0.82 for the tab lens and glass morphs, page turn 0.5/0.88 for cook steps, zoom 0.45/0.9 for a cover opening into its recipe, and bounce 0.35/0.6 for a checked ingredient. With Reduce Motion on, every spring becomes a short crossfade (`kitchenAnimation`, `KitchenMotion.transition`).
+
+**Haptics.** Haptics mark moments, not every tap (`KitchenHapticMoment`, played through `sensoryFeedback`): checking an ingredient or a list item plays selection, turning a step a light impact, starting a timer a medium impact, a timer or cook finishing success, and confirming a destructive action warning.
 
 ## Anti-Patterns
 

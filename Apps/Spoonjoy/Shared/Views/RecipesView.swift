@@ -102,13 +102,13 @@ struct RecipesView: View {
                     .frame(width: 28)
                 Text(emptyState.message)
                     .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .background(KitchenTableTheme.paper)
+            .background(KitchenTableTheme.raised)
             .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         }
     }
@@ -263,7 +263,7 @@ struct ChefsView: View {
                                 .font(.title2)
                                 .foregroundStyle(KitchenTableTheme.brass)
                                 .frame(width: 44, height: 44)
-                                .background(KitchenTableTheme.paper)
+                                .background(KitchenTableTheme.raised)
                         } trailing: {
                             Image(systemName: "chevron.forward")
                                 .font(KitchenTableTheme.uiLabel)
@@ -290,7 +290,7 @@ struct ChefsView: View {
                     .font(.title2)
                     .foregroundStyle(KitchenTableTheme.brass)
                     .frame(width: 44, height: 44)
-                    .background(KitchenTableTheme.paper)
+                    .background(KitchenTableTheme.raised)
             } trailing: {
                 Image(systemName: "chevron.forward")
                     .font(KitchenTableTheme.uiLabel)
@@ -306,10 +306,10 @@ struct ChefsView: View {
         KitchenTableSection(title: title) {
             Text(message)
                 .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
+                .foregroundStyle(KitchenTableTheme.ink2)
                 .padding(14)
                 .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-                .background(KitchenTableTheme.paper)
+                .background(KitchenTableTheme.raised)
                 .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         }
     }
@@ -332,12 +332,12 @@ private struct RecipeCatalogLead: View {
                     .foregroundStyle(KitchenTableTheme.brass)
                 Text(row.title)
                     .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.charcoal)
+                    .foregroundStyle(KitchenTableTheme.ink)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(leadSubtitle)
                     .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.inkMuted)
+                    .foregroundStyle(KitchenTableTheme.ink2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
