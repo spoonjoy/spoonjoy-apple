@@ -229,26 +229,30 @@ final class DuoJourney: JourneyTestCase {
             "Neither window came back on its own page after the app was killed. Screen: \(journey.screen)"
         )
         try captureScreen("14-two-windows-after-relaunch", journey)
-        XCTAssertTrue(
-            journey.bringWindowForward(named: JourneyRecipes.chickpeasTitle, to: self),
-            "The window list did not offer the chickpeas window after the app was killed. Screen: \(journey.screen)"
+        let chickpeasWindow = try XCTUnwrap(
+            journey.windowID(holding: JourneyID.recipeDetailTitle, labelContaining: JourneyRecipes.chickpeasTitle),
+            "No window came back on the chickpeas after the app was killed. Screen: \(journey.screen)"
+        )
+        let kitchenWindow = try XCTUnwrap(
+            journey.windowID(holding: JourneyID.kitchenRoot),
+            "No window came back on the Kitchen, the page the link opened, after the app was killed. Screen: \(journey.screen)"
+        )
+        XCTAssertNotEqual(
+            chickpeasWindow,
+            kitchenWindow,
+            "The chickpeas and the Kitchen came back in the same window. Screen: \(journey.screen)"
         )
         XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailTitle, labelContaining: JourneyRecipes.chickpeasTitle)
-                .waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The new window did not come back on the chickpeas after the app was killed. Screen: \(journey.screen)"
+            journey.bringWindowForward(id: kitchenWindow, to: self),
+            "The window switcher did not offer the Kitchen window after the app was killed. Screen: \(journey.screen)"
         )
         XCTAssertTrue(
-            journey.bringWindowForward(named: JourneyCopy.kitchenTab, to: self),
-            "The window list did not offer the Kitchen window after the app was killed. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The first window did not come back on the Kitchen, the page the link opened. Screen: \(journey.screen)"
+            journey.waitForFront(journey.element(JourneyID.kitchenRoot)),
+            "The Kitchen window did not come forward. Screen: \(journey.screen)"
         )
         XCTAssertFalse(
             stepTwoInCook.exists,
-            "The first window came back in cook mode, its page before the link, instead of the Kitchen. Screen: \(journey.screen)"
+            "A window came back in cook mode, the first window's page before the link. Screen: \(journey.screen)"
         )
         try captureScreen("15-kitchen-window-after-relaunch", journey)
     }

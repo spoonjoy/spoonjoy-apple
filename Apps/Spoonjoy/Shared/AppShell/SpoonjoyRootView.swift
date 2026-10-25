@@ -216,6 +216,15 @@ struct SpoonjoyRootView: View {
                 .accessibilityIdentifier("journey.cookingNow")
                 .accessibilityValue(cookingNow.journeySummary)
                 .allowsHitTesting(false)
+#if os(iOS)
+            // The system's name for this window, which the window switcher uses for its card.
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("journey.window")
+                .accessibilityValue(sceneID ?? "unnamed")
+                .allowsHitTesting(false)
+#endif
         }
     }
 #endif
