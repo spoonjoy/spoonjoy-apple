@@ -32,7 +32,7 @@ class ReviewDemoKitchenTest < Minitest::Test
 
   # A fake spoonjoy.app that keeps state, so the seeder can run twice against it.
   class FakeApi
-    attr_reader :writes, :base
+    attr_reader :writes, :base, :covers
 
     def initialize
       @base = URI("https://spoonjoy.test")
@@ -41,6 +41,7 @@ class ReviewDemoKitchenTest < Minitest::Test
       @cookbooks = []
       @spoons = []
       @shopping = Hash.new { |hash, key| hash[key] = [] }
+      @covers = Hash.new { |hash, key| hash[key] = { "covers" => [], "activeCover" => nil } }
       @writes = []
     end
 
@@ -95,6 +96,22 @@ class ReviewDemoKitchenTest < Minitest::Test
         [200, {}]
       in [:get, %r{\A/api/v1/recipes/(r\d+)/spoons\z}]
         [200, { "data" => { "spoons" => @spoons.select { |s| s["recipeId"] == Regexp.last_match(1) } } }]
+      in [:get, %r{\A/api/v1/recipes/(r\d+)/covers\z}]
+        state = @covers[Regexp.last_match(1)]
+        state["polls"] = state["polls"].to_i + 1
+        state["onPoll"]&.call(state)
+        [200, { "data" => state.slice("covers", "activeCover") }]
+      in [:post, %r{\A/api/v1/recipes/(r\d+)/covers/generate\z}]
+        state = @covers[Regexp.last_match(1)]
+        cover = { "id" => "cv#{state['covers'].length}", "generationStatus" => "ready", "displayUrl" => "https://spoonjoy.test/cover.jpg",
+                  "prompt" => body["promptAddition"] }
+        state["covers"] << cover
+        state["activeCover"] = cover if body["activateWhenReady"]
+        [201, {}]
+      in [:patch, %r{\A/api/v1/recipes/(r\d+)/covers/(cv\d+)\z}]
+        state = @covers[Regexp.last_match(1)]
+        state["activeCover"] = state["covers"].find { |c| c["id"] == Regexp.last_match(2) }
+        [200, {}]
       in [:post, %r{\A/api/v1/recipes/(r\d+)/spoons\z}]
         @spoons << { "recipeId" => Regexp.last_match(1), "note" => body["note"], "chef" => { "username" => user(token) } }
         [201, {}]
@@ -124,6 +141,45 @@ class ReviewDemoKitchenTest < Minitest::Test
     refute_includes out.string, "demo-pass-123"
     refute_includes out.string, "friend-pass-456"
     assert_includes out.string, "https://spoonjoy.test/users/johnnyappleseed"
+  end
+
+  def test_every_recipe_and_fork_gets_one_ai_cover_with_its_prompt
+    api = FakeApi.new
+    ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
+    generated = api.writes.grep(%r{/covers/generate\z})
+    assert_equal 9, generated.length, "7 demo recipes, the friend's crumble and the fork"
+    assert(api.covers.values.all? { |state| state["activeCover"] })
+    assert(api.covers.values.all? { |state| state["covers"].first["prompt"].to_s.length.positive? })
+  end
+
+  def test_waits_for_an_in_flight_cover_and_switches_on_a_finished_inactive_one
+    api = FakeApi.new
+    out = StringIO.new
+    ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: out).run
+    # r0 is mid-generation and finishes on a later poll; r1 has a finished cover nobody switched on.
+    processing = { "id" => "cv9", "generationStatus" => "processing" }
+    api.covers["r0"] = { "covers" => [processing], "activeCover" => nil,
+                         "onPoll" => ->(state) { state["activeCover"] = processing if state["polls"] > 2 } }
+    api.covers["r1"] = { "covers" => [{ "id" => "cv0", "generationStatus" => "ready", "displayUrl" => "u", "stylizedImageUrl" => "s" }], "activeCover" => nil }
+    naps = []
+    before = api.writes.length
+    changes = ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: out, sleeper: ->(s) { naps << s }).run
+    assert_equal 1, changes
+    assert_equal ["patch /api/v1/recipes/r1/covers/cv0"], api.writes.drop(before)
+    assert_equal [10], naps
+    assert_includes out.string, "Cover ready for Brown Butter Apple Crumble"
+  end
+
+  def test_a_cover_that_fails_to_generate_fails_the_run
+    api = FakeApi.new
+    ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new).run
+    failed = { "id" => "cv9", "generationStatus" => "processing" }
+    api.covers["r0"] = { "covers" => [failed], "activeCover" => nil,
+                         "onPoll" => ->(state) { failed["generationStatus"] = "failed" if state["polls"] > 1 } }
+    error = assert_raises(ReviewDemoKitchen::Error) do
+      ReviewDemoKitchen::Seeder.new(kitchen: kitchen, http: api, env: env, out: StringIO.new, sleeper: ->(_) {}).run
+    end
+    assert_match(/Cover generation for Brown Butter Apple Crumble/, error.message)
   end
 
   class StubbedHttp < ReviewDemoKitchen::Http
