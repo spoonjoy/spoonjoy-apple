@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "chefs": {
+    "friend": {
+      "usernameEnv": "SPOONJOY_REVIEW_FRIEND_USERNAME",
+      "passwordEnv": "SPOONJOY_REVIEW_FRIEND_PASSWORD",
+      "email": "app-review-friend@spoonjoy.app",
+      "recipes": [
+        {
+          "key": "crumble",
+          "title": "Brown Butter Apple Crumble",
+          "description": "The crumble we bring to every team potluck. Browning the butter first makes the topping taste like toffee.",
+          "servings": "6",
+          "steps": [
+            { "stepTitle": "Brown the butter", "description": "Melt the butter in a small pan over medium heat and keep swirling until it smells nutty and the solids turn deep golden. Pour into a bowl and let it cool for a few minutes.", "duration": 6, "ingredients": [{ "quantity": 115, "unit": "g", "name": "unsalted butter" }] },
+            { "stepTitle": "Make the topping", "description": "Stir the flour, oats, brown sugar and salt into the brown butter until it clumps. Chill while you prepare the fruit.", "duration": null, "ingredients": [{ "quantity": 120, "unit": "g", "name": "plain flour" }, { "quantity": 60, "unit": "g", "name": "rolled oats" }, { "quantity": 100, "unit": "g", "name": "light brown sugar" }, { "quantity": 0.5, "unit": "tsp", "name": "flaky salt" }] },
+            { "stepTitle": "Toss the apples", "description": "Heat the oven to 190°C (375°F). Peel, core and slice the apples, then toss with the lemon juice, cinnamon and sugar in a baking dish.", "duration": null, "ingredients": [{ "quantity": 6, "unit": "whole", "name": "Granny Smith apples" }, { "quantity": 1, "unit": "tbsp", "name": "lemon juice" }, { "quantity": 1, "unit": "tsp", "name": "ground cinnamon" }, { "quantity": 50, "unit": "g", "name": "caster sugar" }] },
+            { "stepTitle": "Bake", "description": "Scatter the topping over the apples and bake until the fruit bubbles at the edges and the top is crisp and brown.", "duration": 40, "ingredients": [] },
+            { "stepTitle": "Rest and serve", "description": "Let it settle for ten minutes so the juices thicken, then serve warm with cold cream or vanilla ice cream.", "duration": 10, "ingredients": [] }
+          ]
+        }
+      ]
+    },
+    "demo": {
+      "usernameEnv": "SPOONJOY_REVIEW_DEMO_USERNAME",
+      "passwordEnv": "SPOONJOY_REVIEW_DEMO_PASSWORD",
+      "email": "app-review@spoonjoy.app",
+      "recipes": [
+        {
+          "key": "galette",
+          "title": "Honeycrisp Galette",
+          "description": "A free-form apple tart for people who think pie crust is too fussy. Thin slices, a buttery fold, and a glossy apricot glaze.",
+          "servings": "8",
+          "steps": [
+            { "stepTitle": "Make the pastry", "description": "Rub the cold butter into the flour, sugar and salt until it looks like coarse crumbs with some pea-sized pieces. Add the ice water a spoonful at a time until it just holds together. Flatten into a disc, wrap and chill.", "duration": 30, "ingredients": [{ "quantity": 190, "unit": "g", "name": "plain flour" }, { "quantity": 1, "unit": "tbsp", "name": "sugar" }, { "quantity": 0.5, "unit": "tsp", "name": "fine salt" }, { "quantity": 140, "unit": "g", "name": "cold unsalted butter" }, { "quantity": 4, "unit": "tbsp", "name": "ice water" }] },
+            { "stepTitle": "Slice the apples", "description": "Heat the oven to 200°C (400°F). Core the apples, slice them 3 mm thick, and toss with the sugar, lemon juice and cinnamon.", "duration": null, "ingredients": [{ "quantity": 3, "unit": "whole", "name": "Honeycrisp apples" }, { "quantity": 50, "unit": "g", "name": "brown sugar" }, { "quantity": 1, "unit": "tbsp", "name": "lemon juice" }, { "quantity": 0.5, "unit": "tsp", "name": "ground cinnamon" }] },
+            { "stepTitle": "Shape", "description": "Roll the pastry into a 30 cm round on a floured sheet of parchment. Fan the apples in overlapping rings, leaving a 5 cm border, then fold the border up over the fruit.", "duration": null, "ingredients": [] },
+            { "stepTitle": "Bake", "description": "Brush the folded edge with beaten egg and sprinkle with demerara. Bake until the pastry is deep golden and the apples are tender.", "duration": 45, "ingredients": [{ "quantity": 1, "unit": "whole", "name": "egg" }, { "quantity": 1, "unit": "tbsp", "name": "demerara sugar" }] },
+            { "stepTitle": "Glaze", "description": "Warm the apricot jam with a splash of water and brush it over the hot apples. Cool for 15 minutes before slicing.", "duration": 15, "ingredients": [{ "quantity": 3, "unit": "tbsp", "name": "apricot jam" }] }
+          ]
+        },
+        {
+          "key": "tatin",
+          "title": "Tarte Tatin",
+          "description": "Apples cooked in amber caramel under a lid of puff pastry, then flipped. The one dessert worth saying \"one more thing\" for.",
+          "servings": "6",
+          "steps": [
+            { "stepTitle": "Make the caramel", "description": "Heat the oven to 200°C (400°F). In a 24 cm ovenproof skillet, cook the sugar and water over medium heat without stirring until it turns deep amber. Take it off the heat and stir in the butter.", "duration": 10, "ingredients": [{ "quantity": 150, "unit": "g", "name": "caster sugar" }, { "quantity": 2, "unit": "tbsp", "name": "water" }, { "quantity": 60, "unit": "g", "name": "unsalted butter" }] },
+            { "stepTitle": "Pack the apples", "description": "Peel, halve and core the apples. Stand them tightly on their sides in the caramel, rounded side down. Cook over low heat so the caramel bubbles up around them.", "duration": 15, "ingredients": [{ "quantity": 6, "unit": "whole", "name": "Pink Lady apples" }] },
+            { "stepTitle": "Cover with pastry", "description": "Lay the puff pastry over the pan, tuck the edges down around the apples, and cut a few small vents.", "duration": null, "ingredients": [{ "quantity": 1, "unit": "sheet", "name": "all-butter puff pastry" }] },
+            { "stepTitle": "Bake", "description": "Bake until the pastry is puffed and dark golden.", "duration": 30, "ingredients": [] },
+            { "stepTitle": "Flip", "description": "Rest for 5 minutes. Put a plate over the pan and, using oven gloves, flip it in one confident move. Serve warm with crème fraîche.", "duration": 5, "ingredients": [{ "quantity": 150, "unit": "ml", "name": "crème fraîche" }] }
+          ]
+        },
+        {
+          "key": "waldorf",
+          "title": "Waldorf Salad",
+          "description": "Crisp apples, celery, grapes and toasted walnuts in a light lemony dressing. Lunch for the whole design review.",
+          "servings": "4",
+          "steps": [
+            { "stepTitle": "Toast the walnuts", "description": "Toast the walnuts in a dry pan over medium heat, shaking often, until fragrant. Let them cool, then chop roughly.", "duration": 5, "ingredients": [{ "quantity": 75, "unit": "g", "name": "walnut halves" }] },
+            { "stepTitle": "Make the dressing", "description": "Whisk the yogurt, mayonnaise, lemon juice, honey and a pinch of salt.", "duration": null, "ingredients": [{ "quantity": 120, "unit": "g", "name": "Greek yogurt" }, { "quantity": 2, "unit": "tbsp", "name": "mayonnaise" }, { "quantity": 1, "unit": "tbsp", "name": "lemon juice" }, { "quantity": 1, "unit": "tsp", "name": "honey" }] },
+            { "stepTitle": "Toss", "description": "Dice the apples, slice the celery and halve the grapes. Fold everything into the dressing with the walnuts and serve over the lettuce leaves.", "duration": null, "ingredients": [{ "quantity": 2, "unit": "whole", "name": "crisp red apples" }, { "quantity": 3, "unit": "whole", "name": "celery stalks" }, { "quantity": 150, "unit": "g", "name": "red grapes" }, { "quantity": 1, "unit": "whole", "name": "head of little gem lettuce" }] }
+          ]
+        },
+        {
+          "key": "porkchops",
+          "title": "Cider-Braised Pork Chops with Apples",
+          "description": "Golden pork chops braised in hard cider with apples, onion and thyme. One pan, thirty-five minutes.",
+          "servings": "4",
+          "steps": [
+            { "stepTitle": "Sear the chops", "description": "Season the chops well with salt and pepper. Sear in the oil in a large skillet over medium-high heat until deeply browned on both sides. Move them to a plate.", "duration": 8, "ingredients": [{ "quantity": 4, "unit": "whole", "name": "bone-in pork chops" }, { "quantity": 1, "unit": "tbsp", "name": "olive oil" }] },
+            { "stepTitle": "Soften the apples and onion", "description": "Lower the heat. Add the butter, onion and apple wedges and cook until they start to caramelise at the edges.", "duration": 6, "ingredients": [{ "quantity": 20, "unit": "g", "name": "butter" }, { "quantity": 1, "unit": "whole", "name": "onion, sliced" }, { "quantity": 2, "unit": "whole", "name": "Braeburn apples, cut in wedges" }] },
+            { "stepTitle": "Braise", "description": "Pour in the cider and mustard, scraping up the browned bits. Add the thyme, return the chops and simmer gently, covered, until the pork is just cooked through.", "duration": 15, "ingredients": [{ "quantity": 250, "unit": "ml", "name": "dry hard cider" }, { "quantity": 1, "unit": "tbsp", "name": "whole-grain mustard" }, { "quantity": 4, "unit": "whole", "name": "thyme sprigs" }] },
+            { "stepTitle": "Finish the sauce", "description": "Lift out the chops to rest. Stir the cream into the pan and bubble until the sauce coats a spoon. Spoon over the chops.", "duration": 4, "ingredients": [{ "quantity": 60, "unit": "ml", "name": "double cream" }] }
+          ]
+        },
+        {
+          "key": "donuts",
+          "title": "Apple Cider Donuts",
+          "description": "Baked, not fried, with reduced cider in the batter and a crackly cinnamon-sugar coat.",
+          "servings": "12",
+          "steps": [
+            { "stepTitle": "Reduce the cider", "description": "Simmer the cider in a saucepan until it has reduced to about 120 ml. Let it cool.", "duration": 20, "ingredients": [{ "quantity": 480, "unit": "ml", "name": "apple cider" }] },
+            { "stepTitle": "Mix the batter", "description": "Heat the oven to 180°C (350°F) and butter a donut pan. Whisk the flour, baking powder, cinnamon and salt. In another bowl whisk the melted butter, sugar, egg and reduced cider, then fold the two together until just combined.", "duration": null, "ingredients": [{ "quantity": 250, "unit": "g", "name": "plain flour" }, { "quantity": 2, "unit": "tsp", "name": "baking powder" }, { "quantity": 1, "unit": "tsp", "name": "ground cinnamon" }, { "quantity": 0.5, "unit": "tsp", "name": "fine salt" }, { "quantity": 85, "unit": "g", "name": "melted butter" }, { "quantity": 100, "unit": "g", "name": "brown sugar" }, { "quantity": 1, "unit": "whole", "name": "egg" }] },
+            { "stepTitle": "Bake", "description": "Pipe the batter into the pan, filling each ring about three-quarters full. Bake until springy.", "duration": 12, "ingredients": [] },
+            { "stepTitle": "Coat", "description": "While still warm, brush each donut with melted butter and roll in the cinnamon sugar.", "duration": null, "ingredients": [{ "quantity": 30, "unit": "g", "name": "butter for brushing" }, { "quantity": 100, "unit": "g", "name": "caster sugar" }, { "quantity": 2, "unit": "tsp", "name": "cinnamon for coating" }] }
+          ]
+        },
+        {
+          "key": "applebutter",
+          "title": "Slow-Cooker Apple Butter",
+          "description": "Deep, dark, spiced apple butter that makes the whole house smell like an orchard. Great on toast and in the oats.",
+          "servings": "3 jars",
+          "steps": [
+            { "stepTitle": "Load the slow cooker", "description": "Peel, core and chop the apples. Add them to the slow cooker with the sugar, cider, spices and salt.", "duration": null, "ingredients": [{ "quantity": 2, "unit": "kg", "name": "mixed apples" }, { "quantity": 150, "unit": "g", "name": "dark brown sugar" }, { "quantity": 120, "unit": "ml", "name": "apple cider" }, { "quantity": 2, "unit": "tsp", "name": "ground cinnamon" }, { "quantity": 0.25, "unit": "tsp", "name": "ground cloves" }, { "quantity": 0.25, "unit": "tsp", "name": "fine salt" }] },
+            { "stepTitle": "Cook low and slow", "description": "Cook on low, stirring every couple of hours, until the apples are very soft and dark.", "duration": 600, "ingredients": [] },
+            { "stepTitle": "Blend and thicken", "description": "Blend until smooth, then cook uncovered on high until thick enough to hold a line when you drag a spoon through it.", "duration": 90, "ingredients": [] },
+            { "stepTitle": "Jar it", "description": "Stir in the vanilla and spoon into clean jars. Keeps in the fridge for three weeks.", "duration": null, "ingredients": [{ "quantity": 1, "unit": "tsp", "name": "vanilla extract" }] }
+          ]
+        },
+        {
+          "key": "oats",
+          "title": "Cupertino Breakfast Oats",
+          "description": "Overnight oats with grated apple, cinnamon and a spoon of apple butter. Ready before your first meeting.",
+          "servings": "2",
+          "steps": [
+            { "stepTitle": "Mix", "description": "Stir the oats, milk, yogurt, chia seeds, cinnamon and maple syrup together in a jar.", "duration": null, "ingredients": [{ "quantity": 100, "unit": "g", "name": "rolled oats" }, { "quantity": 200, "unit": "ml", "name": "milk" }, { "quantity": 100, "unit": "g", "name": "Greek yogurt" }, { "quantity": 1, "unit": "tbsp", "name": "chia seeds" }, { "quantity": 0.5, "unit": "tsp", "name": "ground cinnamon" }, { "quantity": 1, "unit": "tbsp", "name": "maple syrup" }] },
+            { "stepTitle": "Add the apple", "description": "Grate the apple straight into the jar, skin and all, and stir it through.", "duration": null, "ingredients": [{ "quantity": 1, "unit": "whole", "name": "Gala apple" }] },
+            { "stepTitle": "Chill overnight", "description": "Cover and refrigerate overnight, or at least four hours.", "duration": 240, "ingredients": [] },
+            { "stepTitle": "Top and serve", "description": "Loosen with a splash of milk, then top with apple butter and toasted pecans.", "duration": null, "ingredients": [{ "quantity": 2, "unit": "tbsp", "name": "apple butter" }, { "quantity": 30, "unit": "g", "name": "toasted pecans" }] }
+          ]
+        }
+      ],
+      "forks": [
+        { "key": "crumbleFork", "from": "friend.crumble", "title": "Brown Butter Apple Crumble, with pecans" }
+      ],
+      "cookbooks": [
+        { "title": "The Orchard", "recipes": ["waldorf", "porkchops", "oats", "applebutter", "galette"] },
+        { "title": "One More Thing", "recipes": ["tatin", "donuts", "galette", "crumbleFork"] }
+      ],
+      "shoppingList": [
+        { "name": "Honeycrisp apples", "quantity": 6, "unit": "whole", "checked": false },
+        { "name": "unsalted butter", "quantity": 250, "unit": "g", "checked": false },
+        { "name": "apple cider", "quantity": 1, "unit": "l", "checked": false },
+        { "name": "all-butter puff pastry", "quantity": 1, "unit": "sheet", "checked": false },
+        { "name": "crème fraîche", "quantity": 150, "unit": "ml", "checked": false },
+        { "name": "walnut halves", "quantity": 75, "unit": "g", "checked": true },
+        { "name": "cinnamon sticks", "quantity": 4, "unit": "whole", "checked": true }
+      ]
+    }
+  },
+  "cooks": [
+    { "by": "friend", "recipe": "demo.galette", "note": "Made two for the offsite. Gone before the keynote even started.", "nextTime": "Double the glaze." },
+    { "by": "friend", "recipe": "demo.porkchops", "note": "Used a Normandy cider. Unreal sauce.", "nextTime": null },
+    { "by": "demo", "recipe": "demo.tatin", "note": "Flipped it in one go. Caramel was perfect at deep amber.", "nextTime": "Pack the apples even tighter; they shrink." },
+    { "by": "demo", "recipe": "demo.crumbleFork", "note": "Tim's crumble plus a handful of pecans in the topping. Keeper.", "nextTime": null }
+  ]
+}

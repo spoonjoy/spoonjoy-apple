@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "bundleId": "app.spoonjoy",
+  "platform": "IOS",
+  "version": {
+    "versionString": "1.0",
+    "copyright": "2026 Ari Mendelow",
+    "releaseType": "MANUAL"
+  },
+  "categories": {
+    "primary": "FOOD_AND_DRINK",
+    "secondary": "LIFESTYLE"
+  },
+  "contentRightsDeclaration": "USES_THIRD_PARTY_CONTENT",
+  "price": {
+    "baseTerritory": "USA",
+    "customerPrice": "0.0"
+  },
+  "availability": {
+    "allTerritories": true,
+    "availableInNewTerritories": true
+  },
+  "ageRating": {
+    "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+    "contests": "NONE",
+    "gamblingSimulated": "NONE",
+    "horrorOrFearThemes": "NONE",
+    "matureOrSuggestiveThemes": "NONE",
+    "medicalOrTreatmentInformation": "NONE",
+    "profanityOrCrudeHumor": "NONE",
+    "sexualContentGraphicAndNudity": "NONE",
+    "sexualContentOrNudity": "NONE",
+    "violenceCartoonOrFantasy": "NONE",
+    "violenceRealistic": "NONE",
+    "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+    "gambling": false,
+    "lootBox": false,
+    "unrestrictedWebAccess": false,
+    "messagingAndChat": false,
+    "parentalControls": false,
+    "ageAssurance": false,
+    "userGeneratedContent": true,
+    "advertising": false,
+    "healthOrWellnessTopics": false
+  },
+  "review": {
+    "contactFirstName": "Ari",
+    "contactLastName": "Mendelow",
+    "contactEmail": "ari@spoonjoy.app",
+    "demoAccountRequired": true,
+    "notes": "Spoonjoy is the free native iPhone and iPad app for spoonjoy.app. Sign-in is required because recipes, cookbooks, cook logs and shopping lists live in the user's Spoonjoy account and sync with the website.\n\nWhat makes Spoonjoy different from other recipe managers: every published recipe is a public page on spoonjoy.app (the Share button produces a link anyone can open); recipes can be forked with a permanent \"forked from\" credit to the original chef; each recipe shows Cooks, which are photo logs from everyone who cooked it; cook-mode progress (current step, scale, checked ingredients) syncs with the server, so it continues on another device or the website; and users can connect an AI assistant through Spoonjoy's MCP connector with OAuth access they can disconnect in Settings → Connections. There are no in-app purchases.\n\nDemo account: sign in on the first screen with the username and password below. The kitchen has sample recipes, forks, cook logs from several chefs, cookbooks and a shopping list. You may also use Sign in with Apple, which creates a new empty kitchen.\n\nWhere to find key features:\n- Fork credit: open the forked sample recipe; the credit line sits under the title. Recipe actions (···) → Fork to try it.\n- Cooks: on any recipe, scroll to Cooks; tap Log to add one (optional photo).\n- Cook mode and sync: open a recipe → Cook mode, check an ingredient, then open the same recipe on spoonjoy.app (same account) to see the same step and checks. Steps with a duration offer a timer (allow AlarmKit); it shows as a Live Activity on the Lock Screen and in the Dynamic Island.\n- Shopping: Shopping tab; checkoff works offline. Receipt actions → Send to Reminders asks for Reminders access so it can avoid duplicates.\n- Siri and Shortcuts: \"Start cooking in Spoonjoy\", \"Next step in Spoonjoy\". Import: the Shortcuts action \"Capture Recipe\" with a recipe URL, then Kitchen toolbar → Import queue.\n- Camera and photos are used only when the user adds a recipe or cook photo.\n- Account deletion: Kitchen toolbar → account button → Settings → Delete account.\n\niPhone Duo: on the inner screen in landscape, a recipe becomes a two-page spread with its gutter on the hinge (ingredients left, method right; tapping a step highlights its ingredients). Cook mode uses the same spread. Held tall and half-open (tabletop), cook mode splits at the fold: the step above, the checklist and controls below. iPad in landscape shows the same spread.\n\nContact: ari@spoonjoy.app"
+  },
+  "localizations": {
+    "en-US": {
+      "name": "Spoonjoy: Recipes & Cookbooks",
+      "subtitle": "Fork recipes. Log every cook.",
+      "privacyPolicyUrl": "https://spoonjoy.app/privacy",
+      "promotionalText": "Every recipe is a page on spoonjoy.app. Fork with credit, see who actually cooked it, and pick up cook mode on any screen. Free, no paywall.",
+      "description": "Spoonjoy is a free recipe app where every recipe is a real page on spoonjoy.app. Fork a recipe and the credit stays with the cook who wrote it; cook it and log it with a photo, so every recipe shows who actually made it.\n\nNo paywall, no subscription. Your progress in cook mode syncs between iPhone, iPad and the website, and your AI assistant can work in your kitchen through Spoonjoy's connector, with access you approve and can revoke.\n\nRECIPES WITH A HOME ON THE WEB\nEvery recipe you publish has its own link on spoonjoy.app, and every chef has a kitchen page anyone can open. Share a recipe from the app and the link works for anyone, with or without Spoonjoy.\n\nFORK IT, WITH CREDIT\nLike another cook's recipe? Fork it into your kitchen and change what you like. Your version keeps a \"forked from\" credit line back to the original chef and recipe.\n\nCOOKED BY REAL PEOPLE\nEvery recipe shows its cooks: who made it, what they changed, what they'd do next time, and a photo. Log your own in a few taps, and turn a great cook photo into the recipe's cover.\n\nONE STEP AT A TIME, ON ANY SCREEN\nCook mode shows one step in large type with only the ingredients that step needs. The step you're on, your scaling and your checked ingredients sync with the server, so you can start on iPhone and carry on on iPad or the web. The screen stays awake while you cook.\n\nTIMERS THAT FOLLOW YOU\nTimed steps hand off to a real system timer. The countdown sits on your Lock Screen and in the Dynamic Island with the recipe and step name.\n\nA SHOPPING LIST THAT WORKS LIKE A RECEIPT\nAdd a recipe's ingredients in one tap. Big check targets, aisle filters, and checkoff that keeps working offline. Prefer Reminders? Send a recipe or your whole list to the Reminders list you choose, without duplicates.\n\nCOOKBOOKS YOU SHAPE\nSave any recipe to your own cookbooks and browse them as a shelf.\n\nBUILT FOR iPHONE, iPAD AND iPHONE DUO\n- Siri and Shortcuts: \"Start cooking in Spoonjoy\", \"Next step in Spoonjoy\", \"Read the step in Spoonjoy\", \"Add to my Spoonjoy shopping list\".\n- Spotlight finds your recipes, cookbooks and shopping items.\n- Save a recipe link from Shortcuts or your AI assistant, and Spoonjoy imports it.\n- iPhone Duo and iPad: a recipe opens as a two-page spread, ingredients on the left and method on the right, with the gutter on the Duo's hinge. Stand the Duo half-open and cook mode splits at the fold: the step facing you, the checklist on the counter.\n\nYOUR KITCHEN, YOUR CONTROL\nUse the same account as spoonjoy.app. Sign in with Apple, Google, GitHub or your Spoonjoy password. See and disconnect connected apps and agent keys in Settings. Download your data or delete your account at any time.\n\nRecipes, cookbooks and cook logs you publish are public. Your email, shopping list and sign-in methods stay private.\n\nPrivacy policy: https://spoonjoy.app/privacy\nTerms of service: https://spoonjoy.app/terms",
+      "keywords": "cooking,meal,grocery,shopping list,timer,kitchen,ingredient,organizer,keeper,food,dinner,baking",
+      "supportUrl": "https://spoonjoy.app/support",
+      "marketingUrl": "https://spoonjoy.app",
+      "whatsNew": null
+    }
+  },
+  "screenshots": {
+    "iphone-69": {
+      "displayType": "APP_IPHONE_67",
+      "sizes": [
+        [
+          1320,
+          2868
+        ],
+        [
+          1290,
+          2796
+        ]
+      ]
+    },
+    "iphone-61": {
+      "displayType": "APP_IPHONE_61",
+      "sizes": [
+        [
+          1206,
+          2622
+        ],
+        [
+          1179,
+          2556
+        ]
+      ]
+    },
+    "ipad-13": {
+      "displayType": "APP_IPAD_PRO_3GEN_129",
+      "sizes": [
+        [
+          2064,
+          2752
+        ],
+        [
+          2752,
+          2064
+        ]
+      ]
+    }
+  }
+}
