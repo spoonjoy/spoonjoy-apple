@@ -40,6 +40,11 @@ class LiveCandidateEvidence
   end
 
   def main_ancestor?(source_sha, main_sha)
+    # main can move between checkout and this check, so the checkout may not have the commit yet.
+    commit_present = @runner.capture(
+      "git", "cat-file", "-e", "#{main_sha}^{commit}", allowed_statuses: [0, 1, 128]
+    ).status.zero?
+    @runner.capture("git", "fetch", "--no-tags", "--quiet", "origin", main_sha) unless commit_present
     result = @runner.capture(
       "git", "merge-base", "--is-ancestor", source_sha, main_sha,
       allowed_statuses: [0, 1]
@@ -159,6 +164,7 @@ class TestFlightReleaseCandidateVerifier
     rollback_notes:,
     output_dir:,
     evidence:,
+    superseded_ok: false,
     github_output: nil
   )
     @source_sha = source_sha
@@ -168,6 +174,7 @@ class TestFlightReleaseCandidateVerifier
     @rollback_notes = rollback_notes.strip
     @output_dir = File.expand_path(output_dir)
     @evidence = evidence
+    @superseded_ok = superseded_ok
     @github_output = github_output
   end
 
@@ -175,6 +182,8 @@ class TestFlightReleaseCandidateVerifier
     validate_inputs
     validate_checkout
     main_sha = validate_main_membership
+    return record_superseded(main_sha) if superseded?(main_sha)
+
     rollback = validate_release_mode(main_sha)
     explicit_rollback_notes = rollback && !@rollback_notes.empty?
     run = select_native_run
@@ -212,6 +221,20 @@ class TestFlightReleaseCandidateVerifier
   end
 
   private
+
+  # An automatic run whose commit main has already moved past is not a rollback: the newer commit's own run
+  # publishes it. Skip cleanly instead of failing. Manual dispatches still need allow_rollback.
+  def superseded?(main_sha)
+    @superseded_ok && !@allow_rollback && @source_sha != main_sha
+  end
+
+  def record_superseded(main_sha)
+    FileUtils.mkdir_p(@output_dir)
+    record = { "schemaVersion" => 1, "sourceSha" => @source_sha, "mainSha" => main_sha, "superseded" => true }
+    File.write(File.join(@output_dir, "testflight-release-candidate-superseded.json"), JSON.pretty_generate(record) + "\n")
+    write_github_output("source_sha" => @source_sha, "superseded" => "true")
+    record
+  end
 
   def validate_inputs
     fail_with("source SHA must be exactly 40 lowercase hexadecimal characters") unless @source_sha.match?(SHA_PATTERN)
@@ -376,53 +399,65 @@ class TestFlightReleaseCandidateVerifier
   end
 end
 
-begin
-  options = {
-    allow_rollback: false,
-    rollback_reason: "",
-    rollback_notes: "",
-    output_dir: "artifacts/apple/ci-testflight/release-candidate",
-    github_output: ENV["GITHUB_OUTPUT"]
-  }
-  OptionParser.new do |parser|
-    parser.banner = "Usage: verify-testflight-release-candidate.rb [options]"
-    parser.on("--source-sha SHA") { |value| options[:source_sha] = value }
-    parser.on("--repository OWNER/NAME") { |value| options[:repository] = value }
-    parser.on("--allow-rollback BOOLEAN") do |value|
-      unless %w[true false].include?(value)
-        raise OptionParser::InvalidArgument, "allow-rollback must be true or false"
+if $PROGRAM_NAME == __FILE__
+  begin
+    options = {
+      allow_rollback: false,
+      rollback_reason: "",
+      rollback_notes: "",
+      output_dir: "artifacts/apple/ci-testflight/release-candidate",
+      github_output: ENV["GITHUB_OUTPUT"]
+    }
+    OptionParser.new do |parser|
+      parser.banner = "Usage: verify-testflight-release-candidate.rb [options]"
+      parser.on("--source-sha SHA") { |value| options[:source_sha] = value }
+      parser.on("--repository OWNER/NAME") { |value| options[:repository] = value }
+      parser.on("--allow-rollback BOOLEAN") do |value|
+        unless %w[true false].include?(value)
+          raise OptionParser::InvalidArgument, "allow-rollback must be true or false"
+        end
+        options[:allow_rollback] = value == "true"
       end
-      options[:allow_rollback] = value == "true"
+      parser.on("--superseded-ok BOOLEAN") do |value|
+        raise OptionParser::InvalidArgument, "superseded-ok must be true or false" unless %w[true false].include?(value)
+
+        options[:superseded_ok] = value == "true"
+      end
+      parser.on("--rollback-reason REASON") { |value| options[:rollback_reason] = value }
+      parser.on("--rollback-notes NOTES") { |value| options[:rollback_notes] = value }
+      parser.on("--output-dir PATH") { |value| options[:output_dir] = value }
+      parser.on("--github-output PATH") { |value| options[:github_output] = value }
+      parser.on("--fixture-dir PATH") { |value| options[:fixture_dir] = value }
+    end.parse!
+
+    %i[source_sha repository].each do |key|
+      raise CandidateVerificationError, "missing --#{key.to_s.tr("_", "-")}" if options[key].nil? || options[key].empty?
     end
-    parser.on("--rollback-reason REASON") { |value| options[:rollback_reason] = value }
-    parser.on("--rollback-notes NOTES") { |value| options[:rollback_notes] = value }
-    parser.on("--output-dir PATH") { |value| options[:output_dir] = value }
-    parser.on("--github-output PATH") { |value| options[:github_output] = value }
-    parser.on("--fixture-dir PATH") { |value| options[:fixture_dir] = value }
-  end.parse!
 
-  %i[source_sha repository].each do |key|
-    raise CandidateVerificationError, "missing --#{key.to_s.tr("_", "-")}" if options[key].nil? || options[key].empty?
+    evidence = if options[:fixture_dir]
+                 FixtureCandidateEvidence.new(fixture_dir: options[:fixture_dir])
+               else
+                 LiveCandidateEvidence.new(repository: options[:repository], output_dir: options[:output_dir])
+               end
+    verifier = TestFlightReleaseCandidateVerifier.new(
+      source_sha: options[:source_sha],
+      repository: options[:repository],
+      allow_rollback: options[:allow_rollback],
+      rollback_reason: options[:rollback_reason],
+      rollback_notes: options[:rollback_notes],
+      output_dir: options[:output_dir],
+      evidence: evidence,
+      superseded_ok: options.fetch(:superseded_ok, false),
+      github_output: options[:github_output]
+    )
+    attestation = verifier.verify
+    if attestation["superseded"]
+      puts "Skipping #{attestation.fetch("sourceSha")}: main has moved to #{attestation.fetch("mainSha")}, whose own run publishes it."
+      exit 0
+    end
+    puts "Verified TestFlight release candidate #{attestation.fetch("sourceSha")} from Native run #{attestation.fetch("nativeRunId")}."
+  rescue CandidateVerificationError, OptionParser::ParseError, Errno::ENOENT => error
+    warn "verify-testflight-release-candidate failed: #{error.message}"
+    exit 1
   end
-
-  evidence = if options[:fixture_dir]
-               FixtureCandidateEvidence.new(fixture_dir: options[:fixture_dir])
-             else
-               LiveCandidateEvidence.new(repository: options[:repository], output_dir: options[:output_dir])
-             end
-  verifier = TestFlightReleaseCandidateVerifier.new(
-    source_sha: options[:source_sha],
-    repository: options[:repository],
-    allow_rollback: options[:allow_rollback],
-    rollback_reason: options[:rollback_reason],
-    rollback_notes: options[:rollback_notes],
-    output_dir: options[:output_dir],
-    evidence: evidence,
-    github_output: options[:github_output]
-  )
-  attestation = verifier.verify
-  puts "Verified TestFlight release candidate #{attestation.fetch("sourceSha")} from Native run #{attestation.fetch("nativeRunId")}."
-rescue CandidateVerificationError, OptionParser::ParseError, Errno::ENOENT => error
-  warn "verify-testflight-release-candidate failed: #{error.message}"
-  exit 1
 end

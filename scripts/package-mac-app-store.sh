@@ -54,6 +54,9 @@ app_path="$ARCHIVE_PATH/Products/Applications/Spoonjoy.app"
 [[ -d "$app_path" ]] || fail "archive has no Spoonjoy.app"
 entitlements="$(codesign -d --entitlements - --xml "$app_path" 2>/dev/null || true)"
 grep -q 'com.apple.security.app-sandbox' <<<"$entitlements" || fail "the archived app is not sandboxed"
+# The app registers for remote notifications, which needs production push under an App Store profile.
+aps="$(/usr/libexec/PlistBuddy -c 'Print :com.apple.developer.aps-environment' /dev/stdin <<<"$entitlements" 2>/dev/null || true)"
+[[ "$aps" == "production" ]] || fail "the archived app has com.apple.developer.aps-environment '$aps', expected production"
 bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_path/Contents/Info.plist")"
 [[ "$bundle_id" == "app.spoonjoy" ]] || fail "the archived app has bundle ID $bundle_id, expected app.spoonjoy"
 

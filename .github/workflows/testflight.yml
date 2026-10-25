@@ -127,6 +127,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ needs.release-gate.outputs.source_sha }}
           ALLOW_ROLLBACK: ${{ inputs.allow_rollback || false }}
+          SUPERSEDED_OK: ${{ github.event_name == 'workflow_run' }}
           ROLLBACK_REASON: ${{ inputs.rollback_reason }}
           ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
         run: |
@@ -135,11 +136,13 @@ jobs:
             --source-sha "$SOURCE_SHA" \
             --repository "$GITHUB_REPOSITORY" \
             --allow-rollback "$ALLOW_ROLLBACK" \
+            --superseded-ok "$SUPERSEDED_OK" \
             --rollback-reason "$ROLLBACK_REASON" \
             --rollback-notes "$ROLLBACK_NOTES" \
             --output-dir artifacts/apple/ci-testflight/release-candidate
 
       - name: Upload verified candidate note
+        if: steps.candidate.outputs.superseded != 'true'
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: testflight-release-candidate-note-${{ needs.release-gate.outputs.source_sha }}-${{ github.run_id }}
@@ -148,6 +151,7 @@ jobs:
           retention-days: 90
 
       - name: Install pinned source Ruby bundle
+        if: steps.candidate.outputs.superseded != 'true'
         uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
@@ -155,6 +159,7 @@ jobs:
           working-directory: release-source
 
       - name: Check out pinned apple-distribution-kit
+        if: steps.candidate.outputs.superseded != 'true'
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: ourostack/apple-distribution-kit
@@ -163,6 +168,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pinned Node runtime
+        if: steps.candidate.outputs.superseded != 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.17.1
@@ -170,6 +176,7 @@ jobs:
           cache-dependency-path: .ci/apple-distribution-kit/package-lock.json
 
       - name: Build pinned apple-distribution-kit
+        if: steps.candidate.outputs.superseded != 'true'
         working-directory: .ci/apple-distribution-kit
         env:
           EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9
@@ -186,6 +193,7 @@ jobs:
           echo "APPLE_DISTRIBUTION_KIT_BIN=$PWD/dist/cli.js" >> "$GITHUB_ENV"
 
       - name: Select and verify Xcode 27 runner
+        if: steps.candidate.outputs.superseded != 'true'
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_27.1.app
@@ -199,12 +207,12 @@ jobs:
           awk -v version="$version" -v minimum="$minimum_xcode_version" 'BEGIN { split(version, actual, "."); split(minimum, required, "."); exit !((actual[1] + 0) > (required[1] + 0) || ((actual[1] + 0) == (required[1] + 0) && (actual[2] + 0) >= (required[2] + 0))) }'
 
       - name: Prepare App Store Connect credentials
+        if: steps.candidate.outputs.superseded != 'true'
         id: asc_credentials
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
-          ASC_PROVIDER_PUBLIC_ID: ${{ secrets.APP_STORE_CONNECT_PROVIDER_PUBLIC_ID }}
         run: |
           set -euo pipefail
           missing=()
@@ -250,12 +258,12 @@ jobs:
 
           {
             echo "APPLE_DISTRIBUTION_KIT_CONFIG=$config_path"
-            echo "APP_STORE_CONNECT_PROVIDER_PUBLIC_ID=${ASC_PROVIDER_PUBLIC_ID:-9735080289}"
           } >> "$GITHUB_ENV"
 
       # Sign with the long-lived Apple Distribution certificate from secrets. The run creates no
       # certificate, and xcodebuild signs manually with no Apple network calls.
       - name: Import long-lived signing identity
+        if: steps.candidate.outputs.superseded != 'true'
         id: signing_identity
         env:
           APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
@@ -269,6 +277,7 @@ jobs:
           echo "ADK_SIGNING_DIR=$signing_dir" >> "$GITHUB_ENV"
 
       - name: Install App Store provisioning profiles
+        if: steps.candidate.outputs.superseded != 'true'
         run: |
           set -euo pipefail
           node "$APPLE_DISTRIBUTION_KIT_BIN" signing profiles \
@@ -285,6 +294,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Publish exact candidate to Spoonjoy Internal
+        if: steps.candidate.outputs.superseded != 'true'
         id: publish
         working-directory: release-source
         env:
@@ -367,6 +377,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ needs.release-gate.outputs.source_sha }}
           ALLOW_ROLLBACK: ${{ inputs.allow_rollback || false }}
+          SUPERSEDED_OK: ${{ github.event_name == 'workflow_run' }}
           ROLLBACK_REASON: ${{ inputs.rollback_reason }}
           ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
         run: |
@@ -375,11 +386,13 @@ jobs:
             --source-sha "$SOURCE_SHA" \
             --repository "$GITHUB_REPOSITORY" \
             --allow-rollback "$ALLOW_ROLLBACK" \
+            --superseded-ok "$SUPERSEDED_OK" \
             --rollback-reason "$ROLLBACK_REASON" \
             --rollback-notes "$ROLLBACK_NOTES" \
             --output-dir artifacts/apple/ci-mac-app-store/release-candidate
 
       - name: Install pinned source Ruby bundle
+        if: steps.candidate.outputs.superseded != 'true'
         uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
         with:
           ruby-version: '3.3'
@@ -387,6 +400,7 @@ jobs:
           working-directory: release-source
 
       - name: Check out pinned apple-distribution-kit
+        if: steps.candidate.outputs.superseded != 'true'
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           repository: ourostack/apple-distribution-kit
@@ -395,6 +409,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up pinned Node runtime
+        if: steps.candidate.outputs.superseded != 'true'
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22.17.1
@@ -402,6 +417,7 @@ jobs:
           cache-dependency-path: .ci/apple-distribution-kit/package-lock.json
 
       - name: Build pinned apple-distribution-kit
+        if: steps.candidate.outputs.superseded != 'true'
         working-directory: .ci/apple-distribution-kit
         env:
           EXPECTED_APPLE_DISTRIBUTION_KIT_DIST_SHA256: 09e0dded99208496bd96cecc6edc067188ec49bae4486b83f90b85e57db954b9
@@ -418,6 +434,7 @@ jobs:
           echo "APPLE_DISTRIBUTION_KIT_BIN=$PWD/dist/cli.js" >> "$GITHUB_ENV"
 
       - name: Select and verify Xcode 27 runner
+        if: steps.candidate.outputs.superseded != 'true'
         run: |
           set -euo pipefail
           sudo xcode-select -s /Applications/Xcode_27.1.app
@@ -425,12 +442,12 @@ jobs:
           xcodebuild -version
 
       - name: Prepare App Store Connect credentials
+        if: steps.candidate.outputs.superseded != 'true'
         id: asc_credentials
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
           ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
-          ASC_PROVIDER_PUBLIC_ID: ${{ secrets.APP_STORE_CONNECT_PROVIDER_PUBLIC_ID }}
         run: |
           set -euo pipefail
           missing=()
@@ -455,10 +472,10 @@ jobs:
           PY
           {
             echo "APPLE_DISTRIBUTION_KIT_CONFIG=$config_path"
-            echo "APP_STORE_CONNECT_PROVIDER_PUBLIC_ID=${ASC_PROVIDER_PUBLIC_ID:-9735080289}"
           } >> "$GITHUB_ENV"
 
       - name: Import long-lived signing identity
+        if: steps.candidate.outputs.superseded != 'true'
         id: signing_identity
         env:
           APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DISTRIBUTION_CERTIFICATE_P12_BASE64 }}
@@ -474,6 +491,7 @@ jobs:
       # The kit imports code signing identities only, so the Mac Installer Distribution identity that signs the .pkg
       # gets its own temporary keychain. The keychain password is random and never leaves this step.
       - name: Import Mac installer identity
+        if: steps.candidate.outputs.superseded != 'true'
         id: installer_identity
         env:
           MAC_INSTALLER_CERTIFICATE_P12_BASE64: ${{ secrets.MAC_INSTALLER_CERTIFICATE_P12_BASE64 }}
@@ -513,6 +531,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Install Mac App Store provisioning profile
+        if: steps.candidate.outputs.superseded != 'true'
         run: |
           set -euo pipefail
           node "$APPLE_DISTRIBUTION_KIT_BIN" signing profiles \
@@ -537,6 +556,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Upload exact candidate to App Store Connect
+        if: steps.candidate.outputs.superseded != 'true'
         working-directory: release-source
         env:
           SPOONJOY_MAC_SOURCE_ROOT: ${{ github.workspace }}/release-source

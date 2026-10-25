@@ -7,7 +7,8 @@ MANIFEST_PATH="${SPOONJOY_TESTFLIGHT_MANIFEST:-$ROOT_DIR/distribution/apple-dist
 CHANNEL_ID="${SPOONJOY_TESTFLIGHT_CHANNEL:-ios-testflight}"
 BUNDLE_ID="${SPOONJOY_TESTFLIGHT_BUNDLE_ID:-app.spoonjoy}"
 GROUP_NAME="${SPOONJOY_TESTFLIGHT_GROUP_NAME:-Spoonjoy Internal}"
-ASC_PROVIDER_PUBLIC_ID="${APP_STORE_CONNECT_PROVIDER_PUBLIC_ID:-9735080289}"
+# altool needs the provider's public ID (a UUID); it comes from the manifest, never from a secret.
+ASC_PROVIDER_PUBLIC_ID="$(jq -er '.team.providerPublicId' "$MANIFEST_PATH")"
 ASC_CONFIG="${APPLE_DISTRIBUTION_KIT_CONFIG:-$HOME/Library/Application Support/AppleDistributionKit/app-store-connect/config.json}"
 ARTIFACT_DIR="${SPOONJOY_TESTFLIGHT_ARTIFACT_DIR:-$ROOT_DIR/artifacts/apple/ci-testflight}"
 IPA_PATH="$ROOT_DIR/build/apple/testflight/Spoonjoy.ipa"
