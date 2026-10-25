@@ -1,0 +1,35 @@
+name: Review demo account
+
+# Creates or repairs the App Review demo kitchen on spoonjoy.app (the demo chef plus a friend chef whose
+# recipe the demo chef forks). Safe to run again; it recreates either account if it was deleted.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spoonjoy-review-demo-account
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: Seed demo kitchen
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: internal-testflight
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+      - name: Seed
+        env:
+          SPOONJOY_REVIEW_DEMO_USERNAME: ${{ secrets.SPOONJOY_REVIEW_DEMO_USERNAME }}
+          SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
+          SPOONJOY_REVIEW_FRIEND_USERNAME: ${{ secrets.SPOONJOY_REVIEW_FRIEND_USERNAME }}
+          SPOONJOY_REVIEW_FRIEND_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_FRIEND_PASSWORD }}
+        run: ruby scripts/seed-review-demo-account.rb

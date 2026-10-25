@@ -70,6 +70,12 @@ jobs:
         run: ruby scripts/check-design-accessibility-contract.rb
       - name: Check App Intents contract (every domain)
         run: bundle exec ruby scripts/check-app-intents-contract.rb --domain all
+      - name: Check App Store listing and review demo kitchen
+        run: |
+          ruby scripts/test/app_store_listing_test.rb
+          ruby scripts/test/review_demo_kitchen_test.rb
+          ruby scripts/stage-app-store-listing.rb --validate-only
+          ruby scripts/seed-review-demo-account.rb --validate-only
 
   swift-tests:
     # One job runs the whole suite once, with coverage. It is the required "Swift tests" check.
