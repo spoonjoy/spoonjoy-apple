@@ -143,6 +143,144 @@ class AppStoreListingTest < Minitest::Test
     assert_equal ["sync_screenshots", "set1", "vl"], [step["action"], step["setId"], step["localizationId"]]
   end
 
+  def mac_listing
+    AppStoreListing.for_platform(listing, "MAC_OS")
+  end
+
+  APP_LEVEL_ACTIONS = %w[patch_app patch_categories patch_age_rating create_app_info_localization patch_app_info_localization
+                         set_free_price set_availability].freeze
+
+  def test_ios_platform_returns_the_listing_unchanged
+    assert_same listing, AppStoreListing.for_platform(listing, "IOS")
+    assert_raises(AppStoreListing::Error) { AppStoreListing.for_platform(listing, "TV_OS") }
+    assert_raises(AppStoreListing::Error) { AppStoreListing.for_platform(listing.reject { |k, _| k == "mac" }, "MAC_OS") }
+  end
+
+  def test_mac_listing_takes_its_section_over_the_ios_copy
+    mac = mac_listing
+    ios_fields = listing["localizations"]["en-US"]
+    mac_fields = mac["localizations"]["en-US"]
+    assert_equal "MAC_OS", mac["platform"]
+    assert_equal listing["mac"]["localizations"]["en-US"]["description"], mac_fields["description"]
+    assert_equal ios_fields.slice("name", "subtitle", "privacyPolicyUrl", "supportUrl", "marketingUrl"),
+                 mac_fields.slice("name", "subtitle", "privacyPolicyUrl", "supportUrl", "marketingUrl")
+    assert_equal listing["version"], mac["version"]
+    assert_equal listing["mac"]["review"]["notes"], mac["review"]["notes"]
+    assert_equal listing["review"].reject { |k, _| k == "notes" }, mac["review"].reject { |k, _| k == "notes" }
+    assert_equal ["mac"], mac["screenshots"].keys
+    assert_equal "APP_DESKTOP", mac["screenshots"]["mac"]["displayType"]
+    refute mac.key?("mac")
+    assert_equal "IOS", listing["platform"], "resolving the Mac listing must not change the iOS one"
+  end
+
+  def test_checked_in_mac_listing_is_valid_and_makes_no_ios_only_claims
+    Dir.mktmpdir do |dir|
+      Dir.mkdir(File.join(dir, "mac"))
+      assert_equal [], AppStoreListing.validate(mac_listing, dir)
+      png(File.join(dir, "mac", "01-kitchen.png"), 2880, 1800)
+      png(File.join(dir, "mac", "02-spread.png"), 2752, 2064)
+      errors = AppStoreListing.validate(mac_listing, dir)
+      assert_equal ["mac/02-spread.png is 2752x2064; allowed: 2880x1800, 2560x1600, 1440x900, 1280x800"], errors
+    end
+    copy = mac_listing["localizations"]["en-US"].values_at("description", "promotionalText").join("\n") + mac_listing["review"]["notes"]
+    ["Lock Screen", "Dynamic Island", "Duo", "hinge", "stays awake", "system timer", "tap"].each do |claim|
+      refute_includes copy, claim
+    end
+  end
+
+  def mac_snapshot(version: nil)
+    { "version" => version, "build" => { "id" => "macbuild2", "version" => "2" } }
+  end
+
+  def mac_shots
+    { "mac" => [{ "path" => "/x/01-kitchen.png", "checksum" => "m1", "size" => 1 }] }
+  end
+
+  def test_mac_plan_stages_only_the_mac_version
+    steps = AppStoreListing.plan(listing: mac_listing, snapshot: mac_snapshot, screenshots: mac_shots,
+                                 secrets: { "demoAccountName" => "johnnyappleseed", "demoAccountPassword" => "s3cret" })
+    actions = steps.map { |s| s["action"] }
+    assert_equal %w[create_version attach_build create_version_localization create_review_detail sync_screenshots], actions
+    assert_empty actions & APP_LEVEL_ACTIONS
+    create = steps.first
+    assert_equal ["Create macOS version 1.0", "MAC_OS"], [create["summary"], create["platform"]]
+    assert_equal "macbuild2", steps[1]["buildId"]
+    localization = steps[2]["attributes"]
+    assert_equal mac_listing["localizations"]["en-US"]["description"], localization["description"]
+    assert_equal "https://spoonjoy.app/support", localization["supportUrl"]
+    refute localization.key?("whatsNew")
+    assert_equal listing["mac"]["review"]["notes"], steps[3]["attributes"]["notes"]
+    assert_equal "APP_DESKTOP", steps.last["displayType"]
+  end
+
+  def test_mac_plan_for_an_existing_version_only_resends_the_password_once_staged
+    mac = mac_listing
+    fields = mac["localizations"]["en-US"]
+    version = {
+      "id" => "macv1", "attributes" => { "versionString" => "1.0", "copyright" => nil, "releaseType" => "AFTER_APPROVAL" },
+      "buildId" => nil, "localization" => { "id" => "macvl", "attributes" => {} }, "reviewDetail" => nil, "screenshotSets" => {}
+    }
+    steps = AppStoreListing.plan(listing: mac, snapshot: mac_snapshot(version: version), screenshots: mac_shots,
+                                 secrets: { "demoAccountPassword" => "s3cret" })
+    assert_equal %w[patch_version attach_build patch_version_localization create_review_detail sync_screenshots], steps.map { |s| s["action"] }
+    assert_equal({ "copyright" => "2026 Ari Mendelow", "releaseType" => "MANUAL" }, steps.first["attributes"])
+
+    staged = version.merge(
+      "attributes" => mac["version"], "buildId" => "macbuild2",
+      "localization" => { "id" => "macvl", "attributes" => fields.slice(*AppStoreListing::VERSION_LOCALIZATION_FIELDS) },
+      "reviewDetail" => { "id" => "macrd", "attributes" => mac["review"].slice(*AppStoreListing::REVIEW_FIELDS) },
+      "screenshotSets" => { "APP_DESKTOP" => { "id" => "macset", "checksums" => ["m1"] } }
+    )
+    steps = AppStoreListing.plan(listing: mac, snapshot: mac_snapshot(version: staged), screenshots: mac_shots,
+                                 secrets: { "demoAccountPassword" => "s3cret" })
+    assert_equal ["- Update review details: demoAccountPassword (demo password: redacted)"], AppStoreListing.describe(steps)
+  end
+
+  # Records every GET so a test can prove which App Store Connect objects the Reader touched.
+  class RecordingClient
+    attr_reader :paths
+
+    def initialize
+      @paths = []
+    end
+
+    def get(path, query = {})
+      @paths << path
+      case path
+      when "/v1/apps" then { "data" => [{ "id" => "app1" }] }
+      when "/v1/builds"
+        raise "wrong platform filter" unless query["filter[preReleaseVersion.platform]"] == "MAC_OS"
+
+        { "data" => [{ "id" => "macbuild2" }] }
+      else raise AppStoreListing::Error, "HTTP 404 #{path}"
+      end
+    end
+
+    def get_all(path, query = {})
+      @paths << path
+      raise "wrong platform filter" if path.end_with?("/appStoreVersions") && query["filter[platform]"] != "MAC_OS"
+
+      []
+    end
+  end
+
+  def test_mac_reader_never_reads_app_level_data
+    client = RecordingClient.new
+    snapshot = AppStoreListing::Reader.new(client, mac_listing).snapshot(build_number: "2")
+    assert_equal({ "version" => nil, "build" => { "id" => "macbuild2", "version" => "2" } }, snapshot)
+    assert_equal ["/v1/apps", "/v1/apps/app1/appStoreVersions", "/v1/builds"], client.paths
+  end
+
+  def test_missing_mac_build_names_the_platform
+    client = Class.new(RecordingClient) do
+      def get(path, query = {})
+        path == "/v1/builds" ? { "data" => [] } : super
+      end
+    end.new
+    error = assert_raises(AppStoreListing::Error) { AppStoreListing::Reader.new(client, mac_listing).build("9") }
+    assert_equal "No VALID macOS build 9 in App Store Connect", error.message
+  end
+
   # Answers Reader GETs from a path => body table, so price checks run without the network.
   class FakePriceClient
     def initialize(responses)
