@@ -1,7 +1,7 @@
 name: Stage App Store listing
 
 # Writes distribution/app-store/listing.json and its screenshots into the App Store Connect version that
-# is being prepared. It never submits for review: submitting stays a human step in App Store Connect.
+# is being prepared. It never submits for review; "Submit for App Review" (submit-app-store-review.yml) does that.
 on:
   workflow_dispatch:
     inputs:
