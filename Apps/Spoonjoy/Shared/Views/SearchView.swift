@@ -272,10 +272,23 @@ private struct SearchSurfaceSectionView: View {
     let recipeCovers: [String: URL]
     let cookbookCovers: [String: URL]
     let openRoute: (AppRoute) -> Void
+    @Environment(\.moderation) private var moderation
+
+    /// Results from blocked chefs and things this person reported leave search at once, before the server's own
+    /// filtering catches up.
+    private var visibleRows: [SearchSurfaceRow] {
+        section.rows.filter { !moderation.ledger.hidesSearchResult($0.result) }
+    }
 
     var body: some View {
+        if !visibleRows.isEmpty {
+            rows
+        }
+    }
+
+    private var rows: some View {
         KitchenTableSection(title: section.title) {
-            ForEach(section.rows) { row in
+            ForEach(visibleRows) { row in
                 Button {
                     openRoute(row.openRoute)
                 } label: {

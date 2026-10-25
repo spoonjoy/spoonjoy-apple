@@ -28,6 +28,7 @@ struct RecipeCoverControlsRouteView: View {
     @State private var actionMessage: String?
     @State private var actionError: String?
     @State private var providerBlocker: RecipeCoverProviderBlockerDisplay?
+    @State private var aiConsentRequest: ThirdPartyAIConsentRequest?
 
     var body: some View {
         Group {
@@ -54,6 +55,7 @@ struct RecipeCoverControlsRouteView: View {
         .task(id: recipeID) {
             await load()
         }
+        .thirdPartyAIConsent($aiConsentRequest)
     }
 
     @MainActor private func load() async {
@@ -81,7 +83,16 @@ struct RecipeCoverControlsRouteView: View {
         }
     }
 
+    /// Actions that send a photo or the recipe to an AI service wait for the person's consent first.
     @MainActor private func runAction(_ action: RecipeCoverControlsAction) {
+        guard let use = action.thirdPartyAIUse else {
+            runConsentedAction(action)
+            return
+        }
+        aiConsentRequest = ThirdPartyAIConsentGate.request(use) { runConsentedAction(action) }
+    }
+
+    @MainActor private func runConsentedAction(_ action: RecipeCoverControlsAction) {
         guard let recipe else { return }
         let plan: RecipeCoverControlsMutationPlan
         do {

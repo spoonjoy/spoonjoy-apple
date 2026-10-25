@@ -126,6 +126,23 @@ enum JourneyID {
     static let cookbookSearchField = "cookbook.search.field"
     static let cookbookSearchEmpty = "cookbook.search.empty"
 
+    /// Report and block on someone else's recipe: the menu items, a report reason, Send, the thanks line and
+    /// Done, the block confirmation, and the page that replaces hidden content.
+    static let moderationReport = "moderation.report"
+    static let moderationBlock = "moderation.block"
+    static func moderationReason(_ reason: String) -> String { "moderation.reason.\(reason)" }
+    static let moderationReportSubmit = "moderation.reportSubmit"
+    static let moderationReportThanks = "moderation.reportThanks"
+    static let moderationReportDone = "moderation.reportDone"
+    static let moderationBlockConfirm = "moderation.blockConfirm"
+    static let moderationHidden = "moderation.hidden"
+
+    /// Settings > Blocked chefs, each blocked chef's row and Unblock button, and the empty message.
+    static let settingsBlockedChefs = "settings.blockedChefs"
+    static let blockedChefsRow = "blockedChefs.row"
+    static let blockedChefsUnblock = "blockedChefs.unblock"
+    static let blockedChefsEmpty = "blockedChefs.empty"
+
     /// The not-found page and its "Back to recipes" button.
     static let routeError = "route.error"
     static let routeErrorBack = "route.error.back"

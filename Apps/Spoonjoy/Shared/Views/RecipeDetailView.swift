@@ -31,6 +31,11 @@ struct RecipeDetailRouteView: View {
 
     @State private var routeState: RecipeDetailRouteState
     @State private var errorMessage: String?
+    @Environment(\.moderation) private var moderation
+
+    private var moderatedTarget: ContentReportTarget {
+        ContentReportTarget(type: .recipe, id: recipeID)
+    }
 
     init(
         recipeID: String,
@@ -100,12 +105,22 @@ struct RecipeDetailRouteView: View {
                     systemImage: "text.book.closed"
                 )
             case .missing(let errorMessage), .failed(let errorMessage):
-                KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
+                // The server answers 404 for a recipe the person reported or whose chef they blocked.
+                if let chef = moderation.ledger.blockedChef(hiding: moderatedTarget) {
+                    ModerationHiddenView(message: "You blocked \(chef.name), so their recipes are hidden.", unblockChef: chef)
+                } else if moderation.ledger.isHidden(moderatedTarget) {
+                    ModerationHiddenView(message: "You reported this recipe, so it's hidden for you.", unblockChef: nil)
+                } else {
+                    KitchenTableRouteErrorView(message: errorMessage, systemImage: "text.book.closed")
+                }
             }
         }
         .reloadsOnPull { await loadRecipe() }
         .task(id: recipeID) {
             await loadRecipe()
+        }
+        .onChange(of: moderation.ledger.blockedChefs) {
+            Task { await loadRecipe() }
         }
         .onChange(of: snapshotViewModel) { _, nextViewModel in
             guard let nextViewModel, nextViewModel != routeState.currentViewModel else {
@@ -232,9 +247,24 @@ struct RecipeDetailView: View {
 #endif
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.moderation) private var moderation
+    @Environment(\.dismiss) private var dismiss
+    @State private var moderationPrompt: ModerationPrompt?
 
     var body: some View {
-        recipeLayout
+        Group {
+            if isHiddenByModeration {
+                ModerationHiddenView(
+                    message: moderation.ledger.isBlocked(chefID: viewModel.recipe.chef.id)
+                        ? "You blocked @\(viewModel.recipe.chef.username), so their recipes are hidden."
+                        : "You reported this recipe, so it's hidden for you.",
+                    unblockChef: moderation.ledger.blockedChefs.first { $0.id == viewModel.recipe.chef.id }
+                )
+            } else {
+                recipeLayout
+            }
+        }
+        .moderationPrompts($moderationPrompt) { dismiss() }
         .spoonjoyRemindersSend(remindersSender)
         .onChange(of: remindersSender.statusMessage) { _, message in
             if let message {
@@ -686,6 +716,24 @@ struct RecipeDetailView: View {
         if includeAddToList {
             remindersMenuItems
         }
+        if canModerate {
+            ModerationMenuItems(
+                reportTarget: ContentReportTarget(type: .recipe, id: viewModel.recipe.id),
+                reportSubject: "this recipe",
+                chef: BlockedChef(id: viewModel.recipe.chef.id, username: viewModel.recipe.chef.username),
+                prompt: $moderationPrompt
+            )
+        }
+    }
+
+    /// Report and block appear on other chefs' recipes once someone is signed in (App Review guideline 1.2).
+    private var canModerate: Bool {
+        guard let accountID = moderation.accountID else { return false }
+        return !viewModel.ownerTools.isVisible && viewModel.recipe.chef.id != accountID
+    }
+
+    private var isHiddenByModeration: Bool {
+        moderation.ledger.hidesRecipe(id: viewModel.recipe.id, chefID: viewModel.recipe.chef.id)
     }
 
     @ViewBuilder private var remindersMenuItems: some View {
@@ -723,11 +771,11 @@ struct RecipeDetailView: View {
     }
 
     private var hasSecondaryRecipeActions: Bool {
-        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList) || hasIngredientsToSendToReminders
+        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList) || hasIngredientsToSendToReminders || canModerate
     }
 
     private var hasCompactRecipeMenuActions: Bool {
-        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders
+        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders || canModerate
     }
 
     private var hasRecipeUtilityActions: Bool {
@@ -1391,7 +1439,7 @@ extension RecipeDetailView {
             .disabled(hasIngredientsInShoppingList)
             .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
         }
-        if hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders {
+        if hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders || canModerate {
             Menu {
                 recipeMenuItems(includeSave: false, includeAddToList: false)
                 remindersMenuItems

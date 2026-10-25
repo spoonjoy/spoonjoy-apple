@@ -91,9 +91,9 @@ struct AccountLifecycleTests {
         #expect(AccountDeletionReauthentication(account: Self.account(hasPassword: true, providers: [.apple]), routes: qa) == .password)
         #expect(AccountDeletionReauthentication(account: Self.account(hasPassword: false, providers: [.google, .apple]), routes: qa) == .signInWithApple)
         #expect(AccountDeletionReauthentication(account: Self.account(hasPassword: false, providers: [.github, .google]), routes: qa)
-            == .web(URL(string: "https://qa.spoonjoy.app/account/settings#delete-account")!))
+            == .web(URL(string: "https://qa.spoonjoy.app/account/settings?section=delete-account#delete-account")!))
         #expect(SettingsSecureHandoffRoutes.spoonjoyApp.handoff(target: .deleteAccount).url.absoluteString
-            == "https://spoonjoy.app/account/settings#delete-account")
+            == "https://spoonjoy.app/account/settings?section=delete-account#delete-account")
     }
 
     // MARK: - The delete form
@@ -122,7 +122,7 @@ struct AccountLifecycleTests {
         apple.appleCredential = NativeAppleSignInCredential(identityToken: "jwt", rawNonce: "nonce")
         #expect(apple.action == .deleteAccount(confirmUsername: "ari", proof: .signInWithApple(identityToken: "jwt", rawNonce: "nonce")))
 
-        var web = AccountDeletionForm(username: "ari", reauthentication: .web(URL(string: "https://spoonjoy.app/account/settings#delete-account")!))
+        var web = AccountDeletionForm(username: "ari", reauthentication: .web(URL(string: "https://spoonjoy.app/account/settings?section=delete-account#delete-account")!))
         web.typedUsername = "ari"
         web.password = "ignored"
         #expect(web.proof == nil)
@@ -234,7 +234,7 @@ struct AccountLifecycleTests {
         #expect(viewModel.sections.map(\.id) == [.profile, .security, .notifications, .apiTokens, .connections, .yourData, .environment, .offline])
         #expect(viewModel.accountDeletionReauthentication == .signInWithApple)
         #expect(viewModel.accountSettingsHandoff.url.absoluteString == "https://qa.spoonjoy.app/account/settings")
-        #expect(viewModel.accountDeletionWebHandoff.url.absoluteString == "https://qa.spoonjoy.app/account/settings#delete-account")
+        #expect(viewModel.accountDeletionWebHandoff.url.absoluteString == "https://qa.spoonjoy.app/account/settings?section=delete-account#delete-account")
         #expect(viewModel.emailChangeNote == "Change your email in Account settings on qa.spoonjoy.app")
 
         let production = SettingsSurfaceViewModel(
@@ -429,6 +429,27 @@ struct AccountLifecycleTests {
             #expect(await revokes.count() == 0)
             #expect(try await vault.loadSession()?.accessToken == "sj_access_current")
             #expect(try await syncStore.loadQueue().mutations.map(\.clientMutationID) == ["cm_waiting"])
+        }
+    }
+
+    @MainActor
+    @Test("the blocked chefs list comes back from the server")
+    func storeCapturesChefBlocks() async throws {
+        try await Self.withDirectory { directory in
+            let block = ChefBlock(chef: BlockedChef(id: "chef_sam", username: "sam"), createdAt: "2026-10-24T00:00:00.000Z")
+            let api = AccountLifecycleAPITransport(response: .blocks(ChefBlockListResponse(blocks: [block])))
+            let store = Self.liveStore(
+                directory: directory,
+                vault: try await Self.signedInVault(),
+                revokes: AccountLifecycleRevokeRecorder(),
+                syncStore: InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: NativeMutationQueue()),
+                api: api
+            )
+
+            let outcome = try await store.executeSettingsActionRequest(ModerationRequests.blocks(), responseHandling: .captureChefBlocks)
+
+            #expect(outcome == .chefBlocks([block]))
+            #expect(await api.requests() == [AccountLifecycleRecordedRequest(method: .get, path: "/api/v1/blocks", body: nil)])
         }
     }
 
@@ -681,6 +702,7 @@ private struct AccountLifecycleAPITransport: SpoonjoyAPITransport {
     enum Response: Sendable {
         case deleted(AccountDeletionResult)
         case export(JSONValue)
+        case blocks(ChefBlockListResponse)
         case failure(APITransportError)
     }
 
@@ -711,6 +733,10 @@ private struct AccountLifecycleAPITransport: SpoonjoyAPITransport {
         case .export(let export):
             if let data = export as? Value {
                 return APIEnvelope(requestID: "req_export", data: data)
+            }
+        case .blocks(let blocks):
+            if let data = blocks as? Value {
+                return APIEnvelope(requestID: "req_blocks", data: data)
             }
         case .failure(let error):
             throw error

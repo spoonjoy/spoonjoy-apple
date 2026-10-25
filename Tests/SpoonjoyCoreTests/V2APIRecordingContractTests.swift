@@ -163,6 +163,11 @@ struct V2APIRecordingContractTests {
         "connections-list",
         "connection-disconnect",
         "account-delete",
+        "report-create",
+        "report-create-again",
+        "blocks-list",
+        "block-create",
+        "block-delete",
         "cooking-now",
         "cook-session-read-empty",
         "cook-session-start",
@@ -275,6 +280,10 @@ struct V2APIRecordingContractTests {
         case "connections-list": try envelope(SettingsOAuthConnectionListResponse.self, data)
         case "connection-disconnect": try envelope(JSONValue.self, data)
         case "account-delete": try envelope(AccountDeletionResult.self, data)
+        case "report-create", "report-create-again": try envelope(ContentReportResponse.self, data)
+        case "blocks-list": try envelope(ChefBlockListResponse.self, data)
+        case "block-create": try envelope(ChefBlockResponse.self, data)
+        case "block-delete": try envelope(ChefUnblockResponse.self, data)
         // The app does not read the cooking-now list yet; this keeps the recording decodable as an envelope.
         case "cooking-now": try envelope(JSONValue.self, data)
         default: return false
