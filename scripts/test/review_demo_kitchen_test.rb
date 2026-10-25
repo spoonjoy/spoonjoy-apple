@@ -126,6 +126,32 @@ class ReviewDemoKitchenTest < Minitest::Test
     assert_includes out.string, "https://spoonjoy.test/users/johnnyappleseed"
   end
 
+  class StubbedHttp < ReviewDemoKitchen::Http
+    def initialize(responses)
+      super("https://spoonjoy.test")
+      @responses = responses
+    end
+
+    private
+
+    def perform(_request)
+      status, body = @responses.shift
+      Struct.new(:code, :body).new(status.to_s, JSON.generate(body))
+    end
+
+    def backoff(*); end
+  end
+
+  def test_http_accepts_any_status_retries_rate_limits_and_raises_otherwise
+    assert_equal 404, StubbedHttp.new([[404, {}]]).json(:get, "/api/v1/users/x", ok: :any).first
+    status, body = StubbedHttp.new([[429, {}], [201, { "data" => { "id" => 1 } }]]).json(:post, "/api/v1/recipes", body: {})
+    assert_equal [201, 1], [status, body.dig("data", "id")]
+    error = assert_raises(ReviewDemoKitchen::Error) do
+      StubbedHttp.new([[422, { "error" => { "code" => "validation_error", "message" => "Bad" } }]]).json(:post, "/x", body: {})
+    end
+    assert_includes error.message, "422: validation_error Bad"
+  end
+
   def test_existing_account_with_another_password_fails_clearly
     api = FakeApi.new
     api.form("/signup", { "username" => "timstestkitchen", "password" => "something-else" })

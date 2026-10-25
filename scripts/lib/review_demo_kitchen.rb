@@ -94,7 +94,7 @@ module ReviewDemoKitchen
           backoff(parsed, attempts)
           next
         end
-        return [status, parsed] if ok.include?(status) || ok == :any
+        return [status, parsed] if ok == :any || ok.include?(status)
         raise Error, "#{method.upcase} #{path} returned #{status}: #{error_text(parsed)}"
       end
     end
