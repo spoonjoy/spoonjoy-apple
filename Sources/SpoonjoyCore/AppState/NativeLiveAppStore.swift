@@ -1830,7 +1830,9 @@ public final class NativeLiveAppStore: ObservableObject {
     private var currentContentState: NativeShellContentState
     /// False until the store first shows state read from the saved sign-in. Until then the store's account is
     /// "signed-out", so saving the app's state would replace the chef's saved state, cook progress included.
-    private var hasAppliedRestoredState = false
+    /// A window waits for it before saving its page (``OpenedPageRecorder``); the store also holds back any page
+    /// recorded earlier, so no caller can save over the chef's state.
+    @Published public private(set) var hasRestoredState = false
     /// A page opened before then, such as by the link that launched the app, saved once the account is known.
     private var routeOpenedBeforeRestore: AppRoute?
     /// Set when the server refuses the stored session for good, cleared once a session refreshes or signs in.
@@ -2986,7 +2988,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {
-        guard hasAppliedRestoredState else {
+        guard hasRestoredState else {
             routeOpenedBeforeRestore = route
             return
         }
@@ -3976,8 +3978,8 @@ public final class NativeLiveAppStore: ObservableObject {
         }
         currentContentState = state.contentState
         bootstrapState = state
-        if !hasAppliedRestoredState {
-            hasAppliedRestoredState = true
+        if !hasRestoredState {
+            hasRestoredState = true
             if let route = routeOpenedBeforeRestore {
                 routeOpenedBeforeRestore = nil
                 recordingOpenedRoute(route)
