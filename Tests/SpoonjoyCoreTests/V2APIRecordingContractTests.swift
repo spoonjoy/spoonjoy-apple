@@ -163,6 +163,7 @@ struct V2APIRecordingContractTests {
         "connections-list",
         "connection-disconnect",
         "account-delete",
+        "cooking-now",
         "cook-session-read-empty",
         "cook-session-start",
         "cook-session-start-resume",
@@ -274,6 +275,8 @@ struct V2APIRecordingContractTests {
         case "connections-list": try envelope(SettingsOAuthConnectionListResponse.self, data)
         case "connection-disconnect": try envelope(JSONValue.self, data)
         case "account-delete": try envelope(AccountDeletionResult.self, data)
+        // The app does not read the cooking-now list yet; this keeps the recording decodable as an envelope.
+        case "cooking-now": try envelope(JSONValue.self, data)
         default: return false
         }
         return true
