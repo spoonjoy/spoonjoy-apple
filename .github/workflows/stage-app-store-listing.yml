@@ -5,6 +5,14 @@ name: Stage App Store listing
 on:
   workflow_dispatch:
     inputs:
+      platform:
+        description: Which version to stage. MAC_OS leaves app-level data to the iOS listing.
+        required: true
+        default: IOS
+        type: choice
+        options:
+          - IOS
+          - MAC_OS
       build_number:
         description: TestFlight build number to attach (required when dry_run is false)
         required: false
@@ -46,7 +54,8 @@ jobs:
           APP_REVIEW_CONTACT_PHONE: ${{ secrets.APP_REVIEW_CONTACT_PHONE }}
           BUILD_NUMBER: ${{ inputs.build_number }}
           DRY_RUN: ${{ inputs.dry_run }}
+          PLATFORM: ${{ inputs.platform || 'IOS' }}
         run: |
           mode=--dry-run
           if [ "$DRY_RUN" = "false" ]; then mode=--apply; fi
-          ruby scripts/stage-app-store-listing.rb "$mode" --build-number "$BUILD_NUMBER"
+          ruby scripts/stage-app-store-listing.rb "$mode" --platform "$PLATFORM" --build-number "$BUILD_NUMBER"
