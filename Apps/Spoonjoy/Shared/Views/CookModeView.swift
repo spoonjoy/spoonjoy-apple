@@ -827,7 +827,6 @@ extension CookModeView {
                     cookSpreadGatherPage
                         .spreadPagePadding(.leading, bottom: 24)
                 }
-                .fadingPageFoot()
                 cookSpreadLeadingControls
                     .spreadPagePadding(.leading, top: 12, bottom: 16)
             }
@@ -839,7 +838,10 @@ extension CookModeView {
                     cookSpreadStepPage
                         .spreadPagePadding(.trailing, bottom: 24)
                 }
-                .fadingPageFoot()
+                if let currentStep, let next = stepAfter(currentStep) {
+                    upNext(next)
+                        .spreadPagePadding(.trailing, top: 12, bottom: 0)
+                }
                 cookSpreadTrailingControls
                     .spreadPagePadding(.trailing, top: 12, bottom: 16)
             }
@@ -903,9 +905,6 @@ extension CookModeView {
                     .foregroundStyle(KitchenTableTheme.charcoal)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
-                if let next = stepAfter(currentStep) {
-                    upNext(next)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -931,31 +930,25 @@ extension CookModeView {
         return recipe.steps[index + 1]
     }
 
-    /// The facing page's foot: what comes after this step, so the cook can read ahead without turning the page.
+    /// The facing page's foot, one line above the step buttons: what comes after this step, so the cook can read
+    /// ahead without turning the page. It sits outside the page's scroll, so it is always whole; a long title is
+    /// cut short with an ellipsis rather than hidden under the buttons.
     private func upNext(_ step: RecipeStep) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Rectangle()
                 .fill(KitchenTableTheme.spreadGutterRule)
                 .frame(height: 1)
-                .padding(.bottom, 10)
-            Text("Up next")
-                .spreadRunningHead()
-            HStack(alignment: .firstTextBaseline, spacing: 10) {
-                Text("\(step.stepNum)")
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.brass.opacity(0.8))
-                Text(step.stepTitle ?? "Step \(step.stepNum)")
-                    .font(KitchenTableTheme.sectionTitle)
+            HStack(alignment: .firstTextBaseline, spacing: 0) {
+                Text("Up next · ")
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .fixedSize()
+                Text("\(step.stepNum) \(step.stepTitle ?? "Step \(step.stepNum)")")
                     .foregroundStyle(KitchenTableTheme.inkMuted)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
             }
-            Text(step.description)
-                .font(KitchenTableTheme.spreadInstruction)
-                .foregroundStyle(KitchenTableTheme.inkMuted)
-                .lineSpacing(4)
-                .lineLimit(4)
+            .font(KitchenTableTheme.indexTitle)
         }
-        .padding(.top, 18)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Up next, step \(step.stepNum), \(step.stepTitle ?? "Step")")
     }
@@ -1323,15 +1316,3 @@ private enum CookModeAlarmKitTimerScheduler {
 #endif
 }
 
-private extension View {
-    /// A long page runs on under the controls, so its last lines fade out there instead of ending cut through a word.
-    func fadingPageFoot() -> some View {
-        mask {
-            VStack(spacing: 0) {
-                Color.black
-                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
-                    .frame(height: 28)
-            }
-        }
-    }
-}
