@@ -1,0 +1,68 @@
+name: App Store release
+
+# Reads a version's state, release type and age rating, or changes how it releases. "set-release-type" applies
+# version.releaseType from listing.json; "release" releases a version that is Pending Developer Release. Both write
+# only when confirm reads exactly "<action> <platform> <version>"; with confirm empty they print the plan.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform
+        required: true
+        default: IOS
+        type: choice
+        options: [IOS, MAC_OS]
+      version:
+        description: App Store version string, for example 1.0
+        required: true
+        type: string
+      action:
+        description: What to do
+        required: true
+        default: status
+        type: choice
+        options: [status, set-release-type, release]
+      confirm:
+        description: Type "<action> <platform> <version>" to apply; leave empty for a dry run
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spoonjoy-app-store-listing
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: App Store release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: internal-testflight
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+      - name: Run
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          PLATFORM: ${{ inputs.platform }}
+          VERSION: ${{ inputs.version }}
+          ACTION: ${{ inputs.action }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          apply=
+          if [ "$CONFIRM" = "$ACTION $PLATFORM $VERSION" ]; then
+            apply=--apply
+          elif [ -n "$CONFIRM" ]; then
+            echo "::error::confirm must read exactly \"$ACTION $PLATFORM $VERSION\" (or be empty for a dry run)"
+            exit 1
+          fi
+          ruby scripts/app-store-release.rb --platform "$PLATFORM" --version "$VERSION" --action "$ACTION" $apply

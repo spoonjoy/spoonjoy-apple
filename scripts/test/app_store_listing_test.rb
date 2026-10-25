@@ -217,13 +217,13 @@ class AppStoreListingTest < Minitest::Test
     mac = mac_listing
     fields = mac["localizations"]["en-US"]
     version = {
-      "id" => "macv1", "attributes" => { "versionString" => "1.0", "copyright" => nil, "releaseType" => "AFTER_APPROVAL" },
+      "id" => "macv1", "attributes" => { "versionString" => "1.0", "copyright" => nil, "releaseType" => "MANUAL" },
       "buildId" => nil, "localization" => { "id" => "macvl", "attributes" => {} }, "reviewDetail" => nil, "screenshotSets" => {}
     }
     steps = AppStoreListing.plan(listing: mac, snapshot: mac_snapshot(version: version), screenshots: mac_shots,
                                  secrets: { "demoAccountPassword" => "s3cret" })
     assert_equal %w[patch_version attach_build patch_version_localization create_review_detail sync_screenshots], steps.map { |s| s["action"] }
-    assert_equal({ "copyright" => "2026 Ari Mendelow", "releaseType" => "MANUAL" }, steps.first["attributes"])
+    assert_equal({ "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" }, steps.first["attributes"])
 
     staged = version.merge(
       "attributes" => mac["version"], "buildId" => "macbuild2",
