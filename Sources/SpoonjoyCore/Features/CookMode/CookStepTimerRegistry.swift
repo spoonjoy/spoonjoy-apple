@@ -40,7 +40,7 @@ public final class CookStepTimerRegistry: ObservableObject {
         self.persist = persist
     }
 
-    public static func stepKey(recipeID: String, stepID: String) -> String {
+    nonisolated public static func stepKey(recipeID: String, stepID: String) -> String {
         "\(recipeID)#\(stepID)"
     }
 
