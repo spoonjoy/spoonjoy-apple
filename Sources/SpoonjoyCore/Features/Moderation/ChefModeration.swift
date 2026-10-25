@@ -100,6 +100,8 @@ public struct ChefUnblockResponse: Codable, Equatable, Sendable {
 }
 
 public enum ModerationRequests {
+    public static let maximumReportDetailsLength = 1000
+
     /// POST /api/v1/reports.
     public static func report(target: ContentReportTarget, reason: ContentReportReason, details: String?) throws -> APIRequestBuilder {
         var body: [String: Any] = [
@@ -108,7 +110,8 @@ public enum ModerationRequests {
             "reason": reason.rawValue
         ]
         if let details = details?.trimmingCharacters(in: .whitespacesAndNewlines), !details.isEmpty {
-            body["details"] = details
+            // The server refuses details longer than 1,000 characters.
+            body["details"] = String(details.prefix(maximumReportDetailsLength))
         }
         return try APIRequestSupport.privateJSON(method: .post, pathComponents: ["api", "v1", "reports"], body: body)
     }

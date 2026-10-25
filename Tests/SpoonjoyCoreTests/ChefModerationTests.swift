@@ -33,6 +33,9 @@ struct ChefModerationTests {
 
         #expect(try Self.body(blank) == ["targetType": "chef", "targetId": "chef_2", "reason": "spam"])
         #expect(try Self.body(missing) == ["targetType": "spoon", "targetId": "spoon_3", "reason": "other"])
+        let long = try ModerationRequests.report(target: ContentReportTarget(type: .cookbook, id: "cb_4"), reason: .other, details: String(repeating: "a", count: 1200))
+            .urlRequest(configuration: Self.configuration)
+        #expect(try Self.body(long)?["details"]?.count == ModerationRequests.maximumReportDetailsLength)
     }
 
     @Test("blocks are listed, added and removed at /api/v1/blocks")
