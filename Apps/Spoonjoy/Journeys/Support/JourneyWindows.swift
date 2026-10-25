@@ -47,7 +47,10 @@ extension JourneyApp {
             attach("windows-switcher", springboard.debugDescription, to: testCase)
             return false
         }
+        attach("windows-switcher", springboard.debugDescription, to: testCase)
         card.tap()
+        _ = card.waitForNonExistence(timeout: Self.interactionTimeout)
+        attach("windows-after-card", springboard.debugDescription, to: testCase)
         return true
     }
 

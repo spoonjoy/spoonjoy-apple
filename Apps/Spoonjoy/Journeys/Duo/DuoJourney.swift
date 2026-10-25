@@ -237,8 +237,10 @@ final class DuoJourney: JourneyTestCase {
             journey.bringWindowForward(otherThan: chickpeasWindow, to: self),
             "The window switcher did not offer the first window after the app was killed. Screen: \(journey.screen)"
         )
+        let kitchenInFront = journey.waitForFront(journey.element(JourneyID.kitchenRoot))
+        try captureScreen("15-kitchen-window-after-relaunch", journey)
         XCTAssertTrue(
-            journey.waitForFront(journey.element(JourneyID.kitchenRoot)),
+            kitchenInFront,
             "The first window did not come back on the Kitchen, the page the link opened. Screen: \(journey.screen)"
         )
         let kitchenWindow = try XCTUnwrap(
@@ -254,7 +256,6 @@ final class DuoJourney: JourneyTestCase {
             stepTwoInCook.exists,
             "The first window came back in cook mode, its page before the link. Screen: \(journey.screen)"
         )
-        try captureScreen("15-kitchen-window-after-relaunch", journey)
     }
 
     /// Waits until either element exists. XCTWaiter's synchronous wait is unavailable in an async test.
