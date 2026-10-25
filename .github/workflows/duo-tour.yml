@@ -139,6 +139,37 @@ jobs:
           "$hub" press "Closed"; sleep 6
           shoot 14-closed
           ls -la "$shots"
+      - name: Check the open-flat spread
+        # The previous step leaves the Duo closed. Opened, it lies flat and wide, and the recipe and cook mode must each
+        # open as two pages split at the hinge. The DEBUG build records every layout it resolves (SpreadLayoutProbe);
+        # the last line after each launch is what the screen settled on. The Duo is closed again for the store links.
+        if: ${{ !cancelled() }}
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link."; exit 1; }
+          probe="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/tmp/spoonjoy-spread-layout.log"
+          "$RUNNER_TEMP/duo/devicehub" press "Open"
+          sleep 6
+          failed=0
+          for link in "${cook_link%/cook}" "$cook_link"; do
+            : > "$probe"
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$link" \
+              xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+            sleep 14
+            cat "$probe"
+            settled="$(tail -n 1 "$probe")"
+            echo "$link settled on: ${settled:-nothing}"
+            case "$settled" in
+              *"spread source=hardware-division"*) ;;
+              *) echo "::error::$link did not open as a spread on the hinge with the Duo open flat: ${settled:-no layout recorded}"; failed=1 ;;
+            esac
+          done
+          "$RUNNER_TEMP/duo/devicehub" press "Closed"
+          sleep 6
+          exit "$failed"
       - name: Photograph the store links
         if: ${{ !cancelled() && inputs.store_links != '' }}
         timeout-minutes: 15
