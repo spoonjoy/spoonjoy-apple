@@ -1408,6 +1408,9 @@ struct CreateCoverFromSpoonIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
         do {
+            if generateEditorial {
+                try ThirdPartyAIConsentStore().requireConsent(for: .coverFromPhoto)
+            }
             let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
             let createdAt = SpoonjoyIntentClock.timestamp()
             let action = try NativeIntentActionResolver().createCoverFromSpoon(recipe: recipe.descriptor, spoon: spoon.descriptor, activate: activate, generateEditorial: generateEditorial, currentChefID: currentChefID, createdAt: createdAt)
@@ -1473,6 +1476,7 @@ struct SubmitCaptureImportIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try await requestConfirmation()
         do {
+            try ThirdPartyAIConsentStore().requireConsent(for: .recipeImport)
             let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()
             let createdAt = SpoonjoyIntentClock.timestamp()
             let action = try NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor, currentChefID: currentChefID, createdAt: createdAt)
@@ -2463,8 +2467,8 @@ private struct SpoonjoyIntentStateWriter {
                 decode: SettingsCreatedAPIToken.self
             )
             return .createdAPIToken(envelope.data)
-        case .captureAccountExport, .deleteAccountThenSignOutLocally:
-            throw NativeIntentActionError.settingsActionUnavailable("Download my data and Delete account run from Settings in the app.")
+        case .captureAccountExport, .deleteAccountThenSignOutLocally, .captureChefBlocks:
+            throw NativeIntentActionError.settingsActionUnavailable("Download my data, Delete account and Blocked chefs run from Settings in the app.")
         }
     }
 

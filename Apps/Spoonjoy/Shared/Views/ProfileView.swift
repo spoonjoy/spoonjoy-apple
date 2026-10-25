@@ -42,17 +42,45 @@ struct ProfileView: View {
     let viewModel: ProfileViewModel
     let openRoute: (AppRoute) -> Void
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
+    @Environment(\.moderation) private var moderation
+    @Environment(\.dismiss) private var dismiss
+    @State private var moderationPrompt: ModerationPrompt?
 
     var body: some View {
-        KitchenTablePage {
-            ProfileHero(viewModel: viewModel, openRoute: openRoute)
-            statusBanner
-            ProfileRecipeShelf(recipes: viewModel.recipes, openRoute: openRoute)
-            ProfileCookbookShelf(cookbooks: viewModel.cookbooks, openRoute: openRoute)
-            RecentSpoonsSection(spoons: viewModel.recentSpoons, openRoute: openRoute)
-            FellowChefsSection(link: graphLink(.fellowChefs), openRoute: openRoute)
-            KitchenVisitorsSection(link: graphLink(.kitchenVisitors), openRoute: openRoute)
+        Group {
+            if let hiddenMessage {
+                ModerationHiddenView(message: hiddenMessage, unblockChef: moderation.ledger.blockedChefs.first { $0.id == viewModel.header.id })
+            } else {
+                KitchenTablePage {
+                    ProfileHero(viewModel: viewModel, openRoute: openRoute, moderationChef: moderationChef, moderationPrompt: $moderationPrompt)
+                    statusBanner
+                    ProfileRecipeShelf(recipes: viewModel.recipes, openRoute: openRoute)
+                    ProfileCookbookShelf(cookbooks: viewModel.cookbooks, openRoute: openRoute)
+                    RecentSpoonsSection(spoons: viewModel.recentSpoons, openRoute: openRoute)
+                    FellowChefsSection(link: graphLink(.fellowChefs), openRoute: openRoute)
+                    KitchenVisitorsSection(link: graphLink(.kitchenVisitors), openRoute: openRoute)
+                }
+            }
         }
+        .moderationPrompts($moderationPrompt) { dismiss() }
+    }
+
+    /// Someone else's kitchen, once signed in, offers Report and Block (App Review guideline 1.2).
+    private var moderationChef: BlockedChef? {
+        guard let accountID = moderation.accountID, !viewModel.ownerActions.isVisible, viewModel.header.id != accountID else {
+            return nil
+        }
+        return BlockedChef(id: viewModel.header.id, username: viewModel.header.username)
+    }
+
+    private var hiddenMessage: String? {
+        if moderation.ledger.isBlocked(chefID: viewModel.header.id) {
+            return "You blocked @\(viewModel.header.username), so their kitchen is hidden."
+        }
+        if moderation.ledger.isHidden(ContentReportTarget(type: .chef, id: viewModel.header.id)) {
+            return "You reported @\(viewModel.header.username), so their kitchen is hidden for you."
+        }
+        return nil
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -77,6 +105,8 @@ struct ProfileView: View {
 private struct ProfileHero: View {
     let viewModel: ProfileViewModel
     let openRoute: (AppRoute) -> Void
+    let moderationChef: BlockedChef?
+    @Binding var moderationPrompt: ModerationPrompt?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -95,6 +125,21 @@ private struct ProfileHero: View {
                         Label("Edit Profile", systemImage: "pencil")
                     }
                     .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                }
+                if let moderationChef {
+                    Menu {
+                        ModerationMenuItems(
+                            reportTarget: ContentReportTarget(type: .chef, id: moderationChef.id),
+                            reportSubject: moderationChef.name,
+                            chef: moderationChef,
+                            prompt: $moderationPrompt
+                        )
+                    } label: {
+                        Label("More", systemImage: "ellipsis.circle")
+                    }
+                    .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                    .accessibilityLabel("More for \(moderationChef.name)")
+                    .accessibilityIdentifier("profile.moderationMenu")
                 }
             }
         }

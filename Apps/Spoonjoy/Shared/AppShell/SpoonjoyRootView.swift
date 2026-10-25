@@ -15,6 +15,7 @@ struct SpoonjoyRootView: View {
     @State private var hasAppliedRestoredRoute = false
     @State private var showsReauthSheet = false
     @StateObject private var liveStore: NativeLiveAppStore
+    @State private var moderation: ModerationController
 
     private let router: DeepLinkRouter
 
@@ -24,6 +25,12 @@ struct SpoonjoyRootView: View {
     ) {
         self.router = router
         _liveStore = StateObject(wrappedValue: liveStore)
+        _moderation = State(initialValue: ModerationController(
+            store: ChefModerationLedgerStore(directoryURL: NativeAppStateLocation.defaultFileURL().deletingLastPathComponent()),
+            send: { [weak liveStore] request, responseHandling in
+                try await liveStore?.executeSettingsActionRequest(request, responseHandling: responseHandling)
+            }
+        ))
 #if DEBUG
         if Self.shoppingUITestFixtureEnabled {
             _navigation = State(initialValue: AppNavigationState(route: .shoppingList))
@@ -116,6 +123,10 @@ struct SpoonjoyRootView: View {
 #if DEBUG
             .overlay(alignment: .top) { journeySyncLog }
 #endif
+            .environment(\.moderation, moderation)
+            .onChange(of: liveStore.bootstrapState.contentState.trustedAccountID, initial: true) { _, accountID in
+                moderation.useAccount(accountID)
+            }
             .task {
 #if DEBUG
                 // The shopping UI test fixture supplies its own fabricated content state and must stay

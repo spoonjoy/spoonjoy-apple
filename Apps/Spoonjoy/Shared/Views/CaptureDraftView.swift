@@ -10,6 +10,7 @@ struct CaptureDraftView: View {
     @State private var statusMessage: String?
     @State private var actionErrorMessage: String?
     @State private var actionInFlight = false
+    @State private var aiConsentRequest: ThirdPartyAIConsentRequest?
 
     private let inputDraft: CaptureDraft?
     private let importViewModel: CaptureImportViewModel?
@@ -65,6 +66,7 @@ struct CaptureDraftView: View {
             entryPointLedger
             statusBanner
         }
+        .thirdPartyAIConsent($aiConsentRequest)
         .onAppear {
             reconcile(with: inputDraft)
         }
@@ -165,7 +167,10 @@ struct CaptureDraftView: View {
             }
             HStack(alignment: .center, spacing: 10) {
                 Button {
-                    Task { await submit(draft) }
+                    // Imports send the captured text to an AI service, so the person consents first.
+                    aiConsentRequest = ThirdPartyAIConsentGate.request(.recipeImport) {
+                        Task { await submit(draft) }
+                    }
                 } label: {
                     Label(actionInFlight ? "Submitting import" : submitButtonTitle, systemImage: "tray.and.arrow.up")
                 }

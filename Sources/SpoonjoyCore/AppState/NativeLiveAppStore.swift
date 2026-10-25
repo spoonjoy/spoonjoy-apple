@@ -1030,7 +1030,8 @@ public struct NativeShellContentState {
         ProfileSurfaceLinks.link(username: username)
     }
 
-    private var trustedAccountID: String? {
+    /// The signed-in account, also while its session waits for a refresh.
+    public var trustedAccountID: String? {
         switch authSessionState {
         case .authenticated(let session), .refreshRequired(let session):
             session.accountID
@@ -2697,6 +2698,13 @@ public final class NativeLiveAppStore: ObservableObject {
             )
             try await signOutLocallyAfterAccountDeletion()
             return .deletedAccount(envelope.data)
+        case .captureChefBlocks:
+            let envelope = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: ChefBlockListResponse.self
+            )
+            return .chefBlocks(envelope.data.blocks)
         }
     }
 

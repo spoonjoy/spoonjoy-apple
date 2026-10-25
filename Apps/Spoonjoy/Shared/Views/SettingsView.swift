@@ -60,6 +60,8 @@ struct SettingsView: View {
     @State private var accountDeletionForm: AccountDeletionForm?
     @State private var isExportingAccountData = false
     @State private var accountExportURL: URL?
+    @State private var isBlockedChefsPresented = false
+    @State private var allowsThirdPartyAI = ThirdPartyAIConsentStore().consent == .granted
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -499,8 +501,10 @@ struct SettingsView: View {
         }
 
         if surface.data.account != nil {
+            safetySection
             yourDataSection(surface: surface)
         }
+        aboutSection
 
 #if DEBUG
         // Diagnostics for builds that point at a non-production environment. Journeys read this row
@@ -585,6 +589,67 @@ struct SettingsView: View {
                 OfflineStatusView(display: effectiveOfflineIndicator(viewModel.offlineIndicatorDisplay)) {
                     _ = viewModel.dismissOfflineIndicator
                     onDismissOfflineIndicator()
+                }
+            }
+        }
+        aboutSection
+    }
+
+    /// Blocked chefs (App Review guideline 1.2) and the AI-features consent (guideline 5.1.2(i)).
+    private var safetySection: some View {
+        KitchenTableSection(title: "Safety & privacy", subtitle: "Who you see, and what AI features may send") {
+            SettingsPanel {
+                Button {
+                    isBlockedChefsPresented = true
+                } label: {
+                    settingsRowLabel("Blocked chefs", systemImage: "hand.raised", prominence: .secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("settings.blockedChefs")
+
+                Toggle(isOn: Binding(
+                    get: { allowsThirdPartyAI },
+                    set: { allowed in
+                        allowsThirdPartyAI = allowed
+                        ThirdPartyAIConsentStore().record(allowed ? .granted : .declined)
+                    }
+                )) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("AI features")
+                            .font(KitchenTableTheme.objectTitle)
+                            .foregroundStyle(KitchenTableTheme.charcoal)
+                        Text(ThirdPartyAIUse.settingsSummary)
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.inkMuted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .accessibilityIdentifier("settings.aiConsent")
+            }
+        }
+        .sheet(isPresented: $isBlockedChefsPresented) {
+            NavigationStack {
+                BlockedChefsView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { isBlockedChefsPresented = false }
+                        }
+                    }
+            }
+        }
+    }
+
+    /// Privacy policy, terms, support and contact (App Review guideline 5.1.1(i)).
+    private var aboutSection: some View {
+        KitchenTableSection(title: "About", subtitle: "Policies and help") {
+            SettingsPanel {
+                ForEach(SettingsAboutLink.allCases) { link in
+                    Link(destination: link.url) {
+                        settingsRowLabel(link.title, systemImage: link.systemImage, prominence: .secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("settings.about.\(link.rawValue)")
                 }
             }
         }
@@ -1153,5 +1218,41 @@ private extension Binding where Value == AccountDeletionForm? {
             get: { wrappedValue.map { IdentifiedAccountDeletionForm(id: $0.username, form: $0) } },
             set: { if $0 == nil { wrappedValue = nil } }
         )
+    }
+}
+
+enum SettingsAboutLink: String, CaseIterable, Identifiable {
+    case privacy
+    case terms
+    case support
+    case contact
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .privacy: "Privacy Policy"
+        case .terms: "Terms of Service"
+        case .support: "Support"
+        case .contact: "Contact Spoonjoy"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .privacy: "hand.raised.square"
+        case .terms: "doc.text"
+        case .support: "questionmark.circle"
+        case .contact: "envelope"
+        }
+    }
+
+    var url: URL {
+        switch self {
+        case .privacy: URL(string: "https://spoonjoy.app/privacy")!
+        case .terms: URL(string: "https://spoonjoy.app/terms")!
+        case .support: URL(string: "https://spoonjoy.app/support")!
+        case .contact: URL(string: "mailto:ari@spoonjoy.app")!
+        }
     }
 }

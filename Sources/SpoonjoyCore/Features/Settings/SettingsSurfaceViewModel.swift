@@ -132,7 +132,7 @@ public struct SettingsSecureHandoffRoutes: Equatable, Sendable {
         case .accountSettings:
             return baseURL.appending(path: "account/settings")
         case .deleteAccount:
-            return URL(string: "\(baseURL.absoluteString)/account/settings#delete-account")!
+            return URL(string: "\(baseURL.absoluteString)/account/settings?section=delete-account#delete-account")!
         }
     }
 }
@@ -258,12 +258,15 @@ public enum SettingsActionResponseHandling: Equatable, Sendable {
     case captureAccountExport(username: String)
     /// The account is gone on the server, with every token: sign this device out without a server revoke.
     case deleteAccountThenSignOutLocally
+    /// Return the server's list of blocked chefs.
+    case captureChefBlocks
 }
 
 public enum SettingsActionOutcome: Equatable, Sendable {
     case createdAPIToken(SettingsCreatedAPIToken)
     case exportedAccountData(AccountExportFile)
     case deletedAccount(AccountDeletionResult)
+    case chefBlocks([ChefBlock])
 }
 
 /// What a failed settings action tells the person. A 4xx answer (other than 401, which the transport handles by
