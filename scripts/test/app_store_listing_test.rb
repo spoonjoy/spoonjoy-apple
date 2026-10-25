@@ -193,6 +193,19 @@ class AppStoreListingTest < Minitest::Test
     assert_equal({ "scheduled" => false, "freePricePointId" => "pp-free" }, snapshot)
   end
 
+  # App Store Connect rejects an age rating update that leaves any of these unanswered (HTTP 409).
+  REQUIRED_AGE_RATING_ANSWERS = %w[
+    advertising ageAssurance alcoholTobaccoOrDrugUseOrReferences contests gambling gamblingSimulated gunsOrOtherWeapons
+    healthOrWellnessTopics horrorOrFearThemes lootBox matureOrSuggestiveThemes medicalOrTreatmentInformation messagingAndChat
+    parentalControls profanityOrCrudeHumor sexualContentGraphicAndNudity sexualContentOrNudity socialMedia
+    socialMediaAgeRestricted unrestrictedWebAccess userGeneratedContent violenceCartoonOrFantasy violenceRealistic
+    violenceRealisticProlongedGraphicOrSadistic
+  ].freeze
+
+  def test_listing_answers_every_required_age_rating_question
+    assert_empty REQUIRED_AGE_RATING_ANSWERS - listing.fetch("ageRating").keys
+  end
+
   def test_der_signature_becomes_64_raw_bytes
     key = OpenSSL::PKey::EC.generate("prime256v1")
     der = key.sign(OpenSSL::Digest.new("SHA256"), "payload")
