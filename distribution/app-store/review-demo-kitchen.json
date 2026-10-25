@@ -9,6 +9,7 @@
         {
           "key": "crumble",
           "title": "Brown Butter Apple Crumble",
+          "coverPrompt": "Golden oat crumble over bubbling apples in a well-loved enamel dish, potluck table, warm late-afternoon light.",
           "description": "The crumble we bring to every team potluck. Browning the butter first makes the topping taste like toffee.",
           "servings": "6",
           "steps": [
@@ -29,6 +30,7 @@
         {
           "key": "galette",
           "title": "Honeycrisp Galette",
+          "coverPrompt": "Rustic free-form galette with fanned Honeycrisp slices and a sugared, flaky edge on parchment, orchard morning light.",
           "description": "A free-form apple tart for people who think pie crust is too fussy. Thin slices, a buttery fold, and a glossy apricot glaze.",
           "servings": "8",
           "steps": [
@@ -42,6 +44,7 @@
         {
           "key": "tatin",
           "title": "Tarte Tatin",
+          "coverPrompt": "Just-flipped tarte Tatin with glossy amber caramelized apples on a cast-iron pan, a little caramel pooling, moody kitchen light.",
           "description": "Apples cooked in amber caramel under a lid of puff pastry, then flipped. The one dessert worth saying \"one more thing\" for.",
           "servings": "6",
           "steps": [
@@ -55,6 +58,7 @@
         {
           "key": "waldorf",
           "title": "Waldorf Salad",
+          "coverPrompt": "Crisp Waldorf salad with green and red apple, celery, grapes and toasted walnuts in a white bowl, bright daylight.",
           "description": "Crisp apples, celery, grapes and toasted walnuts in a light lemony dressing. Lunch for the whole design review.",
           "servings": "4",
           "steps": [
@@ -66,6 +70,7 @@
         {
           "key": "porkchops",
           "title": "Cider-Braised Pork Chops with Apples",
+          "coverPrompt": "Seared pork chops in a skillet with soft cider-braised apple wedges, onions and thyme, glossy pan sauce, cozy evening light.",
           "description": "Golden pork chops braised in hard cider with apples, onion and thyme. One pan, thirty-five minutes.",
           "servings": "4",
           "steps": [
@@ -78,6 +83,7 @@
         {
           "key": "donuts",
           "title": "Apple Cider Donuts",
+          "coverPrompt": "Stack of cinnamon-sugar apple cider donuts on a wooden board beside a mug of cider, autumn farm-stand feel.",
           "description": "Baked, not fried, with reduced cider in the batter and a crackly cinnamon-sugar coat.",
           "servings": "12",
           "steps": [
@@ -90,6 +96,7 @@
         {
           "key": "applebutter",
           "title": "Slow-Cooker Apple Butter",
+          "coverPrompt": "Jars of deep brown spiced apple butter with a spoon, some spread on toast, cinnamon sticks and apples nearby, warm light.",
           "description": "Deep, dark, spiced apple butter that makes the whole house smell like an orchard. Great on toast and in the oats.",
           "servings": "3 jars",
           "steps": [
@@ -102,6 +109,7 @@
         {
           "key": "oats",
           "title": "Cupertino Breakfast Oats",
+          "coverPrompt": "Overnight oats in a glass jar topped with grated apple, cinnamon and a swirl of apple butter, clean desk-side morning light.",
           "description": "Overnight oats with grated apple, cinnamon and a spoon of apple butter. Ready before your first meeting.",
           "servings": "2",
           "steps": [
@@ -113,7 +121,7 @@
         }
       ],
       "forks": [
-        { "key": "crumbleFork", "from": "friend.crumble", "title": "Brown Butter Apple Crumble, with pecans" }
+        { "key": "crumbleFork", "from": "friend.crumble", "title": "Brown Butter Apple Crumble, with pecans", "coverPrompt": "Brown butter apple crumble scattered with toasted pecans, a scoop of vanilla ice cream melting on top, served from the dish." }
       ],
       "cookbooks": [
         { "title": "The Orchard", "recipes": ["waldorf", "porkchops", "oats", "applebutter", "galette"] },

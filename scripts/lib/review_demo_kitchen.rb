@@ -28,6 +28,7 @@ module ReviewDemoKitchen
         titles << recipe["title"]
         errors << "#{label}: title must be 1-200 characters" unless (1..200).cover?(recipe["title"].to_s.strip.length)
         errors << "#{label}: description is over 2,000 characters" if recipe["description"].to_s.length > 2000
+        errors << "#{label}: coverPrompt is over 240 characters" if recipe["coverPrompt"].to_s.length > 240
         errors << "#{label}: needs at least one step" if Array(recipe["steps"]).empty?
         names = []
         Array(recipe["steps"]).each_with_index do |step, index|
@@ -47,6 +48,7 @@ module ReviewDemoKitchen
       Array(chef["forks"]).each do |fork|
         recipe_keys["#{chef_key}.#{fork['key']}"] = true
         titles << fork["title"]
+        errors << "#{chef_key}.#{fork['key']}: coverPrompt is over 240 characters" if fork["coverPrompt"].to_s.length > 240
       end
       titles.tally.each { |title, count| errors << "#{chef_key}: title #{title} is used #{count} times" if count > 1 }
     end
@@ -141,11 +143,17 @@ module ReviewDemoKitchen
   class Seeder
     attr_reader :log
 
-    def initialize(kitchen:, http:, env:, out: $stdout)
+    COVER_POLL_SECONDS = 10
+
+    # cover_wait_seconds bounds how long a run waits for requested covers to finish generating.
+    def initialize(kitchen:, http:, env:, out: $stdout, cover_wait_seconds: 300, sleeper: ->(seconds) { sleep(seconds) })
       @kitchen = kitchen
       @http = http
       @env = env
       @out = out
+      @cover_wait_seconds = cover_wait_seconds
+      @sleeper = sleeper
+      @pending_covers = []
       @tokens = {}
       @usernames = {}
       @recipe_ids = {}
@@ -167,6 +175,11 @@ module ReviewDemoKitchen
         ensure_shopping_list(chef_key, chef["shoppingList"]) if chef["shoppingList"]
       end
       Array(@kitchen["cooks"]).each { |cook| ensure_cook(cook) }
+      order.each do |chef_key|
+        chef = @kitchen["chefs"][chef_key]
+        (Array(chef["recipes"]) + Array(chef["forks"])).each { |recipe| ensure_cover(chef_key, recipe) }
+      end
+      wait_for_covers
       say "#{@changes} change(s). Kitchens: #{@usernames.values.map { |name| "#{@http.base}/users/#{name}" }.join(', ')}"
       @changes
     end
@@ -318,6 +331,65 @@ module ReviewDemoKitchen
         @changes += 1
         say "Marked #{entry['name']} #{entry['checked'] ? 'checked' : 'unchecked'}"
       end
+    end
+
+    def covers(chef_key, recipe_id)
+      _, body = @http.json(:get, "/api/v1/recipes/#{recipe_id}/covers?limit=50", token: @tokens[chef_key])
+      body["data"] || {}
+    end
+
+    # A recipe with an active cover is left alone. Otherwise an in-flight generation is awaited, a finished but
+    # inactive cover is switched on, and only a recipe with neither gets a new AI cover, so reruns never pile up covers.
+    def ensure_cover(chef_key, recipe)
+      label = "#{chef_key}.#{recipe['key']}"
+      recipe_id = @recipe_ids.fetch(label)
+      data = covers(chef_key, recipe_id)
+      return if data["activeCover"]
+
+      candidates = Array(data["covers"])
+      if candidates.any? { |cover| cover["generationStatus"] == "processing" }
+        @pending_covers << [chef_key, recipe_id, recipe["title"]]
+        return
+      end
+
+      ready = candidates.find { |cover| cover["displayUrl"] }
+      if ready
+        variant = ready["stylizedImageUrl"] ? "stylized" : "image"
+        @http.json(:patch, "/api/v1/recipes/#{recipe_id}/covers/#{ready['id']}", token: @tokens[chef_key],
+                                                                               body: { "clientMutationId" => mutation_id, "variant" => variant })
+        @changes += 1
+        say "Switched on the existing cover for #{recipe['title']}"
+        return
+      end
+
+      @http.json(:post, "/api/v1/recipes/#{recipe_id}/covers/generate", token: @tokens[chef_key], body: {
+        "clientMutationId" => mutation_id, "promptAddition" => recipe["coverPrompt"], "activateWhenReady" => true
+      })
+      @changes += 1
+      @pending_covers << [chef_key, recipe_id, recipe["title"]]
+      say "Asked for a cover for #{recipe['title']}"
+    end
+
+    def wait_for_covers
+      return if @pending_covers.empty?
+
+      waited = 0
+      loop do
+        @pending_covers.reject! do |chef_key, recipe_id, title|
+          data = covers(chef_key, recipe_id)
+          if data["activeCover"]
+            say "Cover ready for #{title}"
+            true
+          elsif Array(data["covers"]).none? { |cover| cover["generationStatus"] == "processing" }
+            raise Error, "Cover generation for #{title} finished without an active cover. Run the workflow again to retry."
+          end
+        end
+        break if @pending_covers.empty? || waited >= @cover_wait_seconds
+
+        @sleeper.call(COVER_POLL_SECONDS)
+        waited += COVER_POLL_SECONDS
+      end
+      @pending_covers.each { |_, _, title| say "Cover for #{title} is still generating; it switches on by itself when ready." }
     end
 
     def ensure_cook(cook)
