@@ -44,6 +44,17 @@ public final class CookStepTimerRegistry: ObservableObject {
         "\(recipeID)#\(stepID)"
     }
 
+    /// The step keys that have a timer running, for `CookTimerBoard` and the auto-start policy.
+    public var runningStepKeys: Set<String> {
+        Set(alarmIDsByStep.keys)
+    }
+
+    /// The bare step ids with a timer running for one recipe, ready for `CookAutoTimerPolicy`.
+    public func runningStepIDs(forRecipe recipeID: String) -> Set<String> {
+        let prefix = Self.stepKey(recipeID: recipeID, stepID: "")
+        return Set(alarmIDsByStep.keys.filter { $0.hasPrefix(prefix) }.map { String($0.dropFirst(prefix.count)) })
+    }
+
     public func alarmID(forStep step: String) -> UUID? {
         alarmIDsByStep[step]
     }
