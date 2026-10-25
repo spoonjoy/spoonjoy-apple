@@ -143,6 +143,46 @@ class AppStoreListingTest < Minitest::Test
     assert_equal ["sync_screenshots", "set1", "vl"], [step["action"], step["setId"], step["localizationId"]]
   end
 
+  # Answers Reader GETs from a path => body table, so price checks run without the network.
+  class FakePriceClient
+    def initialize(responses)
+      @responses = responses
+    end
+
+    def get(path, _query = {})
+      @responses.fetch(path) { raise AppStoreListing::Error, "HTTP 404 #{path}" }
+    end
+
+    def get_all(path, query = {})
+      get(path, query)["data"]
+    end
+  end
+
+  def price_snapshot(customer_prices)
+    responses = {
+      "/v1/apps" => { "data" => [{ "id" => "app1" }] },
+      "/v1/apps/app1/appPricePoints" => { "data" => [{ "id" => "pp-free", "attributes" => { "customerPrice" => "0.0" } }] }
+    }
+    unless customer_prices.nil?
+      responses["/v1/apps/app1/appPriceSchedule"] = { "data" => { "id" => "sched1" } }
+      responses["/v1/appPriceSchedules/sched1/manualPrices"] = {
+        "data" => [],
+        "included" => customer_prices.map { |price| { "type" => "appPricePoints", "attributes" => { "customerPrice" => price } } }
+      }
+    end
+    AppStoreListing::Reader.new(FakePriceClient.new(responses), listing).send(:price)
+  end
+
+  def test_existing_free_schedule_needs_no_price_step
+    assert_equal({ "scheduled" => true }, price_snapshot(["0.0"]))
+  end
+
+  def test_existing_paid_or_empty_schedule_is_replaced_with_free
+    assert_equal({ "scheduled" => false, "freePricePointId" => "pp-free" }, price_snapshot(["4.99"]))
+    assert_equal({ "scheduled" => false, "freePricePointId" => "pp-free" }, price_snapshot([]))
+    assert_equal({ "scheduled" => false, "freePricePointId" => "pp-free" }, price_snapshot(nil))
+  end
+
   def test_der_signature_becomes_64_raw_bytes
     key = OpenSSL::PKey::EC.generate("prime256v1")
     der = key.sign(OpenSSL::Digest.new("SHA256"), "payload")

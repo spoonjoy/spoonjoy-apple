@@ -447,14 +447,19 @@ module AppStoreListing
     end
 
     def price
-      scheduled = begin
-        @client.get("/v1/apps/#{app_id}/appPriceSchedule")["data"] ? true : false
+      schedule = begin
+        @client.get("/v1/apps/#{app_id}/appPriceSchedule")["data"]
       rescue Error => e
         raise unless e.message.include?("HTTP 404")
 
-        false
+        nil
       end
-      return { "scheduled" => true } if scheduled
+      if schedule
+        # An existing schedule only counts if every manual price is free; otherwise plan to replace it.
+        body = @client.get("/v1/appPriceSchedules/#{schedule['id']}/manualPrices", "include" => "appPricePoint", "limit" => 200)
+        prices = (body["included"] || []).select { |item| item["type"] == "appPricePoints" }
+        return { "scheduled" => true } if !prices.empty? && prices.all? { |point| point.dig("attributes", "customerPrice").to_f.zero? }
+      end
 
       territory = @listing.dig("price", "baseTerritory")
       points = @client.get_all("/v1/apps/#{app_id}/appPricePoints", "filter[territory]" => territory)
