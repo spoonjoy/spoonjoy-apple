@@ -1,30 +1,41 @@
+import SpoonjoyCore
 import SwiftUI
 
+/// Cook mode's floating controls. Each control is its own piece of interactive Liquid Glass inside one
+/// `GlassEffectContainer`, so when the set changes (step 1 has no Back) the glass merges and splits on
+/// `KitchenSpring.glide`. Under Reduce Motion the control fades in and out instead.
 struct SpoonDock: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var glassNamespace
+    @ScaledMetric(relativeTo: .body) private var toolGlyphSize: CGFloat = 17
+    @ScaledMetric(relativeTo: .body) private var primaryIconGlyphSize: CGFloat = 18
+    @ScaledMetric(relativeTo: .body) private var labelGlyphSize: CGFloat = 15
 
     let context: SpoonDockContext
 
     var body: some View {
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                accessibilityDock
-            } else {
-                adaptiveDock
+        GlassEffectContainer(spacing: SpoonDockMetrics.glassMergeSpacing) {
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    accessibilityDock
+                } else {
+                    adaptiveDock
+                }
             }
         }
         .padding(.horizontal, SpoonDockMetrics.horizontalPadding)
         .padding(.vertical, SpoonDockMetrics.verticalPadding)
         .frame(maxWidth: SpoonDockMetrics.maximumWidth)
-        .background(.ultraThinMaterial, in: Capsule())
-        .background(KitchenTableTheme.raised.opacity(0.82), in: Capsule())
-        .overlay {
-            Capsule()
-                .strokeBorder(KitchenTableTheme.hairline.opacity(0.42), lineWidth: 1)
-        }
-        .shadow(color: KitchenTableTheme.ink.opacity(0.12), radius: 10, x: 0, y: 4)
+        .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: showsLeftZone)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(context.accessibilityLabel)
+    }
+
+    /// A Back control that can't act is left out rather than shown dimmed, so the glass splits it off when it
+    /// becomes useful.
+    private var showsLeftZone: Bool {
+        context.leftZone.role != .back || context.leftZone.isEnabled
     }
 
     private var adaptiveDock: some View {
@@ -35,10 +46,18 @@ struct SpoonDock: View {
         }
     }
 
-    private var cookModeIconHandrail: some View {
-        HStack(alignment: .center, spacing: SpoonDockMetrics.handrailSpacing) {
+    @ViewBuilder
+    private var leftZone: some View {
+        if showsLeftZone {
             dockButton(context.leftZone, prominence: .tool)
                 .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
+                .kitchenTransition(.scale(scale: 0.6).combined(with: .opacity))
+        }
+    }
+
+    private var cookModeIconHandrail: some View {
+        HStack(alignment: .center, spacing: SpoonDockMetrics.handrailSpacing) {
+            leftZone
 
             dockButton(context.centerZone, prominence: .primaryIcon)
                 .frame(width: SpoonDockMetrics.primaryIconWidth, height: SpoonDockMetrics.toolTargetSize)
@@ -50,9 +69,12 @@ struct SpoonDock: View {
 
     private var horizontalDock: some View {
         HStack(alignment: .center, spacing: SpoonDockMetrics.itemSpacing) {
-            dockButton(context.leftZone, prominence: .supporting)
-                .frame(width: SpoonDockMetrics.supportingWidth, alignment: .leading)
-                .layoutPriority(1)
+            if showsLeftZone {
+                dockButton(context.leftZone, prominence: .supporting)
+                    .frame(width: SpoonDockMetrics.supportingWidth, alignment: .leading)
+                    .layoutPriority(1)
+                    .kitchenTransition(.scale(scale: 0.6).combined(with: .opacity))
+            }
 
             dockButton(context.centerZone, prominence: .primary)
                 .frame(minWidth: SpoonDockMetrics.primaryMinWidth, maxWidth: .infinity)
@@ -65,8 +87,7 @@ struct SpoonDock: View {
 
     private var compactDock: some View {
         HStack(alignment: .center, spacing: SpoonDockMetrics.itemSpacing) {
-            dockButton(context.leftZone, prominence: .tool)
-                .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
+            leftZone
                 .layoutPriority(1)
 
             dockButton(context.centerZone, prominence: .primary)
@@ -81,8 +102,11 @@ struct SpoonDock: View {
     private var accessibilityDock: some View {
         VStack(alignment: .leading, spacing: SpoonDockMetrics.itemSpacing) {
             HStack(spacing: SpoonDockMetrics.itemSpacing) {
-                dockButton(context.leftZone, prominence: .supporting)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                if showsLeftZone {
+                    dockButton(context.leftZone, prominence: .supporting)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .kitchenTransition(.opacity)
+                }
 
                 dockButton(context.centerZone, prominence: .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -104,48 +128,36 @@ struct SpoonDock: View {
 
     @ViewBuilder
     private func dockButton(_ action: SpoonDockAction, prominence: SpoonDockActionProminence) -> some View {
-        if prominence == .primary {
+        switch prominence {
+        case .primary:
             dockTrigger(action, prominence: prominence)
-                .buttonStyle(.glassProminent)
-                .tint(tintColor(for: action) ?? KitchenTableTheme.action)
-        } else if prominence == .primaryIcon {
+                .buttonStyle(.plain)
+                .glassEffect(.regular.tint(primaryTint(for: action)).interactive(), in: Capsule())
+                .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
+        case .primaryIcon:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .frame(width: SpoonDockMetrics.primaryIconWidth, height: SpoonDockMetrics.toolTargetSize)
-                .background(KitchenTableTheme.ink, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .strokeBorder(KitchenTableTheme.inkHighlight, lineWidth: 1)
-                }
-        } else if prominence == .supporting {
+                .glassEffect(.regular.tint(primaryTint(for: action)).interactive(), in: Capsule())
+                .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
+        case .supporting:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .padding(.horizontal, 10)
                 .frame(minHeight: SpoonDockMetrics.minimumTargetSize)
-                .background(.thinMaterial, in: Capsule())
-                .background(KitchenTableTheme.raised.opacity(0.78), in: Capsule())
-                .overlay {
-                    Capsule()
-                        .strokeBorder(KitchenTableTheme.hairline.opacity(0.35), lineWidth: 1)
-                }
-        } else {
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
+        case .tool:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
                 .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
-                .background(toolBackground(for: action), in: Circle())
-                .overlay {
-                    Circle()
-                        .strokeBorder(KitchenTableTheme.hairline.opacity(action.isEnabled ? 0.55 : 0.34), lineWidth: 1)
-                }
+                .glassEffect(action.isEnabled ? .regular.interactive() : .regular, in: Circle())
+                .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
         }
     }
 
-    private func tintColor(for action: SpoonDockAction) -> Color? {
-        action.role == .destructive ? KitchenTableTheme.tomato : nil
-    }
-
-    private func toolBackground(for action: SpoonDockAction) -> Color {
-        action.isEnabled ? KitchenTableTheme.raised.opacity(0.92) : KitchenTableTheme.vellum.opacity(0.72)
+    private func primaryTint(for action: SpoonDockAction) -> Color {
+        action.role == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.ink
     }
 
     @ViewBuilder
@@ -177,14 +189,15 @@ struct SpoonDock: View {
     private func dockLabel(_ action: SpoonDockAction, prominence: SpoonDockActionProminence) -> some View {
         if prominence == .tool || prominence == .primaryIcon {
             Image(systemName: action.systemImage)
-                .font(.system(size: prominence == .primaryIcon ? 18 : 17, weight: .semibold))
+                .font(.system(size: prominence == .primaryIcon ? primaryIconGlyphSize : toolGlyphSize, weight: .semibold))
                 .foregroundStyle(prominence == .primaryIcon ? KitchenTableTheme.onInk : toolForeground(for: action))
                 .frame(width: SpoonDockMetrics.toolGlyphFrame, height: SpoonDockMetrics.toolGlyphFrame)
+                .contentShape(Rectangle())
         } else {
             HStack(spacing: prominence == .primary ? 7 : 6) {
                 if prominence != .primary || action.role == .status {
                     Image(systemName: action.systemImage)
-                        .font(.system(size: prominence == .primary ? 16 : 15, weight: .semibold))
+                        .font(.system(size: labelGlyphSize, weight: .semibold))
                         .foregroundStyle(prominence == .supporting ? KitchenTableTheme.ink : KitchenTableTheme.onInk)
                 }
 
@@ -206,6 +219,7 @@ struct SpoonDock: View {
             }
             .frame(maxWidth: .infinity, minHeight: SpoonDockMetrics.minimumTargetSize, alignment: prominence == .primary ? .center : .leading)
             .padding(.horizontal, prominence == .primary ? 8 : 0)
+            .contentShape(Rectangle())
         }
     }
 
@@ -217,8 +231,23 @@ struct SpoonDock: View {
     }
 }
 
+private extension View {
+    /// Joins the dock's glass morph. Under Reduce Motion the control keeps its glass but leaves the morph, so it
+    /// fades with its `kitchenTransition` instead of stretching out of its neighbour.
+    @ViewBuilder
+    func dockGlassID(_ id: String, in namespace: Namespace.ID, morphs: Bool) -> some View {
+        if morphs {
+            glassEffectID(id, in: namespace)
+        } else {
+            glassEffectTransition(.identity)
+        }
+    }
+}
+
 private enum SpoonDockMetrics {
     static let maximumWidth: CGFloat = 326
+    /// Glass pieces closer than this blend while they merge or split.
+    static let glassMergeSpacing: CGFloat = 12
     static let horizontalPadding: CGFloat = 8
     static let verticalPadding: CGFloat = 7
     static let itemSpacing: CGFloat = 6

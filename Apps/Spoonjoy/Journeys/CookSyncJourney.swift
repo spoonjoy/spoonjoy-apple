@@ -34,6 +34,15 @@ final class CookSyncJourney: JourneyTestCase {
                         RecipeIngredientDraft(quantity: 2, unit: "tbsp", name: oil)
                     ],
                     outputStepNums: []
+                ),
+                // A second step gives the dock somewhere to go, so Back can join it after Next.
+                RecipeStepDraft(
+                    stepNum: 2,
+                    stepTitle: "Serve",
+                    description: "Spoon the zest over the dish.",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: []
                 )
             ]
         )
@@ -149,6 +158,20 @@ final class CookSyncJourney: JourneyTestCase {
         XCTAssertFalse(journey.element(JourneyID.cookTimerCancel).exists, "Cancel stayed after the timer was cancelled.")
         XCTAssertTrue(journey.element(JourneyID.cookTimerStatus).exists, "Cancelling the timer did not say so.")
         journey.attachScreenshot(named: "03-timer-cancelled", to: self)
+
+        // The glass dock morphs as its controls change, so every control must still be there to tap: after Next,
+        // Back has joined the dock beside Mark step and Next.
+        let dockNext = journey.element(JourneyID.cookDockNext)
+        XCTAssertTrue(dockNext.waitForExistence(timeout: JourneyApp.interactionTimeout), "The dock has no Next. Screen: \(journey.screen)")
+        XCTAssertTrue(journey.element(JourneyID.cookDockDone).exists, "The dock has no Mark step. Screen: \(journey.screen)")
+        dockNext.tap()
+        let dockPrevious = journey.element(JourneyID.cookDockPrevious)
+        XCTAssertTrue(
+            dockPrevious.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Back did not join the dock after Next. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(dockPrevious.isHittable, "Back is in the dock but can't be tapped. Screen: \(journey.screen)")
+        journey.attachScreenshot(named: "04-dock-after-next", to: self)
 
         // The relaunch keeps this device's own state, so the proof that the server holds the check is the
         // reading above; here the relaunch must still be signed in and must not undo what QA holds.

@@ -64,8 +64,6 @@ enum KitchenTableTheme {
     /// Text on a photo stays light in both appearances.
     static let onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo
     static let onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted
-    /// A light edge on an ink fill. At night ink is light, so the edge would turn dark; it is dropped there instead.
-    static let inkHighlight = dynamic(Day.bone.opacity(0.22), Color.clear)
     static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
     static let photoOverlay = Color.black.opacity(0.28)
 
@@ -534,6 +532,9 @@ extension KitchenTableReceiptRow where Leading == EmptyView {
     }
 }
 
+/// Kitchen action buttons on Liquid Glass. `.primary` is the screen's one filled action, in ink; `.destructive` is
+/// the same shape in tomato for a confirmed delete; `.secondary` is clear glass; `.quiet` is text only. The fills sit
+/// on interactive glass, so every glass-backed button gets the system press response.
 struct KitchenTableActionButtonStyle: ButtonStyle {
     enum Prominence {
         case primary
@@ -545,7 +546,8 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     let prominence: Prominence
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let shape = RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous)
+        let label = configuration.label
             .font(.headline)
             .lineLimit(1)
             .minimumScaleFactor(0.74)
@@ -553,12 +555,22 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
             .padding(.horizontal, 14)
             .foregroundStyle(foreground)
-            .background(background(configuration: configuration), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(stroke, lineWidth: prominence == .quiet ? 0 : 1)
-            }
-            .opacity(configuration.isPressed ? 0.82 : 1)
+            .contentShape(shape)
+
+        switch prominence {
+        case .primary, .destructive:
+            // A tinted glass fill reads grey over the bone page, so the fill is solid and the glass under it supplies
+            // the interactive press response.
+            label
+                .background(fill, in: shape)
+                .glassEffect(.regular.interactive(), in: shape)
+        case .secondary:
+            label
+                .glassEffect(.regular.interactive(), in: shape)
+        case .quiet:
+            label
+                .opacity(configuration.isPressed ? 0.6 : 1)
+        }
     }
 
     private var foreground: Color {
@@ -570,27 +582,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
         }
     }
 
-    private func background(configuration _: Configuration) -> Color {
-        switch prominence {
-        case .primary:
-            KitchenTableTheme.action
-        case .secondary:
-            KitchenTableTheme.raised
-        case .quiet:
-            KitchenTableTheme.page.opacity(0.01)
-        case .destructive:
-            KitchenTableTheme.tomato
-        }
-    }
-
-    private var stroke: Color {
-        switch prominence {
-        case .primary:
-            KitchenTableTheme.action
-        case .secondary, .quiet:
-            KitchenTableTheme.hairline.opacity(0.75)
-        case .destructive:
-            KitchenTableTheme.tomato
-        }
+    private var fill: Color {
+        prominence == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.ink
     }
 }
