@@ -1622,7 +1622,7 @@ wait_for_accessibility_proof() {
       expected_source = source_override unless source_override.empty?
       evidence_key = expected_source == "SignedOutSetupView" ? "capture-signed-out" : expected_route
       expected_bundle = if expected_platform == "macos"
-                          "app.spoonjoy.mac"
+                          "app.spoonjoy"
                         elsif expected_platform == "ipad"
                           "app.spoonjoy"
                         else
@@ -2300,7 +2300,7 @@ if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f
   write_app_state "$state_file" "$expected_recorded_route"
   write_cache_state "$cache_file" "$screenshot_route"
   write_sync_store "$sync_file" "$screenshot_route"
-  run_cleanup_command "quit Spoonjoy before capture" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
+  run_cleanup_command "quit Spoonjoy before capture" osascript -e 'tell application id "app.spoonjoy" to quit' || true
   run_cleanup_command "kill Spoonjoy before capture" pkill -x Spoonjoy || true
   sleep 1
   if ! open_macos_app; then
@@ -2322,7 +2322,7 @@ if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f
       "Spoonjoy macOS process was not running after launch." \
       "Launch the app from an unlocked desktop session and rerun screenshot capture."
   fi
-  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+  if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy\" to open location \"spoonjoy://$deep_link_path\""; then
     write_blocker \
       "$macos_blocker" \
       "MacOSLaunch" \
@@ -2379,7 +2379,7 @@ if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f
   fi
   if [[ ! -f "$macos_blocker" ]] && ! capture_macos_window; then
     printf 'Retrying Spoonjoy window capture after relaunch\n' >> "$capture_log"
-    run_cleanup_command "quit Spoonjoy before relaunch" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
+    run_cleanup_command "quit Spoonjoy before relaunch" osascript -e 'tell application id "app.spoonjoy" to quit' || true
     run_cleanup_command "kill Spoonjoy before relaunch" pkill -x Spoonjoy || true
     sleep 1
     rm -f "$proof_file"
@@ -2406,7 +2406,7 @@ if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f
         "Spoonjoy macOS process was not running after relaunch." \
         "Launch the app from an unlocked desktop session and rerun screenshot capture."
     fi
-    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy.mac\" to open location \"spoonjoy://$deep_link_path\""; then
+    if [[ ! -f "$macos_blocker" ]] && ! run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" osascript -e "tell application id \"app.spoonjoy\" to open location \"spoonjoy://$deep_link_path\""; then
       write_blocker \
         "$macos_blocker" \
         "MacOSLaunch" \
@@ -2469,7 +2469,7 @@ if [[ ( "$capture_platform" == "all" || "$capture_platform" == "macos" ) && ! -f
       "Spoonjoy window capture was unavailable in the macOS GUI session." \
       "Run screenshot capture from an unlocked desktop session with Screen Recording permission for the terminal."
   fi
-  run_cleanup_command "quit Spoonjoy after capture" osascript -e 'tell application id "app.spoonjoy.mac" to quit' || true
+  run_cleanup_command "quit Spoonjoy after capture" osascript -e 'tell application id "app.spoonjoy" to quit' || true
   run_cleanup_command "kill Spoonjoy after capture" pkill -x Spoonjoy || true
 fi
 
