@@ -827,6 +827,7 @@ extension CookModeView {
                     cookSpreadGatherPage
                         .spreadPagePadding(.leading, bottom: 24)
                 }
+                .fadingPageFoot()
                 cookSpreadLeadingControls
                     .spreadPagePadding(.leading, top: 12, bottom: 16)
             }
@@ -838,6 +839,7 @@ extension CookModeView {
                     cookSpreadStepPage
                         .spreadPagePadding(.trailing, bottom: 24)
                 }
+                .fadingPageFoot()
                 cookSpreadTrailingControls
                     .spreadPagePadding(.trailing, top: 12, bottom: 16)
             }
@@ -1319,4 +1321,17 @@ private enum CookModeAlarmKitTimerScheduler {
         return alarmID
     }
 #endif
+}
+
+private extension View {
+    /// A long page runs on under the controls, so its last lines fade out there instead of ending cut through a word.
+    func fadingPageFoot() -> some View {
+        mask {
+            VStack(spacing: 0) {
+                Color.black
+                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                    .frame(height: 28)
+            }
+        }
+    }
 }
