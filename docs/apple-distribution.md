@@ -409,3 +409,12 @@ Do not re-enable a Codex heartbeat poller for this lane unless both webhooks and
 the local reconcile job are unavailable. Heartbeats spend agent turns even when
 no feedback exists; this webhook-plus-reconcile path leaves Codex idle until
 Apple emits or exposes a new feedback event.
+
+## App Review
+
+While any version is with App Review, check its state at the start of every session and after every long wait, not only CI. Apple announces a rejection only by email and in App Store Connect, so it can sit unseen for hours.
+
+- **Watch:** `.github/workflows/app-review-watch.yml` runs every half hour. It keeps one issue per platform and version, titled `App Review: <platform> <version>` with the `app-review` label, and comments when the state changes. It closes the issue when the version is live. Look for open `app-review` issues before starting release work.
+- **State:** run the App Store release workflow with action `status`. `REJECTED`, `METADATA_REJECTED` and `INVALID_BINARY` are rejections; the matching review submission reads `UNRESOLVED_ISSUES`. `PENDING_DEVELOPER_RELEASE` means approved and waiting for action `release`; with release type `AFTER_APPROVAL`, Apple releases it on its own.
+- **Reason:** action `review-messages` lists review submissions and tries every Resolution Center route. With only the API key, the public API answers 404 and the web API answers 401 ([run 40384846591](https://github.com/spoonjoy/spoonjoy-apple/actions/runs/40384846591)), so the reason text needs a signed-in Apple ID web session. Borrow the operator's signed-in browser through the Playwright Extension and, from a page on `appstoreconnect.apple.com`, fetch `/iris/v1/resolutionCenterThreads?filter[reviewSubmission]=<submission id>` and then `/iris/v1/resolutionCenterThreads/<thread id>/resolutionCenterMessages?include=fromActor,rejections` (unofficial endpoints, observed in [App-Store-Connect-CLI #775](https://github.com/rudrankriyam/App-Store-Connect-CLI/issues/775)). Signing in is the operator's step; never type a password, and never print or store session cookies or the extension token. `apple-distribution-kit` documents the same recipe.
+- **Resubmit:** fix, ship a new build through TestFlight, stage the listing, then run the submit workflow. The watch comments again when the version is waiting for review.

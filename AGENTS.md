@@ -39,6 +39,7 @@ The app must feel native and still unmistakably Spoonjoy.
 - Use `$work-doer` for execution.
 - Do not self-approve. When approval is needed, use unbiased harsh sub-agent reviewers.
 - Ask the human only for true human-only blockers: credentials, billing/subscription changes, private account actions, unavailable hardware, secrets, destructive production operations with no safe staged path, or product decisions the user has not already delegated.
+- While a version is with App Review, check for open `app-review` issues and the release workflow's `status` at the start of every session; see `docs/apple-distribution.md#app-review`.
 - Completion standard is full moon: defer nothing that is part of the accepted scope. Use multiple atomic PRs until the app is complete and validated.
 
 ## Git Workflow

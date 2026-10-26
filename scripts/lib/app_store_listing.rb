@@ -382,7 +382,7 @@ module AppStoreListing
     end
 
     def request(klass, path, query: {}, body: nil)
-      uri = URI("#{BASE}#{path}")
+      uri = path.start_with?("https://") ? URI(path) : URI("#{BASE}#{path}")
       uri.query = URI.encode_www_form(query) unless query.empty?
       req = klass.new(uri)
       req["Authorization"] = "Bearer #{token}"
