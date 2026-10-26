@@ -44,9 +44,10 @@ jobs:
           family = os.environ["FAMILY"]
           runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
           runtime = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
-          names = [d["name"] for d in runtime.get("supportedDeviceTypes", []) if d["name"].startswith(family + " ") and "Duo" not in d["name"]]
-          ids = {d["name"]: d["identifier"] for d in runtime["supportedDeviceTypes"]}
-          print(runtime["identifier"], ids[sorted(names)[-1]])
+          types = runtime.get("supportedDeviceTypes") or data["devicetypes"]
+          types = [t for t in types if t.get("productFamily") == family and "Duo" not in t["name"]]
+          print(f"{runtime['identifier']}: {[t['name'] for t in types]}", file=sys.stderr)
+          print(runtime["identifier"], types[0]["identifier"])
           ')
           udid="$(xcrun simctl create "launch-smoke-$FAMILY" "$devicetype" "$runtime")"
           echo "Created $devicetype on $runtime: $udid"
