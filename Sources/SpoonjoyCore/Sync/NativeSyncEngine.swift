@@ -5397,6 +5397,9 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         var cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) = ([], [])
         // A queue can drain before any account is known (a fresh install whose bootstrap named none). The server
         // already has these edits; the next bootstrap brings them into the cache, so skip the optimistic patch.
+        guard !drainedMutations.isEmpty else {
+            return cachePatch
+        }
         guard let accountID else {
             NativeSyncTelemetry.drainCachePatchSkipped(reason: "no_account", mutations: drainedMutations.count)
             return cachePatch
