@@ -5398,9 +5398,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         // A queue can drain before any account is known (a fresh install whose bootstrap named none). The server
         // already has these edits; the next bootstrap brings them into the cache, so skip the optimistic patch.
         guard let accountID else {
-            if drainedMutations.contains(where: { $0.mutatesRecipeCache || $0.mutatesShoppingCache || $0.mutatesCookbookCache }) {
-                NativeSyncTelemetry.drainCachePatchSkipped(reason: "no_account", mutations: drainedMutations.count)
-            }
+            NativeSyncTelemetry.drainCachePatchSkipped(reason: "no_account", mutations: drainedMutations.count)
             return cachePatch
         }
         let recipeMutations = drainedMutations.filter(\.mutatesRecipeCache)
