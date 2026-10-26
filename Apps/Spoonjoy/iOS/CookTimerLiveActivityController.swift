@@ -45,6 +45,7 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
             }
             return
         }
+        Task6Diag.log("changed step=\(snapshot.stepNumber) hasActivity=\(activity != nil)") // TASK6-DIAG
         guard let activity else {
             request(snapshot, deepLink: deepLink)
             return
@@ -67,10 +68,11 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
     }
 
     private func request(_ snapshot: CookSessionSnapshot, deepLink: URL) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+        guard Task6Diag.timed("areActivitiesEnabled", { ActivityAuthorizationInfo().areActivitiesEnabled }) else { // TASK6-DIAG
             logger.info("Live Activities are off, so the cook session stays in the app")
             return
         }
+        Task6Diag.log("request step=\(snapshot.stepNumber)") // TASK6-DIAG
         do {
             activity = try Activity.request(
                 attributes: SpoonjoyCookSessionAttributes(recipeID: snapshot.recipeID, deepLink: deepLink.absoluteString),
@@ -78,7 +80,9 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
                 pushType: nil
             )
             lastSnapshot = snapshot
+            Task6Diag.log("request done activity=\(activity?.id ?? "nil")") // TASK6-DIAG
         } catch {
+            Task6Diag.log("request failed \(error)") // TASK6-DIAG
             logger.error("Could not start the cook session Live Activity: \(error.localizedDescription, privacy: .public)")
         }
     }
