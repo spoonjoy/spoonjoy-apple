@@ -10,6 +10,7 @@ struct AddRecipeSheet: View {
     let onPasteLink: (URL) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var link = ""
     @FocusState private var isLinkFocused: Bool
 
@@ -76,16 +77,14 @@ struct AddRecipeSheet: View {
             Text("Paste a link")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.ink2)
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    linkField
-                    importButton
-                        .fixedSize()
-                }
-                VStack(alignment: .leading, spacing: 10) {
-                    linkField
-                    importButton
-                }
+            // One field in one layout: swapping layouts while typing would swap fields and drop focus.
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                : AnyLayout(HStackLayout(spacing: 10))
+            layout {
+                linkField
+                importButton
+                    .fixedSize()
             }
         }
     }
