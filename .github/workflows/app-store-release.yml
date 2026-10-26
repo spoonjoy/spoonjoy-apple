@@ -1,6 +1,7 @@
 name: App Store release
 
-# Reads a version's state, release type and age rating, or changes how it releases. "set-release-type" applies
+# Reads a version's state, release type and age rating, or changes how it releases. "review-messages" also reads
+# review submissions and, where Apple answers, App Review's message text (read-only). "set-release-type" applies
 # version.releaseType from listing.json; "release" releases a version that is Pending Developer Release. Both write
 # only when confirm reads exactly "<action> <platform> <version>"; with confirm empty they print the plan.
 on:
@@ -21,7 +22,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, set-release-type, release]
+        options: [status, set-release-type, release, review-messages]
       confirm:
         description: Type "<action> <platform> <version>" to apply; leave empty for a dry run
         required: false
