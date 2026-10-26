@@ -358,7 +358,8 @@ struct PlatformNavigationView: View {
                 detailContentWithShellStatus
                     .navigationTitle(title(for: navigation.route))
 #if os(iOS)
-                    .navigationBarTitleDisplayMode(.large)
+                    // The Kitchen's photo is its title, so its bar stays inline and the photo runs under it.
+                    .navigationBarTitleDisplayMode(navigation.route == .kitchen ? .inline : .large)
                     .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
                     // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
