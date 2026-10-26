@@ -46,7 +46,7 @@ jobs:
           runtime = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
           types = runtime.get("supportedDeviceTypes") or data["devicetypes"]
           types = [t for t in types if t.get("productFamily") == family and "Duo" not in t["name"]]
-          print(f"{runtime['identifier']}: {[t['name'] for t in types]}", file=sys.stderr)
+          print(runtime["identifier"], [t["name"] for t in types], file=sys.stderr)
           print(runtime["identifier"], types[0]["identifier"])
           ')
           udid="$(xcrun simctl create "launch-smoke-$FAMILY" "$devicetype" "$runtime")"
