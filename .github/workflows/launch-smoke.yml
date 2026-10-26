@@ -1,0 +1,112 @@
+name: Launch smoke
+
+# App Review's automated check rejected 1.0 because "the app crashed after the initial launch". This installs the
+# Release build fresh on the newest iOS runtime, iPhone and iPad, launches it three times signed out, and fails if it
+# stops running or leaves a crash report. The newest runtime matters: code behind iOS 27.1 guards never runs on 27.0.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: launch-smoke-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  launch-smoke:
+    name: Launch smoke (${{ matrix.family }})
+    runs-on: xcode-27
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [iPhone, iPad]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Create a ${{ matrix.family }} on the newest iOS runtime
+        id: sim
+        timeout-minutes: 6
+        env:
+          FAMILY: ${{ matrix.family }}
+        run: |
+          set -euo pipefail
+          read -r runtime devicetype < <(xcrun simctl list --json | FAMILY="$FAMILY" python3 -c '
+          import json, os, sys
+          data = json.load(sys.stdin)
+          family = os.environ["FAMILY"]
+          runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
+          runtime = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
+          names = [d["name"] for d in runtime.get("supportedDeviceTypes", []) if d["name"].startswith(family + " ") and "Duo" not in d["name"]]
+          ids = {d["name"]: d["identifier"] for d in runtime["supportedDeviceTypes"]}
+          print(runtime["identifier"], ids[sorted(names)[-1]])
+          ')
+          udid="$(xcrun simctl create "launch-smoke-$FAMILY" "$devicetype" "$runtime")"
+          echo "Created $devicetype on $runtime: $udid"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Build the Release app for the simulator
+        timeout-minutes: 25
+        run: |
+          set -euo pipefail
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/smoke-dd" \
+            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -20
+      - name: Install fresh and launch three times
+        timeout-minutes: 8
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator/Spoonjoy.app"
+          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+          mkdir -p "$RUNNER_TEMP/smoke-shots"
+          xcrun simctl install "$UDID" "$app"
+          failed=0
+          for attempt in 1 2 3; do
+            xcrun simctl launch "$UDID" "$bundle_id"
+            sleep 20
+            xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/smoke-shots/launch-$attempt.png" || true
+            if xcrun simctl spawn "$UDID" launchctl list | grep -q "UIKitApplication:$bundle_id"; then
+              echo "Launch $attempt: running"
+            else
+              echo "::error::Launch $attempt: Spoonjoy is not running 20 seconds after launch"
+              failed=1
+            fi
+            xcrun simctl terminate "$UDID" "$bundle_id" || true
+            sleep 3
+          done
+          if ls "$HOME/Library/Logs/DiagnosticReports"/Spoonjoy* >/dev/null 2>&1; then
+            echo "::error::Spoonjoy left a crash report"
+            failed=1
+          fi
+          exit "$failed"
+      - name: Print crash reports
+        if: always()
+        run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
+      - name: Print the app's log
+        if: failure()
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: xcrun simctl spawn "$UDID" log show --last 5m --style compact --predicate 'process == "Spoonjoy"' | tail -200 || true
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: launch-smoke-${{ matrix.family }}
+          path: ${{ runner.temp }}/smoke-shots
+          if-no-files-found: ignore
+      - name: Delete the simulator
+        if: always()
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          if [ -n "$UDID" ]; then xcrun simctl shutdown "$UDID" || true; xcrun simctl delete "$UDID" || true; fi
