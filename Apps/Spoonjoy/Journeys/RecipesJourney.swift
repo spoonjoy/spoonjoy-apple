@@ -16,6 +16,22 @@ final class RecipesJourney: JourneyTestCase {
         let unmatchedQuery = "Journey\(token)nothing"
         // There is no in-app recipe form, so the recipe is made on QA, the way the connector or a share would.
         let qa = try await JourneyQAClient.signIn(account)
+        // An older second recipe, so My Recipes has an index row under the lead. Its long title must wrap at the
+        // largest text size.
+        let indexTitle = "Journey \(token) Slow-Braised Short Ribs with Gremolata J2"
+        _ = try await qa.createRecipe(
+            title: indexTitle,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Braise the ribs",
+                    description: "Braise the ribs until tender.",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: []
+                )
+            ]
+        )
         _ = try await qa.createRecipe(
             title: title,
             steps: [
@@ -159,14 +175,21 @@ final class RecipesJourney: JourneyTestCase {
             journey.attachScreenshot(named: "06a-kitchen-accessibility-text-size", to: self)
 
             journey.openTab(JourneyCopy.recipesTab)
-            // The shared recipe row stacks and wraps at this size instead of running off the screen.
-            let row = journey.element(JourneyID.recipesRow, labelContaining: title)
-            XCTAssertTrue(row.waitForExistence(timeout: JourneyApp.networkTimeout), "My Recipes lost the recipe at the largest text size.")
+            // The shared index row stacks and wraps at this size instead of running off the screen.
+            let row = journey.element(JourneyID.recipesRow, labelContaining: indexTitle)
+            XCTAssertTrue(row.waitForExistence(timeout: JourneyApp.networkTimeout), "My Recipes has no index row for the older recipe at the largest text size.")
+            // The lead fills the first screen at this size, so the index row sits further down.
+            for _ in 0..<8 where !row.isHittable {
+                journey.app.swipeUp()
+            }
             let screenFrame = journey.app.windows.firstMatch.frame
-            XCTAssertTrue(row.isHittable, "The recipe row cannot be tapped at the largest text size. Screen: \(journey.screen)")
+            XCTAssertTrue(row.isHittable, "The index row cannot be tapped at the largest text size. Screen: \(journey.screen)")
             XCTAssertGreaterThanOrEqual(row.frame.minX, screenFrame.minX, "The recipe row starts off the screen at the largest text size.")
             XCTAssertLessThanOrEqual(row.frame.maxX, screenFrame.maxX, "The recipe row runs off the screen at the largest text size.")
             journey.attachScreenshot(named: "06b-recipe-row-accessibility-text-size", to: self)
+            for _ in 0..<8 where !journey.element(JourneyID.recipesRow, labelContaining: title).isHittable {
+                journey.app.swipeDown()
+            }
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
             XCTAssertEqual(journey.element(JourneyID.recipeDetailTitle).label, title, "My Recipes opened another recipe after a relaunch.")
             XCTAssertTrue(
