@@ -44,8 +44,10 @@ jobs:
           family = os.environ["FAMILY"]
           runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
           runtime = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
-          types = runtime.get("supportedDeviceTypes") or data["devicetypes"]
-          types = [t for t in types if t.get("productFamily") == family and "Duo" not in t["name"]]
+          supported = runtime.get("supportedDeviceTypes") or []
+          print(runtime["identifier"], "supports", [t["name"] for t in supported], file=sys.stderr)
+          pick = lambda ts: [t for t in ts if t.get("productFamily") == family and "Duo" not in t["name"]]
+          types = pick(supported) or pick(data["devicetypes"])
           print(runtime["identifier"], [t["name"] for t in types], file=sys.stderr)
           print(runtime["identifier"], types[0]["identifier"])
           ')
