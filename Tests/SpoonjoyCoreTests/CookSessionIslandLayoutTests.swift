@@ -31,6 +31,11 @@ struct CookSessionIslandLayoutTests {
         #expect(compact == CookSessionIslandLayout.Compact(leading: .stepLabel("Step 2"), trailing: .checkCount(checked: 1, total: 3)))
     }
 
+    @Test func fullWidthWithATimerShowsTheRingInsteadOfTheCount() {
+        let compact = CookSessionIslandLayout.compact(for: Self.snapshot(timers: [Self.timer(endsIn: 60)]), limitedWidth: false)
+        #expect(compact == CookSessionIslandLayout.Compact(leading: .stepLabel("Step 2"), trailing: .ring))
+    }
+
     @Test func fullWidthWithoutIngredientsCountsSteps() {
         let compact = CookSessionIslandLayout.compact(for: Self.snapshot(ingredients: 0), limitedWidth: false)
         #expect(compact.trailing == .steps(current: 2, total: 4))

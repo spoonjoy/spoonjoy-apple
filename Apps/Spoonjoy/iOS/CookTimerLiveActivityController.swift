@@ -1,9 +1,132 @@
+import ActivityKit
 import Foundation
+import OSLog
 import SpoonjoyCore
 import UIKit
 #if canImport(AlarmKit)
 import AlarmKit
 #endif
+
+/// Runs the cook session Live Activity: it starts when cook mode opens, follows every step, check and timer change,
+/// and ends when cook mode closes. Marking the last step done ends it after 15 minutes, so the finished dish stays
+/// on the Lock Screen for a moment.
+@MainActor
+final class CookSessionLiveActivityController: CookSessionActivityObserving {
+    static let finishedDismissalDelay: TimeInterval = 15 * 60
+
+    private let logger = Logger(subsystem: "app.spoonjoy", category: "CookSessionLiveActivity")
+    private var activity: Activity<SpoonjoyCookSessionAttributes>?
+    private var lastSnapshot: CookSessionSnapshot?
+    /// The recipe whose last step was marked done. Its activity is already on the way out, so later changes leave it.
+    private var finishedRecipeID: String?
+
+    init() {
+        SpoonjoyCookSessionBridge.handler = { command in
+            await Self.handle(command)
+        }
+        // A session activity left by a quit or crashed app has no cook mode behind it.
+        Task {
+            await Self.endAll()
+        }
+        CookModeSessionCenter.shared.activityObserver = self
+    }
+
+    func cookSessionChanged(_ snapshot: CookSessionSnapshot, deepLink: URL, finished: Bool) {
+        if finishedRecipeID == snapshot.recipeID {
+            return
+        }
+        if let activity, activity.attributes.recipeID != snapshot.recipeID {
+            end(activity, snapshot: nil, dismissal: .immediate)
+        }
+        if finished {
+            finishedRecipeID = snapshot.recipeID
+            if let activity {
+                end(activity, snapshot: snapshot, dismissal: .after(.now.addingTimeInterval(Self.finishedDismissalDelay)))
+            }
+            return
+        }
+        guard let activity else {
+            request(snapshot, deepLink: deepLink)
+            return
+        }
+        guard snapshot != lastSnapshot else {
+            return
+        }
+        lastSnapshot = snapshot
+        let id = activity.id
+        Task {
+            await Self.update(id: id, content: ActivityContent(state: snapshot, staleDate: nil))
+        }
+    }
+
+    func cookSessionEnded() {
+        finishedRecipeID = nil
+        if let activity {
+            end(activity, snapshot: nil, dismissal: .immediate)
+        }
+    }
+
+    private func request(_ snapshot: CookSessionSnapshot, deepLink: URL) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            logger.info("Live Activities are off, so the cook session stays in the app")
+            return
+        }
+        do {
+            activity = try Activity.request(
+                attributes: SpoonjoyCookSessionAttributes(recipeID: snapshot.recipeID, deepLink: deepLink.absoluteString),
+                content: ActivityContent(state: snapshot, staleDate: nil),
+                pushType: nil
+            )
+            lastSnapshot = snapshot
+        } catch {
+            logger.error("Could not start the cook session Live Activity: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func end(_ ending: Activity<SpoonjoyCookSessionAttributes>, snapshot: CookSessionSnapshot?, dismissal: ActivityUIDismissalPolicy) {
+        activity = nil
+        lastSnapshot = nil
+        let id = ending.id
+        let content = snapshot.map { ActivityContent(state: $0, staleDate: nil) }
+        Task {
+            await Self.end(id: id, content: content, dismissal: dismissal)
+        }
+    }
+
+    // Activity is not Sendable, so these look it up by id off the main actor instead of sending it there.
+    private nonisolated static func update(id: String, content: ActivityContent<CookSessionSnapshot>) async {
+        await Activity<SpoonjoyCookSessionAttributes>.activities.first { $0.id == id }?.update(content)
+    }
+
+    private nonisolated static func end(id: String, content: ActivityContent<CookSessionSnapshot>?, dismissal: ActivityUIDismissalPolicy) async {
+        await Activity<SpoonjoyCookSessionAttributes>.activities.first { $0.id == id }?.end(content, dismissalPolicy: dismissal)
+    }
+
+    private nonisolated static func endAll() async {
+        for activity in Activity<SpoonjoyCookSessionAttributes>.activities {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    /// Check and Next work in the background while cook mode is open. Without it they open cook mode at the recipe.
+    private static func handle(_ command: SpoonjoyCookSessionCommand) async -> Bool {
+        let center = CookModeSessionCenter.shared
+        switch command {
+        case .checkStep(let recipeID):
+            guard center.registration?.viewModel().recipe.id == recipeID else {
+                return false
+            }
+            return (try? await center.perform(.checkStep)) != nil
+        case .nextStep(let recipeID):
+            guard center.registration?.viewModel().recipe.id == recipeID else {
+                return false
+            }
+            return (try? await center.perform(.nextStep)) != nil
+        case .open(let recipeID):
+            return await UIApplication.shared.open(DeepLinkURLBuilder.url(for: .recipeDetail(id: recipeID, presentation: .cook)))
+        }
+    }
+}
 
 #if canImport(AlarmKit)
 @available(iOS 26.0, *)
@@ -33,26 +156,38 @@ final class CookTimerAlarmHost {
         guard !CookModeSessionCenter.usesJourneyAlarmFixture else {
             return
         }
-        let stepTimers = CookModeSessionCenter.shared.stepTimers
         if let alarms = try? AlarmManager.shared.alarms {
-            stepTimers.reconcile(activeAlarmIDs: Set(alarms.map(\.id)))
+            Self.reconcile(alarms)
         }
         alarmUpdatesTask = Task { @MainActor in
             for await alarms in AlarmManager.shared.alarmUpdates {
-                stepTimers.reconcile(activeAlarmIDs: Set(alarms.map(\.id)))
+                Self.reconcile(alarms)
             }
         }
     }
 
+    private static func reconcile(_ alarms: [Alarm]) {
+        let active = Set(alarms.map(\.id))
+        let center = CookModeSessionCenter.shared
+        center.stepTimers.reconcile(activeAlarmIDs: active)
+        center.updateTimerClock { $0.retain(activeAlarmIDs: active) }
+    }
+
     private func handle(_ command: SpoonjoyCookActivityCommand) async {
+        let center = CookModeSessionCenter.shared
         switch command {
         case .pause(let alarmID):
-            try? coordinator.pause(alarmID: alarmID)
+            if (try? coordinator.pause(alarmID: alarmID)) != nil {
+                center.updateTimerClock { $0.pause(alarmID: alarmID, now: Date()) }
+            }
         case .resume(let alarmID):
-            try? coordinator.resume(alarmID: alarmID)
+            if (try? coordinator.resume(alarmID: alarmID)) != nil {
+                center.updateTimerClock { $0.resume(alarmID: alarmID, now: Date()) }
+            }
         case .stop(let alarmID):
             try? coordinator.stop(alarmID: alarmID)
-            CookModeSessionCenter.shared.stepTimers.forget(alarmID: alarmID)
+            center.stepTimers.forget(alarmID: alarmID)
+            center.updateTimerClock { $0.retain(activeAlarmIDs: Set(center.stepTimers.alarmIDsByStep.values)) }
         case .nextStep(let recipeID):
             // Cook mode owns step state. After the user left it there is no session, so open the recipe in cook mode instead.
             if (try? await CookModeSessionCenter.shared.perform(.nextStep)) == nil {

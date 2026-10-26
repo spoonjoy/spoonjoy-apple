@@ -1,8 +1,18 @@
+import Combine
 import Foundation
 import SpoonjoyCore
 
 enum CookModeSessionError: Error, Equatable {
     case notCooking
+}
+
+/// Shows the open cook session outside the app. On iOS this is the session Live Activity.
+@MainActor
+protocol CookSessionActivityObserving: AnyObject {
+    /// The step, checklist or timers changed. `finished` is true once the last step is marked done.
+    func cookSessionChanged(_ snapshot: CookSessionSnapshot, deepLink: URL, finished: Bool)
+    /// Cook mode closed.
+    func cookSessionEnded()
 }
 
 /// Lets Siri, Shortcuts and the Live Activity drive the cook-mode screen that is open right now.
@@ -13,12 +23,13 @@ final class CookModeSessionCenter {
         let viewModel: () -> CookModeViewModel
         let apply: (CookModeProgress) -> Void
         /// Returns the outcome, so a second start for a step that already has a timer says so instead of setting another.
-        let startTimer: (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome
+        let startTimer: @MainActor (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome
     }
 
     static let shared = CookModeSessionCenter()
 
     private static let stepTimersDefaultsKey = "cookMode.stepTimerAlarms"
+    private static let timerClockDefaultsKey = "cookMode.stepTimerClock"
 
     /// The system alarm per step. It outlives cook mode because a step timer keeps running after the cook leaves.
     let stepTimers = CookStepTimerRegistry(
@@ -35,7 +46,34 @@ final class CookModeSessionCenter {
 #endif
     }
 
+    /// Each running alarm's end date, length and pause state, which the registry does not keep. It outlives cook
+    /// mode with the alarms, so a reopened session still shows how long each timer has left.
+    private(set) var timerClock: CookTimerClock = {
+        guard let data = UserDefaults.standard.data(forKey: CookModeSessionCenter.timerClockDefaultsKey),
+              let clock = try? JSONDecoder().decode(CookTimerClock.self, from: data) else {
+            return CookTimerClock()
+        }
+        return clock
+    }()
+
+    weak var activityObserver: CookSessionActivityObserving? {
+        didSet { publishSession() }
+    }
+
+    private var stepTimersSubscription: AnyCancellable?
+
     private(set) var registration: Registration?
+
+    private init() {
+        // The registry publishes before it stores, so the published value is the one to draw.
+        stepTimersSubscription = stepTimers.$alarmIDsByStep
+            .dropFirst()
+            .sink { [weak self] alarmIDsByStep in
+                MainActor.assumeIsolated {
+                    self?.publishSession(alarmIDsByStep: alarmIDsByStep)
+                }
+            }
+    }
 
     var isCooking: Bool {
         registration != nil
@@ -43,11 +81,44 @@ final class CookModeSessionCenter {
 
     func register(_ registration: Registration) {
         self.registration = registration
+        publishSession()
     }
 
-    /// Leaving cook mode only stops the commands. A running step timer belongs to the system alarm and keeps going.
+    /// Leaving cook mode stops the commands and ends the session activity. A running step timer belongs to the
+    /// system alarm and keeps going, with its own alarm activity.
     func unregister() {
         registration = nil
+        activityObserver?.cookSessionEnded()
+    }
+
+    func updateTimerClock(_ change: (inout CookTimerClock) -> Void) {
+        var clock = timerClock
+        change(&clock)
+        guard clock != timerClock else {
+            return
+        }
+        timerClock = clock
+        if let data = try? JSONEncoder().encode(clock) {
+            UserDefaults.standard.set(data, forKey: Self.timerClockDefaultsKey)
+        }
+        publishSession()
+    }
+
+    /// Sends the open session to the activity observer. `progress` is passed when it may not have reached the view
+    /// yet, such as a Live Activity button handled in the background.
+    func publishSession(progress: CookModeProgress? = nil, alarmIDsByStep: [String: UUID]? = nil) {
+        guard let activityObserver, let registration else {
+            return
+        }
+        let viewModel = registration.viewModel()
+        let recipe = viewModel.recipe
+        let current = progress ?? viewModel.progress
+        let board = timerClock.board(recipe: recipe, alarmIDsByStep: alarmIDsByStep ?? stepTimers.alarmIDsByStep)
+        activityObserver.cookSessionChanged(
+            CookSessionSnapshot.make(recipe: recipe, progress: current, board: board),
+            deepLink: DeepLinkURLBuilder.url(for: .recipeDetail(id: recipe.id, presentation: .cook)),
+            finished: CookSessionSnapshot.isFinished(recipe: recipe, progress: current)
+        )
     }
 
     /// The step on screen, for the annotated on-screen entity.
@@ -63,6 +134,7 @@ final class CookModeSessionCenter {
         let outcome = CookModeSessionResolver.resolve(command, viewModel: registration.viewModel(), updatedAt: updatedAt)
         if outcome.progress != registration.viewModel().progress {
             registration.apply(outcome.progress)
+            publishSession(progress: outcome.progress)
         }
         if let timer = outcome.timerToStart {
             return try await registration.startTimer(timer).message(startedMessage: outcome.message)

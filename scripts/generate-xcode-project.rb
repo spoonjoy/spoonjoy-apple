@@ -50,6 +50,14 @@ JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys").freeze
 # The Live Activity code the app and the widget extension both compile (attributes and button intents).
 LIVE_ACTIVITY_SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Shared").freeze
 LIVE_ACTIVITY_WIDGET_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Widget").freeze
+# The widget links no package product, so it compiles the plain-Foundation SpoonjoyCore files the cook session
+# Live Activity draws from. Keep this list to files that import only Foundation.
+WIDGET_CORE_SWIFT = %w[
+  Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
+  Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
+  Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
+].freeze
+WIDGET_COMPILATION_CONDITION = "SPOONJOY_WIDGET_EXTENSION"
 
 options = {
   output_dir: nil
@@ -222,7 +230,7 @@ def apply_widget_settings(target)
     build_configuration.build_settings["SWIFT_VERSION"] = "6.0"
     build_configuration.build_settings["SWIFT_TREAT_WARNINGS_AS_ERRORS"] = "YES"
     build_configuration.build_settings["GCC_TREAT_WARNINGS_AS_ERRORS"] = "YES"
-    build_configuration.build_settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = configuration == "Release" ? "" : "DEBUG"
+    build_configuration.build_settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = configuration == "Release" ? WIDGET_COMPILATION_CONDITION : "DEBUG #{WIDGET_COMPILATION_CONDITION}"
     build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "NO"
     build_configuration.build_settings["INFOPLIST_FILE"] = WIDGET_INFO_PLIST
     build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
@@ -266,7 +274,7 @@ add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST])
 add_package_product(project, ios_target, "SpoonjoyCore")
 add_package_product(project, mac_target, "SpoonjoyCore")
 file_reference(project, WIDGET_INFO_PLIST)
-add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE])
+add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE] + WIDGET_CORE_SWIFT)
 add_sources(project, ui_test_target, UI_TEST_SWIFT)
 ui_test_target.add_dependency(ios_target)
 ui_test_dependency = ui_test_target.dependencies[0]
@@ -303,7 +311,7 @@ end
 [ios_target, mac_target, widget_target].each do |target|
   target.source_build_phase.files.each do |build_file|
     path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
-    next unless path && (path.start_with?("Apps/Spoonjoy/LiveActivity/") || path == THEME_SOURCE)
+    next unless path && (path.start_with?("Apps/Spoonjoy/LiveActivity/") || path == THEME_SOURCE || WIDGET_CORE_SWIFT.include?(path))
 
     assign_stable_uuid(project, build_file, "#{target.name}/sources/#{path}")
   end

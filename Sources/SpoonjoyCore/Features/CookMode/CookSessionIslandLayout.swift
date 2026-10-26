@@ -12,6 +12,8 @@ public enum CookSessionIslandLayout {
     public enum Trailing: Equatable, Sendable {
         /// Limited-width islands (iPhone Duo) leave trailing empty, as the HIG asks.
         case none
+        /// The timer ring with no digits, because AlarmKit's own activity already shows the countdown.
+        case ring
         case checkCount(checked: Int, total: Int)
         case steps(current: Int, total: Int)
     }
@@ -37,10 +39,14 @@ public enum CookSessionIslandLayout {
         guard !limitedWidth else {
             return Compact(leading: .ring, trailing: .none)
         }
-        // AlarmKit already shows the countdown digits in its own activity, so the session shows the checklist.
-        let trailing: Trailing = snapshot.ingredientCount > 0
-            ? .checkCount(checked: snapshot.checkedCount, total: snapshot.ingredientCount)
-            : .steps(current: snapshot.stepNumber, total: snapshot.stepCount)
+        let trailing: Trailing
+        if !snapshot.timers.isEmpty {
+            trailing = .ring
+        } else if snapshot.ingredientCount > 0 {
+            trailing = .checkCount(checked: snapshot.checkedCount, total: snapshot.ingredientCount)
+        } else {
+            trailing = .steps(current: snapshot.stepNumber, total: snapshot.stepCount)
+        }
         return Compact(leading: .stepLabel("Step \(snapshot.stepNumber)"), trailing: trailing)
     }
 
