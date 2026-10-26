@@ -1,8 +1,9 @@
 name: Launch smoke
 
 # App Review's automated check rejected 1.0 because "the app crashed after the initial launch". This installs the
-# Release build fresh on the newest iOS runtime, iPhone and iPad, launches it three times signed out, and fails if it
-# stops running or leaves a crash report. The newest runtime matters: code behind iOS 27.1 guards never runs on 27.0.
+# Release build fresh on the newest iOS runtime each device supports (iOS 27.1 ships only for the iPhone Duo; other
+# iPhones and iPads stop at 27.0), launches it three times signed out, and fails if it stops running or leaves a crash
+# report.
 on:
   pull_request:
   push:
@@ -25,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        family: [iPhone, iPad]
+        family: [iPhone Duo, iPhone, iPad]
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -42,16 +43,18 @@ jobs:
           import json, os, sys
           data = json.load(sys.stdin)
           family = os.environ["FAMILY"]
+          def match(t):
+              if family == "iPhone Duo":
+                  return "Duo" in t["name"]
+              return t.get("productFamily") == family and "Duo" not in t["name"]
           runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
+          runtimes = [r for r in runtimes if any(match(t) for t in r.get("supportedDeviceTypes", []))]
           runtime = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
-          supported = runtime.get("supportedDeviceTypes") or []
-          print(runtime["identifier"], "supports", [t["name"] for t in supported], file=sys.stderr)
-          pick = lambda ts: [t for t in ts if t.get("productFamily") == family and "Duo" not in t["name"]]
-          types = pick(supported) or pick(data["devicetypes"])
+          types = [t for t in runtime["supportedDeviceTypes"] if match(t)]
           print(runtime["identifier"], [t["name"] for t in types], file=sys.stderr)
           print(runtime["identifier"], types[0]["identifier"])
           ')
-          udid="$(xcrun simctl create "launch-smoke-$FAMILY" "$devicetype" "$runtime")"
+          udid="$(xcrun simctl create "launch-smoke-${FAMILY// /-}" "$devicetype" "$runtime")"
           echo "Created $devicetype on $runtime: $udid"
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$udid"
@@ -104,7 +107,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: launch-smoke-${{ matrix.family }}
+          name: launch-smoke-${{ matrix.family == 'iPhone Duo' && 'duo' || matrix.family }}
           path: ${{ runner.temp }}/smoke-shots
           if-no-files-found: ignore
       - name: Delete the simulator
