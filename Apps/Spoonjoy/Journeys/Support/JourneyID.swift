@@ -112,6 +112,9 @@ enum JourneyID {
     static let cookTabletopControls = "cookMode.tabletopControls"
     /// Cook mode's "Next step" button in the dock, which compact-width cook mode (tabletop included) uses.
     static let cookDockNext = "spoonDock.cook.next"
+    /// The dock's "Mark step" and Back controls. Back joins the dock's glass once there is a step to go back to.
+    static let cookDockDone = "spoonDock.cook.done"
+    static let cookDockPrevious = "spoonDock.cook.previous"
     /// The step timer's start button, and the Cancel button that replaces it while the step's system alarm runs.
     static let cookTimerStart = "cookMode.timer.start"
     static let cookTimerCancel = "cookMode.timer.cancel"

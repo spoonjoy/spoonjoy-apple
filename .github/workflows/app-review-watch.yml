@@ -1,0 +1,39 @@
+name: App Review watch
+
+# Every half hour, reads App Review state for every App Store version (iOS and macOS) and comments on a GitHub issue
+# titled "App Review: <platform> <version>" (label app-review) when it changes: rejected, waiting again, in review,
+# approved, live. A rejection comment says how to read App Review's reason. The issue closes when the version is live.
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: spoonjoy-app-review-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: App Review watch
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: internal-testflight
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@8e41b362d2589a22a44c1cfa214b3c83052c195b # v1
+        with:
+          ruby-version: '3.3'
+      - name: Watch
+        env:
+          ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          ASC_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: ruby scripts/app-review-watch.rb
