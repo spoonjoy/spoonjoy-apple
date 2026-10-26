@@ -159,6 +159,14 @@ final class RecipesJourney: JourneyTestCase {
             journey.attachScreenshot(named: "06a-kitchen-accessibility-text-size", to: self)
 
             journey.openTab(JourneyCopy.recipesTab)
+            // The shared recipe row stacks and wraps at this size instead of running off the screen.
+            let row = journey.element(JourneyID.recipesRow, labelContaining: title)
+            XCTAssertTrue(row.waitForExistence(timeout: JourneyApp.networkTimeout), "My Recipes lost the recipe at the largest text size.")
+            let screenFrame = journey.app.windows.firstMatch.frame
+            XCTAssertTrue(row.isHittable, "The recipe row cannot be tapped at the largest text size. Screen: \(journey.screen)")
+            XCTAssertGreaterThanOrEqual(row.frame.minX, screenFrame.minX, "The recipe row starts off the screen at the largest text size.")
+            XCTAssertLessThanOrEqual(row.frame.maxX, screenFrame.maxX, "The recipe row runs off the screen at the largest text size.")
+            journey.attachScreenshot(named: "06b-recipe-row-accessibility-text-size", to: self)
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
             XCTAssertEqual(journey.element(JourneyID.recipeDetailTitle).label, title, "My Recipes opened another recipe after a relaunch.")
             XCTAssertTrue(
