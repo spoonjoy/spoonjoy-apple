@@ -165,7 +165,7 @@ final class CookSyncJourney: JourneyTestCase {
 extension CookSyncJourney {
     /// Leaving cook mode open and going home shows the cook session in the Dynamic Island (or the Lock Screen
     /// banner on a phone without one), read through SpringBoard. Cook mode is still registered, so it says Step 1.
-    func verifyCookSessionLiveActivity(_ journey: JourneyApp, returnTo cookModeElement: XCUIElement) {
+    private func verifyCookSessionLiveActivity(_ journey: JourneyApp, returnTo cookModeElement: XCUIElement) {
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let step = springboard.descendants(matching: .any)
