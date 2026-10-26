@@ -39,23 +39,7 @@ jobs:
           FAMILY: ${{ matrix.family }}
         run: |
           set -euo pipefail
-          read -r runtime devicetype < <(xcrun simctl list --json | FAMILY="$FAMILY" python3 -c '
-          import json, os, sys
-          data = json.load(sys.stdin)
-          family = os.environ["FAMILY"]
-          def match(t):
-              if family == "iPhone Duo":
-                  return "Duo" in t["name"]
-              return t.get("productFamily") == family and "Duo" not in t["name"]
-          runtimes = [r for r in data["runtimes"] if r["platform"] == "iOS" and r["isAvailable"]]
-          runtimes = [r for r in runtimes if any(match(t) for t in r.get("supportedDeviceTypes", []))]
-          runtime = max(runtimes, key=lambda r: [int(p) for p in r["version"].split(".")])
-          types = [t for t in runtime["supportedDeviceTypes"] if match(t)]
-          print(runtime["identifier"], [t["name"] for t in types], file=sys.stderr)
-          print(runtime["identifier"], types[0]["identifier"])
-          ')
-          udid="$(xcrun simctl create "launch-smoke-${FAMILY// /-}" "$devicetype" "$runtime")"
-          echo "Created $devicetype on $runtime: $udid"
+          udid="$(python3 .github/scripts/create-newest-simulator.py "$FAMILY" "launch-smoke-${FAMILY// /-}")"
           echo "udid=$udid" >> "$GITHUB_OUTPUT"
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
@@ -109,7 +93,7 @@ jobs:
         run: xcrun simctl spawn "$UDID" log show --last 5m --style compact --predicate 'process == "Spoonjoy"' | tail -200 || true
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: launch-smoke-${{ matrix.family == 'iPhone Duo' && 'duo' || matrix.family }}
           path: ${{ runner.temp }}/smoke-shots

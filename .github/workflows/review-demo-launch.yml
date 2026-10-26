@@ -1,0 +1,130 @@
+name: Review demo launch
+
+# Signs the App Store (Release) configuration in as the App Review demo account on production, on each device family's
+# newest iOS runtime, relaunches it and opens every seeded recipe and cookbook (ReviewDemoLaunchJourney). Read-only:
+# it changes nothing in the demo kitchen. Runs from main only, because the demo credentials live in the
+# internal-testflight environment.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spoonjoy-review-demo-launch
+  cancel-in-progress: false
+
+jobs:
+  launch:
+    name: Review demo launch (${{ matrix.family }})
+    if: github.ref == 'refs/heads/main'
+    runs-on: xcode-27
+    timeout-minutes: 60
+    environment: internal-testflight
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        family: [iPhone Duo, iPhone, iPad]
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Create a ${{ matrix.family }} on the newest iOS runtime
+        id: sim
+        timeout-minutes: 6
+        env:
+          FAMILY: ${{ matrix.family }}
+        run: |
+          set -euo pipefail
+          udid="$(python3 .github/scripts/create-newest-simulator.py "$FAMILY" "review-demo-${FAMILY// /-}")"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$udid"
+          xcrun simctl bootstatus "$udid" -b
+      - name: Build for testing
+        timeout-minutes: 30
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/demo"
+          xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release \
+            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyJourneys/ReviewDemoLaunchJourney \
+            -derivedDataPath "$RUNNER_TEMP/demo/DerivedData" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/demo/build.log" | tail -30
+      - name: Wait for the simulator to settle
+        timeout-minutes: 8
+        run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
+      - name: Write the demo kitchen file
+        env:
+          SPOONJOY_REVIEW_DEMO_USERNAME: ${{ secrets.SPOONJOY_REVIEW_DEMO_USERNAME }}
+          SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$SPOONJOY_REVIEW_DEMO_PASSWORD"
+          echo "::add-mask::$SPOONJOY_REVIEW_DEMO_USERNAME"
+          umask 077
+          mkdir -p "$RUNNER_TEMP/demo-secrets"
+          python3 - "$RUNNER_TEMP/demo-secrets/kitchen.json" <<'PY'
+          import json, os, sys
+          demo = json.load(open("distribution/app-store/review-demo-kitchen.json"))["chefs"]["demo"]
+          kitchen = {
+              "username": os.environ["SPOONJOY_REVIEW_DEMO_USERNAME"],
+              "password": os.environ["SPOONJOY_REVIEW_DEMO_PASSWORD"],
+              "recipes": [r["title"] for r in demo["recipes"]] + [f["title"] for f in demo.get("forks", [])],
+              "cookbooks": [c["title"] for c in demo["cookbooks"]],
+          }
+          if not kitchen["username"] or not kitchen["password"]:
+              raise SystemExit("The demo account secrets are empty.")
+          json.dump(kitchen, open(sys.argv[1], "w"))
+          PY
+      - name: Run the review demo journey
+        timeout-minutes: 30
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          set -euo pipefail
+          # The test runner gets only the path of the 0600 file, so the result bundle records no credential.
+          export TEST_RUNNER_SPOONJOY_REVIEW_DEMO_LAUNCH_FILE="$RUNNER_TEMP/demo-secrets/kitchen.json"
+          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release \
+            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyJourneys/ReviewDemoLaunchJourney \
+            -derivedDataPath "$RUNNER_TEMP/demo/DerivedData" -parallel-testing-enabled NO -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/demo/ReviewDemoLaunch.xcresult" 2>&1 | tee "$RUNNER_TEMP/demo/test.log"
+          if grep -E "Test Case .*ReviewDemoLaunchJourney.* skipped" "$RUNNER_TEMP/demo/test.log"; then
+            echo "::error::The review demo journey was skipped"
+            exit 1
+          fi
+      - name: Print crash reports
+        if: always()
+        run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
+      - name: Scan artifacts for the demo password
+        id: scan
+        if: always()
+        env:
+          SPOONJOY_REVIEW_DEMO_PASSWORD: ${{ secrets.SPOONJOY_REVIEW_DEMO_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if grep -rlF -- "$SPOONJOY_REVIEW_DEMO_PASSWORD" "$RUNNER_TEMP/demo/build.log" "$RUNNER_TEMP/demo/test.log" "$RUNNER_TEMP/demo/ReviewDemoLaunch.xcresult" >/dev/null 2>&1; then
+            echo "::error::The demo password appears in an artifact; not uploading"
+            exit 1
+          fi
+      - name: Remove credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/demo-secrets/kitchen.json"
+      - name: Upload the result bundle
+        if: ${{ !cancelled() && steps.scan.outcome == 'success' }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: review-demo-launch-${{ matrix.family == 'iPhone Duo' && 'duo' || matrix.family }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/demo/ReviewDemoLaunch.xcresult
+            ${{ runner.temp }}/demo/test.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Delete the simulator
+        if: always()
+        env:
+          UDID: ${{ steps.sim.outputs.udid }}
+        run: |
+          if [ -n "$UDID" ]; then xcrun simctl shutdown "$UDID" || true; xcrun simctl delete "$UDID" || true; fi
