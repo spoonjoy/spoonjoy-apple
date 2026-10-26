@@ -202,6 +202,16 @@ final class JourneyApp {
         waitFor(JourneyID.recipeDetailTitle, timeout: Self.networkTimeout, "The recipe detail page did not open.", file: file, line: line)
     }
 
+    /// Waits for the Add a recipe sheet and checks it teaches the Siri phrase.
+    func assertAddRecipeSheet(file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(
+            element(JourneyID.addRecipeSiriPhrase, labelContaining: JourneyCopy.addRecipeSiriPhrase).waitForExistence(timeout: Self.interactionTimeout),
+            "Add a recipe did not open a sheet showing the Siri phrase. Screen: \(screen)",
+            file: file,
+            line: line
+        )
+    }
+
     /// Types into an empty field and reads the value back.
     func enterText(_ text: String, into id: String, file: StaticString = #filePath, line: UInt = #line) {
         let fields = fieldQuery(id)

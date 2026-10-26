@@ -1,0 +1,217 @@
+import SpoonjoyCore
+import SwiftUI
+
+private struct SpoonjoyAddRecipeToListKey: EnvironmentKey {
+    static let defaultValue: (@MainActor (Recipe) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// Adds a recipe's ingredients to the shopping list. The shell supplies it; without it rows offer no Add to list.
+    var spoonjoyAddRecipeToList: (@MainActor (Recipe) -> Void)? {
+        get { self[SpoonjoyAddRecipeToListKey.self] }
+        set { self[SpoonjoyAddRecipeToListKey.self] = newValue }
+    }
+}
+
+/// One recipe in a list: the photo (or a designed initial tile), the title in the serif and one quiet line.
+/// Tapping opens the recipe; long-pressing previews it with Share and Add to list. The Kitchen and the Recipes
+/// tab share it. The thumbnail is the zoom transition's source (`matchedTransitionSource(id: recipe id, in:)`).
+struct RecipeIndexRow: View {
+    private let content: RecipeIndexRowContent
+    private let namespace: Namespace.ID
+    private let action: () -> Void
+
+    @Environment(\.spoonjoyAddRecipeToList) private var addRecipeToList
+
+    init(recipe: Recipe, namespace: Namespace.ID, action: @escaping () -> Void) {
+        self.content = RecipeIndexRowContent(recipe: recipe)
+        self.namespace = namespace
+        self.action = action
+    }
+
+    init(row: RecipeCatalogRowViewModel, namespace: Namespace.ID, action: @escaping () -> Void) {
+        self.content = RecipeIndexRowContent(row: row)
+        self.namespace = namespace
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(alignment: .center, spacing: 14) {
+                RecipeIndexThumbnail(title: content.title, coverURL: content.coverURL)
+                    .frame(width: RecipeIndexRowMetrics.thumbnail, height: RecipeIndexRowMetrics.thumbnail)
+                    .matchedTransitionSource(id: content.id, in: namespace)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(content.title)
+                        .font(KitchenTableTheme.indexTitle)
+                        .foregroundStyle(KitchenTableTheme.ink)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let detail = content.detail {
+                        Text(detail)
+                            .font(KitchenTableTheme.meta)
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                            .lineLimit(1)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(content.title)
+        .accessibilityHint("Opens the recipe")
+        .contextMenu {
+            ShareLink(item: content.shareURL) {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            if let recipe = content.recipe, let addRecipeToList, recipe.steps.contains(where: { !$0.ingredients.isEmpty }) {
+                Button {
+                    addRecipeToList(recipe)
+                } label: {
+                    Label("Add to list", systemImage: "cart.badge.plus")
+                }
+            }
+        } preview: {
+            RecipeIndexRowPreview(content: content)
+        }
+    }
+}
+
+/// The separator between rows, inset to start under the title as the system lists do.
+struct RecipeIndexRowSeparator: View {
+    var body: some View {
+        Rectangle()
+            .fill(KitchenTableTheme.hairline)
+            .frame(height: KitchenTableTheme.hairlineWidth)
+            .padding(.leading, RecipeIndexRowMetrics.thumbnail + 14)
+            .accessibilityHidden(true)
+    }
+}
+
+private enum RecipeIndexRowMetrics {
+    static let thumbnail: CGFloat = 64
+    static let thumbnailRadius: CGFloat = 14
+}
+
+private struct RecipeIndexRowContent {
+    let id: String
+    let title: String
+    let detail: String?
+    let coverURL: URL?
+    let shareURL: URL
+    /// The full recipe, when the list has it; only full recipes can add their ingredients to the list.
+    let recipe: Recipe?
+
+    init(recipe: Recipe) {
+        id = recipe.id
+        title = recipe.title
+        detail = Self.detail([recipe.displaySubtitle, recipe.servings.map { "Serves \($0)" }, recipe.displayCoverProvenanceLabel])
+        coverURL = recipe.displayCoverImageURL
+        shareURL = recipe.attribution.canonicalURL
+        self.recipe = recipe
+    }
+
+    init(row: RecipeCatalogRowViewModel) {
+        id = row.id
+        title = row.title
+        detail = Self.detail([row.subtitle, row.chefLine, row.servingsLabel])
+        coverURL = row.coverImageURL
+        shareURL = row.shareURL
+        recipe = nil
+    }
+
+    private static func detail(_ parts: [String?]) -> String? {
+        let joined = parts
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: " · ")
+        return joined.isEmpty ? nil : joined
+    }
+}
+
+/// The photo, or a designed tile with the title's initial when there is none.
+private struct RecipeIndexThumbnail: View {
+    let title: String
+    let coverURL: URL?
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: RecipeIndexRowMetrics.thumbnailRadius, style: .continuous)
+        Group {
+            if let coverURL {
+                RecipeCoverImage(url: coverURL, title: title, subtitle: nil, showsFallbackLabel: false)
+                    .scaledToFill()
+            } else {
+                RecipeInitialTile(title: title)
+            }
+        }
+        .clipShape(shape)
+        .accessibilityHidden(true)
+    }
+}
+
+/// A recipe with no photo: a warm vellum tile with the title's first letter in the serif.
+struct RecipeInitialTile: View {
+    let title: String
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack {
+                LinearGradient(
+                    colors: [KitchenTableTheme.vellum, KitchenTableTheme.brass.opacity(0.32)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                // The letter is decoration sized to the tile, not text to read, so it scales with the tile
+                // (a Large Title is 34 points at the default text size) instead of with Dynamic Type.
+                Text(initial)
+                    .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                    .dynamicTypeSize(.large)
+                    .foregroundStyle(KitchenTableTheme.brass)
+                    .scaleEffect(proxy.size.height * 0.42 / 34)
+            }
+        }
+    }
+
+    private var initial: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).first.map { String($0).uppercased() } ?? "S"
+    }
+}
+
+/// The long-press preview: the photo large, with the title under it.
+private struct RecipeIndexRowPreview: View {
+    let content: RecipeIndexRowContent
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Group {
+                if let coverURL = content.coverURL {
+                    RecipeCoverImage(url: coverURL, title: content.title, subtitle: nil, showsFallbackLabel: false)
+                        .scaledToFill()
+                } else {
+                    RecipeInitialTile(title: content.title)
+                }
+            }
+            .frame(width: 300, height: 220)
+            .clipped()
+            VStack(alignment: .leading, spacing: 4) {
+                Text(content.title)
+                    .font(KitchenTableTheme.indexTitle)
+                    .foregroundStyle(KitchenTableTheme.ink)
+                    .lineLimit(2)
+                if let detail = content.detail {
+                    Text(detail)
+                        .font(KitchenTableTheme.meta)
+                        .foregroundStyle(KitchenTableTheme.ink2)
+                        .lineLimit(2)
+                }
+            }
+            .padding(16)
+            .frame(width: 300, alignment: .leading)
+        }
+        .background(KitchenTableTheme.raised)
+    }
+}

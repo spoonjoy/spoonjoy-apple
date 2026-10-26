@@ -16,6 +16,8 @@ enum JourneyCopy {
 
     /// The not-found page's message for a recipe link that matches no recipe.
     static let recipeNotFound = "We couldn't find this recipe."
+    /// The App Shortcut phrase the Add a recipe sheet teaches (`SpoonjoyAppShortcuts`, CaptureRecipeIntent).
+    static let addRecipeSiriPhrase = "Save a recipe to Spoonjoy"
     /// The editor's confirmation for leaving with unsaved changes.
     static let discardChanges = "Discard Changes"
 }

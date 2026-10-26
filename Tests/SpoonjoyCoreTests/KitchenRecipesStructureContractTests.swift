@@ -16,15 +16,16 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeLead",
                 "RecipeIndex",
                 "CookbookShelf",
-                "On the Counter",
+                "KitchenCounterCook.idleLabel",
+                "counterCook?.label",
                 "private var indexedRecipes",
                 "recipe.id != leadRecipe.id",
-                "RecipeIndex(recipes: indexedRecipes",
+                "recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
-                "countLabel(kitchen.counts.recipes",
-                "countLabel(kitchen.counts.cookbooks",
-                "coverlessNoPhotoBadge",
-                "Photo not added"
+                "KitchenMasthead.countSummary(recipes: kitchen.counts.recipes, cookbooks: kitchen.counts.cookbooks)",
+                "Start cooking",
+                "Keep cooking",
+                "See all"
             ],
             forbids: [
                 "From your kitchen",
@@ -35,23 +36,21 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
-    @Test("Kitchen recipe index rows read as index entries instead of bare open rows")
+    @Test("Recipe index rows read as index entries instead of bare open rows")
     func kitchenRecipeIndexRowsReadAsIndexEntries() throws {
-        let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
-        let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+        let rowPath = "Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift"
+        let row = uncommentedSwift(try readRepoFile(rowPath))
 
         expectContent(
-            kitchen,
-            in: kitchenPath,
+            row,
+            in: rowPath,
             contains: [
-                "let ordinal: Int",
-                "ordinalLabel",
-                "String(format: \"%02d\", ordinal)",
-                "recipe.description",
+                "recipe.displaySubtitle",
                 "recipe.servings",
                 "recipe.displayCoverProvenanceLabel",
-                "shareRecipe",
-                ".accessibilityHint(\"Opens recipe detail\")"
+                ".joined(separator: \" · \")",
+                "ShareLink(item: content.shareURL)",
+                ".accessibilityHint(\"Opens the recipe\")"
             ],
             forbids: [
                 "subtitle: recipe.chef.username",
@@ -151,15 +150,18 @@ struct KitchenRecipesStructureContractTests {
                 in: path,
                 contains: [
                     "On the Counter",
+                    "On the counter",
+                    "Your recipes",
                     "Recipe index",
                     "Cookbook shelf",
                     "RecipeIndexRow",
-                    "ordinal",
+                    "edge-to-edge-hero",
                     "Loading recipes",
                     "OfflineStatusView"
                 ],
                 forbids: [
-                    "Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\""
+                    "Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\"",
+                    "RecipeIndexRow ordinal"
                 ]
             )
         }
