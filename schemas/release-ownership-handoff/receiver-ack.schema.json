@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spoonjoy.app/schemas/release-ownership-handoff/receiver-ack.schema.json",
+  "title": "Spoonjoy receiver acknowledgement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "final_web_sha",
+    "final_native_sha",
+    "merged_prs",
+    "ci_runs",
+    "deployments",
+    "residual_work",
+    "zero_in_flight_web_merges",
+    "zero_in_flight_web_deploys",
+    "web_cleanup_owner",
+    "testflight_owners",
+    "receiver_thread_id",
+    "receiver_pushed_commit_sha",
+    "acknowledged_at",
+    "cleanup_scope_acknowledged"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "handoff_id": { "type": "string", "minLength": 1 },
+    "final_web_sha": { "$ref": "#/$defs/sha" },
+    "final_native_sha": { "$ref": "#/$defs/sha" },
+    "merged_prs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/merged_pr" }
+    },
+    "ci_runs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/ci_run" }
+    },
+    "deployments": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/deployment" }
+    },
+    "residual_work": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/residual_work" }
+    },
+    "zero_in_flight_web_merges": { "const": true },
+    "zero_in_flight_web_deploys": { "const": true },
+    "web_cleanup_owner": { "$ref": "#/$defs/thread_id" },
+    "testflight_owners": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1,
+      "items": { "$ref": "#/$defs/testflight_owner" }
+    },
+    "receiver_thread_id": { "$ref": "#/$defs/thread_id" },
+    "receiver_pushed_commit_sha": { "$ref": "#/$defs/sha" },
+    "acknowledged_at": { "type": "string", "format": "date-time" },
+    "cleanup_scope_acknowledged": { "const": true }
+  },
+  "$defs": {
+    "sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "thread_id": {
+      "type": "string",
+      "pattern": "^[0-9A-Za-z_.:@/-]{8,}$"
+    },
+    "repo": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "github_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(pull|actions/runs)/[0-9]+$"
+    },
+    "run_id": {
+      "anyOf": [
+        { "type": "integer", "minimum": 1 },
+        { "type": "string", "pattern": "^[1-9][0-9]*$" }
+      ]
+    },
+    "merged_pr": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "number", "url", "merge_sha"],
+      "properties": {
+        "repo": { "$ref": "#/$defs/repo" },
+        "number": { "type": "integer", "minimum": 1 },
+        "url": { "$ref": "#/$defs/github_url" },
+        "merge_sha": { "$ref": "#/$defs/sha" }
+      }
+    },
+    "ci_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "workflow", "run_id", "url", "head_sha", "status", "conclusion"],
+      "properties": {
+        "repo": { "$ref": "#/$defs/repo" },
+        "workflow": { "type": "string", "minLength": 1 },
+        "run_id": { "$ref": "#/$defs/run_id" },
+        "url": { "$ref": "#/$defs/github_url" },
+        "head_sha": { "$ref": "#/$defs/sha" },
+        "status": { "const": "completed" },
+        "conclusion": { "const": "success" }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repo", "environment", "run_id", "url", "source_sha", "status"],
+      "properties": {
+        "repo": { "$ref": "#/$defs/repo" },
+        "environment": { "type": "string", "minLength": 1 },
+        "run_id": { "$ref": "#/$defs/run_id" },
+        "url": { "$ref": "#/$defs/github_url" },
+        "source_sha": { "$ref": "#/$defs/sha" },
+        "status": { "const": "success" }
+      }
+    },
+    "residual_work": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["owner_thread_id", "scope", "status", "description"],
+      "properties": {
+        "owner_thread_id": { "$ref": "#/$defs/thread_id" },
+        "scope": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "testflight_owner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["thread_id", "scope", "exclusive"],
+      "properties": {
+        "thread_id": { "$ref": "#/$defs/thread_id" },
+        "scope": { "type": "string", "minLength": 1 },
+        "exclusive": { "const": true }
+      }
+    }
+  }
+}
