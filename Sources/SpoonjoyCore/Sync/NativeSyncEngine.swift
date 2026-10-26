@@ -4298,6 +4298,14 @@ private enum NativeSyncTelemetry {
     private static let logger = Logger(subsystem: "app.spoonjoy", category: "sync")
 #endif
 
+    static func drainCachePatchSkipped(reason: String, mutations: Int) {
+#if canImport(OSLog)
+        logger.notice(
+            "native_sync_drain_cache_patch_skipped reason=\(reason, privacy: .public) mutations=\(mutations, privacy: .public)"
+        )
+#endif
+    }
+
     static func bootstrapStarted(
         trigger: NativeCacheRevalidationTrigger,
         cursor: PaginationCursor?,
@@ -5381,27 +5389,35 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
     }
 
     /// The cache changes for edits the server accepted: recipes, shopping items and cookbooks.
-    private static func drainedCachePatch(
+    static func drainedCachePatch(
         drainedMutations: [NativeQueuedMutation],
         snapshot: NativeSyncSnapshot,
         accountID: String?
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
         var cachePatch: (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) = ([], [])
+        // A queue can drain before any account is known (a fresh install whose bootstrap named none). The server
+        // already has these edits; the next bootstrap brings them into the cache, so skip the optimistic patch.
+        guard let accountID else {
+            if drainedMutations.contains(where: { $0.mutatesRecipeCache || $0.mutatesShoppingCache || $0.mutatesCookbookCache }) {
+                NativeSyncTelemetry.drainCachePatchSkipped(reason: "no_account", mutations: drainedMutations.count)
+            }
+            return cachePatch
+        }
         let recipeMutations = drainedMutations.filter(\.mutatesRecipeCache)
         if !recipeMutations.isEmpty {
-            let recipePatch = try drainedRecipeCachePatch(drainedMutations: recipeMutations, snapshot: snapshot, accountID: accountID!)
+            let recipePatch = try drainedRecipeCachePatch(drainedMutations: recipeMutations, snapshot: snapshot, accountID: accountID)
             cachePatch.upserting.append(contentsOf: recipePatch.upserting)
             cachePatch.deletingCacheKeys.formUnion(recipePatch.deletingCacheKeys)
         }
         let shoppingMutations = drainedMutations.filter(\.mutatesShoppingCache)
         if !shoppingMutations.isEmpty {
-            let shoppingPatch = try drainedShoppingCachePatch(drainedMutations: shoppingMutations, snapshot: snapshot, accountID: accountID!)
+            let shoppingPatch = try drainedShoppingCachePatch(drainedMutations: shoppingMutations, snapshot: snapshot, accountID: accountID)
             cachePatch.upserting.append(contentsOf: shoppingPatch.upserting)
             cachePatch.deletingCacheKeys.formUnion(shoppingPatch.deletingCacheKeys)
         }
         let cookbookMutations = drainedMutations.filter(\.mutatesCookbookCache)
         if !cookbookMutations.isEmpty {
-            let cookbookPatch = try drainedCookbookCachePatch(drainedMutations: cookbookMutations, snapshot: snapshot, accountID: accountID!)
+            let cookbookPatch = try drainedCookbookCachePatch(drainedMutations: cookbookMutations, snapshot: snapshot, accountID: accountID)
             cachePatch.upserting.append(contentsOf: cookbookPatch.upserting)
             cachePatch.deletingCacheKeys.formUnion(cookbookPatch.deletingCacheKeys)
         }
@@ -5440,11 +5456,15 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
         return (upserts, deletedCacheKeys)
     }
 
-    private static func drainedShoppingCachePatch(
+    static func drainedShoppingCachePatch(
         drainedMutations: [NativeQueuedMutation],
         snapshot: NativeSyncSnapshot,
         accountID: String
     ) throws -> (upserting: [NativeSyncCachedRecord], deletingCacheKeys: Set<String>) {
+        guard let firstMutation = drainedMutations.first else {
+            NativeSyncTelemetry.drainCachePatchSkipped(reason: "no_shopping_mutations", mutations: 0)
+            return ([], [])
+        }
         let cachedItems = snapshot.cachedRecords
             .filter { $0.kind == .shoppingItem }
             .compactMap { try? $0.payload.decoded(ShoppingListItem.self) }
@@ -5459,7 +5479,7 @@ public final class NativeSyncEngine: NativeSyncTriggerRunning, @unchecked Sendab
                 chef: fallbackChef,
                 items: cachedItems,
                 nextCursor: snapshot.checkpoint?.shoppingCursor?.rawValue ?? "",
-                updatedAt: snapshot.checkpoint?.updatedAt ?? drainedMutations.first!.createdAt
+                updatedAt: snapshot.checkpoint?.updatedAt ?? firstMutation.createdAt
             )
         let updated = drainedMutations.reduce(baseShoppingList) { shoppingList, mutation in
             mutation.applyingOptimisticShoppingMutation(
