@@ -25,3 +25,13 @@ struct KitchenHeroStretchTests {
         #expect(KitchenHeroStretch.scale(pull: 200, heroHeight: 0, reduceMotion: false) == 1)
     }
 }
+
+@Suite("Kitchen hero under Reduce Motion")
+struct KitchenHeroStillPhotoTests {
+    @Test("a still photo gets a dark fill exactly as tall as the pull, and a stretching photo needs none")
+    func stillPhotoFill() {
+        #expect(KitchenHeroStretch.stillPhotoFill(pull: 90, reduceMotion: true) == 90)
+        #expect(KitchenHeroStretch.stillPhotoFill(pull: -20, reduceMotion: true) == 0)
+        #expect(KitchenHeroStretch.stillPhotoFill(pull: 90, reduceMotion: false) == 0)
+    }
+}

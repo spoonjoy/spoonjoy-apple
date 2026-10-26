@@ -79,7 +79,7 @@ jobs:
           destination="${{ steps.sim.outputs.destination }}"
           python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Create disposable QA accounts
-        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
+        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 5 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
       - name: Run journeys
         timeout-minutes: 40
         run: |

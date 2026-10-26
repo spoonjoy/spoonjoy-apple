@@ -22,6 +22,13 @@ struct RecipeIndexRow: View {
     private let action: () -> Void
 
     @Environment(\.spoonjoyAddRecipeToList) private var addRecipeToList
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var scaledThumbnail = RecipeIndexRowMetrics.thumbnail
+
+    /// Grows with the text, up to a size that still leaves the title room on a phone.
+    private var thumbnailSize: CGFloat {
+        min(scaledThumbnail, RecipeIndexRowMetrics.maximumThumbnail)
+    }
 
     init(recipe: Recipe, namespace: Namespace.ID, action: @escaping () -> Void) {
         self.content = RecipeIndexRowContent(recipe: recipe)
@@ -36,33 +43,39 @@ struct RecipeIndexRow: View {
     }
 
     var body: some View {
+        // At the accessibility text sizes the photo sits above the text, so the title and line wrap in full.
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
         Button(action: action) {
-            HStack(alignment: .center, spacing: 14) {
+            layout {
                 RecipeIndexThumbnail(title: content.title, coverURL: content.coverURL)
-                    .frame(width: RecipeIndexRowMetrics.thumbnail, height: RecipeIndexRowMetrics.thumbnail)
+                    .frame(width: thumbnailSize, height: thumbnailSize)
                     .matchedTransitionSource(id: content.id, in: namespace)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(content.title)
                         .font(KitchenTableTheme.indexTitle)
                         .foregroundStyle(KitchenTableTheme.ink)
                         .multilineTextAlignment(.leading)
-                        .lineLimit(3)
+                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                         .fixedSize(horizontal: false, vertical: true)
                     if let detail = content.detail {
                         Text(detail)
                             .font(KitchenTableTheme.meta)
                             .foregroundStyle(KitchenTableTheme.ink2)
-                            .lineLimit(1)
+                            .multilineTextAlignment(.leading)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                            .fixedSize(horizontal: false, vertical: dynamicTypeSize.isAccessibilitySize)
                     }
                 }
-                Spacer(minLength: 0)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(content.title)
+        .accessibilityLabel(content.accessibilityLabel)
         .accessibilityHint("Opens the recipe")
         .contextMenu {
             ShareLink(item: content.shareURL) {
@@ -83,17 +96,21 @@ struct RecipeIndexRow: View {
 
 /// The separator between rows, inset to start under the title as the system lists do.
 struct RecipeIndexRowSeparator: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var scaledThumbnail = RecipeIndexRowMetrics.thumbnail
+
     var body: some View {
         Rectangle()
             .fill(KitchenTableTheme.hairline)
             .frame(height: KitchenTableTheme.hairlineWidth)
-            .padding(.leading, RecipeIndexRowMetrics.thumbnail + 14)
+            .padding(.leading, dynamicTypeSize.isAccessibilitySize ? 0 : min(scaledThumbnail, RecipeIndexRowMetrics.maximumThumbnail) + 14)
             .accessibilityHidden(true)
     }
 }
 
 private enum RecipeIndexRowMetrics {
     static let thumbnail: CGFloat = 64
+    static let maximumThumbnail: CGFloat = 112
     static let thumbnailRadius: CGFloat = 14
 }
 
@@ -101,6 +118,8 @@ private struct RecipeIndexRowContent {
     let id: String
     let title: String
     let detail: String?
+    /// What VoiceOver reads: the title, the line under it and, when the line leaves it out, who wrote it.
+    let accessibilityLabel: String
     let coverURL: URL?
     let shareURL: URL
     /// The full recipe, when the list has it; only full recipes can add their ingredients to the list.
@@ -110,6 +129,7 @@ private struct RecipeIndexRowContent {
         id = recipe.id
         title = recipe.title
         detail = Self.detail([recipe.displaySubtitle, recipe.servings.map { "Serves \($0)" }, recipe.displayCoverProvenanceLabel])
+        accessibilityLabel = Self.accessibilityLabel(title: recipe.title, detail: detail, chef: recipe.chef.username)
         coverURL = recipe.displayCoverImageURL
         shareURL = recipe.attribution.canonicalURL
         self.recipe = recipe
@@ -119,9 +139,15 @@ private struct RecipeIndexRowContent {
         id = row.id
         title = row.title
         detail = Self.detail([row.subtitle, row.chefLine, row.servingsLabel])
+        accessibilityLabel = Self.accessibilityLabel(title: row.title, detail: detail, chef: nil)
         coverURL = row.coverImageURL
         shareURL = row.shareURL
         recipe = nil
+    }
+
+    private static func accessibilityLabel(title: String, detail: String?, chef: String?) -> String {
+        let byline = chef.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { $0.isEmpty ? nil : "by \($0)" }
+        return [title, detail, byline].compactMap { $0 }.joined(separator: ", ")
     }
 
     private static func detail(_ parts: [String?]) -> String? {

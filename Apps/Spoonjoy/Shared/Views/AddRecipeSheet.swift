@@ -1,11 +1,12 @@
 import Foundation
+import SpoonjoyCore
 import SwiftUI
 
 /// Where a new recipe comes from. Spoonjoy has no recipe form: this sheet teaches the ways in and takes a pasted
 /// link, which becomes a capture draft in Imports.
 struct AddRecipeSheet: View {
-    /// The App Shortcut phrase for `CaptureRecipeIntent` in `SpoonjoyAppShortcuts`, with the app name filled in.
-    static let siriPhrase = "Save a recipe to Spoonjoy"
+    /// The web's page for connecting Claude to Spoonjoy.
+    static let claudeConnectorURL = URL(string: "https://spoonjoy.app/mcp")!
 
     let onPasteLink: (URL) -> Void
 
@@ -24,25 +25,26 @@ struct AddRecipeSheet: View {
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.bottom, 8)
 
-                    AddRecipeWayRow(systemImage: "mic", title: "Tell Siri") {
-                        Text("Say \u{201C}\(Self.siriPhrase)\u{201D}, then give it the link or the recipe.")
+                    AddRecipeWayRow(systemImage: "mic", title: "Tell Siri", identifier: "addRecipe.siri") {
+                        Text("Say \u{201C}\(AddRecipeCopy.siriPhrase)\u{201D}, then give it the link or the recipe.")
                     }
-                    .accessibilityIdentifier("addRecipe.siri")
 
                     Divider().overlay(KitchenTableTheme.hairline)
 
-                    AddRecipeWayRow(systemImage: "sparkles", title: "Ask Claude") {
-                        // A literal, so SwiftUI renders the Markdown link to the web's connector page.
-                        Text("Connect Claude to Spoonjoy and say \u{201C}Put this in Spoonjoy\u{201D}. [How to connect](https://spoonjoy.app/mcp)")
+                    AddRecipeWayRow(
+                        systemImage: "sparkles",
+                        title: "Ask Claude",
+                        identifier: "addRecipe.claude",
+                        link: AddRecipeWayLink(title: "How to connect", destination: Self.claudeConnectorURL, identifier: "addRecipe.claude.connect")
+                    ) {
+                        Text("Connect Claude to Spoonjoy and say \u{201C}Put this in Spoonjoy\u{201D}.")
                     }
-                    .accessibilityIdentifier("addRecipe.claude")
 
                     Divider().overlay(KitchenTableTheme.hairline)
 
-                    AddRecipeWayRow(systemImage: "square.and.arrow.up", title: "Share from Safari") {
+                    AddRecipeWayRow(systemImage: "square.and.arrow.up", title: "Share from Safari", identifier: "addRecipe.share") {
                         Text("Tap Share, choose Copy, and paste the link below.")
                     }
-                    .accessibilityIdentifier("addRecipe.share")
 
                     pasteField
                         .padding(.top, 16)
@@ -114,36 +116,33 @@ struct AddRecipeSheet: View {
             Label("Import", systemImage: "tray.and.arrow.down")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-        .disabled(Self.recipeLink(from: link) == nil)
+        .disabled(AddRecipeCopy.recipeLink(from: link) == nil)
         .accessibilityIdentifier("addRecipe.import")
     }
 
     private func importLink() {
-        guard let url = Self.recipeLink(from: link) else {
+        guard let url = AddRecipeCopy.recipeLink(from: link) else {
             return
         }
         isLinkFocused = false
         dismiss()
         onPasteLink(url)
     }
-
-    /// A web link worth importing: http or https with a host. Anything else keeps Import disabled.
-    static func recipeLink(from text: String) -> URL? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: trimmed),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
-              let host = url.host(), !host.isEmpty else {
-            return nil
-        }
-        return url
-    }
 }
 
-/// One way into Spoonjoy: a tinted symbol tile, a title and a line of how-to.
+private struct AddRecipeWayLink {
+    let title: String
+    let destination: URL
+    let identifier: String
+}
+
+/// One way into Spoonjoy: a tinted symbol tile, a title and a line of how-to, with an optional link under it.
+/// The title and how-to read as one element; the link stays its own, so VoiceOver and Switch Control reach it.
 private struct AddRecipeWayRow<Detail: View>: View {
     let systemImage: String
     let title: String
+    let identifier: String
+    var link: AddRecipeWayLink? = nil
     @ViewBuilder let detail: () -> Detail
 
     @ScaledMetric(relativeTo: .title2) private var tileSize: CGFloat = 52
@@ -157,18 +156,30 @@ private struct AddRecipeWayRow<Detail: View>: View {
                 .background(KitchenTableTheme.vellum, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(KitchenTableTheme.control)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                detail()
-                    .font(KitchenTableTheme.meta)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title)
+                        .font(KitchenTableTheme.control)
+                        .foregroundStyle(KitchenTableTheme.ink)
+                    detail()
+                        .font(KitchenTableTheme.meta)
+                        .foregroundStyle(KitchenTableTheme.ink2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier(identifier)
+                if let link {
+                    Link(link.title, destination: link.destination)
+                        .font(KitchenTableTheme.meta.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.brass)
+                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .accessibilityIdentifier(link.identifier)
+                }
             }
             Spacer(minLength: 0)
         }
         .padding(.vertical, 14)
-        .accessibilityElement(children: .combine)
+        .accessibilityElement(children: .contain)
     }
 }
 

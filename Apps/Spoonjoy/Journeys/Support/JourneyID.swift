@@ -37,6 +37,7 @@ enum JourneyID {
     static let kitchenImports = "kitchen.imports"
     /// The Add a recipe sheet: the Siri phrase, the Paste a link field, its Import button and Close.
     static let addRecipeSiriPhrase = "addRecipe.siri"
+    static let addRecipeClaudeConnect = "addRecipe.claude.connect"
     static let addRecipeLink = "addRecipe.link"
     static let addRecipeImport = "addRecipe.import"
     static let addRecipeClose = "addRecipe.close"

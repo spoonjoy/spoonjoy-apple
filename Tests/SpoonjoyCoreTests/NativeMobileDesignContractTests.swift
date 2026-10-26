@@ -638,7 +638,7 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "struct RecipeIndexRow: View",
                 ".matchedTransitionSource(id: content.id, in: namespace)",
-                ".accessibilityLabel(content.title)",
+                ".accessibilityLabel(content.accessibilityLabel)",
                 ".contextMenu",
                 "ShareLink(item: content.shareURL)",
                 "Label(\"Add to list\"",

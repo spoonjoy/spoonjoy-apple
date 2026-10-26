@@ -15,4 +15,10 @@ public enum KitchenHeroStretch {
         }
         return 1 + max(0, pull) / heroHeight
     }
+
+    /// Under Reduce Motion the photo stays still, so a pull opens a gap above it; the hero fills that gap with its
+    /// own dark ground instead of the page's paper. Zero when the photo stretches to cover it.
+    public static func stillPhotoFill(pull: Double, reduceMotion: Bool) -> Double {
+        reduceMotion ? max(0, pull) : 0
+    }
 }

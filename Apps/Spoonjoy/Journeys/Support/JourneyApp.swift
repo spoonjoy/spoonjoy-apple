@@ -210,6 +210,14 @@ final class JourneyApp {
             file: file,
             line: line
         )
+        // The connector link is its own element, so VoiceOver and Switch Control can reach it.
+        let connect = app.links[JourneyID.addRecipeClaudeConnect]
+        XCTAssertTrue(
+            connect.waitForExistence(timeout: Self.interactionTimeout) && connect.isHittable,
+            "The Claude row's How to connect link is not a reachable link of its own. Screen: \(screen)",
+            file: file,
+            line: line
+        )
     }
 
     /// Types into an empty field and reads the value back.

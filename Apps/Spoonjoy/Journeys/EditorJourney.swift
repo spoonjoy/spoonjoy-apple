@@ -7,7 +7,8 @@ import XCTest
 @MainActor
 final class EditorJourney: JourneyTestCase {
     func testAddRecipeFromPastedLinkJourney() throws {
-        let account = try JourneyAccounts.account(3)
+        // Account 5 is used by no other journey, so its kitchen is empty however the tests are ordered or rerun.
+        let account = try JourneyAccounts.account(5)
         let token = try JourneyAccounts.runToken()
         // A recipe page on QA. Importing it would need AI consent, so the journey stops at the capture draft.
         let link = JourneyQA.baseURL.appendingPathComponent("recipes/journey-\(token)-pasted").absoluteString
@@ -19,7 +20,7 @@ final class EditorJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
-        // Account 3 has no recipes yet, so the kitchen leads with its hero, whose button opens Add a recipe.
+        // Account 5 has no recipes, so the kitchen leads with its hero, whose button opens Add a recipe.
         XCTAssertTrue(
             journey.element(JourneyID.kitchenEmptyHero).waitForExistence(timeout: JourneyApp.interactionTimeout),
             "A kitchen with no recipes does not show the empty-kitchen hero. Screen: \(journey.screen)"

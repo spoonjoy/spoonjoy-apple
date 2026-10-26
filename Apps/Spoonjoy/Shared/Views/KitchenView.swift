@@ -118,7 +118,7 @@ struct KitchenView: View {
     }
 
     private var isHeroUnderBar: Bool {
-        scrollOffset < heroHeight - KitchenLeadMetrics.sheetOverlap - 100
+        scrollOffset < heroHeight - KitchenLeadMetrics.sheetOverlap - KitchenLeadMetrics.lightBarPhotoMargin
     }
 
     private var kitchenSheet: some View {
@@ -425,6 +425,9 @@ private enum KitchenLeadMetrics {
     /// How far the paper sheet rides up over the foot of the photo.
     static let sheetOverlap: CGFloat = 30
     static let sheetRadius: CGFloat = 28
+    /// How much photo must still sit under the bar for its clock and buttons to stay light; past that the bar
+    /// turns dark before the paper reaches it.
+    static let lightBarPhotoMargin: CGFloat = 100
 }
 
 /// The dish on the counter: the photo edge to edge, its title in the serif, and the way back into the cook.
@@ -494,6 +497,13 @@ struct RecipeLead: View {
             .scaleEffect(scale, anchor: .top)
             // Pulled down, the page moves; the photo stays pinned to the top of the screen and grows instead.
             .offset(y: accessibilityReduceMotion ? 0 : -pull)
+            .background(alignment: .top) {
+                // Under Reduce Motion the photo moves down with the page; its dark ground fills the space above it.
+                let fill = CGFloat(KitchenHeroStretch.stillPhotoFill(pull: Double(pull), reduceMotion: accessibilityReduceMotion))
+                KitchenTableTheme.photoCharcoal
+                    .frame(height: fill + 1)
+                    .offset(y: -fill)
+            }
         }
         .accessibilityHidden(true)
     }

@@ -28,6 +28,8 @@ struct PlatformNavigationView: View {
     @State private var isRetryingCoverUpload = false
     /// Add a recipe replaces the old New Recipe form: every create entry, ⌘N and `/recipes/new` open this sheet.
     @State private var isAddRecipePresented = false
+    /// What happened after a recipe row's Add to list, shown briefly over the page.
+    @State private var listAddNotice: RecipeListAddNotice?
 #if os(iOS)
     @State private var shellWindowSize: CGSize = .zero
     @State private var shellHingeDivision: SpreadDivision?
@@ -180,8 +182,33 @@ struct PlatformNavigationView: View {
             guard route == .recipeEditor(id: nil) else {
                 return
             }
-            navigation.navigate(to: previous == route ? .kitchen : previous, restoring: true)
-            isAddRecipePresented = true
+            // At launch (no previous page) the route was not a tap, so it lands on the Kitchen without a sheet.
+            let isLaunch = previous == route
+            navigation.navigate(to: isLaunch ? .kitchen : previous, restoring: true)
+            if !isLaunch {
+                isAddRecipePresented = true
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let listAddNotice {
+                RecipeListAddNoticeView(notice: listAddNotice)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, usesCompactMobileShell ? 96 : 24)
+                    .transition(.opacity)
+                    .task(id: listAddNotice) {
+                        try? await Task.sleep(for: .seconds(4))
+                        if self.listAddNotice == listAddNotice {
+                            self.listAddNotice = nil
+                        }
+                    }
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: listAddNotice)
+        .sensoryFeedback(trigger: listAddNotice) { _, notice in
+            guard let notice else {
+                return nil
+            }
+            return notice.isFailure ? .error : .success
         }
         // ⌘N on the Mac opens Add a recipe in the focused window only.
         .focusedSceneValue(\.spoonjoyAddRecipe, createRecipe)
@@ -2134,10 +2161,16 @@ struct PlatformNavigationView: View {
             clientMutationID: "shopping-recipe-\(UUID().uuidString.lowercased())"
         )
         Task {
-            guard let plan = try? shoppingViewModel.plan(action) else {
-                return
+            let notice: RecipeListAddNotice
+            do {
+                let plan = try shoppingViewModel.plan(action)
+                let outcome = try await performShoppingAction(plan)
+                notice = .added(recipeTitle: recipe.title, outcome: outcome)
+            } catch {
+                notice = .failed(recipeTitle: recipe.title)
             }
-            _ = try? await performShoppingAction(plan)
+            listAddNotice = notice
+            AccessibilityNotification.Announcement(notice.message).post()
         }
     }
 
@@ -2528,5 +2561,26 @@ private struct ShellPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
+    }
+}
+
+/// A short capsule over the page saying whether a recipe reached the shopping list.
+private struct RecipeListAddNoticeView: View {
+    let notice: RecipeListAddNotice
+
+    var body: some View {
+        Label(notice.message, systemImage: notice.isFailure ? "exclamationmark.triangle" : "checkmark.circle")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(notice.isFailure ? KitchenTableTheme.tomato : KitchenTableTheme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .background(KitchenTableTheme.raised, in: Capsule())
+            .overlay {
+                Capsule().strokeBorder(KitchenTableTheme.hairline, lineWidth: 1)
+            }
+            .shadow(color: KitchenTableTheme.photoCharcoal.opacity(0.12), radius: 12, y: 4)
+            .accessibilityIdentifier("shell.listAddNotice")
     }
 }

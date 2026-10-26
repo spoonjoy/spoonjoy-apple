@@ -94,7 +94,7 @@ REQUIRED_TOKENS = {
     "Ask Claude",
     "addRecipe.link",
     "addRecipe.import",
-    "static func recipeLink(from",
+    "AddRecipeCopy.recipeLink",
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/RecipesView.swift" => [
