@@ -72,7 +72,9 @@ struct CookTimerLiveActivityWiringTests {
         let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
         let unregister = try #require(center.range(of: "func unregister() {"))
         let body = center[unregister.upperBound...].prefix(80)
-        #expect(!body.contains("cancel") && !body.contains("End") && !body.contains("host"))
+        // Only the session activity ends; the step alarms keep running.
+        #expect(!body.contains("cancel") && !body.contains("stepTimers") && !body.contains("host"))
+        #expect(body.contains("activityObserver?.cookSessionEnded()"))
 
         let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
         #expect(!host.contains("cookModeEnded"))
@@ -97,7 +99,10 @@ struct CookTimerLiveActivityWiringTests {
         #expect(!view.contains("struct SpoonjoyCookTimerMetadata"))
         #expect(shared.contains("struct SpoonjoyCookTimerMetadata: AlarmMetadata"))
         #expect(widget.contains("ActivityConfiguration(for: AlarmAttributes<SpoonjoyCookTimerMetadata>.self)"))
-        #expect(!(host + widget + shared).contains("Activity.request"))
+        #expect(!(widget + shared).contains("Activity.request"))
+        // The app requests only the cook session activity; each timer's countdown stays AlarmKit's.
+        #expect(host.components(separatedBy: "Activity.request").count == 2)
+        #expect(host.contains("private var activity: Activity<SpoonjoyCookSessionAttributes>?"))
     }
 
     @Test("every timer start goes through the per-step registry, so a step never gets a second alarm")
@@ -130,7 +135,7 @@ struct CookTimerLiveActivityWiringTests {
         #expect(widget[controls.upperBound...].prefix(160).contains("case .countdown, .paused:\n            return true"))
         #expect(widget.contains(".accessibilityIdentifier(\"cookTimer.liveActivity.cancel\")"))
         #expect(host.contains("for await alarms in AlarmManager.shared.alarmUpdates"))
-        #expect(host.contains("CookModeSessionCenter.shared.stepTimers.forget(alarmID: alarmID)"))
+        #expect(host.contains("center.stepTimers.forget(alarmID: alarmID)"))
     }
 
     @Test("the next step button opens the app so it works when cook mode is not on screen")
