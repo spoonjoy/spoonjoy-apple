@@ -47,17 +47,6 @@ final class JourneyApp {
         return journey
     }
 
-    /// Launches the build as App Review gets it: production server, no journey launch flags, freshly installed.
-    /// Waits for the signed-out screen.
-    static func launchAsShipped(file: StaticString = #filePath, line: UInt = #line) -> JourneyApp {
-        let app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        app.launch()
-        let journey = JourneyApp(app: app)
-        journey.waitFor(JourneyID.passwordSignIn, timeout: launchTimeout, "The signed-out screen did not appear after a fresh launch.", file: file, line: line)
-        return journey
-    }
-
     /// Terminates the app and launches it again without clearing its state.
     func relaunch() {
         app.terminate()

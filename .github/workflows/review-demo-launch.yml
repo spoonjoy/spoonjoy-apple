@@ -1,7 +1,7 @@
 name: Review demo launch
 
 # Signs the App Store (Release) configuration in as the App Review demo account on production, on each device family's
-# newest iOS runtime, relaunches it and opens every seeded recipe and cookbook (ReviewDemoLaunchJourney). Read-only:
+# newest iOS runtime, relaunches it and opens every seeded recipe and cookbook (ReviewDemoLaunchUITests). Read-only:
 # it changes nothing in the demo kitchen. Runs from main only, because the demo credentials live in the
 # internal-testflight environment.
 on:
@@ -51,7 +51,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/demo"
           xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release \
-            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyJourneys/ReviewDemoLaunchJourney \
+            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/ReviewDemoLaunchUITests \
             -derivedDataPath "$RUNNER_TEMP/demo/DerivedData" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/demo/build.log" | tail -30
       - name: Wait for the simulator to settle
         timeout-minutes: 8
@@ -79,7 +79,7 @@ jobs:
               raise SystemExit("The demo account secrets are empty.")
           json.dump(kitchen, open(sys.argv[1], "w"))
           PY
-      - name: Run the review demo journey
+      - name: Run the review demo test
         timeout-minutes: 30
         env:
           UDID: ${{ steps.sim.outputs.udid }}
@@ -88,11 +88,11 @@ jobs:
           # The test runner gets only the path of the 0600 file, so the result bundle records no credential.
           export TEST_RUNNER_SPOONJOY_REVIEW_DEMO_LAUNCH_FILE="$RUNNER_TEMP/demo-secrets/kitchen.json"
           xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release \
-            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyJourneys/ReviewDemoLaunchJourney \
+            -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/ReviewDemoLaunchUITests \
             -derivedDataPath "$RUNNER_TEMP/demo/DerivedData" -parallel-testing-enabled NO -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/demo/ReviewDemoLaunch.xcresult" 2>&1 | tee "$RUNNER_TEMP/demo/test.log"
-          if grep -E "Test Case .*ReviewDemoLaunchJourney.* skipped" "$RUNNER_TEMP/demo/test.log"; then
-            echo "::error::The review demo journey was skipped"
+          if grep -E "Test Case .*ReviewDemoLaunchUITests.* skipped" "$RUNNER_TEMP/demo/test.log"; then
+            echo "::error::The review demo test was skipped"
             exit 1
           fi
       - name: Print crash reports
