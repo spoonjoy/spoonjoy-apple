@@ -91,6 +91,12 @@ struct CookSessionIslandLayoutTests {
         #expect(CookSessionIslandLayout.accessibilityLabel(for: Self.snapshot(step: 0, of: 0)) == "Cook mode")
     }
 
+    @Test func clockTextIsTheTimeAloneForTightSpaces() {
+        #expect(CookSessionIslandLayout.clockText(remaining: 2_520) == "42:00")
+        #expect(CookSessionIslandLayout.clockText(remaining: 3_725) == "1:02:05")
+        #expect(CookSessionIslandLayout.clockText(remaining: -1) == "0:00")
+    }
+
     @Test func pausedTimerTextShowsMinutesAndSeconds() {
         #expect(CookSessionIslandLayout.pausedText(remaining: 192) == "Paused 3:12")
         #expect(CookSessionIslandLayout.pausedText(remaining: 3_725) == "Paused 1:02:05")

@@ -83,15 +83,20 @@ public enum CookSessionIslandLayout {
         return "\(step). \(timer.label) timer \(timer.isPaused ? "paused" : "running")"
     }
 
-    /// "Paused 3:12", or "Paused 1:02:05" past an hour.
-    public static func pausedText(remaining: TimeInterval) -> String {
+    /// "3:12", or "1:02:05" past an hour.
+    public static func clockText(remaining: TimeInterval) -> String {
         let total = max(0, Int(remaining.rounded()))
         let hours = total / 3_600
         let minutes = (total % 3_600) / 60
         let seconds = total % 60
         guard hours > 0 else {
-            return String(format: "Paused %d:%02d", minutes, seconds)
+            return String(format: "%d:%02d", minutes, seconds)
         }
-        return String(format: "Paused %d:%02d:%02d", hours, minutes, seconds)
+        return String(format: "%d:%02d:%02d", hours, minutes, seconds)
+    }
+
+    /// "Paused 3:12", or "Paused 1:02:05" past an hour.
+    public static func pausedText(remaining: TimeInterval) -> String {
+        "Paused \(clockText(remaining: remaining))"
     }
 }

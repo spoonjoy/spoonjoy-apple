@@ -21,14 +21,12 @@ struct SpoonjoyCookSessionLiveActivity: Widget {
             let deepLink = URL(string: context.attributes.deepLink)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    CookSessionRing(snapshot: snapshot, diameter: 44)
+                    CookSessionRing(snapshot: snapshot, diameter: 36)
                         .padding(.leading, 4)
                         .islandPalette()
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text("\(snapshot.stepNumber) of \(snapshot.stepCount)")
-                        .font(KitchenTableTheme.uiLabel.monospacedDigit())
-                        .foregroundStyle(KitchenTableTheme.brass)
+                    CookSessionExpandedTrailing(snapshot: snapshot)
                         .padding(.trailing, 4)
                         .islandPalette()
                 }
@@ -38,10 +36,10 @@ struct SpoonjoyCookSessionLiveActivity: Widget {
                             .font(KitchenTableTheme.objectTitle)
                             .foregroundStyle(KitchenTableTheme.onPhoto)
                             .lineLimit(1)
-                        Text(snapshot.recipeTitle)
+                        Text(snapshot.stepText)
                             .font(KitchenTableTheme.meta)
-                            .foregroundStyle(KitchenTableTheme.onPhotoMuted)
-                            .lineLimit(1)
+                            .foregroundStyle(KitchenTableTheme.onPhoto)
+                            .lineLimit(2)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .islandPalette()
@@ -206,24 +204,38 @@ private struct CookSessionTimerChip: View {
                 .font(KitchenTableTheme.runningHead)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .lineLimit(1)
-            readout
+            CookSessionTimerReadout(timer: timer)
                 .font(KitchenTableTheme.uiLabel.monospacedDigit())
                 .foregroundStyle(timer.isPaused ? KitchenTableTheme.ink2 : KitchenTableTheme.brass)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 4)
+        .padding(.vertical, 3)
         .background(KitchenTableTheme.vellum, in: Capsule())
         .accessibilityElement(children: .combine)
     }
+}
 
-    @ViewBuilder
-    private var readout: some View {
+/// A countdown the system advances, or the frozen time with a pause mark.
+private struct CookSessionTimerReadout: View {
+    let timer: CookTimerEntry
+    /// The expanded island's timer column is only as wide as a countdown, so there the muted color alone marks a pause.
+    var showsPauseMark = true
+
+    var body: some View {
         if let remaining = timer.pausedRemaining {
-            Text(CookSessionIslandLayout.pausedText(remaining: remaining))
+            HStack(spacing: 2) {
+                if showsPauseMark {
+                    Image(systemName: "pause.fill").imageScale(.small)
+                }
+                Text(CookSessionIslandLayout.clockText(remaining: remaining))
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(CookSessionIslandLayout.pausedText(remaining: remaining))
         } else {
             Text(timerInterval: Date.now...max(Date.now, timer.endsAt), countsDown: true)
+                .multilineTextAlignment(.trailing)
         }
     }
 }
@@ -247,13 +259,16 @@ private struct CookSessionTimerRow: View {
 private struct CookSessionButtons: View {
     let snapshot: CookSessionSnapshot
     let recipeID: String
+    /// The expanded island is short, so its buttons are a little lower than the Lock Screen's.
+    var height: CGFloat = KitchenTableTheme.minimumTouchTarget
 
     var body: some View {
         HStack(spacing: 8) {
             Button(intent: CheckCurrentStepIntent(recipeID: recipeID)) {
                 Label("Check", systemImage: "checkmark")
                     .font(KitchenTableTheme.uiLabel)
-                    .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity, minHeight: height)
             }
             .buttonStyle(.plain)
             .foregroundStyle(KitchenTableTheme.ink)
@@ -265,7 +280,8 @@ private struct CookSessionButtons: View {
                 Button(intent: NextCookSessionStepIntent(recipeID: recipeID)) {
                     Label("Next", systemImage: "forward.fill")
                         .font(KitchenTableTheme.uiLabel)
-                        .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
+                        .padding(.horizontal, 14)
+                        .frame(maxWidth: .infinity, minHeight: height)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(KitchenTableTheme.onInk)
@@ -277,25 +293,47 @@ private struct CookSessionButtons: View {
     }
 }
 
+/// Beside the step: up to three timers, or the step count when no timer runs. The expanded island is capped in
+/// height and this column is narrow, so it shows the times only; the names are in the accessibility label and on the
+/// Lock Screen.
+private struct CookSessionExpandedTrailing: View {
+    let snapshot: CookSessionSnapshot
+
+    var body: some View {
+        if snapshot.timers.isEmpty {
+            Text("\(snapshot.stepNumber) of \(snapshot.stepCount)")
+                .font(KitchenTableTheme.uiLabel.monospacedDigit())
+                .foregroundStyle(KitchenTableTheme.brass)
+        } else {
+            VStack(alignment: .trailing, spacing: 2) {
+                ForEach(snapshot.timers) { timer in
+                    CookSessionTimerReadout(timer: timer, showsPauseMark: false)
+                        .foregroundStyle(timer.isPaused ? KitchenTableTheme.onPhotoMuted : KitchenTableTheme.brass)
+                        .font(KitchenTableTheme.runningHead.monospacedDigit())
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(timer.label) timer")
+                }
+            }
+            .frame(maxWidth: 72, alignment: .trailing)
+        }
+    }
+}
+
 private struct CookSessionExpandedBody: View {
     let snapshot: CookSessionSnapshot
     let recipeID: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(snapshot.stepText)
-                .font(KitchenTableTheme.meta)
-                .foregroundStyle(KitchenTableTheme.onPhoto)
+        HStack(spacing: 8) {
+            Text(snapshot.nextStepTitle.map { "Next: \($0)" } ?? "Last step")
+                .font(KitchenTableTheme.runningHead)
+                .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if let next = snapshot.nextStepTitle {
-                Text("Next: \(next)")
-                    .font(KitchenTableTheme.runningHead)
-                    .foregroundStyle(KitchenTableTheme.onPhotoMuted)
-                    .lineLimit(1)
-            }
-            CookSessionTimerRow(timers: snapshot.timers)
-            CookSessionButtons(snapshot: snapshot, recipeID: recipeID)
+            CookSessionButtons(snapshot: snapshot, recipeID: recipeID, height: 36)
+                .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.horizontal, 4)
     }
