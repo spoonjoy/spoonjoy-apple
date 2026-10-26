@@ -360,7 +360,7 @@ struct NativeMobileDesignContractTests {
                 "desktopClassShell",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.page.ignoresSafeArea())",
-                ".navigationBarTitleDisplayMode(.large)",
+                ".navigationBarTitleDisplayMode(navigation.route == .kitchen ? .inline : .large)",
                 ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
