@@ -164,8 +164,9 @@ final class CookSyncJourney: JourneyTestCase {
         let dockNext = journey.element(JourneyID.cookDockNext)
         XCTAssertTrue(dockNext.waitForExistence(timeout: JourneyApp.interactionTimeout), "The dock has no Next. Screen: \(journey.screen)")
         XCTAssertTrue(journey.element(JourneyID.cookDockDone).exists, "The dock has no Mark step. Screen: \(journey.screen)")
-        dockNext.tap()
         let dockPrevious = journey.element(JourneyID.cookDockPrevious)
+        XCTAssertFalse(dockPrevious.exists, "Step 1 shows a Back with nowhere to go. Screen: \(journey.screen)")
+        dockNext.tap()
         XCTAssertTrue(
             dockPrevious.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "Back did not join the dock after Next. Screen: \(journey.screen)"

@@ -8,9 +8,22 @@ struct SpoonDock: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Namespace private var glassNamespace
-    @ScaledMetric(relativeTo: .body) private var toolGlyphSize: CGFloat = 17
-    @ScaledMetric(relativeTo: .body) private var primaryIconGlyphSize: CGFloat = 18
-    @ScaledMetric(relativeTo: .body) private var labelGlyphSize: CGFloat = 15
+    @ScaledMetric(relativeTo: .body) private var scaledToolGlyph: CGFloat = 17
+    @ScaledMetric(relativeTo: .body) private var scaledPrimaryIconGlyph: CGFloat = 18
+    @ScaledMetric(relativeTo: .body) private var scaledLabelGlyph: CGFloat = 15
+    @ScaledMetric(relativeTo: .body) private var scaledToolTarget: CGFloat = SpoonDockMetrics.toolTargetSize
+    @ScaledMetric(relativeTo: .body) private var scaledPrimaryIconWidth: CGFloat = SpoonDockMetrics.primaryIconWidth
+
+    // Glyphs and their glass grow with Dynamic Type up to a cap, so at the largest sizes the dock still fits a
+    // closed iPhone Duo; the glyph always stays inside its circle.
+    private var toolTarget: CGFloat { min(scaledToolTarget, SpoonDockMetrics.maximumToolTargetSize) }
+    private var toolGlyphFrame: CGFloat { toolTarget - 2 }
+    private var toolGlyphSize: CGFloat { min(scaledToolGlyph, toolTarget * SpoonDockMetrics.glyphToTargetRatio) }
+    private var primaryIconGlyphSize: CGFloat { min(scaledPrimaryIconGlyph, toolTarget * SpoonDockMetrics.glyphToTargetRatio) }
+    private var labelGlyphSize: CGFloat { min(scaledLabelGlyph, SpoonDockMetrics.maximumLabelGlyphSize) }
+    private var primaryIconWidth: CGFloat {
+        min(scaledPrimaryIconWidth, SpoonDockMetrics.primaryIconWidth * SpoonDockMetrics.maximumToolTargetSize / SpoonDockMetrics.toolTargetSize)
+    }
 
     let context: SpoonDockContext
 
@@ -50,7 +63,7 @@ struct SpoonDock: View {
     private var leftZone: some View {
         if showsLeftZone {
             dockButton(context.leftZone, prominence: .tool)
-                .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
+                .frame(width: toolTarget, height: toolTarget)
                 .kitchenTransition(.scale(scale: 0.6).combined(with: .opacity))
         }
     }
@@ -60,7 +73,7 @@ struct SpoonDock: View {
             leftZone
 
             dockButton(context.centerZone, prominence: .primaryIcon)
-                .frame(width: SpoonDockMetrics.primaryIconWidth, height: SpoonDockMetrics.toolTargetSize)
+                .frame(width: primaryIconWidth, height: toolTarget)
 
             toolRail
         }
@@ -121,7 +134,7 @@ struct SpoonDock: View {
         HStack(spacing: SpoonDockMetrics.toolSpacing) {
             ForEach(context.rightTools) { action in
                 dockButton(action, prominence: .tool)
-                    .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
+                    .frame(width: toolTarget, height: toolTarget)
             }
         }
     }
@@ -137,7 +150,7 @@ struct SpoonDock: View {
         case .primaryIcon:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
-                .frame(width: SpoonDockMetrics.primaryIconWidth, height: SpoonDockMetrics.toolTargetSize)
+                .frame(width: primaryIconWidth, height: toolTarget)
                 .glassEffect(.regular.tint(primaryTint(for: action)).interactive(), in: Capsule())
                 .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
         case .supporting:
@@ -150,7 +163,7 @@ struct SpoonDock: View {
         case .tool:
             dockTrigger(action, prominence: prominence)
                 .buttonStyle(.plain)
-                .frame(width: SpoonDockMetrics.toolTargetSize, height: SpoonDockMetrics.toolTargetSize)
+                .frame(width: toolTarget, height: toolTarget)
                 .glassEffect(action.isEnabled ? .regular.interactive() : .regular, in: Circle())
                 .dockGlassID(action.id, in: glassNamespace, morphs: !reduceMotion)
         }
@@ -191,7 +204,7 @@ struct SpoonDock: View {
             Image(systemName: action.systemImage)
                 .font(.system(size: prominence == .primaryIcon ? primaryIconGlyphSize : toolGlyphSize, weight: .semibold))
                 .foregroundStyle(prominence == .primaryIcon ? KitchenTableTheme.onInk : toolForeground(for: action))
-                .frame(width: SpoonDockMetrics.toolGlyphFrame, height: SpoonDockMetrics.toolGlyphFrame)
+                .frame(width: toolGlyphFrame, height: toolGlyphFrame)
                 .contentShape(Rectangle())
         } else {
             HStack(spacing: prominence == .primary ? 7 : 6) {
@@ -258,7 +271,11 @@ private enum SpoonDockMetrics {
     static let primaryIconWidth: CGFloat = 68
     static let minimumTargetSize: CGFloat = 44
     static let toolTargetSize: CGFloat = 42
-    static let toolGlyphFrame: CGFloat = 40
+    /// The largest a tool circle grows with Dynamic Type; three of them plus the primary still fit a closed Duo.
+    static let maximumToolTargetSize: CGFloat = 64
+    /// A symbol never takes more than this share of its circle, so it can't clip at accessibility sizes.
+    static let glyphToTargetRatio: CGFloat = 0.5
+    static let maximumLabelGlyphSize: CGFloat = 28
 }
 
 struct SpoonDockContext {

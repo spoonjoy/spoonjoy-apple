@@ -110,14 +110,14 @@ Release 1.1 turns the Kitchen Table into a full system with a night appearance. 
 
 Every text role passes WCAG AA (4.5:1) on `page` and `raised` in both appearances, as do labels on the action, brass and tomato fills; `KitchenContrastTests` measures each pair from the theme source.
 
-**Glass.** Liquid Glass is for controls that float over content: the tab bar, toolbars, the cook dock and the timer chip. Prefer system components, which bring their own glass. Content (recipe text, lists, photos) never sits on glass. There is one filled button per screen, in ink or `.glassProminent` tinted ink; everything else is glass or text. Group neighbouring glass controls in one `GlassEffectContainer` so they merge and split together.
+**Glass.** Liquid Glass is for controls that float over content: the tab bar, toolbars, the cook dock and the timer chip. Prefer system components, which bring their own glass. Content (recipe text, lists, photos) never sits on glass. There is one filled button per screen, a solid ink capsule on interactive glass; everything else is glass or text. Group neighbouring glass controls in one `GlassEffectContainer` so they merge and split together.
 
 The glass rules:
 
 - Glass is only for chrome floating over content. Never stack glass on glass: a control inside a glass toolbar or dock uses the container's glass, not its own second layer.
 - Controls over a photo (the cover's back, share and favourite buttons) use clear `.glass` so the photo shows through.
 - A group that morphs (the cook dock, where Back splits off once there is a step to go back to) shares one `GlassEffectContainer` and one namespace of `glassEffectID`s, and animates on `KitchenSpring.glide`. Under Reduce Motion the pieces leave the morph and fade instead.
-- `KitchenTableActionButtonStyle` is the button vocabulary: `.primary` is the solid ink fill on interactive glass (a tinted glass fill reads grey over bone), `.destructive` is the same in tomato for a confirmed delete, `.secondary` is clear interactive glass, and `.quiet` is text only. No bordered outlines.
+- `KitchenTableActionButtonStyle` is the button vocabulary, all capsules: `.primary` is the solid ink fill on interactive glass (a tinted glass fill reads grey over bone), `.destructive` is the same in tomato for a confirmed delete, `.secondary` is clear interactive glass, and `.quiet` is text only. No bordered outlines.
 - A control that can't act right now is left out of a glass group rather than shown dimmed, unless its absence would hide where the reader is.
 
 **Grid.** Spacing is a multiple of 4 pt (`KitchenTableTheme.Spacing`). Screen margins are 24 pt on iPhone, 32 pt on iPad and Mac, and 40 pt on the side of a page that meets the iPhone Duo fold. Touch targets stay at least 44 pt.

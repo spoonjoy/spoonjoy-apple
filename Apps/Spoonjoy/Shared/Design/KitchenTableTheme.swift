@@ -546,7 +546,7 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     let prominence: Prominence
 
     func makeBody(configuration: Configuration) -> some View {
-        let shape = RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous)
+        let shape = Capsule()
         let label = configuration.label
             .font(.headline)
             .lineLimit(1)
