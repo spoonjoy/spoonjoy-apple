@@ -89,7 +89,11 @@ run_xcodebuild \
 # The app registers for remote notifications, which needs production push under an App Store profile.
 archived_app="$ARCHIVE_PATH/Products/Applications/Spoonjoy.app"
 [[ -d "$archived_app" ]] || fail "archive has no Spoonjoy.app"
-aps="$(codesign -d --entitlements - --xml "$archived_app" 2>/dev/null | /usr/libexec/PlistBuddy -c 'Print :aps-environment' /dev/stdin 2>/dev/null || true)"
+# PlistBuddy reads a piped /dev/stdin as empty, so give it the entitlements as a file.
+entitlements_plist="$(mktemp -t spoonjoy-entitlements)"
+codesign -d --entitlements - --xml "$archived_app" >"$entitlements_plist" 2>/dev/null || true
+aps="$(/usr/libexec/PlistBuddy -c 'Print :aps-environment' "$entitlements_plist" 2>/dev/null || true)"
+rm -f "$entitlements_plist"
 [[ "$aps" == "production" ]] || fail "the archived app has aps-environment '$aps', expected production"
 
 run_xcodebuild \
