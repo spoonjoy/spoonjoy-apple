@@ -80,8 +80,12 @@ jobs:
           for attempt in 1 2 3; do
             xcrun simctl launch "$UDID" "$bundle_id"
             sleep 20
-            xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/smoke-shots/launch-$attempt.png" || true
-            if xcrun simctl spawn "$UDID" launchctl list | grep -q "UIKitApplication:$bundle_id"; then
+            # The iPhone Duo has two displays, and simctl refuses to guess which one to capture.
+            xcrun simctl io "$UDID" screenshot "$RUNNER_TEMP/smoke-shots/launch-$attempt.png" 2>/dev/null \
+              || xcrun simctl io "$UDID" screenshot --display=1 "$RUNNER_TEMP/smoke-shots/launch-$attempt.png" || true
+            # Capture first: grep -q closes the pipe early, and pipefail turns launchctl's SIGPIPE into a false miss.
+            services="$(xcrun simctl spawn "$UDID" launchctl list)"
+            if grep -q "UIKitApplication:$bundle_id" <<<"$services"; then
               echo "Launch $attempt: running"
             else
               echo "::error::Launch $attempt: Spoonjoy is not running 20 seconds after launch"
