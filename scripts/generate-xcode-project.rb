@@ -92,6 +92,9 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
       build_configuration.build_settings.delete("CODE_SIGN_ENTITLEMENTS")
     else
       build_configuration.build_settings["CODE_SIGN_ENTITLEMENTS"] = ENTITLEMENTS
+      # The entitlements read this so Release matches App Store profiles (production push) and Debug matches
+      # development profiles.
+      build_configuration.build_settings["SPOONJOY_APS_ENVIRONMENT"] = configuration == "Release" ? "production" : "development"
     end
     build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "32"
