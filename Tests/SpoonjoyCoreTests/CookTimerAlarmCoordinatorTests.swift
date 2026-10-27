@@ -174,6 +174,7 @@ struct CookTimerLiveActivityWiringTests {
         let body = widget[readout.upperBound...].prefix(600)
         #expect(body.contains(".accessibilityLabel(CookSessionIslandLayout.timerAccessibilityLabel(for: timer))"))
         #expect(body.contains(".accessibilityValue(accessibilityValue(readout))"))
+        #expect(body.contains(".accessibilityIdentifier(\"cookSession.liveActivity.timer\")"))
         // An explicit label on a parent would replace the time again.
         #expect(!widget.contains(".accessibilityLabel(\"\\(timer.label) timer\")"))
     }

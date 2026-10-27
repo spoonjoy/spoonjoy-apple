@@ -56,7 +56,7 @@ public enum CookSessionIslandLayout {
         "\(timer.label) timer"
     }
 
-    /// When the soonest running timer ends. Marking the activity stale then redraws it, so the ended timer reads Done
+    /// When the soonest running timer ends. The activity is marked stale then, so a redraw shows the ended timer as Done
     /// instead of 0:00.
     public static func staleDate(for snapshot: CookSessionSnapshot) -> Date? {
         snapshot.timers.filter { !$0.isPaused }.map(\.endsAt).min()

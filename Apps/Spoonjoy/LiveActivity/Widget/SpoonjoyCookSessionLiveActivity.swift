@@ -226,6 +226,7 @@ private struct CookSessionTimerReadout: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(CookSessionIslandLayout.timerAccessibilityLabel(for: timer))
             .accessibilityValue(accessibilityValue(readout))
+            .accessibilityIdentifier("cookSession.liveActivity.timer")
     }
 
     @ViewBuilder
