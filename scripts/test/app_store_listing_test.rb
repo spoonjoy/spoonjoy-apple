@@ -359,4 +359,14 @@ class AppStoreListingTest < Minitest::Test
     source = File.read(File.join(ROOT, "scripts/lib/app_store_listing.rb")) + File.read(File.join(ROOT, "scripts/stage-app-store-listing.rb"))
     refute_match(/reviewSubmission/, source)
   end
+  def test_api_errors_include_associated_errors
+    body = JSON.generate("errors" => [{ "title" => "not in valid state", "detail" => "check associated errors",
+                                        "meta" => { "associatedErrors" => { "/v1/appStoreVersions/x" => [
+                                          { "code" => "ENTITY_ERROR.ATTRIBUTE.REQUIRED", "title" => "missing", "detail" => "whatsNew is required" }
+                                        ] } } }])
+    detail = AppStoreListing::Client.error_detail(body)
+    assert_includes detail, "not in valid state: check associated errors"
+    assert_includes detail, "/v1/appStoreVersions/x: ENTITY_ERROR.ATTRIBUTE.REQUIRED missing whatsNew is required"
+    assert_equal "plain", AppStoreListing::Client.error_detail("plain")
+  end
 end
