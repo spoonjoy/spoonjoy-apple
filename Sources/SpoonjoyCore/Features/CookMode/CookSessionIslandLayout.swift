@@ -12,8 +12,6 @@ public enum CookSessionIslandLayout {
     public enum Trailing: Equatable, Sendable {
         /// Limited-width islands (iPhone Duo) leave trailing empty, as the HIG asks.
         case none
-        /// The timer ring with no digits, because AlarmKit's own activity already shows the countdown.
-        case ring
         case checkCount(checked: Int, total: Int)
         case steps(current: Int, total: Int)
     }
@@ -35,14 +33,47 @@ public enum CookSessionIslandLayout {
         case fixed(Double)
     }
 
+    /// What a timer's time slot shows.
+    public enum Readout: Equatable, Sendable {
+        /// A live countdown the system advances to `end`.
+        case countdown(end: Date)
+        case paused(remaining: TimeInterval)
+        /// The countdown reached zero before the next update.
+        case done
+    }
+
+    public static let doneText = "Done"
+
+    public static func readout(for timer: CookTimerEntry, now: Date) -> Readout {
+        if timer.isPaused {
+            return .paused(remaining: timer.pausedRemaining ?? 0)
+        }
+        return timer.endsAt > now ? .countdown(end: timer.endsAt) : .done
+    }
+
+    /// The timer's name. Its time goes in the accessibility value, so VoiceOver reads both.
+    public static func timerAccessibilityLabel(for timer: CookTimerEntry) -> String {
+        "\(timer.label) timer"
+    }
+
+    /// When the soonest running timer ends. Marking the activity stale then redraws it, so the ended timer reads Done
+    /// instead of 0:00.
+    public static func staleDate(for snapshot: CookSessionSnapshot) -> Date? {
+        snapshot.timers.filter { !$0.isPaused }.map(\.endsAt).min()
+    }
+
+    /// The session activities to end at launch: those left by an earlier process, never the one this process started.
+    public static func staleActivityIDs(launchIDs: [String], current: String?) -> [String] {
+        launchIDs.filter { $0 != current }
+    }
+
     public static func compact(for snapshot: CookSessionSnapshot, limitedWidth: Bool) -> Compact {
         guard !limitedWidth else {
             return Compact(leading: .ring, trailing: .none)
         }
+        // A running timer does not take this slot: AlarmKit's own activity already shows its countdown.
         let trailing: Trailing
-        if !snapshot.timers.isEmpty {
-            trailing = .ring
-        } else if snapshot.ingredientCount > 0 {
+        if snapshot.ingredientCount > 0 {
             trailing = .checkCount(checked: snapshot.checkedCount, total: snapshot.ingredientCount)
         } else {
             trailing = .steps(current: snapshot.stepNumber, total: snapshot.stepCount)

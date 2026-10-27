@@ -145,6 +145,39 @@ struct CookTimerLiveActivityWiringTests {
         #expect(shared[intent.upperBound...].prefix(200).contains("openAppWhenRun = true"))
     }
 
+    @Test("a launch ends only the session activities an earlier process left, never the one cook mode just started")
+    func launchCleanupSparesTheNewActivity() throws {
+        let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
+        let initializer = try #require(host.range(of: "final class CookSessionLiveActivityController"))
+        let body = host[initializer.upperBound...].prefix(1_400)
+        // The ids are read before cook mode can request, so the later cleanup cannot reach a new activity.
+        let read = try #require(body.range(of: "let launchIDs = Activity<SpoonjoyCookSessionAttributes>.activities.map(\\.id)"))
+        let task = try #require(body.range(of: "Task {"))
+        #expect(read.upperBound <= task.lowerBound)
+        #expect(body.contains("CookSessionIslandLayout.staleActivityIDs(launchIDs: launchIDs, current: self?.activity?.id)"))
+        #expect(!host.contains("endAll"))
+    }
+
+    @Test("the session activity goes stale when its soonest timer ends, so the ended timer is redrawn")
+    func sessionActivityGoesStaleAtTheTimersEnd() throws {
+        let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
+        let session = try #require(host.range(of: "final class CookSessionLiveActivityController"))
+        let body = host[session.upperBound...]
+        #expect(body.components(separatedBy: "staleDate: CookSessionIslandLayout.staleDate(for: snapshot)").count == 3)
+        #expect(!body.prefix(6_000).contains("staleDate: nil"))
+    }
+
+    @Test("VoiceOver hears each session timer's name and its countdown, paused time or Done")
+    func sessionTimersReadTheirTime() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
+        let readout = try #require(widget.range(of: "private struct CookSessionTimerReadout: View {"))
+        let body = widget[readout.upperBound...].prefix(600)
+        #expect(body.contains(".accessibilityLabel(CookSessionIslandLayout.timerAccessibilityLabel(for: timer))"))
+        #expect(body.contains(".accessibilityValue(accessibilityValue(readout))"))
+        // An explicit label on a parent would replace the time again.
+        #expect(!widget.contains(".accessibilityLabel(\"\\(timer.label) timer\")"))
+    }
+
     @Test("the widget reports the app's marketing version")
     func widgetUsesMarketingVersion() throws {
         let plist = try source("Apps/Spoonjoy/LiveActivity/Widget/Info.plist")

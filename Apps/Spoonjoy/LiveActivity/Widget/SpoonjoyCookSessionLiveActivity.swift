@@ -123,8 +123,6 @@ private struct CookSessionCompactTrailing: View {
             switch CookSessionIslandLayout.compact(for: snapshot, limitedWidth: limited).trailing {
             case .none:
                 EmptyView()
-            case .ring:
-                CookSessionRing(snapshot: snapshot, diameter: 22, showsNumber: false)
             case .checkCount(let checked, let total):
                 Label("\(checked)/\(total)", systemImage: "checkmark")
                     .labelStyle(.titleAndIcon)
@@ -147,21 +145,18 @@ private struct CookSessionCompactTrailing: View {
 struct CookSessionRing: View {
     let snapshot: CookSessionSnapshot
     let diameter: CGFloat
-    var showsNumber = true
 
     var body: some View {
         ZStack {
             Circle()
                 .stroke(KitchenTableTheme.brass.opacity(0.28), lineWidth: lineWidth)
             ringProgress
-            if showsNumber {
-                Text(CookSessionIslandLayout.ringNumber(for: snapshot))
-                    .font(KitchenTableTheme.runningHead.monospacedDigit())
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .minimumScaleFactor(0.5)
-                    .lineLimit(1)
-                    .padding(lineWidth + 1)
-            }
+            Text(CookSessionIslandLayout.ringNumber(for: snapshot))
+                .font(KitchenTableTheme.runningHead.monospacedDigit())
+                .foregroundStyle(KitchenTableTheme.ink)
+                .minimumScaleFactor(0.5)
+                .lineLimit(1)
+                .padding(lineWidth + 1)
         }
         .frame(width: diameter, height: diameter)
         .accessibilityElement(children: .ignore)
@@ -200,10 +195,12 @@ private struct CookSessionTimerChip: View {
 
     var body: some View {
         HStack(spacing: 4) {
+            // The readout names the timer for VoiceOver, so the visible name is not read twice.
             Text(timer.label)
                 .font(KitchenTableTheme.runningHead)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .lineLimit(1)
+                .accessibilityHidden(true)
             CookSessionTimerReadout(timer: timer)
                 .font(KitchenTableTheme.uiLabel.monospacedDigit())
                 .foregroundStyle(timer.isPaused ? KitchenTableTheme.ink2 : KitchenTableTheme.brass)
@@ -213,29 +210,50 @@ private struct CookSessionTimerChip: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(KitchenTableTheme.vellum, in: Capsule())
-        .accessibilityElement(children: .combine)
     }
 }
 
-/// A countdown the system advances, or the frozen time with a pause mark.
+/// A countdown the system advances, the frozen time with a pause mark, or Done once the countdown has run out.
+/// VoiceOver hears the timer's name as the label and the time as the value.
 private struct CookSessionTimerReadout: View {
     let timer: CookTimerEntry
     /// The expanded island's timer column is only as wide as a countdown, so there the muted color alone marks a pause.
     var showsPauseMark = true
 
     var body: some View {
-        if let remaining = timer.pausedRemaining {
+        let readout = CookSessionIslandLayout.readout(for: timer, now: .now)
+        readoutView(readout)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(CookSessionIslandLayout.timerAccessibilityLabel(for: timer))
+            .accessibilityValue(accessibilityValue(readout))
+    }
+
+    @ViewBuilder
+    private func readoutView(_ readout: CookSessionIslandLayout.Readout) -> some View {
+        switch readout {
+        case .countdown(let end):
+            Text(timerInterval: Date.now...max(Date.now, end), countsDown: true)
+                .multilineTextAlignment(.trailing)
+        case .paused(let remaining):
             HStack(spacing: 2) {
                 if showsPauseMark {
                     Image(systemName: "pause.fill").imageScale(.small)
                 }
                 Text(CookSessionIslandLayout.clockText(remaining: remaining))
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(CookSessionIslandLayout.pausedText(remaining: remaining))
-        } else {
-            Text(timerInterval: Date.now...max(Date.now, timer.endsAt), countsDown: true)
-                .multilineTextAlignment(.trailing)
+        case .done:
+            Text(CookSessionIslandLayout.doneText)
+        }
+    }
+
+    private func accessibilityValue(_ readout: CookSessionIslandLayout.Readout) -> Text {
+        switch readout {
+        case .countdown(let end):
+            Text(timerInterval: Date.now...max(Date.now, end), countsDown: true)
+        case .paused(let remaining):
+            Text(CookSessionIslandLayout.pausedText(remaining: remaining))
+        case .done:
+            Text(CookSessionIslandLayout.doneText)
         }
     }
 }
@@ -312,8 +330,6 @@ private struct CookSessionExpandedTrailing: View {
                         .font(KitchenTableTheme.runningHead.monospacedDigit())
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(timer.label) timer")
                 }
             }
             .frame(maxWidth: 72, alignment: .trailing)

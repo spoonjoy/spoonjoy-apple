@@ -192,8 +192,13 @@ extension CookSyncJourney {
     private func verifyCookSessionLiveActivity(_ journey: JourneyApp, returnTo cookModeElement: XCUIElement) {
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        // Only Spoonjoy's own island or Lock Screen elements count, and "Step 1 of" never matches Step 10.
         let step = springboard.descendants(matching: .any)
-            .matching(NSPredicate(format: "label BEGINSWITH %@", "Step 1"))
+            .matching(NSPredicate(
+                format: "identifier IN %@ AND label BEGINSWITH %@",
+                ["cookSession.liveActivity.step", "cookSession.liveActivity.ring"],
+                "Step 1 of "
+            ))
             .firstMatch
         XCTAssertTrue(
             step.waitForExistence(timeout: JourneyApp.networkTimeout),

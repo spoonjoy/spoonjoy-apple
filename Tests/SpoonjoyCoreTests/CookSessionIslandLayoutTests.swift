@@ -31,9 +31,12 @@ struct CookSessionIslandLayoutTests {
         #expect(compact == CookSessionIslandLayout.Compact(leading: .stepLabel("Step 2"), trailing: .checkCount(checked: 1, total: 3)))
     }
 
-    @Test func fullWidthWithATimerShowsTheRingInsteadOfTheCount() {
+    @Test func fullWidthWithATimerStillShowsTheCheckCount() {
+        // AlarmKit's own activity shows the countdown, so the session keeps its check count beside a running timer.
         let compact = CookSessionIslandLayout.compact(for: Self.snapshot(timers: [Self.timer(endsIn: 60)]), limitedWidth: false)
-        #expect(compact == CookSessionIslandLayout.Compact(leading: .stepLabel("Step 2"), trailing: .ring))
+        #expect(compact == CookSessionIslandLayout.Compact(leading: .stepLabel("Step 2"), trailing: .checkCount(checked: 1, total: 3)))
+        let noIngredients = CookSessionIslandLayout.compact(for: Self.snapshot(ingredients: 0, timers: [Self.timer(endsIn: 60)]), limitedWidth: false)
+        #expect(noIngredients.trailing == .steps(current: 2, total: 4))
     }
 
     @Test func fullWidthWithoutIngredientsCountsSteps() {
@@ -101,5 +104,47 @@ struct CookSessionIslandLayoutTests {
         #expect(CookSessionIslandLayout.pausedText(remaining: 192) == "Paused 3:12")
         #expect(CookSessionIslandLayout.pausedText(remaining: 3_725) == "Paused 1:02:05")
         #expect(CookSessionIslandLayout.pausedText(remaining: -4) == "Paused 0:00")
+    }
+
+    @Test func readoutCountsDownARunningTimerUntilItEnds() {
+        let timer = Self.timer(endsIn: 60)
+        #expect(CookSessionIslandLayout.readout(for: timer, now: Self.t0) == .countdown(end: Self.t0.addingTimeInterval(60)))
+        #expect(CookSessionIslandLayout.readout(for: timer, now: Self.t0.addingTimeInterval(59)) == .countdown(end: Self.t0.addingTimeInterval(60)))
+    }
+
+    @Test func readoutSaysDoneOnceARunningTimerHasEnded() {
+        let timer = Self.timer(endsIn: 60)
+        #expect(CookSessionIslandLayout.readout(for: timer, now: Self.t0.addingTimeInterval(60)) == .done)
+        #expect(CookSessionIslandLayout.readout(for: timer, now: Self.t0.addingTimeInterval(600)) == .done)
+    }
+
+    @Test func readoutHoldsAPausedTimer() {
+        let paused = Self.timer(endsIn: -100, pausedRemaining: 192)
+        #expect(CookSessionIslandLayout.readout(for: paused, now: Self.t0) == .paused(remaining: 192))
+        let pausedWithoutTime = CookTimerEntry(id: "k", stepNumber: 2, label: "Simmer", endsAt: Self.t0, isPaused: true, duration: 600)
+        #expect(CookSessionIslandLayout.readout(for: pausedWithoutTime, now: Self.t0) == .paused(remaining: 0))
+    }
+
+    @Test func doneTextIsShort() {
+        #expect(CookSessionIslandLayout.doneText == "Done")
+    }
+
+    @Test func timerAccessibilityLabelNamesTheTimerAndLeavesTheTimeToTheValue() {
+        #expect(CookSessionIslandLayout.timerAccessibilityLabel(for: Self.timer(endsIn: 60)) == "Simmer timer")
+    }
+
+    @Test func staleDateIsTheSoonestRunningTimersEnd() {
+        let later = CookTimerEntry(id: "r1#s3", stepNumber: 3, label: "Rest", endsAt: Self.t0.addingTimeInterval(300), isPaused: false, duration: 300)
+        let sooner = Self.timer(endsIn: 60)
+        let paused = Self.timer(endsIn: 5, pausedRemaining: 5)
+        #expect(CookSessionIslandLayout.staleDate(for: Self.snapshot(timers: [later, paused, sooner])) == Self.t0.addingTimeInterval(60))
+        #expect(CookSessionIslandLayout.staleDate(for: Self.snapshot(timers: [paused])) == nil)
+        #expect(CookSessionIslandLayout.staleDate(for: Self.snapshot()) == nil)
+    }
+
+    @Test func launchCleanupEndsOnlyActivitiesLeftFromBeforeLaunch() {
+        #expect(CookSessionIslandLayout.staleActivityIDs(launchIDs: ["a", "b"], current: nil) == ["a", "b"])
+        #expect(CookSessionIslandLayout.staleActivityIDs(launchIDs: ["a", "b"], current: "b") == ["a"])
+        #expect(CookSessionIslandLayout.staleActivityIDs(launchIDs: [], current: "c").isEmpty)
     }
 }

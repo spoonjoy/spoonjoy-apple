@@ -24,9 +24,11 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
         SpoonjoyCookSessionBridge.handler = { command in
             await Self.handle(command)
         }
-        // A session activity left by a quit or crashed app has no cook mode behind it.
-        Task {
-            await Self.endAll()
+        // A session activity left by a quit or crashed app has no cook mode behind it. The ids are read now, before
+        // cook mode can request one, so a fast open (a link) keeps the activity it starts.
+        let launchIDs = Activity<SpoonjoyCookSessionAttributes>.activities.map(\.id)
+        Task { [weak self] in
+            await Self.end(ids: CookSessionIslandLayout.staleActivityIDs(launchIDs: launchIDs, current: self?.activity?.id))
         }
         CookModeSessionCenter.shared.activityObserver = self
     }
@@ -55,7 +57,7 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
         lastSnapshot = snapshot
         let id = activity.id
         Task {
-            await Self.update(id: id, content: ActivityContent(state: snapshot, staleDate: nil))
+            await Self.update(id: id, content: ActivityContent(state: snapshot, staleDate: CookSessionIslandLayout.staleDate(for: snapshot)))
         }
     }
 
@@ -74,7 +76,7 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
         do {
             activity = try Activity.request(
                 attributes: SpoonjoyCookSessionAttributes(recipeID: snapshot.recipeID, deepLink: deepLink.absoluteString),
-                content: ActivityContent(state: snapshot, staleDate: nil),
+                content: ActivityContent(state: snapshot, staleDate: CookSessionIslandLayout.staleDate(for: snapshot)),
                 pushType: nil
             )
             lastSnapshot = snapshot
@@ -87,7 +89,7 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
         activity = nil
         lastSnapshot = nil
         let id = ending.id
-        let content = snapshot.map { ActivityContent(state: $0, staleDate: nil) }
+        let content = snapshot.map { ActivityContent(state: $0, staleDate: CookSessionIslandLayout.staleDate(for: $0)) }
         Task {
             await Self.end(id: id, content: content, dismissal: dismissal)
         }
@@ -102,8 +104,8 @@ final class CookSessionLiveActivityController: CookSessionActivityObserving {
         await Activity<SpoonjoyCookSessionAttributes>.activities.first { $0.id == id }?.end(content, dismissalPolicy: dismissal)
     }
 
-    private nonisolated static func endAll() async {
-        for activity in Activity<SpoonjoyCookSessionAttributes>.activities {
+    private nonisolated static func end(ids: [String]) async {
+        for activity in Activity<SpoonjoyCookSessionAttributes>.activities where ids.contains(activity.id) {
             await activity.end(nil, dismissalPolicy: .immediate)
         }
     }
