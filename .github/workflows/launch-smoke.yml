@@ -47,9 +47,11 @@ jobs:
         timeout-minutes: 25
         run: |
           set -euo pipefail
+          # Sign ad hoc rather than not at all: an unsigned Release app has no keychain access, so a fresh install
+          # shows "We couldn't load your kitchen" instead of the sign-in screen the App Store build shows.
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/smoke-dd" \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -20
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build 2>&1 | tail -20
       - name: Install fresh and launch three times
         timeout-minutes: 8
         env:

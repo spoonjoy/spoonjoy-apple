@@ -50,9 +50,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/demo"
+          # Sign ad hoc rather than not at all: an unsigned Release app has no keychain access, so a fresh install
+          # shows "We couldn't load your kitchen" instead of the sign-in screen the App Store build shows.
           xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release \
             -destination "platform=iOS Simulator,id=$UDID" -only-testing:SpoonjoyShoppingUITests/ReviewDemoLaunchUITests \
-            -derivedDataPath "$RUNNER_TEMP/demo/DerivedData" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/demo/build.log" | tail -30
+            -derivedDataPath "$RUNNER_TEMP/demo/DerivedData" CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= 2>&1 | tee "$RUNNER_TEMP/demo/build.log" | tail -30
       - name: Wait for the simulator to settle
         timeout-minutes: 8
         run: python3 .github/scripts/wait-for-simulator-settle.py "${{ steps.sim.outputs.udid }}" --booted-at "${{ steps.sim.outputs.booted-at }}"
