@@ -333,7 +333,7 @@ private struct CookSessionExpandedTrailing: View {
                         .minimumScaleFactor(0.8)
                 }
             }
-            .frame(maxWidth: 72, alignment: .trailing)
+            .frame(width: 64, alignment: .trailing)
         }
     }
 }

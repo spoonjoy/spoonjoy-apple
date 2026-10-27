@@ -179,6 +179,16 @@ struct CookTimerLiveActivityWiringTests {
         #expect(!widget.contains(".accessibilityLabel(\"\\(timer.label) timer\")"))
     }
 
+    @Test("the expanded island's timer column is wide enough for an hour-long countdown")
+    func expandedTimerColumnFitsHours() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
+        let trailing = try #require(widget.range(of: "private struct CookSessionExpandedTrailing: View {"))
+        let body = widget[trailing.upperBound...].prefix(1_200)
+        // A countdown is only as wide as its current string, so a column sized to its content cut "2:14:23" to "2:14:…".
+        #expect(body.contains(".frame(width: 64, alignment: .trailing)"))
+        #expect(!body.contains("maxWidth: 72"))
+    }
+
     @Test("the widget reports the app's marketing version")
     func widgetUsesMarketingVersion() throws {
         let plist = try source("Apps/Spoonjoy/LiveActivity/Widget/Info.plist")
