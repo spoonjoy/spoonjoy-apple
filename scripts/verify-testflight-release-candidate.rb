@@ -39,6 +39,10 @@ class LiveCandidateEvidence
     gh_json("repos/#{@repository}/git/ref/heads/main")
   end
 
+  def branch_ref(branch)
+    gh_json("repos/#{@repository}/git/ref/heads/#{branch}")
+  end
+
   def main_ancestor?(source_sha, main_sha)
     # main can move between checkout and this check, so the checkout may not have the commit yet.
     commit_present = @runner.capture(
@@ -52,11 +56,11 @@ class LiveCandidateEvidence
     result.status.zero?
   end
 
-  def workflow_runs(source_sha)
+  def workflow_runs(source_sha, branch: "main")
     gh_json(
       "repos/#{@repository}/actions/workflows/native.yml/runs",
       "-f", "head_sha=#{source_sha}",
-      "-f", "branch=main",
+      "-f", "branch=#{branch}",
       "-f", "per_page=100"
     )
   end
@@ -109,7 +113,11 @@ class FixtureCandidateEvidence
     read("is-main-ancestor.txt").strip == "true"
   end
 
-  def workflow_runs(_source_sha)
+  def branch_ref(_branch)
+    read_json("branch-ref.json")
+  end
+
+  def workflow_runs(_source_sha, branch: "main")
     read_json("runs.json")
   end
 
@@ -150,6 +158,8 @@ class TestFlightReleaseCandidateVerifier
     "Contracts"
   ].freeze
   RELEASE_NOTE_JOB = "TestFlight release note"
+  # A release branch carries a fix for a version already in App Review without the unreleased work on main.
+  RELEASE_BRANCH_PATTERN = %r{\Arelease/[0-9][0-9A-Za-z.-]*\z}
   NATIVE_WORKFLOW_PATH = ".github/workflows/native.yml"
   RELEASE_NOTES_FILENAME = "testflight-release-notes.json"
   RELEASE_NOTES_SCHEMA_VERSION = 1
@@ -165,6 +175,7 @@ class TestFlightReleaseCandidateVerifier
     output_dir:,
     evidence:,
     superseded_ok: false,
+    release_branch: "",
     github_output: nil
   )
     @source_sha = source_sha
@@ -175,12 +186,15 @@ class TestFlightReleaseCandidateVerifier
     @output_dir = File.expand_path(output_dir)
     @evidence = evidence
     @superseded_ok = superseded_ok
+    @release_branch = release_branch.to_s.strip
     @github_output = github_output
   end
 
   def verify
     validate_inputs
     validate_checkout
+    return verify_release_branch unless @release_branch.empty?
+
     main_sha = validate_main_membership
     return record_superseded(main_sha) if superseded?(main_sha)
 
@@ -194,19 +208,46 @@ class TestFlightReleaseCandidateVerifier
                                                      load_native_release_notes(run)
                                                    end
 
+    write_attestation(
+      { "mainSha" => main_sha, "rollback" => rollback, "rollbackReason" => rollback ? @rollback_reason : nil },
+      run: run, artifact: artifact, release_notes_path: release_notes_path, release_notes: release_notes
+    )
+  end
+
+  private
+
+  # A release-branch build must be the branch's current head, with a green Native push run on that branch and
+  # notes supplied with the dispatch (the branch has no release note job). It is never a rollback.
+  def verify_release_branch
+    fail_with("release branch must look like release/<version>") unless @release_branch.match?(RELEASE_BRANCH_PATTERN)
+    fail_with("a release-branch build cannot also be a rollback") if @allow_rollback
+    fail_with("a release-branch build needs release notes") if @rollback_notes.empty?
+
+    branch_sha = @evidence.branch_ref(@release_branch).dig("object", "sha")
+    fail_with("GitHub #{@release_branch} ref did not contain an exact SHA") unless branch_sha.is_a?(String) && branch_sha.match?(SHA_PATTERN)
+    fail_with("selected SHA is not the head of #{@release_branch}") unless branch_sha == @source_sha
+
+    run = select_native_run(branch: @release_branch)
+    validate_required_jobs(run.fetch("id"), require_release_note: false)
+    artifact, release_notes_path, release_notes = create_explicit_rollback_notes(run, origin: "releaseBranch")
+    write_attestation(
+      { "mainSha" => nil, "releaseBranch" => @release_branch, "rollback" => false, "rollbackReason" => nil },
+      run: run, artifact: artifact, release_notes_path: release_notes_path, release_notes: release_notes
+    )
+  end
+
+  def write_attestation(fields, run:, artifact:, release_notes_path:, release_notes:)
     attestation = {
       "schemaVersion" => 1,
-      "sourceSha" => @source_sha,
-      "mainSha" => main_sha,
-      "rollback" => rollback,
-      "rollbackReason" => rollback ? @rollback_reason : nil,
+      "sourceSha" => @source_sha
+    }.merge(fields).merge(
       "nativeRunId" => run.fetch("id"),
       "nativeRunAttempt" => run.fetch("run_attempt"),
       "releaseNotesArtifactId" => artifact.fetch("id"),
       "releaseNotesArtifact" => artifact.fetch("name"),
       "releaseNotesPath" => release_notes_path,
       "releaseNotes" => release_notes
-    }
+    )
 
     FileUtils.mkdir_p(@output_dir)
     attestation_path = File.join(@output_dir, "testflight-release-candidate.json")
@@ -219,8 +260,6 @@ class TestFlightReleaseCandidateVerifier
     )
     attestation
   end
-
-  private
 
   # An automatic run whose commit main has already moved past is not a rollback: the newer commit's own run
   # publishes it. Skip cleanly instead of failing. Manual dispatches still need allow_rollback.
@@ -265,15 +304,15 @@ class TestFlightReleaseCandidateVerifier
     true
   end
 
-  def select_native_run
-    runs = Array(@evidence.workflow_runs(@source_sha)["workflow_runs"])
+  def select_native_run(branch: "main")
+    runs = Array(@evidence.workflow_runs(@source_sha, branch: branch)["workflow_runs"])
     exact_runs = runs.select do |run|
       run["head_sha"] == @source_sha &&
-        run["head_branch"] == "main" &&
+        run["head_branch"] == branch &&
         run["event"] == "push" &&
         run["path"] == NATIVE_WORKFLOW_PATH
     end
-    fail_with("no exact Native push run exists for selected main SHA") if exact_runs.empty?
+    fail_with("no exact Native push run exists for selected #{branch} SHA") if exact_runs.empty?
 
     latest = exact_runs.max_by do |run|
       [integer_value(run, "run_number"), integer_value(run, "run_attempt"), integer_value(run, "id")]
@@ -307,7 +346,7 @@ class TestFlightReleaseCandidateVerifier
     [artifact, release_notes_path, release_notes]
   end
 
-  def create_explicit_rollback_notes(run)
+  def create_explicit_rollback_notes(run, origin: "explicitRollback")
     validate_notes_text(@rollback_notes)
     artifact_name = "testflight-release-notes-#{@source_sha}"
     directory = File.join(@output_dir, artifact_name)
@@ -320,7 +359,7 @@ class TestFlightReleaseCandidateVerifier
       "nativeRunAttempt" => run.fetch("run_attempt"),
       "generatedAt" => Time.now.utc.iso8601,
       "notes" => @rollback_notes,
-      "origin" => "explicitRollback"
+      "origin" => origin
     }
     File.write(release_notes_path, JSON.pretty_generate(payload) + "\n")
     [{ "id" => nil, "name" => artifact_name }, release_notes_path, @rollback_notes]
@@ -425,6 +464,7 @@ if $PROGRAM_NAME == __FILE__
       end
       parser.on("--rollback-reason REASON") { |value| options[:rollback_reason] = value }
       parser.on("--rollback-notes NOTES") { |value| options[:rollback_notes] = value }
+      parser.on("--release-branch BRANCH") { |value| options[:release_branch] = value }
       parser.on("--output-dir PATH") { |value| options[:output_dir] = value }
       parser.on("--github-output PATH") { |value| options[:github_output] = value }
       parser.on("--fixture-dir PATH") { |value| options[:fixture_dir] = value }
@@ -448,6 +488,7 @@ if $PROGRAM_NAME == __FILE__
       output_dir: options[:output_dir],
       evidence: evidence,
       superseded_ok: options.fetch(:superseded_ok, false),
+      release_branch: options.fetch(:release_branch, ""),
       github_output: options[:github_output]
     )
     attestation = verifier.verify

@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       source_sha:
-        description: Exact 40-character main commit SHA to release
+        description: Exact 40-character main commit SHA to release (or the head of release_branch)
         required: true
         type: string
       allow_rollback:
@@ -23,11 +23,15 @@ on:
         required: false
         type: string
       rollback_notes:
-        description: Fresh TestFlight notes when rollback evidence predates note artifacts
+        description: Fresh TestFlight notes for a rollback whose evidence predates note artifacts, or for a release_branch build
         required: false
         type: string
       build_number:
         description: Optional App Store Connect build number override
+        required: false
+        type: string
+      release_branch:
+        description: Publish the head of this release/<version> branch instead of a main commit (iOS only)
         required: false
         type: string
 
@@ -71,6 +75,7 @@ jobs:
       ALLOW_ROLLBACK: ${{ inputs.allow_rollback }}
       ROLLBACK_REASON: ${{ inputs.rollback_reason }}
       ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
+      RELEASE_BRANCH: ${{ inputs.release_branch }}
     steps:
       - name: Select the release commit
         id: select
@@ -90,6 +95,10 @@ jobs:
             echo "source_sha must be exactly 40 lowercase hexadecimal characters." >&2
             exit 1
           }
+          if [[ -n "$RELEASE_BRANCH" && ! "$RELEASE_BRANCH" =~ ^release/[0-9][0-9A-Za-z.-]*$ ]]; then
+            echo "release_branch must look like release/<version>." >&2
+            exit 1
+          fi
           if [[ "$ALLOW_ROLLBACK" == "true" && -z "${ROLLBACK_REASON//[[:space:]]/}" ]]; then
             echo "rollback_reason is required when allow_rollback is true." >&2
             exit 1
@@ -130,6 +139,7 @@ jobs:
           SUPERSEDED_OK: ${{ github.event_name == 'workflow_run' }}
           ROLLBACK_REASON: ${{ inputs.rollback_reason }}
           ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
         run: |
           set -euo pipefail
           ../scripts/verify-testflight-release-candidate.rb \
@@ -139,6 +149,7 @@ jobs:
             --superseded-ok "$SUPERSEDED_OK" \
             --rollback-reason "$ROLLBACK_REASON" \
             --rollback-notes "$ROLLBACK_NOTES" \
+            --release-branch "$RELEASE_BRANCH" \
             --output-dir artifacts/apple/ci-testflight/release-candidate
 
       - name: Upload verified candidate note
@@ -350,7 +361,8 @@ jobs:
   publish-mac-app-store:
     name: Upload Mac App Store build
     needs: release-gate
-    if: needs.release-gate.outputs.publish == 'true'
+    # A release branch fixes one iOS version in review; the Mac app ships from main.
+    if: needs.release-gate.outputs.publish == 'true' && !inputs.release_branch
     environment: internal-testflight
     runs-on: xcode-27
     timeout-minutes: 120
@@ -380,6 +392,7 @@ jobs:
           SUPERSEDED_OK: ${{ github.event_name == 'workflow_run' }}
           ROLLBACK_REASON: ${{ inputs.rollback_reason }}
           ROLLBACK_NOTES: ${{ inputs.rollback_notes }}
+          RELEASE_BRANCH: ${{ inputs.release_branch }}
         run: |
           set -euo pipefail
           ../scripts/verify-testflight-release-candidate.rb \
@@ -389,6 +402,7 @@ jobs:
             --superseded-ok "$SUPERSEDED_OK" \
             --rollback-reason "$ROLLBACK_REASON" \
             --rollback-notes "$ROLLBACK_NOTES" \
+            --release-branch "$RELEASE_BRANCH" \
             --output-dir artifacts/apple/ci-mac-app-store/release-candidate
 
       - name: Install pinned source Ruby bundle
