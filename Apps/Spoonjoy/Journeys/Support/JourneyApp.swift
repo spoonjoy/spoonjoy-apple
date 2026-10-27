@@ -489,6 +489,15 @@ final class JourneyApp {
         return frame.minY.isFinite && frame.maxY.isFinite && !frame.isEmpty && !frame.isInfinite
     }
 
+    /// Swipes up until `element` can be tapped, for rows below the first screen. Stops after a few swipes either way.
+    func swipeUpUntilHittable(_ element: XCUIElement, swipesLeft: Int = 6) {
+        guard !element.isHittable, swipesLeft > 0 else {
+            return
+        }
+        app.swipeUp()
+        swipeUpUntilHittable(element, swipesLeft: swipesLeft - 1)
+    }
+
     /// Drags the form until `field` sits fully between the navigation bar and whatever covers the bottom of the
     /// screen (the keyboard, or the floating tab bar), with a margin. Stops after a few drags either way.
     private func scrollIntoView(_ field: XCUIElement, dragsLeft: Int) {
