@@ -164,8 +164,8 @@ struct CookModeView: View {
         .onDisappear {
             CookModeSessionCenter.shared.unregister()
         }
-        .onChange(of: progress) { _, newValue in
-            Task6Diag.timed("publish \(Task6Diag.describe(newValue))") { CookModeSessionCenter.shared.publishSession() } // TASK6-DIAG
+        .onChange(of: progress) { _, _ in
+            CookModeSessionCenter.shared.publishSession()
         }
         .cookModeStepAnnotation(viewModel.onScreenStep)
         .onChange(of: recipe.cookModeIdentityKey) { _, _ in
@@ -629,8 +629,7 @@ struct CookModeView: View {
 
     private func updateProgress(_ nextProgress: CookModeProgress) {
         progress = nextProgress
-        Task6Diag.timed("save \(Task6Diag.describe(nextProgress))") { progressDidChange(nextProgress) } // TASK6-DIAG
-        Task6Diag.watchSync() // TASK6-DIAG
+        progressDidChange(nextProgress)
     }
 
     private func addRecipeIngredients(scaleFactor: Double) {

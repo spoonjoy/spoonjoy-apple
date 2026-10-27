@@ -34,8 +34,7 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
         if #available(iOS 26.0, *) {
             cookTimerAlarmHost = CookTimerAlarmHost()
         }
-        Task6Diag.logSavedState() // TASK6-DIAG
-        cookSessionActivity = Task6Diag.timed("controller init") { CookSessionLiveActivityController() } // TASK6-DIAG
+        cookSessionActivity = CookSessionLiveActivityController()
         return true
     }
 
