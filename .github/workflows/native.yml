@@ -78,6 +78,7 @@ jobs:
           ruby scripts/test/verify_testflight_release_candidate_test.rb
           ruby scripts/test/app_store_release_test.rb
           ruby scripts/test/app_store_review_messages_test.rb
+          ruby scripts/test/app_store_crash_diagnostics_test.rb
           ruby scripts/test/app_review_watch_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
