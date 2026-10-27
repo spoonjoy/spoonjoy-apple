@@ -3,7 +3,7 @@ name: Launch smoke
 # App Review's automated check rejected 1.0 because "the app crashed after the initial launch". This installs the
 # Release build fresh on the newest iOS runtime each device supports (iOS 27.1 ships only for the iPhone Duo; other
 # iPhones and iPads stop at 27.0), launches it three times signed out, and fails if it stops running or leaves a crash
-# report.
+# report, or if its first sync fails instead of reaching the sign-in screen.
 on:
   pull_request:
   push:
@@ -47,9 +47,11 @@ jobs:
         timeout-minutes: 25
         run: |
           set -euo pipefail
+          # Sign ad hoc rather than not at all: an unsigned Release app has no keychain access, so a fresh install
+          # shows "We couldn't load your kitchen" instead of the sign-in screen the App Store build shows.
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/smoke-dd" \
-            CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -20
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build 2>&1 | tail -20
       - name: Install fresh and launch three times
         timeout-minutes: 8
         env:
@@ -78,6 +80,15 @@ jobs:
             xcrun simctl terminate "$UDID" "$bundle_id" || true
             sleep 3
           done
+          # A launch that stays up but shows "We couldn't load your kitchen" is not a pass: a fresh, signed-out
+          # install must reach the sign-in screen, so any first-sync failure the app logs fails the job.
+          bootstrap="$(xcrun simctl spawn "$UDID" log show --last 5m --style compact \
+            --predicate 'process == "Spoonjoy" AND eventMessage CONTAINS "native_app_bootstrap_"' || true)"
+          echo "$bootstrap"
+          if grep -q "native_app_bootstrap_failed" <<<"$bootstrap"; then
+            echo "::error::Spoonjoy could not finish its first launch sync (native_app_bootstrap_failed)"
+            failed=1
+          fi
           if ls "$HOME/Library/Logs/DiagnosticReports"/Spoonjoy* >/dev/null 2>&1; then
             echo "::error::Spoonjoy left a crash report"
             failed=1
