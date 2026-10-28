@@ -22,7 +22,7 @@ on:
         required: true
         default: status
         type: choice
-        options: [status, set-release-type, release, review-messages, crash-diagnostics]
+        options: [status, set-release-type, release, review-messages, crash-diagnostics, submission-diagnostics]
       confirm:
         description: Type "<action> <platform> <version>" to apply; leave empty for a dry run
         required: false
