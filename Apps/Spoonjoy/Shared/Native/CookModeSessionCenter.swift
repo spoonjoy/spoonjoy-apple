@@ -24,6 +24,8 @@ final class CookModeSessionCenter {
         let apply: (CookModeProgress) -> Void
         /// Returns the outcome, so a second start for a step that already has a timer says so instead of setting another.
         let startTimer: @MainActor (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome
+        /// An auto-start that failed, with the message the step's ring shows.
+        var timerStartFailed: @MainActor (_ stepID: String, _ message: String) -> Void = { _, _ in }
     }
 
     static let shared = CookModeSessionCenter()
@@ -158,14 +160,13 @@ final class CookModeSessionCenter {
             guard let current = self?.registration else {
                 return
             }
-            let stillChecked = Set(current.viewModel().progress.checkedIngredientIDs)
-            for timer in timers {
-                let needed = Set(recipe.steps.first { $0.id == timer.stepID }?.ingredients.map(\.id) ?? [])
-                guard needed.isSubset(of: stillChecked) else {
-                    continue
-                }
-                _ = try? await current.startTimer(timer)
-            }
+            await CookAutoTimerPolicy.startTimers(
+                timers,
+                steps: recipe.steps,
+                stillChecked: Set(current.viewModel().progress.checkedIngredientIDs),
+                start: current.startTimer,
+                failed: current.timerStartFailed
+            )
         }
     }
 

@@ -50,7 +50,15 @@ struct CookModeRouteView: View {
                 CookModeView(
                     viewModel: CookModeViewModel(recipe: recipe, progress: restoredProgress(for: recipe)),
                     incomingProgress: restoredProgress(for: recipe),
+                    recipePageScale: RecipePageProgressStore().scaleFactor(recipeID: recipe.id),
                     progressDidChange: progressDidChange,
+                    scaleDidChange: { scale in
+                        RecipePageProgressStore().setScaleFactor(
+                            scale,
+                            recipeID: recipe.id,
+                            updatedAt: ISO8601DateFormatter().string(from: Date())
+                        )
+                    },
                     shoppingViewModel: shoppingViewModel,
                     performShoppingAction: performShoppingAction,
                     close: close
@@ -106,8 +114,18 @@ struct CookModeView: View {
     @GestureState(resetTransaction: Transaction(animation: KitchenSpring.pageTurn.animation))
     private var pageDrag = CookPageDrag()
     @State private var pageTurnTapGuard = CookPageTurnTapGuard()
+    /// True while a finger is on the pager. It resets when the finger lifts and when a scroll view takes the touch,
+    /// which is when the guard's grace starts.
+    @GestureState private var isTouchingPager = false
+    /// Counts checks made by a tap here, so the check haptic plays for a check, not an uncheck or another device.
+    @State private var localCheckCount = 0
+    /// An auto-started timer that failed to set, by step, shown on that step's ring.
+    @State private var autoStartErrors: [String: String] = [:]
     private let incomingProgress: CookModeProgress?
+    /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
+    private let recipePageScale: Double?
     private let progressDidChange: (CookModeProgress) -> Void
+    private let scaleDidChange: (Double) -> Void
     private let shoppingViewModel: ShoppingSurfaceViewModel
     private let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     private let close: () -> Void
@@ -120,7 +138,9 @@ struct CookModeView: View {
     init(
         viewModel: CookModeViewModel,
         incomingProgress: CookModeProgress? = nil,
+        recipePageScale: Double? = nil,
         progressDidChange: @escaping (CookModeProgress) -> Void = { _ in },
+        scaleDidChange: @escaping (Double) -> Void = { _ in },
         shoppingViewModel: ShoppingSurfaceViewModel,
         performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome = { _ in .synced },
         close: @escaping () -> Void = {}
@@ -129,7 +149,9 @@ struct CookModeView: View {
         _progress = State(initialValue: viewModel.progress)
         _stepTimers = ObservedObject(wrappedValue: CookModeSessionCenter.shared.stepTimers)
         self.incomingProgress = incomingProgress
+        self.recipePageScale = recipePageScale
         self.progressDidChange = progressDidChange
+        self.scaleDidChange = scaleDidChange
         self.shoppingViewModel = shoppingViewModel
         self.performShoppingAction = performShoppingAction
         self.close = close
@@ -159,10 +181,19 @@ struct CookModeView: View {
         }
         .keepsScreenAwake()
         .kitchenHaptic(.stepTurned, trigger: progress.currentStepID)
-        .kitchenHaptic(.ingredientChecked, trigger: progress.checkedIngredientIDs)
+        .kitchenHaptic(.ingredientChecked, trigger: localCheckCount)
         .kitchenHaptic(.timerStarted, trigger: runningTimerCount) { before, after in after > before }
         .kitchenHaptic(.cookFinished, trigger: isFinished) { _, finished in finished }
         .onAppear(perform: normalizeProgressForCurrentRecipe)
+        .onAppear(perform: openAtRecipePageScale)
+        .onChange(of: isTouchingPager) { _, touching in
+            if !touching {
+                pageTurnTapGuard.touchEnded()
+            }
+        }
+        .onChange(of: progress.scaleFactor) { _, scale in
+            scaleDidChange(scale)
+        }
         .onAppear(perform: registerCookModeSession)
         .onDisappear {
             CookModeSessionCenter.shared.unregister()
@@ -455,6 +486,7 @@ struct CookModeView: View {
             .clipped()
             .contentShape(Rectangle())
             .simultaneousGesture(pageTurnGesture(pageWidth: pageWidth))
+            .simultaneousGesture(touchTrackingGesture)
         }
         .accessibilityElement(children: .contain)
         .accessibilityAction(named: "Next step") {
@@ -476,11 +508,6 @@ struct CookModeView: View {
                 }
                 drag.offset = trackedPageOffset(value.translation.width, pageWidth: pageWidth)
             }
-            .onChanged { value in
-                if abs(value.translation.width) > abs(value.translation.height) {
-                    pageTurnTapGuard.pageMoved()
-                }
-            }
             .onEnded { value in
                 guard abs(value.translation.width) > abs(value.translation.height) else {
                     return
@@ -493,6 +520,14 @@ struct CookModeView: View {
                 )
                 turnPage(to: target)
             }
+    }
+
+    /// Follows every touch on the pager from finger down, so a control on a page can tell a tap from the end of a
+    /// drag. The global space keeps a touch's start fixed while the page moves under it.
+    private var touchTrackingGesture: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .global)
+            .updating($isTouchingPager) { _, touching, _ in touching = true }
+            .onChanged { pageTurnTapGuard.touchMoved($0) }
     }
 
     /// 1:1 between the pages; a rubber band before the first and after the last.
@@ -584,9 +619,11 @@ struct CookModeView: View {
             entry: { timerBoard.ordered.first { $0.id == stepTimerKey(step) } },
             hint: Self.startHint(ingredientCount: step.ingredients.count),
             isInteractive: isCurrent,
-            tapGuard: pageTurnTapGuard
+            tapGuard: pageTurnTapGuard,
+            autoStartError: autoStartErrors[step.id]
         ) {
-            try await scheduleSystemTimer(timer, step: step).message(startedMessage: "\(timer.durationLabel) timer started.")
+            autoStartErrors[step.id] = nil
+            return try await scheduleSystemTimer(timer, step: step).message(startedMessage: "\(timer.durationLabel) timer started.")
         } cancel: {
             try cancelSystemTimer(step: step)
         }
@@ -762,6 +799,7 @@ struct CookModeView: View {
             get: { currentIngredientCheckedState(for: row) },
             set: { checked in
                 guard pageTurnTapGuard.allowsTap() else { return }
+                if checked { localCheckCount += 1 }
                 progressAfterTogglingIngredient(id: row.id, checked: checked)
             }
         )
@@ -772,6 +810,7 @@ struct CookModeView: View {
             get: { currentStepOutputCheckedState(for: row) },
             set: { checked in
                 guard pageTurnTapGuard.allowsTap() else { return }
+                if checked { localCheckCount += 1 }
                 progressAfterTogglingStepOutputUse(id: row.id, checked: checked)
             }
         )
@@ -857,6 +896,13 @@ struct CookModeView: View {
         updateProgress(normalizedProgress)
     }
 
+    private func openAtRecipePageScale() {
+        let opened = progress.openingAtRecipePageScale(recipePageScale, updatedAt: timestamp())
+        if opened != progress {
+            updateProgress(opened)
+        }
+    }
+
     private func timestamp() -> String {
         ISO8601DateFormatter().string(from: Date())
     }
@@ -903,6 +949,9 @@ struct CookModeView: View {
                         throw CookModeSessionError.notCooking
                     }
                     return try await scheduleSystemTimer(timer, step: step)
+                },
+                timerStartFailed: { stepID, message in
+                    autoStartErrors[stepID] = message
                 }
             )
         )
@@ -915,20 +964,28 @@ private struct CookPageDrag {
     var offset: CGFloat = 0
 }
 
-/// A control on a page moves with the finger during a page turn, so the touch that turned the page would also tap
-/// the ring, a check or Cancel when it lifts. Disabling hit testing mid-touch does not stop a tap already under way,
-/// so the controls ask this guard first. It is a reference so a control's action reads the latest drag, not the one
-/// from when its view was built.
+/// Holds the pager's current touch (`CookPageTouch`) for the controls on its pages. It is a reference so a control's
+/// action reads the touch as it is now, not as it was when the control's view was built, and so following the finger
+/// does not redraw the screen.
 @MainActor
 final class CookPageTurnTapGuard {
-    private var lastPageMove: Date = .distantPast
+    private var touch = CookPageTouch()
 
-    func pageMoved(at date: Date = Date()) {
-        lastPageMove = date
+    func touchMoved(_ value: DragGesture.Value) {
+        touch.moved(
+            startX: Double(value.startLocation.x),
+            startY: Double(value.startLocation.y),
+            dx: Double(value.translation.width),
+            dy: Double(value.translation.height)
+        )
     }
 
-    func allowsTap(at date: Date = Date()) -> Bool {
-        date.timeIntervalSince(lastPageMove) > 0.4
+    func touchEnded() {
+        touch.ended(at: Date())
+    }
+
+    func allowsTap() -> Bool {
+        touch.allowsTap(at: Date())
     }
 }
 
@@ -952,6 +1009,7 @@ extension CookModeView {
             .frame(height: topHeight)
             .contentShape(Rectangle())
             .simultaneousGesture(pageTurnGesture(pageWidth: 320))
+            .simultaneousGesture(touchTrackingGesture)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookMode.tabletopStep")
 
@@ -1091,9 +1149,11 @@ extension CookModeView {
                         entry: { timerBoard.ordered.first { $0.id == stepTimerKey(currentStep) } },
                         hint: Self.startHint(ingredientCount: currentStep.ingredients.count),
                         isInteractive: true,
-                        tapGuard: pageTurnTapGuard
+                        tapGuard: pageTurnTapGuard,
+                        autoStartError: autoStartErrors[currentStep.id]
                     ) {
-                        try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) timer started.")
+                        autoStartErrors[currentStep.id] = nil
+                        return try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) timer started.")
                     } cancel: {
                         try cancelSystemTimer(step: currentStep)
                     }
@@ -1221,6 +1281,8 @@ private struct CookModeSystemTimer: View {
     let hint: String
     let isInteractive: Bool
     var tapGuard = CookPageTurnTapGuard()
+    /// Why this step's timer did not start by itself, until the ring is tapped.
+    var autoStartError: String?
     let schedule: () async throws -> String
     let cancel: () throws -> Void
 
@@ -1239,7 +1301,7 @@ private struct CookModeSystemTimer: View {
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.herb)
                     .accessibilityIdentifier("cookMode.timer.status")
-            } else if let errorMessage {
+            } else if let errorMessage = errorMessage ?? (stepTimerIsSet ? nil : autoStartError) {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.tomato)
@@ -1352,11 +1414,20 @@ private struct CookModeSystemTimer: View {
         return remaining / entry.duration
     }
 
+    /// "Cancel timer", or "Cancel" where that does not fit (the largest text on a narrow screen). A button wider than
+    /// the page would widen the whole page and clip it.
     private var cancelButton: some View {
+        ViewThatFits(in: .horizontal) {
+            cancelButton(title: "Cancel timer")
+            cancelButton(title: "Cancel")
+        }
+    }
+
+    private func cancelButton(title: String) -> some View {
         Button(role: .cancel) {
             cancelTimer()
         } label: {
-            Label("Cancel timer", systemImage: "xmark.circle")
+            Label(title, systemImage: "xmark.circle")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
         .fixedSize()

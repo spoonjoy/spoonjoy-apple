@@ -891,8 +891,8 @@ struct NativeMobileDesignContractTests {
                 "Text(\"Ingredients\")",
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
-                "RecipeDetailCookProgressSnapshot",
-                "spoonjoy-cook-progress:\\(viewModel.id)",
+                "RecipePageProgressStore().snapshot(recipeID: viewModel.id)",
+                "RecipePageProgressStore().save(",
                 "Label(\"Cook mode\", systemImage: \"fork.knife\")",
                 "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
                 "KitchenTableSection(title: \"Save to Cookbook\")"

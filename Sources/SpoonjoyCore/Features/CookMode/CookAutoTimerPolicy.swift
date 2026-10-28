@@ -19,4 +19,30 @@ public enum CookAutoTimerPolicy {
         let needed = Set(step.ingredients.map(\.id))
         return needed.isSubset(of: checkedIngredientIDs) && !needed.isSubset(of: previouslyChecked)
     }
+
+    /// Starts the timers an auto-start chose, once the pause after the check is over. A timer whose step lost a check
+    /// during the pause, or is no longer in the recipe, is skipped. A start that fails is reported with the message
+    /// the ring shows for the same failure, so the cook is never left with no timer and no reason.
+    @MainActor
+    public static func startTimers(
+        _ timers: [CookModeSystemTimerViewModel],
+        steps: [RecipeStep],
+        stillChecked: Set<String>,
+        start: @MainActor (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome,
+        failed: (_ stepID: String, _ message: String) -> Void
+    ) async {
+        for timer in timers {
+            guard
+                let step = steps.first(where: { $0.id == timer.stepID }),
+                Set(step.ingredients.map(\.id)).isSubset(of: stillChecked)
+            else {
+                continue
+            }
+            do {
+                _ = try await start(timer)
+            } catch {
+                failed(timer.stepID, CookModeSystemTimerScheduler.message(for: error, fallback: timer.systemUnavailableMessage))
+            }
+        }
+    }
 }

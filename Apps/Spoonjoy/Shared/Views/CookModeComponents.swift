@@ -95,6 +95,7 @@ struct CookTimerStack: View {
                     chips
                 }
             }
+            .kitchenAnimation(.snappy, value: timers.map(\.id))
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cook.timer.stack")
         }
