@@ -147,4 +147,32 @@ struct CookSessionIslandLayoutTests {
         #expect(CookSessionIslandLayout.staleActivityIDs(launchIDs: ["a", "b"], current: "b") == ["a"])
         #expect(CookSessionIslandLayout.staleActivityIDs(launchIDs: [], current: "c").isEmpty)
     }
+
+    // MARK: - iPhone Duo fixes
+
+    @Test func limitedWidthRingsFitTheNarrowIsland() {
+        // The Duo's island is a narrow vertical pill; a 28 pt ring overflowed it.
+        #expect(CookSessionIslandLayout.compactRingDiameter(limitedWidth: true) == 22)
+        #expect(CookSessionIslandLayout.minimalRingDiameter(limitedWidth: true) == 22)
+        #expect(CookSessionIslandLayout.minimalRingDiameter(limitedWidth: false) == 24)
+        #expect(CookSessionIslandLayout.compactRingDiameter(limitedWidth: false) == 28)
+        #expect(CookSessionIslandLayout.compactRingDiameter(limitedWidth: true) <= CookSessionIslandLayout.limitedWidthIslandWidth - 2 * CookSessionIslandLayout.limitedWidthRingInset)
+    }
+
+    @Test func expandedTrailingKeepsTheStepCountBesideTimers() {
+        let none = Self.snapshot()
+        let some = Self.snapshot(timers: [Self.timer(endsIn: 60)])
+        #expect(CookSessionIslandLayout.expandedStepCount(for: none) == "2 of 4")
+        #expect(CookSessionIslandLayout.expandedStepCount(for: some) == "2 of 4")
+    }
+
+    @Test func timerRowsKeepUpToTwoChipsPerRowWhenWrapped() {
+        let timers = (1...3).map { index in
+            CookTimerEntry(id: "k\(index)", stepNumber: index, label: "Step \(index)", endsAt: Self.t0, isPaused: false)
+        }
+        #expect(CookSessionIslandLayout.wrappedTimerRows(timers).map { $0.map(\.id) } == [["k1", "k2"], ["k3"]])
+        #expect(CookSessionIslandLayout.wrappedTimerRows(Array(timers.prefix(2))).map { $0.map(\.id) } == [["k1", "k2"]])
+        #expect(CookSessionIslandLayout.wrappedTimerRows(Array(timers.prefix(1))).map { $0.map(\.id) } == [["k1"]])
+        #expect(CookSessionIslandLayout.wrappedTimerRows([]).isEmpty)
+    }
 }
