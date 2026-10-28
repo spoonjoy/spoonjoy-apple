@@ -150,6 +150,17 @@ private struct RemoteRecipeCoverImage: View {
     }
 }
 
+/// Covers already read from disk. A page that opens on a cover another view just showed (the recipe a Kitchen
+/// cover zooms into) has it on its first frame instead of a loading tile.
+@MainActor
+private enum LocalRecipeCoverCache {
+    static let images: NSCache<NSURL, PlatformRecipeCoverImage> = {
+        let cache = NSCache<NSURL, PlatformRecipeCoverImage>()
+        cache.countLimit = 24
+        return cache
+    }()
+}
+
 private struct LocalRecipeCoverImage: View {
     let url: URL
     let title: String?
@@ -176,6 +187,7 @@ private struct LocalRecipeCoverImage: View {
         self.failureSubtitle = failureSubtitle
         self.showsFallbackLabel = showsFallbackLabel
         self.reduceMotion = reduceMotion
+        _image = State(initialValue: LocalRecipeCoverCache.images.object(forKey: url as NSURL))
         _readinessToken = State(initialValue: ScreenshotVisualReadinessMediaToken(
             resourceID: "recipe-cover:\(url.absoluteString)"
         ))
@@ -201,6 +213,10 @@ private struct LocalRecipeCoverImage: View {
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.20), value: image != nil)
         .task(id: url.absoluteString) {
             await ScreenshotVisualReadiness.beginMedia(readinessToken)
+            if image != nil {
+                await ScreenshotVisualReadiness.finishMedia(readinessToken, succeeded: true)
+                return
+            }
             let data = await Task.detached(priority: .userInitiated) {
                 try? Data(contentsOf: url, options: [.mappedIfSafe])
             }.value
@@ -212,6 +228,7 @@ private struct LocalRecipeCoverImage: View {
                 await ScreenshotVisualReadiness.finishMedia(readinessToken, succeeded: false)
                 return
             }
+            LocalRecipeCoverCache.images.setObject(decodedImage, forKey: url as NSURL)
             image = decodedImage
             failed = false
             await ScreenshotVisualReadiness.finishMedia(readinessToken, succeeded: true)

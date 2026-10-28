@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Foundation
+import SpoonjoyCore
 
 @main
 struct SpoonjoyMacApp: App {
@@ -82,6 +83,13 @@ private enum SpoonjoyMacLaunchProof {
 final class SpoonjoyMacAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         SpoonjoyMacLaunchProof.record("delegate-did-finish-launching")
+#if DEBUG
+        switch ScreenshotAppearance.requested(in: ProcessInfo.processInfo.environment) {
+        case .dark: NSApp.appearance = NSAppearance(named: .darkAqua)
+        case .light: NSApp.appearance = NSAppearance(named: .aqua)
+        case nil: break
+        }
+#endif
         SpoonjoyMacMainWindowCoordinator.shared.scheduleLaunchWindowCheck()
     }
 

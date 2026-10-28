@@ -1306,12 +1306,8 @@ ios_launch_app() {
 }
 
 open_macos_app() {
-  # The simulator takes `simctl ui appearance`; the Mac app takes the appearance as a launch argument instead, so
-  # a dark capture does not switch the whole desktop.
-  local macos_appearance_args=()
-  if [[ "$requested_appearance" == "dark" ]]; then
-    macos_appearance_args=(--args -AppleInterfaceStyle Dark)
-  fi
+  # The simulator takes `simctl ui appearance`; the Mac app reads SPOONJOY_SCREENSHOT_APPEARANCE in capture mode
+  # instead, so a dark capture does not switch the whole desktop.
   set_macos_launch_environment
   run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" \
     env \
@@ -1330,8 +1326,9 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
+      SPOONJOY_SCREENSHOT_APPEARANCE="$requested_appearance" \
       SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
-      open -n "$macos_app" ${macos_appearance_args[@]+"${macos_appearance_args[@]}"}
+      open -n "$macos_app"
 }
 
 set_macos_launch_environment() {
@@ -1356,6 +1353,7 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
+      SPOONJOY_SCREENSHOT_APPEARANCE \
       SPOONJOY_API_BASE_URL
     do
       local value
@@ -1382,6 +1380,7 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APPEARANCE "$requested_appearance"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_API_BASE_URL "https://spoonjoy.app"
 }
 
