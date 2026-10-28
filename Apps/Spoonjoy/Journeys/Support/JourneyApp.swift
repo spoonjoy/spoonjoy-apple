@@ -71,6 +71,20 @@ final class JourneyApp {
         app.launchArguments += ["-SpoonjoyForcePosture", "tabletop"]
     }
 
+    /// Makes the next launch report a hinge folded shut, so a journey can see the cover glance. DEBUG builds only.
+    func useClosedPostureOnNextLaunch() {
+        guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
+            return
+        }
+        app.launchArguments += ["-SpoonjoyForcePosture", "closed"]
+    }
+
+    /// Makes the next launch use AlarmKit itself rather than the stand-in alarm, so a journey can see what the cook
+    /// sees when the system refuses timers, as the CI simulator does.
+    func useSystemAlarmsOnNextLaunch() {
+        app.launchEnvironment.removeValue(forKey: NativeJourneyAlarmFixture.environmentKey)
+    }
+
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
     /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
     /// link until sign-in.

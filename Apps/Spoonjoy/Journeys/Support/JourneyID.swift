@@ -133,6 +133,17 @@ enum JourneyID {
     static let cookTimerCancel = "cookMode.timer.cancel"
     /// The status line under the ring, such as "10 min timer cancelled."
     static let cookTimerStatus = "cookMode.timer.status"
+    /// The red line under the ring when a timer could not be set, such as when the system refuses timers.
+    static let cookTimerError = "cookMode.timer.error"
+    /// Cook mode on a foldable folded shut mid-cook: the cover's kitchen-timer glance, its Next and "Show step".
+    static let cookCoverGlance = "cookMode.coverGlance"
+    static let cookCoverGlanceNext = "cookMode.coverGlance.next"
+    static let cookCoverGlanceShowStep = "cookMode.coverGlance.showStep"
+    /// The right-hand page of cook mode's open-flat spread, which turns between steps.
+    static let cookSpreadStepPage = "cookSpread.stepPage"
+    /// The recipe stood half-open: the method above the fold and the step's ingredients below it.
+    static let recipeTabletopMethod = "recipeTabletop.method"
+    static let recipeTabletopIngredients = "recipeTabletop.ingredients"
 
     /// Every result row in Search.
     static let searchResult = "search.result"

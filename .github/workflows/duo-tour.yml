@@ -99,6 +99,58 @@ jobs:
             -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
             -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/duo/DuoTour.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test.log"
+      - name: Fold and unfold mid-timer
+        # The fold journey starts a timer half-open and prints a "Duo tour fold:" line when each pose has been checked;
+        # this step answers each line by moving the hinge: closed, half-open tall, then open flat and wide. It runs under
+        # `script` so the journey's lines reach the log as they are printed. It leaves the Duo half-open tall again.
+        if: ${{ !cancelled() }}
+        timeout-minutes: 15
+        run: |
+          set -uo pipefail
+          hub="$RUNNER_TEMP/duo/devicehub"
+          log="$RUNNER_TEMP/duo/fold.log"
+          : > "$log"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
+          export TEST_RUNNER_SPOONJOY_JOURNEY_FOLD_TOUR=1
+          script -q "$log" xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            -only-testing:SpoonjoyJourneys/TabletopJourney/testFoldingMidTimerKeepsTheTimerJourney \
+            -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
+            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/duo/DuoFold.xcresult" > /dev/null 2>&1 &
+          tour=$!
+          await() {
+            for _ in $(seq 1 300); do
+              grep -q "Duo tour fold: $1" "$log" && return 0
+              kill -0 "$tour" 2>/dev/null || { echo "::error::The fold journey ended before \"$1\"."; return 1; }
+              sleep 1
+            done
+            echo "::error::The fold journey never printed \"$1\"."
+            return 1
+          }
+          failed=0
+          if await "timer started"; then
+            "$hub" press "Closed"
+            if await "closed"; then
+              "$hub" press "Open"; sleep 3
+              "$hub" press "Rotate Right"; sleep 3
+              "$hub" press "Partially Open"
+              if await "tabletop"; then
+                "$hub" press "Open"; sleep 3
+                for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
+                await "done" || failed=1
+              else failed=1; fi
+            else failed=1; fi
+          else failed=1; fi
+          wait "$tour" || failed=1
+          grep -E "Duo tour fold:|error:|Test Case .* (passed|failed)" "$log" || true
+          # Back to the pose the next step photographs first.
+          "$hub" press "Open"; sleep 3
+          "$hub" press "Rotate Right"; sleep 3
+          "$hub" press "Partially Open"; sleep 6
+          exit "$failed"
       - name: Photograph every pose
         if: ${{ !cancelled() }}
         timeout-minutes: 10
@@ -125,6 +177,18 @@ jobs:
           }
           launch
           shoot 10-half-open-tall
+          xcrun simctl ui "$udid" appearance dark
+          launch
+          shoot 10d-half-open-tall-dark
+          xcrun simctl ui "$udid" appearance light
+          SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="${cook_link%/cook}" \
+            xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+          sleep 12
+          shoot 10r-recipe-half-open-tall
+          xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
+          launch
+          shoot 10x-half-open-tall-ax5
+          xcrun simctl ui "$udid" content_size large
           SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
           sleep 10
           shoot 10b-kitchen-half-open-tall
@@ -134,10 +198,22 @@ jobs:
           for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
           sleep 4
           shoot 12-open-wide
+          xcrun simctl ui "$udid" appearance dark
+          launch
+          shoot 12d-open-wide-dark
+          xcrun simctl ui "$udid" appearance light
           launch
           shoot 13-open-wide-relaunched
+          # Folded shut with cook mode open, the cover becomes the kitchen-timer glance.
           "$hub" press "Closed"; sleep 6
           shoot 14-closed
+          "$hub" press "Open"; sleep 6
+          xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
+          launch
+          shoot 13x-open-wide-ax5
+          "$hub" press "Closed"; sleep 6
+          shoot 14x-closed-ax5
+          xcrun simctl ui "$udid" content_size large
           ls -la "$shots"
       - name: Check the open-flat spread
         # The previous step leaves the Duo closed. Opened, it lies flat and wide, and the recipe and cook mode must each
@@ -217,7 +293,8 @@ jobs:
         if: always()
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/duo-secrets/accounts.json" \
-            "$RUNNER_TEMP/duo/build.log" "$RUNNER_TEMP/duo/test.log" "$RUNNER_TEMP/duo/DuoTour.xcresult"
+            "$RUNNER_TEMP/duo/build.log" "$RUNNER_TEMP/duo/test.log" "$RUNNER_TEMP/duo/DuoTour.xcresult" \
+            "$RUNNER_TEMP/duo/fold.log" "$RUNNER_TEMP/duo/DuoFold.xcresult"
       - name: Remove credentials
         if: always()
         run: rm -rf "$RUNNER_TEMP/duo-secrets"
@@ -228,6 +305,8 @@ jobs:
           name: duo-tour-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/duo/DuoTour.xcresult
+            ${{ runner.temp }}/duo/DuoFold.xcresult
+            ${{ runner.temp }}/duo/fold.log
             ${{ runner.temp }}/duo/shots
             ${{ runner.temp }}/duo/test.log
           if-no-files-found: warn

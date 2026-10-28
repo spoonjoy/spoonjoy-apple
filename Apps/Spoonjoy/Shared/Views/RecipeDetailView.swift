@@ -242,6 +242,8 @@ struct RecipeDetailView: View {
     /// Where each ingredient group starts on the left page, measured in the page's content coordinates.
     @State private var spreadIngredientGroupOffsets: [String: CGFloat] = [:]
     @State private var spreadMethodScrollAnchor: String?
+    /// The fold and hinge of a foldable, read from the system (iOS 27.1 SDK); empty everywhere else.
+    @State private var foldReading = FoldReading()
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -375,6 +377,30 @@ struct RecipeDetailView: View {
     /// Compact width keeps the single scrolling page. Regular width opens into a two-page spread when the
     /// screen is wide and landscape, such as the inner screen of the iPhone Duo, and reads as one page otherwise.
     @ViewBuilder private var recipeLayout: some View {
+#if os(iOS)
+        // Stood half-open on the counter, the method faces the cook above the fold and the step's ingredients lie
+        // below it; see "Duo postures" in docs/native-design-language.md.
+        GeometryReader { proxy in
+            let reading = foldReading.applyingForcedHinge
+            let tabletop = TabletopLayout.resolve(
+                width: Double(proxy.size.width),
+                height: Double(proxy.size.height),
+                hinge: reading.posture == .tabletop ? .partiallyOpen : .unknown,
+                band: reading.band
+            )
+            if tabletop.isSplit {
+                recipeTabletop(tabletop)
+            } else {
+                widthLayout
+            }
+        }
+        .readingFold($foldReading)
+#else
+        widthLayout
+#endif
+    }
+
+    @ViewBuilder private var widthLayout: some View {
         if usesCompactRecipeDock {
             singlePageLayout
         } else {
@@ -1339,6 +1365,54 @@ private extension Recipe {
 // MARK: - Cookbook spread
 
 extension RecipeDetailView {
+    /// The recipe stood half-open on the counter: the method on the half above the fold, facing the cook, and the
+    /// selected step's ingredients on the half below it (every step's, grouped, until one is picked). Nothing sits
+    /// on the fold.
+    fileprivate func recipeTabletop(_ layout: TabletopLayout) -> some View {
+        let index = RecipeSpreadIngredientIndex(stepSections: viewModel.stepSections)
+        let selected = spreadSelection.selectedStepID.flatMap { index.group(forStepID: $0) }
+        return VStack(spacing: 0) {
+            ScrollView {
+                spreadMethodPage(index: index)
+                    .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+                    .padding(.vertical, 16)
+            }
+            .scrollPosition(id: $spreadMethodScrollAnchor, anchor: .top)
+            .frame(height: CGFloat(layout.top?.height ?? 0))
+            .accessibilityIdentifier("recipeTabletop.method")
+
+            Color.clear
+                .frame(height: CGFloat(layout.fold?.height ?? 0))
+                .accessibilityHidden(true)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let selected {
+                        spreadIngredientGroup(selected, isHighlighted: true)
+                    } else if index.isEmpty {
+                        Text("No ingredients added yet")
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                    } else {
+                        Text("Tap a step to see what it needs")
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                        ForEach(index.groups) { group in
+                            spreadIngredientGroup(group, isHighlighted: false)
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+                .padding(.vertical, 16)
+            }
+            .frame(height: CGFloat(layout.bottom?.height ?? 0))
+            .background(KitchenTableTheme.raised)
+            .accessibilityIdentifier("recipeTabletop.ingredients")
+        }
+        .background(KitchenTableTheme.page.ignoresSafeArea())
+    }
+
     /// The recipe laid open like a cookbook. The left page holds the title, cover, yield and every ingredient
     /// grouped under the step that uses it; the right page holds the method. The pages scroll on their own.
     /// Tapping a step highlights its ingredients on the left page and brings them into view; tapping an
