@@ -253,6 +253,9 @@ public extension SettingsActionPlan {
 
 public enum SettingsActionResponseHandling: Equatable, Sendable {
     case refreshOnly
+    /// Answer as soon as the server does and refresh the app without waiting, so the caller can show the change at
+    /// once. Report and block use it: a full refresh can take long enough that the person leaves the screen first.
+    case refreshInBackground
     case captureCreatedAPIToken
     /// Keep the export JSON as a file to share, named for this username.
     case captureAccountExport(username: String)
