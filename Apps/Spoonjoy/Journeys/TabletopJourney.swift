@@ -5,8 +5,8 @@ import XCTest
 /// above the fold, facing the cook, and the ingredient checklist sits on the half below it, flat on the counter;
 /// nothing sits on the fold. The Journeys job's simulator hinge cannot stand half-open, so the app is launched reporting
 /// a half-open hinge (`-SpoonjoyForcePosture tabletop`); the split itself is the shipping layout. The Duo tour workflow
-/// runs this journey on an iPhone Duo stood half-open, where the app reads the real hinge. Next turns the step from
-/// below the fold, and the step survives a relaunch.
+/// runs this journey on an iPhone Duo stood half-open, where the app reads the real hinge. Checking the step's flour
+/// starts its timer, a swipe on the step half turns the step, and the step survives a relaunch.
 @MainActor
 final class TabletopJourney: JourneyTestCase {
     func testTabletopCookModeSplitsAtTheFoldJourney() async throws {
@@ -23,7 +23,7 @@ final class TabletopJourney: JourneyTestCase {
                     stepNum: 1,
                     stepTitle: "Make the dough",
                     description: "Rub the butter into the flour until it looks like breadcrumbs.",
-                    duration: nil,
+                    duration: 5,
                     ingredients: [RecipeIngredientDraft(quantity: 2, unit: "cup", name: flour)],
                     outputStepNums: []
                 ),
@@ -98,16 +98,26 @@ final class TabletopJourney: JourneyTestCase {
             ["1", "checked"].contains(ingredient.value as? String ?? ""),
             "Tapping the flour did not check it in tabletop cook mode. Value: \(String(describing: ingredient.value))"
         )
-        journey.attachScreenshot(named: "01-tabletop-flour-checked", to: self)
+        // The flour is the step's only ingredient, so checking it starts the step's timer, above the fold with the step.
+        let running = journey.element(JourneyID.cookTimerRunning)
+        XCTAssertTrue(
+            running.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Checking the flour did not start the step's timer. Screen: \(journey.screen)"
+        )
+        XCTAssertLessThanOrEqual(running.frame.maxY, controlsHalf.frame.minY, "The running timer is not above the fold.")
+        journey.attachScreenshot(named: "01-tabletop-flour-checked-timer-running", to: self)
+        journey.tap(JourneyID.cookTimerCancel)
+        XCTAssertTrue(
+            running.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Cancelling the timer did not stop it. Screen: \(journey.screen)"
+        )
 
-        // Next, below the fold, turns to the second step; cook mode stays split.
-        let next = journey.element(JourneyID.cookDockNext)
-        XCTAssertGreaterThanOrEqual(next.frame.minY, stepHalf.frame.maxY, "Next step is not below the fold.")
-        next.tap()
+        // A swipe on the step half turns to the second step; cook mode stays split.
+        stepHalf.swipeLeft()
         let jamIngredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: jam)
         XCTAssertTrue(
             jamIngredient.waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Next step did not turn to the second step in tabletop cook mode. Screen: \(journey.screen)"
+            "A swipe did not turn to the second step in tabletop cook mode. Screen: \(journey.screen)"
         )
         XCTAssertTrue(stepHalf.exists, "Turning the step undid the split. Screen: \(journey.screen)")
         XCTAssertGreaterThanOrEqual(jamIngredient.frame.minY, stepHalf.frame.maxY, "The second step's checklist is not below the fold.")

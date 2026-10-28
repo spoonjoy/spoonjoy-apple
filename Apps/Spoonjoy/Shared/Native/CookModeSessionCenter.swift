@@ -121,6 +121,54 @@ final class CookModeSessionCenter {
         )
     }
 
+    /// A pause between the last check and the timer starting, so the ring sweeps in after the tick lands.
+    static let autoStartDelay: Duration = .milliseconds(250)
+
+    /// Called on every change to the open session's checks. When a check completes a step's ingredients and the step
+    /// has a duration and no running timer (`CookAutoTimerPolicy`), the step's timer starts through the same path the
+    /// ring uses, so it is still one alarm per step. Progress that arrives from another device does not come here.
+    func checksChanged(from previous: CookModeProgress, to next: CookModeProgress) {
+        guard let registration, previous.checkedIngredientIDs != next.checkedIngredientIDs else {
+            return
+        }
+        let recipe = registration.viewModel().recipe
+        let checked = Set(next.checkedIngredientIDs)
+        let previouslyChecked = Set(previous.checkedIngredientIDs)
+        let running = stepTimers.runningStepIDs(forRecipe: recipe.id)
+        let timers = recipe.steps.compactMap { step -> CookModeSystemTimerViewModel? in
+            guard CookAutoTimerPolicy.shouldAutoStart(
+                step: step,
+                checkedIngredientIDs: checked,
+                previouslyChecked: previouslyChecked,
+                runningStepIDs: running
+            ) else {
+                return nil
+            }
+            return CookModeViewModel(
+                recipe: recipe,
+                progress: (try? next.selectingStep(id: step.id, updatedAt: next.updatedAt)) ?? next
+            ).systemTimer
+        }
+        guard !timers.isEmpty else {
+            return
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.autoStartDelay)
+            // An uncheck during the pause, or leaving cook mode, calls the start off.
+            guard let current = self?.registration else {
+                return
+            }
+            let stillChecked = Set(current.viewModel().progress.checkedIngredientIDs)
+            for timer in timers {
+                let needed = Set(recipe.steps.first { $0.id == timer.stepID }?.ingredients.map(\.id) ?? [])
+                guard needed.isSubset(of: stillChecked) else {
+                    continue
+                }
+                _ = try? await current.startTimer(timer)
+            }
+        }
+    }
+
     /// The step on screen, for the annotated on-screen entity.
     func onScreenStep() -> CookModeOnScreenStep? {
         registration?.viewModel().onScreenStep
