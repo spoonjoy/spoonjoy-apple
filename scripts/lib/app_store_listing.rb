@@ -375,6 +375,19 @@ module AppStoreListing
       raise Error, "Screenshot upload answered HTTP #{response.code}" unless response.is_a?(Net::HTTPSuccess)
     end
 
+    # App Store Connect puts the reason a submission is refused in each error's meta.associatedErrors, keyed by
+    # the resource it concerns; the top-level detail only says to look there.
+    def self.error_detail(body)
+      JSON.parse(body)["errors"].map do |e|
+        associated = (e.dig("meta", "associatedErrors") || {}).flat_map do |resource, errors|
+          Array(errors).map { |a| "#{resource}: #{[a['code'], a['title'], a['detail']].compact.join(' ')}" }
+        end
+        (["#{e['title']}: #{e['detail']}"] + associated).join(" | ")
+      end.join("; ")
+    rescue StandardError
+      body.to_s[0, 500]
+    end
+
     private
 
     def base64url(bytes)
@@ -392,12 +405,7 @@ module AppStoreListing
       end
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, read_timeout: 120) { |http| http.request(req) }
       unless response.is_a?(Net::HTTPSuccess)
-        detail = begin
-          JSON.parse(response.body)["errors"].map { |e| "#{e['title']}: #{e['detail']}" }.join("; ")
-        rescue StandardError
-          response.body.to_s[0, 500]
-        end
-        raise Error, "#{klass::METHOD} #{path} answered HTTP #{response.code}: #{detail}"
+        raise Error, "#{klass::METHOD} #{path} answered HTTP #{response.code}: #{self.class.error_detail(response.body)}"
       end
       response.body.to_s.empty? ? {} : JSON.parse(response.body)
     end
