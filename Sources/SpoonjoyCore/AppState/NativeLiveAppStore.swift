@@ -1898,6 +1898,12 @@ public final class NativeLiveAppStore: ObservableObject {
     }
     /// Recipes whose cook progress should be read from the server at the next sync (a recipe was opened).
     private var cookPullRecipeIDs = Set<String>()
+    // The store's scope is signed-out until the first sync reads the stored session. A link that cold-launches the
+    // app records its route, and cook mode its progress, inside that window; saving then would replace the chef's
+    // snapshot with an empty signed-out one. Those writes wait here and replay when the first sync ends.
+    private var hasFinishedLaunchRestore = false
+    private var routeAwaitingLaunchRestore: AppRoute?
+    private var cookProgressAwaitingLaunchRestore: [CookModeProgress] = []
     /// Recipes the server would not take progress for (sync is off, access refused). They are not retried
     /// until the recipe is opened again.
     private var cookSyncOffRecipeIDs = Set<String>()
@@ -2000,6 +2006,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     private func performSync(trigger: NativeSyncTriggerEvent) async {
+        defer { finishLaunchRestore() }
         // Set once the vault has been read, so a failure after that point can still show the cached kitchen
         // under the stored account instead of an empty signed-out scope.
         var restoredForRecovery = currentContentState.authSessionState
@@ -2988,6 +2995,21 @@ public final class NativeLiveAppStore: ObservableObject {
         }
     }
 
+    private func finishLaunchRestore() {
+        guard !hasFinishedLaunchRestore else {
+            return
+        }
+        hasFinishedLaunchRestore = true
+        let progress = cookProgressAwaitingLaunchRestore
+        let route = routeAwaitingLaunchRestore
+        cookProgressAwaitingLaunchRestore = []
+        routeAwaitingLaunchRestore = nil
+        progress.forEach(recordCookProgress)
+        if let route {
+            recordingOpenedRoute(route)
+        }
+    }
+
     public func recordingOpenedRoute(_ route: AppRoute) {
         guard let appStateStore = dependencies.appStateStoreProvider() else {
             return
@@ -3002,9 +3024,12 @@ public final class NativeLiveAppStore: ObservableObject {
                 savedAt: savedAt
             )
             let record = try appStateStore.loadOrCreate(fallback: fallback)
-            let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
-                ? record.value
-                : fallback
+            let isScoped = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+            guard isScoped || hasFinishedLaunchRestore else {
+                routeAwaitingLaunchRestore = route
+                return
+            }
+            let baseSnapshot = isScoped ? record.value : fallback
             try appStateStore.save(
                 baseSnapshot
                     .completingFirstRun(savedAt: savedAt)
@@ -3029,9 +3054,12 @@ public final class NativeLiveAppStore: ObservableObject {
                 savedAt: savedAt
             )
             let record = try appStateStore.loadOrCreate(fallback: fallback)
-            let baseSnapshot = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
-                ? record.value
-                : fallback
+            let isScoped = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
+            guard isScoped || hasFinishedLaunchRestore else {
+                cookProgressAwaitingLaunchRestore.append(progress)
+                return
+            }
+            let baseSnapshot = isScoped ? record.value : fallback
             try appStateStore.save(
                 baseSnapshot
                     .completingFirstRun(savedAt: savedAt)
