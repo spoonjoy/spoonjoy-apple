@@ -21,4 +21,11 @@ public enum KitchenHeroStretch {
     public static func stillPhotoFill(pull: Double, reduceMotion: Bool) -> Double {
         reduceMotion ? max(0, pull) : 0
     }
+
+    /// Whether the bar's top scroll edge effect shows. At rest, or pulled past the top, the photo meets the screen
+    /// edge with nothing over it; once the page scrolls, the effect sits behind the bar buttons so the dish's title
+    /// never runs bare under them. `scrollOffset` is the content offset plus the top inset.
+    public static func showsTopEdgeEffect(scrollOffset: Double) -> Bool {
+        scrollOffset > 1
+    }
 }

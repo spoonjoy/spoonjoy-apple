@@ -95,14 +95,15 @@ struct KitchenView: View {
         } action: { inset in
             chromeHeight = inset
         }
-        .scrollEdgeEffectHidden(true, for: .top)
-        // The dish is the title; over the photo the clock and the bar buttons turn light.
+        .scrollEdgeEffectHidden(!KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: Double(scrollOffset)), for: .top)
+        // A soft edge fades only a sliver at the top; at large text the dish's title would still sit under the buttons.
+        .scrollEdgeEffectStyle(.hard, for: .top)
+        // The dish is the title. The status bar follows what is under it, light over the photo and dark on paper,
+        // and the bar's glass keeps its own glyph color; forcing a bar scheme left the glyphs white on the paper.
         .toolbar(removing: .title)
-        // A bar's color scheme only reaches the status bar while its background counts as visible, so the bar
-        // keeps a clear background over the photo.
+        // Over the photo the bar draws nothing of its own.
         .toolbarBackground(Color.clear, for: .navigationBar)
         .toolbarBackgroundVisibility(isHeroUnderBar ? .visible : .automatic, for: .navigationBar)
-        .toolbarColorScheme(isHeroUnderBar ? .dark : nil, for: .navigationBar)
         .overlay(alignment: .top) {
             // Once the photo has scrolled away, paper covers the status bar so text never runs under the clock.
             Color.clear

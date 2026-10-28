@@ -35,3 +35,15 @@ struct KitchenHeroStillPhotoTests {
         #expect(KitchenHeroStretch.stillPhotoFill(pull: 90, reduceMotion: false) == 0)
     }
 }
+
+@Suite("Kitchen top edge under the bar")
+struct KitchenTopEdgeEffectTests {
+    @Test("the photo meets the top cleanly at rest and while pulled, and the bar gets its edge once content scrolls under it")
+    func topEdgeEffect() {
+        #expect(KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: 0) == false)
+        #expect(KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: -120) == false)
+        #expect(KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: 0.5) == false)
+        #expect(KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: 1.5) == true)
+        #expect(KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: 640) == true)
+    }
+}

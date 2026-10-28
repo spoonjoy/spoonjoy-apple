@@ -750,7 +750,7 @@ struct PlatformNavigationView: View {
                 .frame(minHeight: 28, alignment: .leading)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 2)
-                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule())
+                .background(KitchenTableTheme.raised, in: Capsule())
                 .frame(maxWidth: .infinity, alignment: .leading)
         } else if offlineIndicatorState.display.informationalOnly {
             OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet, onDismiss: dismissOfflineIndicator)

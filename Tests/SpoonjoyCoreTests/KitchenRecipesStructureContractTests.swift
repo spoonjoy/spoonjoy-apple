@@ -36,6 +36,37 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
+    @Test("Kitchen bar keeps a clean top at rest, backs its buttons once the page scrolls, and keeps their glyphs legible")
+    func kitchenBarBacksButtonsOnceScrolled() throws {
+        let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+
+        expectContent(
+            kitchen,
+            in: kitchenPath,
+            contains: [
+                ".scrollEdgeEffectHidden(!KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: Double(scrollOffset)), for: .top)",
+                ".scrollEdgeEffectStyle(.hard, for: .top)"
+            ],
+            forbids: [
+                ".scrollEdgeEffectHidden(true, for: .top)",
+                // A forced bar scheme left the buttons' glyphs white on the paper once the photo scrolled away;
+                // the status bar already follows what is under it.
+                ".toolbarColorScheme("
+            ]
+        )
+
+        // The page scrolls under the offline capsule, so a see-through capsule let headings show through its words.
+        let shellPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let shell = uncommentedSwift(try readRepoFile(shellPath))
+        expectContent(
+            shell,
+            in: shellPath,
+            contains: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised, in: Capsule())"],
+            forbids: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule())"]
+        )
+    }
+
     @Test("Recipe index rows read as index entries instead of bare open rows")
     func kitchenRecipeIndexRowsReadAsIndexEntries() throws {
         let rowPath = "Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift"
