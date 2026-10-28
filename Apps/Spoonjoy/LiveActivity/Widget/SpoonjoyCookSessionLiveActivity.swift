@@ -31,18 +31,8 @@ struct SpoonjoyCookSessionLiveActivity: Widget {
                         .islandPalette()
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(snapshot.stepTitle)
-                            .font(KitchenTableTheme.objectTitle)
-                            .foregroundStyle(KitchenTableTheme.onPhoto)
-                            .lineLimit(1)
-                        Text(snapshot.stepText)
-                            .font(KitchenTableTheme.meta)
-                            .foregroundStyle(KitchenTableTheme.onPhoto)
-                            .lineLimit(2)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .islandPalette()
+                    CookSessionExpandedCenter(snapshot: snapshot)
+                        .islandPalette()
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     CookSessionExpandedBody(snapshot: snapshot, recipeID: recipeID)
@@ -194,6 +184,9 @@ struct CookSessionRing: View {
 /// One step timer: its label and a countdown, or the frozen time while paused.
 private struct CookSessionTimerChip: View {
     let timer: CookTimerEntry
+    /// In the single-column fallback the chip takes the row's width and a name too long for it ends in "…", so the
+    /// countdown always shows whole.
+    var fillsRow = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -202,6 +195,8 @@ private struct CookSessionTimerChip: View {
                 .font(KitchenTableTheme.runningHead)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(maxWidth: fillsRow ? .infinity : nil, alignment: .leading)
                 .accessibilityHidden(true)
             // A system countdown asks for as much width as it is offered, so the chip sizes to the timer's whole length
             // and lays the countdown over it. "2:14:23" is never cut to "2:14:…", and the chip never grows past it.
@@ -220,6 +215,8 @@ private struct CookSessionTimerChip: View {
                 .foregroundStyle(timer.isPaused ? KitchenTableTheme.ink2 : KitchenTableTheme.brass)
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
+                .fixedSize()
+                .layoutPriority(1)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
@@ -269,22 +266,58 @@ private struct CookSessionTimerReadout: View {
     }
 }
 
-/// The timers as named chips: one row when every name fits whole, else two to a row, so a narrow screen (the iPhone
-/// Duo's cover screen) never cuts the step names short.
+/// The timers as named chips, one row when every name fits whole. Otherwise it depends on the room: at standard text
+/// sizes the Lock Screen card and the island are capped at about 160 pt, so the chips stay on one row and the names
+/// end in "…"; at accessibility sizes the card grows, so the chips wrap two to a row, then one to a row at the full
+/// width. In the island (`inIsland`) only the soonest timer shows, with a count of the rest. Only the last option can
+/// shrink, so no layout widens the card or island past the screen.
 private struct CookSessionTimerRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let timers: [CookTimerEntry]
+    var inIsland = false
 
     var body: some View {
         if !timers.isEmpty {
             ViewThatFits(in: .horizontal) {
                 chipRow(timers)
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(CookSessionIslandLayout.wrappedTimerRows(timers).enumerated()), id: \.offset) { _, row in
-                        chipRow(row)
+                if inIsland {
+                    soonestTimer
+                } else if typeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(CookSessionIslandLayout.wrappedTimerRows(timers).enumerated()), id: \.offset) { _, row in
+                            chipRow(row)
+                        }
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(timers) { timer in
+                            CookSessionTimerChip(timer: timer, fillsRow: true)
+                        }
+                    }
+                } else {
+                    HStack(spacing: 6) {
+                        ForEach(timers) { timer in
+                            CookSessionTimerChip(timer: timer, fillsRow: true)
+                        }
                     }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private var soonestTimer: some View {
+        if let timer = timers.first(where: { !$0.isPaused }) ?? timers.first {
+            HStack(spacing: 6) {
+                CookSessionTimerChip(timer: timer, fillsRow: true)
+                if let more = CookSessionIslandLayout.moreTimersText(count: timers.count) {
+                    Text(more)
+                        .font(KitchenTableTheme.uiLabel.monospacedDigit())
+                        .foregroundStyle(KitchenTableTheme.ink2)
+                        .fixedSize()
+                        .accessibilityLabel("\(timers.count - 1) more timers")
+                }
+            }
         }
     }
 
@@ -344,24 +377,55 @@ private struct CookSessionExpandedTrailing: View {
         Text(CookSessionIslandLayout.expandedStepCount(for: snapshot))
             .font(KitchenTableTheme.uiLabel.monospacedDigit())
             .foregroundStyle(KitchenTableTheme.brass)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
     }
 }
 
+/// The step's title and text. At accessibility text sizes the island can't hold the text as well as the timer and
+/// buttons, so the text gives way.
+private struct CookSessionExpandedCenter: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+    let snapshot: CookSessionSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(snapshot.stepTitle)
+                .font(KitchenTableTheme.objectTitle)
+                .foregroundStyle(KitchenTableTheme.onPhoto)
+                .lineLimit(1)
+            if !typeSize.isAccessibilitySize {
+                Text(snapshot.stepText)
+                    .font(KitchenTableTheme.meta)
+                    .foregroundStyle(KitchenTableTheme.onPhoto)
+                    .lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The timers, "Next:" and the buttons. When "Next:" and the buttons can't share a row, the line goes and the buttons
+/// take the width.
 private struct CookSessionExpandedBody: View {
     let snapshot: CookSessionSnapshot
     let recipeID: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            CookSessionTimerRow(timers: snapshot.timers)
-            HStack(spacing: 8) {
-                Text(snapshot.nextStepTitle.map { "Next: \($0)" } ?? "Last step")
-                    .font(KitchenTableTheme.runningHead)
-                    .foregroundStyle(KitchenTableTheme.onPhotoMuted)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            CookSessionTimerRow(timers: snapshot.timers, inIsland: true)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    Text(snapshot.nextStepTitle.map { "Next: \($0)" } ?? "Last step")
+                        .font(KitchenTableTheme.runningHead)
+                        .foregroundStyle(KitchenTableTheme.onPhotoMuted)
+                        .lineLimit(2)
+                        // ViewThatFits measures ideal widths, so the line asks for 80 pt here instead of its whole text.
+                        .frame(minWidth: 80, idealWidth: 80, maxWidth: .infinity, alignment: .leading)
+                    CookSessionButtons(snapshot: snapshot, recipeID: recipeID, height: 36)
+                        .fixedSize(horizontal: true, vertical: false)
+                }
                 CookSessionButtons(snapshot: snapshot, recipeID: recipeID, height: 36)
-                    .fixedSize(horizontal: true, vertical: false)
             }
         }
         .padding(.horizontal, 4)

@@ -81,14 +81,14 @@ public enum CookSessionIslandLayout {
         return Compact(leading: .stepLabel("Step \(snapshot.stepNumber)"), trailing: trailing)
     }
 
-    /// On the iPhone Duo the island is a vertical pill (37 pt across), and the compact region inside it is about this
-    /// tall, measured on the iOS 27.1 simulator. A 28 pt ring lost its bottom edge there.
-    public static let limitedWidthIslandWidth: Double = 26
+    /// On the iPhone Duo the island is a vertical pill 37 pt across, and the compact region inside it is about this
+    /// wide, measured on the iOS 27.1 simulator (not yet on a real Duo). A 28 pt ring reached the pill's sides there.
+    public static let limitedWidthCompactRegionWidth: Double = 26
     /// Clear space kept between the ring and the region's edge.
     public static let limitedWidthRingInset: Double = 2
 
     public static func compactRingDiameter(limitedWidth: Bool) -> Double {
-        limitedWidth ? limitedWidthIslandWidth - 2 * limitedWidthRingInset : 28
+        limitedWidth ? limitedWidthCompactRegionWidth - 2 * limitedWidthRingInset : 28
     }
 
     public static func minimalRingDiameter(limitedWidth: Bool) -> Double {
@@ -103,6 +103,11 @@ public enum CookSessionIslandLayout {
     /// Timers wrapped two to a row, for when one row would cut the step names short.
     public static func wrappedTimerRows(_ timers: [CookTimerEntry]) -> [[CookTimerEntry]] {
         stride(from: 0, to: timers.count, by: 2).map { Array(timers[$0..<min($0 + 2, timers.count)]) }
+    }
+
+    /// Beside the soonest timer when the island has room for only one: how many more run, or nil when it is the only one.
+    public static func moreTimersText(count: Int) -> String? {
+        count > 1 ? "+\(count - 1)" : nil
     }
 
     /// The timer the ring follows: the soonest running one, else the soonest paused one.

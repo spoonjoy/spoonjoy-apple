@@ -156,7 +156,13 @@ struct CookSessionIslandLayoutTests {
         #expect(CookSessionIslandLayout.minimalRingDiameter(limitedWidth: true) == 22)
         #expect(CookSessionIslandLayout.minimalRingDiameter(limitedWidth: false) == 24)
         #expect(CookSessionIslandLayout.compactRingDiameter(limitedWidth: false) == 28)
-        #expect(CookSessionIslandLayout.compactRingDiameter(limitedWidth: true) <= CookSessionIslandLayout.limitedWidthIslandWidth - 2 * CookSessionIslandLayout.limitedWidthRingInset)
+        #expect(CookSessionIslandLayout.limitedWidthCompactRegionWidth == 26)
+    }
+
+    @Test func theIslandCountsTheTimersPastTheSoonest() {
+        #expect(CookSessionIslandLayout.moreTimersText(count: 0) == nil)
+        #expect(CookSessionIslandLayout.moreTimersText(count: 1) == nil)
+        #expect(CookSessionIslandLayout.moreTimersText(count: 3) == "+2")
     }
 
     @Test func expandedTrailingKeepsTheStepCountBesideTimers() {
