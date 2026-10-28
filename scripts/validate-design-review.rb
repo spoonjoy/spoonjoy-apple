@@ -135,11 +135,11 @@ EXPECTED_ROUTE_EVIDENCE = {
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cook-mode" => {
-    "voiceOverLabels" => ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Ingredients", "Cook tools"],
-    "keyboardNavigationTargets" => ["cook step handrail", "ingredient toggles", "dependency toggles", "cook tools"],
-    "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-    "contrastPairs" => ["charcoal on bone", "herb tint on bone", "status text on material"],
-    "hierarchyAnchors" => ["CookModeView", "currentStepCard", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
+    "voiceOverLabels" => ["Current cooking step", "More cook options", "Next step", "For this step"],
+    "keyboardNavigationTargets" => ["cook step pager", "timer ring", "ingredient toggles", "more menu"],
+    "dynamicTypeTextStyles" => ["KitchenTableTheme.cookStep", "KitchenTableTheme.control", "KitchenTableTheme.timer"],
+    "contrastPairs" => ["charcoal on bone", "brass on bone"],
+    "hierarchyAnchors" => ["CookModeView", "cookPager", "CookTimerRingFace", "stepCard", "cookMoreMenu", "cookModeBottomActionRail"],
     "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "shopping-list" => {

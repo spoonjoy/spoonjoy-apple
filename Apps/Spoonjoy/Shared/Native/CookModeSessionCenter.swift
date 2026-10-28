@@ -24,6 +24,8 @@ final class CookModeSessionCenter {
         let apply: (CookModeProgress) -> Void
         /// Returns the outcome, so a second start for a step that already has a timer says so instead of setting another.
         let startTimer: @MainActor (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome
+        /// An auto-start that failed, with the message the step's ring shows.
+        var timerStartFailed: @MainActor (_ stepID: String, _ message: String) -> Void = { _, _ in }
     }
 
     static let shared = CookModeSessionCenter()
@@ -119,6 +121,54 @@ final class CookModeSessionCenter {
             deepLink: DeepLinkURLBuilder.url(for: .recipeDetail(id: recipe.id, presentation: .cook)),
             finished: CookSessionSnapshot.isFinished(recipe: recipe, progress: current)
         )
+    }
+
+    /// A pause between the last check and the timer starting, so the ring sweeps in after the tick lands.
+    static let autoStartDelay: Duration = .milliseconds(250)
+
+    /// Called on every change to the open session's checks. When a check completes a step's ingredients and the step
+    /// has a duration and no running timer (`CookAutoTimerPolicy`), the step's timer starts through the same path the
+    /// ring uses, so it is still one alarm per step. Progress that arrives from another device does not come here.
+    func checksChanged(from previous: CookModeProgress, to next: CookModeProgress) {
+        guard let registration, previous.checkedIngredientIDs != next.checkedIngredientIDs else {
+            return
+        }
+        let recipe = registration.viewModel().recipe
+        let checked = Set(next.checkedIngredientIDs)
+        let previouslyChecked = Set(previous.checkedIngredientIDs)
+        let running = stepTimers.runningStepIDs(forRecipe: recipe.id)
+        let timers = recipe.steps.compactMap { step -> CookModeSystemTimerViewModel? in
+            guard CookAutoTimerPolicy.shouldAutoStart(
+                step: step,
+                checkedIngredientIDs: checked,
+                previouslyChecked: previouslyChecked,
+                runningStepIDs: running
+            ) else {
+                return nil
+            }
+            return CookModeViewModel(
+                recipe: recipe,
+                progress: (try? next.selectingStep(id: step.id, updatedAt: next.updatedAt)) ?? next
+            ).systemTimer
+        }
+        guard !timers.isEmpty else {
+            return
+        }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.autoStartDelay)
+            // An uncheck during the pause, or leaving cook mode, calls the start off.
+            guard let current = self?.registration else {
+                return
+            }
+            let stillChecked = Set(current.viewModel().progress.checkedIngredientIDs)
+            for timer in CookAutoTimerPolicy.timersStillToStart(timers, steps: recipe.steps, stillChecked: stillChecked) {
+                do {
+                    _ = try await current.startTimer(timer)
+                } catch {
+                    current.timerStartFailed(timer.stepID, CookAutoTimerPolicy.startFailureMessage(for: error, timer: timer))
+                }
+            }
+        }
     }
 
     /// The step on screen, for the annotated on-screen entity.

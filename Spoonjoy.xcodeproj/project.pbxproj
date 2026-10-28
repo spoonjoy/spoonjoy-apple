@@ -7,166 +7,168 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		01B5EF49CD5ABF81DBD80F392F92E452 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B032382E6318958F860BF7FA84E0E56E /* CachedAsyncImage.swift */; };
-		0259A1E51C5B410C753B3418FEDAC018 /* NativeAppleSignInTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88F7AF9E7CE190B6D1D150B995A21987 /* NativeAppleSignInTelemetry.swift */; };
+		0078A0BB02E0D0599C5D172A878E6904 /* PullToRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271D1257B5880E15346AA06004C135C6 /* PullToRefresh.swift */; };
+		008BE28AC0E2332E7D6764F3F3674670 /* SpoonjoyRemindersIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E54DAB6BE8D0DE024D0D2280DAD83A /* SpoonjoyRemindersIntent.swift */; };
 		048DD1EAAFACDD5B401BEB5F0BE255CC /* JourneyCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ADC2E52393ADE1A8B9A7BDBE1FD1E51 /* JourneyCopy.swift */; };
 		0506853CBAAD712F1E060B3DB1459C7F /* JourneyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E177BEA7E56335E61C9DD232881736DC /* JourneyApp.swift */; };
-		083624F4E753CEBE3ABA95F564AC035F /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05B4CBE2CD511442B18EB23C261CC25 /* RecipeEditorView.swift */; };
-		08376751B2BDD3EF99DF9570D1438F0C /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C77686B2A80EF621C7300BE009D06A21 /* SpoonjoyRootView.swift */; };
-		08CF0A0DFD90B02EB7D647E6190F6AB7 /* SpoonjoyRemindersSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A4303248E7215D8BDE479D19709FDC /* SpoonjoyRemindersSender.swift */; };
+		0559FD0812C41222514A40D8AB10F247 /* ShoppingRecipeSourcesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4143CDFE00DCC1C083E6CAB19E19FDA7 /* ShoppingRecipeSourcesPane.swift */; };
+		097053C80CFC2B55A496C86C6756648A /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314892E74717A66898C8CD73C1F8EFFC /* RecipeCoverControlsView.swift */; };
+		0A273DA59F6DAACEAA0E52B5357F53A3 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33F125000F05588DC21FC25840C6CBCF /* RecipeDetailView.swift */; };
+		0C9EFDBD3B284A8B22A78D85F26530B5 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C580B33A6D412141B8A84DC86B31D08 /* SpoonjoyRootView.swift */; };
+		0CA367E5923B83AE8E568C9E31AA1C3E /* RecipeIndexRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F847E3D023E3B723BB4D2B12036F9D01 /* RecipeIndexRow.swift */; };
 		0CEFD2D59C8138F652A5FF10F88552A0 /* EditorJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = AACD3B1E4F14DC89BF76A65B948DEB11 /* EditorJourney.swift */; };
-		0DA45C79793DED26D68072DE07EB1233 /* SpoonjoyRemindersIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35C7D462428B1F37B9B450F84F0F18C /* SpoonjoyRemindersIntent.swift */; };
-		0EE03E088E2BD2DACCE3A8F49543C80C /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E54D559A12224FDE74C02276C3696FFC /* KitchenTableTheme.swift */; };
-		0F829CE6E30D9D12ECA4ED42073333BC /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770A5E4F1561CAF26C3A642DD060B6DF /* SearchView.swift */; };
-		10449A34AC9FE0650B1BC0E8AD0D5BE8 /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB19B14A1B18D3EABE11905B178BAE47 /* CookModeView.swift */; };
-		11C01FA60DF53FE5FEF10DE6FD091CC6 /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E998786123FFC4D18F612D9CB7DDCE /* RecipesView.swift */; };
-		164E0B4F641DEF783E93F6DA8D516238 /* SpoonjoyCaptureDraftEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0B9E291586125F3094690D69D2E449 /* SpoonjoyCaptureDraftEntities.swift */; };
-		18516225AA8A7FF77581D40AD4650D94 /* SpoonjoyChefProfileEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4990DC7A6277DD360DBAC95F28E3DE15 /* SpoonjoyChefProfileEntities.swift */; };
-		18A67E91AEC43E4D13BFC1665137A9A6 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F11A8F613D30BE50B7774EB6589EBE /* ProfileView.swift */; };
-		1A505E54825D9CB58DF3ACB70E3E7F90 /* ShoppingRecipeSourcesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16EF37A26B594C59A966B33BBADA377E /* ShoppingRecipeSourcesPane.swift */; };
-		1B8EC22E7DE430DEBAFD3B7EE65E7849 /* AccountDeletionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1EFE0B916BBB21AB9E1750DAC6459E /* AccountDeletionSheet.swift */; };
-		1F38258DED59100BF1301EC9FA4611E6 /* SpoonDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38DF017D49A2B298B518B4A5DDE299F0 /* SpoonDock.swift */; };
-		20291D69851C4ADCBEA1BCEC5A4042DE /* ScreenshotAccessibilityProofWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437895811962BDE7A538FAFF64A3CA97 /* ScreenshotAccessibilityProofWriter.swift */; };
-		229E2B0D379C02260F6E429011C183D0 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5143486516C0BF892F150112777E20 /* SignedOutSetupView.swift */; };
-		22ADE3710018B2C217A298EB5E9A2D17 /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E54D559A12224FDE74C02276C3696FFC /* KitchenTableTheme.swift */; };
-		2380472E130143C9B2859283C9D6C5D3 /* KeepScreenAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52482F87B5E3929D1F7FBA326B5A936F /* KeepScreenAwake.swift */; };
-		24076063A6A6424717E98CF1A2254A0C /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB19B14A1B18D3EABE11905B178BAE47 /* CookModeView.swift */; };
-		24822805A3CCE3B2BAEBCAC140CB7D8E /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF6249ED50389629A7F7A26A3C1344E /* RecipeCoverImage.swift */; };
-		2518E2E2EF0CF3CECC412BD60BD5EAEE /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F341AF41469B4F93C8D984F2897E453 /* KitchenSafeControls.swift */; };
-		259574BD2CBD376B9ADFB4F3DB296425 /* PullToRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = B658E6825EE4E2BD0E85F4AB18067FF1 /* PullToRefresh.swift */; };
-		271C4609521B68CDCD8F81871235FA22 /* SpoonjoyCookStepEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 788DE2154D3AAB8D1B2C28249CDB14B9 /* SpoonjoyCookStepEntity.swift */; };
+		0E87AD06D1152CB7248864D1F9381D91 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9489F562ACF0BB605D1839D2FC9A0A7D /* CaptureDraftView.swift */; };
+		0EE03E088E2BD2DACCE3A8F49543C80C /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F82B36791FD1816591293E8D8A3555 /* KitchenTableTheme.swift */; };
+		1112561B3A64E3FDCB45DC5D50C5DBEC /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CC869641DEB24E0044B458086117D8 /* SpoonjoySpoonEntities.swift */; };
+		19BD75110412B700585E443B1314A145 /* CookModeSessionCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9F45F7AAAD1FB9D0D03C8593192488 /* CookModeSessionCenter.swift */; };
+		20FE8BA74BEE7191E1446DE0CFBB7469 /* SpoonjoyRemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532FC14FCDC12340DC15C00F6DBB8E1F /* SpoonjoyRemindersStore.swift */; };
+		22ADE3710018B2C217A298EB5E9A2D17 /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F82B36791FD1816591293E8D8A3555 /* KitchenTableTheme.swift */; };
+		235CC38D07551DB45F2A02F8A34AC258 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B370ACEAE65F0CD1B9BD36B16DF6FB57 /* ProfileView.swift */; };
+		28564AD92511B54789415ED0EAE7F154 /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D9051BBB9EA022F6871223366405EB /* CookbooksView.swift */; };
+		2886F8D23E60B500E84C1FB4177C6208 /* SpoonjoyRemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 532FC14FCDC12340DC15C00F6DBB8E1F /* SpoonjoyRemindersStore.swift */; };
+		28B9E9795DA3BB3FAAAC57F2A24E5866 /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA53D34972F43572A81A7F2FAE090D3B /* ShareActions.swift */; };
+		2B6B517766A8AA8C06312E7802B7F629 /* SpoonjoyChefProfileEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58268DA691B474BA8EFCED44181DEB3B /* SpoonjoyChefProfileEntities.swift */; };
+		2BD86D3995A31A5C847FB29809E32693 /* KeepScreenAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4E5285A831EDFE04CBC3845817F39B /* KeepScreenAwake.swift */; };
+		2D936BFFBE882DCC928D41BE2C6DCBD6 /* KeepScreenAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B4E5285A831EDFE04CBC3845817F39B /* KeepScreenAwake.swift */; };
+		2DC62F2F0C24FEC7D9BC019967A4F88A /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03446E3189A6B7056A822C17242D678 /* SpoonCookLogView.swift */; };
+		2DE1A3E8706DFDD0044D60EA81F38BBA /* HeldChangeBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB82229126D003A7D3AB7D52AAA99E5 /* HeldChangeBanner.swift */; };
+		2E1961D42790B14C801CDF3841D41BC0 /* SpoonjoyRemindersSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47DA1A4D120212713B2ECC8DDE435ED /* SpoonjoyRemindersSender.swift */; };
+		2E6DB2BBE59998BB33B1D8417ADC6FBC /* SpoonDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4552D8CFC0543473BE4751C8A7B4E83 /* SpoonDock.swift */; };
+		2E911DFBF2517BA901564688AC4529B0 /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A595E04FB4A66F71C5D99BBFBBC42A1D /* RecipesView.swift */; };
 		2F1B86D13070015FDF52E8D09C35DCDF /* SpoonjoyCookSessionLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 988DEAB4211DF344429E7CAFE5C7A8FC /* SpoonjoyCookSessionLiveActivity.swift */; };
 		2F7B7854F199F9AD6294B0DFCAEA9A71 /* JourneyQA.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D4E3CBBFF9CD40BD77D914CBA9077C /* JourneyQA.swift */; };
-		323C2079706EB6E9C8205B452D27338C /* KitchenMotion+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D280746DBB8A7636015EBAF82934CA /* KitchenMotion+SwiftUI.swift */; };
-		339FE9D1AEA452DCB570B89CDEBD4B9B /* SpoonjoySettingsEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 692BB467AC26A9E87077D9CA8FFBA130 /* SpoonjoySettingsEntities.swift */; };
-		33F1AAEA84CE387FC51FB7A803831732 /* CookTimerLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F07823445891605CE8549A0ED5AAE8 /* CookTimerLiveActivityController.swift */; };
-		38CEB2741D9BC9BD294AE08F9636A14E /* IngredientPasteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053237446DFA3FC7725E572A41667D07 /* IngredientPasteSheet.swift */; };
-		3998FAF55AF9FACD4E13DD8BDADA9943 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F3F9C42B85E75209F39A0D63FE4466 /* SpoonjoySpotlightIndexer.swift */; };
-		3A6CDA4A8BFF0ED17F54F9A80A23E1B3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0C6E7C4FF18FF527BDC6C1D9961A08 /* SettingsView.swift */; };
+		3372206DA5910789B21CB269B64B405E /* SpoonDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4552D8CFC0543473BE4751C8A7B4E83 /* SpoonDock.swift */; };
+		34121A3008FE119C3EF4C21C44F7215A /* SpoonjoyCookStepEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C148485396DA78431FF927BF51E7F5E6 /* SpoonjoyCookStepEntity.swift */; };
+		360BFB3142A94AD2F667327B6425B180 /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2001A61EE067EAA8E58D38DD6D6295EB /* CookModeView.swift */; };
+		376E525F6C25934874E8FFF6BE37A538 /* SpoonjoyCookStepEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = C148485396DA78431FF927BF51E7F5E6 /* SpoonjoyCookStepEntity.swift */; };
+		378C9D6E63688651AD966D0E65F9783B /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81648255E5D47C17E78F4B3E405058F0 /* SpoonjoyApp.swift */; };
+		38AAB59A771B49030AEA8DDE77A58F3A /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D56BC82A15F01FD4686B97B12F517B3 /* SpoonjoyAppIntents.swift */; };
 		3AC3DACDB5F061AA5C76F9D9B6113550 /* SpoonjoyCookTimerActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 564639CE110C2B2DB65A8533F22EBE11 /* SpoonjoyCookTimerActivity.swift */; };
-		3CA1F24EDC9D4B2B01D6A0F300DC5A6C /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646F31CC634EBDC1393A0B1534B5DEBC /* SpoonCookLogView.swift */; };
-		3CB062BC39EFF9E4DE988A2D981975EC /* SpoonjoyRemindersIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A35C7D462428B1F37B9B450F84F0F18C /* SpoonjoyRemindersIntent.swift */; };
-		3CFDAE8DE88E6E98777C3521FF42060F /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2EFA6CD29176C9EA6C5AC9E76A6B88 /* NotificationAPNsDeviceBridge.swift */; };
-		3E365A7E456C2C6F01B9A3DEB55FB9C9 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 336C54974812366280C45176B12E7CBF /* SpoonjoyCore */; };
+		3C31A2EF53F3022B5C42F31D18315039 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0539B4FE6A7136ABFD0B0C6B6E11FA25 /* SignedOutSetupView.swift */; };
+		3D52A65CFB83B90E37002CBA1EE64FD9 /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0940083079C55AA88488F75E09477CCE /* NotificationAPNsSettingsView.swift */; };
+		3DC4580C4FEC5B3BDD94DFC1FFDF7380 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0539B4FE6A7136ABFD0B0C6B6E11FA25 /* SignedOutSetupView.swift */; };
 		3EF0DB0D8224192F543E781A3BBF3E48 /* SpoonjoyShoppingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761B064620F3A1E5CD79F86F9F9A6B95 /* SpoonjoyShoppingUITests.swift */; };
-		3F0B2E1BF3AF0669138DA61263F4B0E4 /* PendingCoverUploadBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66E93B72CB662F8CD5654E65C4946A7 /* PendingCoverUploadBanner.swift */; };
-		3F2F4A7194C88912B2E74AFDF96F0ED3 /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327830EB5D0FCEA4C05599E1B7C1A69D /* RecipeCoverControlsView.swift */; };
-		3F349513FB7AFD39E2A1CAC305171FA6 /* PendingCoverUploadBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = E66E93B72CB662F8CD5654E65C4946A7 /* PendingCoverUploadBanner.swift */; };
-		3F45FA63EB2165D33F76EB921FE72491 /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB22BE67AB00B591D27663279ACCD0DD /* CookbooksView.swift */; };
-		40FC2D1EC51F4D5559D3E4E7ECBFA099 /* ModerationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBAFF26984C25F300550D6857896A113 /* ModerationController.swift */; };
-		42953214D73C81BC0D8DB04CBC882C58 /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73BFAFB8F52044949F7F178D5C9A8F4 /* NotificationAPNsSettingsView.swift */; };
-		43214324C7619BFC4F8CF627640B2759 /* JourneyQuietMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BE952C14A22049A9174F7D155FBEF9 /* JourneyQuietMode.swift */; };
+		411B4BB6B527C381FBED9DEDB8F8E5DE /* NativeAppleSignInTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADE70068B9AC6DD42557AEE7CD50F970 /* NativeAppleSignInTelemetry.swift */; };
+		42A08835982D91EEE49B3BE7D4684BEC /* KitchenMotion+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6893166C36DEA0D254144BBE6BD864 /* KitchenMotion+SwiftUI.swift */; };
 		43B858FB4CFFBAB627AFCC8BCDDD752F /* JourneyQAClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA6B8F929059DD83F33D41EDDB7E00C9 /* JourneyQAClient.swift */; };
-		45EC5AAE2ACB8390DCAD59806883227D /* JourneyQuietMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BE952C14A22049A9174F7D155FBEF9 /* JourneyQuietMode.swift */; };
+		441ED5B0A254242593999E84485B4CB6 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35D3B9C15CB6873273019CD3825F784 /* SearchView.swift */; };
+		454B458B1F415386BEC5780B8B7C180A /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE06E76ACCBCA2D2F25CEB4F9EE5D61 /* RecipeCoverImage.swift */; };
+		46168B8FA421CE80A376166E8AADFADF /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FC04B2CA9F28FDAD3062EE9F1EBEDE /* RecipeEditorView.swift */; };
 		46394053810B5AC5D67F53CB92D33C61 /* SpoonjoyCookTimerWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23290E5B8221D2280491E3F2A7D3B596 /* SpoonjoyCookTimerWidgetBundle.swift */; };
+		47A7235CD497C18AD5BD5D25D7BE454A /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C03446E3189A6B7056A822C17242D678 /* SpoonCookLogView.swift */; };
 		48564B8D7BC986910454C700745D9A3A /* JourneyID.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF6809B5CB3CC8B63BC44AE6F5A9FA3F /* JourneyID.swift */; };
-		498B88A7E0DFA238163D0C93899CD484 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 770A5E4F1561CAF26C3A642DD060B6DF /* SearchView.swift */; };
-		4C5897F547DD2FB96716CC0B3BB13D71 /* RecipeIndexRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 692C8B36482D47AE2D540C9F4F5172A8 /* RecipeIndexRow.swift */; };
 		4D64220896F8DAA1943784FBCBA85410 /* JourneyTestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1399587CB9C3D93685D6B7B3C0646E6E /* JourneyTestCase.swift */; };
-		4D973782DE1C3D0591E2A4907EBD2D87 /* SpoonDock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38DF017D49A2B298B518B4A5DDE299F0 /* SpoonDock.swift */; };
-		4DBC1C2B1BEACFC36EDEB47B99E26A52 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8871CA68FCCE75D8B67F847E63EA7596 /* PlatformNavigationView.swift */; };
 		4DE1E2C316449D6ECCB4CA39C7163303 /* SpoonjoyCookTimerActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 564639CE110C2B2DB65A8533F22EBE11 /* SpoonjoyCookTimerActivity.swift */; };
-		4E3AB1C2EABBB105ED99309B808BAD91 /* NativeAppleSignInTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88F7AF9E7CE190B6D1D150B995A21987 /* NativeAppleSignInTelemetry.swift */; };
-		50142392C797023F236EB6C66508A397 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8801F4D7D91802E1D8182107C8E520 /* ShoppingListView.swift */; };
-		54E611166018EFDBAD3B368CF826CC0C /* HeldChangeBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE4CE724E5F6740B8B850EA294631DC /* HeldChangeBanner.swift */; };
+		4F12011043C85F2B52DDD13E925E0009 /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C021FF70341DC76C4C9F128017158F3 /* SpoonjoyShoppingEntities.swift */; };
+		51041AC2DBF72135C77D00FD32D896E0 /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26206770C3973F2FA6DC7261478399A /* KitchenView.swift */; };
 		55086D7701BF21501A81C3A1F2134FC8 /* RemindersJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB4B638C0D8D92403E4E2CF2B0C68DB3 /* RemindersJourney.swift */; };
-		596C879E38052118CC5EF75F5A84DD0C /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = B032382E6318958F860BF7FA84E0E56E /* CachedAsyncImage.swift */; };
-		59E3FEB55D74942A1C8384127D3A6E2F /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3859E846E49E8C5059051B13455178D7 /* SpoonjoyToolbar.swift */; };
-		5A009F8EFDD45A155DDE186E3775DA4C /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA7A3ED830506452CDF54E0CA9E15A8 /* SpoonjoyApp.swift */; };
-		5B0E8D624FEDC2E743505E8D06F2AC5F /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226DCA46AD1FB744DEE73D78139B263A /* SpoonjoyShoppingEntities.swift */; };
-		5B9EC240EDB1953E0C8100883D887807 /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FED2FC597EFB00926126D42EAD47E78 /* SpoonjoyAppIntents.swift */; };
+		58E8F3482667FE9FAEAE579BFA3B53F0 /* AccountDeletionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68A27ED8E52E611AAC129F0A1C367462 /* AccountDeletionSheet.swift */; };
+		5AF436D44FEF9811FDCCF51F9886BDB2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 508B94CA4C2A7C524C53061040A48B83 /* Assets.xcassets */; };
+		5D0A2409EF27A1916292857982A73B62 /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0940083079C55AA88488F75E09477CCE /* NotificationAPNsSettingsView.swift */; };
+		5D4AA576BF0645F3433B6D7F794199A4 /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F26206770C3973F2FA6DC7261478399A /* KitchenView.swift */; };
 		619E9C961D8ABACCA29C2723FC00C755 /* SpoonjoyCookSessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D5336F7594E2B7CA95F1784E6CED3B /* SpoonjoyCookSessionActivity.swift */; };
-		61AAD26758B758197BA9D9958F238023 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F91761D39CF89578C8FA6A2029FB9B /* RecipeDetailView.swift */; };
-		6204BB36A4FD4859DAE8554FC5F45AB9 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8871CA68FCCE75D8B67F847E63EA7596 /* PlatformNavigationView.swift */; };
-		628C704E2E0817A821672B0885BAD49B /* ThirdPartyAIConsentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4445DBDCAF9FC2409A777A8011DF01BE /* ThirdPartyAIConsentSheet.swift */; };
-		62CF3199733350D7A3EAC6F1A68AA964 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55745B8CC58C1C6DC54E94C11540273D /* ReceiptListView.swift */; };
-		641F64C2BFF9BF8DBC853D83F980315E /* CookModeSessionCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D216DC0EBF1A502F11215A3687B886 /* CookModeSessionCenter.swift */; };
-		67A5812892298BBC285690D24A19B746 /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A2EFA6CD29176C9EA6C5AC9E76A6B88 /* NotificationAPNsDeviceBridge.swift */; };
-		6A28D3C129C40045821E7347BB2052DD /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670D223E3F08C3F72C229C44CB4C5AEC /* SpoonjoyRecipeCookbookEntities.swift */; };
+		62059CA96DBCC829EB0EC5A551B182E3 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F35D3B9C15CB6873273019CD3825F784 /* SearchView.swift */; };
+		637CC369ABAA3E62694AD6707D19D9AC /* SpoonjoyRemindersSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = D47DA1A4D120212713B2ECC8DDE435ED /* SpoonjoyRemindersSender.swift */; };
+		65415D9ECE1483B2175F55F2BDE9B0AF /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF32BE83335AE6D2800ABE05A0B0D233 /* SpoonjoySpotlightIndexer.swift */; };
+		65727F1E0E7D32F83621111E23F106E5 /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E1E4894697C21BE283B701B1D56FFF0 /* KitchenSafeControls.swift */; };
+		65F4D414D5FBF2D3002971238E32C80B /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE32DD2F42DFED0E99300E7E58ECD365 /* ShoppingListView.swift */; };
+		66B1637B41EFE1A9BE1A38C0B43153DA /* KitchenTableSpread.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167BD75FE418A30BB944B3343EA8EB01 /* KitchenTableSpread.swift */; };
+		69116F000225596AC34240FF5899284C /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE32DD2F42DFED0E99300E7E58ECD365 /* ShoppingListView.swift */; };
+		696ED41B4D7E4D8D786CA898C4C5D7D5 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C580B33A6D412141B8A84DC86B31D08 /* SpoonjoyRootView.swift */; };
+		6AA2399DE75205CE6DDB9AAEF854E072 /* JourneyQuietMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6EB4A50907CD9A758D7C1454DDE1863 /* JourneyQuietMode.swift */; };
 		6ABEB3AC67B93CEE64E0C15E44927D7D /* ModerationJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60BD5FB6CDC04BBB0AA65C54594F1778 /* ModerationJourney.swift */; };
-		6C6DC4928D8020709570AB29C85F2A41 /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 226DCA46AD1FB744DEE73D78139B263A /* SpoonjoyShoppingEntities.swift */; };
-		6DE7C723759B25ADF6A436A88A084048 /* SpoonjoyChefProfileEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4990DC7A6277DD360DBAC95F28E3DE15 /* SpoonjoyChefProfileEntities.swift */; };
+		6D76F298712A11FC0AFD65DE52BFC459 /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A6154F9322EB71C5734DEF14D23E663 /* NotificationAPNsDeviceBridge.swift */; };
 		6E35D04A145E8B5D4E31E5AA72020EF7 /* CookSessionSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419A7A8E2BAFC9DA9E8A693F1892B2C8 /* CookSessionSnapshot.swift */; };
-		6F3E468F86346A38A4092F881451310E /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670D223E3F08C3F72C229C44CB4C5AEC /* SpoonjoyRecipeCookbookEntities.swift */; };
-		73CE9A3995524D879671EFEBF6C3542E /* KitchenTableLoadingStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2DDEEF002327BDB90D8F6A45CF68C80 /* KitchenTableLoadingStateView.swift */; };
+		6ED6F8190F55E5BB86FEB67AFF6C1612 /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA53D34972F43572A81A7F2FAE090D3B /* ShareActions.swift */; };
+		70201D8FEBB71E9EA98741B9156A35E1 /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005A2168F644D6C0DB7D3C275E081BA8 /* SpoonjoyWebAuthenticationSession.swift */; };
+		717FCF9CD253323EFFC782C2D304E901 /* CookModeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0145D6EB4C90ADA9CBA3970E4DF292F9 /* CookModeComponents.swift */; };
 		73FE7EE779679637600330528A4B028E /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 5680E8FC6C0263A408DC5AC5B62A8A3C /* SpoonjoyCore */; };
-		748ECFA5696EB1E3F9A186C8F4BA9E49 /* SpoonjoyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B454C45531F3C24AA6E1CB63A10FA8C3 /* SpoonjoyMacApp.swift */; };
-		7567350C684F867156987A6487B5C8C5 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F5143486516C0BF892F150112777E20 /* SignedOutSetupView.swift */; };
-		7983370C96E246C20D1A1183E3E2B717 /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73146491C416DDB374F9D1E9FE27BFD5 /* OfflineStatusView.swift */; };
-		808EA65817142F9E7E96DB434C6C4C06 /* AddRecipeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7867DB014512183E954370BF0157159 /* AddRecipeSheet.swift */; };
+		788BCACA7ED592D1CCE810001C94643E /* NotificationAPNsDeviceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A6154F9322EB71C5734DEF14D23E663 /* NotificationAPNsDeviceBridge.swift */; };
+		7DE4203115081C2C0BF7BEB27111D164 /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58947BA81F90E5CDAB0C6D48948A255A /* SpoonjoyRecipeCookbookEntities.swift */; };
+		7E7F7CB4E87C99678F15FDEDF3B69DFB /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FE06E76ACCBCA2D2F25CEB4F9EE5D61 /* RecipeCoverImage.swift */; };
+		80166F44F1BA3780C6F763D98A97C317 /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93CC869641DEB24E0044B458086117D8 /* SpoonjoySpoonEntities.swift */; };
+		8044D0AEDF717224DEEE606FF17B4440 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33F125000F05588DC21FC25840C6CBCF /* RecipeDetailView.swift */; };
+		818EFE6AF368FCF41C2ACEEEA2F51F94 /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C958DBB4B3F3D7B90F4D0EEB827CADF9 /* CachedAsyncImage.swift */; };
 		81BBED656DBEF49E4E3AA1CA87B68299 /* JourneyAccounts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FD2C332DB859921858A5DB3D2DC396F /* JourneyAccounts.swift */; };
-		82C3FE6C60FE47C98F6F8D5A3E978F4D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9716F21E2ACC39C1FB205A2DF108A06 /* Assets.xcassets */; };
-		8347411B71B527937C9C8C9ACC482FDA /* HeldChangeBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DE4CE724E5F6740B8B850EA294631DC /* HeldChangeBanner.swift */; };
+		84F0B745D9A4E911117858E9E2B18DC5 /* ThirdPartyAIConsentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2688246B75D0FDE415369318244B20FB /* ThirdPartyAIConsentSheet.swift */; };
 		868467F05FEE88B17274DA5D0C737338 /* RecipesJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D5EB77DFF69C9311458D07F945FB825 /* RecipesJourney.swift */; };
-		89D23BED2286474BD62E239E8BFC90ED /* AddRecipeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7867DB014512183E954370BF0157159 /* AddRecipeSheet.swift */; };
-		8BDE27990AEC3E7CE45DC9CD42D78553 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 40320FAF09E67B1A437F7DBA4D3FC4FB /* PrivacyInfo.xcprivacy */; };
-		8C86CC1607FF12408F16C6B14F1A38AF /* PullToRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = B658E6825EE4E2BD0E85F4AB18067FF1 /* PullToRefresh.swift */; };
+		86B990E026C3B1061C9E1C54514ACC79 /* KitchenTableLoadingStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BE61AEEC432F11AEB32D9CA0F25ED4 /* KitchenTableLoadingStateView.swift */; };
+		898B613E1100A89A1004E13C975083DE /* KitchenMotion+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6893166C36DEA0D254144BBE6BD864 /* KitchenMotion+SwiftUI.swift */; };
+		89F2DA791CE11DE5FAC73B3D464A2727 /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E1E4894697C21BE283B701B1D56FFF0 /* KitchenSafeControls.swift */; };
+		8A9B689727C6CE62F522FB299838E206 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 185A6AC24109CB9CDF93C9124359331D /* ReceiptListView.swift */; };
+		8D798BD21E41B6D4C549D3E66BAD5F36 /* CookModeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0145D6EB4C90ADA9CBA3970E4DF292F9 /* CookModeComponents.swift */; };
 		8F06FD6C254B969A5371D364B18ED501 /* CookSessionIslandLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8867D75809CF4D8C1DC76D5942D47A29 /* CookSessionIslandLayout.swift */; };
-		8F85787BFCDDE3AECE418F75766042EA /* RecipeIndexRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 692C8B36482D47AE2D540C9F4F5172A8 /* RecipeIndexRow.swift */; };
-		901925E6898F995FCF5F81B1A8B18030 /* KeepScreenAwake.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52482F87B5E3929D1F7FBA326B5A936F /* KeepScreenAwake.swift */; };
-		A007CC944BC2260037FF4301786BFBE8 /* SpoonjoyCookStepEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 788DE2154D3AAB8D1B2C28249CDB14B9 /* SpoonjoyCookStepEntity.swift */; };
-		A07F8C3021470B99F9D38C7F8DDA32AD /* SpoonjoySettingsEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 692BB467AC26A9E87077D9CA8FFBA130 /* SpoonjoySettingsEntities.swift */; };
-		A49861E910AD96B9DFBF7931132BB253 /* CookModeSessionCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D216DC0EBF1A502F11215A3687B886 /* CookModeSessionCenter.swift */; };
-		A65929C8084D43D4FCE866A12650F3DB /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CF4A668B9202C4735F75D59F7E8702 /* SpoonjoySpoonEntities.swift */; };
-		AABF6D52821327FF8647CDA51DFD9962 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9716F21E2ACC39C1FB205A2DF108A06 /* Assets.xcassets */; };
+		901CB6300A252AECB341158C28608122 /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 314892E74717A66898C8CD73C1F8EFFC /* RecipeCoverControlsView.swift */; };
+		93B0381EBD1C16B47297A89FFE851B47 /* SpoonjoySettingsEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8E671E928D163E56EF99A1DAB0463C /* SpoonjoySettingsEntities.swift */; };
+		93D15915D3569313F5F14CDE91F76C87 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FE1E05839083B74D265D1D33256960ED /* PrivacyInfo.xcprivacy */; };
+		973934E827508BAA6556CA3773AD72B4 /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55450E4C849B8ED80A0E0BB1A7F20306 /* OfflineStatusView.swift */; };
+		9764DFAB20825DE6215F3B929727CDDD /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A595E04FB4A66F71C5D99BBFBBC42A1D /* RecipesView.swift */; };
+		999066922543131743E7988BF78109C1 /* SpoonjoyChefProfileEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58268DA691B474BA8EFCED44181DEB3B /* SpoonjoyChefProfileEntities.swift */; };
+		9B0D2E037678FE89B602BA94CA81AC37 /* ModerationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AE10EBA02F9C1EFE7ED8B6676DFE0E /* ModerationController.swift */; };
+		9CA7673B061AE9E7B0E5DB9752996251 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFBCED0596A32BC10719B91EE5D551E /* SettingsView.swift */; };
+		9D60494183307DAC8B085877BDF291EA /* AccountDeletionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68A27ED8E52E611AAC129F0A1C367462 /* AccountDeletionSheet.swift */; };
+		A0AFB079F0378B2E385ADCCA74C12111 /* PendingCoverUploadBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88EDF03BF39ACF5B57A42707DE90CF7 /* PendingCoverUploadBanner.swift */; };
+		A311A2984EF0A91D1602A99B9A65A83A /* SpoonjoyCaptureDraftEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06162432F2E8A9B902804AD9EE287877 /* SpoonjoyCaptureDraftEntities.swift */; };
+		A333D84F937FDCFBD539CE0D65133854 /* AddRecipeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7340828FDFB494E21982DCE3B89EFF /* AddRecipeSheet.swift */; };
+		A3407711648E2D866889550A5E07FC9F /* HeldChangeBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BB82229126D003A7D3AB7D52AAA99E5 /* HeldChangeBanner.swift */; };
+		A3529E0EDFC1AB7F092952EFB66AED7A /* ThirdPartyAIConsentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2688246B75D0FDE415369318244B20FB /* ThirdPartyAIConsentSheet.swift */; };
+		A97DE07DD84F4F9DC3557927100E5D17 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = FE1E05839083B74D265D1D33256960ED /* PrivacyInfo.xcprivacy */; };
+		AA5827BB2D83F346E3784F57AE59DFC1 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 998B66B344FC8F974DAE9C99D06F5027 /* SpoonjoyCore */; };
+		AADB8021BAAC189C2C7DD6E482B4FA8A /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDED00EA1E6F1FAC77C51DD00BE8FFC9 /* PlatformNavigationView.swift */; };
 		AC4A3EC31838E7A4FB01298F754AE7D3 /* CookTimerBoard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB05FB5D2F15DEE29C6B2927085746D /* CookTimerBoard.swift */; };
-		AD35E4F874535C10828D48D63695A730 /* SpoonjoyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6294604ACFC27F978F4423F890FFF69B /* SpoonjoyiOSApp.swift */; };
-		ADB3E89E7A7C0C5622F8CE0847DF36EB /* SpoonjoyCaptureDraftEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0B9E291586125F3094690D69D2E449 /* SpoonjoyCaptureDraftEntities.swift */; };
-		AE08B30A1B3B11C9C4F68839E5F195EA /* SpoonjoyRemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF79B6C8AD539D72916BBCB3FC7FE060 /* SpoonjoyRemindersStore.swift */; };
-		B283A99DA7139A54DD34A6FA5B5CC6F6 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F11A8F613D30BE50B7774EB6589EBE /* ProfileView.swift */; };
-		B412539D7450BD418A65BCB43F94324C /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D0C6E7C4FF18FF527BDC6C1D9961A08 /* SettingsView.swift */; };
-		B4D8F275491295D29E1873413EBCEA16 /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844691FD8DBC09D6C109E5FEC2992C23 /* ShareActions.swift */; };
+		AD8EBDF2FCB9B45776BD62872794912A /* KitchenTableLoadingStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34BE61AEEC432F11AEB32D9CA0F25ED4 /* KitchenTableLoadingStateView.swift */; };
+		AF38F39B5D6CE42E3CC63C1727969170 /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005A2168F644D6C0DB7D3C275E081BA8 /* SpoonjoyWebAuthenticationSession.swift */; };
+		B116D17282395880A97BDB544BA230BA /* SpoonjoyMacApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B454C45531F3C24AA6E1CB63A10FA8C3 /* SpoonjoyMacApp.swift */; };
+		B4418FBCDDFDF42B59CD6E4F4B9F30AB /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11EE61893238AF4E5BF9EBB84C4D71BD /* SpoonjoyToolbar.swift */; };
+		B4B3A4A1444EBCEAF6DE5B5D5699DB1B /* CachedAsyncImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C958DBB4B3F3D7B90F4D0EEB827CADF9 /* CachedAsyncImage.swift */; };
+		B510FBFF4EC88D127883F723B42F428A /* SpoonjoyRecipeCookbookEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58947BA81F90E5CDAB0C6D48948A255A /* SpoonjoyRecipeCookbookEntities.swift */; };
 		B83D2156AF4AB5385E1D563F2C31F4AA /* VerifyAfterRelaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1CC2FD35159C55826D7E44F7419B88B /* VerifyAfterRelaunch.swift */; };
-		BB2D9F7633637472623042CFD16538EA /* ShareActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844691FD8DBC09D6C109E5FEC2992C23 /* ShareActions.swift */; };
-		BBEBF77AF223A27E75DA52CAB13542E8 /* SpoonjoySpoonEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09CF4A668B9202C4735F75D59F7E8702 /* SpoonjoySpoonEntities.swift */; };
+		B8754FB052C77E278C073B535EE02FC1 /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55450E4C849B8ED80A0E0BB1A7F20306 /* OfflineStatusView.swift */; };
+		BA2A666AC7162C5AFE6DE91803A8EB1A /* CookModeSessionCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A9F45F7AAAD1FB9D0D03C8593192488 /* CookModeSessionCenter.swift */; };
 		BCC8E3DB5DE9ED8D9B71CF2028FF88C7 /* SignInJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 506CE1BD063651FAB0471022666C55F3 /* SignInJourney.swift */; };
-		BE3100C4ADBC6FA7C0ECE98F24E16CB4 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99F91761D39CF89578C8FA6A2029FB9B /* RecipeDetailView.swift */; };
-		C0A69745B5D753E6FD9471F0B4FAA32C /* RecipeCoverImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAF6249ED50389629A7F7A26A3C1344E /* RecipeCoverImage.swift */; };
-		C0F000F4B41E46E359E280CA1BE63D3E /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8801F4D7D91802E1D8182107C8E520 /* ShoppingListView.swift */; };
+		BD039FECC15BE8E2398BA6A1DAFAA7B5 /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6612F3A1FB7B78BADD24E30018C6EBAD /* ModerationViews.swift */; };
+		C0AC98953E61E4E4D0DC5A79A44EA5C0 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9489F562ACF0BB605D1839D2FC9A0A7D /* CaptureDraftView.swift */; };
 		C1155CCC7662CC506D21B523B12D9FA1 /* TabletopJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAC0A4B43DCA07E12C7E182EF26A4CE /* TabletopJourney.swift */; };
-		C16793A9F6F254C512C718280781ED41 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32F3F9C42B85E75209F39A0D63FE4466 /* SpoonjoySpotlightIndexer.swift */; };
-		C5CEDA4EFA6326EC8DE2F319A24FB49F /* KitchenTableSpread.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5AB73BE9AA76A51AA77FD6E7EB32C2E /* KitchenTableSpread.swift */; };
-		C639B771B6194C501685FC7C2A475F13 /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 409E5B7983BE6C44A6E0EA6CD5C0531D /* KitchenView.swift */; };
-		C6B91CBDEC921CA41A397A21B0C8177F /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3859E846E49E8C5059051B13455178D7 /* SpoonjoyToolbar.swift */; };
-		C7730DFA858965224C5A77CC51DC44C2 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 40320FAF09E67B1A437F7DBA4D3FC4FB /* PrivacyInfo.xcprivacy */; };
-		C79DC1A8172B9267D844A9F78308F81E /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 350C2044091A5BD7ED825C20D94AC5F4 /* SpoonjoyCore */; };
-		C9C8BFCF682871A5919EC1F5E62C8D42 /* KitchenTableSpread.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5AB73BE9AA76A51AA77FD6E7EB32C2E /* KitchenTableSpread.swift */; };
-		C9DA09A127F5E4D10DB64D0479AB52DF /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B73BFAFB8F52044949F7F178D5C9A8F4 /* NotificationAPNsSettingsView.swift */; };
-		CB7E760A465AACFC9381A12F9E48FFD9 /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 327830EB5D0FCEA4C05599E1B7C1A69D /* RecipeCoverControlsView.swift */; };
-		CBD323FEC98F2AC82C20C4A6EC4D77B9 /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FED2FC597EFB00926126D42EAD47E78 /* SpoonjoyAppIntents.swift */; };
-		CE95917BA3200F485BD5E583262B3E26 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55745B8CC58C1C6DC54E94C11540273D /* ReceiptListView.swift */; };
-		CF6DE4743173A544BCC5793577C6739E /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E998786123FFC4D18F612D9CB7DDCE /* RecipesView.swift */; };
-		D36F18A07F95AFDDC170CB68E1FE9554 /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB22BE67AB00B591D27663279ACCD0DD /* CookbooksView.swift */; };
-		D39B90E9044F51D2D7377FAE784EDCE0 /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B5DB1C41135A50951B7644BC8F788E /* SpoonjoyWebAuthenticationSession.swift */; };
-		D3B45235577AB6C903992E0F1C3B7540 /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73146491C416DDB374F9D1E9FE27BFD5 /* OfflineStatusView.swift */; };
-		D4070C30EF4F5A40890B2ED93608F9E2 /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860CA819698E90383DAE9A122162EAC2 /* ModerationViews.swift */; };
-		D4D9DC82B85D7DAB3E532E14C8D0F78C /* KitchenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 409E5B7983BE6C44A6E0EA6CD5C0531D /* KitchenView.swift */; };
+		C485FAFE282B4B8C7F079E6A7246721F /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C021FF70341DC76C4C9F128017158F3 /* SpoonjoyShoppingEntities.swift */; };
+		C55A0C35CB5ED838E9356A74A478387C /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81648255E5D47C17E78F4B3E405058F0 /* SpoonjoyApp.swift */; };
+		C69EC19CC145C9A9C7BCECEA48305A66 /* PendingCoverUploadBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A88EDF03BF39ACF5B57A42707DE90CF7 /* PendingCoverUploadBanner.swift */; };
+		CA396D4052277671B95F3ABA3D00B131 /* IngredientPasteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82350E348A0F97BF5AB0D130C560C7FD /* IngredientPasteSheet.swift */; };
+		CAA38D18A56315659DF5A9F5E909E2D3 /* SpoonjoyCaptureDraftEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06162432F2E8A9B902804AD9EE287877 /* SpoonjoyCaptureDraftEntities.swift */; };
+		CCD501317E823C73567D59CBC44BD3B2 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF32BE83335AE6D2800ABE05A0B0D233 /* SpoonjoySpotlightIndexer.swift */; };
+		CF1B02105ADE7F9320F9816201879D64 /* SpoonjoyRemindersIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21E54DAB6BE8D0DE024D0D2280DAD83A /* SpoonjoyRemindersIntent.swift */; };
+		CF7E3B5D9E5DB8E777CB468BCBB95D01 /* ModerationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88AE10EBA02F9C1EFE7ED8B6676DFE0E /* ModerationController.swift */; };
+		D2617D424D0276D3EC6D3447990DDBE9 /* SpoonjoySettingsEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E8E671E928D163E56EF99A1DAB0463C /* SpoonjoySettingsEntities.swift */; };
+		D41B8BEE17084FAB7C323AC2734DA0D7 /* KitchenTableSpread.swift in Sources */ = {isa = PBXBuildFile; fileRef = 167BD75FE418A30BB944B3343EA8EB01 /* KitchenTableSpread.swift */; };
+		D57844572DA38E4FE3D488A687B91AC3 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B370ACEAE65F0CD1B9BD36B16DF6FB57 /* ProfileView.swift */; };
 		D59E7F799104A99CB2562016C9FE3B9B /* CookSyncJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = C474D953B173FC9830815AE5A74BCC0B /* CookSyncJourney.swift */; };
-		D72406EA644B38613DBFAE0A10B45644 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7AEAC1BA9D8E08A42DA2F7EE46447D /* CaptureDraftView.swift */; };
-		DADFFD7F70A27693BF2960F016D511D9 /* ShoppingRecipeSourcesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16EF37A26B594C59A966B33BBADA377E /* ShoppingRecipeSourcesPane.swift */; };
-		DB6C4BB398B000EA1B56A8BCFB085531 /* KitchenTableLoadingStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2DDEEF002327BDB90D8F6A45CF68C80 /* KitchenTableLoadingStateView.swift */; };
-		DC5DCEAEB14DB45821CBDD5B4A5AD280 /* SpoonjoyWebAuthenticationSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B5DB1C41135A50951B7644BC8F788E /* SpoonjoyWebAuthenticationSession.swift */; };
+		D5C09B7DB52D639869C177D75D654419 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 508B94CA4C2A7C524C53061040A48B83 /* Assets.xcassets */; };
+		D7E6B370B70D7DCCE29C1224DD0CAD47 /* PullToRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 271D1257B5880E15346AA06004C135C6 /* PullToRefresh.swift */; };
+		D80CA915B89D670FB69126E57B654F2C /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 0D4F2675A139C5D4CC05ABC067772515 /* SpoonjoyCore */; };
 		DF8BB773810C27245A09865F5FA93759 /* SpoonjoyCookTimerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7F5A8DD1E217B06176DCA415EC5E0727 /* SpoonjoyCookTimerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		E270DEEF8823F4D494DF63AEBFC9DAE1 /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DA7A3ED830506452CDF54E0CA9E15A8 /* SpoonjoyApp.swift */; };
-		E462E67FD78E1B36B64BE878029A0F01 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C77686B2A80EF621C7300BE009D06A21 /* SpoonjoyRootView.swift */; };
-		E5CEF7F9A9C17BB68325D671B5346483 /* ScreenshotAccessibilityProofWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 437895811962BDE7A538FAFF64A3CA97 /* ScreenshotAccessibilityProofWriter.swift */; };
-		E73480E485EB31D92A44A65DF7781636 /* ThirdPartyAIConsentSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4445DBDCAF9FC2409A777A8011DF01BE /* ThirdPartyAIConsentSheet.swift */; };
+		E0043582BA772E4C3560D5E8F02D6A8F /* CookbooksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15D9051BBB9EA022F6871223366405EB /* CookbooksView.swift */; };
+		E65A07C317A742F838B61A736EB2E5CE /* NativeAppleSignInTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = ADE70068B9AC6DD42557AEE7CD50F970 /* NativeAppleSignInTelemetry.swift */; };
+		E6CD6046D3394194A6D4D8022C4543D4 /* CookTimerLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F07823445891605CE8549A0ED5AAE8 /* CookTimerLiveActivityController.swift */; };
+		E6D74E7C55DAB1649D59B748DA892245 /* JourneyQuietMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6EB4A50907CD9A758D7C1454DDE1863 /* JourneyQuietMode.swift */; };
+		E6F28D3443B3A0A127A6F116E37F9030 /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D56BC82A15F01FD4686B97B12F517B3 /* SpoonjoyAppIntents.swift */; };
+		E840F3385600748B1BA72C8FE06DCF56 /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2001A61EE067EAA8E58D38DD6D6295EB /* CookModeView.swift */; };
+		E9069F49B651771D50A67D8DB10B185F /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6612F3A1FB7B78BADD24E30018C6EBAD /* ModerationViews.swift */; };
 		EA93EBAA88F1B43C646D1D4071843496 /* ReviewDemoLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8E4125FD083E01C8C81B498D67DE5B9 /* ReviewDemoLaunchUITests.swift */; };
 		EB2E1A605CE930E10A2B0AB6CAD7E712 /* SpoonjoyCookSessionActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22D5336F7594E2B7CA95F1784E6CED3B /* SpoonjoyCookSessionActivity.swift */; };
-		EC7425466B06909A00EB83C046081130 /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05B4CBE2CD511442B18EB23C261CC25 /* RecipeEditorView.swift */; };
-		EE8A74AC309AF96BF5E8CCBE795CD9E0 /* AccountDeletionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F1EFE0B916BBB21AB9E1750DAC6459E /* AccountDeletionSheet.swift */; };
-		EF76EFE77CE7F5904ABF9536FA106763 /* SpoonjoyRemindersSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03A4303248E7215D8BDE479D19709FDC /* SpoonjoyRemindersSender.swift */; };
-		F25F8B2F1417E3FDD71D7E6BDDB64138 /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860CA819698E90383DAE9A122162EAC2 /* ModerationViews.swift */; };
-		F266DB71A44113A4E92F8851369250B2 /* IngredientPasteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053237446DFA3FC7725E572A41667D07 /* IngredientPasteSheet.swift */; };
-		F41FA8B3D92C1BC903A939DC095B8D15 /* ModerationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CBAFF26984C25F300550D6857896A113 /* ModerationController.swift */; };
-		F427B0283FB9E95E057BDB7F75A1F215 /* SpoonCookLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646F31CC634EBDC1393A0B1534B5DEBC /* SpoonCookLogView.swift */; };
-		F4296F4DF603E89BB4985D77FBFF5972 /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = E54D559A12224FDE74C02276C3696FFC /* KitchenTableTheme.swift */; };
-		F437804697E2B61CE0FF386C3B4C1DF1 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D7AEAC1BA9D8E08A42DA2F7EE46447D /* CaptureDraftView.swift */; };
+		EECD7B14A3DEFF2268AEFBD93AA92F06 /* RecipeIndexRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = F847E3D023E3B723BB4D2B12036F9D01 /* RecipeIndexRow.swift */; };
+		F08129DDE57D559742F4C014E6E002CA /* SpoonjoyiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6294604ACFC27F978F4423F890FFF69B /* SpoonjoyiOSApp.swift */; };
+		F18AC908D4F731B677BCD600F4C5E60A /* IngredientPasteSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82350E348A0F97BF5AB0D130C560C7FD /* IngredientPasteSheet.swift */; };
+		F202E6EF61DD7D6A4F5C93B135363559 /* ScreenshotAccessibilityProofWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D803AC64F10317E35257282354D127 /* ScreenshotAccessibilityProofWriter.swift */; };
+		F4296F4DF603E89BB4985D77FBFF5972 /* KitchenTableTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86F82B36791FD1816591293E8D8A3555 /* KitchenTableTheme.swift */; };
+		F608D6A930FFF3DB7FEDC413FD5F544C /* ShoppingRecipeSourcesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4143CDFE00DCC1C083E6CAB19E19FDA7 /* ShoppingRecipeSourcesPane.swift */; };
 		F749DE3854B0EBE3BED289F2CF05A0EC /* CookbooksJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F19C0EB2D2FBB92435CDFCD7031099C /* CookbooksJourney.swift */; };
-		F78D2EE2C99B1868AF12D0FC55C9EF18 /* SpoonjoyRemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF79B6C8AD539D72916BBCB3FC7FE060 /* SpoonjoyRemindersStore.swift */; };
-		F82B17EE1BD06E40E4511BB248097CDC /* KitchenMotion+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D280746DBB8A7636015EBAF82934CA /* KitchenMotion+SwiftUI.swift */; };
+		F7FB2044074BA451B00F7140F8A3C7B3 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDED00EA1E6F1FAC77C51DD00BE8FFC9 /* PlatformNavigationView.swift */; };
+		F7FFB0D708CB74D3384AEFF6D34700A9 /* SpoonjoyToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11EE61893238AF4E5BF9EBB84C4D71BD /* SpoonjoyToolbar.swift */; };
+		F8F1DEDF1BCEBCB65A54E878A87F656A /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFBCED0596A32BC10719B91EE5D551E /* SettingsView.swift */; };
 		FC026EE5B58C504F107D018C650A75B4 /* SpoonjoyCookTimerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08603FF156EAE6BC726DC3CD46D55038 /* SpoonjoyCookTimerLiveActivity.swift */; };
-		FE48F6556BDC477EF203C6B83317B866 /* KitchenSafeControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F341AF41469B4F93C8D984F2897E453 /* KitchenSafeControls.swift */; };
+		FCB7F01DC475C674B5E9DE294E869294 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 185A6AC24109CB9CDF93C9124359331D /* ReceiptListView.swift */; };
+		FD3B0D6CF668F1836F4C564CB216B177 /* ScreenshotAccessibilityProofWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4D803AC64F10317E35257282354D127 /* ScreenshotAccessibilityProofWriter.swift */; };
+		FE09455FEE6C58B63ABEF0010C86BEE6 /* AddRecipeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF7340828FDFB494E21982DCE3B89EFF /* AddRecipeSheet.swift */; };
+		FE58E49CEFBBFC578388018BB2ABF10B /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45FC04B2CA9F28FDAD3062EE9F1EBEDE /* RecipeEditorView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -174,7 +176,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 561E67053217BB880340D8FBA8E33B11 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 86AF583953A93A14116B9D88BF068894;
+			remoteGlobalIDString = FB93C1E413D2580E71E42ADA05FAFF46;
 			remoteInfo = "Spoonjoy iOS";
 		};
 		795BC50164E2590E60111E39B68E2DA4 /* PBXContainerItemProxy */ = {
@@ -188,7 +190,7 @@
 			isa = PBXContainerItemProxy;
 			containerPortal = 561E67053217BB880340D8FBA8E33B11 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 86AF583953A93A14116B9D88BF068894;
+			remoteGlobalIDString = FB93C1E413D2580E71E42ADA05FAFF46;
 			remoteInfo = "Spoonjoy iOS";
 		};
 /* End PBXContainerItemProxy section */
@@ -208,114 +210,115 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		03A4303248E7215D8BDE479D19709FDC /* SpoonjoyRemindersSender.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRemindersSender.swift; sourceTree = "<group>"; };
-		04BE952C14A22049A9174F7D155FBEF9 /* JourneyQuietMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyQuietMode.swift; sourceTree = "<group>"; };
-		053237446DFA3FC7725E572A41667D07 /* IngredientPasteSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IngredientPasteSheet.swift; sourceTree = "<group>"; };
+		005A2168F644D6C0DB7D3C275E081BA8 /* SpoonjoyWebAuthenticationSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyWebAuthenticationSession.swift; sourceTree = "<group>"; };
+		0145D6EB4C90ADA9CBA3970E4DF292F9 /* CookModeComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookModeComponents.swift; sourceTree = "<group>"; };
+		0539B4FE6A7136ABFD0B0C6B6E11FA25 /* SignedOutSetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignedOutSetupView.swift; sourceTree = "<group>"; };
+		06162432F2E8A9B902804AD9EE287877 /* SpoonjoyCaptureDraftEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCaptureDraftEntities.swift; sourceTree = "<group>"; };
 		08603FF156EAE6BC726DC3CD46D55038 /* SpoonjoyCookTimerLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCookTimerLiveActivity.swift; sourceTree = "<group>"; };
-		09CF4A668B9202C4735F75D59F7E8702 /* SpoonjoySpoonEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpoonEntities.swift; sourceTree = "<group>"; };
-		0F5143486516C0BF892F150112777E20 /* SignedOutSetupView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignedOutSetupView.swift; sourceTree = "<group>"; };
+		0883FE9A6ED1C51853F651A0A2503161 /* Spoonjoy.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Spoonjoy.entitlements; sourceTree = "<group>"; };
+		0940083079C55AA88488F75E09477CCE /* NotificationAPNsSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsSettingsView.swift; sourceTree = "<group>"; };
+		0BB82229126D003A7D3AB7D52AAA99E5 /* HeldChangeBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeldChangeBanner.swift; sourceTree = "<group>"; };
+		11EE61893238AF4E5BF9EBB84C4D71BD /* SpoonjoyToolbar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyToolbar.swift; sourceTree = "<group>"; };
 		1399587CB9C3D93685D6B7B3C0646E6E /* JourneyTestCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyTestCase.swift; sourceTree = "<group>"; };
-		16EF37A26B594C59A966B33BBADA377E /* ShoppingRecipeSourcesPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingRecipeSourcesPane.swift; sourceTree = "<group>"; };
-		1A0B9E291586125F3094690D69D2E449 /* SpoonjoyCaptureDraftEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCaptureDraftEntities.swift; sourceTree = "<group>"; };
+		15D9051BBB9EA022F6871223366405EB /* CookbooksView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookbooksView.swift; sourceTree = "<group>"; };
+		167BD75FE418A30BB944B3343EA8EB01 /* KitchenTableSpread.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableSpread.swift; sourceTree = "<group>"; };
+		185A6AC24109CB9CDF93C9124359331D /* ReceiptListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReceiptListView.swift; sourceTree = "<group>"; };
+		1C580B33A6D412141B8A84DC86B31D08 /* SpoonjoyRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRootView.swift; sourceTree = "<group>"; };
 		1CAC0A4B43DCA07E12C7E182EF26A4CE /* TabletopJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TabletopJourney.swift; sourceTree = "<group>"; };
-		226DCA46AD1FB744DEE73D78139B263A /* SpoonjoyShoppingEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyShoppingEntities.swift; sourceTree = "<group>"; };
+		1FE06E76ACCBCA2D2F25CEB4F9EE5D61 /* RecipeCoverImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverImage.swift; sourceTree = "<group>"; };
+		2001A61EE067EAA8E58D38DD6D6295EB /* CookModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookModeView.swift; sourceTree = "<group>"; };
+		21E54DAB6BE8D0DE024D0D2280DAD83A /* SpoonjoyRemindersIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRemindersIntent.swift; sourceTree = "<group>"; };
 		22D5336F7594E2B7CA95F1784E6CED3B /* SpoonjoyCookSessionActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCookSessionActivity.swift; sourceTree = "<group>"; };
 		23290E5B8221D2280491E3F2A7D3B596 /* SpoonjoyCookTimerWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCookTimerWidgetBundle.swift; sourceTree = "<group>"; };
+		2688246B75D0FDE415369318244B20FB /* ThirdPartyAIConsentSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThirdPartyAIConsentSheet.swift; sourceTree = "<group>"; };
+		271D1257B5880E15346AA06004C135C6 /* PullToRefresh.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PullToRefresh.swift; sourceTree = "<group>"; };
 		27B2DBF037387E5F32FF1A780656FB66 /* SpoonjoyJourneys.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpoonjoyJourneys.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		2DA7A3ED830506452CDF54E0CA9E15A8 /* SpoonjoyApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyApp.swift; sourceTree = "<group>"; };
-		327830EB5D0FCEA4C05599E1B7C1A69D /* RecipeCoverControlsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverControlsView.swift; sourceTree = "<group>"; };
-		32F3F9C42B85E75209F39A0D63FE4466 /* SpoonjoySpotlightIndexer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpotlightIndexer.swift; sourceTree = "<group>"; };
+		2D56BC82A15F01FD4686B97B12F517B3 /* SpoonjoyAppIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyAppIntents.swift; sourceTree = "<group>"; };
+		314892E74717A66898C8CD73C1F8EFFC /* RecipeCoverControlsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverControlsView.swift; sourceTree = "<group>"; };
 		334D87BA70CAE0DAFF461B028E51E425 /* Spoonjoy iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Spoonjoy iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		3859E846E49E8C5059051B13455178D7 /* SpoonjoyToolbar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyToolbar.swift; sourceTree = "<group>"; };
-		38DF017D49A2B298B518B4A5DDE299F0 /* SpoonDock.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonDock.swift; sourceTree = "<group>"; };
+		33F125000F05588DC21FC25840C6CBCF /* RecipeDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeDetailView.swift; sourceTree = "<group>"; };
+		34BE61AEEC432F11AEB32D9CA0F25ED4 /* KitchenTableLoadingStateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableLoadingStateView.swift; sourceTree = "<group>"; };
+		3A6154F9322EB71C5734DEF14D23E663 /* NotificationAPNsDeviceBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsDeviceBridge.swift; sourceTree = "<group>"; };
 		3ADC2E52393ADE1A8B9A7BDBE1FD1E51 /* JourneyCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyCopy.swift; sourceTree = "<group>"; };
+		3C021FF70341DC76C4C9F128017158F3 /* SpoonjoyShoppingEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyShoppingEntities.swift; sourceTree = "<group>"; };
 		3D5EB77DFF69C9311458D07F945FB825 /* RecipesJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipesJourney.swift; sourceTree = "<group>"; };
-		3F341AF41469B4F93C8D984F2897E453 /* KitchenSafeControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenSafeControls.swift; sourceTree = "<group>"; };
 		3FD2C332DB859921858A5DB3D2DC396F /* JourneyAccounts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyAccounts.swift; sourceTree = "<group>"; };
-		40320FAF09E67B1A437F7DBA4D3FC4FB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		409E5B7983BE6C44A6E0EA6CD5C0531D /* KitchenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenView.swift; sourceTree = "<group>"; };
+		4143CDFE00DCC1C083E6CAB19E19FDA7 /* ShoppingRecipeSourcesPane.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingRecipeSourcesPane.swift; sourceTree = "<group>"; };
 		419A7A8E2BAFC9DA9E8A693F1892B2C8 /* CookSessionSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookSessionSnapshot.swift; sourceTree = "<group>"; };
-		425BFA9F2E00413E68767D6074A392BA /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		437895811962BDE7A538FAFF64A3CA97 /* ScreenshotAccessibilityProofWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenshotAccessibilityProofWriter.swift; sourceTree = "<group>"; };
-		4445DBDCAF9FC2409A777A8011DF01BE /* ThirdPartyAIConsentSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ThirdPartyAIConsentSheet.swift; sourceTree = "<group>"; };
-		4990DC7A6277DD360DBAC95F28E3DE15 /* SpoonjoyChefProfileEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyChefProfileEntities.swift; sourceTree = "<group>"; };
-		4D7AEAC1BA9D8E08A42DA2F7EE46447D /* CaptureDraftView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureDraftView.swift; sourceTree = "<group>"; };
+		45FC04B2CA9F28FDAD3062EE9F1EBEDE /* RecipeEditorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeEditorView.swift; sourceTree = "<group>"; };
+		4A9F45F7AAAD1FB9D0D03C8593192488 /* CookModeSessionCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookModeSessionCenter.swift; sourceTree = "<group>"; };
+		4E1E4894697C21BE283B701B1D56FFF0 /* KitchenSafeControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenSafeControls.swift; sourceTree = "<group>"; };
 		506CE1BD063651FAB0471022666C55F3 /* SignInJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SignInJourney.swift; sourceTree = "<group>"; };
-		52482F87B5E3929D1F7FBA326B5A936F /* KeepScreenAwake.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeepScreenAwake.swift; sourceTree = "<group>"; };
-		55745B8CC58C1C6DC54E94C11540273D /* ReceiptListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReceiptListView.swift; sourceTree = "<group>"; };
+		508B94CA4C2A7C524C53061040A48B83 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		532FC14FCDC12340DC15C00F6DBB8E1F /* SpoonjoyRemindersStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRemindersStore.swift; sourceTree = "<group>"; };
+		55450E4C849B8ED80A0E0BB1A7F20306 /* OfflineStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OfflineStatusView.swift; sourceTree = "<group>"; };
 		564639CE110C2B2DB65A8533F22EBE11 /* SpoonjoyCookTimerActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCookTimerActivity.swift; sourceTree = "<group>"; };
-		59D216DC0EBF1A502F11215A3687B886 /* CookModeSessionCenter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookModeSessionCenter.swift; sourceTree = "<group>"; };
-		5F1EFE0B916BBB21AB9E1750DAC6459E /* AccountDeletionSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountDeletionSheet.swift; sourceTree = "<group>"; };
-		5FED2FC597EFB00926126D42EAD47E78 /* SpoonjoyAppIntents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyAppIntents.swift; sourceTree = "<group>"; };
+		58268DA691B474BA8EFCED44181DEB3B /* SpoonjoyChefProfileEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyChefProfileEntities.swift; sourceTree = "<group>"; };
+		58947BA81F90E5CDAB0C6D48948A255A /* SpoonjoyRecipeCookbookEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRecipeCookbookEntities.swift; sourceTree = "<group>"; };
+		5BFBCED0596A32BC10719B91EE5D551E /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		60BD5FB6CDC04BBB0AA65C54594F1778 /* ModerationJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModerationJourney.swift; sourceTree = "<group>"; };
 		6294604ACFC27F978F4423F890FFF69B /* SpoonjoyiOSApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyiOSApp.swift; sourceTree = "<group>"; };
-		646F31CC634EBDC1393A0B1534B5DEBC /* SpoonCookLogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonCookLogView.swift; sourceTree = "<group>"; };
-		670D223E3F08C3F72C229C44CB4C5AEC /* SpoonjoyRecipeCookbookEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRecipeCookbookEntities.swift; sourceTree = "<group>"; };
-		692BB467AC26A9E87077D9CA8FFBA130 /* SpoonjoySettingsEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySettingsEntities.swift; sourceTree = "<group>"; };
-		692C8B36482D47AE2D540C9F4F5172A8 /* RecipeIndexRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeIndexRow.swift; sourceTree = "<group>"; };
+		6612F3A1FB7B78BADD24E30018C6EBAD /* ModerationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModerationViews.swift; sourceTree = "<group>"; };
+		68A27ED8E52E611AAC129F0A1C367462 /* AccountDeletionSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AccountDeletionSheet.swift; sourceTree = "<group>"; };
 		7168291EBD18F664EC47D03778012683 /* Spoonjoy macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Spoonjoy macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		73146491C416DDB374F9D1E9FE27BFD5 /* OfflineStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OfflineStatusView.swift; sourceTree = "<group>"; };
 		761B064620F3A1E5CD79F86F9F9A6B95 /* SpoonjoyShoppingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyShoppingUITests.swift; sourceTree = "<group>"; };
-		770A5E4F1561CAF26C3A642DD060B6DF /* SearchView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
-		788DE2154D3AAB8D1B2C28249CDB14B9 /* SpoonjoyCookStepEntity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCookStepEntity.swift; sourceTree = "<group>"; };
-		7D0C6E7C4FF18FF527BDC6C1D9961A08 /* SettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		7F19C0EB2D2FBB92435CDFCD7031099C /* CookbooksJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookbooksJourney.swift; sourceTree = "<group>"; };
 		7F5A8DD1E217B06176DCA415EC5E0727 /* SpoonjoyCookTimerWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpoonjoyCookTimerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		844691FD8DBC09D6C109E5FEC2992C23 /* ShareActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareActions.swift; sourceTree = "<group>"; };
-		860CA819698E90383DAE9A122162EAC2 /* ModerationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModerationViews.swift; sourceTree = "<group>"; };
+		81648255E5D47C17E78F4B3E405058F0 /* SpoonjoyApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyApp.swift; sourceTree = "<group>"; };
+		82350E348A0F97BF5AB0D130C560C7FD /* IngredientPasteSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = IngredientPasteSheet.swift; sourceTree = "<group>"; };
+		86F82B36791FD1816591293E8D8A3555 /* KitchenTableTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableTheme.swift; sourceTree = "<group>"; };
 		8867D75809CF4D8C1DC76D5942D47A29 /* CookSessionIslandLayout.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookSessionIslandLayout.swift; sourceTree = "<group>"; };
-		8871CA68FCCE75D8B67F847E63EA7596 /* PlatformNavigationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlatformNavigationView.swift; sourceTree = "<group>"; };
-		88F7AF9E7CE190B6D1D150B995A21987 /* NativeAppleSignInTelemetry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAppleSignInTelemetry.swift; sourceTree = "<group>"; };
-		8A2EFA6CD29176C9EA6C5AC9E76A6B88 /* NotificationAPNsDeviceBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsDeviceBridge.swift; sourceTree = "<group>"; };
-		8E8801F4D7D91802E1D8182107C8E520 /* ShoppingListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingListView.swift; sourceTree = "<group>"; };
+		88AE10EBA02F9C1EFE7ED8B6676DFE0E /* ModerationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModerationController.swift; sourceTree = "<group>"; };
+		8B4E5285A831EDFE04CBC3845817F39B /* KeepScreenAwake.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KeepScreenAwake.swift; sourceTree = "<group>"; };
+		8E19EFADFF1271AB96F0D8A48AC95DEA /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		8E8E671E928D163E56EF99A1DAB0463C /* SpoonjoySettingsEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySettingsEntities.swift; sourceTree = "<group>"; };
+		93CC869641DEB24E0044B458086117D8 /* SpoonjoySpoonEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpoonEntities.swift; sourceTree = "<group>"; };
+		9489F562ACF0BB605D1839D2FC9A0A7D /* CaptureDraftView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CaptureDraftView.swift; sourceTree = "<group>"; };
 		988DEAB4211DF344429E7CAFE5C7A8FC /* SpoonjoyCookSessionLiveActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCookSessionLiveActivity.swift; sourceTree = "<group>"; };
-		99F11A8F613D30BE50B7774EB6589EBE /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
-		99F91761D39CF89578C8FA6A2029FB9B /* RecipeDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeDetailView.swift; sourceTree = "<group>"; };
-		9DE4CE724E5F6740B8B850EA294631DC /* HeldChangeBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeldChangeBanner.swift; sourceTree = "<group>"; };
-		A0D280746DBB8A7636015EBAF82934CA /* KitchenMotion+SwiftUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "KitchenMotion+SwiftUI.swift"; sourceTree = "<group>"; };
-		A1E998786123FFC4D18F612D9CB7DDCE /* RecipesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipesView.swift; sourceTree = "<group>"; };
-		A35C7D462428B1F37B9B450F84F0F18C /* SpoonjoyRemindersIntent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRemindersIntent.swift; sourceTree = "<group>"; };
+		A595E04FB4A66F71C5D99BBFBBC42A1D /* RecipesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipesView.swift; sourceTree = "<group>"; };
+		A88EDF03BF39ACF5B57A42707DE90CF7 /* PendingCoverUploadBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PendingCoverUploadBanner.swift; sourceTree = "<group>"; };
 		AACD3B1E4F14DC89BF76A65B948DEB11 /* EditorJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EditorJourney.swift; sourceTree = "<group>"; };
+		ADE70068B9AC6DD42557AEE7CD50F970 /* NativeAppleSignInTelemetry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeAppleSignInTelemetry.swift; sourceTree = "<group>"; };
 		ADF15C3BD9BB1A5A1D0F5525492CE51C /* SpoonjoyShoppingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpoonjoyShoppingUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		B032382E6318958F860BF7FA84E0E56E /* CachedAsyncImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
-		B2DDEEF002327BDB90D8F6A45CF68C80 /* KitchenTableLoadingStateView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableLoadingStateView.swift; sourceTree = "<group>"; };
+		B370ACEAE65F0CD1B9BD36B16DF6FB57 /* ProfileView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		B3D4E3CBBFF9CD40BD77D914CBA9077C /* JourneyQA.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyQA.swift; sourceTree = "<group>"; };
 		B454C45531F3C24AA6E1CB63A10FA8C3 /* SpoonjoyMacApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyMacApp.swift; sourceTree = "<group>"; };
-		B658E6825EE4E2BD0E85F4AB18067FF1 /* PullToRefresh.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PullToRefresh.swift; sourceTree = "<group>"; };
-		B73BFAFB8F52044949F7F178D5C9A8F4 /* NotificationAPNsSettingsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NotificationAPNsSettingsView.swift; sourceTree = "<group>"; };
-		BEAED74E4D5F3A89EA1D3DAF49C77436 /* Spoonjoy.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = Spoonjoy.entitlements; sourceTree = "<group>"; };
+		BB6893166C36DEA0D254144BBE6BD864 /* KitchenMotion+SwiftUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "KitchenMotion+SwiftUI.swift"; sourceTree = "<group>"; };
 		BF6809B5CB3CC8B63BC44AE6F5A9FA3F /* JourneyID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyID.swift; sourceTree = "<group>"; };
-		C05B4CBE2CD511442B18EB23C261CC25 /* RecipeEditorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeEditorView.swift; sourceTree = "<group>"; };
+		C03446E3189A6B7056A822C17242D678 /* SpoonCookLogView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonCookLogView.swift; sourceTree = "<group>"; };
+		C148485396DA78431FF927BF51E7F5E6 /* SpoonjoyCookStepEntity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCookStepEntity.swift; sourceTree = "<group>"; };
 		C1CC2FD35159C55826D7E44F7419B88B /* VerifyAfterRelaunch.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VerifyAfterRelaunch.swift; sourceTree = "<group>"; };
+		C4552D8CFC0543473BE4751C8A7B4E83 /* SpoonDock.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonDock.swift; sourceTree = "<group>"; };
 		C474D953B173FC9830815AE5A74BCC0B /* CookSyncJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookSyncJourney.swift; sourceTree = "<group>"; };
-		C77686B2A80EF621C7300BE009D06A21 /* SpoonjoyRootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRootView.swift; sourceTree = "<group>"; };
-		C9B5DB1C41135A50951B7644BC8F788E /* SpoonjoyWebAuthenticationSession.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyWebAuthenticationSession.swift; sourceTree = "<group>"; };
+		C958DBB4B3F3D7B90F4D0EEB827CADF9 /* CachedAsyncImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
+		CA53D34972F43572A81A7F2FAE090D3B /* ShareActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShareActions.swift; sourceTree = "<group>"; };
 		CA6B8F929059DD83F33D41EDDB7E00C9 /* JourneyQAClient.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyQAClient.swift; sourceTree = "<group>"; };
-		CBAFF26984C25F300550D6857896A113 /* ModerationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ModerationController.swift; sourceTree = "<group>"; };
-		D5AB73BE9AA76A51AA77FD6E7EB32C2E /* KitchenTableSpread.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableSpread.swift; sourceTree = "<group>"; };
+		CDED00EA1E6F1FAC77C51DD00BE8FFC9 /* PlatformNavigationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlatformNavigationView.swift; sourceTree = "<group>"; };
+		CF7340828FDFB494E21982DCE3B89EFF /* AddRecipeSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddRecipeSheet.swift; sourceTree = "<group>"; };
+		D47DA1A4D120212713B2ECC8DDE435ED /* SpoonjoyRemindersSender.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRemindersSender.swift; sourceTree = "<group>"; };
+		D6EB4A50907CD9A758D7C1454DDE1863 /* JourneyQuietMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyQuietMode.swift; sourceTree = "<group>"; };
 		D8E4125FD083E01C8C81B498D67DE5B9 /* ReviewDemoLaunchUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReviewDemoLaunchUITests.swift; sourceTree = "<group>"; };
+		DF32BE83335AE6D2800ABE05A0B0D233 /* SpoonjoySpotlightIndexer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpotlightIndexer.swift; sourceTree = "<group>"; };
 		DF4F5AD01F71F47931E2F6F0038663A8 /* SpoonjoyMac.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = SpoonjoyMac.entitlements; sourceTree = "<group>"; };
 		E177BEA7E56335E61C9DD232881736DC /* JourneyApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = JourneyApp.swift; sourceTree = "<group>"; };
-		E54D559A12224FDE74C02276C3696FFC /* KitchenTableTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableTheme.swift; sourceTree = "<group>"; };
-		E66E93B72CB662F8CD5654E65C4946A7 /* PendingCoverUploadBanner.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PendingCoverUploadBanner.swift; sourceTree = "<group>"; };
-		E9716F21E2ACC39C1FB205A2DF108A06 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		E4D803AC64F10317E35257282354D127 /* ScreenshotAccessibilityProofWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ScreenshotAccessibilityProofWriter.swift; sourceTree = "<group>"; };
 		EA6BA5CE8529AA73143A6683C2D12F19 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		EAB05FB5D2F15DEE29C6B2927085746D /* CookTimerBoard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookTimerBoard.swift; sourceTree = "<group>"; };
-		EAF6249ED50389629A7F7A26A3C1344E /* RecipeCoverImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeCoverImage.swift; sourceTree = "<group>"; };
-		EB19B14A1B18D3EABE11905B178BAE47 /* CookModeView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookModeView.swift; sourceTree = "<group>"; };
 		EB4B638C0D8D92403E4E2CF2B0C68DB3 /* RemindersJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RemindersJourney.swift; sourceTree = "<group>"; };
-		EF79B6C8AD539D72916BBCB3FC7FE060 /* SpoonjoyRemindersStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyRemindersStore.swift; sourceTree = "<group>"; };
+		EE32DD2F42DFED0E99300E7E58ECD365 /* ShoppingListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingListView.swift; sourceTree = "<group>"; };
 		F1F07823445891605CE8549A0ED5AAE8 /* CookTimerLiveActivityController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookTimerLiveActivityController.swift; sourceTree = "<group>"; };
-		F7867DB014512183E954370BF0157159 /* AddRecipeSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddRecipeSheet.swift; sourceTree = "<group>"; };
-		FB22BE67AB00B591D27663279ACCD0DD /* CookbooksView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookbooksView.swift; sourceTree = "<group>"; };
+		F26206770C3973F2FA6DC7261478399A /* KitchenView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenView.swift; sourceTree = "<group>"; };
+		F35D3B9C15CB6873273019CD3825F784 /* SearchView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		F847E3D023E3B723BB4D2B12036F9D01 /* RecipeIndexRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecipeIndexRow.swift; sourceTree = "<group>"; };
+		FE1E05839083B74D265D1D33256960ED /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		33ABAB44BE8DF10B7A8C863AC37C31C7 /* Frameworks */ = {
+		69CC7346CAB17DBE4A628B7C93F096B8 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3E365A7E456C2C6F01B9A3DEB55FB9C9 /* SpoonjoyCore in Frameworks */,
+				AA5827BB2D83F346E3784F57AE59DFC1 /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -341,63 +344,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		EC9B1A4B3DB521A239B8CAE2BAA07A82 /* Frameworks */ = {
+		FA93BE83867E6656C4850A6C913FB3BF /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C79DC1A8172B9267D844A9F78308F81E /* SpoonjoyCore in Frameworks */,
+				D80CA915B89D670FB69126E57B654F2C /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		158A72666C8E0A065FE357BB38B1CEB0 /* Moderation */ = {
+		1F2F98EF97F54F8EFEACBB93BDCC97F2 /* Auth */ = {
 			isa = PBXGroup;
 			children = (
-				CBAFF26984C25F300550D6857896A113 /* ModerationController.swift */,
-				860CA819698E90383DAE9A122162EAC2 /* ModerationViews.swift */,
-				4445DBDCAF9FC2409A777A8011DF01BE /* ThirdPartyAIConsentSheet.swift */,
-			);
-			name = Moderation;
-			path = Moderation;
-			sourceTree = "<group>";
-		};
-		1B5D76C8DC11BE23AD07D1C821B0480B /* Auth */ = {
-			isa = PBXGroup;
-			children = (
-				C9B5DB1C41135A50951B7644BC8F788E /* SpoonjoyWebAuthenticationSession.swift */,
+				005A2168F644D6C0DB7D3C275E081BA8 /* SpoonjoyWebAuthenticationSession.swift */,
 			);
 			name = Auth;
 			path = Auth;
-			sourceTree = "<group>";
-		};
-		35AEB422F1F681B65C50C1F8134FB675 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				5F1EFE0B916BBB21AB9E1750DAC6459E /* AccountDeletionSheet.swift */,
-				F7867DB014512183E954370BF0157159 /* AddRecipeSheet.swift */,
-				4D7AEAC1BA9D8E08A42DA2F7EE46447D /* CaptureDraftView.swift */,
-				FB22BE67AB00B591D27663279ACCD0DD /* CookbooksView.swift */,
-				EB19B14A1B18D3EABE11905B178BAE47 /* CookModeView.swift */,
-				9DE4CE724E5F6740B8B850EA294631DC /* HeldChangeBanner.swift */,
-				053237446DFA3FC7725E572A41667D07 /* IngredientPasteSheet.swift */,
-				409E5B7983BE6C44A6E0EA6CD5C0531D /* KitchenView.swift */,
-				B73BFAFB8F52044949F7F178D5C9A8F4 /* NotificationAPNsSettingsView.swift */,
-				E66E93B72CB662F8CD5654E65C4946A7 /* PendingCoverUploadBanner.swift */,
-				99F11A8F613D30BE50B7774EB6589EBE /* ProfileView.swift */,
-				327830EB5D0FCEA4C05599E1B7C1A69D /* RecipeCoverControlsView.swift */,
-				99F91761D39CF89578C8FA6A2029FB9B /* RecipeDetailView.swift */,
-				C05B4CBE2CD511442B18EB23C261CC25 /* RecipeEditorView.swift */,
-				A1E998786123FFC4D18F612D9CB7DDCE /* RecipesView.swift */,
-				770A5E4F1561CAF26C3A642DD060B6DF /* SearchView.swift */,
-				7D0C6E7C4FF18FF527BDC6C1D9961A08 /* SettingsView.swift */,
-				8E8801F4D7D91802E1D8182107C8E520 /* ShoppingListView.swift */,
-				16EF37A26B594C59A966B33BBADA377E /* ShoppingRecipeSourcesPane.swift */,
-				646F31CC634EBDC1393A0B1534B5DEBC /* SpoonCookLogView.swift */,
-			);
-			name = Views;
-			path = Views;
 			sourceTree = "<group>";
 		};
 		45D3E399B756CFFA131C026BB390D757 /* Widget */ = {
@@ -421,6 +385,17 @@
 			);
 			name = CookMode;
 			path = CookMode;
+			sourceTree = "<group>";
+		};
+		4889E308DC5C37C1076D914D47B5BCBF /* Moderation */ = {
+			isa = PBXGroup;
+			children = (
+				88AE10EBA02F9C1EFE7ED8B6676DFE0E /* ModerationController.swift */,
+				6612F3A1FB7B78BADD24E30018C6EBAD /* ModerationViews.swift */,
+				2688246B75D0FDE415369318244B20FB /* ThirdPartyAIConsentSheet.swift */,
+			);
+			name = Moderation;
+			path = Moderation;
 			sourceTree = "<group>";
 		};
 		4D5E3CBEB732D38673051DE6CB98F3E8 /* UITests */ = {
@@ -447,21 +422,6 @@
 				FBAD343370458B05620D50AB380BEF8A /* OS X */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
-		};
-		5C79AAF74871081A74EBEB0B658C9687 /* AppShell */ = {
-			isa = PBXGroup;
-			children = (
-				88F7AF9E7CE190B6D1D150B995A21987 /* NativeAppleSignInTelemetry.swift */,
-				8871CA68FCCE75D8B67F847E63EA7596 /* PlatformNavigationView.swift */,
-				844691FD8DBC09D6C109E5FEC2992C23 /* ShareActions.swift */,
-				0F5143486516C0BF892F150112777E20 /* SignedOutSetupView.swift */,
-				38DF017D49A2B298B518B4A5DDE299F0 /* SpoonDock.swift */,
-				C77686B2A80EF621C7300BE009D06A21 /* SpoonjoyRootView.swift */,
-				3859E846E49E8C5059051B13455178D7 /* SpoonjoyToolbar.swift */,
-			);
-			name = AppShell;
-			path = AppShell;
 			sourceTree = "<group>";
 		};
 		5CEC7907A1E07F8B138170C59A17A93B = {
@@ -529,13 +489,13 @@
 			path = iOS;
 			sourceTree = "<group>";
 		};
-		91DD3AFECBF5C5CD5C1428B622361D37 /* Design */ = {
+		8D5DD9861AA8C695D151DB19DBD3EC0F /* Design */ = {
 			isa = PBXGroup;
 			children = (
-				04BE952C14A22049A9174F7D155FBEF9 /* JourneyQuietMode.swift */,
-				A0D280746DBB8A7636015EBAF82934CA /* KitchenMotion+SwiftUI.swift */,
-				D5AB73BE9AA76A51AA77FD6E7EB32C2E /* KitchenTableSpread.swift */,
-				E54D559A12224FDE74C02276C3696FFC /* KitchenTableTheme.swift */,
+				D6EB4A50907CD9A758D7C1454DDE1863 /* JourneyQuietMode.swift */,
+				BB6893166C36DEA0D254144BBE6BD864 /* KitchenMotion+SwiftUI.swift */,
+				167BD75FE418A30BB944B3343EA8EB01 /* KitchenTableSpread.swift */,
+				86F82B36791FD1816591293E8D8A3555 /* KitchenTableTheme.swift */,
 			);
 			name = Design;
 			path = Design;
@@ -551,24 +511,19 @@
 			path = macOS;
 			sourceTree = "<group>";
 		};
-		99160EA65B2E16761048651CA013352C /* Shared */ = {
+		995C4F28585D06A1B444D20D6C43A1D1 /* AppShell */ = {
 			isa = PBXGroup;
 			children = (
-				5C79AAF74871081A74EBEB0B658C9687 /* AppShell */,
-				E9716F21E2ACC39C1FB205A2DF108A06 /* Assets.xcassets */,
-				1B5D76C8DC11BE23AD07D1C821B0480B /* Auth */,
-				AEF04418B99E8380348733BF09E6BAC1 /* Components */,
-				91DD3AFECBF5C5CD5C1428B622361D37 /* Design */,
-				425BFA9F2E00413E68767D6074A392BA /* Info.plist */,
-				158A72666C8E0A065FE357BB38B1CEB0 /* Moderation */,
-				ADDC6E71B33FD0F5D6C7DBBF8AE98FFF /* Native */,
-				40320FAF09E67B1A437F7DBA4D3FC4FB /* PrivacyInfo.xcprivacy */,
-				BEAED74E4D5F3A89EA1D3DAF49C77436 /* Spoonjoy.entitlements */,
-				2DA7A3ED830506452CDF54E0CA9E15A8 /* SpoonjoyApp.swift */,
-				35AEB422F1F681B65C50C1F8134FB675 /* Views */,
+				ADE70068B9AC6DD42557AEE7CD50F970 /* NativeAppleSignInTelemetry.swift */,
+				CDED00EA1E6F1FAC77C51DD00BE8FFC9 /* PlatformNavigationView.swift */,
+				CA53D34972F43572A81A7F2FAE090D3B /* ShareActions.swift */,
+				0539B4FE6A7136ABFD0B0C6B6E11FA25 /* SignedOutSetupView.swift */,
+				C4552D8CFC0543473BE4751C8A7B4E83 /* SpoonDock.swift */,
+				1C580B33A6D412141B8A84DC86B31D08 /* SpoonjoyRootView.swift */,
+				11EE61893238AF4E5BF9EBB84C4D71BD /* SpoonjoyToolbar.swift */,
 			);
-			name = Shared;
-			path = Shared;
+			name = AppShell;
+			path = AppShell;
 			sourceTree = "<group>";
 		};
 		9EF42764402AAE0FF8DBD4D56868B440 /* Spoonjoy */ = {
@@ -578,7 +533,7 @@
 				70A4D357E61C4C5145CBAEAD81007FB9 /* Journeys */,
 				75249D5D95683F7128F424F81BD6F879 /* LiveActivity */,
 				92FF22B12886195C72338B8B02248900 /* macOS */,
-				99160EA65B2E16761048651CA013352C /* Shared */,
+				B55C3B62F8B4F7BF4016B6A9530FEF5B /* Shared */,
 				4D5E3CBEB732D38673051DE6CB98F3E8 /* UITests */,
 			);
 			name = Spoonjoy;
@@ -620,46 +575,6 @@
 			path = Support;
 			sourceTree = "<group>";
 		};
-		ADDC6E71B33FD0F5D6C7DBBF8AE98FFF /* Native */ = {
-			isa = PBXGroup;
-			children = (
-				59D216DC0EBF1A502F11215A3687B886 /* CookModeSessionCenter.swift */,
-				8A2EFA6CD29176C9EA6C5AC9E76A6B88 /* NotificationAPNsDeviceBridge.swift */,
-				5FED2FC597EFB00926126D42EAD47E78 /* SpoonjoyAppIntents.swift */,
-				1A0B9E291586125F3094690D69D2E449 /* SpoonjoyCaptureDraftEntities.swift */,
-				4990DC7A6277DD360DBAC95F28E3DE15 /* SpoonjoyChefProfileEntities.swift */,
-				788DE2154D3AAB8D1B2C28249CDB14B9 /* SpoonjoyCookStepEntity.swift */,
-				670D223E3F08C3F72C229C44CB4C5AEC /* SpoonjoyRecipeCookbookEntities.swift */,
-				A35C7D462428B1F37B9B450F84F0F18C /* SpoonjoyRemindersIntent.swift */,
-				03A4303248E7215D8BDE479D19709FDC /* SpoonjoyRemindersSender.swift */,
-				EF79B6C8AD539D72916BBCB3FC7FE060 /* SpoonjoyRemindersStore.swift */,
-				692BB467AC26A9E87077D9CA8FFBA130 /* SpoonjoySettingsEntities.swift */,
-				226DCA46AD1FB744DEE73D78139B263A /* SpoonjoyShoppingEntities.swift */,
-				09CF4A668B9202C4735F75D59F7E8702 /* SpoonjoySpoonEntities.swift */,
-				32F3F9C42B85E75209F39A0D63FE4466 /* SpoonjoySpotlightIndexer.swift */,
-			);
-			name = Native;
-			path = Native;
-			sourceTree = "<group>";
-		};
-		AEF04418B99E8380348733BF09E6BAC1 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				B032382E6318958F860BF7FA84E0E56E /* CachedAsyncImage.swift */,
-				52482F87B5E3929D1F7FBA326B5A936F /* KeepScreenAwake.swift */,
-				3F341AF41469B4F93C8D984F2897E453 /* KitchenSafeControls.swift */,
-				B2DDEEF002327BDB90D8F6A45CF68C80 /* KitchenTableLoadingStateView.swift */,
-				73146491C416DDB374F9D1E9FE27BFD5 /* OfflineStatusView.swift */,
-				B658E6825EE4E2BD0E85F4AB18067FF1 /* PullToRefresh.swift */,
-				55745B8CC58C1C6DC54E94C11540273D /* ReceiptListView.swift */,
-				EAF6249ED50389629A7F7A26A3C1344E /* RecipeCoverImage.swift */,
-				692C8B36482D47AE2D540C9F4F5172A8 /* RecipeIndexRow.swift */,
-				437895811962BDE7A538FAFF64A3CA97 /* ScreenshotAccessibilityProofWriter.swift */,
-			);
-			name = Components;
-			path = Components;
-			sourceTree = "<group>";
-		};
 		B1E97057A1BC737146E9CEE6A0278128 /* Apps */ = {
 			isa = PBXGroup;
 			children = (
@@ -667,6 +582,26 @@
 			);
 			name = Apps;
 			path = Apps;
+			sourceTree = "<group>";
+		};
+		B55C3B62F8B4F7BF4016B6A9530FEF5B /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				995C4F28585D06A1B444D20D6C43A1D1 /* AppShell */,
+				508B94CA4C2A7C524C53061040A48B83 /* Assets.xcassets */,
+				1F2F98EF97F54F8EFEACBB93BDCC97F2 /* Auth */,
+				F5715D68A791C761AD9EB215A1087B6F /* Components */,
+				8D5DD9861AA8C695D151DB19DBD3EC0F /* Design */,
+				8E19EFADFF1271AB96F0D8A48AC95DEA /* Info.plist */,
+				4889E308DC5C37C1076D914D47B5BCBF /* Moderation */,
+				EAE16DA0AB6431A39F9CD431F1E794B3 /* Native */,
+				FE1E05839083B74D265D1D33256960ED /* PrivacyInfo.xcprivacy */,
+				0883FE9A6ED1C51853F651A0A2503161 /* Spoonjoy.entitlements */,
+				81648255E5D47C17E78F4B3E405058F0 /* SpoonjoyApp.swift */,
+				FAC1F8906134E168995326E2E4780921 /* Views */,
+			);
+			name = Shared;
+			path = Shared;
 			sourceTree = "<group>";
 		};
 		D6ECD3F50F930A2DEA8035CDD9C3D0BC /* Products */ = {
@@ -679,6 +614,75 @@
 				ADF15C3BD9BB1A5A1D0F5525492CE51C /* SpoonjoyShoppingUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		EAE16DA0AB6431A39F9CD431F1E794B3 /* Native */ = {
+			isa = PBXGroup;
+			children = (
+				4A9F45F7AAAD1FB9D0D03C8593192488 /* CookModeSessionCenter.swift */,
+				3A6154F9322EB71C5734DEF14D23E663 /* NotificationAPNsDeviceBridge.swift */,
+				2D56BC82A15F01FD4686B97B12F517B3 /* SpoonjoyAppIntents.swift */,
+				06162432F2E8A9B902804AD9EE287877 /* SpoonjoyCaptureDraftEntities.swift */,
+				58268DA691B474BA8EFCED44181DEB3B /* SpoonjoyChefProfileEntities.swift */,
+				C148485396DA78431FF927BF51E7F5E6 /* SpoonjoyCookStepEntity.swift */,
+				58947BA81F90E5CDAB0C6D48948A255A /* SpoonjoyRecipeCookbookEntities.swift */,
+				21E54DAB6BE8D0DE024D0D2280DAD83A /* SpoonjoyRemindersIntent.swift */,
+				D47DA1A4D120212713B2ECC8DDE435ED /* SpoonjoyRemindersSender.swift */,
+				532FC14FCDC12340DC15C00F6DBB8E1F /* SpoonjoyRemindersStore.swift */,
+				8E8E671E928D163E56EF99A1DAB0463C /* SpoonjoySettingsEntities.swift */,
+				3C021FF70341DC76C4C9F128017158F3 /* SpoonjoyShoppingEntities.swift */,
+				93CC869641DEB24E0044B458086117D8 /* SpoonjoySpoonEntities.swift */,
+				DF32BE83335AE6D2800ABE05A0B0D233 /* SpoonjoySpotlightIndexer.swift */,
+			);
+			name = Native;
+			path = Native;
+			sourceTree = "<group>";
+		};
+		F5715D68A791C761AD9EB215A1087B6F /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				C958DBB4B3F3D7B90F4D0EEB827CADF9 /* CachedAsyncImage.swift */,
+				8B4E5285A831EDFE04CBC3845817F39B /* KeepScreenAwake.swift */,
+				4E1E4894697C21BE283B701B1D56FFF0 /* KitchenSafeControls.swift */,
+				34BE61AEEC432F11AEB32D9CA0F25ED4 /* KitchenTableLoadingStateView.swift */,
+				55450E4C849B8ED80A0E0BB1A7F20306 /* OfflineStatusView.swift */,
+				271D1257B5880E15346AA06004C135C6 /* PullToRefresh.swift */,
+				185A6AC24109CB9CDF93C9124359331D /* ReceiptListView.swift */,
+				1FE06E76ACCBCA2D2F25CEB4F9EE5D61 /* RecipeCoverImage.swift */,
+				F847E3D023E3B723BB4D2B12036F9D01 /* RecipeIndexRow.swift */,
+				E4D803AC64F10317E35257282354D127 /* ScreenshotAccessibilityProofWriter.swift */,
+			);
+			name = Components;
+			path = Components;
+			sourceTree = "<group>";
+		};
+		FAC1F8906134E168995326E2E4780921 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				68A27ED8E52E611AAC129F0A1C367462 /* AccountDeletionSheet.swift */,
+				CF7340828FDFB494E21982DCE3B89EFF /* AddRecipeSheet.swift */,
+				9489F562ACF0BB605D1839D2FC9A0A7D /* CaptureDraftView.swift */,
+				15D9051BBB9EA022F6871223366405EB /* CookbooksView.swift */,
+				0145D6EB4C90ADA9CBA3970E4DF292F9 /* CookModeComponents.swift */,
+				2001A61EE067EAA8E58D38DD6D6295EB /* CookModeView.swift */,
+				0BB82229126D003A7D3AB7D52AAA99E5 /* HeldChangeBanner.swift */,
+				82350E348A0F97BF5AB0D130C560C7FD /* IngredientPasteSheet.swift */,
+				F26206770C3973F2FA6DC7261478399A /* KitchenView.swift */,
+				0940083079C55AA88488F75E09477CCE /* NotificationAPNsSettingsView.swift */,
+				A88EDF03BF39ACF5B57A42707DE90CF7 /* PendingCoverUploadBanner.swift */,
+				B370ACEAE65F0CD1B9BD36B16DF6FB57 /* ProfileView.swift */,
+				314892E74717A66898C8CD73C1F8EFFC /* RecipeCoverControlsView.swift */,
+				33F125000F05588DC21FC25840C6CBCF /* RecipeDetailView.swift */,
+				45FC04B2CA9F28FDAD3062EE9F1EBEDE /* RecipeEditorView.swift */,
+				A595E04FB4A66F71C5D99BBFBBC42A1D /* RecipesView.swift */,
+				F35D3B9C15CB6873273019CD3825F784 /* SearchView.swift */,
+				5BFBCED0596A32BC10719B91EE5D551E /* SettingsView.swift */,
+				EE32DD2F42DFED0E99300E7E58ECD365 /* ShoppingListView.swift */,
+				4143CDFE00DCC1C083E6CAB19E19FDA7 /* ShoppingRecipeSourcesPane.swift */,
+				C03446E3189A6B7056A822C17242D678 /* SpoonCookLogView.swift */,
+			);
+			name = Views;
+			path = Views;
 			sourceTree = "<group>";
 		};
 		FBAD343370458B05620D50AB380BEF8A /* OS X */ = {
@@ -712,26 +716,6 @@
 			productReference = 27B2DBF037387E5F32FF1A780656FB66 /* SpoonjoyJourneys.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		32875D2C580DD0107470B8083E34B6C7 /* Spoonjoy macOS */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 6E6DEF511E69FDB86940F4E01792B4FD /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */;
-			buildPhases = (
-				4524C1424FF8A4368EDC162F3917FCE2 /* Sources */,
-				33ABAB44BE8DF10B7A8C863AC37C31C7 /* Frameworks */,
-				A6CB20286C0F93C053F1C2BBD1EF9074 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = "Spoonjoy macOS";
-			packageProductDependencies = (
-				336C54974812366280C45176B12E7CBF /* SpoonjoyCore */,
-			);
-			productName = "Spoonjoy macOS";
-			productReference = 7168291EBD18F664EC47D03778012683 /* Spoonjoy macOS.app */;
-			productType = "com.apple.product-type.application";
-		};
 		80035A3149E6C94EF4B38480D0125E4B /* SpoonjoyShoppingUITests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F0E2DFBDFC5176F95A2680CFB02C98A3 /* Build configuration list for PBXNativeTarget "SpoonjoyShoppingUITests" */;
@@ -750,28 +734,6 @@
 			productReference = ADF15C3BD9BB1A5A1D0F5525492CE51C /* SpoonjoyShoppingUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
-		86AF583953A93A14116B9D88BF068894 /* Spoonjoy iOS */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 739171E74A02ED5264CE7AB00A95F262 /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */;
-			buildPhases = (
-				3580B2610BCD8A55C2F9E931297FC733 /* Sources */,
-				EC9B1A4B3DB521A239B8CAE2BAA07A82 /* Frameworks */,
-				BEE75C66C35C40FF285B90F032256DFD /* Resources */,
-				764C4C92048015DA8217052F19DFF06D /* Embed Foundation Extensions */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				9030C51D97A90C5DF0702B1FFCA589A9 /* PBXTargetDependency */,
-			);
-			name = "Spoonjoy iOS";
-			packageProductDependencies = (
-				350C2044091A5BD7ED825C20D94AC5F4 /* SpoonjoyCore */,
-			);
-			productName = "Spoonjoy iOS";
-			productReference = 334D87BA70CAE0DAFF461B028E51E425 /* Spoonjoy iOS.app */;
-			productType = "com.apple.product-type.application";
-		};
 		892B8E2C99CD299518A6B682E89C853C /* SpoonjoyCookTimerWidget */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C532BAED4C3F0A2637512F69422DF128 /* Build configuration list for PBXNativeTarget "SpoonjoyCookTimerWidget" */;
@@ -788,6 +750,48 @@
 			productName = SpoonjoyCookTimerWidget;
 			productReference = 7F5A8DD1E217B06176DCA415EC5E0727 /* SpoonjoyCookTimerWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
+		};
+		BFCA8DA3723375389DED662226B48087 /* Spoonjoy macOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8F35D8FE10A1E61EED1D2DC0F1E56673 /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */;
+			buildPhases = (
+				1AA8684E9E5B7EBFB3D837B99F160784 /* Sources */,
+				FA93BE83867E6656C4850A6C913FB3BF /* Frameworks */,
+				1E7471060C63E6891EC4B25168250DB2 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Spoonjoy macOS";
+			packageProductDependencies = (
+				0D4F2675A139C5D4CC05ABC067772515 /* SpoonjoyCore */,
+			);
+			productName = "Spoonjoy macOS";
+			productReference = 7168291EBD18F664EC47D03778012683 /* Spoonjoy macOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FB93C1E413D2580E71E42ADA05FAFF46 /* Spoonjoy iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2371119F0B2A4038905E2F2A0052B042 /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */;
+			buildPhases = (
+				1C11159308C58C50BFA2410F4452CD2F /* Sources */,
+				69CC7346CAB17DBE4A628B7C93F096B8 /* Frameworks */,
+				88FCD3E33CCA43276E03BD53D4965080 /* Resources */,
+				764C4C92048015DA8217052F19DFF06D /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9030C51D97A90C5DF0702B1FFCA589A9 /* PBXTargetDependency */,
+			);
+			name = "Spoonjoy iOS";
+			packageProductDependencies = (
+				998B66B344FC8F974DAE9C99D06F5027 /* SpoonjoyCore */,
+			);
+			productName = "Spoonjoy iOS";
+			productReference = 334D87BA70CAE0DAFF461B028E51E425 /* Spoonjoy iOS.app */;
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
@@ -809,15 +813,15 @@
 			mainGroup = 5CEC7907A1E07F8B138170C59A17A93B;
 			minimizedProjectReferenceProxies = 0;
 			packageReferences = (
-				AC7AF72D3A6159D3543D79CBE1A1283A /* XCLocalSwiftPackageReference "." */,
+				7AA237B282005E7AC75D24F05115BC92 /* XCLocalSwiftPackageReference "." */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D6ECD3F50F930A2DEA8035CDD9C3D0BC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				86AF583953A93A14116B9D88BF068894 /* Spoonjoy iOS */,
-				32875D2C580DD0107470B8083E34B6C7 /* Spoonjoy macOS */,
+				FB93C1E413D2580E71E42ADA05FAFF46 /* Spoonjoy iOS */,
+				BFCA8DA3723375389DED662226B48087 /* Spoonjoy macOS */,
 				892B8E2C99CD299518A6B682E89C853C /* SpoonjoyCookTimerWidget */,
 				25AD12A8B28E58E903AD97F0084791D5 /* SpoonjoyJourneys */,
 				80035A3149E6C94EF4B38480D0125E4B /* SpoonjoyShoppingUITests */,
@@ -826,6 +830,15 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		1E7471060C63E6891EC4B25168250DB2 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5C09B7DB52D639869C177D75D654419 /* Assets.xcassets in Resources */,
+				A97DE07DD84F4F9DC3557927100E5D17 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2D24FDD999B2B8B72963394F64AB4A5A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -840,6 +853,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		88FCD3E33CCA43276E03BD53D4965080 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5AF436D44FEF9811FDCCF51F9886BDB2 /* Assets.xcassets in Resources */,
+				93D15915D3569313F5F14CDE91F76C87 /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		9B1B3D63463754A38D3AED6D5EA9F286 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -847,163 +869,147 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		A6CB20286C0F93C053F1C2BBD1EF9074 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				82C3FE6C60FE47C98F6F8D5A3E978F4D /* Assets.xcassets in Resources */,
-				8BDE27990AEC3E7CE45DC9CD42D78553 /* PrivacyInfo.xcprivacy in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		BEE75C66C35C40FF285B90F032256DFD /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				AABF6D52821327FF8647CDA51DFD9962 /* Assets.xcassets in Resources */,
-				C7730DFA858965224C5A77CC51DC44C2 /* PrivacyInfo.xcprivacy in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		3580B2610BCD8A55C2F9E931297FC733 /* Sources */ = {
+		1AA8684E9E5B7EBFB3D837B99F160784 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EE8A74AC309AF96BF5E8CCBE795CD9E0 /* AccountDeletionSheet.swift in Sources */,
-				89D23BED2286474BD62E239E8BFC90ED /* AddRecipeSheet.swift in Sources */,
-				01B5EF49CD5ABF81DBD80F392F92E452 /* CachedAsyncImage.swift in Sources */,
-				D72406EA644B38613DBFAE0A10B45644 /* CaptureDraftView.swift in Sources */,
-				D36F18A07F95AFDDC170CB68E1FE9554 /* CookbooksView.swift in Sources */,
-				641F64C2BFF9BF8DBC853D83F980315E /* CookModeSessionCenter.swift in Sources */,
-				10449A34AC9FE0650B1BC0E8AD0D5BE8 /* CookModeView.swift in Sources */,
-				33F1AAEA84CE387FC51FB7A803831732 /* CookTimerLiveActivityController.swift in Sources */,
-				8347411B71B527937C9C8C9ACC482FDA /* HeldChangeBanner.swift in Sources */,
-				38CEB2741D9BC9BD294AE08F9636A14E /* IngredientPasteSheet.swift in Sources */,
-				45EC5AAE2ACB8390DCAD59806883227D /* JourneyQuietMode.swift in Sources */,
-				2380472E130143C9B2859283C9D6C5D3 /* KeepScreenAwake.swift in Sources */,
-				323C2079706EB6E9C8205B452D27338C /* KitchenMotion+SwiftUI.swift in Sources */,
-				2518E2E2EF0CF3CECC412BD60BD5EAEE /* KitchenSafeControls.swift in Sources */,
-				73CE9A3995524D879671EFEBF6C3542E /* KitchenTableLoadingStateView.swift in Sources */,
-				C5CEDA4EFA6326EC8DE2F319A24FB49F /* KitchenTableSpread.swift in Sources */,
-				F4296F4DF603E89BB4985D77FBFF5972 /* KitchenTableTheme.swift in Sources */,
-				D4D9DC82B85D7DAB3E532E14C8D0F78C /* KitchenView.swift in Sources */,
-				40FC2D1EC51F4D5559D3E4E7ECBFA099 /* ModerationController.swift in Sources */,
-				D4070C30EF4F5A40890B2ED93608F9E2 /* ModerationViews.swift in Sources */,
-				4E3AB1C2EABBB105ED99309B808BAD91 /* NativeAppleSignInTelemetry.swift in Sources */,
-				3CFDAE8DE88E6E98777C3521FF42060F /* NotificationAPNsDeviceBridge.swift in Sources */,
-				42953214D73C81BC0D8DB04CBC882C58 /* NotificationAPNsSettingsView.swift in Sources */,
-				7983370C96E246C20D1A1183E3E2B717 /* OfflineStatusView.swift in Sources */,
-				3F0B2E1BF3AF0669138DA61263F4B0E4 /* PendingCoverUploadBanner.swift in Sources */,
-				4DBC1C2B1BEACFC36EDEB47B99E26A52 /* PlatformNavigationView.swift in Sources */,
-				18A67E91AEC43E4D13BFC1665137A9A6 /* ProfileView.swift in Sources */,
-				259574BD2CBD376B9ADFB4F3DB296425 /* PullToRefresh.swift in Sources */,
-				62CF3199733350D7A3EAC6F1A68AA964 /* ReceiptListView.swift in Sources */,
-				3F2F4A7194C88912B2E74AFDF96F0ED3 /* RecipeCoverControlsView.swift in Sources */,
-				24822805A3CCE3B2BAEBCAC140CB7D8E /* RecipeCoverImage.swift in Sources */,
-				61AAD26758B758197BA9D9958F238023 /* RecipeDetailView.swift in Sources */,
-				EC7425466B06909A00EB83C046081130 /* RecipeEditorView.swift in Sources */,
-				4C5897F547DD2FB96716CC0B3BB13D71 /* RecipeIndexRow.swift in Sources */,
-				CF6DE4743173A544BCC5793577C6739E /* RecipesView.swift in Sources */,
-				E5CEF7F9A9C17BB68325D671B5346483 /* ScreenshotAccessibilityProofWriter.swift in Sources */,
-				0F829CE6E30D9D12ECA4ED42073333BC /* SearchView.swift in Sources */,
-				B412539D7450BD418A65BCB43F94324C /* SettingsView.swift in Sources */,
-				BB2D9F7633637472623042CFD16538EA /* ShareActions.swift in Sources */,
-				C0F000F4B41E46E359E280CA1BE63D3E /* ShoppingListView.swift in Sources */,
-				DADFFD7F70A27693BF2960F016D511D9 /* ShoppingRecipeSourcesPane.swift in Sources */,
-				7567350C684F867156987A6487B5C8C5 /* SignedOutSetupView.swift in Sources */,
-				3CA1F24EDC9D4B2B01D6A0F300DC5A6C /* SpoonCookLogView.swift in Sources */,
-				1F38258DED59100BF1301EC9FA4611E6 /* SpoonDock.swift in Sources */,
-				5A009F8EFDD45A155DDE186E3775DA4C /* SpoonjoyApp.swift in Sources */,
-				5B9EC240EDB1953E0C8100883D887807 /* SpoonjoyAppIntents.swift in Sources */,
-				164E0B4F641DEF783E93F6DA8D516238 /* SpoonjoyCaptureDraftEntities.swift in Sources */,
-				6DE7C723759B25ADF6A436A88A084048 /* SpoonjoyChefProfileEntities.swift in Sources */,
-				619E9C961D8ABACCA29C2723FC00C755 /* SpoonjoyCookSessionActivity.swift in Sources */,
-				271C4609521B68CDCD8F81871235FA22 /* SpoonjoyCookStepEntity.swift in Sources */,
-				3AC3DACDB5F061AA5C76F9D9B6113550 /* SpoonjoyCookTimerActivity.swift in Sources */,
-				AD35E4F874535C10828D48D63695A730 /* SpoonjoyiOSApp.swift in Sources */,
-				6F3E468F86346A38A4092F881451310E /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
-				3CB062BC39EFF9E4DE988A2D981975EC /* SpoonjoyRemindersIntent.swift in Sources */,
-				EF76EFE77CE7F5904ABF9536FA106763 /* SpoonjoyRemindersSender.swift in Sources */,
-				AE08B30A1B3B11C9C4F68839E5F195EA /* SpoonjoyRemindersStore.swift in Sources */,
-				08376751B2BDD3EF99DF9570D1438F0C /* SpoonjoyRootView.swift in Sources */,
-				A07F8C3021470B99F9D38C7F8DDA32AD /* SpoonjoySettingsEntities.swift in Sources */,
-				6C6DC4928D8020709570AB29C85F2A41 /* SpoonjoyShoppingEntities.swift in Sources */,
-				A65929C8084D43D4FCE866A12650F3DB /* SpoonjoySpoonEntities.swift in Sources */,
-				3998FAF55AF9FACD4E13DD8BDADA9943 /* SpoonjoySpotlightIndexer.swift in Sources */,
-				59E3FEB55D74942A1C8384127D3A6E2F /* SpoonjoyToolbar.swift in Sources */,
-				D39B90E9044F51D2D7377FAE784EDCE0 /* SpoonjoyWebAuthenticationSession.swift in Sources */,
-				628C704E2E0817A821672B0885BAD49B /* ThirdPartyAIConsentSheet.swift in Sources */,
+				9D60494183307DAC8B085877BDF291EA /* AccountDeletionSheet.swift in Sources */,
+				A333D84F937FDCFBD539CE0D65133854 /* AddRecipeSheet.swift in Sources */,
+				B4B3A4A1444EBCEAF6DE5B5D5699DB1B /* CachedAsyncImage.swift in Sources */,
+				0E87AD06D1152CB7248864D1F9381D91 /* CaptureDraftView.swift in Sources */,
+				E0043582BA772E4C3560D5E8F02D6A8F /* CookbooksView.swift in Sources */,
+				717FCF9CD253323EFFC782C2D304E901 /* CookModeComponents.swift in Sources */,
+				19BD75110412B700585E443B1314A145 /* CookModeSessionCenter.swift in Sources */,
+				E840F3385600748B1BA72C8FE06DCF56 /* CookModeView.swift in Sources */,
+				A3407711648E2D866889550A5E07FC9F /* HeldChangeBanner.swift in Sources */,
+				CA396D4052277671B95F3ABA3D00B131 /* IngredientPasteSheet.swift in Sources */,
+				E6D74E7C55DAB1649D59B748DA892245 /* JourneyQuietMode.swift in Sources */,
+				2D936BFFBE882DCC928D41BE2C6DCBD6 /* KeepScreenAwake.swift in Sources */,
+				898B613E1100A89A1004E13C975083DE /* KitchenMotion+SwiftUI.swift in Sources */,
+				65727F1E0E7D32F83621111E23F106E5 /* KitchenSafeControls.swift in Sources */,
+				86B990E026C3B1061C9E1C54514ACC79 /* KitchenTableLoadingStateView.swift in Sources */,
+				66B1637B41EFE1A9BE1A38C0B43153DA /* KitchenTableSpread.swift in Sources */,
+				0EE03E088E2BD2DACCE3A8F49543C80C /* KitchenTableTheme.swift in Sources */,
+				5D4AA576BF0645F3433B6D7F794199A4 /* KitchenView.swift in Sources */,
+				CF7E3B5D9E5DB8E777CB468BCBB95D01 /* ModerationController.swift in Sources */,
+				BD039FECC15BE8E2398BA6A1DAFAA7B5 /* ModerationViews.swift in Sources */,
+				411B4BB6B527C381FBED9DEDB8F8E5DE /* NativeAppleSignInTelemetry.swift in Sources */,
+				6D76F298712A11FC0AFD65DE52BFC459 /* NotificationAPNsDeviceBridge.swift in Sources */,
+				3D52A65CFB83B90E37002CBA1EE64FD9 /* NotificationAPNsSettingsView.swift in Sources */,
+				B8754FB052C77E278C073B535EE02FC1 /* OfflineStatusView.swift in Sources */,
+				A0AFB079F0378B2E385ADCCA74C12111 /* PendingCoverUploadBanner.swift in Sources */,
+				F7FB2044074BA451B00F7140F8A3C7B3 /* PlatformNavigationView.swift in Sources */,
+				235CC38D07551DB45F2A02F8A34AC258 /* ProfileView.swift in Sources */,
+				0078A0BB02E0D0599C5D172A878E6904 /* PullToRefresh.swift in Sources */,
+				FCB7F01DC475C674B5E9DE294E869294 /* ReceiptListView.swift in Sources */,
+				901CB6300A252AECB341158C28608122 /* RecipeCoverControlsView.swift in Sources */,
+				7E7F7CB4E87C99678F15FDEDF3B69DFB /* RecipeCoverImage.swift in Sources */,
+				8044D0AEDF717224DEEE606FF17B4440 /* RecipeDetailView.swift in Sources */,
+				46168B8FA421CE80A376166E8AADFADF /* RecipeEditorView.swift in Sources */,
+				EECD7B14A3DEFF2268AEFBD93AA92F06 /* RecipeIndexRow.swift in Sources */,
+				9764DFAB20825DE6215F3B929727CDDD /* RecipesView.swift in Sources */,
+				FD3B0D6CF668F1836F4C564CB216B177 /* ScreenshotAccessibilityProofWriter.swift in Sources */,
+				62059CA96DBCC829EB0EC5A551B182E3 /* SearchView.swift in Sources */,
+				F8F1DEDF1BCEBCB65A54E878A87F656A /* SettingsView.swift in Sources */,
+				6ED6F8190F55E5BB86FEB67AFF6C1612 /* ShareActions.swift in Sources */,
+				69116F000225596AC34240FF5899284C /* ShoppingListView.swift in Sources */,
+				F608D6A930FFF3DB7FEDC413FD5F544C /* ShoppingRecipeSourcesPane.swift in Sources */,
+				3C31A2EF53F3022B5C42F31D18315039 /* SignedOutSetupView.swift in Sources */,
+				2DC62F2F0C24FEC7D9BC019967A4F88A /* SpoonCookLogView.swift in Sources */,
+				2E6DB2BBE59998BB33B1D8417ADC6FBC /* SpoonDock.swift in Sources */,
+				378C9D6E63688651AD966D0E65F9783B /* SpoonjoyApp.swift in Sources */,
+				38AAB59A771B49030AEA8DDE77A58F3A /* SpoonjoyAppIntents.swift in Sources */,
+				A311A2984EF0A91D1602A99B9A65A83A /* SpoonjoyCaptureDraftEntities.swift in Sources */,
+				999066922543131743E7988BF78109C1 /* SpoonjoyChefProfileEntities.swift in Sources */,
+				376E525F6C25934874E8FFF6BE37A538 /* SpoonjoyCookStepEntity.swift in Sources */,
+				B116D17282395880A97BDB544BA230BA /* SpoonjoyMacApp.swift in Sources */,
+				7DE4203115081C2C0BF7BEB27111D164 /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
+				008BE28AC0E2332E7D6764F3F3674670 /* SpoonjoyRemindersIntent.swift in Sources */,
+				2E1961D42790B14C801CDF3841D41BC0 /* SpoonjoyRemindersSender.swift in Sources */,
+				20FE8BA74BEE7191E1446DE0CFBB7469 /* SpoonjoyRemindersStore.swift in Sources */,
+				696ED41B4D7E4D8D786CA898C4C5D7D5 /* SpoonjoyRootView.swift in Sources */,
+				93B0381EBD1C16B47297A89FFE851B47 /* SpoonjoySettingsEntities.swift in Sources */,
+				4F12011043C85F2B52DDD13E925E0009 /* SpoonjoyShoppingEntities.swift in Sources */,
+				1112561B3A64E3FDCB45DC5D50C5DBEC /* SpoonjoySpoonEntities.swift in Sources */,
+				65415D9ECE1483B2175F55F2BDE9B0AF /* SpoonjoySpotlightIndexer.swift in Sources */,
+				B4418FBCDDFDF42B59CD6E4F4B9F30AB /* SpoonjoyToolbar.swift in Sources */,
+				AF38F39B5D6CE42E3CC63C1727969170 /* SpoonjoyWebAuthenticationSession.swift in Sources */,
+				84F0B745D9A4E911117858E9E2B18DC5 /* ThirdPartyAIConsentSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4524C1424FF8A4368EDC162F3917FCE2 /* Sources */ = {
+		1C11159308C58C50BFA2410F4452CD2F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1B8EC22E7DE430DEBAFD3B7EE65E7849 /* AccountDeletionSheet.swift in Sources */,
-				808EA65817142F9E7E96DB434C6C4C06 /* AddRecipeSheet.swift in Sources */,
-				596C879E38052118CC5EF75F5A84DD0C /* CachedAsyncImage.swift in Sources */,
-				F437804697E2B61CE0FF386C3B4C1DF1 /* CaptureDraftView.swift in Sources */,
-				3F45FA63EB2165D33F76EB921FE72491 /* CookbooksView.swift in Sources */,
-				A49861E910AD96B9DFBF7931132BB253 /* CookModeSessionCenter.swift in Sources */,
-				24076063A6A6424717E98CF1A2254A0C /* CookModeView.swift in Sources */,
-				54E611166018EFDBAD3B368CF826CC0C /* HeldChangeBanner.swift in Sources */,
-				F266DB71A44113A4E92F8851369250B2 /* IngredientPasteSheet.swift in Sources */,
-				43214324C7619BFC4F8CF627640B2759 /* JourneyQuietMode.swift in Sources */,
-				901925E6898F995FCF5F81B1A8B18030 /* KeepScreenAwake.swift in Sources */,
-				F82B17EE1BD06E40E4511BB248097CDC /* KitchenMotion+SwiftUI.swift in Sources */,
-				FE48F6556BDC477EF203C6B83317B866 /* KitchenSafeControls.swift in Sources */,
-				DB6C4BB398B000EA1B56A8BCFB085531 /* KitchenTableLoadingStateView.swift in Sources */,
-				C9C8BFCF682871A5919EC1F5E62C8D42 /* KitchenTableSpread.swift in Sources */,
-				0EE03E088E2BD2DACCE3A8F49543C80C /* KitchenTableTheme.swift in Sources */,
-				C639B771B6194C501685FC7C2A475F13 /* KitchenView.swift in Sources */,
-				F41FA8B3D92C1BC903A939DC095B8D15 /* ModerationController.swift in Sources */,
-				F25F8B2F1417E3FDD71D7E6BDDB64138 /* ModerationViews.swift in Sources */,
-				0259A1E51C5B410C753B3418FEDAC018 /* NativeAppleSignInTelemetry.swift in Sources */,
-				67A5812892298BBC285690D24A19B746 /* NotificationAPNsDeviceBridge.swift in Sources */,
-				C9DA09A127F5E4D10DB64D0479AB52DF /* NotificationAPNsSettingsView.swift in Sources */,
-				D3B45235577AB6C903992E0F1C3B7540 /* OfflineStatusView.swift in Sources */,
-				3F349513FB7AFD39E2A1CAC305171FA6 /* PendingCoverUploadBanner.swift in Sources */,
-				6204BB36A4FD4859DAE8554FC5F45AB9 /* PlatformNavigationView.swift in Sources */,
-				B283A99DA7139A54DD34A6FA5B5CC6F6 /* ProfileView.swift in Sources */,
-				8C86CC1607FF12408F16C6B14F1A38AF /* PullToRefresh.swift in Sources */,
-				CE95917BA3200F485BD5E583262B3E26 /* ReceiptListView.swift in Sources */,
-				CB7E760A465AACFC9381A12F9E48FFD9 /* RecipeCoverControlsView.swift in Sources */,
-				C0A69745B5D753E6FD9471F0B4FAA32C /* RecipeCoverImage.swift in Sources */,
-				BE3100C4ADBC6FA7C0ECE98F24E16CB4 /* RecipeDetailView.swift in Sources */,
-				083624F4E753CEBE3ABA95F564AC035F /* RecipeEditorView.swift in Sources */,
-				8F85787BFCDDE3AECE418F75766042EA /* RecipeIndexRow.swift in Sources */,
-				11C01FA60DF53FE5FEF10DE6FD091CC6 /* RecipesView.swift in Sources */,
-				20291D69851C4ADCBEA1BCEC5A4042DE /* ScreenshotAccessibilityProofWriter.swift in Sources */,
-				498B88A7E0DFA238163D0C93899CD484 /* SearchView.swift in Sources */,
-				3A6CDA4A8BFF0ED17F54F9A80A23E1B3 /* SettingsView.swift in Sources */,
-				B4D8F275491295D29E1873413EBCEA16 /* ShareActions.swift in Sources */,
-				50142392C797023F236EB6C66508A397 /* ShoppingListView.swift in Sources */,
-				1A505E54825D9CB58DF3ACB70E3E7F90 /* ShoppingRecipeSourcesPane.swift in Sources */,
-				229E2B0D379C02260F6E429011C183D0 /* SignedOutSetupView.swift in Sources */,
-				F427B0283FB9E95E057BDB7F75A1F215 /* SpoonCookLogView.swift in Sources */,
-				4D973782DE1C3D0591E2A4907EBD2D87 /* SpoonDock.swift in Sources */,
-				E270DEEF8823F4D494DF63AEBFC9DAE1 /* SpoonjoyApp.swift in Sources */,
-				CBD323FEC98F2AC82C20C4A6EC4D77B9 /* SpoonjoyAppIntents.swift in Sources */,
-				ADB3E89E7A7C0C5622F8CE0847DF36EB /* SpoonjoyCaptureDraftEntities.swift in Sources */,
-				18516225AA8A7FF77581D40AD4650D94 /* SpoonjoyChefProfileEntities.swift in Sources */,
-				A007CC944BC2260037FF4301786BFBE8 /* SpoonjoyCookStepEntity.swift in Sources */,
-				748ECFA5696EB1E3F9A186C8F4BA9E49 /* SpoonjoyMacApp.swift in Sources */,
-				6A28D3C129C40045821E7347BB2052DD /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
-				0DA45C79793DED26D68072DE07EB1233 /* SpoonjoyRemindersIntent.swift in Sources */,
-				08CF0A0DFD90B02EB7D647E6190F6AB7 /* SpoonjoyRemindersSender.swift in Sources */,
-				F78D2EE2C99B1868AF12D0FC55C9EF18 /* SpoonjoyRemindersStore.swift in Sources */,
-				E462E67FD78E1B36B64BE878029A0F01 /* SpoonjoyRootView.swift in Sources */,
-				339FE9D1AEA452DCB570B89CDEBD4B9B /* SpoonjoySettingsEntities.swift in Sources */,
-				5B0E8D624FEDC2E743505E8D06F2AC5F /* SpoonjoyShoppingEntities.swift in Sources */,
-				BBEBF77AF223A27E75DA52CAB13542E8 /* SpoonjoySpoonEntities.swift in Sources */,
-				C16793A9F6F254C512C718280781ED41 /* SpoonjoySpotlightIndexer.swift in Sources */,
-				C6B91CBDEC921CA41A397A21B0C8177F /* SpoonjoyToolbar.swift in Sources */,
-				DC5DCEAEB14DB45821CBDD5B4A5AD280 /* SpoonjoyWebAuthenticationSession.swift in Sources */,
-				E73480E485EB31D92A44A65DF7781636 /* ThirdPartyAIConsentSheet.swift in Sources */,
+				58E8F3482667FE9FAEAE579BFA3B53F0 /* AccountDeletionSheet.swift in Sources */,
+				FE09455FEE6C58B63ABEF0010C86BEE6 /* AddRecipeSheet.swift in Sources */,
+				818EFE6AF368FCF41C2ACEEEA2F51F94 /* CachedAsyncImage.swift in Sources */,
+				C0AC98953E61E4E4D0DC5A79A44EA5C0 /* CaptureDraftView.swift in Sources */,
+				28564AD92511B54789415ED0EAE7F154 /* CookbooksView.swift in Sources */,
+				8D798BD21E41B6D4C549D3E66BAD5F36 /* CookModeComponents.swift in Sources */,
+				BA2A666AC7162C5AFE6DE91803A8EB1A /* CookModeSessionCenter.swift in Sources */,
+				360BFB3142A94AD2F667327B6425B180 /* CookModeView.swift in Sources */,
+				E6CD6046D3394194A6D4D8022C4543D4 /* CookTimerLiveActivityController.swift in Sources */,
+				2DE1A3E8706DFDD0044D60EA81F38BBA /* HeldChangeBanner.swift in Sources */,
+				F18AC908D4F731B677BCD600F4C5E60A /* IngredientPasteSheet.swift in Sources */,
+				6AA2399DE75205CE6DDB9AAEF854E072 /* JourneyQuietMode.swift in Sources */,
+				2BD86D3995A31A5C847FB29809E32693 /* KeepScreenAwake.swift in Sources */,
+				42A08835982D91EEE49B3BE7D4684BEC /* KitchenMotion+SwiftUI.swift in Sources */,
+				89F2DA791CE11DE5FAC73B3D464A2727 /* KitchenSafeControls.swift in Sources */,
+				AD8EBDF2FCB9B45776BD62872794912A /* KitchenTableLoadingStateView.swift in Sources */,
+				D41B8BEE17084FAB7C323AC2734DA0D7 /* KitchenTableSpread.swift in Sources */,
+				F4296F4DF603E89BB4985D77FBFF5972 /* KitchenTableTheme.swift in Sources */,
+				51041AC2DBF72135C77D00FD32D896E0 /* KitchenView.swift in Sources */,
+				9B0D2E037678FE89B602BA94CA81AC37 /* ModerationController.swift in Sources */,
+				E9069F49B651771D50A67D8DB10B185F /* ModerationViews.swift in Sources */,
+				E65A07C317A742F838B61A736EB2E5CE /* NativeAppleSignInTelemetry.swift in Sources */,
+				788BCACA7ED592D1CCE810001C94643E /* NotificationAPNsDeviceBridge.swift in Sources */,
+				5D0A2409EF27A1916292857982A73B62 /* NotificationAPNsSettingsView.swift in Sources */,
+				973934E827508BAA6556CA3773AD72B4 /* OfflineStatusView.swift in Sources */,
+				C69EC19CC145C9A9C7BCECEA48305A66 /* PendingCoverUploadBanner.swift in Sources */,
+				AADB8021BAAC189C2C7DD6E482B4FA8A /* PlatformNavigationView.swift in Sources */,
+				D57844572DA38E4FE3D488A687B91AC3 /* ProfileView.swift in Sources */,
+				D7E6B370B70D7DCCE29C1224DD0CAD47 /* PullToRefresh.swift in Sources */,
+				8A9B689727C6CE62F522FB299838E206 /* ReceiptListView.swift in Sources */,
+				097053C80CFC2B55A496C86C6756648A /* RecipeCoverControlsView.swift in Sources */,
+				454B458B1F415386BEC5780B8B7C180A /* RecipeCoverImage.swift in Sources */,
+				0A273DA59F6DAACEAA0E52B5357F53A3 /* RecipeDetailView.swift in Sources */,
+				FE58E49CEFBBFC578388018BB2ABF10B /* RecipeEditorView.swift in Sources */,
+				0CA367E5923B83AE8E568C9E31AA1C3E /* RecipeIndexRow.swift in Sources */,
+				2E911DFBF2517BA901564688AC4529B0 /* RecipesView.swift in Sources */,
+				F202E6EF61DD7D6A4F5C93B135363559 /* ScreenshotAccessibilityProofWriter.swift in Sources */,
+				441ED5B0A254242593999E84485B4CB6 /* SearchView.swift in Sources */,
+				9CA7673B061AE9E7B0E5DB9752996251 /* SettingsView.swift in Sources */,
+				28B9E9795DA3BB3FAAAC57F2A24E5866 /* ShareActions.swift in Sources */,
+				65F4D414D5FBF2D3002971238E32C80B /* ShoppingListView.swift in Sources */,
+				0559FD0812C41222514A40D8AB10F247 /* ShoppingRecipeSourcesPane.swift in Sources */,
+				3DC4580C4FEC5B3BDD94DFC1FFDF7380 /* SignedOutSetupView.swift in Sources */,
+				47A7235CD497C18AD5BD5D25D7BE454A /* SpoonCookLogView.swift in Sources */,
+				3372206DA5910789B21CB269B64B405E /* SpoonDock.swift in Sources */,
+				C55A0C35CB5ED838E9356A74A478387C /* SpoonjoyApp.swift in Sources */,
+				E6F28D3443B3A0A127A6F116E37F9030 /* SpoonjoyAppIntents.swift in Sources */,
+				CAA38D18A56315659DF5A9F5E909E2D3 /* SpoonjoyCaptureDraftEntities.swift in Sources */,
+				2B6B517766A8AA8C06312E7802B7F629 /* SpoonjoyChefProfileEntities.swift in Sources */,
+				619E9C961D8ABACCA29C2723FC00C755 /* SpoonjoyCookSessionActivity.swift in Sources */,
+				34121A3008FE119C3EF4C21C44F7215A /* SpoonjoyCookStepEntity.swift in Sources */,
+				3AC3DACDB5F061AA5C76F9D9B6113550 /* SpoonjoyCookTimerActivity.swift in Sources */,
+				F08129DDE57D559742F4C014E6E002CA /* SpoonjoyiOSApp.swift in Sources */,
+				B510FBFF4EC88D127883F723B42F428A /* SpoonjoyRecipeCookbookEntities.swift in Sources */,
+				CF1B02105ADE7F9320F9816201879D64 /* SpoonjoyRemindersIntent.swift in Sources */,
+				637CC369ABAA3E62694AD6707D19D9AC /* SpoonjoyRemindersSender.swift in Sources */,
+				2886F8D23E60B500E84C1FB4177C6208 /* SpoonjoyRemindersStore.swift in Sources */,
+				0C9EFDBD3B284A8B22A78D85F26530B5 /* SpoonjoyRootView.swift in Sources */,
+				D2617D424D0276D3EC6D3447990DDBE9 /* SpoonjoySettingsEntities.swift in Sources */,
+				C485FAFE282B4B8C7F079E6A7246721F /* SpoonjoyShoppingEntities.swift in Sources */,
+				80166F44F1BA3780C6F763D98A97C317 /* SpoonjoySpoonEntities.swift in Sources */,
+				CCD501317E823C73567D59CBC44BD3B2 /* SpoonjoySpotlightIndexer.swift in Sources */,
+				F7FFB0D708CB74D3384AEFF6D34700A9 /* SpoonjoyToolbar.swift in Sources */,
+				70201D8FEBB71E9EA98741B9156A35E1 /* SpoonjoyWebAuthenticationSession.swift in Sources */,
+				A3529E0EDFC1AB7F092952EFB66AED7A /* ThirdPartyAIConsentSheet.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1061,7 +1067,7 @@
 		7D4E5C8666886F10EA0F3FA68E8E3B52 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = "Spoonjoy iOS";
-			target = 86AF583953A93A14116B9D88BF068894 /* Spoonjoy iOS */;
+			target = FB93C1E413D2580E71E42ADA05FAFF46 /* Spoonjoy iOS */;
 			targetProxy = 008FF3AC373C892497F6396D0928EDC1 /* PBXContainerItemProxy */;
 		};
 		9030C51D97A90C5DF0702B1FFCA589A9 /* PBXTargetDependency */ = {
@@ -1073,12 +1079,36 @@
 		C71EBC00C6E5EB4FD7C44EBF97FF0CBF /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = "Spoonjoy iOS";
-			target = 86AF583953A93A14116B9D88BF068894 /* Spoonjoy iOS */;
+			target = FB93C1E413D2580E71E42ADA05FAFF46 /* Spoonjoy iOS */;
 			targetProxy = 826917507BB27D0BD0D47B1A5358ED01 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		010209F0A421A1107E7EA89AEA42957E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 32;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 27.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
+				PRODUCT_NAME = Spoonjoy;
+				SDKROOT = macosx;
+				SPOONJOY_APS_ENVIRONMENT = development;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
 		034112EB4F1E3DFCF70F01A33B8BF5A0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1114,7 +1144,7 @@
 			};
 			name = Release;
 		};
-		205A4E57A287AEB331F951A34C8BC72F /* Release */ = {
+		1D360879C5DCA73654E02BCD8D769564 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -1199,7 +1229,30 @@
 			};
 			name = Debug;
 		};
-		2A1FB65669127E9F4E363E5475E30704 /* BootstrapDebug */ = {
+		3614D4A86A554BADD52B6A6A18918EC7 /* BootstrapDebug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CURRENT_PROJECT_VERSION = 32;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/Spoonjoy/LiveActivity/Widget/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "app.spoonjoy.cook-timer-widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_WIDGET_EXTENSION";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = BootstrapDebug;
+		};
+		4A2CB3CD1473E0ADE88C261720350391 /* BootstrapDebug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -1236,93 +1289,6 @@
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = BootstrapDebug;
-		};
-		3614D4A86A554BADD52B6A6A18918EC7 /* BootstrapDebug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CURRENT_PROJECT_VERSION = 32;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Apps/Spoonjoy/LiveActivity/Widget/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.5;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "app.spoonjoy.cook-timer-widget";
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_WIDGET_EXTENSION";
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = BootstrapDebug;
-		};
-		51A84C11D86B272AB1DCE3B0BDCED335 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
-				CURRENT_PROJECT_VERSION = 32;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
-				PRODUCT_NAME = Spoonjoy;
-				SDKROOT = iphoneos;
-				SPOONJOY_APS_ENVIRONMENT = development;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		59E7A1DDD2107D260DFC00CFF0EE5092 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 32;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
-				PRODUCT_NAME = Spoonjoy;
-				SDKROOT = macosx;
-				SPOONJOY_APS_ENVIRONMENT = development;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				SWIFT_VERSION = 6.0;
-			};
-			name = Debug;
 		};
 		616AF7F75413AA18122886D50ECACAD7 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -1453,6 +1419,47 @@
 			};
 			name = Release;
 		};
+		998D13F5FB7728985CF3954C8822AAD1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
+				CURRENT_PROJECT_VERSION = 32;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
+				PRODUCT_NAME = Spoonjoy;
+				SDKROOT = iphoneos;
+				SPOONJOY_APS_ENVIRONMENT = production;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = SPOONJOY_SIGNED_APPLE_AUTH;
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		9C188A2EC39D79243268FD866D610842 /* BootstrapDebug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1514,6 +1521,68 @@
 			};
 			name = BootstrapDebug;
 		};
+		9E04AA125790E4CCCB41A2F6D13191A7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
+				CURRENT_PROJECT_VERSION = 32;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
+				PRODUCT_NAME = Spoonjoy;
+				SDKROOT = iphoneos;
+				SPOONJOY_APS_ENVIRONMENT = development;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG SPOONJOY_SIGNED_APPLE_AUTH";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		ABB4C8765362271F723A08A7DD87A9F4 /* BootstrapDebug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 32;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 26.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
+				PRODUCT_NAME = Spoonjoy;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = BootstrapDebug;
+		};
 		BD39416E52311F0E48D2DD0835E7DF80 /* BootstrapDebug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1555,88 +1624,15 @@
 			};
 			name = Release;
 		};
-		EEB440E188802BCCD5EAD826C44C196C /* BootstrapDebug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 32;
-				ENABLE_HARDENED_RUNTIME = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 26.2;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
-				PRODUCT_NAME = Spoonjoy;
-				SDKROOT = macosx;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				SWIFT_VERSION = 6.0;
-			};
-			name = BootstrapDebug;
-		};
-		F328FAB14AC73BCA9A96D49F793C59C8 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CLANG_ENABLE_OBJC_WEAK = NO;
-				CODE_SIGN_ENTITLEMENTS = Apps/Spoonjoy/Shared/Spoonjoy.entitlements;
-				CURRENT_PROJECT_VERSION = 32;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Apps/Spoonjoy/Shared/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.spoonjoy;
-				PRODUCT_NAME = Spoonjoy;
-				SDKROOT = iphoneos;
-				SPOONJOY_APS_ENVIRONMENT = production;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = SPOONJOY_SIGNED_APPLE_AUTH;
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphoneos30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.1*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.2*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.3*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.4*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator27.5*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator28*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator29*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				"SWIFT_ACTIVE_COMPILATION_CONDITIONS[sdk=iphonesimulator30*]" = "$(inherited) SPOONJOY_IOS_27_1_SDK";
-				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		6E6DEF511E69FDB86940F4E01792B4FD /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */ = {
+		2371119F0B2A4038905E2F2A0052B042 /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				EEB440E188802BCCD5EAD826C44C196C /* BootstrapDebug */,
-				59E7A1DDD2107D260DFC00CFF0EE5092 /* Debug */,
-				205A4E57A287AEB331F951A34C8BC72F /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		739171E74A02ED5264CE7AB00A95F262 /* Build configuration list for PBXNativeTarget "Spoonjoy iOS" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				2A1FB65669127E9F4E363E5475E30704 /* BootstrapDebug */,
-				51A84C11D86B272AB1DCE3B0BDCED335 /* Debug */,
-				F328FAB14AC73BCA9A96D49F793C59C8 /* Release */,
+				4A2CB3CD1473E0ADE88C261720350391 /* BootstrapDebug */,
+				9E04AA125790E4CCCB41A2F6D13191A7 /* Debug */,
+				998D13F5FB7728985CF3954C8822AAD1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1647,6 +1643,16 @@
 				6B416735C43886F1FE725F9F18859553 /* BootstrapDebug */,
 				6CD108BDE27662A6033D2AE29D43D675 /* Debug */,
 				616AF7F75413AA18122886D50ECACAD7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		8F35D8FE10A1E61EED1D2DC0F1E56673 /* Build configuration list for PBXNativeTarget "Spoonjoy macOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ABB4C8765362271F723A08A7DD87A9F4 /* BootstrapDebug */,
+				010209F0A421A1107E7EA89AEA42957E /* Debug */,
+				1D360879C5DCA73654E02BCD8D769564 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1684,26 +1690,26 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		AC7AF72D3A6159D3543D79CBE1A1283A /* XCLocalSwiftPackageReference "." */ = {
+		7AA237B282005E7AC75D24F05115BC92 /* XCLocalSwiftPackageReference "." */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = .;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		336C54974812366280C45176B12E7CBF /* SpoonjoyCore */ = {
+		0D4F2675A139C5D4CC05ABC067772515 /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AC7AF72D3A6159D3543D79CBE1A1283A /* XCLocalSwiftPackageReference "." */;
-			productName = SpoonjoyCore;
-		};
-		350C2044091A5BD7ED825C20D94AC5F4 /* SpoonjoyCore */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AC7AF72D3A6159D3543D79CBE1A1283A /* XCLocalSwiftPackageReference "." */;
+			package = 7AA237B282005E7AC75D24F05115BC92 /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
 		};
 		5680E8FC6C0263A408DC5AC5B62A8A3C /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AC7AF72D3A6159D3543D79CBE1A1283A /* XCLocalSwiftPackageReference "." */;
+			package = 7AA237B282005E7AC75D24F05115BC92 /* XCLocalSwiftPackageReference "." */;
+			productName = SpoonjoyCore;
+		};
+		998B66B344FC8F974DAE9C99D06F5027 /* SpoonjoyCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7AA237B282005E7AC75D24F05115BC92 /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
 		};
 /* End XCSwiftPackageProductDependency section */

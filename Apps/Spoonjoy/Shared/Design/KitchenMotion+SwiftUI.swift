@@ -86,4 +86,14 @@ extension View {
     func kitchenHaptic<Trigger: Equatable>(_ moment: KitchenHapticMoment, trigger: Trigger) -> some View {
         sensoryFeedback(moment.sensoryFeedback, trigger: trigger)
     }
+
+    /// Plays the haptic for a Kitchen moment when `trigger` changes and `condition` holds for the change, for a
+    /// moment that happens only one way (a timer starting, the last step finishing).
+    func kitchenHaptic<Trigger: Equatable>(
+        _ moment: KitchenHapticMoment,
+        trigger: Trigger,
+        condition: @escaping (Trigger, Trigger) -> Bool
+    ) -> some View {
+        sensoryFeedback(moment.sensoryFeedback, trigger: trigger, condition: condition)
+    }
 }

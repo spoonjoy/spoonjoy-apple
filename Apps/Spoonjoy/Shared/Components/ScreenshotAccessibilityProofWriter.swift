@@ -287,11 +287,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("cook-mode", "CookModeView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Mark the current step done", "Return to recipe detail", "Current cooking step", "Set 10 min timer", "Ingredients", "Cook tools"],
-                keyboardNavigationTargets: ["cook step handrail", "system timer button", "ingredient toggles", "dependency toggles", "cook tools"],
-                dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
-                contrastPairs: ["charcoal on bone", "herb tint on bone", "status text on material"],
-                hierarchyAnchors: ["CookModeView", "currentStepCard", "RecipeStepDurationCue", "CookModeSystemTimer", "cookModeUtilitySheet", "cookModeBottomActionRail", "SpoonDockContext.cookMode", "ScaleSelector"],
+                voiceOverLabels: ["Current cooking step", "More cook options", "Next step", "Previous step", "For this step", "Finish cooking"],
+                keyboardNavigationTargets: ["cook step pager", "timer ring", "ingredient toggles", "dependency toggles", "more menu"],
+                dynamicTypeTextStyles: ["KitchenTableTheme.cookStep", "KitchenTableTheme.control", "KitchenTableTheme.timer", "KitchenTableTheme.meta"],
+                contrastPairs: ["charcoal on bone", "brass on bone", "herb tint on bone"],
+                hierarchyAnchors: ["CookModeView", "cookPager", "cookPage", "CookStepSegments", "CookModeSystemTimer", "CookTimerRingFace", "stepCard", "cookMoreMenu", "cookModeBottomActionRail"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("shopping-list", "ShoppingListView"):

@@ -114,21 +114,27 @@ enum JourneyID {
     /// The recipe detail page's "Cook" button, and every ingredient checkbox in cook mode (the label is the ingredient).
     static let recipeDetailCook = "recipeDetail.cook"
     static let cookIngredient = "cookMode.ingredient"
-    /// The scale stepper sits inline in cook mode; it is not behind Tools.
-    static let cookScale = "cookMode.scale"
+    /// Cook mode's current step page (the pager turns it by a horizontal swipe), its "Recipe · Step N of M" line, the step
+    /// text, the "For this step" card and the More menu that holds Scale and Add to list.
+    static let cookPage = "cook.page"
+    static let cookStepMeta = "cook.step.meta"
+    static let cookStepText = "cook.step.text"
+    static let cookStepCard = "cook.step.card"
+    static let cookMore = "cook.more"
     /// Tabletop cook mode's two halves: the step above the fold and the checklist and controls below it.
     static let cookTabletopStep = "cookMode.tabletopStep"
     static let cookTabletopControls = "cookMode.tabletopControls"
-    /// Cook mode's "Next step" button in the dock, which compact-width cook mode (tabletop included) uses.
+    /// Cook mode's "Next step" button in the dock, which regular-width cook mode and tabletop use; compact width swipes.
     static let cookDockNext = "spoonDock.cook.next"
     /// The dock's "Mark step" and Back controls. Back joins the dock's glass once there is a step to go back to.
     static let cookDockDone = "spoonDock.cook.done"
     static let cookDockPrevious = "spoonDock.cook.previous"
-    /// The step timer's start button, and the Cancel button that replaces it while the step's system alarm runs.
-    static let cookTimerStart = "cookMode.timer.start"
+    /// The step's timer ring (tapping it starts the timer), its countdown while the step's system alarm runs, and the
+    /// Cancel button under the running ring.
+    static let cookTimerRing = "cook.timer.ring"
+    static let cookTimerRunning = "cook.timer.running"
     static let cookTimerCancel = "cookMode.timer.cancel"
-    /// The "timer set" line while the step's alarm runs, and the status line under the timer controls.
-    static let cookTimerSetLabel = "cookMode.timer.setLabel"
+    /// The status line under the ring, such as "10 min timer cancelled."
     static let cookTimerStatus = "cookMode.timer.status"
 
     /// Every result row in Search.
