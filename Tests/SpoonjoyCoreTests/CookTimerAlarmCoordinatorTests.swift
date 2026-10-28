@@ -122,7 +122,7 @@ struct CookTimerLiveActivityWiringTests {
 
         #expect(view.contains("if stepTimers.alarmID(forStep: stepKey) != nil {"))
         #expect(view.contains(".accessibilityIdentifier(\"cookMode.timer.cancel\")"))
-        #expect(view.contains(".accessibilityIdentifier(\"cookMode.timer.start\")"))
+        #expect(view.contains(".accessibilityIdentifier(\"cook.timer.ring\")"))
         #expect(view.contains("try AlarmManager.shared.cancel(id: alarmID)"))
     }
 

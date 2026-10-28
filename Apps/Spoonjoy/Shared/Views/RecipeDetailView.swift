@@ -349,6 +349,14 @@ struct RecipeDetailView: View {
         .onChange(of: shoppingScaleFactor) { _, _ in
             persistRecipeProgress()
         }
+        .onReceive(NotificationCenter.default.publisher(for: RecipePageProgressStore.scaleDidChange)) { note in
+            // Cook mode covers this page on iPhone; a scale picked there shows here when it closes.
+            guard note.object as? String == viewModel.id,
+                  let scale = RecipePageProgressStore().scaleFactor(recipeID: viewModel.id) else {
+                return
+            }
+            shoppingScaleFactor = scale
+        }
         .onChange(of: checkedRecipeIngredientIDs) { _, _ in
             persistRecipeProgress()
         }
@@ -1228,18 +1236,14 @@ struct RecipeDetailView: View {
         let validDependencyIDs = Set(viewModel.stepSections.flatMap { section in
             section.dependencies.map(\.id)
         })
-        guard
-            let data = UserDefaults.standard.data(forKey: progressStorageKey),
-            let snapshot = try? JSONDecoder().decode(RecipeDetailCookProgressSnapshot.self, from: data),
-            snapshot.version == RecipeDetailCookProgressSnapshot.currentVersion
-        else {
+        guard let snapshot = RecipePageProgressStore().snapshot(recipeID: viewModel.id) else {
             shoppingScaleFactor = 1
             checkedRecipeIngredientIDs = []
             checkedRecipeStepDependencyIDs = []
             return
         }
 
-        shoppingScaleFactor = normalizedScaleFactor(snapshot.scaleFactor)
+        shoppingScaleFactor = snapshot.scaleFactor
         checkedRecipeIngredientIDs = Set(snapshot.checkedIngredientIDs).intersection(validIngredientIDs)
         checkedRecipeStepDependencyIDs = Set(snapshot.checkedStepDependencyIDs).intersection(validDependencyIDs)
     }
@@ -1257,27 +1261,19 @@ struct RecipeDetailView: View {
         checkedIngredientIDs: Set<String>,
         checkedStepDependencyIDs: Set<String>
     ) {
-        let snapshot = RecipeDetailCookProgressSnapshot(
-            scaleFactor: normalizedScaleFactor(scaleFactor),
-            checkedIngredientIDs: Array(checkedIngredientIDs).sorted(),
-            checkedStepDependencyIDs: Array(checkedStepDependencyIDs).sorted(),
-            updatedAt: timestamp()
+        RecipePageProgressStore().save(
+            RecipePageProgressSnapshot(
+                scaleFactor: scaleFactor,
+                checkedIngredientIDs: Array(checkedIngredientIDs).sorted(),
+                checkedStepDependencyIDs: Array(checkedStepDependencyIDs).sorted(),
+                updatedAt: timestamp()
+            ),
+            recipeID: viewModel.id
         )
-        guard let data = try? JSONEncoder().encode(snapshot) else {
-            return
-        }
-        UserDefaults.standard.set(data, forKey: progressStorageKey)
-    }
-
-    private var progressStorageKey: String {
-        "spoonjoy-cook-progress:\(viewModel.id)"
     }
 
     private func normalizedScaleFactor(_ value: Double) -> Double {
-        guard value.isFinite else {
-            return 1
-        }
-        return min(50, max(0.25, (value * 100).rounded() / 100))
+        RecipePageProgressSnapshot.normalizedScaleFactor(value)
     }
 
     private func applyLocalSuccess(for action: RecipeAction) {
@@ -1736,29 +1732,6 @@ private struct RecipeSpreadIngredientRow: View {
 private struct RecipeActionConfirmationDialog {
     let prompt: RecipeActionConfirmationPrompt
     let clientMutationID: String
-}
-
-private struct RecipeDetailCookProgressSnapshot: Codable, Equatable {
-    static let currentVersion = 1
-
-    let version: Int
-    let scaleFactor: Double
-    let checkedIngredientIDs: [String]
-    let checkedStepDependencyIDs: [String]
-    let updatedAt: String
-
-    init(
-        scaleFactor: Double,
-        checkedIngredientIDs: [String],
-        checkedStepDependencyIDs: [String],
-        updatedAt: String
-    ) {
-        version = Self.currentVersion
-        self.scaleFactor = scaleFactor
-        self.checkedIngredientIDs = checkedIngredientIDs
-        self.checkedStepDependencyIDs = checkedStepDependencyIDs
-        self.updatedAt = updatedAt
-    }
 }
 
 private struct RecipeScaleSelector: View {

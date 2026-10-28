@@ -51,4 +51,25 @@ struct CookAutoTimerPolicyTests {
         let step = Self.step(duration: 3, ingredientIDs: ["a"])
         #expect(CookAutoTimerPolicy.shouldAutoStart(step: step, checkedIngredientIDs: ["a", "z"], previouslyChecked: ["z"], runningStepIDs: ["other"]))
     }
+
+    static func timer(_ stepID: String) -> CookModeSystemTimerViewModel {
+        CookModeSystemTimerViewModel(stepID: stepID, durationMinutes: 3, durationSeconds: 180)
+    }
+
+    @Test func keepsEachTimerWhoseStepIsStillChecked() {
+        let steps = [Self.step(id: "s1", duration: 3, ingredientIDs: ["a"]), Self.step(id: "s2", duration: 3, ingredientIDs: ["a", "b"])]
+        let kept = CookAutoTimerPolicy.timersStillToStart([Self.timer("s1"), Self.timer("s2")], steps: steps, stillChecked: ["a"])
+        #expect(kept.map(\.stepID) == ["s1"])
+    }
+
+    @Test func dropsATimerWhoseStepIsGone() {
+        #expect(CookAutoTimerPolicy.timersStillToStart([Self.timer("gone")], steps: [], stillChecked: ["a"]).isEmpty)
+    }
+
+    @Test func reportsAFailedStartWithTheRingsMessage() {
+        #expect(
+            CookAutoTimerPolicy.startFailureMessage(for: CookModeSystemTimerSchedulingError.denied, timer: Self.timer("s1"))
+                == "Allow system timers in Settings to set this timer."
+        )
+    }
 }

@@ -357,10 +357,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "cook mode surface source",
-                    detail: "Cook mode surface includes focused step card, progress rail, utility sheet, and bottom action rail.",
+                    detail: "Cook mode surface includes the swipeable step pager, step segments, timer ring, More menu, and the regular-width action rail.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/CookModeView.swift",
-                    tokens: ["CookModeView", "CookModeViewModel", "CookModeProgress", "currentStepCard", "stepProgressRail", "cookModeUtilitySheet", "cookModeBottomActionRail"]
+                    tokens: ["CookModeView", "CookModeViewModel", "CookModeProgress", "cookPager", "stepProgressRail", "CookModeSystemTimer", "cookMoreMenu", "cookModeBottomActionRail"]
                 ),
                 sourceCheck(
                     name: "shopping surface source",
