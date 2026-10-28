@@ -834,6 +834,48 @@ struct NativeSessionExpiryStoreTests {
         #expect(missing.store.restoredRoute == nil)
     }
 
+    // A link that cold-launches the app (a Live Activity tap, a Siri result, a universal link) records its route
+    // before the launch has read the stored session. That write used to replace the chef's saved state with an
+    // empty signed-out snapshot, so cook mode reopened on step 1 with nothing checked.
+    @MainActor
+    @Test("a route or cook progress recorded before the launch restore keeps the chef's saved state")
+    func recordingBeforeLaunchRestoreKeepsTheChefsSavedState() async throws {
+        let fixture = try await Self.fixture(outcomes: [.invalidGrant], lastOpenedRoute: .kitchen)
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let stamp = ISO8601DateFormatter().string(from: Self.now)
+        let saved = CookModeProgress(recipeID: "recipe_cached", completedStepIDs: ["step_recipe_cached"], currentStepID: "step_recipe_cached")
+        try fixture.appStateStore.save(Self.appSnapshot(fixture).updatingCookProgress(saved, savedAt: stamp))
+
+        let cookRoute = AppRoute.recipeDetail(id: "recipe_cached", presentation: .cook)
+        fixture.store.recordingOpenedRoute(cookRoute)
+        let other = CookModeProgress(recipeID: "recipe_other", completedStepIDs: [], currentStepID: nil)
+        fixture.store.recordCookProgress(other)
+
+        let beforeRestore = try Self.appSnapshot(fixture)
+        #expect(beforeRestore.accountID == "chef_ari")
+        #expect(beforeRestore.cookProgress(for: "recipe_cached") == saved)
+        #expect(beforeRestore.cookProgress(for: "recipe_other") == nil)
+        #expect(beforeRestore.lastOpenedRoute == AppRoute.kitchen.stateIdentifier)
+
+        await fixture.store.bootstrap()
+
+        let afterRestore = try Self.appSnapshot(fixture)
+        #expect(afterRestore.accountID == "chef_ari")
+        #expect(afterRestore.cookProgress(for: "recipe_cached") == saved)
+        #expect(afterRestore.cookProgress(for: "recipe_other") == other)
+        #expect(afterRestore.lastOpenedRoute == cookRoute.stateIdentifier)
+    }
+
+    @MainActor
+    private static func appSnapshot(_ fixture: Fixture) throws -> NativeAppSnapshot {
+        try fixture.appStateStore.loadOrCreate(fallback: NativeAppSnapshot.bootstrap(
+            shoppingList: nil,
+            accountID: "signed-out",
+            environment: .production,
+            savedAt: ISO8601DateFormatter().string(from: now)
+        )).value
+    }
+
     // MARK: Sync age
 
     @MainActor
