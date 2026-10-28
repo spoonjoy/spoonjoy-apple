@@ -262,6 +262,8 @@ final class TabletopJourney: JourneyTestCase {
         let endsAt = try XCTUnwrap(Self.endTime(of: running), "The running timer's label has no time left: \(running.label)")
         journey.attachScreenshot(named: "10-fold-timer-started", to: self)
 
+        // The cover is narrow, so it is checked at the largest text size: its controls must sit whole on screen.
+        journey.useLargestAccessibilityTextOnNextLaunch()
         journey.useClosedPostureOnNextLaunch()
         verifyAfterRelaunch(journey) {
             XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
@@ -273,9 +275,16 @@ final class TabletopJourney: JourneyTestCase {
             "Folded shut mid-cook, cook mode did not show the cover glance. Screen: \(journey.screen)"
         )
         try assertSameEnd(endsAt, running, "the cover glance")
-        XCTAssertTrue(journey.element(JourneyID.cookCoverGlanceNext).isHittable, "The cover glance's Next can't be tapped. Screen: \(journey.screen)")
-        XCTAssertTrue(journey.element(JourneyID.cookCoverGlanceShowStep).isHittable, "The cover glance's Show step can't be tapped. Screen: \(journey.screen)")
-        journey.attachScreenshot(named: "11-fold-closed-cover-glance", to: self)
+        let window = journey.app.windows.firstMatch.frame
+        let glanceNext = journey.element(JourneyID.cookCoverGlanceNext)
+        let glanceShowStep = journey.element(JourneyID.cookCoverGlanceShowStep)
+        XCTAssertTrue(glanceNext.isHittable, "The cover glance's Next can't be tapped. Screen: \(journey.screen)")
+        XCTAssertTrue(glanceShowStep.isHittable, "The cover glance's Show step can't be tapped. Screen: \(journey.screen)")
+        XCTAssertTrue(window.contains(glanceNext.frame), "The cover glance's Next runs off the screen at the largest text size: \(glanceNext.frame) in \(window)")
+        XCTAssertTrue(window.contains(glanceShowStep.frame), "The cover glance's Show step runs off the screen at the largest text size: \(glanceShowStep.frame) in \(window)")
+        XCTAssertFalse(glanceNext.frame.intersects(glanceShowStep.frame), "The cover glance's Next and Show step overlap at the largest text size.")
+        XCTAssertGreaterThanOrEqual(glanceNext.frame.height, 44, "The cover glance's Next is not thumb-sized.")
+        journey.attachScreenshot(named: "11-fold-closed-cover-glance-largest-text", to: self)
 
         journey.useTabletopPostureOnNextLaunch()
         verifyAfterRelaunch(journey) {
