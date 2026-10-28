@@ -179,14 +179,43 @@ struct CookTimerLiveActivityWiringTests {
         #expect(!widget.contains(".accessibilityLabel(\"\\(timer.label) timer\")"))
     }
 
-    @Test("the expanded island's timer column is wide enough for an hour-long countdown")
-    func expandedTimerColumnFitsHours() throws {
+    @Test("a timer chip reserves the width of its whole length, so an hour-long countdown is never cut")
+    func timerChipFitsHours() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
+        let chip = try #require(widget.range(of: "private struct CookSessionTimerChip: View {"))
+        let body = widget[chip.upperBound...].prefix(1_400)
+        // A countdown is only as wide as its current string, so a chip sized to its content cut "2:14:23" to "2:14:…".
+        #expect(body.contains("Text(CookSessionIslandLayout.clockText(remaining: max(timer.duration, timer.pausedRemaining ?? 0)))"))
+        // A system countdown takes all the width it is offered, so it sits over the reserved width, never beside it.
+        #expect(body.contains(".hidden()"))
+        #expect(body.contains(".overlay(alignment: .trailing) {\n                    CookSessionTimerReadout(timer: timer)"))
+    }
+
+    @Test("the expanded island names every timer and keeps the step count")
+    func expandedIslandNamesTimers() throws {
         let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
         let trailing = try #require(widget.range(of: "private struct CookSessionExpandedTrailing: View {"))
-        let body = widget[trailing.upperBound...].prefix(1_200)
-        // A countdown is only as wide as its current string, so a column sized to its content cut "2:14:23" to "2:14:…".
-        #expect(body.contains(".frame(width: 64, alignment: .trailing)"))
-        #expect(!body.contains("maxWidth: 72"))
+        #expect(widget[trailing.upperBound...].prefix(500).contains("CookSessionIslandLayout.expandedStepCount(for: snapshot)"))
+        let body = try #require(widget.range(of: "private struct CookSessionExpandedBody: View {"))
+        #expect(widget[body.upperBound...].prefix(600).contains("CookSessionTimerRow(timers: snapshot.timers)"))
+    }
+
+    @Test("timer chips wrap two to a row when one row would cut the names")
+    func timerChipsWrap() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
+        let row = try #require(widget.range(of: "private struct CookSessionTimerRow: View {"))
+        let body = widget[row.upperBound...].prefix(1_200)
+        #expect(body.contains("ViewThatFits(in: .horizontal)"))
+        #expect(body.contains("CookSessionIslandLayout.wrappedTimerRows(timers)"))
+        #expect(body.contains(".fixedSize()"))
+    }
+
+    @Test("limited-width island rings take their size from the island layout")
+    func limitedWidthRingSizes() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
+        #expect(widget.contains("diameter: CookSessionIslandLayout.compactRingDiameter(limitedWidth: limited)"))
+        #expect(widget.contains("diameter: CookSessionIslandLayout.minimalRingDiameter(limitedWidth: limited)"))
+        #expect(!widget.contains("diameter: 28)"))
     }
 
     @Test("the widget reports the app's marketing version")
