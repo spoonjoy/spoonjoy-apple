@@ -16,15 +16,16 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeLead",
                 "RecipeIndex",
                 "CookbookShelf",
-                "On the Counter",
+                "KitchenCounterCook.idleLabel",
+                "counterCook?.label",
                 "private var indexedRecipes",
                 "recipe.id != leadRecipe.id",
-                "RecipeIndex(recipes: indexedRecipes",
+                "recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
-                "countLabel(kitchen.counts.recipes",
-                "countLabel(kitchen.counts.cookbooks",
-                "coverlessNoPhotoBadge",
-                "Photo not added"
+                "KitchenMasthead.countSummary(recipes: kitchen.counts.recipes, cookbooks: kitchen.counts.cookbooks)",
+                "Start cooking",
+                "Keep cooking",
+                "See all"
             ],
             forbids: [
                 "From your kitchen",
@@ -35,8 +36,8 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
-    @Test("Kitchen recipe index rows read as index entries instead of bare open rows")
-    func kitchenRecipeIndexRowsReadAsIndexEntries() throws {
+    @Test("Kitchen bar keeps a clean top at rest, backs its buttons once the page scrolls, and keeps their glyphs legible")
+    func kitchenBarBacksButtonsOnceScrolled() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
         let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
 
@@ -44,14 +45,43 @@ struct KitchenRecipesStructureContractTests {
             kitchen,
             in: kitchenPath,
             contains: [
-                "let ordinal: Int",
-                "ordinalLabel",
-                "String(format: \"%02d\", ordinal)",
-                "recipe.description",
+                ".scrollEdgeEffectHidden(!KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: Double(scrollOffset)), for: .top)",
+                ".scrollEdgeEffectStyle(.hard, for: .top)"
+            ],
+            forbids: [
+                ".scrollEdgeEffectHidden(true, for: .top)",
+                // A forced bar scheme left the buttons' glyphs white on the paper once the photo scrolled away;
+                // the status bar already follows what is under it.
+                ".toolbarColorScheme("
+            ]
+        )
+
+        // The page scrolls under the offline capsule, so a see-through capsule let headings show through its words.
+        let shellPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let shell = uncommentedSwift(try readRepoFile(shellPath))
+        expectContent(
+            shell,
+            in: shellPath,
+            contains: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised, in: Capsule())"],
+            forbids: [".padding(.vertical, 2)\n                .background(KitchenTableTheme.raised.opacity(0.94), in: Capsule())"]
+        )
+    }
+
+    @Test("Recipe index rows read as index entries instead of bare open rows")
+    func kitchenRecipeIndexRowsReadAsIndexEntries() throws {
+        let rowPath = "Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift"
+        let row = uncommentedSwift(try readRepoFile(rowPath))
+
+        expectContent(
+            row,
+            in: rowPath,
+            contains: [
+                "recipe.displaySubtitle",
                 "recipe.servings",
                 "recipe.displayCoverProvenanceLabel",
-                "shareRecipe",
-                ".accessibilityHint(\"Opens recipe detail\")"
+                ".joined(separator: \" · \")",
+                "ShareLink(item: content.shareURL)",
+                ".accessibilityHint(\"Opens the recipe\")"
             ],
             forbids: [
                 "subtitle: recipe.chef.username",
@@ -151,15 +181,18 @@ struct KitchenRecipesStructureContractTests {
                 in: path,
                 contains: [
                     "On the Counter",
+                    "On the counter",
+                    "Your recipes",
                     "Recipe index",
                     "Cookbook shelf",
                     "RecipeIndexRow",
-                    "ordinal",
+                    "edge-to-edge-hero",
                     "Loading recipes",
                     "OfflineStatusView"
                 ],
                 forbids: [
-                    "Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\""
+                    "Spoonjoy Kitchen\", \"Open Recipe\", \"Start Cooking\"",
+                    "RecipeIndexRow ordinal"
                 ]
             )
         }

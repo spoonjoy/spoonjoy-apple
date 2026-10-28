@@ -56,6 +56,8 @@ public struct RecipeCatalogRowViewModel: Identifiable, Equatable, Sendable {
     public let coverImageURL: URL?
     public let coverProvenanceLabel: String?
     public let openRoute: AppRoute
+    /// The recipe's public page, for Share.
+    public let shareURL: URL
 
     public init(summary: RecipeSummary) {
         id = summary.id
@@ -66,6 +68,7 @@ public struct RecipeCatalogRowViewModel: Identifiable, Equatable, Sendable {
         coverImageURL = summary.displayCoverImageURL
         coverProvenanceLabel = summary.displayCoverProvenanceLabel
         openRoute = .recipeDetail(id: summary.id, presentation: .detail)
+        shareURL = summary.attribution.canonicalURL
     }
 
     private static func servingsLabel(_ servings: String?) -> String? {

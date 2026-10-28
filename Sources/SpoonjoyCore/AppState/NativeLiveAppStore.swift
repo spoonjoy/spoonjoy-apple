@@ -2678,6 +2678,14 @@ public final class NativeLiveAppStore: ObservableObject {
             )
             await bootstrap()
             return nil
+        case .refreshInBackground:
+            _ = try await transport.send(
+                request,
+                configuration: configuration,
+                decode: JSONValue.self
+            )
+            _ = requestSync(trigger: .launch)
+            return nil
         case .captureCreatedAPIToken:
             let envelope = try await transport.send(
                 request,

@@ -6,8 +6,8 @@ import WidgetKit
 /// Draws the cook session in the Dynamic Island, on the Lock Screen and in StandBy.
 ///
 /// The Lock Screen follows the system appearance. The Dynamic Island is always black, so its views pin the dark
-/// palette. On a limited-width island (iPhone Duo) the compact presentation is one 28 pt brass ring with the step
-/// number inside, as the HIG asks for limited-width presentations.
+/// palette. On a limited-width island (iPhone Duo) the compact presentation is one brass ring with the step number
+/// inside, as the HIG asks for limited-width presentations, sized to fit that island's narrow compact region.
 struct SpoonjoyCookSessionLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SpoonjoyCookSessionAttributes.self) { context in
@@ -55,8 +55,10 @@ struct SpoonjoyCookSessionLiveActivity: Widget {
                 CookSessionCompactTrailing(snapshot: snapshot)
                     .islandPalette()
             } minimal: {
-                CookSessionRing(snapshot: snapshot, diameter: 24)
-                    .islandPalette()
+                IslandWidthReader { limited in
+                    CookSessionRing(snapshot: snapshot, diameter: CookSessionIslandLayout.minimalRingDiameter(limitedWidth: limited))
+                }
+                .islandPalette()
             }
             .widgetURL(deepLink)
             .keylineTint(KitchenTableTheme.Night.brassNight)
@@ -102,7 +104,7 @@ private struct CookSessionCompactLeading: View {
         IslandWidthReader { limited in
             switch CookSessionIslandLayout.compact(for: snapshot, limitedWidth: limited).leading {
             case .ring:
-                CookSessionRing(snapshot: snapshot, diameter: 28)
+                CookSessionRing(snapshot: snapshot, diameter: CookSessionIslandLayout.compactRingDiameter(limitedWidth: limited))
             case .stepLabel(let label):
                 Text(label)
                     .font(KitchenTableTheme.uiLabel.monospacedDigit())
@@ -201,7 +203,19 @@ private struct CookSessionTimerChip: View {
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .lineLimit(1)
                 .accessibilityHidden(true)
-            CookSessionTimerReadout(timer: timer)
+            // A system countdown asks for as much width as it is offered, so the chip sizes to the timer's whole length
+            // and lays the countdown over it. "2:14:23" is never cut to "2:14:…", and the chip never grows past it.
+            HStack(spacing: 2) {
+                if timer.isPaused {
+                    Image(systemName: "pause.fill").imageScale(.small)
+                }
+                Text(CookSessionIslandLayout.clockText(remaining: max(timer.duration, timer.pausedRemaining ?? 0)))
+            }
+                .hidden()
+                .accessibilityHidden(true)
+                .overlay(alignment: .trailing) {
+                    CookSessionTimerReadout(timer: timer)
+                }
                 .font(KitchenTableTheme.uiLabel.monospacedDigit())
                 .foregroundStyle(timer.isPaused ? KitchenTableTheme.ink2 : KitchenTableTheme.brass)
                 .lineLimit(1)
@@ -217,8 +231,6 @@ private struct CookSessionTimerChip: View {
 /// VoiceOver hears the timer's name as the label and the time as the value.
 private struct CookSessionTimerReadout: View {
     let timer: CookTimerEntry
-    /// The expanded island's timer column is only as wide as a countdown, so there the muted color alone marks a pause.
-    var showsPauseMark = true
 
     var body: some View {
         let readout = CookSessionIslandLayout.readout(for: timer, now: .now)
@@ -237,9 +249,7 @@ private struct CookSessionTimerReadout: View {
                 .multilineTextAlignment(.trailing)
         case .paused(let remaining):
             HStack(spacing: 2) {
-                if showsPauseMark {
-                    Image(systemName: "pause.fill").imageScale(.small)
-                }
+                Image(systemName: "pause.fill").imageScale(.small)
                 Text(CookSessionIslandLayout.clockText(remaining: remaining))
             }
         case .done:
@@ -259,17 +269,31 @@ private struct CookSessionTimerReadout: View {
     }
 }
 
+/// The timers as named chips: one row when every name fits whole, else two to a row, so a narrow screen (the iPhone
+/// Duo's cover screen) never cuts the step names short.
 private struct CookSessionTimerRow: View {
     let timers: [CookTimerEntry]
 
     var body: some View {
         if !timers.isEmpty {
-            HStack(spacing: 6) {
-                ForEach(timers) { timer in
-                    CookSessionTimerChip(timer: timer)
+            ViewThatFits(in: .horizontal) {
+                chipRow(timers)
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(CookSessionIslandLayout.wrappedTimerRows(timers).enumerated()), id: \.offset) { _, row in
+                        chipRow(row)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func chipRow(_ row: [CookTimerEntry]) -> some View {
+        HStack(spacing: 6) {
+            ForEach(row) { timer in
+                CookSessionTimerChip(timer: timer)
+                    .fixedSize()
+            }
         }
     }
 }
@@ -312,29 +336,14 @@ private struct CookSessionButtons: View {
     }
 }
 
-/// Beside the step: up to three timers, or the step count when no timer runs. The expanded island is capped in
-/// height and this column is narrow, so it shows the times only; the names are in the accessibility label and on the
-/// Lock Screen.
+/// Beside the step: where you are. The timers sit in the body below, each with its name.
 private struct CookSessionExpandedTrailing: View {
     let snapshot: CookSessionSnapshot
 
     var body: some View {
-        if snapshot.timers.isEmpty {
-            Text("\(snapshot.stepNumber) of \(snapshot.stepCount)")
-                .font(KitchenTableTheme.uiLabel.monospacedDigit())
-                .foregroundStyle(KitchenTableTheme.brass)
-        } else {
-            VStack(alignment: .trailing, spacing: 2) {
-                ForEach(snapshot.timers) { timer in
-                    CookSessionTimerReadout(timer: timer, showsPauseMark: false)
-                        .foregroundStyle(timer.isPaused ? KitchenTableTheme.onPhotoMuted : KitchenTableTheme.brass)
-                        .font(KitchenTableTheme.runningHead.monospacedDigit())
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-            }
-            .frame(width: 64, alignment: .trailing)
-        }
+        Text(CookSessionIslandLayout.expandedStepCount(for: snapshot))
+            .font(KitchenTableTheme.uiLabel.monospacedDigit())
+            .foregroundStyle(KitchenTableTheme.brass)
     }
 }
 
@@ -343,14 +352,17 @@ private struct CookSessionExpandedBody: View {
     let recipeID: String
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(snapshot.nextStepTitle.map { "Next: \($0)" } ?? "Last step")
-                .font(KitchenTableTheme.runningHead)
-                .foregroundStyle(KitchenTableTheme.onPhotoMuted)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            CookSessionButtons(snapshot: snapshot, recipeID: recipeID, height: 36)
-                .fixedSize(horizontal: true, vertical: false)
+        VStack(alignment: .leading, spacing: 6) {
+            CookSessionTimerRow(timers: snapshot.timers)
+            HStack(spacing: 8) {
+                Text(snapshot.nextStepTitle.map { "Next: \($0)" } ?? "Last step")
+                    .font(KitchenTableTheme.runningHead)
+                    .foregroundStyle(KitchenTableTheme.onPhotoMuted)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                CookSessionButtons(snapshot: snapshot, recipeID: recipeID, height: 36)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
         }
         .padding(.horizontal, 4)
     }

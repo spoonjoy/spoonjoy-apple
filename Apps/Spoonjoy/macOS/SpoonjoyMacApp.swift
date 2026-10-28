@@ -23,11 +23,12 @@ struct SpoonjoyMacApp: App {
         .defaultSize(width: 1040, height: 760)
         .windowResizability(.contentMinSize)
         .commands {
-            CommandGroup(replacing: .newItem) {
+            SpoonjoyAddRecipeCommands()
+            CommandGroup(after: .newItem) {
                 Button("New Window") {
                     appDelegate.showMainWindow()
                 }
-                .keyboardShortcut("n", modifiers: .command)
+                .keyboardShortcut("n", modifiers: [.command, .shift])
             }
             CommandGroup(replacing: .appSettings) {
                 Button("Settings…") {
@@ -35,6 +36,21 @@ struct SpoonjoyMacApp: App {
                 }
                 .keyboardShortcut(",", modifiers: .command)
             }
+        }
+    }
+}
+
+/// ⌘N opens Add a recipe in the focused window. Spoonjoy has no recipe form, so this is how a recipe starts.
+private struct SpoonjoyAddRecipeCommands: Commands {
+    @FocusedValue(\.spoonjoyAddRecipe) private var addRecipe
+
+    var body: some Commands {
+        CommandGroup(replacing: .newItem) {
+            Button("Add a Recipe…") {
+                addRecipe?()
+            }
+            .keyboardShortcut("n", modifiers: .command)
+            .disabled(addRecipe == nil)
         }
     }
 }

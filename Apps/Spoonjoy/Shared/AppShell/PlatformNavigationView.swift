@@ -26,6 +26,10 @@ struct PlatformNavigationView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
+    /// Add a recipe replaces the old New Recipe form: every create entry, ⌘N and `/recipes/new` open this sheet.
+    @State private var isAddRecipePresented = false
+    /// What happened after a recipe row's Add to list, shown briefly over the page.
+    @State private var listAddNotice: RecipeListAddNotice?
 #if os(iOS)
     @State private var shellWindowSize: CGSize = .zero
     @State private var shellHingeDivision: SpreadDivision?
@@ -169,6 +173,45 @@ struct PlatformNavigationView: View {
                 desktopClassShell(spotlightPayload: spotlightPayload)
             }
         }
+        .sheet(isPresented: $isAddRecipePresented) {
+            AddRecipeSheet(onPasteLink: importPastedLink)
+        }
+        // A blank editor route (a `/recipes/new` link, a restored page, or anything else that still names it)
+        // opens Add a recipe over the page the chef was on instead of a form.
+        .onChange(of: navigation.route, initial: true) { previous, route in
+            guard route == .recipeEditor(id: nil) else {
+                return
+            }
+            // At launch (no previous page) the route was not a tap, so it lands on the Kitchen without a sheet.
+            let isLaunch = previous == route
+            navigation.navigate(to: isLaunch ? .kitchen : previous, restoring: true)
+            if !isLaunch {
+                isAddRecipePresented = true
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if let listAddNotice {
+                RecipeListAddNoticeView(notice: listAddNotice)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, usesCompactMobileShell ? 96 : 24)
+                    .transition(.opacity)
+                    .task(id: listAddNotice) {
+                        try? await Task.sleep(for: .seconds(4))
+                        if self.listAddNotice == listAddNotice {
+                            self.listAddNotice = nil
+                        }
+                    }
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: listAddNotice)
+        .sensoryFeedback(trigger: listAddNotice) { _, notice in
+            guard let notice else {
+                return nil
+            }
+            return notice.isFailure ? .error : .success
+        }
+        // ⌘N on the Mac opens Add a recipe in the focused window only.
+        .focusedSceneValue(\.spoonjoyAddRecipe, createRecipe)
     }
 
     private var usesCompactMobileShell: Bool {
@@ -189,6 +232,10 @@ struct PlatformNavigationView: View {
             // Every route change, from a tap, a deep link, Spotlight or an App Intent, moves the tabs. Changes the
             // tabs made themselves come back here as the route they already show, which changes nothing.
             .onChange(of: navigation.route, initial: true) { _, route in
+                // The shell turns a blank editor route into the Add a recipe sheet, so no tab pushes a form.
+                guard route != .recipeEditor(id: nil) else {
+                    return
+                }
                 compactTabs.apply(route)
                 if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
                     liveSearchRequestMarker = nil
@@ -302,7 +349,7 @@ struct PlatformNavigationView: View {
     @ViewBuilder private func routeNavigationStack(spotlightPayload: SpotlightIndexPayload, showsToolbar: Bool, showsSearchChrome: Bool) -> some View {
         if showsToolbar {
             searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome, hidesNavigationBar: false)
-                .spoonjoyToolbar(navigation: $navigation, search: $search)
+                .spoonjoyToolbar(navigation: $navigation, search: $search, addRecipe: createRecipe)
         } else {
             searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome, hidesNavigationBar: usesCompactMobileShell)
         }
@@ -338,7 +385,8 @@ struct PlatformNavigationView: View {
                 detailContentWithShellStatus
                     .navigationTitle(title(for: navigation.route))
 #if os(iOS)
-                    .navigationBarTitleDisplayMode(.large)
+                    // The Kitchen's photo is its title, so its bar stays inline and the photo runs under it.
+                    .navigationBarTitleDisplayMode(navigation.route == .kitchen ? .inline : .large)
                     .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
                     // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
@@ -423,8 +471,9 @@ struct PlatformNavigationView: View {
         let root = compactPage(for: compactTabs.root(for: tab))
             .navigationTitle(compactTabTitle(for: tab))
 #if os(iOS)
-            // The shopping list leads with items: its inline title leaves the room a large one would take.
-            .navigationBarTitleDisplayMode(tab == .shopping ? .inline : .large)
+            // The shopping list leads with items: its inline title leaves the room a large one would take. The
+            // kitchen leads with its dish edge to edge, so its title stays out of the way too.
+            .navigationBarTitleDisplayMode(tab == .shopping || tab == .kitchen ? .inline : .large)
 #endif
         switch tab {
         case .kitchen:
@@ -442,7 +491,7 @@ struct PlatformNavigationView: View {
 #if os(iOS)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    newRecipeButton
+                    addRecipeButton
                 }
             }
 #endif
@@ -464,7 +513,8 @@ struct PlatformNavigationView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .safeAreaInset(edge: .top, spacing: 0) {
                 if route == navigation.route && shouldShowShellOfflineStatus {
-                    compactOfflineStatusBar
+                    // The Kitchen's photo runs under the status line, so the quiet line gets a paper capsule there.
+                    compactOfflineStatusBar(onPhoto: route == .kitchen)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
                 }
@@ -488,16 +538,31 @@ struct PlatformNavigationView: View {
         .padding(.bottom, 8)
     }
 
-    /// The persistent create entry. It always opens a blank editor, whatever page the chef is on.
-    private var newRecipeButton: some View {
-        Button("New Recipe", systemImage: "plus") {
+    /// The persistent create entry. It opens Add a recipe, whatever page the chef is on.
+    private var addRecipeButton: some View {
+        Button("Add a recipe", systemImage: "plus") {
             createRecipe()
         }
-        .accessibilityIdentifier("recipes.new")
+        .accessibilityIdentifier("kitchen.addRecipe")
     }
 
     private func createRecipe() {
-        openRoute(.recipeEditor(id: nil))
+        isSearchFieldFocused = false
+        isAddRecipePresented = true
+    }
+
+    /// A pasted link becomes a capture draft, the same draft Siri's Capture Recipe makes, and Imports opens on it.
+    private func importPastedLink(_ url: URL) {
+        let createdAt = ISO8601DateFormatter().string(from: Date())
+        guard let draft = try? CaptureDraft.importURL(
+            id: "paste-\(UUID().uuidString.lowercased())",
+            url: url,
+            createdAt: createdAt
+        ) else {
+            return
+        }
+        recordCaptureDraft(draft)
+        openRoute(.capture)
     }
 
     private var compactRecipesSelection: Binding<AppRoute> {
@@ -512,7 +577,7 @@ struct PlatformNavigationView: View {
 #if os(iOS)
     @ToolbarContentBuilder private var compactKitchenToolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
-            newRecipeButton
+            addRecipeButton
             Button("Import queue", systemImage: "tray.and.arrow.down") {
                 openRoute(.capture)
             }
@@ -621,7 +686,7 @@ struct PlatformNavigationView: View {
         case .recipeDetail, .cookbookDetail, .profile, .chefs, .capture, .settings:
             ""
         case .recipeEditor(nil):
-            "New Recipe"
+            "Add a recipe"
         case .recipeEditor(.some):
             "Edit Recipe"
         case .recipeCoverControls:
@@ -679,8 +744,15 @@ struct PlatformNavigationView: View {
         }
     }
 
-    @ViewBuilder private var compactOfflineStatusBar: some View {
-        if offlineIndicatorState.display.informationalOnly {
+    @ViewBuilder private func compactOfflineStatusBar(onPhoto: Bool = false) -> some View {
+        if offlineIndicatorState.display.informationalOnly && onPhoto {
+            OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet, onDismiss: dismissOfflineIndicator)
+                .frame(minHeight: 28, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 2)
+                .background(KitchenTableTheme.raised, in: Capsule())
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else if offlineIndicatorState.display.informationalOnly {
             OfflineStatusView(display: offlineIndicatorState.display, prominence: .quiet, onDismiss: dismissOfflineIndicator)
                 .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -715,13 +787,13 @@ struct PlatformNavigationView: View {
         List(selection: librarySidebarSelection) {
             Section {
                 sidebarLink(section: .kitchen, title: "Kitchen", systemImage: "house")
-                // Create sits with the recipe drawers, always one tap away, and never takes the selection.
+                // Add sits with the recipe drawers, always one tap away, and never takes the selection.
                 Button(action: createRecipe) {
-                    Label("New Recipe", systemImage: "plus.circle.fill")
+                    Label("Add a recipe", systemImage: "plus.circle.fill")
                         .foregroundStyle(KitchenTableTheme.tomato)
                 }
                 .buttonStyle(.plain)
-                .accessibilityIdentifier("sidebar.newRecipe")
+                .accessibilityIdentifier("sidebar.addRecipe")
                 sidebarLink(section: .recipes, title: "My Recipes", systemImage: "book.closed")
                 sidebarLink(section: .savedRecipes, title: "Saved Recipes", systemImage: "bookmark")
                 sidebarLink(section: .everyoneRecipes, title: "Everyone's Recipes", systemImage: "globe")
@@ -775,7 +847,7 @@ struct PlatformNavigationView: View {
     @ViewBuilder private func compactImmersiveRouteContent(for route: AppRoute) -> some View {
         VStack(spacing: 0) {
             if shouldShowShellOfflineStatus {
-                compactOfflineStatusBar
+                compactOfflineStatusBar()
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
             }
@@ -816,6 +888,8 @@ struct PlatformNavigationView: View {
         destinationRoute(for: route)
             // A missing page offers the way back to the recipes.
             .environment(\.spoonjoyBackToRecipes) { openRoute(.recipes) }
+            // A recipe row's long-press menu adds its ingredients to the shopping list.
+            .environment(\.spoonjoyAddRecipeToList, addRecipeToList)
     }
 
     @ViewBuilder private func destinationRoute(for route: AppRoute) -> some View {
@@ -825,11 +899,13 @@ struct PlatformNavigationView: View {
                 kitchen: contentState.kitchen,
                 recipes: contentState.recipes,
                 cookbooks: contentState.cookbooks,
+                cookProgress: { contentState.cookProgress(for: $0) },
                 openRecipe: openRecipe,
                 startCooking: startCooking,
                 openCookbook: openCookbook,
                 createRecipe: createRecipe,
-                importRecipe: { openRoute(.capture) }
+                importRecipe: { openRoute(.capture) },
+                seeAllRecipes: { openRoute(.recipes) }
             )
         case .recipes:
             RecipesView(viewModel: myRecipesCatalogViewModel, openRoute: openRoute)
@@ -957,7 +1033,7 @@ struct PlatformNavigationView: View {
                     retryShoppingMutationRecovery: retryShoppingMutationRecovery,
                     hasRecipes: !contentState.recipes.isEmpty,
                     openSearch: openSearchFromDock,
-                    createRecipe: { openRoute(.recipeEditor(id: nil)) },
+                    createRecipe: createRecipe,
                     onDismissOfflineIndicator: dismissOfflineIndicator
                 )
             }
@@ -2076,6 +2152,28 @@ struct PlatformNavigationView: View {
         try await performShoppingMutationHandler(plan)
     }
 
+    /// Adds every ingredient of a recipe, at its own yield, to the shopping list, as the recipe page's Add to list does.
+    private func addRecipeToList(_ recipe: Recipe) {
+        let action: ShoppingSurfaceAction = .addRecipeIngredients(
+            recipeID: recipe.id,
+            scaleFactor: 1,
+            recipeIngredients: recipe.steps.flatMap(\.ingredients),
+            clientMutationID: "shopping-recipe-\(UUID().uuidString.lowercased())"
+        )
+        Task {
+            let notice: RecipeListAddNotice
+            do {
+                let plan = try shoppingViewModel.plan(action)
+                let outcome = try await performShoppingAction(plan)
+                notice = .added(recipeTitle: recipe.title, outcome: outcome)
+            } catch {
+                notice = .failed(recipeTitle: recipe.title)
+            }
+            listAddNotice = notice
+            AccessibilityNotification.Announcement(notice.message).post()
+        }
+    }
+
     private func discardRecipeEditorLocalChange(_ conflict: RecipeEditorConflict) async throws {
         try await discardQueuedMutation(conflict.localClientMutationID)
     }
@@ -2463,5 +2561,26 @@ private struct ShellPlaceholderView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
+    }
+}
+
+/// A short capsule over the page saying whether a recipe reached the shopping list.
+private struct RecipeListAddNoticeView: View {
+    let notice: RecipeListAddNotice
+
+    var body: some View {
+        Label(notice.message, systemImage: notice.isFailure ? "exclamationmark.triangle" : "checkmark.circle")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(notice.isFailure ? KitchenTableTheme.tomato : KitchenTableTheme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .background(KitchenTableTheme.raised, in: Capsule())
+            .overlay {
+                Capsule().strokeBorder(KitchenTableTheme.hairline, lineWidth: 1)
+            }
+            .shadow(color: KitchenTableTheme.photoCharcoal.opacity(0.12), radius: 12, y: 4)
+            .accessibilityIdentifier("shell.listAddNotice")
     }
 }

@@ -305,12 +305,12 @@ enum ScreenshotAccessibilityProofWriter {
             )
         default:
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
-                keyboardNavigationTargets: ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
+                voiceOverLabels: ["On the counter", "Start cooking", "Your recipes", "See all", "Cookbook shelf"],
+                keyboardNavigationTargets: ["lead recipe actions", "RecipeIndexRow buttons", "See all", "cookbook shelf buttons"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel", ".title2"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "brass on bone"],
                 hierarchyAnchors: ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndex", "RecipeIndexRow", "CookbookShelf"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "fixed-cover-height", "ordinal"]
+                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
             )
         }
     }

@@ -178,8 +178,8 @@ final class SpoonjoyShoppingUITests: XCTestCase {
             contentSizeCategory: "UICTContentSizeCategoryAccessibilityXXXL",
             noRecipes: true
         )
-        XCTAssertTrue(app.buttons["Create a recipe"].waitForExistence(timeout: 8))
-        app.buttons["Create a recipe"].tap()
+        XCTAssertTrue(app.buttons["Add a recipe"].waitForExistence(timeout: 8))
+        app.buttons["Add a recipe"].tap()
     }
 
     func testMutationOutcomesFailureAndBothRetryPathsStayLocalized() {
@@ -246,7 +246,7 @@ final class SpoonjoyShoppingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Receipt actions"].isHittable)
         XCTAssertFalse(app.searchFields["Search Spoonjoy"].exists)
         platformItem.tap()
-        app.buttons["Create a recipe"].tap()
+        app.buttons["Add a recipe"].tap()
     }
 
     /// The search field belongs to the Search tab only: it is absent over the shopping list and present, and

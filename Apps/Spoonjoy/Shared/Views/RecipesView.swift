@@ -21,6 +21,7 @@ struct RecipesView: View {
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
+    @Namespace private var recipeTransition
 
     init(
         viewModel: RecipeCatalogViewModel,
@@ -115,14 +116,16 @@ struct RecipesView: View {
 
     private func recipeIndexSection(rows: [RecipeCatalogRowViewModel]) -> some View {
         KitchenTableSection(title: "Recipe Index") {
-            ForEach(rows) { row in
-                Button {
-                    openRoute(row.openRoute)
-                } label: {
-                    RecipeIndexRow(row: row)
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(rows) { row in
+                    if row.id != rows.first?.id {
+                        RecipeIndexRowSeparator()
+                    }
+                    RecipeIndexRow(row: row, namespace: recipeTransition) {
+                        openRoute(row.openRoute)
+                    }
+                    .accessibilityIdentifier("recipes.row")
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("recipes.row")
             }
         }
     }
@@ -395,46 +398,10 @@ extension RecipesView {
     }
 }
 
-private struct RecipeIndexRow: View {
-    let row: RecipeCatalogRowViewModel
-
-    init(row: RecipeCatalogRowViewModel) {
-        self.row = row
-    }
-
-    var body: some View {
-        KitchenTableObjectRow(title: row.title, subtitle: rowSubtitle) {
-            RecipeCoverImage(
-                url: row.coverImageURL,
-                title: row.title,
-                subtitle: nil,
-                showsFallbackLabel: false
-            )
-        } trailing: {
-            Image(systemName: "chevron.forward")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.brass)
-                .accessibilityHidden(true)
-        }
-        .accessibilityHint("Opens recipe detail")
-    }
-
-    private var rowSubtitle: String {
-        [
-            row.subtitle,
-            row.chefLine,
-            row.servingsLabel
-        ]
-        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .filter { !$0.isEmpty }
-        .joined(separator: " - ")
-    }
-}
-
 private enum RecipeCoverPrefetcher {
-    /// The pixel size a 56-point row thumbnail decodes at on a 3x screen. A 2x screen decodes smaller,
+    /// The pixel size a 64-point row thumbnail decodes at on a 3x screen. A 2x screen decodes smaller,
     /// and both download the same stored variant.
-    static let rowThumbnailPixelSize = ImageDownsampleBucket.pixelSize(points: 56, scale: 3)
+    static let rowThumbnailPixelSize = ImageDownsampleBucket.pixelSize(points: 64, scale: 3)
 
     /// Downloads the first rows' covers, at the size the rows show them, into the disk cache so they open
     /// without waiting on the network.

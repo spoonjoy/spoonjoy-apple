@@ -1,13 +1,32 @@
+import SpoonjoyCore
 import XCTest
 
-/// Journey 3: a new account creates a recipe, sends its ingredients to Reminders, and sending the same
+/// Journey 3: a new account has a recipe made elsewhere, sends its ingredients to Reminders, and sending the same
 /// recipe again adds nothing. The Reminders list the account picked is remembered after a relaunch.
 @MainActor
 final class RemindersJourney: JourneyTestCase {
-    func testSendToRemindersDedupesJourney() throws {
+    func testSendToRemindersDedupesJourney() async throws {
         let account = try JourneyAccounts.account(2)
         let token = try JourneyAccounts.runToken()
         let title = "Journey \(token) Egg Fried Rice J3"
+        // There is no in-app recipe form, so the recipe is made on QA, the way the connector or a share would.
+        let qa = try await JourneyQAClient.signIn(account)
+        _ = try await qa.createRecipe(
+            title: title,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Fry the rice",
+                    description: "Scramble the eggs into the hot rice.",
+                    duration: nil,
+                    ingredients: [
+                        RecipeIngredientDraft(quantity: 3, unit: "large", name: "eggs"),
+                        RecipeIngredientDraft(quantity: 2, unit: "cups", name: "rice")
+                    ],
+                    outputStepNums: []
+                )
+            ]
+        )
         let journey = JourneyApp.launchFresh()
 
         journey.signIn(as: account.username, password: account.password)
@@ -16,27 +35,7 @@ final class RemindersJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
-        // Account 2 has no recipes, so the Shopping List offers "Create a recipe", which opens the editor.
-        journey.openTab(JourneyCopy.shoppingTab)
-        journey.tap(JourneyID.shoppingCreateRecipe)
-        journey.enterText(title, into: JourneyID.editorTitle)
-        journey.enterText("2", into: JourneyID.editorServings)
-        journey.tap(JourneyID.editorAddStep)
-        journey.tap(JourneyID.editorStepAddIngredient(1))
-        journey.enterText("eggs", into: JourneyID.editorIngredientName(step: 1, ingredient: 1))
-        journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 1, ingredient: 1), with: "3")
-        journey.enterText("large", into: JourneyID.editorIngredientUnit(step: 1, ingredient: 1))
-        journey.tap(JourneyID.editorStepAddIngredient(1))
-        journey.enterText("rice", into: JourneyID.editorIngredientName(step: 1, ingredient: 2))
-        journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 1, ingredient: 2), with: "2")
-        journey.enterText("cups", into: JourneyID.editorIngredientUnit(step: 1, ingredient: 2))
-        journey.enterText("Scramble the eggs into the hot rice.", into: JourneyID.editorStepDescription(1))
-        journey.enterText("Fry the rice", into: JourneyID.editorStepTitle(1))
-        journey.saveRecipeEditor()
-        XCTAssertTrue(
-            journey.element(JourneyID.recipesRow, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "My Recipes does not list the new recipe after saving it. Screen: \(journey.screen)"
-        )
+        journey.openTab(JourneyCopy.recipesTab)
         journey.openRecipe(titled: title, from: JourneyID.recipesRow)
 
         journey.attachScreenshot(named: "01-recipe", to: self)

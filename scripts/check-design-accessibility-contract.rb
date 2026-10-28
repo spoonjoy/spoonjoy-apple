@@ -227,12 +227,12 @@ def accessibility_proof(platform)
       "isSettled" => true
     },
     "routeEvidence" => {
-      "voiceOverLabels" => ["On the Counter", "Start Cooking", "Recipe index", "RecipeIndexRow ordinal", "Cookbook shelf"],
-      "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "cookbook shelf buttons"],
+      "voiceOverLabels" => ["On the counter", "Start cooking", "Your recipes", "See all", "Cookbook shelf"],
+      "keyboardNavigationTargets" => ["lead recipe actions", "RecipeIndexRow buttons", "See all", "cookbook shelf buttons"],
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
       "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters", "ordinal"]
+      "layoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
     },
     "offlineIndicatorProof" => {
       "source" => "OfflineStatusView",

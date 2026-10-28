@@ -202,6 +202,24 @@ final class JourneyApp {
         waitFor(JourneyID.recipeDetailTitle, timeout: Self.networkTimeout, "The recipe detail page did not open.", file: file, line: line)
     }
 
+    /// Waits for the Add a recipe sheet and checks it teaches the Siri phrase.
+    func assertAddRecipeSheet(file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue(
+            element(JourneyID.addRecipeSiriPhrase, labelContaining: JourneyCopy.addRecipeSiriPhrase).waitForExistence(timeout: Self.interactionTimeout),
+            "Add a recipe did not open a sheet showing the Siri phrase. Screen: \(screen)",
+            file: file,
+            line: line
+        )
+        // The connector link is its own element, so VoiceOver and Switch Control can reach it.
+        let connect = app.links[JourneyID.addRecipeClaudeConnect]
+        XCTAssertTrue(
+            connect.waitForExistence(timeout: Self.interactionTimeout) && connect.isHittable,
+            "The Claude row's How to connect link is not a reachable link of its own. Screen: \(screen)",
+            file: file,
+            line: line
+        )
+    }
+
     /// Types into an empty field and reads the value back.
     func enterText(_ text: String, into id: String, file: StaticString = #filePath, line: UInt = #line) {
         let fields = fieldQuery(id)
@@ -469,6 +487,15 @@ final class JourneyApp {
         }
         let frame = field.frame
         return frame.minY.isFinite && frame.maxY.isFinite && !frame.isEmpty && !frame.isInfinite
+    }
+
+    /// Swipes up until `element` can be tapped, for rows below the first screen. Stops after a few swipes either way.
+    func swipeUpUntilHittable(_ element: XCUIElement, swipesLeft: Int = 6) {
+        guard !element.isHittable, swipesLeft > 0 else {
+            return
+        }
+        app.swipeUp()
+        swipeUpUntilHittable(element, swipesLeft: swipesLeft - 1)
     }
 
     /// Drags the form until `field` sits fully between the navigation bar and whatever covers the bottom of the

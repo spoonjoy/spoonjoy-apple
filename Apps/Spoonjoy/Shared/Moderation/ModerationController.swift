@@ -32,17 +32,17 @@ final class ModerationController {
     }
 
     func report(_ target: ContentReportTarget, reason: ContentReportReason, details: String?) async throws {
-        _ = try await send(try ModerationRequests.report(target: target, reason: reason, details: details), .refreshOnly)
+        _ = try await send(try ModerationRequests.report(target: target, reason: reason, details: details), .refreshInBackground)
         update { $0.hide(target) }
     }
 
     func block(_ chef: BlockedChef, from target: ContentReportTarget?) async throws {
-        _ = try await send(try ModerationRequests.block(chefID: chef.id), .refreshOnly)
+        _ = try await send(try ModerationRequests.block(chefID: chef.id), .refreshInBackground)
         update { $0.block(chef, from: target) }
     }
 
     func unblock(chefID: String) async throws {
-        _ = try await send(ModerationRequests.unblock(chefID: chefID), .refreshOnly)
+        _ = try await send(ModerationRequests.unblock(chefID: chefID), .refreshInBackground)
         update { $0.unblock(chefID: chefID) }
     }
 
