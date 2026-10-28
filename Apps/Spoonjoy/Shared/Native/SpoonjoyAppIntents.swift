@@ -2453,7 +2453,7 @@ private struct SpoonjoyIntentStateWriter {
         let transport = URLSessionAPITransport(authenticationRefresher: refresher)
 
         switch responseHandling {
-        case .refreshOnly:
+        case .refreshOnly, .refreshInBackground:
             _ = try await transport.send(
                 request,
                 configuration: configuration,

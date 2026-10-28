@@ -8646,6 +8646,54 @@ extension NativeLiveStoreTests {
     }
 
     @MainActor
+    @Test("a block answers once the server does and refreshes the kitchen without making the person wait")
+    func refreshInBackgroundAnswersBeforeTheRefreshFinishes() async throws {
+        try await withTemporaryLiveStoreDirectory { directory in
+            let syncData = try Self.sampleSyncData(
+                recipe: Self.sampleRecipe(id: "recipe_saved", title: "Saved Lemon Pasta"),
+                shoppingItem: nil,
+                accountID: "chef_ari"
+            )
+            let syncStore = InMemoryNativeSyncStore(checkpoint: nil, queue: NativeMutationQueue())
+            let vault = try await Self.launchedOnce(directory: directory, syncStore: syncStore, syncData: syncData)
+            let gate = LaunchNetworkGate()
+            let recorder = SettingsActionAPITransportRecorder()
+            let store = Self.liveStore(
+                directory: directory,
+                vault: vault,
+                syncStore: syncStore,
+                transport: GatedLaunchSyncTransport(gate: gate, syncData: syncData),
+                recipeEditorAPITransport: { refresher in
+                    RecordingSettingsActionAPITransport(refresher: refresher, recorder: recorder)
+                }
+            )
+            // If the action waited on the refresh it would never answer; this lets the test fail instead of hang.
+            let safety = Task {
+                try? await Task.sleep(for: .seconds(15))
+                await gate.release()
+            }
+
+            let outcome = try await store.executeSettingsActionRequest(
+                try ModerationRequests.block(chefID: "chef_sam"),
+                responseHandling: .refreshInBackground
+            )
+
+            #expect(outcome == nil)
+            #expect(await recorder.requests().map(\.path) == ["/api/v1/blocks"])
+            // The refresh the block started is still waiting on the network after the block answered.
+            try await Self.waitForGate(gate)
+            safety.cancel()
+            await gate.release()
+            await store.waitForSync()
+            guard case .liveSynced(let synced) = store.bootstrapState else {
+                Issue.record("Expected the background refresh to finish live; got \(store.bootstrapState)")
+                return
+            }
+            #expect(synced.recipes.map(\.title) == ["Saved Lemon Pasta"])
+        }
+    }
+
+    @MainActor
     @Test("a relaunch shows the kitchen saved on this device before the network answers")
     func relaunchShowsSavedKitchenBeforeTheNetwork() async throws {
         try await withTemporaryLiveStoreDirectory { directory in
