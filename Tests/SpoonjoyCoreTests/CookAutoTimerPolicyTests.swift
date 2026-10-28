@@ -56,57 +56,20 @@ struct CookAutoTimerPolicyTests {
         CookModeSystemTimerViewModel(stepID: stepID, durationMinutes: 3, durationSeconds: 180)
     }
 
-    @MainActor @Test func startsEachTimerWhoseStepIsStillChecked() async {
-        let steps = [Self.step(id: "s1", duration: 3, ingredientIDs: ["a"]), Self.step(id: "s2", duration: 3, ingredientIDs: ["b"])]
-        var started: [String] = []
-        var failures: [String: String] = [:]
-        await CookAutoTimerPolicy.startTimers(
-            [Self.timer("s1"), Self.timer("s2")],
-            steps: steps,
-            stillChecked: ["a"],
-            start: { timer in
-                started.append(timer.stepID)
-                return .started(UUID())
-            },
-            failed: { failures[$0] = $1 }
-        )
-        #expect(started == ["s1"])
-        #expect(failures.isEmpty)
+    @Test func keepsEachTimerWhoseStepIsStillChecked() {
+        let steps = [Self.step(id: "s1", duration: 3, ingredientIDs: ["a"]), Self.step(id: "s2", duration: 3, ingredientIDs: ["a", "b"])]
+        let kept = CookAutoTimerPolicy.timersStillToStart([Self.timer("s1"), Self.timer("s2")], steps: steps, stillChecked: ["a"])
+        #expect(kept.map(\.stepID) == ["s1"])
     }
 
-    @MainActor @Test func reportsAFailedStartWithTheRingsMessage() async {
-        let steps = [Self.step(id: "s1", duration: 3, ingredientIDs: ["a"]), Self.step(id: "s2", duration: 3, ingredientIDs: ["b"])]
-        var started: [String] = []
-        var failures: [String: String] = [:]
-        await CookAutoTimerPolicy.startTimers(
-            [Self.timer("s1"), Self.timer("s2")],
-            steps: steps,
-            stillChecked: ["a", "b"],
-            start: { timer in
-                if timer.stepID == "s1" {
-                    throw CookModeSystemTimerSchedulingError.denied
-                }
-                started.append(timer.stepID)
-                return .started(UUID())
-            },
-            failed: { failures[$0] = $1 }
-        )
-        #expect(failures == ["s1": "Allow system timers in Settings to set this timer."])
-        #expect(started == ["s2"])
+    @Test func dropsATimerWhoseStepIsGone() {
+        #expect(CookAutoTimerPolicy.timersStillToStart([Self.timer("gone")], steps: [], stillChecked: ["a"]).isEmpty)
     }
 
-    @MainActor @Test func skipsATimerWhoseStepIsGone() async {
-        var started: [String] = []
-        await CookAutoTimerPolicy.startTimers(
-            [Self.timer("gone")],
-            steps: [],
-            stillChecked: ["a"],
-            start: { timer in
-                started.append(timer.stepID)
-                return .started(UUID())
-            },
-            failed: { _, _ in }
+    @Test func reportsAFailedStartWithTheRingsMessage() {
+        #expect(
+            CookAutoTimerPolicy.startFailureMessage(for: CookModeSystemTimerSchedulingError.denied, timer: Self.timer("s1"))
+                == "Allow system timers in Settings to set this timer."
         )
-        #expect(started.isEmpty)
     }
 }

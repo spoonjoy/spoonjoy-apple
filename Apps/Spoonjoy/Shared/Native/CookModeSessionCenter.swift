@@ -160,13 +160,14 @@ final class CookModeSessionCenter {
             guard let current = self?.registration else {
                 return
             }
-            await CookAutoTimerPolicy.startTimers(
-                timers,
-                steps: recipe.steps,
-                stillChecked: Set(current.viewModel().progress.checkedIngredientIDs),
-                start: current.startTimer,
-                failed: current.timerStartFailed
-            )
+            let stillChecked = Set(current.viewModel().progress.checkedIngredientIDs)
+            for timer in CookAutoTimerPolicy.timersStillToStart(timers, steps: recipe.steps, stillChecked: stillChecked) {
+                do {
+                    _ = try await current.startTimer(timer)
+                } catch {
+                    current.timerStartFailed(timer.stepID, CookAutoTimerPolicy.startFailureMessage(for: error, timer: timer))
+                }
+            }
         }
     }
 

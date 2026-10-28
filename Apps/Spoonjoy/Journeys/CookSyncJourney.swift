@@ -7,8 +7,8 @@ import XCTest
 /// the journey cancels it. The CI simulator refuses AlarmKit, so the app records a stand-in alarm
 /// (`NativeJourneyAlarmFixture`); cook mode's per-step registry, ring and Cancel control are the real ones. A swipe
 /// that starts on the ring turns to step 2 without starting the timer, and after a relaunch at the largest text size
-/// cook mode reopens there with step 1's checks kept. A swipe that starts on a checked row turns the page again and
-/// leaves the check alone.
+/// cook mode reopens there with step 1's checks kept. A second swipe from the ring at that size turns the page again,
+/// starts no timer and leaves step 1's checks alone.
 ///
 /// Before cook mode, the recipe page checks the step's first ingredient: as on the web it sinks to the bottom of
 /// the step's list, nothing above the step moves (Clear progress has room kept for it in the Steps heading), and
@@ -201,13 +201,23 @@ final class CookSyncJourney: JourneyTestCase {
         verifyLargestTextLayout(journey)
         journey.attachScreenshot(named: "06-after-relaunch-largest-text", to: self)
 
-        // A swipe that starts on a checked row turns the page and leaves every check as it was.
-        turnToTheNextStep(journey, from: lemonAfterRelaunch)
+        // At the largest text size the rows can sit below the fold, so the swipe starts on the ring, which the layout
+        // check above found on screen. It turns the page without starting a timer, and step 1 keeps every check.
+        turnToTheNextStep(journey, from: journey.element(JourneyID.cookTimerRing))
         XCTAssertTrue(
             journey.element(JourneyID.cookStepMeta, labelContaining: "Step 2 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
             "A swipe at the largest text size did not reach Step 2 of 2. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(isChecked(lemonAfterRelaunch), "The swipe that started on the lemon unchecked it.")
+        XCTAssertFalse(
+            journey.element(JourneyID.cookTimerRunning).waitForExistence(timeout: 1),
+            "The swipe at the largest text size started a timer. Screen: \(journey.screen)"
+        )
+        turnToThePreviousStep(journey)
+        XCTAssertTrue(
+            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 1 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Turning back at the largest text size did not reach Step 1 of 2. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(isChecked(lemonAfterRelaunch), "A swipe unchecked the lemon.")
         XCTAssertTrue(
             isChecked(journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: salt)),
             "A swipe unchecked the salt."
@@ -216,7 +226,6 @@ final class CookSyncJourney: JourneyTestCase {
             isChecked(journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: oil)),
             "A swipe unchecked the oil."
         )
-        XCTAssertFalse(journey.element(JourneyID.cookTimerRunning).exists, "A swipe started step 1's timer. Screen: \(journey.screen)")
 
         let afterRelaunch = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
         XCTAssertGreaterThanOrEqual(afterRelaunch.revision, reading.revision, "A relaunch moved QA's cook session backwards.")

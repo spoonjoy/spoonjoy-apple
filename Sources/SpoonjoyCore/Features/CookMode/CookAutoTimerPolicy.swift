@@ -20,29 +20,24 @@ public enum CookAutoTimerPolicy {
         return needed.isSubset(of: checkedIngredientIDs) && !needed.isSubset(of: previouslyChecked)
     }
 
-    /// Starts the timers an auto-start chose, once the pause after the check is over. A timer whose step lost a check
-    /// during the pause, or is no longer in the recipe, is skipped. A start that fails is reported with the message
-    /// the ring shows for the same failure, so the cook is never left with no timer and no reason.
-    @MainActor
-    public static func startTimers(
+    /// The timers an auto-start chose that should still start once the pause after the check is over. A timer whose
+    /// step lost a check during the pause, or is no longer in the recipe, is dropped.
+    public static func timersStillToStart(
         _ timers: [CookModeSystemTimerViewModel],
         steps: [RecipeStep],
-        stillChecked: Set<String>,
-        start: @MainActor (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome,
-        failed: (_ stepID: String, _ message: String) -> Void
-    ) async {
-        for timer in timers {
-            guard
-                let step = steps.first(where: { $0.id == timer.stepID }),
-                Set(step.ingredients.map(\.id)).isSubset(of: stillChecked)
-            else {
-                continue
+        stillChecked: Set<String>
+    ) -> [CookModeSystemTimerViewModel] {
+        timers.filter { timer in
+            guard let step = steps.first(where: { $0.id == timer.stepID }) else {
+                return false
             }
-            do {
-                _ = try await start(timer)
-            } catch {
-                failed(timer.stepID, CookModeSystemTimerScheduler.message(for: error, fallback: timer.systemUnavailableMessage))
-            }
+            return Set(step.ingredients.map(\.id)).isSubset(of: stillChecked)
         }
+    }
+
+    /// What the step's ring says when an auto-start fails: the same message as a failed tap on the ring, so the cook is
+    /// never left with no timer and no reason.
+    public static func startFailureMessage(for error: Error, timer: CookModeSystemTimerViewModel) -> String {
+        CookModeSystemTimerScheduler.message(for: error, fallback: timer.systemUnavailableMessage)
     }
 }
