@@ -291,9 +291,10 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   fail_check("Info.plist needs LSApplicationCategoryType for Mac App Store uploads") unless info_plist_text.include?("<key>LSApplicationCategoryType</key>")
 
   {
-    "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG" },
-    "Release" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0" },
-    "BootstrapDebug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "26.5", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "DEBUG" }
+    # SPOONJOY_WIDGET_EXTENSION lets the shared cook-session file skip `import SpoonjoyCore` in the widget.
+    "Debug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_WIDGET_EXTENSION\"" },
+    "Release" => { "IPHONEOS_DEPLOYMENT_TARGET" => "27.0", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "SPOONJOY_WIDGET_EXTENSION" },
+    "BootstrapDebug" => { "IPHONEOS_DEPLOYMENT_TARGET" => "26.5", "SWIFT_ACTIVE_COMPILATION_CONDITIONS" => "\"DEBUG SPOONJOY_WIDGET_EXTENSION\"" }
   }.each do |configuration, settings|
     block = find_build_settings_block(project_content, "app.spoonjoy.cook-timer-widget", configuration)
     assert_absent_setting(block, "CODE_SIGN_ENTITLEMENTS")

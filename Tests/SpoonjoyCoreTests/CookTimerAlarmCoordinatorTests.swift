@@ -72,7 +72,9 @@ struct CookTimerLiveActivityWiringTests {
         let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
         let unregister = try #require(center.range(of: "func unregister() {"))
         let body = center[unregister.upperBound...].prefix(80)
-        #expect(!body.contains("cancel") && !body.contains("End") && !body.contains("host"))
+        // Only the session activity ends; the step alarms keep running.
+        #expect(!body.contains("cancel") && !body.contains("stepTimers") && !body.contains("host"))
+        #expect(body.contains("activityObserver?.cookSessionEnded()"))
 
         let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
         #expect(!host.contains("cookModeEnded"))
@@ -97,7 +99,10 @@ struct CookTimerLiveActivityWiringTests {
         #expect(!view.contains("struct SpoonjoyCookTimerMetadata"))
         #expect(shared.contains("struct SpoonjoyCookTimerMetadata: AlarmMetadata"))
         #expect(widget.contains("ActivityConfiguration(for: AlarmAttributes<SpoonjoyCookTimerMetadata>.self)"))
-        #expect(!(host + widget + shared).contains("Activity.request"))
+        #expect(!(widget + shared).contains("Activity.request"))
+        // The app requests only the cook session activity; each timer's countdown stays AlarmKit's.
+        #expect(host.components(separatedBy: "Activity.request").count == 2)
+        #expect(host.contains("private var activity: Activity<SpoonjoyCookSessionAttributes>?"))
     }
 
     @Test("every timer start goes through the per-step registry, so a step never gets a second alarm")
@@ -130,7 +135,7 @@ struct CookTimerLiveActivityWiringTests {
         #expect(widget[controls.upperBound...].prefix(160).contains("case .countdown, .paused:\n            return true"))
         #expect(widget.contains(".accessibilityIdentifier(\"cookTimer.liveActivity.cancel\")"))
         #expect(host.contains("for await alarms in AlarmManager.shared.alarmUpdates"))
-        #expect(host.contains("CookModeSessionCenter.shared.stepTimers.forget(alarmID: alarmID)"))
+        #expect(host.contains("center.stepTimers.forget(alarmID: alarmID)"))
     }
 
     @Test("the next step button opens the app so it works when cook mode is not on screen")
@@ -138,6 +143,50 @@ struct CookTimerLiveActivityWiringTests {
         let shared = try source("Apps/Spoonjoy/LiveActivity/Shared/SpoonjoyCookTimerActivity.swift")
         let intent = try #require(shared.range(of: "struct NextCookActivityStepIntent"))
         #expect(shared[intent.upperBound...].prefix(200).contains("openAppWhenRun = true"))
+    }
+
+    @Test("a launch ends only the session activities an earlier process left, never the one cook mode just started")
+    func launchCleanupSparesTheNewActivity() throws {
+        let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
+        let initializer = try #require(host.range(of: "final class CookSessionLiveActivityController"))
+        let body = host[initializer.upperBound...].prefix(1_400)
+        // The ids are read before cook mode can request, so the later cleanup cannot reach a new activity.
+        let read = try #require(body.range(of: "let launchIDs = Activity<SpoonjoyCookSessionAttributes>.activities.map(\\.id)"))
+        let task = try #require(body.range(of: "Task {"))
+        #expect(read.upperBound <= task.lowerBound)
+        #expect(body.contains("CookSessionIslandLayout.staleActivityIDs(launchIDs: launchIDs, current: self?.activity?.id)"))
+        #expect(!host.contains("endAll"))
+    }
+
+    @Test("the session activity goes stale when its soonest timer ends, so the ended timer is redrawn")
+    func sessionActivityGoesStaleAtTheTimersEnd() throws {
+        let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
+        let session = try #require(host.range(of: "final class CookSessionLiveActivityController"))
+        let body = host[session.upperBound...]
+        #expect(body.components(separatedBy: "staleDate: CookSessionIslandLayout.staleDate(for: snapshot)").count == 3)
+        #expect(!body.prefix(6_000).contains("staleDate: nil"))
+    }
+
+    @Test("VoiceOver hears each session timer's name and its countdown, paused time or Done")
+    func sessionTimersReadTheirTime() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
+        let readout = try #require(widget.range(of: "private struct CookSessionTimerReadout: View {"))
+        let body = widget[readout.upperBound...].prefix(600)
+        #expect(body.contains(".accessibilityLabel(CookSessionIslandLayout.timerAccessibilityLabel(for: timer))"))
+        #expect(body.contains(".accessibilityValue(accessibilityValue(readout))"))
+        #expect(body.contains(".accessibilityIdentifier(\"cookSession.liveActivity.timer\")"))
+        // An explicit label on a parent would replace the time again.
+        #expect(!widget.contains(".accessibilityLabel(\"\\(timer.label) timer\")"))
+    }
+
+    @Test("the expanded island's timer column is wide enough for an hour-long countdown")
+    func expandedTimerColumnFitsHours() throws {
+        let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
+        let trailing = try #require(widget.range(of: "private struct CookSessionExpandedTrailing: View {"))
+        let body = widget[trailing.upperBound...].prefix(1_200)
+        // A countdown is only as wide as its current string, so a column sized to its content cut "2:14:23" to "2:14:…".
+        #expect(body.contains(".frame(width: 64, alignment: .trailing)"))
+        #expect(!body.contains("maxWidth: 72"))
     }
 
     @Test("the widget reports the app's marketing version")

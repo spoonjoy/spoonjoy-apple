@@ -25,6 +25,7 @@ struct SpoonjoyiOSApp: App {
 @MainActor
 final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
     private var cookTimerAlarmHost: AnyObject?
+    private var cookSessionActivity: CookSessionLiveActivityController?
 
     func application(
         _ application: UIApplication,
@@ -33,6 +34,7 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
         if #available(iOS 26.0, *) {
             cookTimerAlarmHost = CookTimerAlarmHost()
         }
+        cookSessionActivity = CookSessionLiveActivityController()
         return true
     }
 

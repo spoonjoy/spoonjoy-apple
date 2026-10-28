@@ -205,6 +205,7 @@ widget_target.build_configuration_list.build_configurations.each do |configurati
   assert_setting(settings, "GCC_TREAT_WARNINGS_AS_ERRORS", "YES", label)
   assert_absent_setting(settings, "CODE_SIGN_ENTITLEMENTS", label)
   assert_setting(settings, "IPHONEOS_DEPLOYMENT_TARGET", configuration.name == "BootstrapDebug" ? "26.5" : "27.0", label)
+  assert_setting(settings, "SWIFT_ACTIVE_COMPILATION_CONDITIONS", configuration.name == "Release" ? "SPOONJOY_WIDGET_EXTENSION" : "DEBUG SPOONJOY_WIDGET_EXTENSION", label)
 end
 fail_check("#{WIDGET_BUNDLE_ID} must sit under #{IOS_BUNDLE_ID} so the app's automatic signing covers it") unless WIDGET_BUNDLE_ID.start_with?("#{IOS_BUNDLE_ID}.")
 
@@ -326,7 +327,16 @@ end
 
 theme_source = APP_ROOT.join("Shared/Design/KitchenTableTheme.swift").to_s
 fail_check("#{WIDGET_TARGET} must reuse KitchenTableTheme.swift so the Live Activity matches the app palette") unless widget_sources.include?(theme_source)
-fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - [theme_source]).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
+# The widget links no package, so it compiles exactly these plain-Foundation SpoonjoyCore files for the cook session.
+widget_core_sources = %w[
+  Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
+  Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
+  Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
+].map { |path| ROOT.join(path).to_s }
+widget_core_sources.each do |source|
+  fail_check("#{relative(source)} missing from #{WIDGET_TARGET}") unless widget_sources.include?(source)
+end
+fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (widget_sources - [theme_source] - widget_core_sources).all? { |source| relative(source).start_with?("Apps/Spoonjoy/LiveActivity/") }
 
 # App Store review rejects uploads (ITMS-91053) whose bundle uses a required-reason API without declaring it.
 # The manifest must ship as a resource of both apps, and every required-reason API category the app or

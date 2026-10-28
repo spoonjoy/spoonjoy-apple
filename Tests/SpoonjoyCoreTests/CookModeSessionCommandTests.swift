@@ -55,11 +55,56 @@ struct CookModeSessionCommandTests {
         #expect(read.message == CookModeSessionResolver.readout(for: second))
     }
 
+    @Test("check marks every ingredient and earlier-step output on the step, once")
+    func checkStep() throws {
+        let use = RecipeStepOutputUse(id: "u1", inputStepNum: 2, outputStepNum: 1, outputOfStep: RecipeStepOutputReference(stepNum: 1, stepTitle: "Chop"))
+        let recipe = try fixtureRecipe(steps: [
+            RecipeStep(id: "s1", stepNum: 1, stepTitle: "Chop", description: "Chop.", duration: nil,
+                       ingredients: [RecipeIngredient(id: "i1", name: "Onion", quantity: 1, unit: nil)]),
+            RecipeStep(id: "s2", stepNum: 2, stepTitle: "Sear", description: "Sear.", duration: 5,
+                       ingredients: [
+                           RecipeIngredient(id: "i2", name: "Steak", quantity: 1, unit: nil),
+                           RecipeIngredient(id: "i3", name: "Salt", quantity: 1, unit: "tsp"),
+                       ],
+                       usingSteps: [use]),
+        ])
+        let start = CookModeProgress.starting(recipe: recipe, startedAt: stamp)
+        let second = try start.selectingStep(id: "s2", updatedAt: stamp).togglingIngredient(id: "i3", checked: true, updatedAt: stamp)
+        let outcome = CookModeSessionResolver.resolve(.checkStep, viewModel: CookModeViewModel(recipe: recipe, progress: second), updatedAt: stamp)
+        #expect(Set(outcome.progress.checkedIngredientIDs) == ["i2", "i3"])
+        #expect(outcome.progress.checkedStepOutputUseIDs == ["u1"])
+        #expect(outcome.progress.currentStepID == "s2")
+        #expect(outcome.message == "Checked everything for step 2.")
+        #expect(outcome.timerToStart == nil)
+
+        let again = CookModeSessionResolver.resolve(.checkStep, viewModel: CookModeViewModel(recipe: recipe, progress: outcome.progress), updatedAt: stamp)
+        #expect(again.progress == outcome.progress)
+        #expect(again.message == "Step 2 is already checked.")
+
+        let bare = try fixtureRecipe()
+        let nothing = CookModeSessionResolver.resolve(
+            .checkStep,
+            viewModel: CookModeViewModel(recipe: bare, progress: CookModeProgress.starting(recipe: bare, startedAt: stamp)),
+            updatedAt: stamp
+        )
+        #expect(nothing.message == "Step 1 has nothing to check.")
+
+        // Progress restored from an older build may not list the step's ids; check leaves it as it is.
+        let unlisted = CookModeProgress(recipeID: recipe.id, stepIDs: ["s1", "s2"], startedAt: stamp)
+        let stale = CookModeSessionResolver.resolve(
+            .checkStep,
+            viewModel: CookModeViewModel(recipe: recipe, progress: try unlisted.selectingStep(id: "s2", updatedAt: stamp)),
+            updatedAt: stamp
+        )
+        #expect(stale.progress.checkedIngredientIDs.isEmpty)
+        #expect(stale.progress.checkedStepOutputUseIDs.isEmpty)
+    }
+
     @Test("a recipe without steps reports that plainly")
     func emptyRecipe() throws {
         let empty = try fixtureRecipe(steps: [])
         let viewModel = CookModeViewModel(recipe: empty, progress: CookModeProgress.starting(recipe: empty, startedAt: stamp))
-        for command in [CookModeSessionCommand.nextStep, .previousStep, .startTimer, .readStep] {
+        for command in [CookModeSessionCommand.nextStep, .previousStep, .startTimer, .readStep, .checkStep] {
             let outcome = CookModeSessionResolver.resolve(command, viewModel: viewModel, updatedAt: stamp)
             #expect(outcome.message == "This recipe has no steps.")
             #expect(outcome.timerToStart == nil)
