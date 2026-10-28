@@ -1256,6 +1256,7 @@ private struct CookbookRecipeThumbnail: View {
 
     var body: some View {
         RecipeCoverImage(url: recipe.coverImageURL, title: recipe.title, subtitle: "Photo not added", showsFallbackLabel: false)
+            .recipeZoomSource(id: recipe.id)
     }
 }
 

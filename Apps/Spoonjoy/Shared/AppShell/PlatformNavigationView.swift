@@ -18,6 +18,12 @@ struct PlatformNavigationView: View {
 #endif
     @FocusState private var isSearchFieldFocused: Bool
     @State private var compactTabs: CompactTabNavigation
+    // One cover-zoom namespace per tab stack: a cover tapped in a tab zooms into the recipe that tab pushes.
+    @Namespace private var kitchenRecipeZoom
+    @Namespace private var recipesRecipeZoom
+    @Namespace private var cookbooksRecipeZoom
+    @Namespace private var shoppingRecipeZoom
+    @Namespace private var searchRecipeZoom
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
     @State private var splitColumnVisibility: NavigationSplitViewVisibility = .automatic
@@ -385,8 +391,8 @@ struct PlatformNavigationView: View {
                 detailContentWithShellStatus
                     .navigationTitle(title(for: navigation.route))
 #if os(iOS)
-                    // The Kitchen's photo is its title, so its bar stays inline and the photo runs under it.
-                    .navigationBarTitleDisplayMode(navigation.route == .kitchen ? .inline : .large)
+                    // The Kitchen's and a recipe's photo is the title, so their bar stays inline and the photo runs under it.
+                    .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) ? .inline : .large)
                     .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
                     // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
@@ -439,13 +445,15 @@ struct PlatformNavigationView: View {
 
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
     @ViewBuilder private func compactTabStack(for tab: CompactTab) -> some View {
+        let zoom = recipeZoomNamespace(for: tab)
         let stack = NavigationStack(path: compactPath(for: tab)) {
             compactTabRoot(for: tab)
                 // Must stay inside this NavigationStack's closure (see baseRouteNavigationStack).
                 .navigationDestination(for: AppRoute.self) { route in
-                    compactPushedPage(for: route)
+                    compactPushedPage(for: route, recipeZoom: zoom)
                 }
         }
+        .environment(\.recipeZoomNamespace, zoom)
         if tab == .search {
             // Only the Search tab owns the search field. Attached to the TabView, iOS also drew a
             // "Search Spoonjoy" field in the navigation bar of every other tab (it showed on a pull-down
@@ -500,12 +508,37 @@ struct PlatformNavigationView: View {
         }
     }
 
-    private func compactPushedPage(for route: AppRoute) -> some View {
-        compactPage(for: route)
+    @ViewBuilder private func compactPushedPage(for route: AppRoute, recipeZoom: Namespace.ID) -> some View {
+        let page = compactPage(for: route)
             .navigationTitle(compactPushedTitle(for: route))
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
 #endif
+        if case .recipeDetail(let id, .detail) = route {
+            // The recipe grows out of the cover that was tapped, and shrinks back into it on the way out.
+            page.recipeZoomDestination(recipeID: id, in: recipeZoom)
+        } else {
+            page
+        }
+    }
+
+    private func routeLeadsWithPhoto(_ route: AppRoute) -> Bool {
+        switch route {
+        case .kitchen, .recipeDetail(_, .detail):
+            true
+        default:
+            false
+        }
+    }
+
+    private func recipeZoomNamespace(for tab: CompactTab) -> Namespace.ID {
+        switch tab {
+        case .kitchen: kitchenRecipeZoom
+        case .recipes: recipesRecipeZoom
+        case .cookbooks: cookbooksRecipeZoom
+        case .shopping: shoppingRecipeZoom
+        case .search: searchRecipeZoom
+        }
     }
 
     private func compactPage(for route: AppRoute) -> some View {

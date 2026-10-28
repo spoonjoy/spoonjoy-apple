@@ -350,10 +350,10 @@ public enum ScenarioVerifier {
                 ),
                 sourceCheck(
                     name: "recipe detail surface source",
-                    detail: "Recipe detail surface includes web-parity header controls, step sections with per-step ingredients, Cooks, and native sharing.",
+                    detail: "Recipe detail surface includes an inline serves control, step sections with per-step ingredients, Cooks, and native sharing.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift",
-                    tokens: ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView", "ShareLink"]
+                    tokens: ["RecipeDetailView", "recipeServesControl", "RecipeServesPopover", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView", "ShareLink"]
                 ),
                 sourceCheck(
                     name: "cook mode surface source",

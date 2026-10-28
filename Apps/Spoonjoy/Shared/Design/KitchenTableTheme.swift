@@ -139,6 +139,8 @@ enum KitchenTableTheme {
     static let spreadInstruction = Font.system(.title3, design: .serif)
     static let cookInstruction = Font.system(.title, design: .serif)
     static let stepNumeral = Font.system(.title, design: .serif).weight(.semibold)
+    /// A step's name beside its "STEP 1" eyebrow on the recipe page, set like a cookbook subhead.
+    static let stepTitle = Font.system(.title3, design: .serif).weight(.medium).italic()
     static let runningHead = Font.caption2.weight(.bold)
     static let selectionWash = brass.opacity(0.09)
     static let spreadGutterRule = hairline

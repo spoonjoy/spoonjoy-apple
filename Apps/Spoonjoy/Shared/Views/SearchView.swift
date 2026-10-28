@@ -353,6 +353,7 @@ private struct SearchSurfaceThumbnail: View {
         .frame(width: 56, height: 56)
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+        .recipeZoomSource(id: row.result.type == .recipe ? row.result.id : nil)
     }
 
     private var imageLoadingAnimation: Animation? {

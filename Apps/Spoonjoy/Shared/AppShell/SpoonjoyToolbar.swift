@@ -18,21 +18,31 @@ struct SpoonjoyToolbar: ViewModifier {
                             .accessibilityIdentifier("kitchen.addRecipe")
                     }
                 }
-                ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button {
-                            search.apply(route: search.route)
-                            navigation.navigate(to: search.route)
+                if showsActionsMenu {
+                    ToolbarItem(placement: .primaryAction) {
+                        Menu {
+                            Button {
+                                search.apply(route: search.route)
+                                navigation.navigate(to: search.route)
+                            } label: {
+                                Label(search.hasQuery ? "Open Search" : "Search All", systemImage: "magnifyingglass")
+                            }
+                            ShareActions(route: navigation.route)
+                            editControl
                         } label: {
-                            Label(search.hasQuery ? "Open Search" : "Search All", systemImage: "magnifyingglass")
+                            Label("Actions", systemImage: "ellipsis.circle")
                         }
-                        ShareActions(route: navigation.route)
-                        editControl
-                    } label: {
-                        Label("Actions", systemImage: "ellipsis.circle")
                     }
                 }
             }
+    }
+
+    /// The recipe page carries its own Share and More, so the shell's Actions would be a second of each.
+    private var showsActionsMenu: Bool {
+        if case .recipeDetail(_, .detail) = navigation.route {
+            return false
+        }
+        return true
     }
 
     /// The kitchen and the recipe drawers carry Add a recipe, where the website has Create Recipe.

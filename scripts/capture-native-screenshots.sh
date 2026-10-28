@@ -1717,11 +1717,11 @@ wait_for_accessibility_proof() {
           "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
         },
         "recipe-detail" => {
-          "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
-          "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
+          "voiceOverLabels" => ["Cook", "Save", "Serves", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
+          "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "inline serves control", "step ingredient rows"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-          "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
+          "hierarchyAnchors" => ["RecipeDetailView", "recipeServesControl", "RecipeServesPopover", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
           "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cook-log" => {

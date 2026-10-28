@@ -334,3 +334,41 @@ struct KitchenTableNoPhotoView: View {
         return Text(displaySubtitle)
     }
 }
+
+// MARK: - Cover zoom
+
+extension EnvironmentValues {
+    /// The namespace the tab's stack shares between every recipe cover it shows and the recipe page it pushes, so
+    /// a tapped cover zooms into the page and shrinks back into place on the way out. Nil outside a tab stack.
+    @Entry var recipeZoomNamespace: Namespace.ID?
+}
+
+extension View {
+    /// Marks this cover as where the recipe page grows from. Pass nil for a thumbnail that is not a recipe.
+    func recipeZoomSource(id recipeID: String?) -> some View {
+        modifier(RecipeZoomSource(recipeID: recipeID))
+    }
+
+    /// The recipe page's side of the zoom: the system zoom transition from the cover tagged with `recipeID`. With
+    /// Reduce Motion on, the system replaces the zoom with a crossfade.
+    @ViewBuilder func recipeZoomDestination(recipeID: String, in namespace: Namespace.ID) -> some View {
+#if os(iOS)
+        navigationTransition(.zoom(sourceID: recipeID, in: namespace))
+#else
+        self
+#endif
+    }
+}
+
+private struct RecipeZoomSource: ViewModifier {
+    @Environment(\.recipeZoomNamespace) private var namespace
+    let recipeID: String?
+
+    func body(content: Content) -> some View {
+        if let namespace, let recipeID {
+            content.matchedTransitionSource(id: recipeID, in: namespace)
+        } else {
+            content
+        }
+    }
+}

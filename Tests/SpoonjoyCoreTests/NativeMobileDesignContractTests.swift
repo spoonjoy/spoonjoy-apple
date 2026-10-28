@@ -216,9 +216,9 @@ struct NativeMobileDesignContractTests {
             recipeDetail,
             in: recipeDetailPath,
             contains: [
-                "Label(\"Recipe actions\", systemImage: \"ellipsis.circle\")",
+                "Label(\"More\", systemImage: \"ellipsis\")",
                 "ownerToolsMenuItems",
-                "if !usesCompactRecipeDock"
+                "ToolbarItemGroup(placement: .primaryAction)"
             ]
         )
     }
@@ -360,7 +360,7 @@ struct NativeMobileDesignContractTests {
                 "desktopClassShell",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.page.ignoresSafeArea())",
-                ".navigationBarTitleDisplayMode(navigation.route == .kitchen ? .inline : .large)",
+                ".navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) ? .inline : .large)",
                 ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
@@ -841,20 +841,21 @@ struct NativeMobileDesignContractTests {
             detail,
             in: detailPath,
             contains: [
-                "recipePrimaryActions",
-                "recipeSecondaryActions",
+                "recipeMastheadActions",
+                "recipeUtilityButtons",
                 "@Environment(\\.horizontalSizeClass)",
                 "usesCompactRecipeDock",
-                "if !usesCompactRecipeDock",
                 "Menu",
                 "KitchenTableActionButtonStyle(prominence: .primary)",
-                "KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary)",
-                "Label(\"Cook mode\", systemImage: \"fork.knife\")",
-                "Label(\"Save\", systemImage: \"book.closed\")",
+                ".recipeGlassCircle()",
+                "Label(\"Cook\", systemImage: \"play.fill\")",
+                "Label(\"Save\", systemImage: \"bookmark\")",
                 "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
-                "recipeHeaderControls"
+                "recipeServesControl"
             ],
             forbids: [
+                "RecipeScaleSelector",
+                "recipeHeaderControls",
                 "HStack {\n                if hasAction(.startCooking)",
                 "Stepper(value: $shoppingScaleFactor",
                 ".frame(maxWidth: 220)",
@@ -880,19 +881,19 @@ struct NativeMobileDesignContractTests {
             detail,
             in: detailPath,
             contains: [
-                "recipeHeaderControls",
-                "RecipeScaleSelector",
+                "recipeServesControl",
+                "RecipeServesPopover",
                 "Label(\"Clear progress\", systemImage: \"arrow.counterclockwise\")",
                 "isCookbookSaveSheetPresented",
-                "Label(\"Save\", systemImage: \"book.closed\")",
+                "Label(\"Save\", systemImage: \"bookmark\")",
                 "stepsSection",
                 "KitchenTableSection(title: \"Steps\", subtitle: \"Tap ingredients as you go\")",
                 "Text(\"Ingredients\")",
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
                 "RecipeDetailCookProgressSnapshot",
-                "spoonjoy-cook-progress:\\(viewModel.id)",
-                "Label(\"Cook mode\", systemImage: \"fork.knife\")",
+                "spoonjoy-cook-progress:\\(recipeID)",
+                "Label(\"Cook\", systemImage: \"play.fill\")",
                 "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
                 "KitchenTableSection(title: \"Save to Cookbook\")"
             ],
@@ -940,16 +941,16 @@ struct NativeMobileDesignContractTests {
             screenshotProof,
             in: screenshotProofPath,
             contains: [
-                "\"Cook mode\"",
+                "\"Cook\"",
                 "\"Save\"",
-                "\"Yield\"",
+                "\"Serves\"",
                 "\"Clear progress\"",
                 "\"Add to list\"",
                 "\"Steps\"",
                 "\"timer\"",
                 "\"Cooks\"",
                 "\"Ingredients\"",
-                "\"RecipeScaleSelector\"",
+                "\"RecipeServesPopover\"",
                 "\"RecipeStepDurationCue\"",
                 "\"RecipeStepChecklistRow\""
             ],
@@ -979,8 +980,8 @@ struct NativeMobileDesignContractTests {
                 "let hasVisibleCurrentRecipe = routeState.currentViewModel?.id == recipeID",
                 "if !hasVisibleCurrentRecipe",
                 "private var recipeMasthead",
-                "private var recipeHeroMedia",
-                "if viewModel.cover.hasRealCover",
+                "private func recipeHeroMedia(coverImageURL: URL)",
+                "if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover",
                 "private var recipeNoPhotoStatus",
                 "Label(viewModel.cover.noPhotoLabel",
                 "private var recipeIdentityAndProvenance",
@@ -988,8 +989,8 @@ struct NativeMobileDesignContractTests {
                 "private var recipeMastheadLogCookAction",
                 "viewModel.cover.hasRealCover",
                 "Label(\"Log\", systemImage: \"fork.knife.circle\")",
-                ".frame(maxWidth: fillsWidth ? .infinity : 440)",
-                "recipeHeaderControls(fillsWidth: usesCompactRecipeDock, includesClearProgress: !usesCompactRecipeDock)",
+                "RecipeHeroMetrics.sheetOverlap",
+                "recipeServesControl",
                 ".buttonStyle(.plain)",
                 ".navigationTitle(\"Save to Cookbook\")"
             ],
@@ -1202,9 +1203,9 @@ struct NativeMobileDesignContractTests {
             recipeDetail,
             in: recipeDetailPath,
             contains: [
-                "Image(systemName: \"ellipsis\")",
-                ".accessibilityLabel(\"Manage recipe\")",
-                ".accessibilityHint(\"Opens owner tools for this recipe.\")"
+                "Label(\"More\", systemImage: \"ellipsis\")",
+                ".accessibilityLabel(\"More\")",
+                "ownerToolsMenuItems"
             ],
             forbids: [
                 "Text(provenance)",
@@ -1519,7 +1520,7 @@ struct NativeMobileDesignContractTests {
                 "compactTabStack(for: .search)",
                 "Text(\"Mine\").tag(AppRoute.recipes)",
                 "Text(\"Saved\").tag(AppRoute.savedRecipes)",
-                ".navigationDestination(for: AppRoute.self) { route in\n                    compactPushedPage(for: route)"
+                ".navigationDestination(for: AppRoute.self) { route in\n                    compactPushedPage(for: route, recipeZoom: zoom)"
             ],
             forbids: [
                 "compactTabContent(for:",

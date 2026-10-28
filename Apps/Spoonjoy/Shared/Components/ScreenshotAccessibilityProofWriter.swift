@@ -269,11 +269,11 @@ enum ScreenshotAccessibilityProofWriter {
             )
         case ("recipe-detail", "RecipeDetailView"):
             RouteAccessibilityEvidence(
-                voiceOverLabels: ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "timer", "Cooks"],
-                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows", "duration cues"],
+                voiceOverLabels: ["Cook", "Save", "Serves", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "timer", "Cooks"],
+                keyboardNavigationTargets: ["recipe primary actions", "recipe secondary menu", "inline serves control", "step ingredient rows", "duration cues"],
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepDurationCue", "RecipeStepChecklistRow", "SpoonCookLogView"],
+                hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeServesControl", "RecipeServesPopover", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepDurationCue", "RecipeStepChecklistRow", "SpoonCookLogView"],
                 layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-log", "SpoonCookLogView"):
