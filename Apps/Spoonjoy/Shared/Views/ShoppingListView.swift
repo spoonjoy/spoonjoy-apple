@@ -439,7 +439,7 @@ struct ShoppingListView: View {
 
     private var createRecipeButton: some View {
         Button(action: createRecipe) {
-            Label("Create a recipe", systemImage: "square.and.pencil")
+            Label("Add a recipe", systemImage: "plus")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
         .accessibilityIdentifier("shopping.createRecipe")
@@ -463,7 +463,7 @@ struct ShoppingListView: View {
             .buttonStyle(.plain)
         } else {
             Button(action: createRecipe) {
-                Label("Create a recipe", systemImage: "square.and.pencil")
+                Label("Add a recipe", systemImage: "plus")
                     .labelStyle(.iconOnly)
                     .font(.headline)
                     .frame(width: 46, height: 46)
@@ -488,10 +488,9 @@ struct ShoppingListView: View {
             .accessibilityLabel("Add from recipe")
         } else if isAccessibilityLayout {
             Button(action: createRecipe) {
-                Label("New recipe", systemImage: "square.and.pencil")
+                Label("Add a recipe", systemImage: "plus")
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .accessibilityLabel("Create a recipe")
             .accessibilityIdentifier("shopping.createRecipe")
         } else if hasRecipes {
             addFromRecipeButton
@@ -535,7 +534,7 @@ struct ShoppingListView: View {
                         focusAddItem()
                     }
                 },
-                recipeActionTitle: hasRecipes ? "Add from recipe" : "Create a recipe",
+                recipeActionTitle: hasRecipes ? "Add from recipe" : "Add a recipe",
                 addFromRecipeAction: hasRecipes ? openSearch : createRecipe
             )
         }
@@ -846,7 +845,7 @@ private struct ShoppingReceiptStateView: View {
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
 
                 Button(action: addFromRecipeAction) {
-                    Label(recipeActionTitle, systemImage: recipeActionTitle == "Add from recipe" ? "book" : "square.and.pencil")
+                    Label(recipeActionTitle, systemImage: recipeActionTitle == "Add from recipe" ? "book" : "plus")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             }

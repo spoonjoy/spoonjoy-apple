@@ -4,6 +4,7 @@ import SwiftUI
 struct SpoonjoyToolbar: ViewModifier {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
+    let addRecipe: () -> Void
 #if os(iOS)
     @Environment(\.editMode) private var editMode: Binding<EditMode>?
 #endif
@@ -11,12 +12,10 @@ struct SpoonjoyToolbar: ViewModifier {
     func body(content: Content) -> some View {
         content
             .toolbar {
-                if showsNewRecipe {
+                if showsAddRecipe {
                     ToolbarItem(placement: .primaryAction) {
-                        Button("New Recipe", systemImage: "plus") {
-                            navigation.navigate(to: .recipeEditor(id: nil))
-                        }
-                        .accessibilityIdentifier("recipes.new")
+                        Button("Add a recipe", systemImage: "plus", action: addRecipe)
+                            .accessibilityIdentifier("kitchen.addRecipe")
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
@@ -36,8 +35,8 @@ struct SpoonjoyToolbar: ViewModifier {
             }
     }
 
-    /// The kitchen and the recipe drawers carry a create button, like the website's Create Recipe.
-    private var showsNewRecipe: Bool {
+    /// The kitchen and the recipe drawers carry Add a recipe, where the website has Create Recipe.
+    private var showsAddRecipe: Bool {
         switch navigation.route {
         case .kitchen, .recipes, .savedRecipes, .everyoneRecipes:
             true
@@ -66,7 +65,7 @@ struct SpoonjoyToolbar: ViewModifier {
 }
 
 extension View {
-    func spoonjoyToolbar(navigation: Binding<AppNavigationState>, search: Binding<SearchState>) -> some View {
-        modifier(SpoonjoyToolbar(navigation: navigation, search: search))
+    func spoonjoyToolbar(navigation: Binding<AppNavigationState>, search: Binding<SearchState>, addRecipe: @escaping () -> Void) -> some View {
+        modifier(SpoonjoyToolbar(navigation: navigation, search: search, addRecipe: addRecipe))
     }
 }

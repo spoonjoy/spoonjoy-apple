@@ -1,11 +1,12 @@
+import SpoonjoyCore
 import XCTest
 
-/// Journey 2: a new account creates a two-step recipe with ingredients in the native editor, and the
-/// recipe then shows up in My Recipes, the Kitchen, its detail page, a title search and an ingredient
-/// search, and again after a relaunch.
+/// Journey 2: a new account edits a two-step recipe made elsewhere, pasting and typing ingredients in the
+/// native editor, and the recipe then shows up in My Recipes, the Kitchen, its detail page, a title search
+/// and an ingredient search, and again after a relaunch.
 @MainActor
 final class RecipesJourney: JourneyTestCase {
-    func testRecipesJourney() throws {
+    func testRecipesJourney() async throws {
         let account = try JourneyAccounts.account(1)
         let token = try JourneyAccounts.runToken()
         let title = "Journey \(token) Lemon Pasta J2"
@@ -13,6 +14,45 @@ final class RecipesJourney: JourneyTestCase {
         let spaghetti = "spaghetti"
         // Matches neither the title nor any ingredient, so its search has no results.
         let unmatchedQuery = "Journey\(token)nothing"
+        // There is no in-app recipe form, so the recipe is made on QA, the way the connector or a share would.
+        let qa = try await JourneyQAClient.signIn(account)
+        // An older second recipe, so My Recipes has an index row under the lead. Its long title must wrap at the
+        // largest text size.
+        let indexTitle = "Journey \(token) Slow-Braised Short Ribs with Gremolata J2"
+        _ = try await qa.createRecipe(
+            title: indexTitle,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Braise the ribs",
+                    description: "Braise the ribs until tender.",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: []
+                )
+            ]
+        )
+        _ = try await qa.createRecipe(
+            title: title,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Tear the basil",
+                    description: "Tear the basil leaves into a bowl.",
+                    duration: nil,
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: basil)],
+                    outputStepNums: []
+                ),
+                RecipeStepDraft(
+                    stepNum: 2,
+                    stepTitle: "Cook the spaghetti",
+                    description: "Boil the spaghetti until tender.",
+                    duration: nil,
+                    ingredients: [RecipeIngredientDraft(quantity: 200, unit: "g", name: spaghetti)],
+                    outputStepNums: []
+                )
+            ]
+        )
         let journey = JourneyApp.launchFresh()
 
         journey.signIn(as: account.username, password: account.password)
@@ -21,25 +61,12 @@ final class RecipesJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
-        // Account 1 has no recipes, so the Shopping List offers "Create a recipe", which opens the editor.
-        journey.openTab(JourneyCopy.shoppingTab)
-        journey.tap(JourneyID.shoppingCreateRecipe)
-        journey.enterText(title, into: JourneyID.editorTitle)
-        journey.enterText("2", into: JourneyID.editorServings)
+        journey.openTab(JourneyCopy.recipesTab)
+        journey.openRecipe(titled: title, from: JourneyID.recipesRow)
+        journey.tap(JourneyID.recipeDetailActions)
+        journey.tap(JourneyID.recipeDetailEdit)
+        journey.assertFieldValue(JourneyID.editorTitle, equals: title)
 
-        journey.tap(JourneyID.editorAddStep)
-        journey.tap(JourneyID.editorStepAddIngredient(1))
-        journey.enterText(basil, into: JourneyID.editorIngredientName(step: 1, ingredient: 1))
-        journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 1, ingredient: 1), with: "1")
-        journey.enterText("cup", into: JourneyID.editorIngredientUnit(step: 1, ingredient: 1))
-        journey.enterText("Tear the basil leaves into a bowl.", into: JourneyID.editorStepDescription(1))
-        journey.enterText("Tear the basil", into: JourneyID.editorStepTitle(1))
-
-        journey.tap(JourneyID.editorAddStep)
-        journey.tap(JourneyID.editorStepAddIngredient(2))
-        journey.enterText(spaghetti, into: JourneyID.editorIngredientName(step: 2, ingredient: 1))
-        journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 2, ingredient: 1), with: "200")
-        journey.enterText("g", into: JourneyID.editorIngredientUnit(step: 2, ingredient: 1))
         // Paste two ingredient lines into step 2: the preview parses them, the rows are added to the step.
         journey.tap(JourneyID.editorStepPasteIngredients(2))
         journey.enterText("2 large eggs\n1 tbsp soy sauce", into: JourneyID.editorPasteText)
@@ -65,15 +92,14 @@ final class RecipesJourney: JourneyTestCase {
         journey.assertFieldValue(JourneyID.editorIngredientQuantity(step: 2, ingredient: 4), equals: "2")
         journey.assertFieldValue(JourneyID.editorIngredientUnit(step: 2, ingredient: 4), equals: "cup")
         journey.attachScreenshot(named: "03-typed-line-parsed", to: self)
-        journey.enterText("Boil the spaghetti until tender.", into: JourneyID.editorStepDescription(2))
-        journey.enterText("Cook the spaghetti", into: JourneyID.editorStepTitle(2))
 
-        // The step title, a single-line field, is the last one edited, so Return closes the keyboard before
-        // Save. Saving a new recipe returns to My Recipes.
+        // The step title, a single-line field, is the last one edited, so Return closes the keyboard before Save.
+        // Saving returns to the recipe page.
+        journey.replaceText(in: JourneyID.editorStepTitle(2), with: "Cook the spaghetti and rice")
         journey.saveRecipeEditor()
         XCTAssertTrue(
-            journey.element(JourneyID.recipesRow, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "My Recipes does not list the new recipe after saving it. Screen: \(journey.screen)"
+            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "rice").waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The recipe page does not list the typed rice after saving. Screen: \(journey.screen)"
         )
 
         journey.openTab(JourneyCopy.kitchenTab)
@@ -132,6 +158,22 @@ final class RecipesJourney: JourneyTestCase {
         // The relaunch also takes the largest accessibility text size, to capture the recipe page's ingredients at it.
         journey.useLargestAccessibilityTextOnNextLaunch()
         verifyAfterRelaunch(journey) {
+            // At the largest text size the Kitchen's lead still names the recipe and keeps both actions reachable.
+            journey.openTab(JourneyCopy.kitchenTab)
+            XCTAssertTrue(
+                journey.element(JourneyID.kitchenRecipe, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
+                "The Kitchen lost its lead recipe at the largest text size. Screen: \(journey.screen)"
+            )
+            let cook = journey.element(JourneyID.kitchenRecipeCook)
+            XCTAssertTrue(cook.waitForExistence(timeout: JourneyApp.interactionTimeout), "Start cooking is missing at the largest text size.")
+            // The lead grows with the text, so its buttons can sit below the first screen.
+            if !cook.isHittable {
+                journey.app.swipeUp()
+            }
+            XCTAssertTrue(cook.isHittable, "Start cooking cannot be tapped at the largest text size. Screen: \(journey.screen)")
+            XCTAssertTrue(journey.element(JourneyID.kitchenRecipeOpen).exists, "The Recipe button is missing at the largest text size.")
+            journey.attachScreenshot(named: "06a-kitchen-accessibility-text-size", to: self)
+
             journey.openTab(JourneyCopy.recipesTab)
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
             XCTAssertEqual(journey.element(JourneyID.recipeDetailTitle).label, title, "My Recipes opened another recipe after a relaunch.")
@@ -149,6 +191,18 @@ final class RecipesJourney: JourneyTestCase {
             rice.tap()
             XCTAssertEqual(rice.value as? String, "used", "Tapping the rice at the largest text size did not check it.")
             journey.attachScreenshot(named: "07-ingredients-accessibility-text-size", to: self)
+
+            // Back on My Recipes, the shared index row stacks and wraps at this size instead of running off the
+            // screen. The lead fills the first screen, so the index row sits further down.
+            journey.goBack()
+            let row = journey.element(JourneyID.recipesRow, labelContaining: indexTitle)
+            XCTAssertTrue(row.waitForExistence(timeout: JourneyApp.networkTimeout), "My Recipes has no index row for the older recipe at the largest text size.")
+            journey.swipeUpUntilHittable(row)
+            let screenFrame = journey.app.windows.firstMatch.frame
+            XCTAssertTrue(row.isHittable, "The index row cannot be tapped at the largest text size. Screen: \(journey.screen)")
+            XCTAssertGreaterThanOrEqual(row.frame.minX, screenFrame.minX, "The recipe row starts off the screen at the largest text size.")
+            XCTAssertLessThanOrEqual(row.frame.maxX, screenFrame.maxX, "The recipe row runs off the screen at the largest text size.")
+            journey.attachScreenshot(named: "06b-recipe-row-accessibility-text-size", to: self)
         }
     }
 }

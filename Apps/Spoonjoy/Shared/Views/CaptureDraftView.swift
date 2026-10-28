@@ -194,6 +194,8 @@ struct CaptureDraftView: View {
                 .fill(KitchenTableTheme.brass.opacity(0.24))
                 .frame(height: 1)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("capture.draft")
     }
 
     private var submitButtonTitle: String {
