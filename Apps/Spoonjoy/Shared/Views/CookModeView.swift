@@ -105,6 +105,7 @@ struct CookModeView: View {
     /// The step pager's drag. It springs back to rest by itself when the drag ends or is cancelled.
     @GestureState(resetTransaction: Transaction(animation: KitchenSpring.pageTurn.animation))
     private var pageDrag = CookPageDrag()
+    @State private var pageTurnTapGuard = CookPageTurnTapGuard()
     private let incomingProgress: CookModeProgress?
     private let progressDidChange: (CookModeProgress) -> Void
     private let shoppingViewModel: ShoppingSurfaceViewModel
@@ -329,7 +330,6 @@ struct CookModeView: View {
             Text("\(recipe.title) · \(model.stepProgressLabel)")
                 .font(KitchenTableTheme.meta)
                 .foregroundStyle(KitchenTableTheme.ink2)
-                .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier("cook.step.meta")
 
@@ -476,6 +476,11 @@ struct CookModeView: View {
                 }
                 drag.offset = trackedPageOffset(value.translation.width, pageWidth: pageWidth)
             }
+            .onChanged { value in
+                if abs(value.translation.width) > abs(value.translation.height) {
+                    pageTurnTapGuard.pageMoved()
+                }
+            }
             .onEnded { value in
                 guard abs(value.translation.width) > abs(value.translation.height) else {
                     return
@@ -578,7 +583,8 @@ struct CookModeView: View {
             stepKey: stepTimerKey(step),
             entry: { timerBoard.ordered.first { $0.id == stepTimerKey(step) } },
             hint: Self.startHint(ingredientCount: step.ingredients.count),
-            isInteractive: isCurrent
+            isInteractive: isCurrent,
+            tapGuard: pageTurnTapGuard
         ) {
             try await scheduleSystemTimer(timer, step: step).message(startedMessage: "\(timer.durationLabel) timer started.")
         } cancel: {
@@ -754,14 +760,20 @@ struct CookModeView: View {
     private func ingredientBinding(for row: CookModeChecklistRow) -> Binding<Bool> {
         Binding(
             get: { currentIngredientCheckedState(for: row) },
-            set: { checked in progressAfterTogglingIngredient(id: row.id, checked: checked) }
+            set: { checked in
+                guard pageTurnTapGuard.allowsTap() else { return }
+                progressAfterTogglingIngredient(id: row.id, checked: checked)
+            }
         )
     }
 
     private func stepOutputBinding(for row: CookModeChecklistRow) -> Binding<Bool> {
         Binding(
             get: { currentStepOutputCheckedState(for: row) },
-            set: { checked in progressAfterTogglingStepOutputUse(id: row.id, checked: checked) }
+            set: { checked in
+                guard pageTurnTapGuard.allowsTap() else { return }
+                progressAfterTogglingStepOutputUse(id: row.id, checked: checked)
+            }
         )
     }
 
@@ -901,6 +913,23 @@ struct CookModeView: View {
 private struct CookPageDrag {
     var isHorizontal: Bool?
     var offset: CGFloat = 0
+}
+
+/// A control on a page moves with the finger during a page turn, so the touch that turned the page would also tap
+/// the ring, a check or Cancel when it lifts. Disabling hit testing mid-touch does not stop a tap already under way,
+/// so the controls ask this guard first. It is a reference so a control's action reads the latest drag, not the one
+/// from when its view was built.
+@MainActor
+final class CookPageTurnTapGuard {
+    private var lastPageMove: Date = .distantPast
+
+    func pageMoved(at date: Date = Date()) {
+        lastPageMove = date
+    }
+
+    func allowsTap(at date: Date = Date()) -> Bool {
+        date.timeIntervalSince(lastPageMove) > 0.4
+    }
 }
 
 // MARK: - Cookbook spread
@@ -1061,7 +1090,8 @@ extension CookModeView {
                         stepKey: stepTimerKey(currentStep),
                         entry: { timerBoard.ordered.first { $0.id == stepTimerKey(currentStep) } },
                         hint: Self.startHint(ingredientCount: currentStep.ingredients.count),
-                        isInteractive: true
+                        isInteractive: true,
+                        tapGuard: pageTurnTapGuard
                     ) {
                         try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) timer started.")
                     } cancel: {
@@ -1124,30 +1154,47 @@ extension CookModeView {
 
 private struct CookModeIngredientChecklistLabel: View {
     let row: CookModeChecklistRow
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// At accessibility sizes the amount goes under the name, so the name never breaks mid-word beside it.
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Text(row.title)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.ink)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
-                .layoutPriority(1)
-
-            Spacer(minLength: 8)
-
-            if !row.quantityText.isEmpty {
-                Text(row.quantityText)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-                    .fixedSize(horizontal: true, vertical: false)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    title
+                    quantity
+                }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    title
+                        .lineLimit(3)
+                        .layoutPriority(1)
+                    Spacer(minLength: 8)
+                    quantity
+                        .fixedSize(horizontal: true, vertical: false)
+                }
             }
         }
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var title: some View {
+        Text(row.title)
+            .font(KitchenTableTheme.bodyNote)
+            .foregroundStyle(KitchenTableTheme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    @ViewBuilder private var quantity: some View {
+        if !row.quantityText.isEmpty {
+            Text(row.quantityText)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.82)
+        }
     }
 }
 
@@ -1173,6 +1220,7 @@ private struct CookModeSystemTimer: View {
     let entry: () -> CookTimerEntry?
     let hint: String
     let isInteractive: Bool
+    var tapGuard = CookPageTurnTapGuard()
     let schedule: () async throws -> String
     let cancel: () throws -> Void
 
@@ -1210,6 +1258,7 @@ private struct CookModeSystemTimer: View {
     }
 
     private func scheduleTimer() {
+        guard tapGuard.allowsTap() else { return }
         isScheduling = true
         statusMessage = nil
         errorMessage = nil
@@ -1231,6 +1280,7 @@ private struct CookModeSystemTimer: View {
 
     /// Cancelling ends the system alarm, which also removes its Lock Screen and Dynamic Island countdown.
     private func cancelTimer() {
+        guard tapGuard.allowsTap() else { return }
         statusMessage = nil
         errorMessage = nil
         do {
