@@ -108,4 +108,4 @@ jobs:
           set -euo pipefail
           app="$(find "$RUNNER_TEMP/beta-dd" -name 'Spoonjoy.app' -type d | head -1)"
           test -n "$app"
-          grep -rl HingeDivisionView "$app"
+          grep -rl HingeFoldReader "$app"
