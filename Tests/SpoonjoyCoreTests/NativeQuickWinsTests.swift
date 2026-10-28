@@ -106,8 +106,8 @@ struct NativeQuickWinsTests {
         let detail = try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift")
         #expect(detail.contains("viewModel.recipe.displaySubtitle"))
         #expect(!detail.contains("viewModel.description ?? viewModel.recipe.attribution.creditText"))
-        let kitchen = try readRepoFile("Apps/Spoonjoy/Shared/Views/KitchenView.swift")
-        #expect(kitchen.contains("recipe.displaySubtitle"))
+        let recipeRow = try readRepoFile("Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift")
+        #expect(recipeRow.contains("recipe.displaySubtitle"))
 
         let settings = try readRepoFile("Apps/Spoonjoy/Shared/Views/SettingsView.swift")
         let debugRange = try #require(settings.range(of: "#if DEBUG\n        // Diagnostics"))

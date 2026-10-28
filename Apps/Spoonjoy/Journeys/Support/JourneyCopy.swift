@@ -1,3 +1,5 @@
+import SpoonjoyCore
+
 /// User-visible copy that journeys assert. Anything else is found by `JourneyID`.
 enum JourneyCopy {
     /// The confirmation dialog button that signs out.
@@ -16,6 +18,8 @@ enum JourneyCopy {
 
     /// The not-found page's message for a recipe link that matches no recipe.
     static let recipeNotFound = "We couldn't find this recipe."
+    /// The App Shortcut phrase the Add a recipe sheet teaches (`SpoonjoyAppShortcuts`, CaptureRecipeIntent).
+    static let addRecipeSiriPhrase = AddRecipeCopy.siriPhrase
     /// The editor's confirmation for leaving with unsaved changes.
     static let discardChanges = "Discard Changes"
 }

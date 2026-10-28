@@ -19,19 +19,30 @@ enum JourneyID {
     static let kitchenAccount = "kitchen.account"
 
     static let kitchenRoot = "kitchen.root"
-    /// The hero a kitchen with no recipes and no cookbooks leads with, and its Create recipe button.
+    /// The hero a kitchen with no recipes and no cookbooks leads with, and its Add a recipe button.
     static let kitchenEmptyHero = "kitchen.emptyHero"
     static let kitchenEmptyHeroCreate = "kitchen.emptyHero.create"
     /// The lead recipe and every Recipe Index row in the Kitchen; the label is the recipe title.
     static let kitchenRecipe = "kitchen.recipe"
     /// The lead recipe's "Open Recipe" button.
     static let kitchenRecipeOpen = "kitchen.recipe.open"
+    static let kitchenRecipeCook = "kitchen.recipe.cook"
 
-    /// "Create a recipe" (and the accessibility-layout "New recipe") on the Shopping List.
+    /// "Add a recipe" on the Shopping List.
     static let shoppingCreateRecipe = "shopping.createRecipe"
 
-    /// The persistent New Recipe button: the Kitchen and Recipes toolbars, the wide layout's toolbar and sidebar.
-    static let newRecipe = "recipes.new"
+    /// The persistent Add a recipe button: the Kitchen and Recipes toolbars and the wide layout's toolbar.
+    static let addRecipe = "kitchen.addRecipe"
+    /// The Kitchen toolbar's Import queue button, which opens Imports.
+    static let kitchenImports = "kitchen.imports"
+    /// The Add a recipe sheet: the Siri phrase, the Paste a link field, its Import button and Close.
+    static let addRecipeSiriPhrase = "addRecipe.siri"
+    static let addRecipeClaudeConnect = "addRecipe.claude.connect"
+    static let addRecipeLink = "addRecipe.link"
+    static let addRecipeImport = "addRecipe.import"
+    static let addRecipeClose = "addRecipe.close"
+    /// The capture draft on the Imports page; its text includes the draft's link.
+    static let captureDraft = "capture.draft"
     /// The Mine, Saved and Everyone control at the top of the Recipes tab.
     static let recipesPicker = "recipes.picker"
 
@@ -54,11 +65,6 @@ enum JourneyID {
     /// Reorder controls: a step's move buttons, and an ingredient's reorder menu with its Move Up and Move Down items.
     static func editorStepMoveUp(_ step: Int) -> String { "editor.step.\(step).moveUp" }
     static func editorStepMoveDown(_ step: Int) -> String { "editor.step.\(step).moveDown" }
-
-    /// The create editor's photo row: the picker button and the "Photo ready" label that shows a photo is chosen.
-    static let editorPhotoPick = "editor.photo.pick"
-    static let editorPhotoThumbnail = "editor.photo.thumbnail"
-    static let editorPhotoReady = "editor.photo.ready"
 
     /// The "Paste Ingredients" button on a step, and its sheet: the text box, the add button and the preview rows.
     static func editorStepPasteIngredients(_ step: Int) -> String { "editor.step.\(step).pasteIngredients" }

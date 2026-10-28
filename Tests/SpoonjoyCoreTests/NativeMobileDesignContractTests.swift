@@ -360,7 +360,7 @@ struct NativeMobileDesignContractTests {
                 "desktopClassShell",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.page.ignoresSafeArea())",
-                ".navigationBarTitleDisplayMode(.large)",
+                ".navigationBarTitleDisplayMode(navigation.route == .kitchen ? .inline : .large)",
                 ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
@@ -612,25 +612,41 @@ struct NativeMobileDesignContractTests {
     @Test("kitchen recipe index is a scroll-friendly object layout, not a nested List island")
     func kitchenRecipeIndexIsScrollFriendlyObjectLayout() throws {
         let kitchenPath = "Apps/Spoonjoy/Shared/Views/KitchenView.swift"
+        let rowPath = "Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift"
         let kitchen = uncommentedSwift(try readRepoFile(kitchenPath))
+        let row = uncommentedSwift(try readRepoFile(rowPath))
 
         expectContent(
             kitchen,
             in: kitchenPath,
             contains: [
-                "struct KitchenRecipeIndexRow: View",
                 "LazyVStack",
-                "ForEach(Array(recipes.enumerated()), id: \\.element.id)",
-                "KitchenRecipeIndexRow(recipe: recipe, ordinal: index + 1)",
-                "KitchenTableObjectRow",
-                ".aspectRatio(1, contentMode: .fill)",
-                "Image(systemName: \"chevron.forward\")",
-                ".accessibilityLabel(recipe.title)"
+                "ForEach(recipes, id: \\.id)",
+                "RecipeIndexRowSeparator()",
+                "RecipeIndexRow(recipe: recipe, namespace: namespace)"
             ],
             forbids: [
                 "List(recipes",
+                "struct KitchenRecipeIndexRow: View",
                 ".frame(minHeight: 160)",
                 "Text(\"Open\")"
+            ]
+        )
+        expectContent(
+            row,
+            in: rowPath,
+            contains: [
+                "struct RecipeIndexRow: View",
+                ".matchedTransitionSource(id: content.id, in: namespace)",
+                ".accessibilityLabel(content.accessibilityLabel)",
+                ".contextMenu",
+                "ShareLink(item: content.shareURL)",
+                "Label(\"Add to list\"",
+                "RecipeInitialTile(title: title)"
+            ],
+            forbids: [
+                "Text(\"Open\")",
+                ".font(.system(size:"
             ]
         )
     }
@@ -658,10 +674,9 @@ struct NativeMobileDesignContractTests {
             kitchen,
             in: kitchenPath,
             contains: [
-                "hasRealCover",
-                "photoLead",
-                "coverlessLead",
-                "coverlessNoPhotoBadge",
+                "RecipeLead",
+                "KitchenHeroStretch.scale(",
+                "RecipeInitialTile(title: recipe.title)",
                 "showsFallbackLabel: false",
                 "Text(recipe.title)"
             ],
@@ -1463,7 +1478,11 @@ struct NativeMobileDesignContractTests {
                 "Button(\"Retry\"",
                 "@FocusState private var isRetryButtonFocused: Bool",
                 "if hasRecipes",
-                "Label(\"Create a recipe\", systemImage: \"square.and.pencil\")"
+                "Label(\"Add a recipe\", systemImage: \"plus\")"
+            ],
+            forbids: [
+                "Label(\"Create a recipe\"",
+                "Label(\"New recipe\""
             ]
         )
 

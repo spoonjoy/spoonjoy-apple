@@ -1,17 +1,17 @@
 import SpoonjoyCore
 import XCTest
 
-/// Journey 4: a new account creates a two-step recipe with a photo in the native editor, the photo becomes the
-/// recipe's cover, and the account then swaps the two steps in the editor. The new order holds on the recipe
-/// page and after a relaunch. Paste and parse coverage stays in the Recipes journey.
+/// Journey 4: there is no in-app recipe form. Every create entry opens Add a recipe, whose pasted link becomes
+/// a capture draft in Imports that survives a relaunch. A recipe made elsewhere is then edited in the native
+/// editor: its two steps are swapped, and the new order holds on the recipe page and after a relaunch.
 @MainActor
 final class EditorJourney: JourneyTestCase {
-    func testEditorPhotoAndReorderJourney() throws {
-        let account = try JourneyAccounts.account(3)
+    func testAddRecipeFromPastedLinkJourney() throws {
+        // Account 5 is used by no other journey, so its kitchen is empty however the tests are ordered or rerun.
+        let account = try JourneyAccounts.account(5)
         let token = try JourneyAccounts.runToken()
-        let title = "Journey \(token) Basil Pasta J4"
-        let basil = "Journey\(token)basil"
-        let spaghetti = "spaghetti"
+        // A recipe page on QA. Importing it would need AI consent, so the journey stops at the capture draft.
+        let link = JourneyQA.baseURL.appendingPathComponent("recipes/journey-\(token)-pasted").absoluteString
         let journey = JourneyApp.launchFresh()
 
         journey.signIn(as: account.username, password: account.password)
@@ -20,71 +20,88 @@ final class EditorJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
-        // Account 3 has no recipes yet, so the kitchen leads with its hero, and the hero's button opens a blank editor.
+        // Account 5 has no recipes, so the kitchen leads with its hero, whose button opens Add a recipe.
         XCTAssertTrue(
             journey.element(JourneyID.kitchenEmptyHero).waitForExistence(timeout: JourneyApp.interactionTimeout),
             "A kitchen with no recipes does not show the empty-kitchen hero. Screen: \(journey.screen)"
         )
         journey.attachScreenshot(named: "00-empty-kitchen-hero", to: self)
         journey.tap(JourneyID.kitchenEmptyHeroCreate)
-        journey.assertFieldEmpty(JourneyID.editorTitle)
-        journey.goBack()
+        journey.assertAddRecipeSheet()
+        journey.attachScreenshot(named: "01-add-recipe-sheet", to: self)
+        journey.tap(JourneyID.addRecipeClose)
 
-        // Account 3 has no recipes, so the Shopping List offers "Create a recipe", which opens the editor.
+        // The Shopping List's "Add a recipe" opens the same sheet.
         journey.openTab(JourneyCopy.shoppingTab)
         journey.tap(JourneyID.shoppingCreateRecipe)
-        journey.enterText(title, into: JourneyID.editorTitle)
-        journey.enterText("2", into: JourneyID.editorServings)
+        journey.assertAddRecipeSheet()
+        journey.tap(JourneyID.addRecipeClose)
 
-        // Add a photo. The journey build stages a generated picture here instead of opening the system picker,
-        // which automation cannot drive reliably; the thumbnail is the proof the editor holds the photo.
-        journey.tap(JourneyID.editorPhotoPick)
+        // The Kitchen toolbar's Add a recipe: a pasted link becomes a capture draft in Imports.
+        journey.openTab(JourneyCopy.kitchenTab)
+        journey.tap(JourneyID.addRecipe)
+        journey.assertAddRecipeSheet()
+        journey.enterText(link, into: JourneyID.addRecipeLink)
+        journey.tap(JourneyID.addRecipeImport)
         XCTAssertTrue(
-            journey.element(JourneyID.editorPhotoThumbnail).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The editor does not show a thumbnail of the chosen photo. Screen: \(journey.screen)"
+            journey.element(JourneyID.captureDraft, descendantLabelContaining: link).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Importing a pasted link did not open Imports with the link as a capture draft. Screen: \(journey.screen)"
         )
+        journey.attachScreenshot(named: "02-pasted-link-in-imports", to: self)
+
+        verifyAfterRelaunch(journey) {
+            journey.openTab(JourneyCopy.kitchenTab)
+            journey.tap(JourneyID.kitchenImports)
+            XCTAssertTrue(
+                journey.element(JourneyID.captureDraft, descendantLabelContaining: link).waitForExistence(timeout: JourneyApp.interactionTimeout),
+                "The pasted link's capture draft is gone after a relaunch. Screen: \(journey.screen)"
+            )
+            journey.attachScreenshot(named: "03-pasted-link-after-relaunch", to: self)
+        }
+    }
+
+    func testEditorReorderJourney() async throws {
+        let account = try JourneyAccounts.account(3)
+        let token = try JourneyAccounts.runToken()
+        let title = "Journey \(token) Basil Pasta J4"
+        let basil = "Journey\(token)basil"
+        let spaghetti = "spaghetti"
+        let qa = try await JourneyQAClient.signIn(account)
+        _ = try await qa.createRecipe(
+            title: title,
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Tear the basil",
+                    description: "Tear the basil leaves into a bowl.",
+                    duration: nil,
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: basil)],
+                    outputStepNums: []
+                ),
+                RecipeStepDraft(
+                    stepNum: 2,
+                    stepTitle: "Cook the spaghetti",
+                    description: "Boil the spaghetti until tender.",
+                    duration: nil,
+                    ingredients: [RecipeIngredientDraft(quantity: 200, unit: "g", name: spaghetti)],
+                    outputStepNums: []
+                )
+            ]
+        )
+        let journey = JourneyApp.launchFresh()
+
+        journey.signIn(as: account.username, password: account.password)
         XCTAssertTrue(
-            journey.element(JourneyID.editorPhotoReady).exists,
-            "The editor does not show the chosen photo as ready. Screen: \(journey.screen)"
+            journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Signing in did not open the kitchen."
         )
-        journey.attachScreenshot(named: "00-photo-chosen", to: self)
-
-        journey.tap(JourneyID.editorAddStep)
-        journey.tap(JourneyID.editorStepAddIngredient(1))
-        journey.enterText(basil, into: JourneyID.editorIngredientName(step: 1, ingredient: 1))
-        journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 1, ingredient: 1), with: "1")
-        journey.enterText("cup", into: JourneyID.editorIngredientUnit(step: 1, ingredient: 1))
-        journey.enterText("Tear the basil leaves into a bowl.", into: JourneyID.editorStepDescription(1))
-        journey.enterText("Tear the basil", into: JourneyID.editorStepTitle(1))
-
-        journey.tap(JourneyID.editorAddStep)
-        journey.tap(JourneyID.editorStepAddIngredient(2))
-        journey.enterText(spaghetti, into: JourneyID.editorIngredientName(step: 2, ingredient: 1))
-        journey.replaceText(in: JourneyID.editorIngredientQuantity(step: 2, ingredient: 1), with: "200")
-        journey.enterText("g", into: JourneyID.editorIngredientUnit(step: 2, ingredient: 1))
-        journey.enterText("Boil the spaghetti until tender.", into: JourneyID.editorStepDescription(2))
-        journey.enterText("Cook the spaghetti", into: JourneyID.editorStepTitle(2))
-
-        // Saving a new recipe returns to My Recipes.
-        journey.saveRecipeEditor()
-        XCTAssertTrue(
-            journey.element(JourneyID.recipesRow, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "My Recipes does not list the new recipe after saving it. Screen: \(journey.screen)"
-        )
+        journey.openTab(JourneyCopy.recipesTab)
         journey.openRecipe(titled: title, from: JourneyID.recipesRow)
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: basil).waitForExistence(timeout: JourneyApp.interactionTimeout),
             "Step 1 on the detail page does not list the basil. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
-            "Step 2 on the detail page does not list the spaghetti. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailCover).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The detail page shows no cover image, so the photo chosen on create did not become the cover. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "04-saved-recipe", to: self)
+        journey.attachScreenshot(named: "04-recipe", to: self)
 
         // Swap the two steps.
         journey.tap(JourneyID.recipeDetailActions)
@@ -108,8 +125,7 @@ final class EditorJourney: JourneyTestCase {
         )
         journey.attachScreenshot(named: "06-steps-swapped-on-recipe-page", to: self)
 
-        // New Recipe, opened while this recipe's editor is open, starts from a blank draft and leaves the recipe
-        // alone: the unsaved edit is never saved, and the recipe stays in My Recipes under its saved title.
+        // Add a recipe, opened while this recipe's editor holds an unsaved edit, leaves the editor alone.
         journey.tap(JourneyID.recipeDetailActions)
         journey.tap(JourneyID.recipeDetailEdit)
         let unsavedServings = "7"
@@ -121,10 +137,9 @@ final class EditorJourney: JourneyTestCase {
             "Return did not close the keyboard. Screen: \(journey.screen)"
         )
         journey.openTab(JourneyCopy.kitchenTab)
-        journey.tap(JourneyID.newRecipe)
-        journey.assertFieldEmpty(JourneyID.editorTitle)
-        journey.assertFieldEmpty(JourneyID.editorServings)
-        journey.attachScreenshot(named: "09-new-recipe-while-editing-is-blank", to: self)
+        journey.tap(JourneyID.addRecipe)
+        journey.assertAddRecipeSheet()
+        journey.tap(JourneyID.addRecipeClose)
         // Each tab keeps its own stack, so the Recipes tab still shows that recipe's editor with the unsaved edit.
         journey.openTab(JourneyCopy.recipesTab)
         journey.assertFieldValue(JourneyID.editorServings, equals: unsavedServings)
@@ -163,17 +178,7 @@ final class EditorJourney: JourneyTestCase {
                 journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: basil).exists,
                 "The swapped steps did not survive a relaunch: step 2 lost its basil. Screen: \(journey.screen)"
             )
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailCover).exists,
-                "The cover photo is gone after the steps were swapped and the app relaunched. Screen: \(journey.screen)"
-            )
             journey.attachScreenshot(named: "07-order-after-relaunch", to: self)
-            // The cover comes from the on-disk image cache after a relaunch, so it needs no network wait.
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailCover).waitForExistence(timeout: JourneyApp.interactionTimeout),
-                "The cover is missing after a relaunch. Screen: \(journey.screen)"
-            )
-            journey.attachScreenshot(named: "08-cover-after-relaunch", to: self)
         }
     }
 
