@@ -159,6 +159,8 @@ final class CookSyncJourney: JourneyTestCase {
         XCTAssertTrue(journey.element(JourneyID.cookTimerStatus).exists, "Cancelling the timer did not say so.")
         journey.attachScreenshot(named: "03-timer-cancelled", to: self)
 
+        verifyCookSessionLiveActivity(journey, returnTo: ingredient)
+
         // The glass dock morphs as its controls change, so every control must still be there to tap: after Next,
         // Back has joined the dock beside Mark step and Next.
         let dockNext = journey.element(JourneyID.cookDockNext)
@@ -172,7 +174,7 @@ final class CookSyncJourney: JourneyTestCase {
             "Back did not join the dock after Next. Screen: \(journey.screen)"
         )
         XCTAssertTrue(dockPrevious.isHittable, "Back is in the dock but can't be tapped. Screen: \(journey.screen)")
-        journey.attachScreenshot(named: "04-dock-after-next", to: self)
+        journey.attachScreenshot(named: "05-dock-after-next", to: self)
 
         // The relaunch keeps this device's own state, so the proof that the server holds the check is the
         // reading above; here the relaunch must still be signed in and must not undo what QA holds.
@@ -181,5 +183,36 @@ final class CookSyncJourney: JourneyTestCase {
         }
         let afterRelaunch = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
         XCTAssertGreaterThanOrEqual(afterRelaunch.revision, reading.revision, "A relaunch moved QA's cook session backwards.")
+    }
+}
+
+extension CookSyncJourney {
+    /// Leaving cook mode open and going home shows the cook session in the Dynamic Island (or the Lock Screen
+    /// banner on a phone without one), read through SpringBoard. Cook mode is still registered, so it says Step 1.
+    private func verifyCookSessionLiveActivity(_ journey: JourneyApp, returnTo cookModeElement: XCUIElement) {
+        XCUIDevice.shared.press(.home)
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        // Only Spoonjoy's own island or Lock Screen elements count, and "Step 1 of" never matches Step 10.
+        let step = springboard.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier IN %@ AND label BEGINSWITH %@",
+                ["cookSession.liveActivity.step", "cookSession.liveActivity.ring"],
+                "Step 1 of "
+            ))
+            .firstMatch
+        XCTAssertTrue(
+            step.waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The cook session Live Activity does not show Step 1 outside the app. SpringBoard: \(springboard.debugDescription)"
+        )
+        let island = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        island.name = "04-cook-session-live-activity"
+        island.lifetime = .keepAlways
+        add(island)
+
+        journey.app.activate()
+        XCTAssertTrue(
+            cookModeElement.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Returning to the app did not bring cook mode back. Screen: \(journey.screen)"
+        )
     }
 }

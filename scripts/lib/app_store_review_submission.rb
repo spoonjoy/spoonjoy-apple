@@ -27,6 +27,13 @@ module AppStoreReviewSubmission
     unless submission && submission["versionIds"].include?(version["id"])
       steps << { "action" => "add_version", "summary" => "Add #{platform} #{version_string} to the submission" }
     end
+    # After a rejection the version's item stays REJECTED, and App Store Connect refuses to resubmit the submission
+    # ("Version is not ready to be submitted yet") until the item is marked resolved.
+    rejected = submission ? Array(submission["rejectedItemIds"]) : []
+    unless rejected.empty?
+      steps << { "action" => "resolve_items", "itemIds" => rejected,
+                 "summary" => "Mark the rejected #{platform} #{version_string} item resolved (#{rejected.join(', ')})" }
+    end
     steps << { "action" => "submit", "summary" => "Submit #{platform} #{version_string} for App Review" \
                                                   "#{submission ? " (submission #{submission['id']}, #{submission['state']})" : ''}" }
     { "steps" => steps }
@@ -68,8 +75,12 @@ module AppStoreReviewSubmission
       described = subs.map do |sub|
         items = @client.get("/v1/reviewSubmissions/#{sub['id']}/items", "include" => "appStoreVersion")["data"]
         ids = items.map { |item| item.dig("relationships", "appStoreVersion", "data", "id") }
+        rejected = items.select do |item|
+          item.dig("attributes", "state") == "REJECTED" && item.dig("relationships", "appStoreVersion", "data", "id") == version_id
+        end
         { "id" => sub["id"], "state" => sub.dig("attributes", "state"), "platform" => sub.dig("attributes", "platform"),
-          "versionIds" => ids.compact, "otherItems" => ids.count { |id| id != version_id } }
+          "versionIds" => ids.compact, "rejectedItemIds" => rejected.map { |item| item["id"] },
+          "otherItems" => ids.count { |id| id != version_id } }
       end
       described.find { |sub| sub["versionIds"].include?(version_id) } ||
         described.find { |sub| sub["state"] == "READY_FOR_REVIEW" && [nil, @platform].include?(sub["platform"]) }
@@ -98,6 +109,11 @@ module AppStoreReviewSubmission
           @client.post("/v1/reviewSubmissionItems", { "data" => { "type" => "reviewSubmissionItems",
             "relationships" => { "reviewSubmission" => { "data" => { "type" => "reviewSubmissions", "id" => sub_id } },
                                  "appStoreVersion" => { "data" => { "type" => "appStoreVersions", "id" => v["id"] } } } } })
+        when "resolve_items"
+          step["itemIds"].each do |item_id|
+            @client.patch("/v1/reviewSubmissionItems/#{item_id}", { "data" => { "type" => "reviewSubmissionItems", "id" => item_id,
+              "attributes" => { "resolved" => true } } })
+          end
         when "submit"
           state = @client.patch("/v1/reviewSubmissions/#{sub_id}", { "data" => { "type" => "reviewSubmissions", "id" => sub_id,
             "attributes" => { "submitted" => true } } }).dig("data", "attributes", "state")

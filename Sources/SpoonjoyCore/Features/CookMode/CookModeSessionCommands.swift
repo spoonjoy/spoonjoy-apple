@@ -6,6 +6,8 @@ public enum CookModeSessionCommand: Equatable, Sendable {
     case previousStep
     case startTimer
     case readStep
+    /// Checks off every ingredient and earlier-step output the current step uses.
+    case checkStep
 }
 
 public struct CookModeSessionOutcome: Equatable {
@@ -46,7 +48,28 @@ public enum CookModeSessionResolver {
             return CookModeSessionOutcome(progress: viewModel.progress, message: "Starting a \(timer.durationLabel) timer.", timerToStart: timer)
         case .readStep:
             return CookModeSessionOutcome(progress: viewModel.progress, message: readout(for: viewModel), timerToStart: nil)
+        case .checkStep:
+            return checkingStep(viewModel: viewModel, updatedAt: updatedAt)
         }
+    }
+
+    private static func checkingStep(viewModel: CookModeViewModel, updatedAt: String) -> CookModeSessionOutcome {
+        let step = viewModel.activeStep!
+        let number = viewModel.recipe.steps.firstIndex { $0.id == step.id }! + 1
+        guard !step.ingredients.isEmpty || !step.usingSteps.isEmpty else {
+            return CookModeSessionOutcome(progress: viewModel.progress, message: "Step \(number) has nothing to check.", timerToStart: nil)
+        }
+        var progress = viewModel.progress
+        for ingredient in step.ingredients where !progress.checkedIngredientIDs.contains(ingredient.id) {
+            progress = (try? progress.togglingIngredient(id: ingredient.id, checked: true, updatedAt: updatedAt)) ?? progress
+        }
+        for use in step.usingSteps where !progress.checkedStepOutputUseIDs.contains(use.id) {
+            progress = (try? progress.togglingStepOutputUse(id: use.id, checked: true, updatedAt: updatedAt)) ?? progress
+        }
+        guard progress != viewModel.progress else {
+            return CookModeSessionOutcome(progress: progress, message: "Step \(number) is already checked.", timerToStart: nil)
+        }
+        return CookModeSessionOutcome(progress: progress, message: "Checked everything for step \(number).", timerToStart: nil)
     }
 
     /// "Step 2 of 5, Sear the steaks. <instructions> This step takes 5 min."

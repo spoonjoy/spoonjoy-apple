@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+      # A release branch carries a fix for a version already in review; TestFlight publishes from its Native run.
+      - release/**
 
 concurrency:
   # A new push to a pull request cancels its superseded run, so stale runs stop holding the few xcode-27 runners.
@@ -79,6 +81,7 @@ jobs:
           ruby scripts/test/app_store_release_test.rb
           ruby scripts/test/app_store_review_messages_test.rb
           ruby scripts/test/app_store_crash_diagnostics_test.rb
+          ruby scripts/test/app_store_submission_diagnostics_test.rb
           ruby scripts/test/app_review_watch_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS

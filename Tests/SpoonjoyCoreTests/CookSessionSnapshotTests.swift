@@ -47,6 +47,28 @@ struct CookSessionSnapshotTests {
         #expect(snap.timers == Self.board.ordered)
     }
 
+    @Test func sessionFinishesWhenTheLastStepIsMarkedDone() throws {
+        let recipe = Self.recipe(steps: Self.steps)
+        let start = CookModeProgress.starting(recipe: recipe, startedAt: "t")
+        #expect(!CookSessionSnapshot.isFinished(recipe: recipe, progress: start))
+        let middleDone = try start.markingStepCompleted("s2", updatedAt: "t")
+        #expect(!CookSessionSnapshot.isFinished(recipe: recipe, progress: middleDone))
+        let lastDone = try start.markingStepCompleted("s3", updatedAt: "t")
+        #expect(CookSessionSnapshot.isFinished(recipe: recipe, progress: lastDone))
+        let empty = Self.recipe(steps: [])
+        #expect(!CookSessionSnapshot.isFinished(recipe: empty, progress: CookModeProgress.starting(recipe: empty, startedAt: "t")))
+    }
+
+    @Test func timerEntryCarriesItsLengthAndPausedTime() throws {
+        let entry = CookTimerEntry(id: "k", stepNumber: 1, label: "Boil", endsAt: Date(timeIntervalSince1970: 60), isPaused: true, duration: 600, pausedRemaining: 42)
+        #expect(entry.duration == 600)
+        #expect(entry.pausedRemaining == 42)
+        let plain = CookTimerEntry(id: "k", stepNumber: 1, label: "Boil", endsAt: Date(timeIntervalSince1970: 60), isPaused: false)
+        #expect(plain.duration == 0)
+        #expect(plain.pausedRemaining == nil)
+        #expect(try JSONDecoder().decode(CookTimerEntry.self, from: JSONEncoder().encode(entry)) == entry)
+    }
+
     @Test func lastStepHasNoNextStep() throws {
         let recipe = Self.recipe(steps: Self.steps)
         let last = try CookModeProgress.starting(recipe: recipe, startedAt: "t").selectingStep(id: "s3", updatedAt: "t")
