@@ -49,6 +49,24 @@ class AppStoreReviewSubmissionTest < Minitest::Test
     assert_equal [[:patch, "/v1/reviewSubmissions/s9"]], client.writes.map { |w| w.first(2) }
   end
 
+  def test_marks_the_rejected_item_resolved_before_resubmitting
+    rejected = ready.merge("state" => "REJECTED")
+    steps = plan(version: rejected, submission: { "id" => "s1", "state" => "UNRESOLVED_ISSUES", "versionIds" => ["v1"],
+                                                  "rejectedItemIds" => ["it1"], "otherItems" => 0 })["steps"]
+    assert_equal %w[resolve_items submit], steps.map { |s| s["action"] }
+  end
+
+  def test_resolves_the_rejected_item_then_patches_the_same_submission
+    client = runner_client
+    client.responses["/v1/reviewSubmissions"] = { "data" => [{ "id" => "s9", "attributes" => { "state" => "UNRESOLVED_ISSUES", "platform" => "IOS" } }] }
+    client.responses["/v1/reviewSubmissions/s9/items"] = { "data" => [
+      { "id" => "it1", "attributes" => { "state" => "REJECTED" }, "relationships" => { "appStoreVersion" => { "data" => { "id" => "v1" } } } }
+    ] }
+    AppStoreReviewSubmission::Runner.new(client, bundle_id: "app.spoonjoy", platform: "IOS", version_string: "1.0", log: StringIO.new).run(apply: true)
+    assert_equal [[:patch, "/v1/reviewSubmissionItems/it1"], [:patch, "/v1/reviewSubmissions/s9"]], client.writes.map { |w| w.first(2) }
+    assert_equal({ "resolved" => true }, client.writes.first[2].dig("data", "attributes"))
+  end
+
   class FakeClient
     attr_reader :writes, :responses
 
