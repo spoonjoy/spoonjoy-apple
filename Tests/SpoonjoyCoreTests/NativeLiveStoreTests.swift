@@ -4988,6 +4988,8 @@ struct NativeLiveStoreTests {
                 transport: ScriptedLiveStoreSyncTransport(),
                 appStateStoreProvider: { routeStore }
             )
+            // Once the launch restore has run, a snapshot from another scope is replaced.
+            await routeLiveStore.bootstrap()
             routeLiveStore.recordingOpenedRoute(.settings)
             #expect(try routeStore.loadOrCreate(fallback: .bootstrap(
                 shoppingList: nil,
@@ -5004,6 +5006,7 @@ struct NativeLiveStoreTests {
                 transport: ScriptedLiveStoreSyncTransport(),
                 appStateStoreProvider: { progressStore }
             )
+            await progressLiveStore.bootstrap()
             progressLiveStore.recordCookProgress(CookModeProgress(
                 recipeID: "recipe_progress_reset",
                 stepIDs: ["step_1"],
