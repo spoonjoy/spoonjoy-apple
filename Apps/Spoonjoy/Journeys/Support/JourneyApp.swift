@@ -68,7 +68,7 @@ final class JourneyApp {
         guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
             return
         }
-        app.launchArguments += ["-SpoonjoyForcePosture", "tabletop"]
+        forcePostureOnNextLaunch("tabletop")
     }
 
     /// Makes the next launch report a hinge folded shut, so a journey can see the cover glance. DEBUG builds only.
@@ -76,7 +76,15 @@ final class JourneyApp {
         guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
             return
         }
-        app.launchArguments += ["-SpoonjoyForcePosture", "closed"]
+        forcePostureOnNextLaunch("closed")
+    }
+
+    /// A later posture replaces an earlier one, so a journey can fold the phone between relaunches.
+    private func forcePostureOnNextLaunch(_ posture: String) {
+        if let index = app.launchArguments.firstIndex(of: "-SpoonjoyForcePosture"), index + 1 < app.launchArguments.count {
+            app.launchArguments.removeSubrange(index...(index + 1))
+        }
+        app.launchArguments += ["-SpoonjoyForcePosture", posture]
     }
 
     /// Makes the next launch use AlarmKit itself rather than the stand-in alarm, so a journey can see what the cook

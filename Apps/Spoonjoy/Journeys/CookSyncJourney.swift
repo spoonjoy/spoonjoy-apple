@@ -126,20 +126,19 @@ final class CookSyncJourney: JourneyTestCase {
         )
         XCTAssertTrue(journey.element(JourneyID.cookMore).exists, "Cook mode has no More menu for Scale. Screen: \(journey.screen)")
         XCTAssertTrue(journey.element(JourneyID.cookTimerRing).exists, "The timed step has no timer ring. Screen: \(journey.screen)")
-        // A swipe that starts on a check row turns the page and never checks the row.
-        if !usesDock(journey) {
-            turnToTheNextStep(journey, from: ingredient)
-            XCTAssertTrue(
-                journey.element(JourneyID.cookStepMeta, labelContaining: "Step 2 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
-                "A swipe that started on the lemon did not reach Step 2 of 2. Screen: \(journey.screen)"
-            )
-            turnToThePreviousStep(journey)
-            XCTAssertTrue(
-                ingredient.waitForExistence(timeout: JourneyApp.interactionTimeout),
-                "Turning back did not show the lemon again. Screen: \(journey.screen)"
-            )
-            XCTAssertFalse(isChecked(ingredient), "The swipe that started on the lemon also checked it.")
-        }
+        // A swipe that starts on a check row turns the page and never checks the row. Regular width turns with the
+        // dock's Next instead, which must not check it either.
+        turnToTheNextStep(journey, from: ingredient)
+        XCTAssertTrue(
+            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 2 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "A swipe that started on the lemon did not reach Step 2 of 2. Screen: \(journey.screen)"
+        )
+        turnToThePreviousStep(journey)
+        XCTAssertTrue(
+            ingredient.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Turning back did not show the lemon again. Screen: \(journey.screen)"
+        )
+        XCTAssertFalse(isChecked(ingredient), "The swipe that started on the lemon also checked it.")
         ingredient.tap()
         XCTAssertTrue(isChecked(ingredient), "Tapping the lemon did not check it in cook mode. Value: \(String(describing: ingredient.value))")
         journey.attachScreenshot(named: "01-checked-in-cook-mode", to: self)

@@ -167,7 +167,8 @@ final class TabletopJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
         journey.useSystemAlarmsOnNextLaunch()
-        journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook")))
+        let cookLink = try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook"))
+        journey.openLink(cookLink)
 
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: flour)
         XCTAssertTrue(
@@ -192,19 +193,31 @@ final class TabletopJourney: JourneyTestCase {
             "A refused timer undid the flour's check. Value: \(String(describing: ingredient.value))"
         )
         journey.attachScreenshot(named: "04-refused-timer-on-the-ring", to: self)
+
+        // After a relaunch the check is kept and still no timer pretends to run.
+        verifyAfterRelaunch(journey) {
+            XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
+        }
+        journey.openLink(cookLink)
+        let ingredientAfterRelaunch = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: flour)
+        XCTAssertTrue(
+            ingredientAfterRelaunch.waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Cook mode did not reopen on the flour after a relaunch. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            ["1", "checked"].contains(ingredientAfterRelaunch.value as? String ?? ""),
+            "The flour's check was lost on relaunch. Value: \(String(describing: ingredientAfterRelaunch.value))"
+        )
+        XCTAssertFalse(journey.element(JourneyID.cookTimerRunning).exists, "A refused timer shows as running after a relaunch.")
     }
 
-    /// The Duo tour folds and unfolds a real iPhone Duo simulator while this journey waits, so it runs only there
-    /// (`SPOONJOY_JOURNEY_FOLD_TOUR=1`). Each "Duo tour fold:" line tells the workflow which pose to set next. The timer
-    /// started on the counter keeps the same end time through the cover, the half-open stand and the open spread.
+    /// A timer started with the phone open keeps its end time when the phone is folded shut, where the cover shows the
+    /// kitchen-timer glance, and when it is stood half-open, where cook mode splits at the fold. The Journeys job's
+    /// simulator cannot fold, so each pose is a relaunch with a forced posture; the Duo tour photographs the real folds.
     func testFoldingMidTimerKeepsTheTimerJourney() async throws {
-        guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_FOLD_TOUR"] == "1" else {
-            throw XCTSkip("Only the Duo tour can fold the simulator.")
-        }
         let account = try JourneyAccounts.account(4)
         let token = try JourneyAccounts.runToken()
         let butter = "Journey\(token)butter"
-        let sugar = "Journey\(token)sugar"
         let qa = try await JourneyQAClient.signIn(account)
         let recipeID = try await qa.createRecipe(
             title: "Journey \(token) Fold J6",
@@ -219,10 +232,10 @@ final class TabletopJourney: JourneyTestCase {
                 ),
                 RecipeStepDraft(
                     stepNum: 2,
-                    stepTitle: "Whisk in the sugar",
-                    description: "Take the pan off the heat and whisk in the sugar.",
+                    stepTitle: "Cool the butter",
+                    description: "Pour the butter into a bowl to cool.",
                     duration: nil,
-                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: sugar)],
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: "Journey\(token)ice")],
                     outputStepNums: []
                 )
             ]
@@ -233,7 +246,8 @@ final class TabletopJourney: JourneyTestCase {
             journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
             "Signing in did not open the kitchen."
         )
-        journey.openLink(try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook")))
+        let cookLink = try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook"))
+        journey.openLink(cookLink)
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: butter)
         XCTAssertTrue(
             ingredient.waitForExistence(timeout: JourneyApp.networkTimeout),
@@ -247,45 +261,39 @@ final class TabletopJourney: JourneyTestCase {
         )
         let endsAt = try XCTUnwrap(Self.endTime(of: running), "The running timer's label has no time left: \(running.label)")
         journey.attachScreenshot(named: "10-fold-timer-started", to: self)
-        print("Duo tour fold: timer started")
 
-        let poseTimeout: TimeInterval = 120
+        journey.useClosedPostureOnNextLaunch()
+        verifyAfterRelaunch(journey) {
+            XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
+        }
+        journey.openLink(cookLink)
         let glance = journey.element(JourneyID.cookCoverGlance)
         XCTAssertTrue(
-            glance.waitForExistence(timeout: poseTimeout),
-            "Folding shut mid-cook did not show the cover glance. Screen: \(journey.screen)"
+            glance.waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Folded shut mid-cook, cook mode did not show the cover glance. Screen: \(journey.screen)"
         )
-        assertSameEnd(endsAt, running, "the cover glance")
-        XCTAssertTrue(journey.element(JourneyID.cookCoverGlanceNext).exists, "The cover glance has no Next. Screen: \(journey.screen)")
+        try assertSameEnd(endsAt, running, "the cover glance")
+        XCTAssertTrue(journey.element(JourneyID.cookCoverGlanceNext).isHittable, "The cover glance's Next can't be tapped. Screen: \(journey.screen)")
+        XCTAssertTrue(journey.element(JourneyID.cookCoverGlanceShowStep).isHittable, "The cover glance's Show step can't be tapped. Screen: \(journey.screen)")
         journey.attachScreenshot(named: "11-fold-closed-cover-glance", to: self)
-        print("Duo tour fold: closed")
 
-        let stepHalf = journey.element(JourneyID.cookTabletopStep)
+        journey.useTabletopPostureOnNextLaunch()
+        verifyAfterRelaunch(journey) {
+            XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
+        }
+        journey.openLink(cookLink)
         XCTAssertTrue(
-            stepHalf.waitForExistence(timeout: poseTimeout),
-            "Standing the phone half-open did not split cook mode at the fold. Screen: \(journey.screen)"
+            journey.element(JourneyID.cookTabletopStep).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Stood half-open mid-cook, cook mode did not split at the fold. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(glance.waitForNonExistence(timeout: JourneyApp.interactionTimeout), "The cover glance stayed after opening.")
-        assertSameEnd(endsAt, running, "tabletop cook mode")
+        XCTAssertFalse(glance.exists, "The cover glance stayed after the phone was opened. Screen: \(journey.screen)")
+        try assertSameEnd(endsAt, running, "tabletop cook mode")
         journey.attachScreenshot(named: "12-fold-tabletop", to: self)
-        print("Duo tour fold: tabletop")
-
-        let stepPage = journey.element(JourneyID.cookSpreadStepPage)
+        journey.tap(JourneyID.cookTimerCancel)
         XCTAssertTrue(
-            stepPage.waitForExistence(timeout: poseTimeout),
-            "Opening the phone flat did not show cook mode as a spread. Screen: \(journey.screen)"
+            running.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "Cancelling the timer did not stop it. Screen: \(journey.screen)"
         )
-        assertSameEnd(endsAt, running, "the open spread")
-        journey.attachScreenshot(named: "13-fold-open-flat-spread", to: self)
-        print("Duo tour fold: open flat")
-
-        stepPage.swipeLeft()
-        XCTAssertTrue(
-            journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: sugar).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "A swipe on the spread's step page did not turn to the second step. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "14-fold-spread-turned", to: self)
-        print("Duo tour fold: done")
     }
 }
 
@@ -293,29 +301,23 @@ extension TabletopJourney {
     /// The end time a running timer implies: now plus the time its digits show, read as "m:ss" or "h:mm:ss", or as
     /// VoiceOver's "4 minutes, 59 seconds".
     fileprivate static func endTime(of running: XCUIElement) -> Date? {
-        let label = running.label
-        let clock = label.split(separator: ":").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) }
-        if clock.count >= 2, label.contains(":") {
-            let seconds = clock.reduce(0) { $0 * 60 + $1 }
-            return Date().addingTimeInterval(TimeInterval(seconds))
+        let label = running.label.lowercased()
+        let seconds: Int
+        if let clock = label.firstMatch(of: /(?:(\d+):)?(\d+):(\d{2})/) {
+            seconds = (Int(clock.1 ?? "0") ?? 0) * 3600 + (Int(clock.2) ?? 0) * 60 + (Int(clock.3) ?? 0)
+        } else {
+            let hours = label.firstMatch(of: /(\d+) hour/).flatMap { Int($0.1) } ?? 0
+            let minutes = label.firstMatch(of: /(\d+) minute/).flatMap { Int($0.1) } ?? 0
+            let secs = label.firstMatch(of: /(\d+) second/).flatMap { Int($0.1) } ?? 0
+            guard hours + minutes + secs > 0 else { return nil }
+            seconds = hours * 3600 + minutes * 60 + secs
         }
-        var seconds = 0
-        var found = false
-        let words = label.lowercased().replacingOccurrences(of: ",", with: " ").split(separator: " ")
-        for (index, word) in words.enumerated() where index > 0 {
-            guard let value = Int(words[index - 1]) else { continue }
-            if word.hasPrefix("hour") { seconds += value * 3600; found = true }
-            if word.hasPrefix("minute") { seconds += value * 60; found = true }
-            if word.hasPrefix("second") { seconds += value; found = true }
-        }
-        return found ? Date().addingTimeInterval(TimeInterval(seconds)) : nil
+        return Date().addingTimeInterval(TimeInterval(seconds))
     }
 
-    fileprivate func assertSameEnd(_ endsAt: Date, _ running: XCUIElement, _ pose: String, file: StaticString = #filePath, line: UInt = #line) {
-        guard running.waitForExistence(timeout: JourneyApp.interactionTimeout), let now = Self.endTime(of: running) else {
-            XCTFail("The timer is gone in \(pose).", file: file, line: line)
-            return
-        }
+    fileprivate func assertSameEnd(_ endsAt: Date, _ running: XCUIElement, _ pose: String, file: StaticString = #filePath, line: UInt = #line) throws {
+        XCTAssertTrue(running.waitForExistence(timeout: JourneyApp.interactionTimeout), "The timer is gone in \(pose).", file: file, line: line)
+        let now = try XCTUnwrap(Self.endTime(of: running), "The timer in \(pose) shows no time left: \(running.label)", file: file, line: line)
         XCTAssertEqual(now.timeIntervalSince1970, endsAt.timeIntervalSince1970, accuracy: 2, "The timer's end moved in \(pose).", file: file, line: line)
     }
 }
