@@ -1072,6 +1072,9 @@ extension CookModeView {
             }
         }
         .controlSize(.extraLarge)
+        // The cover is narrow: past AX3 the extra-large buttons would cut their labels short. They stay thumb-sized,
+        // and the step above still grows to the largest size.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
         .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
         .padding(.top, 12)
         .padding(.bottom, 16)
@@ -1363,13 +1366,16 @@ extension CookModeView {
             .accessibilityLabel("Mark the current step done")
             .fixedSize()
 
-            Button(action: advance) {
-                Label("Next step", systemImage: "arrow.forward.circle.fill")
+            // On the last step the page's Finish cooking is the one filled button, so Next step steps aside.
+            if !isLastStep {
+                Button(action: advance) {
+                    Label("Next step", systemImage: "arrow.forward.circle.fill")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .disabled(!canAdvance)
+                .accessibilityLabel("Move to the next step")
+                .fixedSize()
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-            .disabled(!canAdvance)
-            .accessibilityLabel("Move to the next step")
-            .fixedSize()
         }
         .controlSize(.large)
     }
