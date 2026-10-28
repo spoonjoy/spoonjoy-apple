@@ -388,7 +388,7 @@ struct PlatformNavigationView: View {
     private func baseRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, hidesNavigationBar: Bool) -> some View {
         shellLifecycle(
             NavigationStack {
-                detailContentWithShellStatus
+                regularDetailPage
                     .navigationTitle(title(for: navigation.route))
 #if os(iOS)
                     // The Kitchen's and a recipe's photo is the title, so their bar stays inline and the photo runs under it.
@@ -520,6 +520,25 @@ struct PlatformNavigationView: View {
         } else {
             page
         }
+    }
+
+    /// The split view's detail column swaps its page rather than pushing one, so the system zoom has no push to
+    /// run on. A recipe fades in over the page it was opened from, growing slightly from it, and fades back out;
+    /// under Reduce Motion it is a plain crossfade. Other route changes swap in place as before.
+    private var regularDetailPage: some View {
+        ZStack {
+            detailContentWithShellStatus
+                .id(regularDetailPageIdentity)
+                .kitchenTransition(.opacity.combined(with: .scale(scale: 0.97)))
+        }
+        .kitchenAnimation(.zoom, value: regularDetailPageIdentity)
+    }
+
+    private var regularDetailPageIdentity: String {
+        if case .recipeDetail(let id, .detail) = navigation.route {
+            return "recipe:\(id)"
+        }
+        return "page"
     }
 
     private func routeLeadsWithPhoto(_ route: AppRoute) -> Bool {

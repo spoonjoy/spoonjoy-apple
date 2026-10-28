@@ -253,6 +253,7 @@ struct RecipeDetailView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.moderation) private var moderation
+    @ScaledMetric(relativeTo: .title3) private var scaledUtilityButtonSize = RecipeHeroMetrics.utilityButtonSize
     @Environment(\.dismiss) private var dismiss
     @State private var moderationPrompt: ModerationPrompt?
 
@@ -687,17 +688,32 @@ struct RecipeDetailView: View {
 
     /// Cook is the page's one filled button. Save and Add to list are glass circles beside it; everything else is
     /// under More in the bar.
+    /// At the accessibility text sizes Cook takes the full width and the circles move to the row under it.
     private var recipeMastheadActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 10))
+        return VStack(alignment: .leading, spacing: 10) {
+            layout {
                 if hasAction(.startCooking) {
                     startCookingButton
                 }
-                recipeUtilityButtons
+                HStack(spacing: 10) {
+                    recipeUtilityButtons
+                }
             }
             .frame(maxWidth: 520, alignment: .leading)
             actionStatus
         }
+    }
+
+    /// Grows with the text size, capped so two circles still sit beside each other at AX5.
+    private var utilityButtonSize: CGFloat {
+        min(scaledUtilityButtonSize, RecipeHeroMetrics.maximumUtilityButtonSize)
+    }
+
+    private var utilityButtonFont: Font {
+        .system(size: utilityButtonSize * 0.4, weight: .semibold)
     }
 
     @ViewBuilder private var recipeUtilityButtons: some View {
@@ -707,7 +723,8 @@ struct RecipeDetailView: View {
             } label: {
                 Label("Save", systemImage: "bookmark")
                     .labelStyle(.iconOnly)
-                    .frame(width: RecipeHeroMetrics.utilityButtonSize, height: RecipeHeroMetrics.utilityButtonSize)
+                    .font(utilityButtonFont)
+                    .frame(width: utilityButtonSize, height: utilityButtonSize)
             }
             .recipeGlassCircle()
             .accessibilityLabel("Save")
@@ -722,7 +739,8 @@ struct RecipeDetailView: View {
                     systemImage: hasIngredientsInShoppingList ? "checkmark" : "cart.badge.plus"
                 )
                 .labelStyle(.iconOnly)
-                .frame(width: RecipeHeroMetrics.utilityButtonSize, height: RecipeHeroMetrics.utilityButtonSize)
+                .font(utilityButtonFont)
+                .frame(width: utilityButtonSize, height: utilityButtonSize)
             }
             .disabled(hasIngredientsInShoppingList)
             .recipeGlassCircle()
@@ -782,7 +800,7 @@ struct RecipeDetailView: View {
                 }
                 .accessibilityIdentifier("recipeDetail.share")
             }
-            if hasMoreRecipeActions {
+            if hasMoreRecipeActions || showsSearchAllInMore {
                 Menu {
                     recipeMoreMenuItems
                 } label: {
@@ -812,6 +830,13 @@ struct RecipeDetailView: View {
         }
         remindersMenuItems
         ownerToolsMenuItems
+        if showsSearchAllInMore {
+            Button {
+                openRoute(.search(query: "", scope: .all))
+            } label: {
+                Label("Search All", systemImage: "magnifyingglass")
+            }
+        }
         if canModerate {
             ModerationMenuItems(
                 reportTarget: ContentReportTarget(type: .recipe, id: viewModel.recipe.id),
@@ -864,6 +889,16 @@ struct RecipeDetailView: View {
             ),
             source: ReminderSource(id: viewModel.recipe.id, label: viewModel.recipe.title)
         )
+    }
+
+    /// The shell's Actions menu steps aside on the recipe page, so its Search All moves here. Phones have the
+    /// Search tab instead.
+    private var showsSearchAllInMore: Bool {
+#if os(iOS)
+        horizontalSizeClass == .regular
+#else
+        true
+#endif
     }
 
     private var hasMoreRecipeActions: Bool {
@@ -1726,7 +1761,7 @@ private struct RecipeActionConfirmationDialog {
 }
 
 private struct RecipeDetailCookProgressSnapshot: Codable, Equatable {
-    static let currentVersion = 1
+    static let currentVersion = RecipeScaleStorage.snapshotVersion
 
     let version: Int
     let scaleFactor: Double
@@ -1752,19 +1787,13 @@ private struct RecipeDetailCookProgressSnapshot: Codable, Equatable {
 /// recipe's single source of truth for how much to cook; cook mode opens at `scaleFactor(forRecipeID:)`.
 enum RecipePageProgress {
     static func storageKey(recipeID: String) -> String {
-        "spoonjoy-cook-progress:\(recipeID)"
+        RecipeScaleStorage.storageKey(recipeID: recipeID)
     }
 
-    /// The scale the recipe page last saved for this recipe, or 1 when it has none.
+    /// The scale the recipe page last saved for this recipe, or 1 when it has none. `RecipeScaleStorage` holds
+    /// the logic and its tests; this stays the app's entry point for cook mode.
     static func scaleFactor(forRecipeID recipeID: String, in defaults: UserDefaults = .standard) -> Double {
-        guard
-            let data = defaults.data(forKey: storageKey(recipeID: recipeID)),
-            let snapshot = try? JSONDecoder().decode(RecipeDetailCookProgressSnapshot.self, from: data),
-            snapshot.version == RecipeDetailCookProgressSnapshot.currentVersion
-        else {
-            return 1
-        }
-        return RecipeServes.normalizedScale(snapshot.scaleFactor)
+        RecipeScaleStorage.scaleFactor(forRecipeID: recipeID, in: defaults)
     }
 }
 
@@ -1834,8 +1863,10 @@ private struct RecipeServesPopover: View {
 private enum RecipeHeroMetrics {
     static let sheetOverlap: CGFloat = 28
     static let sheetRadius: CGFloat = 28
-    /// Save and Add to list: a full touch target with room for the glass rim.
+    /// Save and Add to list at the default text size: a full touch target with room for the glass rim. It scales
+    /// with Dynamic Type up to `maximumUtilityButtonSize`.
     static let utilityButtonSize: CGFloat = 52
+    static let maximumUtilityButtonSize: CGFloat = 80
 
     /// About half a phone's height, so the dish leads and the title still shows on the first screen.
     static func height(isRegular: Bool) -> CGFloat {

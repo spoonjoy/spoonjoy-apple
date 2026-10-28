@@ -892,7 +892,7 @@ struct NativeMobileDesignContractTests {
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
                 "RecipeDetailCookProgressSnapshot",
-                "spoonjoy-cook-progress:\\(recipeID)",
+                "RecipeScaleStorage.storageKey(recipeID: recipeID)",
                 "Label(\"Cook\", systemImage: \"play.fill\")",
                 "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
                 "KitchenTableSection(title: \"Save to Cookbook\")"

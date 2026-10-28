@@ -875,7 +875,9 @@ write_sync_store() {
                   }
                 ]
               end
-    if route == "recipe-detail"
+    # The recipe the Kitchen and Recipes lead with, and the recipe page, carry a real cover photo, so the captures
+    # show the photo-led layouts and the cover zoom has a photo to grow from.
+    if %w[kitchen recipes recipe-detail].include?(route)
       cover_asset_path = File.expand_path("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png")
       recipes = recipes.map do |recipe|
         next recipe unless recipe.fetch("id") == "recipe_lemon_pantry_pasta"
@@ -1304,6 +1306,12 @@ ios_launch_app() {
 }
 
 open_macos_app() {
+  # The simulator takes `simctl ui appearance`; the Mac app takes the appearance as a launch argument instead, so
+  # a dark capture does not switch the whole desktop.
+  local macos_appearance_args=()
+  if [[ "$requested_appearance" == "dark" ]]; then
+    macos_appearance_args=(--args -AppleInterfaceStyle Dark)
+  fi
   set_macos_launch_environment
   run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" \
     env \
@@ -1323,7 +1331,7 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
       SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
-      open -n "$macos_app"
+      open -n "$macos_app" ${macos_appearance_args[@]+"${macos_appearance_args[@]}"}
 }
 
 set_macos_launch_environment() {
