@@ -65,7 +65,7 @@ struct RecipePageProgressTests {
     func settingTheScaleNotifiesThePage() throws {
         try Self.withStore { store, _ in
             let recipeID = "notify-\(UUID().uuidString)"
-            var heard: [String] = []
+            let heard = HeardIDs()
             let observer = NotificationCenter.default.addObserver(forName: RecipePageProgressStore.scaleDidChange, object: nil, queue: nil) { note in
                 if let id = note.object as? String, id == recipeID {
                     heard.append(id)
@@ -73,7 +73,7 @@ struct RecipePageProgressTests {
             }
             defer { NotificationCenter.default.removeObserver(observer) }
             store.setScaleFactor(2, recipeID: recipeID, updatedAt: "t1")
-            #expect(heard == [recipeID])
+            #expect(heard.ids == [recipeID])
         }
     }
 
@@ -94,5 +94,22 @@ struct RecipePageProgressTests {
         let scaled = progress.openingAtRecipePageScale(2, updatedAt: "t1")
         #expect(scaled.scaleFactor == 2)
         #expect(scaled.updatedAt == "t1")
+    }
+}
+
+private final class HeardIDs: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [String] = []
+
+    var ids: [String] {
+        lock.lock()
+        defer { lock.unlock() }
+        return values
+    }
+
+    func append(_ id: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        values.append(id)
     }
 }
