@@ -99,6 +99,13 @@ final class JourneyApp {
         app.launchEnvironment.removeValue(forKey: NativeJourneyAlarmFixture.environmentKey)
     }
 
+    /// Makes the next launch hear `transcripts` through cook mode's mic, one every five seconds once it listens, or
+    /// report the microphone as refused with `denied` (`NativeJourneyVoiceFixture`, DEBUG builds only). A simulator has
+    /// no voice to speak into the mic.
+    func useVoiceFixtureOnNextLaunch(_ value: String) {
+        app.launchEnvironment[NativeJourneyVoiceFixture.environmentKey] = value
+    }
+
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
     /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
     /// link until sign-in.
