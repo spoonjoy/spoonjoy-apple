@@ -166,7 +166,8 @@ jobs:
           }
           # The journey left its step timer saved in the app's defaults. If it is gone, cook mode has nothing to keep.
           prefs="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/Library/Preferences/app.spoonjoy.plist"
-          saved="$(plutil -extract cookMode.stepTimerAlarms json -o - "$prefs" 2>/dev/null || true)"
+          # Read the key whole: plutil's key paths split "cookMode.stepTimerAlarms" at the dot.
+          saved="$(python3 -I -c 'import json, plistlib, sys; print(json.dumps(plistlib.load(open(sys.argv[1], "rb")).get("cookMode.stepTimerAlarms") or {}))' "$prefs" 2>/dev/null || true)"
           echo "saved step timers before the fold: ${saved:-none}"
           if [ -z "$saved" ] || [ "$saved" = "{}" ]; then
             echo "::error::No step timer is saved on the Duo before the fold, so there is no running timer to follow. The timer journey's timer did not survive to this step: a journey's fresh launch after it clears the app's saved state."
