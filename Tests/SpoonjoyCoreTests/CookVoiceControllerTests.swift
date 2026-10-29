@@ -234,13 +234,30 @@ struct CookVoiceControllerTests {
         let controller = await listening(engine, clock: { time })
         var commands: [CookVoiceCommand] = []
         controller.onCommand = { commands.append($0) }
-        controller.announced("Back to step 1 of 3 and so on and on", spokenAloud: true)
+        controller.announced("We can go back to step 1 of 3 and so on", spokenAloud: true)
         time += 60
         controller.announced("Timer started", spokenAloud: true)
         time += CookVoiceController.speakingTime(words: 2)
-        // "back" was in the old line only; that line has expired, so this is the cook speaking.
-        engine.heard("back")
+        // "go back" was in the old line only; that line has expired, so this is the cook speaking.
+        engine.heard("go back")
         #expect(commands == [.back])
+    }
+
+    /// The mic says what it listens for as it turns on. A lone command word right after is the cook, not that line
+    /// heard back: the mic was muted while it was spoken. Two or more of its words in a row are still its echo.
+    @Test func aSingleWordRightAfterTheListeningLineIsACommand() async {
+        let engine = FakeVoiceEngine()
+        var time: TimeInterval = 100
+        let controller = await listening(engine, clock: { time })
+        var commands: [CookVoiceCommand] = []
+        controller.onCommand = { commands.append($0) }
+        controller.announced(CookVoiceNoticeText.listening, spokenAloud: true)
+        time += CookVoiceController.speakingTime(words: CookVoiceCommand.words(in: CookVoiceNoticeText.listening).count)
+        engine.heard("repeat timer")
+        #expect(commands.isEmpty)
+        engine.heard("next")
+        engine.heard("timer")
+        #expect(commands == [.next, .startTimer])
     }
 
     @Test func defaultClockIsTheWallClock() {

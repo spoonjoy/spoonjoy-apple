@@ -45,7 +45,8 @@ public enum CookModeSessionResolver {
             guard let timer = viewModel.systemTimer else {
                 return CookModeSessionOutcome(progress: viewModel.progress, message: "This step has no timer.", timerToStart: nil)
             }
-            return CookModeSessionOutcome(progress: viewModel.progress, message: "Starting a \(timer.durationLabel) timer.", timerToStart: timer)
+            // Not "Starting a 5 min timer.": once its number is dropped, that line ends in "timer" and parses as a command.
+            return CookModeSessionOutcome(progress: viewModel.progress, message: "Timer set for \(timer.durationLabel).", timerToStart: timer)
         case .readStep:
             return CookModeSessionOutcome(progress: viewModel.progress, message: readout(for: viewModel), timerToStart: nil)
         case .checkStep:

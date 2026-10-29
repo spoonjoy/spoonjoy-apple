@@ -104,12 +104,21 @@ private final class CookVoiceSession: CookVoiceRunning {
         heard: @escaping @MainActor (String) -> Void,
         failed: @escaping @MainActor (String) -> Void
     ) async throws -> CookVoiceSession {
-#if os(iOS)
-        let audioSession = AVAudioSession.sharedInstance()
-        // Play-and-record so a step read aloud and the mic share the session; speech comes out of the speaker.
-        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers, .allowBluetoothHFP])
-        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-#endif
+        try CookAudioSessionUse.begin()
+        do {
+            return try await startEngine(transcriber: transcriber, gate: gate, heard: heard, failed: failed)
+        } catch {
+            CookAudioSessionUse.end()
+            throw error
+        }
+    }
+
+    private static func startEngine(
+        transcriber: SpeechTranscriber,
+        gate: CookVoiceMuteGate,
+        heard: @escaping @MainActor (String) -> Void,
+        failed: @escaping @MainActor (String) -> Void
+    ) async throws -> CookVoiceSession {
         let engine = AVAudioEngine()
         let inputNode = engine.inputNode
         let micFormat = inputNode.outputFormat(forBus: 0)
@@ -188,6 +197,29 @@ private final class CookVoiceSession: CookVoiceRunning {
         results?.cancel()
         let analyzer = analyzer
         Task { await analyzer.cancelAndFinishNow() }
+        CookAudioSessionUse.end()
+    }
+}
+
+/// Counts the sessions using the audio session, so a start that was cancelled while a newer one was starting can't
+/// deactivate the audio session underneath the newer one. Only the last session to stop deactivates it.
+@MainActor
+private enum CookAudioSessionUse {
+    private static var users = 0
+
+    static func begin() throws {
+#if os(iOS)
+        let audioSession = AVAudioSession.sharedInstance()
+        // Play-and-record so a step read aloud and the mic share the session; speech comes out of the speaker.
+        try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers, .allowBluetoothHFP])
+        try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+#endif
+        users += 1
+    }
+
+    static func end() {
+        users = max(0, users - 1)
+        guard users == 0 else { return }
 #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
 #endif
@@ -268,7 +300,9 @@ private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
     static let tail: TimeInterval = 1.5
 
     private let synthesizer = AVSpeechSynthesizer()
-    private var gate: CookVoiceMuteGate?
+    /// The utterance being read and the gate it holds deaf. A late callback for an earlier utterance, such as the
+    /// cancel of the one this replaced, must not end this one's mute.
+    private var current: (utterance: AVSpeechUtterance, gate: CookVoiceMuteGate)?
 
     override init() {
         super.init()
@@ -277,29 +311,34 @@ private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
 
     func speak(_ text: String, gate: CookVoiceMuteGate) {
         stop()
-        self.gate = gate
-        gate.speechBegan()
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier(.bcp47))
+        current = (utterance, gate)
+        gate.speechBegan()
         synthesizer.speak(utterance)
     }
 
     func stop() {
+        guard let current else { return }
         synthesizer.stopSpeaking(at: .immediate)
-        finished()
+        finished(current.utterance)
     }
 
+    // The callback holds the utterance itself until it is compared, so a newer utterance can't reuse its address.
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.finished() }
+        nonisolated(unsafe) let utterance = utterance
+        Task { @MainActor in self.finished(utterance) }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.finished() }
+        nonisolated(unsafe) let utterance = utterance
+        Task { @MainActor in self.finished(utterance) }
     }
 
-    private func finished() {
-        gate?.speechEnded(at: Date().timeIntervalSinceReferenceDate, tail: Self.tail)
-        gate = nil
+    private func finished(_ utterance: AVSpeechUtterance) {
+        guard let current, current.utterance === utterance else { return }
+        current.gate.speechEnded(at: Date().timeIntervalSinceReferenceDate, tail: Self.tail)
+        self.current = nil
     }
 }
 

@@ -34,4 +34,15 @@ public enum CookVoiceNoticeText {
     public static func reading(step: Int, of total: Int) -> String {
         "Reading step \(step) of \(total)"
     }
+
+    /// The mic button's accessibility label. It carries the state, because a toolbar button drops its accessibility
+    /// value, and VoiceOver reads it aloud, so it must not parse as a command either.
+    public static func micLabel(for state: CookVoiceListenerState, preparing: Bool) -> String {
+        switch state {
+        case .off: "Listen for next, back, repeat, timer"
+        case .requestingPermission: preparing ? "Preparing voice. Tap to stop" : "Starting to listen. Tap to stop"
+        case .listening: "Listening. Tap to stop"
+        case .unavailable: "Voice unavailable. Tap to try again"
+        }
+    }
 }

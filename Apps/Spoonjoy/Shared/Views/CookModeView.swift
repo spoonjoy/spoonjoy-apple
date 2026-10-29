@@ -1590,14 +1590,8 @@ extension CookModeView {
         }
     }
 
-    /// The mic's label says its state too: a toolbar button doesn't carry an accessibility value through.
     private var voiceMicTitle: String {
-        switch voice.state {
-        case .off: "Listen for next, back, repeat, timer"
-        case .requestingPermission: voice.isPreparing ? "Preparing voice. Tap to stop" : "Starting to listen. Tap to stop"
-        case .listening: "Listening. Tap to stop"
-        case .unavailable: "Voice unavailable. Tap to try again"
-        }
+        CookVoiceNoticeText.micLabel(for: voice.state, preparing: voice.isPreparing)
     }
 
     @ViewBuilder var voiceNoticePill: some View {
