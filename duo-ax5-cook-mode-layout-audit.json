@@ -1,0 +1,29 @@
+{
+  "emittedBy" : "SpoonjoyLayoutAuditUITests",
+  "method" : "XCUITest snapshot frames. noOverlap: no two visible controls' frames cross, apart from a control inside another. textFits: every visible label lies inside its container and the screen, and its longest word and wrapped height fit its frame at caption2 x 0.5 for the observed text size; labels cut by a scroll view's edge are skipped.",
+  "minimumPointSize" : 20,
+  "observedDynamicTypeSize" : "accessibility5",
+  "report" : {
+    "interactiveCount" : 3,
+    "noOverlap" : true,
+    "overlaps" : [
+
+    ],
+    "skippedOffscreenCount" : 10,
+    "skippedPartiallyScrolledCount" : 0,
+    "textCount" : 3,
+    "textFits" : true,
+    "textProblems" : [
+
+    ]
+  },
+  "route" : "cook-mode",
+  "screen" : {
+    "height" : 678,
+    "width" : 466,
+    "x" : 0,
+    "y" : 0
+  },
+  "screenshot" : "ax5-cook-mode-layout-audit-ios.png",
+  "source" : "CookModeView"
+}

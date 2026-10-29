@@ -1,0 +1,131 @@
+{
+  "emittedBy" : "SpoonjoyLayoutAuditUITests",
+  "method" : "XCUITest snapshot frames. noOverlap: no two visible controls' frames cross, apart from a control inside another. textFits: every visible label lies inside its container and the screen, and its longest word and wrapped height fit its frame at caption2 x 0.5 for the observed text size; labels cut by a scroll view's edge are skipped.",
+  "minimumPointSize" : 20,
+  "observedDynamicTypeSize" : "accessibility5",
+  "report" : {
+    "interactiveCount" : 7,
+    "noOverlap" : false,
+    "overlaps" : [
+      {
+        "first" : {
+          "frame" : {
+            "height" : 58,
+            "width" : 44,
+            "x" : 396,
+            "y" : 384
+          },
+          "identifier" : "",
+          "label" : "Kitchen",
+          "type" : "button"
+        },
+        "intersection" : {
+          "height" : 8,
+          "width" : 44,
+          "x" : 396,
+          "y" : 434
+        },
+        "second" : {
+          "frame" : {
+            "height" : 58,
+            "width" : 44,
+            "x" : 396,
+            "y" : 434
+          },
+          "identifier" : "",
+          "label" : "Recipes",
+          "type" : "button"
+        }
+      },
+      {
+        "first" : {
+          "frame" : {
+            "height" : 58,
+            "width" : 44,
+            "x" : 396,
+            "y" : 434
+          },
+          "identifier" : "",
+          "label" : "Recipes",
+          "type" : "button"
+        },
+        "intersection" : {
+          "height" : 8,
+          "width" : 44,
+          "x" : 396,
+          "y" : 484
+        },
+        "second" : {
+          "frame" : {
+            "height" : 58,
+            "width" : 44,
+            "x" : 396,
+            "y" : 484
+          },
+          "identifier" : "",
+          "label" : "Cookbooks",
+          "type" : "button"
+        }
+      },
+      {
+        "first" : {
+          "frame" : {
+            "height" : 58,
+            "width" : 44,
+            "x" : 396,
+            "y" : 484
+          },
+          "identifier" : "",
+          "label" : "Cookbooks",
+          "type" : "button"
+        },
+        "intersection" : {
+          "height" : 8,
+          "width" : 44,
+          "x" : 396,
+          "y" : 534
+        },
+        "second" : {
+          "frame" : {
+            "height" : 58,
+            "width" : 44,
+            "x" : 396,
+            "y" : 534
+          },
+          "identifier" : "",
+          "label" : "Shopping",
+          "type" : "button"
+        }
+      }
+    ],
+    "skippedOffscreenCount" : 66,
+    "skippedPartiallyScrolledCount" : 0,
+    "textCount" : 3,
+    "textFits" : false,
+    "textProblems" : [
+      {
+        "kind" : "truncatedHeight",
+        "text" : {
+          "frame" : {
+            "height" : 47.000003814697266,
+            "width" : 253.33332824707031,
+            "x" : 23.666666030883789,
+            "y" : 49.666667938232422
+          },
+          "identifier" : "",
+          "label" : "Saved kitchen may be out of date",
+          "type" : "staticText"
+        }
+      }
+    ]
+  },
+  "route" : "recipe-detail",
+  "screen" : {
+    "height" : 678,
+    "width" : 466,
+    "x" : 0,
+    "y" : 0
+  },
+  "screenshot" : "ax5-recipe-detail-layout-audit-ios.png",
+  "source" : "RecipeDetailView"
+}
