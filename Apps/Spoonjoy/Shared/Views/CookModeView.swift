@@ -1403,9 +1403,6 @@ extension CookModeView {
                     }
                     .id(timer.stepID)
                 }
-                if isLastStep {
-                    finishControl
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(currentStep.id)
@@ -1442,26 +1439,30 @@ extension CookModeView {
     }
 
     /// Mark done and Next at the outer corner of the right page, stacked when the text is too large. On the last step
-    /// the page's Finish cooking is the one filled button, so Next steps aside.
+    /// Finish cooking takes Next's place, so it stays on screen however long the step's text runs.
     private var cookSpreadTrailingControls: some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 10) {
                 Spacer(minLength: 0)
                 markDoneButton(identifier: "cookSpread.markDone")
                     .fixedSize()
-                if !isLastStep {
-                    nextStepButton(identifier: "cookSpread.next")
-                        .fixedSize()
-                }
+                cookSpreadForwardControl
+                    .fixedSize()
             }
             VStack(alignment: .trailing, spacing: 10) {
-                if !isLastStep {
-                    nextStepButton(identifier: "cookSpread.next")
-                }
+                cookSpreadForwardControl
                 markDoneButton(identifier: "cookSpread.markDone")
             }
         }
         .controlSize(.large)
+    }
+
+    @ViewBuilder private var cookSpreadForwardControl: some View {
+        if isLastStep {
+            finishControl
+        } else {
+            nextStepButton(identifier: "cookSpread.next")
+        }
     }
 }
 
