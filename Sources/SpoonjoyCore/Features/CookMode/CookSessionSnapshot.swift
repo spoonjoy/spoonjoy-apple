@@ -23,6 +23,8 @@ public struct CookSessionSnapshot: Codable, Hashable, Sendable {
     public let checkedCount: Int
     public let ingredientCount: Int
     public let timers: [CookTimerEntry]
+    /// Every timer in the session, including those past `maxTimers`. Optional so a payload without it still decodes.
+    public let timerCount: Int?
 
     public init(
         recipeID: String,
@@ -34,7 +36,8 @@ public struct CookSessionSnapshot: Codable, Hashable, Sendable {
         nextStepTitle: String?,
         checkedCount: Int,
         ingredientCount: Int,
-        timers: [CookTimerEntry]
+        timers: [CookTimerEntry],
+        timerCount: Int? = nil
     ) {
         self.recipeID = recipeID
         self.recipeTitle = recipeTitle
@@ -46,5 +49,6 @@ public struct CookSessionSnapshot: Codable, Hashable, Sendable {
         self.checkedCount = checkedCount
         self.ingredientCount = ingredientCount
         self.timers = timers
+        self.timerCount = timerCount
     }
 }
