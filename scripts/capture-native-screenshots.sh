@@ -289,6 +289,13 @@ ios_boot_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS:-90}"
 ios_foreground_probe_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS:-2}"
 macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
+# A built SpoonjoyShoppingUITests .xctestrun turns on the layout audit, which measures noOverlap and textFits
+# from the running screen's element frames. Without one the proofs carry neither field: the app cannot measure them.
+layout_audit_xctestrun="${SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN:-}"
+# A folded iPhone Duo shows the app on its outer display, while `simctl io screenshot` defaults to the inner one.
+# `xcrun simctl io <udid> enumerate` lists the display UUIDs.
+ios_screenshot_display="${SPOONJOY_SCREENSHOT_IOS_DISPLAY:-}"
+layout_audit_timeout_seconds="${SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_TIMEOUT_SECONDS:-600}"
 ios_smoke_attempts="${SPOONJOY_SCREENSHOT_IOS_SMOKE_ATTEMPTS:-2}"
 ios_capture_attempts="${SPOONJOY_SCREENSHOT_IOS_CAPTURE_ATTEMPTS:-2}"
 expected_recorded_route="$screenshot_route"
@@ -558,10 +565,8 @@ write_design_review_success() {
       "dynamicType" => true,
       "voiceOverLabels" => true,
       "keyboardNavigation" => true,
-      "reduceMotion" => true,
       "contrast" => true,
       "kitchenTableHierarchy" => true,
-      "noOverlap" => true,
       "accessibilityProofArtifacts" => [ios_accessibility_proof, ipad_accessibility_proof, macos_accessibility_proof],
       "blockers" => []
     }
@@ -1639,7 +1644,8 @@ wait_for_accessibility_proof() {
                         else
                           "app.spoonjoy"
                         end
-      expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "reduceMotion", "contrast", "kitchenTableHierarchy", "noOverlap"]
+      expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "contrast", "kitchenTableHierarchy"]
+      unmeasured_fields = ["reduceMotion", "noOverlap", "textFits", "noTinyClusters"].select { |field| proof.key?(field) }
       expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
       expected_dismissible = ["offline", "stale"]
       expected_severe = ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
@@ -1765,8 +1771,7 @@ wait_for_accessibility_proof() {
       missing_fields = expected_fields.reject { |field| proof[field] == true }
       abort("#{expected_platform} accessibility proof false fields: #{missing_fields.join(", ")}") unless missing_fields.empty?
       abort("#{expected_platform} accessibility proof minimumTargetSize mismatch") unless proof.fetch("minimumTargetSize") >= 44
-      abort("#{expected_platform} accessibility proof textFits mismatch") unless proof.fetch("textFits") == true
-      abort("#{expected_platform} accessibility proof noTinyClusters mismatch") unless proof.fetch("noTinyClusters") == true
+      abort("#{expected_platform} accessibility proof claims fields the app cannot measure: #{unmeasured_fields.join(", ")}") unless unmeasured_fields.empty?
       abort("#{expected_platform} accessibility proof observedDynamicTypeSize missing") unless proof.fetch("observedDynamicTypeSize").is_a?(String) && !proof.fetch("observedDynamicTypeSize").empty?
       abort("#{expected_platform} accessibility proof observedReduceMotion missing") unless [true, false].include?(proof.fetch("observedReduceMotion"))
       visual_readiness = proof.fetch("visualReadiness")
@@ -2002,7 +2007,7 @@ capture_ios_app() {
     printf 'Spoonjoy stopped being the front display before screenshot capture\n' >> "$capture_log"
     return 1
   fi
-  xcrun simctl io "$udid" screenshot "$screenshot_output" >> "$capture_log" 2>&1
+  xcrun simctl io "$udid" screenshot ${ios_screenshot_display:+--display="$ios_screenshot_display"} "$screenshot_output" >> "$capture_log" 2>&1
   if [[ "$expected_platform" == "ipad" && "$requested_ios_orientation" == "landscape" ]]; then
     sips -r 90 "$screenshot_output" >> "$capture_log" 2>&1
   fi
@@ -2011,8 +2016,76 @@ capture_ios_app() {
     rm -f "$screenshot_output"
     return 1
   fi
-  [[ -f "$screenshot_output" && -s "$screenshot_output" ]]
-  validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1
+  [[ -f "$screenshot_output" && -s "$screenshot_output" ]] || return 1
+  validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1 || return 1
+  if [[ -n "$layout_audit_xctestrun" ]]; then
+    run_ios_layout_audit "$udid" "$expected_platform" "$accessibility_proof_output" "$ios_app_dir" || return 1
+  fi
+}
+
+# Relaunches the route under LayoutAuditUITests/testMeasureCaptureRoute, which waits for the app's accessibility
+# proof, measures the screen's element frames and writes the audit with a screenshot of what it measured. The
+# measured noOverlap and textFits are then added to the saved accessibility proof, with a pointer to the audit.
+# The audit records what it finds; it does not fail the capture, because a layout bug is a finding, not a harness error.
+run_ios_layout_audit() {
+  local udid="$1"
+  local expected_platform="$2"
+  local accessibility_proof_output="$3"
+  local ios_app_dir="$4"
+  local apple_abs
+  apple_abs="$(cd "$apple_dir" && pwd -P)"
+  local audit_output="$apple_abs/${unit_slug}-layout-audit-${expected_platform}.json"
+  local audit_screenshot="$apple_abs/${unit_slug}-layout-audit-${expected_platform}.png"
+  local audit_log="$apple_abs/${unit_slug}-layout-audit-${expected_platform}.log"
+  local audit_relative="apple/${unit_slug}-layout-audit-${expected_platform}.json"
+  rm -f "$audit_output" "$audit_screenshot" "$audit_log"
+  write_app_state "$ios_app_dir/native-app-state.json" "$expected_recorded_route"
+  write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
+  write_sync_store "$ios_app_dir/native-sync-store.json" "$screenshot_route"
+  rm -f "$screenshot_proof_path"
+  rm -f "$ios_accessibility_proof_runtime_path"
+  rm -f "$ios_app_dir/debug-auth-session.json"
+  xcrun simctl terminate "$udid" app.spoonjoy >/dev/null 2>&1 || true
+  # The same launch environment as ios_launch_app, handed to the test runner, which forwards every
+  # SPOONJOY_SCREENSHOT_ variable to the app it launches.
+  if ! run_with_timeout "layout audit timeout" "$layout_audit_timeout_seconds" "$audit_log" \
+    env \
+      TEST_RUNNER_SPOONJOY_LAYOUT_AUDIT_OUTPUT="$audit_output" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_AUTH="$screenshot_auth_enabled" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_SETTINGS_FOCUS="$settings_capture_focus" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS="$search_capture_disable_focus" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_RECIPE_DETAIL_FOCUS="$recipe_detail_focus" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_APNS_PERMISSION_STATE="$settings_apns_permission_state" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_APNS_REGISTRATION_STATE="$settings_apns_registration_state" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_SHOPPING_CONFLICT_CLIENT_MUTATION_ID="$shopping_conflict_launch_client_mutation_id" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_SHOPPING_VARIANT="$shopping_capture_variant" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_SHOPPING_MODE="$requested_shopping_mode" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_SHOPPING_CATEGORY="$requested_shopping_category" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
+      TEST_RUNNER_SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$ios_accessibility_proof_runtime_path" \
+      xcodebuild test-without-building -xctestrun "$layout_audit_xctestrun" \
+        -destination "platform=iOS Simulator,id=$udid" \
+        -only-testing:SpoonjoyShoppingUITests/LayoutAuditUITests/testMeasureCaptureRoute \
+        -parallel-testing-enabled NO -collect-test-diagnostics never; then
+    printf 'layout audit failed for %s route %s; see %s\n' "$expected_platform" "$screenshot_route" "$audit_log" >> "$capture_log"
+    return 1
+  fi
+  ruby -rjson -e '
+    proof_path, audit_path, audit_relative, expected_route = ARGV
+    proof = JSON.parse(File.read(proof_path))
+    audit = JSON.parse(File.read(audit_path))
+    abort("layout audit emitter mismatch") unless audit.fetch("emittedBy") == "SpoonjoyLayoutAuditUITests"
+    abort("layout audit route mismatch") unless audit.fetch("route") == expected_route
+    report = audit.fetch("report")
+    proof["noOverlap"] = report.fetch("noOverlap")
+    proof["textFits"] = report.fetch("textFits")
+    proof["layoutAudit"] = audit_relative
+    File.write(proof_path, JSON.pretty_generate(proof) + "\n")
+    printf("layout audit %s: noOverlap=%s (%d overlaps), textFits=%s (%d text problems)\n", expected_route, report["noOverlap"], report["overlaps"].length, report["textFits"], report["textProblems"].length)
+  ' "$accessibility_proof_output" "$audit_output" "$audit_relative" "$screenshot_route" >> "$capture_log" 2>&1
 }
 
 set_simulator_orientation() {

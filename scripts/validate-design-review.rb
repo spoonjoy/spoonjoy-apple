@@ -10,11 +10,13 @@ REQUIRED_FIELDS = [
   "dynamicType",
   "voiceOverLabels",
   "keyboardNavigation",
-  "reduceMotion",
   "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
+  "kitchenTableHierarchy"
 ].freeze
+# Nothing measures these when the manifest is written, so the manifest must not claim them. A proof's noOverlap and
+# textFits come only from the layout audit (LayoutAuditUITests) that measured the screen.
+UNMEASURED_MANIFEST_FIELDS = ["reduceMotion", "noOverlap", "textFits", "noTinyClusters"].freeze
+LAYOUT_AUDIT_FIELDS = ["noOverlap", "textFits"].freeze
 
 VALID_ROUTES = ["kitchen", "recipes", "saved-recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "chefs", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
@@ -23,10 +25,8 @@ ACCESSIBILITY_FIELDS = [
   "dynamicType",
   "voiceOverLabels",
   "keyboardNavigation",
-  "reduceMotion",
   "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
+  "kitchenTableHierarchy"
 ].freeze
 EXPECTED_OFFLINE_VISIBLE_STATES = [
   "offline",
@@ -304,6 +304,27 @@ def accessibility_evidence_key(route, manifest)
   route == "capture" && manifest["captureSurfaceVariant"] == "signed-out" ? "capture-signed-out" : route
 end
 
+def validate_layout_audit!(manifest_path, proof_path, proof, route)
+  audit_relative_path = proof["layoutAudit"]
+  if audit_relative_path.nil?
+    present = LAYOUT_AUDIT_FIELDS.select { |field| proof.key?(field) }
+    fail_check("#{proof_path} has #{present.join(", ")} without the layoutAudit that measured them") unless present.empty?
+    return
+  end
+  fail_check("#{proof_path} layoutAudit must be a relative path") unless audit_relative_path.is_a?(String) && !audit_relative_path.start_with?("/")
+  audit_path = manifest_path.dirname.join(audit_relative_path).cleanpath
+  fail_check("#{proof_path} missing layout audit #{audit_relative_path}") unless audit_path.file?
+  audit = JSON.parse(audit_path.read)
+  fail_check("#{audit_path} emittedBy must be SpoonjoyLayoutAuditUITests") unless audit["emittedBy"] == "SpoonjoyLayoutAuditUITests"
+  fail_check("#{audit_path} route must be #{route}") unless audit["route"] == route
+  report = audit["report"]
+  fail_check("#{audit_path} report must be an object") unless report.is_a?(Hash)
+  LAYOUT_AUDIT_FIELDS.each do |field|
+    fail_check("#{audit_path} report.#{field} must be boolean") unless [true, false].include?(report[field])
+    fail_check("#{proof_path} #{field} must equal the layout audit's measured value") unless proof[field] == report[field]
+  end
+end
+
 def validate_accessibility_proof!(manifest_path, proof_relative_path, route, manifest)
   fail_check("#{manifest_path} accessibilityProofArtifacts entries must be relative paths") if proof_relative_path.start_with?("/")
   proof_path = manifest_path.dirname.join(proof_relative_path).cleanpath
@@ -321,8 +342,9 @@ def validate_accessibility_proof!(manifest_path, proof_relative_path, route, man
   false_fields = ACCESSIBILITY_FIELDS.reject { |field| proof[field] == true }
   fail_check("#{proof_path} accessibility fields must all be true: #{false_fields.join(", ")}") unless false_fields.empty?
   fail_check("#{proof_path} minimumTargetSize must be at least 44") unless proof["minimumTargetSize"].is_a?(Numeric) && proof["minimumTargetSize"] >= 44
-  fail_check("#{proof_path} textFits must be true") unless proof["textFits"] == true
-  fail_check("#{proof_path} noTinyClusters must be true") unless proof["noTinyClusters"] == true
+  claimed = ["reduceMotion", "noTinyClusters"].select { |field| proof.key?(field) }
+  fail_check("#{proof_path} claims fields nothing measured: #{claimed.join(", ")}") unless claimed.empty?
+  validate_layout_audit!(manifest_path, proof_path, proof, route)
   fail_check("#{proof_path} observedDynamicTypeSize must be a non-empty string") unless proof["observedDynamicTypeSize"].is_a?(String) && !proof["observedDynamicTypeSize"].empty?
   fail_check("#{proof_path} observedReduceMotion must be boolean") unless [true, false].include?(proof["observedReduceMotion"])
 
@@ -365,6 +387,9 @@ fail_check("#{path} missing required fields: #{missing_fields.join(", ")}") unle
 
 non_boolean_fields = REQUIRED_FIELDS.reject { |field| [true, false].include?(manifest[field]) }
 fail_check("#{path} fields must be booleans: #{non_boolean_fields.join(", ")}") unless non_boolean_fields.empty?
+
+claimed_fields = UNMEASURED_MANIFEST_FIELDS.select { |field| manifest.key?(field) }
+fail_check("#{path} claims fields nothing measured: #{claimed_fields.join(", ")}") unless claimed_fields.empty?
 
 blockers = manifest.fetch("blockers", [])
 fail_check("#{path} blockers must be an array") unless blockers.is_a?(Array)

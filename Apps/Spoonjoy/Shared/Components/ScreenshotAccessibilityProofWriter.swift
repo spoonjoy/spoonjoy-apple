@@ -142,6 +142,9 @@ enum ScreenshotAccessibilityProofWriter {
         visualReadiness: ScreenshotVisualReadinessSnapshot
     ) -> [String: Any] {
         let evidence = routeEvidence(route: route, source: source)
+        // The app cannot see its own frames, so it states no overlap, text-fit or cluster result: the capture
+        // script's layout audit (LayoutAuditUITests) measures noOverlap and textFits from the running screen.
+        // Reduce Motion is reported only as observed.
         return [
             "platform": platform,
             "route": route,
@@ -150,13 +153,9 @@ enum ScreenshotAccessibilityProofWriter {
             "dynamicType": !runtimeContext.dynamicTypeSize.isEmpty && !evidence.dynamicTypeTextStyles.isEmpty,
             "voiceOverLabels": !evidence.voiceOverLabels.isEmpty,
             "keyboardNavigation": !evidence.keyboardNavigationTargets.isEmpty,
-            "reduceMotion": true,
             "contrast": !evidence.contrastPairs.isEmpty,
             "kitchenTableHierarchy": !evidence.hierarchyAnchors.isEmpty,
-            "noOverlap": !evidence.layoutGuards.isEmpty,
             "minimumTargetSize": evidence.minimumTargetSize,
-            "textFits": evidence.layoutGuards.contains("text-fit"),
-            "noTinyClusters": evidence.layoutGuards.contains("no-tiny-clusters"),
             "observedDynamicTypeSize": runtimeContext.dynamicTypeSize,
             "observedReduceMotion": runtimeContext.reduceMotionEnabled,
             "visualReadiness": [
