@@ -100,6 +100,8 @@ public enum BookSpreadLayout: Equatable, Sendable {
     public static let outerMargin: Double = 28
     /// The margin on the gutter side. Wider than the outer margin so tap targets stay clear of the fold.
     public static let innerMargin: Double = 40
+    /// How far the fold's soft shadow reaches into each page from the gutter.
+    public static let gutterShadowWidth: Double = 24
 
     /// Resolves the layout for a container.
     ///

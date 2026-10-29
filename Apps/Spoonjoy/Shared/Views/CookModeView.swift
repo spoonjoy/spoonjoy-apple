@@ -104,6 +104,11 @@ struct CookModeView: View {
 #endif
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    /// The cover glance's step title: display type twice the size of the page's, read from across the kitchen.
+    @ScaledMetric(relativeTo: .largeTitle) private var coverGlanceTitleSize: CGFloat = 56
+    /// True when the cover is wider than tall (the Duo turned on its side), so the ring sits beside the title and
+    /// clears the pinned Next instead of scrolling under it.
+    @State private var coverGlanceIsWide = false
     @ObservedObject private var stepTimers: CookStepTimerRegistry
     @State private var progress: CookModeProgress
     @State private var shoppingStatusMessage: String?
@@ -121,6 +126,12 @@ struct CookModeView: View {
     @State private var localCheckCount = 0
     /// An auto-started timer that failed to set, by step, shown on that step's ring.
     @State private var autoStartErrors: [String: String] = [:]
+    /// True after a foldable is folded shut mid-cook: the cover shows the step as a kitchen timer until it opens
+    /// again or the cook asks for the whole step.
+    @State private var showsCoverGlance = false
+    /// How far the open-flat spread's page turn has run, 0 to 1. At rest it is 1.
+    @State private var spreadTurnPhase: Double = 1
+    @State private var spreadTurnIsForward = true
     private let incomingProgress: CookModeProgress?
     /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
     private let recipePageScale: Double?
@@ -215,23 +226,55 @@ struct CookModeView: View {
         }
     }
 
-    /// Stood half-open on the counter (or laid open tall), a foldable's inner screen folds across the middle: the
-    /// step goes above the fold and the controls below it. Everywhere else cook mode is unchanged.
+    /// Cook mode follows the hinge (see "Duo postures" in docs/native-design-language.md). Folded shut mid-cook, the
+    /// cover becomes a kitchen timer. Stood half-open on the counter (or laid open tall), the step goes above the
+    /// fold and the controls below it. Laid open wide, it is a spread whose page turns. Everywhere else, and on a
+    /// phone with no hinge, cook mode is the single page. The step, the checks and running timers live in this view
+    /// and the system, so they carry across every change of posture.
     private var cookModeBody: some View {
         GeometryReader { proxy in
+            let reading = foldReading.applyingForcedHinge
             let tabletop = TabletopLayout.resolve(
                 width: Double(proxy.size.width),
                 height: Double(proxy.size.height),
-                hinge: FoldReading.forcedHinge ?? foldReading.hinge,
-                band: foldReading.band
+                hinge: reading.tabletopHinge,
+                band: reading.band
             )
-            if tabletop.isSplit {
-                cookModeTabletop(tabletop)
-            } else {
-                standardCookModeBody
+            Group {
+                if showsCoverGlance, currentStep != nil {
+                    cookModeCoverGlance
+                } else if tabletop.isSplit {
+                    cookModeTabletop(tabletop)
+                } else {
+                    standardCookModeBody
+                }
             }
+            .kitchenTransition(.opacity)
         }
         .readingFold($foldReading)
+        .onChange(of: foldReading.applyingForcedHinge.posture, initial: true) { old, new in
+            updateCoverGlance(from: old, to: new)
+#if DEBUG
+            CookTimerProbe.record(posture: new, timers: timerBoard.ordered)
+#endif
+        }
+        .onChange(of: currentIndex) { old, new in
+            playSpreadTurn(forward: new > old)
+        }
+    }
+
+    /// The cover glance starts when the hinge closes while cook mode is open, not when cook mode opens on a closed
+    /// phone, where the full page is what the cook came for. A DEBUG launch forced closed shows it from the start.
+    private func updateCoverGlance(from old: CookPosture, to new: CookPosture) {
+        let foldedShut = new == .closedGlance && old != .closedGlance
+        let launchedClosed = new == .closedGlance && old == new && FoldReading.forcedHinge == .closed
+        let glance = new == .closedGlance && (foldedShut || launchedClosed || showsCoverGlance)
+        guard glance != showsCoverGlance else {
+            return
+        }
+        withAnimation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion)) {
+            showsCoverGlance = glance
+        }
     }
 
     /// Compact iPhone turns steps by swipe and has no dock. Regular width and Mac keep the dock (Back, Done, Next)
@@ -545,9 +588,37 @@ struct CookModeView: View {
             return
         }
         let next = (try? progress.selectingStep(id: recipe.steps[index].id, updatedAt: timestamp())) ?? progress
-        withAnimation(KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)) {
+        withAnimation(pageTurnAnimation) {
             updateProgress(next)
         }
+    }
+
+    /// The page turn's spring, or its crossfade under Reduce Motion. A DEBUG demo turn plays it slowly enough to
+    /// photograph halfway.
+    private var pageTurnAnimation: Animation {
+        if let duration = Self.demoPageTurnDuration {
+            return .easeInOut(duration: duration)
+        }
+        return KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)
+    }
+
+    /// `-SpoonjoyDemoPageTurn <seconds>` (DEBUG): ten seconds after the spread opens it turns one page by itself, over
+    /// that many seconds, so the Duo tour can photograph the turn, or its crossfade under Reduce Motion, halfway.
+    private static let demoPageTurnDuration: Double? = {
+#if DEBUG
+        let seconds = UserDefaults.standard.double(forKey: "SpoonjoyDemoPageTurn")
+        return seconds > 0 ? seconds : nil
+#else
+        nil
+#endif
+    }()
+
+    private func playDemoPageTurn() async {
+        guard Self.demoPageTurnDuration != nil else {
+            return
+        }
+        try? await Task.sleep(for: .seconds(10))
+        turnPage(to: currentIndex + 1 < recipe.steps.count ? currentIndex + 1 : currentIndex - 1)
     }
 
     /// One step's page, top to bottom: where you are, the step title in brass, the step in large serif, its timer
@@ -992,6 +1063,133 @@ final class CookPageTurnTapGuard {
 // MARK: - Cookbook spread
 
 extension CookModeView {
+    /// Folded shut on the counter, the cover is a kitchen timer: the step's title in type you can read from the stove,
+    /// its timer ring when the step has one, and Next. "Show step" brings back the whole page.
+    @ViewBuilder private var cookModeCoverGlance: some View {
+        if let currentStep {
+            ScrollView {
+                Group {
+                    if coverGlanceIsWide {
+                        HStack(alignment: .center, spacing: 24) {
+                            coverGlanceHeading(currentStep)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            coverGlanceRing(currentStep)
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 20) {
+                            coverGlanceHeading(currentStep)
+                            coverGlanceRing(currentStep)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+                .padding(.vertical, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                coverGlanceControls
+            }
+            .onGeometryChange(for: Bool.self) { proxy in
+                proxy.size.width > proxy.size.height
+            } action: { isWide in
+                coverGlanceIsWide = isWide
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("cookMode.coverGlance")
+        }
+    }
+
+    private func coverGlanceHeading(_ step: RecipeStep) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("\(recipe.title) · \(currentIndex + 1) of \(recipe.steps.count)")
+                .spreadRunningHead()
+                .lineLimit(2)
+            Text(step.stepTitle ?? "Step \(step.stepNum)")
+                .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
+                .foregroundStyle(KitchenTableTheme.ink)
+                .lineLimit(4)
+                // A long word shrinks rather than breaking across lines on the narrow cover.
+                .minimumScaleFactor(0.5)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
+                .accessibilityIdentifier("cookMode.coverGlance.title")
+        }
+    }
+
+    @ViewBuilder private func coverGlanceRing(_ step: RecipeStep) -> some View {
+        if let timer = viewModel.systemTimer {
+            stepTimer(timer, step: step, model: viewModel, isCurrent: true)
+        }
+    }
+
+    /// Next fills the cover's width under the thumb; Show step sits under it.
+    private var coverGlanceControls: some View {
+        VStack(spacing: 10) {
+            coverGlanceNext
+            coverGlanceShowStep
+        }
+        .controlSize(.extraLarge)
+        // The cover is narrow: past AX3 the extra-large buttons would cut their labels short. They stay thumb-sized,
+        // and the step above still grows to the largest size.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+        .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .background(KitchenTableTheme.page)
+    }
+
+    private var coverGlanceShowStep: some View {
+        Button {
+            withAnimation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion)) {
+                showsCoverGlance = false
+            }
+        } label: {
+            Label("Show step", systemImage: "text.alignleft")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .accessibilityHint("Shows the whole step and its checklist.")
+        .accessibilityIdentifier("cookMode.coverGlance.showStep")
+    }
+
+    @ViewBuilder private var coverGlanceNext: some View {
+        if isLastStep {
+            finishControl
+        } else {
+            nextStepButton(identifier: "cookMode.coverGlance.next")
+        }
+    }
+
+    // MARK: Step controls
+
+    private func nextStepButton(identifier: String) -> some View {
+        Button(action: advance) {
+            Label("Next step", systemImage: "arrow.forward.circle.fill")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .disabled(!canAdvance)
+        .accessibilityLabel("Move to the next step")
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func markDoneButton(identifier: String) -> some View {
+        Button(action: markCurrentStepComplete) {
+            Label("Mark done", systemImage: "checkmark.circle.fill")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .accessibilityLabel("Mark the current step done")
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func backStepButton(identifier: String) -> some View {
+        Button(action: previous) {
+            Label("Back step", systemImage: "chevron.backward.circle")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .disabled(!canGoBack)
+        .accessibilityIdentifier(identifier)
+    }
+
     /// Tabletop cook mode: the step on the half above the fold, angled toward the cook, and the checklist and step
     /// controls on the half below it, flat on the counter. Nothing sits on the fold. A swipe on the step turns it.
     private func cookModeTabletop(_ layout: TabletopLayout) -> some View {
@@ -1019,9 +1217,12 @@ extension CookModeView {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            tabletopStackedControls
+                        }
                         CookTimerStack(timers: otherRunningTimers)
                         stepCard(viewModel, isCurrent: true)
-                        if isLastStep {
+                        if isLastStep && !dynamicTypeSize.isAccessibilitySize {
                             finishControl
                         }
                     }
@@ -1029,13 +1230,31 @@ extension CookModeView {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                 }
-                // The dock at every width: the half on the counter wants the few large controls the dock carries.
-                cookModeBottomActionRail
+                // The dock: the half on the counter wants the few large controls the dock carries. At accessibility
+                // sizes its three buttons would cut their labels short, so the controls stack above the checklist.
+                if !dynamicTypeSize.isAccessibilitySize {
+                    cookModeBottomActionRail
+                }
             }
             .frame(height: bottomHeight)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookMode.tabletopControls")
         }
+    }
+
+    /// The tabletop controls at accessibility sizes, one to a row with whole labels: Next (or Finish cooking on the
+    /// last step), Mark done, then Back.
+    private var tabletopStackedControls: some View {
+        VStack(spacing: 10) {
+            if isLastStep {
+                finishControl
+            } else {
+                nextStepButton(identifier: "cookMode.tabletop.next")
+            }
+            markDoneButton(identifier: "cookMode.tabletop.markDone")
+            backStepButton(identifier: "cookMode.tabletop.back")
+        }
+        .controlSize(.large)
     }
 
     private var tabletopStepPage: some View {
@@ -1088,8 +1307,61 @@ extension CookModeView {
                 cookSpreadTrailingControls
                     .spreadPagePadding(.trailing, top: 12, bottom: 16)
             }
+            .background(KitchenTableTheme.page)
+            .modifier(PageCurlSweep(
+                phase: spreadCurlPhase(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)),
+                isForward: spreadCurlIsForward
+            ))
+            .contentShape(Rectangle())
+            .simultaneousGesture(pageTurnGesture(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)))
+            .simultaneousGesture(touchTrackingGesture)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookSpread.stepPage")
+            .accessibilityAction(named: "Next step") {
+                turnPage(to: currentIndex + 1)
+            }
+            .accessibilityAction(named: "Previous step") {
+                turnPage(to: currentIndex - 1)
+            }
+            .task {
+                await playDemoPageTurn()
+            }
+        }
+    }
+
+    /// While a finger drags the right page it lifts up to halfway; a turned step then plays the rest of the turn.
+    private func spreadCurlPhase(pageWidth: CGFloat) -> Double {
+        guard !accessibilityReduceMotion else {
+            return 1
+        }
+        if spreadTurnPhase < 1 {
+            return spreadTurnPhase
+        }
+        let dragged = min(1, abs(pageDrag.offset) / max(pageWidth, 1))
+        return dragged > 0 ? Double(dragged) / 2 : 1
+    }
+
+    private var spreadCurlIsForward: Bool {
+        spreadTurnPhase < 1 ? spreadTurnIsForward : pageDrag.offset <= 0
+    }
+
+    /// Sweeps the curl's shadow across the right page as the step changes, like a page lifting off the spine. Under
+    /// Reduce Motion nothing sweeps: the step page itself crossfades (`cookSpreadStepPage`'s transition, driven by the
+    /// turn's crossfade animation).
+    private func playSpreadTurn(forward: Bool) {
+        guard !accessibilityReduceMotion else {
+            return
+        }
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) {
+            spreadTurnIsForward = forward
+            spreadTurnPhase = 0
+        }
+        Task { @MainActor in
+            withAnimation(.easeInOut(duration: Self.demoPageTurnDuration ?? KitchenSpring.pageTurn.response)) {
+                spreadTurnPhase = 1
+            }
         }
     }
 
@@ -1159,9 +1431,6 @@ extension CookModeView {
                     }
                     .id(timer.stepID)
                 }
-                if isLastStep {
-                    finishControl
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(currentStep.id)
@@ -1169,48 +1438,86 @@ extension CookModeView {
         }
     }
 
+    /// Back and Close at the outer corner of the left page, side by side when they fit and stacked when the text is
+    /// too large, so they never push the page past its edge or into the gutter.
     private var cookSpreadLeadingControls: some View {
-        HStack(spacing: 10) {
-            Button(action: previous) {
-                Label("Back step", systemImage: "chevron.backward.circle")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                backStepButton(identifier: "cookSpread.back")
+                    .fixedSize()
+                cookSpreadCloseButton
+                    .fixedSize()
+                Spacer(minLength: 0)
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-            .disabled(!canGoBack)
-            .fixedSize()
-
-            Button(action: close) {
-                Label("Close", systemImage: "text.book.closed")
+            VStack(alignment: .leading, spacing: 10) {
+                backStepButton(identifier: "cookSpread.back")
+                cookSpreadCloseButton
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-            .accessibilityLabel("Return to recipe detail")
-            .fixedSize()
-
-            Spacer(minLength: 0)
         }
         .controlSize(.large)
+        // Past AX3 a page is too narrow for "Finish cooking" on one line, and the button style never wraps. The
+        // controls stop growing there, as on the cover glance; the step text keeps growing.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
     }
 
-    private var cookSpreadTrailingControls: some View {
-        HStack(spacing: 10) {
-            Spacer(minLength: 0)
-            Button(action: markCurrentStepComplete) {
-                Label("Mark done", systemImage: "checkmark.circle.fill")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .accessibilityLabel("Mark the current step done")
-            .fixedSize()
+    private var cookSpreadCloseButton: some View {
+        Button(action: close) {
+            Label("Close", systemImage: "text.book.closed")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .accessibilityLabel("Return to recipe detail")
+        .accessibilityIdentifier("cookSpread.close")
+    }
 
-            Button(action: advance) {
-                Label("Next step", systemImage: "arrow.forward.circle.fill")
+    /// Mark done and Next at the outer corner of the right page, stacked when the text is too large. On the last step
+    /// Finish cooking takes Next's place, so it stays on screen however long the step's text runs.
+    private var cookSpreadTrailingControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
+                markDoneButton(identifier: "cookSpread.markDone")
+                    .fixedSize()
+                cookSpreadForwardControl
+                    .fixedSize()
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-            .disabled(!canAdvance)
-            .accessibilityLabel("Move to the next step")
-            .fixedSize()
+            VStack(alignment: .trailing, spacing: 10) {
+                cookSpreadForwardControl
+                markDoneButton(identifier: "cookSpread.markDone")
+            }
         }
         .controlSize(.large)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+    }
+
+    @ViewBuilder private var cookSpreadForwardControl: some View {
+        if isLastStep {
+            finishControl
+        } else {
+            nextStepButton(identifier: "cookSpread.next")
+        }
     }
 }
+
+#if DEBUG
+/// Appends each posture cook mode takes, with every running timer's end date, to `tmp/spoonjoy-cook-timer.log` in the
+/// app's data container. The Duo tour folds the phone with a timer running and fails if an end date moves.
+enum CookTimerProbe {
+    static func record(posture: CookPosture, timers: [CookTimerEntry]) {
+        let ends = timers
+            .map { "\($0.id)=\(String(format: "%.3f", $0.endsAt.timeIntervalSince1970))" }
+            .joined(separator: ",")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-cook-timer.log")
+        let line = Data("posture=\(posture) timers=\(ends)\n".utf8)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(line)
+            try? handle.close()
+        } else {
+            try? line.write(to: url)
+        }
+    }
+}
+#endif
 
 private struct CookModeIngredientChecklistLabel: View {
     let row: CookModeChecklistRow
@@ -1305,6 +1612,7 @@ private struct CookModeSystemTimer: View {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.tomato)
+                    .accessibilityIdentifier("cookMode.timer.error")
             }
         }
         .frame(maxWidth: .infinity)
@@ -1600,4 +1908,52 @@ private enum CookModeAlarmKitTimerScheduler {
         return alarmID
     }
 #endif
+}
+
+/// The page curl on the open-flat spread: the right page lifts off the spine toward the cook and a soft shadow
+/// sweeps across it, from the outer edge to the fold on a forward turn and back again on a turn back. At 0 and 1
+/// the page lies flat with no shadow.
+private struct PageCurlSweep: ViewModifier, Animatable {
+    nonisolated var phase: Double
+    nonisolated let isForward: Bool
+
+    nonisolated var animatableData: Double {
+        get { phase }
+        set { phase = newValue }
+    }
+
+    /// How far the lifted page tilts at the middle of a turn.
+    private static let liftDegrees = 14.0
+
+    func body(content: Content) -> some View {
+        let lift = sin(.pi * min(max(phase, 0), 1))
+        return content
+            .rotation3DEffect(
+                .degrees((isForward ? -1 : 1) * Self.liftDegrees * lift),
+                axis: (x: 0, y: 1, z: 0),
+                anchor: .leading,
+                perspective: 0.6
+            )
+            .overlay {
+                GeometryReader { proxy in
+                    let width = proxy.size.width
+                    let band = min(120, width * 0.35)
+                    let travel = isForward ? 1 - phase : phase
+                    LinearGradient(
+                        stops: [
+                            .init(color: KitchenTableTheme.foldShadow.opacity(0), location: 0),
+                            .init(color: KitchenTableTheme.foldShadow, location: 0.6),
+                            .init(color: KitchenTableTheme.foldShadow.opacity(0), location: 1)
+                        ],
+                        startPoint: isForward ? .trailing : .leading,
+                        endPoint: isForward ? .leading : .trailing
+                    )
+                    .frame(width: band)
+                    .offset(x: width * travel - band / 2)
+                    .opacity(lift)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+    }
 }
