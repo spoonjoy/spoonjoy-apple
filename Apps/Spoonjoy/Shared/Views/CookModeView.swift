@@ -1689,7 +1689,16 @@ extension CookModeView {
         guard Self.voiceDemo else {
             return
         }
-        try? await Task.sleep(for: .seconds(3))
+        // SwiftUI can cancel and restart this task while the screen settles, so a cancelled wait must not turn the mic
+        // on, and a restarted one must not turn it back off.
+        do {
+            try await Task.sleep(for: .seconds(3))
+        } catch {
+            return
+        }
+        guard !voice.state.isToggledOn else {
+            return
+        }
         voice.toggle()
     }
 
