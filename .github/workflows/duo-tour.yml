@@ -155,6 +155,7 @@ jobs:
           udid="${{ steps.sim.outputs.udid }}"
           hub="$RUNNER_TEMP/duo/devicehub"
           shots="$RUNNER_TEMP/duo/shots"
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran (an earlier step failed), so there is no cook link to follow."; exit 1; }
           cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           [ -n "$cook_link" ] || { echo "::error::The timer journey printed no cook link."; exit 1; }
           probe="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/tmp/spoonjoy-cook-timer.log"
@@ -163,6 +164,14 @@ jobs:
               xcrun simctl io "$udid" screenshot --display="$display" "$shots/$1-display$display.png" >/dev/null 2>&1 || true
             done
           }
+          # The journey left its step timer saved in the app's defaults. If it is gone, cook mode has nothing to keep.
+          prefs="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/Library/Preferences/app.spoonjoy.plist"
+          saved="$(plutil -extract cookMode.stepTimerAlarms json -o - "$prefs" 2>/dev/null || true)"
+          echo "saved step timers before the fold: ${saved:-none}"
+          if [ -z "$saved" ] || [ "$saved" = "{}" ]; then
+            echo "::error::No step timer is saved on the Duo before the fold, so there is no running timer to follow. The timer journey's timer did not survive to this step: a journey's fresh launch after it clears the app's saved state."
+            exit 1
+          fi
           : > "$probe"
           SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$cook_link" \
             SIMCTL_CHILD_SPOONJOY_JOURNEY_ALARM_FIXTURE=1 \
@@ -183,10 +192,18 @@ jobs:
           for posture in openFlat tabletop closedGlance; do
             grep -q "^posture=$posture " "$probe" || { echo "::error::Cook mode never took the $posture posture."; failed=1; }
           done
-          ends="$(sed -n 's/^posture=[^ ]* timers=//p' "$probe" | sort -u)"
+          ends="$(sed -n 's/^posture=[^ ]* timers=\(..*\)$/\1/p' "$probe" | sort -u)"
           echo "distinct timer end dates: ${ends:-none}"
-          if [ -z "$ends" ] || [ "$(printf '%s\n' "$ends" | wc -l)" -ne 1 ]; then
-            echo "::error::The running timer's end date was missing or moved as the phone folded."
+          bare="$(sed -n 's/^posture=\([^ ]*\) timers=$/\1/p' "$probe" | sort -u | tr '\n' ' ')"
+          if [ -n "$ends" ] && [ -n "$bare" ]; then
+            echo "::error::The running timer went missing in these postures: $bare"
+            failed=1
+          fi
+          if [ -z "$ends" ]; then
+            echo "::error::A step timer was saved before the fold, but cook mode restored no running timer at any posture."
+            failed=1
+          elif [ "$(printf '%s\n' "$ends" | wc -l)" -ne 1 ]; then
+            echo "::error::The running timer's end date changed as the phone folded: $(printf '%s' "$ends" | tr '\n' ' ')"
             failed=1
           fi
           exit "$failed"
@@ -199,6 +216,7 @@ jobs:
           hub="$RUNNER_TEMP/duo/devicehub"
           shots="$RUNNER_TEMP/duo/shots"
           # The journey prints the cook link of the recipe it made; the running app (pointed at QA) opens it.
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran (an earlier step failed), so there is no cook link to follow."; exit 1; }
           cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           echo "cook link: ${cook_link:-none}"
           [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link, so the photos would not show cook mode."; exit 1; }
@@ -287,6 +305,7 @@ jobs:
         run: |
           set -euo pipefail
           udid="${{ steps.sim.outputs.udid }}"
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran (an earlier step failed), so there is no cook link to follow."; exit 1; }
           cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link."; exit 1; }
           probe="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/tmp/spoonjoy-spread-layout.log"
