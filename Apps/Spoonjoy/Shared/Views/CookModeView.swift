@@ -1455,6 +1455,9 @@ extension CookModeView {
             }
         }
         .controlSize(.large)
+        // Past AX3 a page is too narrow for "Finish cooking" on one line, and the button style never wraps. The
+        // controls stop growing there, as on the cover glance; the step text keeps growing.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
     }
 
     private var cookSpreadCloseButton: some View {
@@ -1483,6 +1486,7 @@ extension CookModeView {
             }
         }
         .controlSize(.large)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
     }
 
     @ViewBuilder private var cookSpreadForwardControl: some View {
