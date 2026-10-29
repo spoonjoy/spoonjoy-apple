@@ -33,7 +33,12 @@ public enum LayoutAudit {
                 screen
             }
             guard let visibleArea, let visibleFrame = element.frame.intersection(visibleArea) else {
-                skippedOffscreen += 1
+                // Outside any scroll view nothing can bring a control back on screen, so it is clipped, not skipped.
+                if element.role == .interactive, element.viewport == nil, element.frame.area > 0 {
+                    clippedControls.append(.init(control: .init(element), visibleFraction: 0))
+                } else {
+                    skippedOffscreen += 1
+                }
                 continue
             }
             let crossesVisibleArea = !visibleArea.contains(element.frame)
@@ -132,8 +137,9 @@ public enum LayoutAudit {
     }
 
     /// A control cut by its scroll view's edge is scrolled, not clipped, when other content in the same scroll view
-    /// lies past that edge too. With nothing else past the edge, the scroll view does not scroll that way (a pager
-    /// clipping a tall control at the screen's bottom), so the control is clipped.
+    /// starts at or past that edge. With nothing there, the scroll view does not scroll that way (a pager clipping a
+    /// tall control at the screen's bottom), so the control is clipped. A neighbour cut by the same edge does not
+    /// count, so two clipped controls cannot excuse each other.
     private static func scrollingReveals(_ control: LayoutAuditElement, beyond visibleArea: LayoutAuditRect, among elements: [LayoutAuditElement]) -> Bool {
         let neighbours = elements.filter {
             $0.index != control.index && $0.viewportIndex == control.viewportIndex && !$0.isRelated(to: control)
@@ -141,10 +147,10 @@ public enum LayoutAudit {
         let slack = tolerance
         let frame = control.frame
         let edges: [(crosses: Bool, beyond: (LayoutAuditRect) -> Bool)] = [
-            (frame.x < visibleArea.x - slack, { $0.x < visibleArea.x - slack }),
-            (frame.maxX > visibleArea.maxX + slack, { $0.maxX > visibleArea.maxX + slack }),
-            (frame.y < visibleArea.y - slack, { $0.y < visibleArea.y - slack }),
-            (frame.maxY > visibleArea.maxY + slack, { $0.maxY > visibleArea.maxY + slack })
+            (frame.x < visibleArea.x - slack, { $0.maxX <= visibleArea.x + slack }),
+            (frame.maxX > visibleArea.maxX + slack, { $0.x >= visibleArea.maxX - slack }),
+            (frame.y < visibleArea.y - slack, { $0.maxY <= visibleArea.y + slack }),
+            (frame.maxY > visibleArea.maxY + slack, { $0.y >= visibleArea.maxY - slack })
         ]
         return edges.filter(\.crosses).allSatisfy { edge in neighbours.contains { edge.beyond($0.frame) } }
     }

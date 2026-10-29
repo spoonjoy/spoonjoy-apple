@@ -10,6 +10,7 @@ enum LayoutAuditFixture: String {
     case clipped
     case pill
     case offscreenControl
+    case goneControl
 
     static let environmentKey = "SPOONJOY_LAYOUT_AUDIT_FIXTURE"
 
@@ -80,6 +81,13 @@ struct LayoutAuditFixtureView: View {
                     Text("Start cooking").frame(width: 240, height: 44)
                 }
                 .offset(x: 260)
+                .accessibilityIdentifier("layoutAuditFixture.first")
+            case .goneControl:
+                // A button pushed wholly past the screen's trailing edge, outside any scroll view, so none of it shows.
+                Button {} label: {
+                    Text("Start cooking").frame(width: 240, height: 44)
+                }
+                .offset(x: 1200)
                 .accessibilityIdentifier("layoutAuditFixture.first")
             }
         }

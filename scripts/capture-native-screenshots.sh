@@ -292,12 +292,17 @@ cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
 # A built SpoonjoyShoppingUITests .xctestrun turns on the layout audit, which measures noOverlap, textFits and
 # controlsOnScreen from the running screen. Without one the proofs carry none of them: the app cannot measure them.
 layout_audit_xctestrun="${SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN:-}"
-# SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 fails the capture when a proof lacks its layout audit or the audit finds anything
-# not listed in scripts/layout-audit-known-findings.json. Default CI does not set it yet, so layout findings are
-# recorded without failing the capture; Task 10 owns turning it on and emptying the known findings.
+# SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 fails the capture when it is blocked, when a proof lacks its layout audit, or when
+# the audit finds anything not listed in scripts/layout-audit-known-findings.json. Default CI does not set it yet, so
+# layout findings are recorded without failing the capture; Task 10 owns turning it on and emptying the known
+# findings. The audit runs under XCUITest on iOS simulators only, so strict mode covers iPhone and iPad captures.
 require_layout_audit="${SPOONJOY_REQUIRE_LAYOUT_AUDIT:-0}"
 if [[ "$require_layout_audit" == "1" && -z "$layout_audit_xctestrun" ]]; then
   printf 'SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 needs SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN: nothing else measures the layout\n' >&2
+  exit 2
+fi
+if [[ "$require_layout_audit" == "1" && "$capture_platform" != "iphone" && "$capture_platform" != "ipad" ]]; then
+  printf 'SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 needs --capture-platform iphone or ipad: macOS has no layout audit\n' >&2
   exit 2
 fi
 # A folded iPhone Duo shows the app on its outer display, while `simctl io screenshot` defaults to the inner one.
@@ -2632,6 +2637,11 @@ fi
 if [[ -f "$design_review_blocked" ]]; then
   ruby scripts/validate-design-review-blocker.rb "$design_review_blocked" --artifact-root "$artifact_root" --unit-slug "$unit_slug"
   printf 'native screenshot capture blocked: %s\n' "$design_review_blocked"
+  # A blocked capture measured nothing, and a failed layout audit blocks the capture, so strict mode cannot pass.
+  if [[ "$require_layout_audit" == "1" ]]; then
+    printf 'SPOONJOY_REQUIRE_LAYOUT_AUDIT=1: a blocked capture has no layout audit to pass\n' >&2
+    exit 1
+  fi
 elif [[ "$capture_platform" == "all" ]]; then
   ruby scripts/validate-design-review.rb "$design_review"
   printf 'native screenshot capture complete: %s\n' "$design_review"

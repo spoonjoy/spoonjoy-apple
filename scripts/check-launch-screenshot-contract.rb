@@ -1510,6 +1510,32 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   assert_missing(artifact_root.join("screenshots/ios-mobile.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/macos-desktop.png"), "screenshot blocker lane")
 
+  # Strict layout audit fails closed: a blocked capture exits 1, and a capture with no iOS layout audit is refused.
+  strict_capture = lambda do |platform|
+    run_status(
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      script_root.join("strict-artifacts-#{platform}"),
+      "--unit-slug",
+      "unit-contract",
+      "--capture-platform",
+      platform,
+      env: {
+        "HOME" => script_root.join("home").to_s,
+        "SPOONJOY_REQUIRE_LAYOUT_AUDIT" => "1",
+        "SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN" => script_root.join("audit.xctestrun").to_s
+      },
+      chdir: script_root
+    )
+  end
+  _, strict_blocked_stderr, strict_blocked = strict_capture.call("iphone")
+  record_failure("strict blocked capture expected exit 1, got #{strict_blocked.exitstatus}\n#{strict_blocked_stderr}") unless strict_blocked.exitstatus == 1
+  record_failure("strict blocked capture must say why it failed") unless strict_blocked_stderr.include?("a blocked capture has no layout audit to pass")
+  record_failure("strict blocked capture must still write its blocker") unless script_root.join("strict-artifacts-iphone/design-review-blocked.json").file?
+  _, strict_macos_stderr, strict_macos = strict_capture.call("all")
+  record_failure("strict capture including macOS expected exit 2, got #{strict_macos.exitstatus}\n#{strict_macos_stderr}") unless strict_macos.exitstatus == 2
+
   success_stub = <<~'SH'
     #!/usr/bin/env bash
     set -euo pipefail

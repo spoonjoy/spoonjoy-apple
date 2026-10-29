@@ -56,6 +56,14 @@ final class LayoutAuditUITests: XCTestCase {
         XCTAssertLessThan(clipped.visibleFraction, 1)
     }
 
+    func testAuditFailsOnControlEntirelyOffScreen() throws {
+        let report = try measureFixture(.goneControl)
+
+        XCTAssertFalse(report.controlsOnScreen, "The audit skipped a button wholly off the screen.")
+        let clipped = try XCTUnwrap(report.clippedControls.first { $0.control.identifier == "layoutAuditFixture.first" }, "Clipped: \(report.clippedControls)")
+        XCTAssertEqual(clipped.visibleFraction, 0)
+    }
+
     func testAuditFailsOnTruncatedText() throws {
         let report = try measureFixture(.clipped)
 
@@ -177,4 +185,5 @@ private extension String {
     static let clipped = "clipped"
     static let pill = "pill"
     static let offscreenControl = "offscreenControl"
+    static let goneControl = "goneControl"
 }

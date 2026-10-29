@@ -318,6 +318,9 @@ Dir.mktmpdir("spoonjoy-design-accessibility-contract") do |directory|
       "noOverlap" => false,
       "textFits" => true,
       "controlsOnScreen" => true,
+      "interactiveCount" => 2,
+      "textCount" => 1,
+      "drawnTextCount" => 1,
       "overlaps" => [{ "first" => { "identifier" => "contract.first" }, "second" => { "identifier" => "contract.second" } }],
       "textProblems" => [],
       "clippedControls" => []

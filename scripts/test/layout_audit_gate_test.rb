@@ -22,6 +22,9 @@ class LayoutAuditGateTest < Minitest::Test
         "noOverlap" => overlaps.empty?,
         "textFits" => text_problems.empty?,
         "controlsOnScreen" => clipped.empty?,
+        "interactiveCount" => 4,
+        "textCount" => 6,
+        "drawnTextCount" => 8,
         "overlaps" => overlaps,
         "textProblems" => text_problems,
         "clippedControls" => clipped
@@ -71,6 +74,20 @@ class LayoutAuditGateTest < Minitest::Test
     assert_equal ["truncated label:Saved kitchen may be out of date"], result.unexpected.map { |finding| LayoutAuditGate.describe(finding) }
   end
 
+  def test_an_entry_naming_an_element_by_label_matches_it_when_it_has_an_identifier
+    dock = { "first" => reference("house", "Kitchen"), "second" => reference("book.closed", "Recipes"), "intersection" => {} }
+    found = audit(overlaps: [dock])
+    by_label = known("overlap", ["label:Recipes", "label:Kitchen"])
+    mixed = known("overlap", ["house", "label:Recipes"])
+    wrong = known("overlap", ["label:Kitchen", "label:Cookbooks"])
+
+    assert LayoutAuditGate.evaluate(proof: proof_for(found), audit: found, known: [by_label]).passes?
+    assert LayoutAuditGate.evaluate(proof: proof_for(found), audit: found, known: [mixed]).passes?
+    result = LayoutAuditGate.evaluate(proof: proof_for(found), audit: found, known: [wrong])
+    refute result.passes?
+    assert_equal ["overlap book.closed + house"], result.unexpected.map { |finding| LayoutAuditGate.describe(finding) }
+  end
+
   def test_an_entry_for_another_route_or_size_does_not_excuse_a_finding
     found = audit(overlaps: [ring_overlap])
     other_route = known("overlap", ["cook.timer.ring", "cookMode.coverGlance.next"], route: "recipe-detail")
@@ -97,6 +114,29 @@ class LayoutAuditGateTest < Minitest::Test
     result = LayoutAuditGate.evaluate(proof: proof_for(clean).reject { |key, _| key == "controlsOnScreen" }, audit: clean, known: [])
     refute result.passes?
     assert_equal ["controlsOnScreen is missing or not boolean"], result.errors
+  end
+
+  def test_an_audit_that_measured_nothing_fails
+    empty = audit
+    empty["report"].merge!("interactiveCount" => 0, "textCount" => 0)
+    result = LayoutAuditGate.evaluate(proof: proof_for(empty), audit: empty, known: [])
+    refute result.passes?
+    assert_equal ["layout audit measured no controls or text"], result.errors
+
+    unread = audit
+    unread["report"]["drawnTextCount"] = 0
+    result = LayoutAuditGate.evaluate(proof: proof_for(unread), audit: unread, known: [])
+    refute result.passes?
+    assert_equal ["layout audit read no drawn text"], result.errors
+
+    uncounted = audit
+    uncounted["report"] = uncounted["report"].reject { |key, _| key.end_with?("Count") }
+    result = LayoutAuditGate.evaluate(proof: proof_for(uncounted), audit: uncounted, known: [])
+    assert_equal ["layout audit measured no controls or text", "layout audit read no drawn text"], result.errors
+
+    texts_only = audit
+    texts_only["report"]["interactiveCount"] = 0
+    assert LayoutAuditGate.evaluate(proof: proof_for(texts_only), audit: texts_only, known: []).passes?
   end
 
   def test_known_findings_must_name_route_size_kind_elements_owner_and_reason

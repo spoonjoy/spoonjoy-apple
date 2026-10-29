@@ -4,14 +4,15 @@ import Vision
 import XCTest
 
 /// Measures what `LayoutAudit` judges: every control's and label's frame from the running app's accessibility
-/// snapshot, and every line of text actually drawn, read from a screenshot of the same screen.
+/// snapshot, and every line of text actually drawn, read from a screenshot taken right after the snapshot. The two
+/// are sequential, so a screen still animating can differ between them.
 ///
 /// Truncation is read from the pixels, not inferred from a font: a line drawn with a trailing ellipsis is cut. This
 /// catches what a line limit truncates, whatever the label's accessibility text says. It does not catch text clipped
 /// without an ellipsis; a label overflowing its container or the screen is caught from its frame instead.
 @MainActor
 enum LayoutAuditCollector {
-    static let method = "XCUITest snapshot frames and Vision text recognition of a screenshot taken at the same moment. noOverlap: no two visible controls' frames cross, apart from a control inside another. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view continues. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless its label does. Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls."
+    static let method = "XCUITest snapshot frames and Vision text recognition of a screenshot taken right after the snapshot, not at the same instant. noOverlap: no two visible controls' frames cross, apart from a control inside another. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view starts at or past that edge; a control wholly off screen outside any scroll view is clipped. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless the label of the element holding it does (so such a label can hide a real truncation). Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls."
 
     private static let interactiveTypes: Set<XCUIElement.ElementType> = [
         .button, .link, .switch, .toggle, .slider, .stepper, .textField, .secureTextField, .searchField,

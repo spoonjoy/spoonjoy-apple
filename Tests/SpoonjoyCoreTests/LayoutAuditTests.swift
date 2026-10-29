@@ -109,6 +109,35 @@ struct LayoutAuditTests {
         #expect(report.skippedOffscreenCount == 2)
     }
 
+    @Test("a control entirely off screen outside any scroll view is clipped with nothing visible")
+    func controlEntirelyOffScreenIsClipped() {
+        let report = LayoutAudit.audit([
+            control(0, .init(x: 500, y: 100, width: 100, height: 44)),
+            control(1, .init(x: 20, y: 300, width: 0, height: 44))
+        ], screen: screen)
+
+        #expect(report.controlsOnScreen == false)
+        #expect(report.clippedControls.map(\.control.identifier) == ["control.0"])
+        #expect(report.clippedControls.map(\.visibleFraction) == [0])
+        #expect(report.skippedOffscreenCount == 1)
+    }
+
+    @Test("two controls cut by the same scroll view edge do not excuse each other")
+    func controlsCutByTheSameEdgeAreBothClipped() {
+        let viewport = LayoutAuditRect(x: 0, y: 0, width: 400, height: 700)
+        let cut = [
+            control(0, .init(x: 0, y: 680, width: 150, height: 60), viewport: viewport, viewportIndex: 1),
+            control(1, .init(x: 200, y: 670, width: 150, height: 60), viewport: viewport, viewportIndex: 1)
+        ]
+
+        let alone = LayoutAudit.audit(cut, screen: screen)
+        #expect(alone.clippedControls.map(\.control.identifier) == ["control.0", "control.1"])
+
+        let continued = LayoutAudit.audit(cut + [control(2, .init(x: 0, y: 760, width: 150, height: 44), viewport: viewport, viewportIndex: 1)], screen: screen)
+        #expect(continued.controlsOnScreen)
+        #expect(continued.skippedPartiallyScrolledCount == 2)
+    }
+
     @Test("a control cut by a scroll view on any edge is scrolled when other content lies past that edge")
     func controlCutWhereContentContinuesIsScrolled() {
         let viewport = LayoutAuditRect(x: 50, y: 50, width: 300, height: 700)

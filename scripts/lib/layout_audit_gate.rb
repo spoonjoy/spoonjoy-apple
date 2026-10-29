@@ -6,8 +6,9 @@ require "pathname"
 # Judges an accessibility proof's measured layout fields against the checked-in known findings.
 #
 # By default the capture records layout findings without failing on them. With SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 a
-# proof fails when its layout audit is missing, when a measured field is missing or not boolean, or when the audit
-# found anything not listed in scripts/layout-audit-known-findings.json. Every listed finding is owned by the
+# proof fails when its layout audit is missing, when a measured field is missing or not boolean, when the audit
+# measured no elements or read no drawn text (an empty screen proves nothing), or when the audit found anything not
+# listed in scripts/layout-audit-known-findings.json. Every listed finding is owned by the
 # accessibility polish task (Task 10), which must fix it and remove the entry.
 module LayoutAuditGate
   FIELDS = %w[noOverlap textFits controlsOnScreen].freeze
@@ -34,18 +35,29 @@ module LayoutAuditGate
     identifier.empty? ? "label:#{reference["label"]}" : identifier
   end
 
+  # Every name a known finding may use for an element: its identifier, if any, and "label:<label>". XCUITest can
+  # report an SF Symbol's name as a button's identifier on one run and none on the next, so the label still matches.
+  def element_keys(reference)
+    [element_key(reference), "label:#{reference["label"]}"].uniq
+  end
+
+  def finding(kind, references)
+    pairs = references.map { |reference| [element_key(reference), element_keys(reference)] }.sort_by(&:first)
+    { "kind" => kind, "elements" => pairs.map(&:first), "keys" => pairs.map(&:last) }
+  end
+
   def findings(audit)
     report = audit.fetch("report")
-    overlaps = report.fetch("overlaps").map do |overlap|
-      { "kind" => "overlap", "elements" => [element_key(overlap["first"]), element_key(overlap["second"])].sort }
-    end
-    text = report.fetch("textProblems").map do |problem|
-      { "kind" => problem.fetch("kind"), "elements" => [element_key(problem["text"])] }
-    end
-    controls = report.fetch("clippedControls").map do |clipped|
-      { "kind" => "clippedControl", "elements" => [element_key(clipped["control"])] }
-    end
+    overlaps = report.fetch("overlaps").map { |overlap| finding("overlap", [overlap["first"], overlap["second"]]) }
+    text = report.fetch("textProblems").map { |problem| finding(problem.fetch("kind"), [problem["text"]]) }
+    controls = report.fetch("clippedControls").map { |clipped| finding("clippedControl", [clipped["control"]]) }
     overlaps + text + controls
+  end
+
+  def matches?(entry, finding)
+    return false unless entry["kind"] == finding["kind"] && entry["elements"].length == finding["keys"].length
+
+    entry["elements"].permutation.any? { |order| order.zip(finding["keys"]).all? { |name, keys| keys.include?(name) } }
   end
 
   # Returns the problems with a known-findings document; an empty list means it is valid.
@@ -90,6 +102,10 @@ module LayoutAuditGate
     FIELDS.each do |field|
       errors << "#{field} is missing or not boolean" unless [true, false].include?(proof[field])
     end
+    report = audit["report"].is_a?(Hash) ? audit["report"] : {}
+    count = ->(key) { report[key].is_a?(Integer) ? report[key] : 0 }
+    errors << "layout audit measured no controls or text" if count.call("interactiveCount") + count.call("textCount") == 0
+    errors << "layout audit read no drawn text" if count.call("drawnTextCount") == 0
     route = audit["route"]
     size = audit["observedDynamicTypeSize"]
     applicable = known.select { |entry| entry["route"] == route && entry["dynamicType"] == size }
@@ -97,7 +113,7 @@ module LayoutAuditGate
     allowed = []
     unexpected = []
     findings(audit).each do |finding|
-      entry = applicable.find { |candidate| candidate["kind"] == finding["kind"] && candidate["elements"].sort == finding["elements"] }
+      entry = applicable.find { |candidate| matches?(candidate, finding) }
       if entry
         matched << entry
         allowed << finding
