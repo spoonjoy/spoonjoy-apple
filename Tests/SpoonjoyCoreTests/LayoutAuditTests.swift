@@ -192,6 +192,8 @@ struct LayoutAuditTests {
         #expect(report.textFits)
         #expect(LayoutAudit.isTruncated("Saved copy…"))
         #expect(LayoutAudit.isTruncated(" … ") == false)
+        #expect(LayoutAudit.isTruncated("• …") == false)
+        #expect(LayoutAudit.isTruncated("1 of 12…"))
     }
 
     @Test("text cut by a scroll view's edge is skipped, not counted as clipped; text off screen is skipped")
