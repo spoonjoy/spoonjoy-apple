@@ -83,20 +83,33 @@ final class VoiceJourney: JourneyTestCase {
         // Leaving the app stops the mic, and it stays off when the cook comes back. The open-flat Duo simulator keeps
         // the app in the foreground when Home is pressed, so there the step records that it could not leave instead.
         XCUIDevice.shared.press(.home)
-        if journey.app.wait(for: .runningBackground, timeout: JourneyApp.interactionTimeout)
-            || journey.app.state == .runningBackgroundSuspended {
+        let leftTheScreen = journey.app.wait(for: .runningBackground, timeout: JourneyApp.interactionTimeout)
+            || journey.app.state == .runningBackgroundSuspended
+        if leftTheScreen {
             journey.app.activate()
-            XCTAssertTrue(mic.waitForExistence(timeout: JourneyApp.interactionTimeout), "Cook mode did not come back. Screen: \(journey.screen)")
-            XCTAssertTrue(waitForLabel(mic, prefix: "Listen for next"), "The mic kept listening after the app left the screen. Label: \(mic.label)")
         } else {
-            let note = XCTAttachment(string: "Home left the app in state \(journey.app.state.rawValue) on this simulator; the background step was not exercised.")
+            let note = XCTAttachment(string: "Home left the app in state \(journey.app.state.rawValue) on this simulator; the background step was not exercised, so the mic is turned off by tapping it.")
             note.name = "voice-background-not-exercised"
             note.lifetime = .keepAlways
             add(note)
             mic.tap()
-            XCTAssertTrue(waitForLabel(mic, prefix: "Listen for next"), "Tapping the mic did not stop listening. Label: \(mic.label)")
         }
+        XCTAssertTrue(mic.waitForExistence(timeout: JourneyApp.interactionTimeout), "Cook mode did not come back. Screen: \(journey.screen)")
+        XCTAssertTrue(waitForLabel(mic, prefix: "Listen for next"), "The mic kept listening. Label: \(mic.label)")
         journey.tap(JourneyID.cookTimerCancel)
+
+        // The voice-checked garlic is saved like a tapped check, and the mic never comes back on by itself.
+        verifyAfterRelaunch(journey) {
+            XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
+        }
+        journey.openLink(cookLink)
+        let garlicAfterRelaunch = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: garlic)
+        XCTAssertTrue(
+            waitForValue(garlicAfterRelaunch, in: ["1", "checked"], timeout: JourneyApp.networkTimeout),
+            "The garlic \"check all\" checked was not saved. Value: \(String(describing: garlicAfterRelaunch.value))"
+        )
+        XCTAssertTrue(mic.waitForExistence(timeout: JourneyApp.interactionTimeout), "Cook mode has no mic after relaunch. Screen: \(journey.screen)")
+        XCTAssertTrue(waitForLabel(mic, prefix: "Listen for next"), "The mic came back on after a relaunch. Label: \(mic.label)")
 
         // A refused microphone: the mic shows as unavailable and says where to allow it, without a prompt.
         journey.useVoiceFixtureOnNextLaunch("denied")
