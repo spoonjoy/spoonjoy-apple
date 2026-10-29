@@ -1,18 +1,17 @@
 import SpoonjoyCore
 import UIKit
+import Vision
 import XCTest
 
-/// Walks the running app's accessibility snapshot and measures what `LayoutAudit` judges: every control's frame,
-/// and every label's frame next to the room its words need.
+/// Measures what `LayoutAudit` judges: every control's and label's frame from the running app's accessibility
+/// snapshot, and every line of text actually drawn, read from a screenshot of the same screen.
 ///
-/// Truncation is a lower bound. The snapshot reports a label's full text but not the font it is drawn in, so each
-/// label is measured at the smallest size the app could draw it: caption2 for the observed text size, shrunk by the
-/// app's smallest `minimumScaleFactor` (0.5). Text that cannot fit at that size is certainly cut; text that would fit
-/// only at that size may still be cut and is not flagged.
+/// Truncation is read from the pixels, not inferred from a font: a line drawn with a trailing ellipsis is cut. This
+/// catches what a line limit truncates, whatever the label's accessibility text says. It does not catch text clipped
+/// without an ellipsis; a label overflowing its container or the screen is caught from its frame instead.
 @MainActor
 enum LayoutAuditCollector {
-    static let smallestScaleFactor: CGFloat = 0.5
-    static let method = "XCUITest snapshot frames. noOverlap: no two visible controls' frames cross, apart from a control inside another. textFits: every visible label lies inside its container and the screen, and its longest word and wrapped height fit its frame at caption2 x 0.5 for the observed text size; labels cut by a scroll view's edge are skipped."
+    static let method = "XCUITest snapshot frames and Vision text recognition of a screenshot taken at the same moment. noOverlap: no two visible controls' frames cross, apart from a control inside another. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view continues. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless its label does. Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls."
 
     private static let interactiveTypes: Set<XCUIElement.ElementType> = [
         .button, .link, .switch, .toggle, .slider, .stepper, .textField, .secureTextField, .searchField,
@@ -24,41 +23,39 @@ enum LayoutAuditCollector {
 
     struct Measurement {
         let screen: LayoutAuditRect
-        let minimumPointSize: Double
+        let screenshot: XCUIScreenshot
         let elements: [LayoutAuditElement]
+        let drawnText: [LayoutAuditDrawnText]
         let report: LayoutAuditReport
     }
 
-    static func measure(_ app: XCUIApplication, contentSize: UIContentSizeCategory) throws -> Measurement {
+    static func measure(_ app: XCUIApplication) throws -> Measurement {
         let root = try app.snapshot()
-        let caption = UIFont.preferredFont(forTextStyle: .caption2, compatibleWith: UITraitCollection(preferredContentSizeCategory: contentSize))
-        let font = caption.withSize(caption.pointSize * smallestScaleFactor)
+        let screenshot = XCUIScreen.main.screenshot()
         var elements: [LayoutAuditElement] = []
         var nextIndex = 0
 
-        func walk(_ node: XCUIElementSnapshot, ancestors: [Int], viewport: CGRect?, container: CGRect?) {
+        func walk(_ node: XCUIElementSnapshot, ancestors: [Int], viewport: (frame: CGRect, index: Int)?, container: CGRect?) {
             let index = nextIndex
             nextIndex += 1
             let type = node.elementType
             let role: LayoutAuditElement.Role? = interactiveTypes.contains(type) ? .interactive : (type == .staticText ? .text : nil)
             if let role, !node.frame.isEmpty {
-                let label = node.label
                 elements.append(LayoutAuditElement(
                     index: index,
                     ancestors: ancestors,
                     role: role,
                     type: typeName(type),
                     identifier: node.identifier,
-                    label: label,
+                    label: node.label,
                     frame: rect(node.frame),
-                    viewport: viewport.map(rect),
-                    container: container.map(rect),
-                    minimumWordWidth: role == .text ? longestWordWidth(label, font: font) : nil,
-                    minimumHeight: role == .text ? wrappedHeight(label, width: node.frame.width, font: font) : nil
+                    viewport: viewport.map { rect($0.frame) },
+                    viewportIndex: viewport?.index,
+                    container: container.map(rect)
                 ))
             }
             let scrolls = scrollingTypes.contains(type)
-            let childViewport = scrolls ? node.frame : viewport
+            let childViewport = scrolls ? (node.frame, index) : viewport
             let childContainer: CGRect? = if scrolls {
                 nil
             } else if unboundedTypes.contains(type) || node.frame.isEmpty {
@@ -73,23 +70,41 @@ enum LayoutAuditCollector {
 
         walk(root, ancestors: [], viewport: nil, container: nil)
         let screen = rect(root.frame)
+        let drawnText = try recognizeText(in: screenshot, screen: root.frame)
         return Measurement(
             screen: screen,
-            minimumPointSize: Double(font.pointSize),
+            screenshot: screenshot,
             elements: elements,
-            report: LayoutAudit.audit(elements, screen: screen)
+            drawnText: drawnText,
+            report: LayoutAudit.audit(elements, drawnText: drawnText, screen: screen)
         )
     }
 
-    /// `String(describing: DynamicTypeSize)` as the app's accessibility proof records it, as a UIKit category.
-    static func contentSize(observed: String) -> UIContentSizeCategory? {
-        [
-            "xSmall": .extraSmall, "small": .small, "medium": .medium, "large": .large, "xLarge": .extraLarge,
-            "xxLarge": .extraExtraLarge, "xxxLarge": .extraExtraExtraLarge,
-            "accessibility1": .accessibilityMedium, "accessibility2": .accessibilityLarge,
-            "accessibility3": .accessibilityExtraLarge, "accessibility4": .accessibilityExtraExtraLarge,
-            "accessibility5": .accessibilityExtraExtraExtraLarge
-        ][observed]
+    /// Reads every line of text in the screenshot, in screen points. Language correction stays off so an ellipsis is
+    /// read as drawn instead of being corrected away.
+    private static func recognizeText(in screenshot: XCUIScreenshot, screen: CGRect) throws -> [LayoutAuditDrawnText] {
+        let image = try XCTUnwrap(screenshot.image.cgImage, "The screenshot has no bitmap.")
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        request.recognitionLanguages = ["en-US"]
+        try VNImageRequestHandler(cgImage: image).perform([request])
+        return (request.results ?? []).compactMap { observation in
+            guard let candidate = observation.topCandidates(1).first else {
+                return nil
+            }
+            // Vision's box is normalized with its origin at the bottom left.
+            let box = observation.boundingBox
+            return LayoutAuditDrawnText(
+                text: candidate.string,
+                frame: LayoutAuditRect(
+                    x: Double(screen.minX + box.minX * screen.width),
+                    y: Double(screen.minY + (1 - box.maxY) * screen.height),
+                    width: Double(box.width * screen.width),
+                    height: Double(box.height * screen.height)
+                )
+            )
+        }
     }
 
     private static func typeName(_ type: XCUIElement.ElementType) -> String {
@@ -104,25 +119,5 @@ enum LayoutAuditCollector {
 
     private static func rect(_ frame: CGRect) -> LayoutAuditRect {
         LayoutAuditRect(x: Double(frame.minX), y: Double(frame.minY), width: Double(frame.width), height: Double(frame.height))
-    }
-
-    private static func longestWordWidth(_ label: String, font: UIFont) -> Double {
-        let widths = label.split(whereSeparator: \.isWhitespace).map {
-            (String($0) as NSString).size(withAttributes: [.font: font]).width
-        }
-        return Double(widths.max() ?? 0)
-    }
-
-    private static func wrappedHeight(_ label: String, width: CGFloat, font: UIFont) -> Double {
-        guard !label.isEmpty else {
-            return 0
-        }
-        let bounds = (label as NSString).boundingRect(
-            with: CGSize(width: width, height: .greatestFiniteMagnitude),
-            options: [.usesLineFragmentOrigin],
-            attributes: [.font: font],
-            context: nil
-        )
-        return Double(bounds.height.rounded(.up))
     }
 }

@@ -3,6 +3,7 @@
 
 require "json"
 require "pathname"
+require_relative "lib/layout_audit_gate"
 
 REQUIRED_FIELDS = [
   "mobileScreenshot",
@@ -13,10 +14,10 @@ REQUIRED_FIELDS = [
   "contrast",
   "kitchenTableHierarchy"
 ].freeze
-# Nothing measures these when the manifest is written, so the manifest must not claim them. A proof's noOverlap and
-# textFits come only from the layout audit (LayoutAuditUITests) that measured the screen.
-UNMEASURED_MANIFEST_FIELDS = ["reduceMotion", "noOverlap", "textFits", "noTinyClusters"].freeze
-LAYOUT_AUDIT_FIELDS = ["noOverlap", "textFits"].freeze
+# Nothing measures these when the manifest is written, so the manifest must not claim them. A proof's noOverlap,
+# textFits and controlsOnScreen come only from the layout audit (LayoutAuditUITests) that measured the screen.
+UNMEASURED_MANIFEST_FIELDS = ["reduceMotion", "noOverlap", "textFits", "controlsOnScreen", "noTinyClusters"].freeze
+LAYOUT_AUDIT_FIELDS = LayoutAuditGate::FIELDS
 
 VALID_ROUTES = ["kitchen", "recipes", "saved-recipes", "recipe-detail", "cook-log", "cook-mode", "shopping-list", "chefs", "search", "cookbooks", "cookbook-detail", "capture", "settings"].freeze
 EXPECTED_SEARCH_SCOPES = ["all", "recipes", "cookbooks", "chefs", "shopping-list"].freeze
@@ -52,7 +53,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
     "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
   },
   "search" => {
     "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
@@ -60,7 +61,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
     "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "recipes" => {
     "voiceOverLabels" => ["Recipes", "On the Counter", "Recipe index", "Loading recipes"],
@@ -68,7 +69,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
     "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "saved-recipes" => {
     "voiceOverLabels" => ["Saved Recipes", "Recipe index", "Loading saved recipes"],
@@ -76,7 +77,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
     "hierarchyAnchors" => ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cookbooks" => {
     "voiceOverLabels" => ["Cookbooks", "Shelf", "Index", "New Cookbook"],
@@ -84,7 +85,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
     "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cookbook-detail" => {
     "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
@@ -92,7 +93,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
     "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "capture" => {
     "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
@@ -100,7 +101,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
     "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
   },
   "capture-signed-out" => {
     "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Apple sign-in", "native password sign-in"],
@@ -108,7 +109,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
     "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
     "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "SignInWithAppleButton"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters"]
   },
   "settings" => {
     "voiceOverLabels" => ["Settings", "Profile", "Security", "This Device", "Push Delivery", "Notification Sync", "Turn On for This Device", "Open System Settings", "Session", "Sign In"],
@@ -116,7 +117,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone"],
     "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView"],
-    "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
+    "declaredLayoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
   },
   "recipe-detail" => {
     "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
@@ -124,7 +125,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
     "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cook-log" => {
     "voiceOverLabels" => ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
@@ -132,7 +133,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
     "contrastPairs" => ["charcoal on bone", "brass on bone", "muted text on bone"],
     "hierarchyAnchors" => ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "cook-mode" => {
     "voiceOverLabels" => ["Current cooking step", "More cook options", "Next step", "For this step"],
@@ -140,7 +141,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.cookStep", "KitchenTableTheme.control", "KitchenTableTheme.timer"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
     "hierarchyAnchors" => ["CookModeView", "cookPager", "CookTimerRingFace", "stepCard", "cookMoreMenu", "cookModeBottomActionRail"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   },
   "shopping-list" => {
     "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
@@ -148,7 +149,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
     "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
   },
   "chefs" => {
     "voiceOverLabels" => ["Chefs", "Fellow chefs", "Kitchen visitors"],
@@ -156,7 +157,7 @@ EXPECTED_ROUTE_EVIDENCE = {
     "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
     "contrastPairs" => ["charcoal on bone", "brass on bone"],
     "hierarchyAnchors" => ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
-    "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+    "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
   }
 }.freeze
 
@@ -304,11 +305,14 @@ def accessibility_evidence_key(route, manifest)
   route == "capture" && manifest["captureSurfaceVariant"] == "signed-out" ? "capture-signed-out" : route
 end
 
+# By default a false measured field is recorded, not failed. With SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 every proof needs a
+# layout audit, and anything it finds must be listed in scripts/layout-audit-known-findings.json.
 def validate_layout_audit!(manifest_path, proof_path, proof, route)
   audit_relative_path = proof["layoutAudit"]
   if audit_relative_path.nil?
     present = LAYOUT_AUDIT_FIELDS.select { |field| proof.key?(field) }
     fail_check("#{proof_path} has #{present.join(", ")} without the layoutAudit that measured them") unless present.empty?
+    fail_check("#{proof_path} has no layout audit, which SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 requires") if LayoutAuditGate.strict?
     return
   end
   fail_check("#{proof_path} layoutAudit must be a relative path") unless audit_relative_path.is_a?(String) && !audit_relative_path.start_with?("/")
@@ -323,6 +327,11 @@ def validate_layout_audit!(manifest_path, proof_path, proof, route)
     fail_check("#{audit_path} report.#{field} must be boolean") unless [true, false].include?(report[field])
     fail_check("#{proof_path} #{field} must equal the layout audit's measured value") unless proof[field] == report[field]
   end
+  return unless LayoutAuditGate.strict?
+
+  result = LayoutAuditGate.evaluate(proof: proof, audit: audit, known: LayoutAuditGate.load_known_findings)
+  problems = result.errors + result.unexpected.map { |finding| "new finding #{LayoutAuditGate.describe(finding)}" }
+  fail_check("#{proof_path} layout audit (strict): #{problems.join("; ")}") unless problems.empty?
 end
 
 def validate_accessibility_proof!(manifest_path, proof_relative_path, route, manifest)

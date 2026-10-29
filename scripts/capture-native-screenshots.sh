@@ -289,9 +289,17 @@ ios_boot_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_BOOT_TIMEOUT_SECONDS:-90}"
 ios_foreground_probe_timeout_seconds="${SPOONJOY_SCREENSHOT_IOS_FOREGROUND_PROBE_TIMEOUT_SECONDS:-2}"
 macos_launch_timeout_seconds="${SPOONJOY_SCREENSHOT_MACOS_LAUNCH_TIMEOUT_SECONDS:-30}"
 cleanup_timeout_seconds="${SPOONJOY_SCREENSHOT_CLEANUP_TIMEOUT_SECONDS:-5}"
-# A built SpoonjoyShoppingUITests .xctestrun turns on the layout audit, which measures noOverlap and textFits
-# from the running screen's element frames. Without one the proofs carry neither field: the app cannot measure them.
+# A built SpoonjoyShoppingUITests .xctestrun turns on the layout audit, which measures noOverlap, textFits and
+# controlsOnScreen from the running screen. Without one the proofs carry none of them: the app cannot measure them.
 layout_audit_xctestrun="${SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN:-}"
+# SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 fails the capture when a proof lacks its layout audit or the audit finds anything
+# not listed in scripts/layout-audit-known-findings.json. Default CI does not set it yet, so layout findings are
+# recorded without failing the capture; Task 10 owns turning it on and emptying the known findings.
+require_layout_audit="${SPOONJOY_REQUIRE_LAYOUT_AUDIT:-0}"
+if [[ "$require_layout_audit" == "1" && -z "$layout_audit_xctestrun" ]]; then
+  printf 'SPOONJOY_REQUIRE_LAYOUT_AUDIT=1 needs SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN: nothing else measures the layout\n' >&2
+  exit 2
+fi
 # A folded iPhone Duo shows the app on its outer display, while `simctl io screenshot` defaults to the inner one.
 # `xcrun simctl io <udid> enumerate` lists the display UUIDs.
 ios_screenshot_display="${SPOONJOY_SCREENSHOT_IOS_DISPLAY:-}"
@@ -1645,7 +1653,7 @@ wait_for_accessibility_proof() {
                           "app.spoonjoy"
                         end
       expected_fields = ["dynamicType", "voiceOverLabels", "keyboardNavigation", "contrast", "kitchenTableHierarchy"]
-      unmeasured_fields = ["reduceMotion", "noOverlap", "textFits", "noTinyClusters"].select { |field| proof.key?(field) }
+      unmeasured_fields = ["reduceMotion", "noOverlap", "textFits", "controlsOnScreen", "noTinyClusters"].select { |field| proof.key?(field) }
       expected_visible = ["offline", "stale", "queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
       expected_dismissible = ["offline", "stale"]
       expected_severe = ["queuedWork", "syncFailure", "conflict", "blocker", "destructiveConfirmation"]
@@ -1656,7 +1664,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
           "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
         },
         "search" => {
           "voiceOverLabels" => ["Search", "row.accessibilityLabel"],
@@ -1664,7 +1672,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
           "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "recipes" => {
           "voiceOverLabels" => ["Recipes", "On the Counter", "Recipe index", "Loading recipes"],
@@ -1672,7 +1680,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
           "hierarchyAnchors" => ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "saved-recipes" => {
           "voiceOverLabels" => ["Saved Recipes", "Recipe index", "Loading saved recipes"],
@@ -1680,7 +1688,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
           "hierarchyAnchors" => ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cookbooks" => {
           "voiceOverLabels" => ["Cookbooks", "Shelf", "Index", "New Cookbook"],
@@ -1688,7 +1696,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
           "hierarchyAnchors" => ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cookbook-detail" => {
           "voiceOverLabels" => ["Weeknights", "Contents", "Share Cookbook", "Owner tools", "Lemon Pantry Pasta", "Tomato Toast"],
@@ -1696,7 +1704,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
           "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "capture" => {
           "voiceOverLabels" => ["Import queue", "Capture", "Submit import", "Retry when online", "Hide offline status"],
@@ -1704,7 +1712,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
           "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
         },
         "capture-signed-out" => {
           "voiceOverLabels" => ["Spoonjoy", "Sign in", "Opening Capture after sign-in", "native Google OAuth sign-in", "native GitHub OAuth sign-in", "native Apple sign-in", "native password sign-in"],
@@ -1712,7 +1720,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
           "contrastPairs" => ["charcoal on bone", "herb button on bone", "brass status on bone"],
           "hierarchyAnchors" => ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "OAuthProviderHint", "SignInWithAppleButton"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters"]
         },
         "settings" => {
           "voiceOverLabels" => ["Settings", "Profile", "Security", "Session", "Sign In"],
@@ -1720,7 +1728,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass label on bone"],
           "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel"],
-          "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
+          "declaredLayoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
         },
         "recipe-detail" => {
           "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
@@ -1728,7 +1736,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
           "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cook-log" => {
           "voiceOverLabels" => ["Cooks", "What changed?", "Next time", "Add cook photo", "Log cook"],
@@ -1736,7 +1744,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
           "contrastPairs" => ["charcoal on bone", "brass on bone", "muted text on bone"],
           "hierarchyAnchors" => ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cook-mode" => {
           "voiceOverLabels" => ["Current cooking step", "More cook options", "Next step", "For this step"],
@@ -1744,7 +1752,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.cookStep", "KitchenTableTheme.control", "KitchenTableTheme.timer"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
           "hierarchyAnchors" => ["CookModeView", "cookPager", "CookTimerRingFace", "stepCard", "cookMoreMenu", "cookModeBottomActionRail"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "shopping-list" => {
           "voiceOverLabels" => ["Shopping", "Kitchen", "Receipt actions", "Add item", "Add from recipe", "Clear checked"],
@@ -1752,7 +1760,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass label on bone", "destructive action role"],
           "hierarchyAnchors" => ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
         },
         "chefs" => {
           "voiceOverLabels" => ["Chefs", "Fellow chefs", "Kitchen visitors"],
@@ -1760,7 +1768,7 @@ wait_for_accessibility_proof() {
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "brass on bone"],
           "hierarchyAnchors" => ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
-          "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+          "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         }
       }
       abort("#{expected_platform} accessibility proof platform mismatch") unless proof.fetch("platform") == expected_platform
@@ -2025,7 +2033,7 @@ capture_ios_app() {
 
 # Relaunches the route under LayoutAuditUITests/testMeasureCaptureRoute, which waits for the app's accessibility
 # proof, measures the screen's element frames and writes the audit with a screenshot of what it measured. The
-# measured noOverlap and textFits are then added to the saved accessibility proof, with a pointer to the audit.
+# measured noOverlap, textFits and controlsOnScreen are then added to the saved accessibility proof, with a pointer to the audit.
 # The audit records what it finds; it does not fail the capture, because a layout bug is a finding, not a harness error.
 run_ios_layout_audit() {
   local udid="$1"
@@ -2038,6 +2046,11 @@ run_ios_layout_audit() {
   local audit_screenshot="$apple_abs/${unit_slug}-layout-audit-${expected_platform}.png"
   local audit_log="$apple_abs/${unit_slug}-layout-audit-${expected_platform}.log"
   local audit_relative="apple/${unit_slug}-layout-audit-${expected_platform}.json"
+  # The app reports DynamicTypeSize names; the simulator was set to AX5 or to the default, large.
+  local layout_audit_expected_dynamic_type="large"
+  if [[ "$requested_dynamic_type" == "accessibility5" ]]; then
+    layout_audit_expected_dynamic_type="accessibility5"
+  fi
   rm -f "$audit_output" "$audit_screenshot" "$audit_log"
   write_app_state "$ios_app_dir/native-app-state.json" "$expected_recorded_route"
   write_cache_state "$ios_app_dir/native-durable-cache.json" "$screenshot_route"
@@ -2051,6 +2064,7 @@ run_ios_layout_audit() {
   if ! run_with_timeout "layout audit timeout" "$layout_audit_timeout_seconds" "$audit_log" \
     env \
       TEST_RUNNER_SPOONJOY_LAYOUT_AUDIT_OUTPUT="$audit_output" \
+      TEST_RUNNER_SPOONJOY_LAYOUT_AUDIT_EXPECTED_DYNAMIC_TYPE="$layout_audit_expected_dynamic_type" \
       TEST_RUNNER_SPOONJOY_SCREENSHOT_AUTH="$screenshot_auth_enabled" \
       TEST_RUNNER_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
       TEST_RUNNER_SPOONJOY_SCREENSHOT_ACCOUNT_ID="$capture_account_id" \
@@ -2082,9 +2096,10 @@ run_ios_layout_audit() {
     report = audit.fetch("report")
     proof["noOverlap"] = report.fetch("noOverlap")
     proof["textFits"] = report.fetch("textFits")
+    proof["controlsOnScreen"] = report.fetch("controlsOnScreen")
     proof["layoutAudit"] = audit_relative
     File.write(proof_path, JSON.pretty_generate(proof) + "\n")
-    printf("layout audit %s: noOverlap=%s (%d overlaps), textFits=%s (%d text problems)\n", expected_route, report["noOverlap"], report["overlaps"].length, report["textFits"], report["textProblems"].length)
+    printf("layout audit %s: noOverlap=%s (%d overlaps), textFits=%s (%d text problems), controlsOnScreen=%s (%d clipped controls)\n", expected_route, report["noOverlap"], report["overlaps"].length, report["textFits"], report["textProblems"].length, report["controlsOnScreen"], report["clippedControls"].length)
   ' "$accessibility_proof_output" "$audit_output" "$audit_relative" "$screenshot_route" >> "$capture_log" 2>&1
 }
 
@@ -2593,6 +2608,19 @@ else
       exit 1
     fi
     cp "$capture_log" "$matrix_log"
+  fi
+fi
+
+# Report each captured proof's layout findings against the known list; in strict mode, fail on anything new.
+if [[ -n "$layout_audit_xctestrun" && ! -f "$design_review_blocked" ]]; then
+  layout_audit_gate_failed=0
+  for gated_proof in "$accessibility_proof_ios_abs" "$accessibility_proof_ipad_abs" "$accessibility_proof_macos_abs"; do
+    [[ -s "$gated_proof" ]] || continue
+    ruby scripts/check-layout-audit.rb --artifact-root "$artifact_root" --proof "$gated_proof" || layout_audit_gate_failed=1
+  done
+  if [[ "$layout_audit_gate_failed" == "1" ]]; then
+    printf 'layout audit found problems not listed in scripts/layout-audit-known-findings.json\n' >&2
+    exit 1
   fi
 fi
 
