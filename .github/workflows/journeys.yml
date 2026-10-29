@@ -88,6 +88,7 @@ jobs:
           # of the 0600 accounts file (deleted after the run); xcodebuild records the test environment in the
           # result bundle, so no credential value may travel through it.
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/journeys-secrets/accounts.json"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
           xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" \

@@ -51,13 +51,15 @@ final class JourneyApp {
     /// Proves the launched app read the journey environment: only then does it show the sync log element. On the Duo
     /// tour (run 40916498760) the timer journey's launch came up without it, so the app skipped the reset, talked to
     /// production with the session the spread journeys left behind and stopped on "We couldn't load your kitchen".
-    /// That launch is replaced once with a clean one; a second miss fails here, naming the cause.
+    /// That launch is replaced once with a clean one, noted in the job summary; a second miss fails here.
     private func ensureJourneyEnvironment(file: StaticString, line: UInt) {
         let log = element("journey.syncLog")
-        if log.waitForExistence(timeout: Self.interactionTimeout) {
+        if log.waitForExistence(timeout: Self.launchTimeout) {
             return
         }
-        print("::warning::The app launched without the journey environment (state \(app.state.rawValue)); launching it again.")
+        let note = "The app launched without the journey environment (state \(app.state.rawValue)); launching it again."
+        print("::warning::\(note)")
+        Self.appendToJobSummary("- \(note) Test: \(file):\(line)")
         app.terminate()
         app.launch()
         XCTAssertTrue(
@@ -68,11 +70,38 @@ final class JourneyApp {
         )
     }
 
+    /// The workflow passes `$GITHUB_STEP_SUMMARY` as `TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE`; locally nothing is written.
+    private static func appendToJobSummary(_ line: String) {
+        guard let path = ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_SUMMARY_FILE"], !path.isEmpty,
+              let handle = FileHandle(forWritingAtPath: path) else {
+            return
+        }
+        defer { try? handle.close() }
+        _ = try? handle.seekToEnd()
+        try? handle.write(contentsOf: Data((line + "\n").utf8))
+    }
+
+    /// Ends a journey without leaving its signed-in QA session on disk: a launch with only the reset clears the app's
+    /// saved state, then the app quits. The sync log element shows only after the reset has run.
+    static func clearSavedState(file: StaticString = #filePath, line: UInt = #line) {
+        let app = XCUIApplication()
+        app.launchEnvironment["SPOONJOY_API_BASE_URL"] = JourneyQA.baseURL.absoluteString
+        app.launchEnvironment[NativeJourneyLaunchReset.environmentKey] = "1"
+        app.launchEnvironment[NativeSyncDiagnostics.environmentKey] = "1"
+        app.launchEnvironment[NativeJourneyConsole.environmentKey] = NativeJourneyConsole.value
+        app.launchArguments.append(NativeJourneyAnimations.launchArgument)
+        app.launch()
+        let cleared = JourneyApp(app: app).element("journey.syncLog").waitForExistence(timeout: launchTimeout)
+        app.terminate()
+        XCTAssertTrue(cleared, "The app did not clear its saved state after the journey.", file: file, line: line)
+    }
+
     /// Terminates the app and launches it again without clearing its state.
-    func relaunch() {
+    func relaunch(file: StaticString = #filePath, line: UInt = #line) {
         app.terminate()
         app.launchEnvironment.removeValue(forKey: NativeJourneyLaunchReset.environmentKey)
         app.launch()
+        ensureJourneyEnvironment(file: file, line: line)
     }
 
     /// Makes the next launch use the largest accessibility text size, so a journey can capture a screen at it.
@@ -123,9 +152,10 @@ final class JourneyApp {
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset
     /// flag is dropped first, as in `relaunch()`; otherwise the new process would be signed out and park the
     /// link until sign-in.
-    func openLink(_ url: URL) {
+    func openLink(_ url: URL, file: StaticString = #filePath, line: UInt = #line) {
         app.launchEnvironment.removeValue(forKey: NativeJourneyLaunchReset.environmentKey)
         app.open(url)
+        ensureJourneyEnvironment(file: file, line: line)
     }
 
     func element(_ id: String) -> XCUIElement {

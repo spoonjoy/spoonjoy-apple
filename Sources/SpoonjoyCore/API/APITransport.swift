@@ -83,6 +83,7 @@ public struct APITransportError: Error, Equatable, Sendable {
 public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
     private let session: any URLSessionPerforming
     private let authenticationRefresher: (any APIAuthenticationRefresher)?
+    private let refreshedCredential = RefreshedCredential()
 
     public init(
         session: any URLSessionPerforming = URLSession.shared,
@@ -106,41 +107,86 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
     }
 
     /// Sends a request built ahead of time, such as a sync page. A 401 that asks for new credentials refreshes them
-    /// once and replays the request with the new access token, like the builder overload does.
+    /// once and replays the request with the new access token, like the builder overload does. Later requests built
+    /// with the rejected token go out with the refreshed one, so each page of a sync does not hit 401 first.
     public func send<Value: Decodable & Equatable>(
         _ request: APIRequest,
         configuration: APIClientConfiguration,
         decode valueType: Value.Type
     ) async throws -> APIEnvelope<Value> {
+        var request = request
+        if let sent = Self.bearerCredential(in: request),
+           let replacement = refreshedCredential.replacement(for: sent.token) {
+            request = Self.replacingBearerToken(in: request, header: sent.header, with: replacement)
+        }
         do {
             return try await sendOnce(request, decode: valueType)
         } catch let error as APITransportError {
             guard case .refreshAuthentication = error.retryDecision,
-                  request.headers["Authorization"] != nil,
+                  let sent = Self.bearerCredential(in: request),
                   let apiError = error.apiError,
                   let authenticationRefresher else {
                 throw error
             }
-            let refreshedConfiguration = try await authenticationRefresher.refreshedConfiguration(
-                after: apiError,
-                configuration: configuration
+            // The token this request carried is the one the server rejected, whatever the configuration says.
+            let refreshedConfiguration = try await Self.refreshedConfiguration(
+                using: authenticationRefresher,
+                after: error,
+                apiError: apiError,
+                configuration: APIClientConfiguration(baseURL: configuration.baseURL, bearerToken: sent.token)
             )
             guard let bearerToken = refreshedConfiguration.bearerToken else {
                 throw error
             }
-            var headers = request.headers
-            headers["Authorization"] = "Bearer \(bearerToken)"
-            let replay = APIRequest(
-                method: request.method,
-                url: request.url,
-                queryItems: request.queryItems,
-                headers: headers,
-                body: request.body,
-                responseCachePolicy: request.responseCachePolicy,
-                timeoutInterval: request.timeoutInterval
+            refreshedCredential.record(rejected: sent.token, refreshed: bearerToken)
+            return try await sendOnce(
+                Self.replacingBearerToken(in: request, header: sent.header, with: bearerToken),
+                decode: valueType
             )
-            return try await sendOnce(replay, decode: valueType)
         }
+    }
+
+    /// Asks the refresher for new credentials after `error`. A refresh that fails with anything but an OAuth refusal
+    /// or a lost connection (a proxy's HTML 403, a 5xx) says nothing about the request, so the original 401 is
+    /// rethrown: a queued edit then waits as an auth failure instead of being held as a rejected edit.
+    private static func refreshedConfiguration(
+        using refresher: any APIAuthenticationRefresher,
+        after error: APITransportError,
+        apiError: APIError,
+        configuration: APIClientConfiguration
+    ) async throws -> APIClientConfiguration {
+        do {
+            return try await refresher.refreshedConfiguration(after: apiError, configuration: configuration)
+        } catch let refreshError as APITransportError where !refreshError.isOffline {
+            throw error
+        }
+    }
+
+    /// The request's Authorization header name, matched in any case, and the bearer token it carries.
+    private static func bearerCredential(in request: APIRequest) -> (header: String, token: String)? {
+        let prefix = "Bearer "
+        for (name, value) in request.headers where name.caseInsensitiveCompare("Authorization") == .orderedSame {
+            guard value.count > prefix.count,
+                  value.prefix(prefix.count).caseInsensitiveCompare(prefix) == .orderedSame else {
+                return nil
+            }
+            return (name, String(value.dropFirst(prefix.count)))
+        }
+        return nil
+    }
+
+    private static func replacingBearerToken(in request: APIRequest, header: String, with token: String) -> APIRequest {
+        var headers = request.headers
+        headers[header] = "Bearer \(token)"
+        return APIRequest(
+            method: request.method,
+            url: request.url,
+            queryItems: request.queryItems,
+            headers: headers,
+            body: request.body,
+            responseCachePolicy: request.responseCachePolicy,
+            timeoutInterval: request.timeoutInterval
+        )
     }
 
     private func sendOnce<Value: Decodable & Equatable>(
@@ -194,8 +240,10 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
                 throw error
             }
 
-            let refreshedConfiguration = try await authenticationRefresher.refreshedConfiguration(
-                after: apiError,
+            let refreshedConfiguration = try await Self.refreshedConfiguration(
+                using: authenticationRefresher,
+                after: error,
+                apiError: apiError,
                 configuration: configuration
             )
             return try await send(
@@ -482,5 +530,25 @@ private extension APIError {
             retryAfterSeconds: retryAfterSeconds,
             details: details
         )
+    }
+}
+
+/// The last access token a 401 replaced and the token that replaced it, shared by every copy of one transport.
+private final class RefreshedCredential: @unchecked Sendable {
+    private let lock = NSLock()
+    private var rejected: String?
+    private var refreshed: String?
+
+    func record(rejected: String, refreshed: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        self.rejected = rejected
+        self.refreshed = refreshed
+    }
+
+    func replacement(for token: String) -> String? {
+        lock.lock()
+        defer { lock.unlock() }
+        return token == rejected ? refreshed : nil
     }
 }

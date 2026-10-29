@@ -4332,6 +4332,21 @@ private enum NativeLiveAppStoreTelemetry {
     }
 }
 
+extension URLSessionNativeSyncTransport {
+    /// The app's sync transport: a 401 refreshes the stored session once and replays the request, and a refresh the
+    /// server refuses signs the app out.
+    public static func refreshing(
+        _ authSessionRepository: NativeAuthSessionRepository,
+        baseURL: URL,
+        session: any URLSessionPerforming = URLSession.shared
+    ) -> URLSessionNativeSyncTransport {
+        URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(
+            session: session,
+            authenticationRefresher: NativeAuthSessionAPIRefresher(authSessionRepository: authSessionRepository, baseURL: baseURL)
+        ))
+    }
+}
+
 /// Answers a 401 by refreshing the stored session and replaying the request with the new access token. A refresh the
 /// server refuses for good throws `TokenRefreshError.sessionExpired` or `.sessionRevoked`, which sign the app out.
 public struct NativeAuthSessionAPIRefresher: APIAuthenticationRefresher {

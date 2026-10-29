@@ -1779,6 +1779,81 @@ struct APITransportTests {
         #expect(await refresher.capturedErrors().count == 1)
     }
 
+    private static func renamingHeader(_ request: APIRequest, to name: String, value: String? = nil) -> APIRequest {
+        var headers = request.headers
+        let original = headers.removeValue(forKey: "Authorization")
+        headers[name] = value ?? original
+        return APIRequest(
+            method: request.method,
+            url: request.url,
+            queryItems: request.queryItems,
+            headers: headers,
+            body: request.body,
+            responseCachePolicy: request.responseCachePolicy,
+            timeoutInterval: request.timeoutInterval
+        )
+    }
+
+    @Test("a prebuilt request refreshes the token it sent, found in any header case, and later requests reuse the new one")
+    func prebuiltRequestRefreshesTheSentTokenAndRemembersTheReplacement() async throws {
+        let session = RecordingURLSession(responses: [
+            Self.unauthorizedResponse(),
+            .success(Self.response(
+                statusCode: 200,
+                headers: ["Content-Type": "application/json"],
+                body: Self.successEnvelope(requestID: "req_after_refresh", name: "Fresh list")
+            )),
+            .success(Self.response(
+                statusCode: 200,
+                headers: ["Content-Type": "application/json"],
+                body: Self.successEnvelope(requestID: "req_next_page", name: "Next page")
+            ))
+        ])
+        let refresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: Self.configuration(bearerToken: "sj_access_refreshed")
+        )
+        let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
+        let request = Self.renamingHeader(
+            try Self.privateReadRequest().urlRequest(configuration: Self.configuration(bearerToken: "sj_access_expired")),
+            to: "authorization"
+        )
+        // The configuration names another token than the request carries; the refresher must hear about the one sent.
+        let staleConfiguration = Self.configuration(bearerToken: "sj_access_from_configuration")
+
+        _ = try await transport.send(request, configuration: staleConfiguration, decode: TransportPayload.self)
+        let nextPage = try await transport.send(request, configuration: staleConfiguration, decode: TransportPayload.self)
+        let requests = await session.capturedRequests()
+
+        #expect(nextPage.requestID == "req_next_page")
+        #expect(requests.map { $0.value(forHTTPHeaderField: "Authorization") } == [
+            "Bearer sj_access_expired",
+            "Bearer sj_access_refreshed",
+            "Bearer sj_access_refreshed"
+        ])
+        #expect(await refresher.capturedErrors().count == 1)
+    }
+
+    @Test("a prebuilt request with a non-bearer Authorization header is not refreshed on 401")
+    func prebuiltNonBearerRequestIsNotRefreshed() async throws {
+        let session = RecordingURLSession(responses: [Self.unauthorizedResponse()])
+        let refresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: Self.configuration(bearerToken: "sj_access_refreshed")
+        )
+        let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
+        let configuration = Self.configuration(bearerToken: "sj_access_expired")
+        let request = Self.renamingHeader(
+            try Self.privateReadRequest().urlRequest(configuration: configuration),
+            to: "Authorization",
+            value: "Basic c3Bvb25qb3k="
+        )
+
+        await #expect(throws: APITransportError.self) {
+            _ = try await transport.send(request, configuration: configuration, decode: TransportPayload.self)
+        }
+        #expect(await session.capturedRequests().count == 1)
+        #expect(await refresher.capturedErrors().isEmpty)
+    }
+
     @Test("a prebuilt request with no credentials is not refreshed on 401")
     func prebuiltAnonymousRequestIsNotRefreshed() async throws {
         let session = RecordingURLSession(responses: [Self.unauthorizedResponse()])

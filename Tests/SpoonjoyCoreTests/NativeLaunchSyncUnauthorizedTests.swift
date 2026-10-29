@@ -2,11 +2,11 @@ import Foundation
 import Testing
 @testable import SpoonjoyCore
 
-/// A stored access token the server no longer accepts: the launch sync gets a 401 before the token's own expiry.
-@Suite("Launch sync answered with 401")
+/// A stored access token the server no longer accepts: requests get a 401 before the token's own expiry. Every test
+/// sends through `URLSessionNativeSyncTransport.refreshing`, the transport the app's sync engine uses.
+@Suite("Sync requests answered with 401")
 struct NativeLaunchSyncUnauthorizedTests {
     private static let now = Date(timeIntervalSince1970: 1_780_010_000)
-    private static let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
 
     private actor ScriptedURLSession: URLSessionPerforming {
         private var responses: [(status: Int, body: String)]
@@ -29,21 +29,96 @@ struct NativeLaunchSyncUnauthorizedTests {
         }
     }
 
+    private enum RefreshAnswer: Sendable {
+        case tokens
+        case invalidGrant
+        case offline
+        case serverError
+        case htmlForbidden
+    }
+
+    /// The refresh endpoint, scripted: every call records the refresh token it was sent.
+    private actor RefreshEndpoint {
+        let answer: RefreshAnswer
+        private(set) var refreshTokens: [String] = []
+
+        init(_ answer: RefreshAnswer) {
+            self.answer = answer
+        }
+
+        func refresh(refreshToken: String) throws -> OAuthTokenResponse {
+            refreshTokens.append(refreshToken)
+            switch answer {
+            case .tokens:
+                return OAuthTokenResponse(
+                    accessToken: "sj_access_refreshed",
+                    refreshToken: "sj_refresh_refreshed",
+                    tokenType: "Bearer",
+                    expiresIn: 3_600,
+                    scope: NativeAuthSession.defaultScope
+                )
+            case .invalidGrant:
+                throw OAuthErrorResponse.transportError(
+                    statusCode: 400,
+                    isJSON: true,
+                    data: Data(#"{"error":"invalid_grant","error_description":"unknown refresh token"}"#.utf8),
+                    requestID: "req_refusal",
+                    retryAfterSeconds: nil
+                )!
+            case .offline:
+                throw APITransportError(kind: .offline, requestID: nil, statusCode: nil, apiError: nil, retryDecision: .doNotRetry)
+            case .serverError:
+                throw APITransportError(
+                    kind: .apiError,
+                    requestID: "req_503",
+                    statusCode: 503,
+                    apiError: APIError(requestID: "req_503", code: "unavailable", message: "Try later", status: 503),
+                    retryDecision: .doNotRetry
+                )
+            case .htmlForbidden:
+                throw APITransportError(
+                    kind: .nonJSONResponse,
+                    requestID: "req_proxy",
+                    statusCode: 403,
+                    apiError: APIError(
+                        requestID: "req_proxy",
+                        code: "oauth_http_status_403",
+                        message: "OAuth request failed with HTTP 403.",
+                        status: 403
+                    ),
+                    retryDecision: .doNotRetry
+                )
+            }
+        }
+    }
+
     private static let invalidToken = (
         status: 401,
         body: #"{"ok":false,"requestId":"req_unknown_token","error":{"code":"invalid_token","message":"Unknown token","status":401}}"#
     )
 
-    private static let emptySync = (
+    private static func syncPage(nextCursor: String?) -> (status: Int, body: String) {
+        let cursor = nextCursor.map { "\"\($0)\"" } ?? "null"
+        return (
+            status: 200,
+            body: #"{"ok":true,"requestId":"req_sync","data":{"freshness":{"accountId":"chef_ari","environment":"production","schemaVersion":1,"sourceEndpoint":"/api/v1/me/sync","generatedAt":"2026-06-16T12:00:00.000Z","lastValidatedAt":"2026-06-16T12:00:00.000Z"},"entries":[],"nextCursor":"#
+                + cursor + #","hasMore":"# + (nextCursor == nil ? "false" : "true") + "}}"
+        )
+    }
+
+    private static let editAccepted = (
         status: 200,
-        body: #"{"ok":true,"requestId":"req_sync","data":{"freshness":{"accountId":"chef_ari","environment":"production","schemaVersion":1,"sourceEndpoint":"/api/v1/me/sync","generatedAt":"2026-06-16T12:00:00.000Z","lastValidatedAt":"2026-06-16T12:00:00.000Z"},"entries":[],"nextCursor":null,"hasMore":false}}"#
+        body: #"{"ok":true,"requestId":"req_edit","data":{}}"#
     )
 
+    private struct Fixture {
+        let store: NativeLiveAppStore
+        let vault: InMemoryTokenVault
+        let transport: URLSessionNativeSyncTransport
+    }
+
     @MainActor
-    private static func store(
-        session: ScriptedURLSession,
-        refresh: @escaping OAuthRefreshOperation
-    ) async throws -> (store: NativeLiveAppStore, vault: InMemoryTokenVault) {
+    private static func fixture(session: ScriptedURLSession, endpoint: RefreshEndpoint) async throws -> Fixture {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("spoonjoy-launch-401-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -66,20 +141,20 @@ struct NativeLaunchSyncUnauthorizedTests {
             clientName: "Spoonjoy Apple Tests",
             registerClient: { _, _ in "client_live" },
             exchangeCode: { _, _, _, _ in throw NativeAuthSessionError.missingAuthorizationCode },
-            refresh: refresh,
+            refresh: { _, refreshToken in try await endpoint.refresh(refreshToken: refreshToken) },
             revoke: { _, _ in },
             now: clock
         )
         let configuration = APIClientConfiguration.spoonjoyProduction
-        let syncStore = InMemoryNativeSyncStore(accountID: "chef_ari", environment: .production, checkpoint: nil, queue: try NativeMutationQueue(mutations: []), cachedRecords: [])
-        let refresher = NativeAuthSessionAPIRefresher(authSessionRepository: repository, baseURL: configuration.baseURL)
-        let engine = NativeSyncEngine(
-            store: syncStore,
-            transport: URLSessionNativeSyncTransport(
-                apiTransport: URLSessionAPITransport(session: session, authenticationRefresher: refresher)
-            ),
-            clock: clock
+        let syncStore = InMemoryNativeSyncStore(
+            accountID: "chef_ari",
+            environment: .production,
+            checkpoint: nil,
+            queue: try NativeMutationQueue(mutations: []),
+            cachedRecords: []
         )
+        let transport = URLSessionNativeSyncTransport.refreshing(repository, baseURL: configuration.baseURL, session: session)
+        let engine = NativeSyncEngine(store: syncStore, transport: transport, clock: clock)
         let appStateStore = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
         let store = NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
             authSessionRepository: repository,
@@ -92,72 +167,133 @@ struct NativeLaunchSyncUnauthorizedTests {
             cacheEnvironment: .production,
             now: clock
         ))
-        return (store, vault)
+        return Fixture(store: store, vault: vault, transport: transport)
     }
+
+    // MARK: Launch sync
 
     @Test("a 401 whose refresh the server refuses signs the app out instead of showing a failed sync")
     @MainActor
     func refusedRefreshSignsOut() async throws {
         let session = ScriptedURLSession([Self.invalidToken])
-        let fixture = try await Self.store(session: session) { _, _ in
-            throw OAuthErrorResponse.transportError(
-                statusCode: 400,
-                isJSON: true,
-                data: Data(#"{"error":"invalid_grant","error_description":"unknown refresh token"}"#.utf8),
-                requestID: "req_refusal",
-                retryAfterSeconds: nil
-            )!
-        }
+        let endpoint = RefreshEndpoint(.invalidGrant)
+        let fixture = try await Self.fixture(session: session, endpoint: endpoint)
 
         await fixture.store.bootstrap()
 
-        guard case .signedOut = fixture.store.bootstrapState else {
+        guard case .signedOut(let content) = fixture.store.bootstrapState else {
             Issue.record("Expected the sign-in screen, got \(fixture.store.bootstrapState)")
             return
         }
+        #expect(content.isSessionExpired)
         #expect(await session.authorizations == ["Bearer sj_access_unknown"])
+        #expect(await endpoint.refreshTokens == ["sj_refresh_unknown"])
     }
 
-    @Test("a 401 whose refresh succeeds replays the sync with the new token")
+    @Test("a 401 whose refresh succeeds replays the page, and later pages go out with the new token")
     @MainActor
     func successfulRefreshReplaysTheSync() async throws {
-        let session = ScriptedURLSession([Self.invalidToken, Self.emptySync])
-        let fixture = try await Self.store(session: session) { _, _ in
-            OAuthTokenResponse(
-                accessToken: "sj_access_refreshed",
-                refreshToken: "sj_refresh_refreshed",
-                tokenType: "Bearer",
-                expiresIn: 3_600,
-                scope: NativeAuthSession.defaultScope
-            )
-        }
+        let session = ScriptedURLSession([
+            Self.invalidToken,
+            Self.syncPage(nextCursor: "cursor_page_2"),
+            Self.syncPage(nextCursor: nil)
+        ])
+        let endpoint = RefreshEndpoint(.tokens)
+        let fixture = try await Self.fixture(session: session, endpoint: endpoint)
 
         await fixture.store.bootstrap()
 
-        if case .syncFailed = fixture.store.bootstrapState {
-            Issue.record("Expected the refreshed sync to finish, got \(fixture.store.bootstrapState)")
+        guard case .liveSynced(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the synced kitchen, got \(fixture.store.bootstrapState)")
+            return
         }
-        if case .signedOut = fixture.store.bootstrapState {
-            Issue.record("Expected the refreshed sync to keep the account, got \(fixture.store.bootstrapState)")
-        }
-        #expect(await session.authorizations == ["Bearer sj_access_unknown", "Bearer sj_access_refreshed"])
+        #expect(!content.isSessionExpired)
+        #expect(await session.authorizations == [
+            "Bearer sj_access_unknown",
+            "Bearer sj_access_refreshed",
+            "Bearer sj_access_refreshed"
+        ])
+        #expect(await endpoint.refreshTokens == ["sj_refresh_unknown"])
         #expect(try await fixture.vault.loadSession()?.accessToken == "sj_access_refreshed")
     }
 
-    @Test("the app's sync engine sends through a transport that refreshes on 401")
-    func appSyncTransportRefreshes() throws {
-        var root = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-        while root.path != "/",
-              !FileManager.default.fileExists(atPath: root.appendingPathComponent("Package.swift").path) {
-            root.deleteLastPathComponent()
+    @Test("a refresh that cannot reach the server keeps the chef signed in, offline")
+    @MainActor
+    func offlineRefreshKeepsTheSession() async throws {
+        let session = ScriptedURLSession([Self.invalidToken])
+        let endpoint = RefreshEndpoint(.offline)
+        let fixture = try await Self.fixture(session: session, endpoint: endpoint)
+
+        await fixture.store.bootstrap()
+
+        guard case .offlineStale(let content) = fixture.store.bootstrapState else {
+            Issue.record("Expected the offline kitchen, got \(fixture.store.bootstrapState)")
+            return
         }
-        let source = try String(contentsOf: root.appendingPathComponent(Self.rootViewPath), encoding: .utf8)
-        #expect(source.contains(
-            "NativeAuthSessionAPIRefresher(authSessionRepository: authRepository, baseURL: configuration.baseURL)"
-        ))
-        #expect(source.contains(
-            "URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(authenticationRefresher: syncRefresher))"
-        ))
-        #expect(!source.contains("transport: URLSessionNativeSyncTransport())"))
+        #expect(!content.isSessionExpired)
+        #expect(try await fixture.vault.loadSession()?.accessToken == "sj_access_unknown")
+        #expect(try await fixture.vault.loadSession()?.refreshToken == "sj_refresh_unknown")
+        #expect(await endpoint.refreshTokens == ["sj_refresh_unknown"])
+    }
+
+    @Test("a refresh the server fails with a 503 keeps the chef signed in and shows the failed sync")
+    @MainActor
+    func serverErrorRefreshKeepsTheSession() async throws {
+        let session = ScriptedURLSession([Self.invalidToken])
+        let endpoint = RefreshEndpoint(.serverError)
+        let fixture = try await Self.fixture(session: session, endpoint: endpoint)
+
+        await fixture.store.bootstrap()
+
+        guard case .syncFailed(let content, _) = fixture.store.bootstrapState else {
+            Issue.record("Expected the failed sync, got \(fixture.store.bootstrapState)")
+            return
+        }
+        #expect(!content.isSessionExpired)
+        #expect(try await fixture.vault.loadSession()?.accessToken == "sj_access_unknown")
+        #expect(try await fixture.vault.loadSession()?.refreshToken == "sj_refresh_unknown")
+        #expect(await endpoint.refreshTokens == ["sj_refresh_unknown"])
+    }
+
+    // MARK: Queued edits
+
+    private static let checkMilk = NativeQueuedMutation.shoppingCheckItem(
+        itemID: "item_milk",
+        checked: true,
+        clientMutationID: "cm_check_milk",
+        createdAt: "2026-10-09T08:00:00.000Z"
+    )
+
+    @Test("a queued edit answered 401 is sent again with the refreshed token")
+    @MainActor
+    func editRefreshesAndReplays() async throws {
+        let session = ScriptedURLSession([Self.invalidToken, Self.editAccepted])
+        let endpoint = RefreshEndpoint(.tokens)
+        let fixture = try await Self.fixture(session: session, endpoint: endpoint)
+
+        let result = try await fixture.transport.send(
+            Self.checkMilk,
+            configuration: APIClientConfiguration(baseURL: APIClientConfiguration.spoonjoyProduction.baseURL, bearerToken: "sj_access_unknown")
+        )
+
+        #expect(result == .success(serverRevision: nil))
+        #expect(await session.authorizations == ["Bearer sj_access_unknown", "Bearer sj_access_refreshed"])
+    }
+
+    @Test("a queued edit whose refresh hits a proxy's HTML 403 waits as an auth failure, not a rejected edit")
+    @MainActor
+    func editWithBrokenRefreshWaitsAsAuthFailure() async throws {
+        let session = ScriptedURLSession([Self.invalidToken])
+        let endpoint = RefreshEndpoint(.htmlForbidden)
+        let fixture = try await Self.fixture(session: session, endpoint: endpoint)
+
+        let result = try await fixture.transport.send(
+            Self.checkMilk,
+            configuration: APIClientConfiguration(baseURL: APIClientConfiguration.spoonjoyProduction.baseURL, bearerToken: "sj_access_unknown")
+        )
+
+        #expect(result == .authFailure(message: "Unknown token"))
+        #expect(await session.authorizations == ["Bearer sj_access_unknown"])
+        #expect(try await fixture.vault.loadSession()?.accessToken == "sj_access_unknown")
     }
 }

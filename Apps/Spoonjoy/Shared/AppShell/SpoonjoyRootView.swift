@@ -829,12 +829,9 @@ struct SpoonjoyRootView: View {
         let stagedMediaDirectory = NativeProcessSyncStore.stagedMediaDirectory(appDirectory: appDirectory)
         // The same store instance the App Intents use, so neither overwrites the other's queue.
         let syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
-        // A 401 on a sync request refreshes the session, and a refresh the server refuses signs the app out. Without
-        // the refresher, a token the server no longer knows left the chef on "We couldn't load your kitchen".
-        let syncRefresher = NativeAuthSessionAPIRefresher(authSessionRepository: authRepository, baseURL: configuration.baseURL)
         let syncEngine = NativeSyncEngine(
             store: syncStore,
-            transport: URLSessionNativeSyncTransport(apiTransport: URLSessionAPITransport(authenticationRefresher: syncRefresher))
+            transport: URLSessionNativeSyncTransport.refreshing(authRepository, baseURL: configuration.baseURL)
         )
         let syncTriggerCoordinator = NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration)
         return NativeLiveAppStoreDependencies(
