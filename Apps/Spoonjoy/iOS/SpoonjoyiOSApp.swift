@@ -17,6 +17,7 @@ struct SpoonjoyiOSApp: App {
     var body: some Scene {
         WindowGroup {
             SpoonjoyRootView()
+                .debugReduceMotion()
                 .journeyQuietMode()
         }
     }

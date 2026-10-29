@@ -14,11 +14,13 @@ IOS_SCHEME_NAME = "Spoonjoy iOS"
 MAC_SCHEME_NAME = "Spoonjoy macOS"
 UI_TEST_TARGET_NAME = "SpoonjoyShoppingUITests"
 JOURNEYS_TARGET_NAME = "SpoonjoyJourneys"
+WIDE_JOURNEYS_TARGET_NAME = "SpoonjoyWideJourneys"
 IOS_BUNDLE_ID = "app.spoonjoy"
 # The Mac app shares the iOS bundle ID so one App Store record sells both (universal purchase).
 MAC_BUNDLE_ID = "app.spoonjoy"
 UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
+WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
 WIDGET_TARGET_NAME = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = "Apps/Spoonjoy/LiveActivity/Widget/Info.plist"
@@ -46,7 +48,11 @@ SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/Shared").freeze
 IOS_SWIFT = swift_sources_under("Apps/Spoonjoy/iOS").freeze
 MAC_SWIFT = swift_sources_under("Apps/Spoonjoy/macOS").freeze
 UI_TEST_SWIFT = swift_sources_under("Apps/Spoonjoy/UITests").freeze
-JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys").freeze
+# Journeys that need a screen wide enough for the two-page spread. The Journeys job's iPhone is too narrow, and it runs
+# whole targets only, so these are their own target, which the Duo tour runs. They share Journeys/Support.
+WIDE_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Wide").freeze
+JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT).freeze
+JOURNEY_SUPPORT_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Support").freeze
 # The Live Activity code the app and the widget extension both compile (attributes and button intents).
 LIVE_ACTIVITY_SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Shared").freeze
 LIVE_ACTIVITY_WIDGET_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Widget").freeze
@@ -167,6 +173,7 @@ ios_target = project.new_target(:application, "#{PROJECT_NAME} iOS", :ios, "26.5
 mac_target = project.new_target(:application, "#{PROJECT_NAME} macOS", :osx, "26.2")
 ui_test_target = project.new_target(:ui_test_bundle, UI_TEST_TARGET_NAME, :ios, "26.5")
 journeys_target = project.new_target(:ui_test_bundle, JOURNEYS_TARGET_NAME, :ios, "26.5")
+wide_journeys_target = project.new_target(:ui_test_bundle, WIDE_JOURNEYS_TARGET_NAME, :ios, "26.5")
 widget_target = project.new_target(:app_extension, WIDGET_TARGET_NAME, :ios, "26.5")
 ios_target.frameworks_build_phase.files.clear
 widget_target.frameworks_build_phase.files.clear
@@ -249,6 +256,7 @@ apply_widget_settings(widget_target)
 
 apply_ui_test_settings(ui_test_target, bundle_id: UI_TEST_BUNDLE_ID)
 apply_ui_test_settings(journeys_target, bundle_id: JOURNEYS_BUNDLE_ID)
+apply_ui_test_settings(wide_journeys_target, bundle_id: WIDE_JOURNEYS_BUNDLE_ID)
 
 apply_common_settings(
   mac_target,
@@ -284,6 +292,11 @@ add_package_product(project, journeys_target, "SpoonjoyCore")
 journeys_target.add_dependency(ios_target)
 journeys_dependency = journeys_target.dependencies[0]
 journeys_dependency_proxy = journeys_dependency.target_proxy
+add_sources(project, wide_journeys_target, WIDE_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT)
+add_package_product(project, wide_journeys_target, "SpoonjoyCore")
+wide_journeys_target.add_dependency(ios_target)
+wide_journeys_dependency = wide_journeys_target.dependencies[0]
+wide_journeys_dependency_proxy = wide_journeys_dependency.target_proxy
 
 project.sort
 project.predictabilize_uuids
@@ -316,6 +329,14 @@ end
     assign_stable_uuid(project, build_file, "#{target.name}/sources/#{path}")
   end
 end
+[journeys_target, wide_journeys_target].each do |target|
+  target.source_build_phase.files.each do |build_file|
+    path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
+    next unless path && JOURNEY_SUPPORT_SWIFT.include?(path)
+
+    assign_stable_uuid(project, build_file, "#{target.name}/sources/#{path}")
+  end
+end
 assign_stable_uuid(project, embedded_widget, "Spoonjoy iOS/embed/#{WIDGET_TARGET_NAME}.appex")
 assign_stable_uuid(project, embed_extensions, "Spoonjoy iOS/embed-phase")
 assign_stable_uuid(project, widget_dependency_proxy, "SpoonjoyCookTimerWidget/app-proxy")
@@ -328,6 +349,9 @@ ui_test_dependency.target_proxy = ui_test_dependency_proxy
 assign_stable_uuid(project, journeys_dependency_proxy, "SpoonjoyJourneys/app-proxy")
 assign_stable_uuid(project, journeys_dependency, "SpoonjoyJourneys/app-dependency")
 journeys_dependency.target_proxy = journeys_dependency_proxy
+assign_stable_uuid(project, wide_journeys_dependency_proxy, "SpoonjoyWideJourneys/app-proxy")
+assign_stable_uuid(project, wide_journeys_dependency, "SpoonjoyWideJourneys/app-dependency")
+wide_journeys_dependency.target_proxy = wide_journeys_dependency_proxy
 
 def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme = Xcodeproj::XCScheme.new
@@ -338,7 +362,7 @@ def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme.save_as(project_path, scheme_name, true)
 end
 
-save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target])
+save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target])
 save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
 
 project.save

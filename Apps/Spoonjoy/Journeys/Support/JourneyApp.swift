@@ -87,6 +87,12 @@ final class JourneyApp {
         app.launchArguments += ["-SpoonjoyForcePosture", posture]
     }
 
+    /// Makes the next launch run with Reduce Motion on (`-SpoonjoyReduceMotion`, DEBUG builds only), which a journey
+    /// cannot switch on in the simulator's settings.
+    func useReduceMotionOnNextLaunch() {
+        app.launchArguments += ["-SpoonjoyReduceMotion", "YES"]
+    }
+
     /// Makes the next launch use AlarmKit itself rather than the stand-in alarm, so a journey can see what the cook
     /// sees when the system refuses timers, as the CI simulator does.
     func useSystemAlarmsOnNextLaunch() {

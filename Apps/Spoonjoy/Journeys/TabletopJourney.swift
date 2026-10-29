@@ -7,6 +7,9 @@ import XCTest
 /// a half-open hinge (`-SpoonjoyForcePosture tabletop`); the split itself is the shipping layout. The Duo tour workflow
 /// runs this journey on an iPhone Duo stood half-open, where the app reads the real hinge. Checking the step's flour
 /// starts its timer, a swipe on the step half turns the step, and the step survives a relaunch.
+///
+/// `testTimerRunsOnForTheDuoTourJourney` leaves a timer running for the Duo tour, which then folds the phone through
+/// every posture and fails if the timer's end date moves.
 @MainActor
 final class TabletopJourney: JourneyTestCase {
     func testTabletopCookModeSplitsAtTheFoldJourney() async throws {
@@ -45,8 +48,6 @@ final class TabletopJourney: JourneyTestCase {
         )
 
         let cookLink = try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook"))
-        // The Duo tour workflow reads this line to open the same cook mode when it photographs each pose.
-        print("Duo tour cook link: \(cookLink.absoluteString)")
         journey.useTabletopPostureOnNextLaunch()
         // The link opens cook mode in both shells: the tab bar, and the sidebar a wide screen such as the Duo's inner
         // screen gets.
@@ -284,6 +285,11 @@ final class TabletopJourney: JourneyTestCase {
         XCTAssertTrue(window.contains(glanceShowStep.frame), "The cover glance's Show step runs off the screen at the largest text size: \(glanceShowStep.frame) in \(window)")
         XCTAssertFalse(glanceNext.frame.intersects(glanceShowStep.frame), "The cover glance's Next and Show step overlap at the largest text size.")
         XCTAssertGreaterThanOrEqual(glanceNext.frame.height, 44, "The cover glance's Next is not thumb-sized.")
+        let glanceTitle = journey.element(JourneyID.cookCoverGlanceTitle)
+        XCTAssertTrue(glanceTitle.exists, "The cover glance has no step title. Screen: \(journey.screen)")
+        XCTAssertGreaterThanOrEqual(glanceTitle.frame.minX, window.minX, "The cover glance's title runs off the left edge.")
+        XCTAssertLessThanOrEqual(glanceTitle.frame.maxX, window.maxX, "The cover glance's title runs off the right edge.")
+        XCTAssertLessThanOrEqual(glanceTitle.frame.maxY, running.frame.minY, "The cover glance's ring is not under its title.")
         journey.attachScreenshot(named: "11-fold-closed-cover-glance-largest-text", to: self)
 
         journey.useTabletopPostureOnNextLaunch()
@@ -297,12 +303,96 @@ final class TabletopJourney: JourneyTestCase {
         )
         XCTAssertFalse(glance.exists, "The cover glance stayed after the phone was opened. Screen: \(journey.screen)")
         try assertSameEnd(endsAt, running, "tabletop cook mode")
-        journey.attachScreenshot(named: "12-fold-tabletop", to: self)
+        // Still at the largest text size: the dock would cut its labels short, so the controls stack whole on the half
+        // below the fold, inside the screen, one clear of the next.
+        let stepHalf = journey.element(JourneyID.cookTabletopStep)
+        let next = journey.element(JourneyID.cookTabletopNext)
+        let markDone = journey.element(JourneyID.cookTabletopMarkDone)
+        let back = journey.element(JourneyID.cookTabletopBack)
+        XCTAssertTrue(next.isHittable, "Tabletop Next can't be tapped at the largest text size. Screen: \(journey.screen)")
+        XCTAssertTrue(markDone.isHittable, "Tabletop Mark done can't be tapped at the largest text size. Screen: \(journey.screen)")
+        XCTAssertTrue(back.exists, "Tabletop has no Back step at the largest text size. Screen: \(journey.screen)")
+        XCTAssertFalse(journey.element(JourneyID.cookDockNext).exists, "Tabletop still shows the dock at the largest text size.")
+        XCTAssertGreaterThanOrEqual(next.frame.minY, stepHalf.frame.maxY, "Tabletop Next is not below the fold.")
+        XCTAssertTrue(window.contains(next.frame), "Tabletop Next runs off the screen: \(next.frame) in \(window)")
+        XCTAssertTrue(window.contains(markDone.frame), "Tabletop Mark done runs off the screen: \(markDone.frame) in \(window)")
+        XCTAssertLessThanOrEqual(next.frame.maxY, markDone.frame.minY, "Tabletop Next and Mark done overlap.")
+        XCTAssertLessThanOrEqual(markDone.frame.maxY, back.frame.minY, "Tabletop Mark done and Back step overlap.")
+        XCTAssertGreaterThanOrEqual(next.frame.height, 44, "Tabletop Next is not thumb-sized.")
+        journey.attachScreenshot(named: "12-fold-tabletop-largest-text", to: self)
         journey.tap(JourneyID.cookTimerCancel)
         XCTAssertTrue(
             running.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
             "Cancelling the timer did not stop it. Screen: \(journey.screen)"
         )
+    }
+
+    /// Starts a timer for the Duo tour and leaves it running. The tour opens this cook mode, folds the phone through
+    /// tabletop, open flat and shut without relaunching, and compares the end date the app logs at each posture. Here,
+    /// on any simulator, the timer survives a relaunch with its end time.
+    func testTimerRunsOnForTheDuoTourJourney() async throws {
+        let account = try JourneyAccounts.account(4)
+        let token = try JourneyAccounts.runToken()
+        let stock = "Journey\(token)stock"
+        let qa = try await JourneyQAClient.signIn(account)
+        let recipeID = try await qa.createRecipe(
+            title: "Journey \(token) Duo tour J6",
+            steps: [
+                RecipeStepDraft(
+                    stepNum: 1,
+                    stepTitle: "Simmer the stock",
+                    description: "Bring the stock to a simmer and let it reduce by a third.",
+                    duration: 45,
+                    ingredients: [RecipeIngredientDraft(quantity: 4, unit: "cup", name: stock)],
+                    outputStepNums: []
+                ),
+                RecipeStepDraft(
+                    stepNum: 2,
+                    stepTitle: "Season",
+                    description: "Taste the stock and season it with salt.",
+                    duration: nil,
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "tsp", name: "Journey\(token)salt")],
+                    outputStepNums: []
+                ),
+                RecipeStepDraft(
+                    stepNum: 3,
+                    stepTitle: "Strain",
+                    description: "Strain the stock through a fine sieve.",
+                    duration: nil,
+                    ingredients: [],
+                    outputStepNums: []
+                )
+            ]
+        )
+        let journey = JourneyApp.launchFresh()
+        journey.signIn(as: account.username, password: account.password)
+        XCTAssertTrue(
+            journey.element(JourneyID.kitchenRoot).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Signing in did not open the kitchen."
+        )
+        let cookLink = try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook"))
+        // The Duo tour workflow reads this line to open the same cook mode, timer running, in each pose.
+        print("Duo tour cook link: \(cookLink.absoluteString)")
+        journey.openLink(cookLink)
+        let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: stock)
+        XCTAssertTrue(
+            ingredient.waitForExistence(timeout: JourneyApp.networkTimeout),
+            "Cook mode does not list the stock. Screen: \(journey.screen)"
+        )
+        ingredient.tap()
+        let running = journey.element(JourneyID.cookTimerRunning)
+        XCTAssertTrue(
+            running.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Checking the stock did not start the step's timer. Screen: \(journey.screen)"
+        )
+        let endsAt = try XCTUnwrap(Self.endTime(of: running), "The running timer's label has no time left: \(running.label)")
+        journey.attachScreenshot(named: "20-duo-tour-timer-started", to: self)
+
+        verifyAfterRelaunch(journey) {
+            XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
+        }
+        journey.openLink(cookLink)
+        try assertSameEnd(endsAt, running, "cook mode after a relaunch")
     }
 }
 

@@ -37,25 +37,25 @@ struct KitchenTableSpread<Leading: View, Trailing: View>: View {
         .background(KitchenTableTheme.page.ignoresSafeArea())
     }
 
-    /// Two gradients mirrored about the fold line, darkest at the fold and gone by `gutterShadowWidth` into each
-    /// page. The pages' gutter-side margin is wider than this, so text never sits in the shade.
+    /// One soft shade mirrored about the fold line: darkest at the fold, half as dark at the gutter's edges, and gone
+    /// by `gutterShadowWidth` into each page. The pages' gutter-side margin is wider than this, so text never sits in
+    /// the shade.
     private func foldShadow(gutterWidth: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            LinearGradient(
-                colors: [KitchenTableTheme.foldShadow.opacity(0), KitchenTableTheme.foldShadow],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: Self.shadowWidth)
-            KitchenTableTheme.foldShadow
-                .frame(width: gutterWidth)
-            LinearGradient(
-                colors: [KitchenTableTheme.foldShadow, KitchenTableTheme.foldShadow.opacity(0)],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-            .frame(width: Self.shadowWidth)
-        }
+        let total = gutterWidth + Self.shadowWidth * 2
+        let edge = total > 0 ? Self.shadowWidth / total : 0.5
+        let shade = KitchenTableTheme.foldShadow
+        return LinearGradient(
+            stops: [
+                .init(color: shade.opacity(0), location: 0),
+                .init(color: shade.opacity(0.5), location: edge),
+                .init(color: shade, location: 0.5),
+                .init(color: shade.opacity(0.5), location: 1 - edge),
+                .init(color: shade.opacity(0), location: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(width: total)
         .frame(maxHeight: .infinity)
         .ignoresSafeArea()
         .allowsHitTesting(false)
@@ -272,16 +272,14 @@ private struct HingeFoldReader: ViewModifier {
         )
     }
 
+    /// The key window's height by this view's size. The window keeps its height while the view keeps its size, so the
+    /// scenes are walked once per size rather than on every geometry pass.
+    private static var windowHeights: [String: CGFloat] = [:]
+
     /// With a half-open hinge and no reported fold, the fold is at the middle of the screen, which is not the middle
     /// of this view when it sits under a navigation bar. The global space is the window's.
     private static func screenMidline(in proxy: GeometryProxy, hinge: HingePosture) -> FoldBand? {
-        guard hinge == .partiallyOpen else {
-            return nil
-        }
-        let window = UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
-            .first
-        guard let windowHeight = window?.bounds.height else {
+        guard hinge == .partiallyOpen, let windowHeight = windowHeight(forViewSize: proxy.size) else {
             return nil
         }
         let midY = Double(windowHeight / 2 - proxy.frame(in: .global).minY)
@@ -289,6 +287,24 @@ private struct HingeFoldReader: ViewModifier {
             return nil
         }
         return FoldBand(minY: midY, height: 0)
+    }
+
+    private static func windowHeight(forViewSize size: CGSize) -> CGFloat? {
+        let key = "\(size.width)x\(size.height)"
+        if let height = windowHeights[key] {
+            return height
+        }
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+            .first
+        guard let height = window?.bounds.height else {
+            return nil
+        }
+        if windowHeights.count > 16 {
+            windowHeights.removeAll()
+        }
+        windowHeights[key] = height
+        return height
     }
 }
 #endif

@@ -225,7 +225,7 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   unless test_action.match?(/<TestAction\s+buildConfiguration = "BootstrapDebug"/m)
     fail_check("Spoonjoy iOS UI tests must use BootstrapDebug so installed simulator runtimes remain eligible")
   end
-  %w[SpoonjoyShoppingUITests SpoonjoyJourneys].each do |test_target|
+  %w[SpoonjoyShoppingUITests SpoonjoyJourneys SpoonjoyWideJourneys].each do |test_target|
     fail_check("Spoonjoy iOS scheme TestAction does not run #{test_target}") unless test_action.include?("BlueprintName = \"#{test_target}\"")
   end
 
