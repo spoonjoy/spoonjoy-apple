@@ -1,0 +1,88 @@
+{
+  "emittedBy" : "SpoonjoyLayoutAuditUITests",
+  "method" : "XCUITest snapshot frames. noOverlap: no two visible controls' frames cross, apart from a control inside another. textFits: every visible label lies inside its container and the screen, and its longest word and wrapped height fit its frame at caption2 x 0.5 for the observed text size; labels cut by a scroll view's edge are skipped.",
+  "minimumPointSize" : 20,
+  "observedDynamicTypeSize" : "accessibility5",
+  "report" : {
+    "interactiveCount" : 5,
+    "noOverlap" : false,
+    "overlaps" : [
+      {
+        "first" : {
+          "frame" : {
+            "height" : 313.99999999999994,
+            "width" : 314,
+            "x" : 34,
+            "y" : 452.33333333333331
+          },
+          "identifier" : "cook.timer.ring",
+          "label" : "Set 10 min timer",
+          "type" : "button"
+        },
+        "intersection" : {
+          "height" : 48,
+          "width" : 314,
+          "x" : 34,
+          "y" : 522
+        },
+        "second" : {
+          "frame" : {
+            "height" : 48,
+            "width" : 334,
+            "x" : 24,
+            "y" : 522
+          },
+          "identifier" : "cookMode.coverGlance.next",
+          "label" : "Move to the next step",
+          "type" : "button"
+        }
+      },
+      {
+        "first" : {
+          "frame" : {
+            "height" : 313.99999999999994,
+            "width" : 314,
+            "x" : 34,
+            "y" : 452.33333333333331
+          },
+          "identifier" : "cook.timer.ring",
+          "label" : "Set 10 min timer",
+          "type" : "button"
+        },
+        "intersection" : {
+          "height" : 48,
+          "width" : 314,
+          "x" : 34,
+          "y" : 580
+        },
+        "second" : {
+          "frame" : {
+            "height" : 48,
+            "width" : 334,
+            "x" : 24,
+            "y" : 580
+          },
+          "identifier" : "cookMode.coverGlance.showStep",
+          "label" : "Show step",
+          "type" : "button"
+        }
+      }
+    ],
+    "skippedOffscreenCount" : 1,
+    "skippedPartiallyScrolledCount" : 0,
+    "textCount" : 6,
+    "textFits" : true,
+    "textProblems" : [
+
+    ]
+  },
+  "route" : "cook-mode",
+  "screen" : {
+    "height" : 678,
+    "width" : 466,
+    "x" : 0,
+    "y" : 0
+  },
+  "screenshot" : "ax5-cook-mode-layout-audit-ios.png",
+  "source" : "CookModeView"
+}
