@@ -59,16 +59,16 @@ final class JourneyApp {
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
     }
 
-    /// Makes the next launch report a half-open hinge, so a journey can see tabletop cook mode on a simulator whose
-    /// hinge cannot stand half-open. DEBUG builds only (`FoldReading.forcedHinge`).
-    ///
-    /// The Duo tour workflow stands an iPhone Duo simulator half-open and sets `SPOONJOY_JOURNEY_REAL_HINGE=1`, so the
-    /// app has to read the real hinge and fold.
     /// True on the Duo tour's real hinge, where the simulator keeps the app in front when Home is pressed.
     static var runsOnRealHinge: Bool {
         ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] == "1"
     }
 
+    /// Makes the next launch report a half-open hinge, so a journey can see tabletop cook mode on a simulator whose
+    /// hinge cannot stand half-open. DEBUG builds only (`FoldReading.forcedHinge`).
+    ///
+    /// The Duo tour workflow stands an iPhone Duo simulator half-open and sets `SPOONJOY_JOURNEY_REAL_HINGE=1`, so the
+    /// app has to read the real hinge and fold.
     func useTabletopPostureOnNextLaunch() {
         guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
             return
