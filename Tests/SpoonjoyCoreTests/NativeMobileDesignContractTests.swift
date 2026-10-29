@@ -89,7 +89,8 @@ struct NativeMobileDesignContractTests {
                 "cookModeSpread(layout)",
                 "cookSpreadLeadingControls",
                 "cookSpreadTrailingControls",
-                "CookModeSystemTimer(timer: timer, stepTimers: CookModeSessionCenter.shared.stepTimers"
+                "stepTimers: stepTimers,",
+                "try await scheduleSystemTimer(timer, step: currentStep)"
             ],
             forbids: hingeAPIs
         )
@@ -890,8 +891,8 @@ struct NativeMobileDesignContractTests {
                 "Text(\"Ingredients\")",
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
-                "RecipeDetailCookProgressSnapshot",
-                "spoonjoy-cook-progress:\\(viewModel.id)",
+                "RecipePageProgressStore().snapshot(recipeID: viewModel.id)",
+                "RecipePageProgressStore().save(",
                 "Label(\"Cook mode\", systemImage: \"fork.knife\")",
                 "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",
                 "KitchenTableSection(title: \"Save to Cookbook\")"
@@ -1052,11 +1053,9 @@ struct NativeMobileDesignContractTests {
                 "canGoBack: canGoBack",
                 "canAdvance: canAdvance",
                 "markCurrentStepComplete",
-                "KitchenTableSection(title: \"Use from earlier\"",
-                "KitchenTableSection(title: \"Ingredients\"",
-                ".toggleStyle(.largeCheck)",
+                "Text(\"For this step · ",
+                ".toggleStyle(.cookIngredient)",
                 ".padding(.horizontal, KitchenTableTheme.pagePadding + 4)",
-                ".padding(.bottom, compactScrollBottomPadding)",
                 ".background(KitchenTableTheme.page)",
                 ".overlay(alignment: .top)"
             ],
@@ -1091,8 +1090,8 @@ struct NativeMobileDesignContractTests {
                 in: path,
                 contains: [
                     "cookModeBottomActionRail",
-                    "cookModeUtilitySheet",
-                    "Ingredients"
+                    "cookMoreMenu",
+                    "CookTimerRingFace"
                 ]
             )
         }
@@ -1136,9 +1135,9 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "private var compactTaskHeader",
                 "private var currentStepCard",
-                "private var cookModeUtilitySheet",
-                "private var cookControls",
-                "private var inlineScale",
+                "private var cookMoreMenu",
+                "private var cookPager",
+                "private func stepCard(",
                 "private var cookContextHeader",
                 "private var cookModeBottomActionRail",
                 "private var stepProgressRail",
@@ -1160,7 +1159,11 @@ struct NativeMobileDesignContractTests {
                 "Label(\"Add Ingredients\", systemImage: \"cart.badge.plus\")",
                 "KitchenTableSection(title: \"Step Inputs\"",
                 "KitchenTableSection(title: \"Step Ingredients\"",
-                ".background(.background)"
+                ".background(.background)",
+                "RecipeStepDurationCue",
+                "ScaleSelector(",
+                "cookModeUtilitySheet",
+                "Label(\"Set timer\""
             ]
         )
 

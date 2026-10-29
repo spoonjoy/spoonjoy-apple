@@ -323,7 +323,7 @@ public struct CookModeProgress: Codable, Equatable {
         )
     }
 
-    private static func normalizedScaleFactor(_ value: Double) -> Double {
+    static func normalizedScaleFactor(_ value: Double) -> Double {
         guard value.isFinite else {
             return 1
         }

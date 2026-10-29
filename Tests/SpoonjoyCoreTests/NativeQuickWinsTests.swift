@@ -88,7 +88,9 @@ struct NativeQuickWinsTests {
     func appSourcesWireTheChanges() throws {
         let cook = try readRepoFile("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
         #expect(cook.contains(".keepsScreenAwake()"))
-        #expect(cook.contains(".sensoryFeedback("))
+        #expect(cook.contains(".kitchenHaptic(.ingredientChecked"))
+        let motion = try readRepoFile("Apps/Spoonjoy/Shared/Design/KitchenMotion+SwiftUI.swift")
+        #expect(motion.contains("sensoryFeedback(moment.sensoryFeedback, trigger: trigger"))
         let awake = try readRepoFile("Apps/Spoonjoy/Shared/Components/KeepScreenAwake.swift")
         #expect(awake.contains("isIdleTimerDisabled"))
         #expect(awake.contains(".onDisappear"))
