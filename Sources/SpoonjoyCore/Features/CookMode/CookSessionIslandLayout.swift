@@ -111,7 +111,7 @@ public enum CookSessionIslandLayout {
         max(snapshot.timerCount ?? 0, snapshot.timers.count)
     }
 
-    /// "+2" for timers that are running but not shown, or nil when none are hidden.
+    /// "+2" for timers in the session that aren't shown, running or paused, or nil when none are hidden.
     public static func hiddenTimersText(hidden: Int) -> String? {
         hidden > 0 ? "+\(hidden)" : nil
     }
@@ -131,12 +131,9 @@ public enum CookSessionIslandLayout {
         timerCount >= 3 && !accessibilitySize
     }
 
-    /// Running timers by end time, then paused ones by time left. A paused timer's `endsAt` is stale, so it can't be
-    /// sorted with the running ones.
+    /// The timers in `CookTimerBoard` order, so the widget and the payload share one rule.
     public static func timersBySoonest(_ timers: [CookTimerEntry]) -> [CookTimerEntry] {
-        let running = timers.filter { !$0.isPaused }.sorted { $0.endsAt < $1.endsAt }
-        let paused = timers.filter(\.isPaused).sorted { ($0.pausedRemaining ?? 0) < ($1.pausedRemaining ?? 0) }
-        return running + paused
+        CookTimerBoard(timers: timers).ordered
     }
 
     /// The timer the ring and the island's single chip follow: the first of `timersBySoonest`.

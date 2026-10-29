@@ -143,6 +143,20 @@ struct CookSessionSnapshotTests {
         }
     }
 
+    @Test func pausedTimersWithPastEndTimesDoNotPushOutRunningOnes() {
+        let recipe = Self.recipe(steps: Self.steps)
+        let now = Date(timeIntervalSince1970: 10_000)
+        let paused = (0..<2).map {
+            CookTimerEntry(id: "p\($0)", stepNumber: $0, label: "P\($0)", endsAt: now.addingTimeInterval(-3_600), isPaused: true, pausedRemaining: 60)
+        }
+        let running = (0..<3).map {
+            CookTimerEntry(id: "r\($0)", stepNumber: $0, label: "R\($0)", endsAt: now.addingTimeInterval(Double(600 * ($0 + 1))), isPaused: false)
+        }
+        let snap = CookSessionSnapshot.make(recipe: recipe, progress: .starting(recipe: recipe, startedAt: "t"), board: CookTimerBoard(timers: paused + running))
+        #expect(snap.timers.map(\.id) == ["r0", "r1", "r2"])
+        #expect(snap.timerCount == 5)
+    }
+
     @Test func aPayloadWithoutTheTimerCountStillDecodes() throws {
         // A content state written before `timerCount` existed.
         let json = #"""
