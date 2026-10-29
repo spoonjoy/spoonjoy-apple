@@ -13,10 +13,11 @@ class JourneyTestCase: XCTestCase {
         executionTimeAllowance = 600
     }
 
-    override func tearDownWithError() throws {
+    // The async teardown runs on the main actor, where the app and this flag live; the synchronous one does not.
+    override func tearDown() async throws {
         if !keepsAppStateAfterTest {
             JourneyApp.clearSavedState()
         }
-        try super.tearDownWithError()
+        try await super.tearDown()
     }
 }
