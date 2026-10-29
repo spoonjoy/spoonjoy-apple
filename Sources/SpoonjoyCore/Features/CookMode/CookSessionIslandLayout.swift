@@ -110,9 +110,32 @@ public enum CookSessionIslandLayout {
         count > 1 ? "+\(count - 1)" : nil
     }
 
-    /// The timer the ring follows: the soonest running one, else the soonest paused one.
+    /// What VoiceOver reads for `moreTimersText`.
+    public static func moreTimersAccessibilityLabel(count: Int) -> String? {
+        switch count {
+        case ...1: nil
+        case 2: "1 more timer"
+        default: "\(count - 1) more timers"
+        }
+    }
+
+    /// At standard text sizes the Lock Screen card is capped at about 160 pt. With three timers the step shows only its
+    /// title, beside a smaller ring, so the chips can take a second row and keep their names apart.
+    public static func lockScreenTimersTakeStepText(timerCount: Int, accessibilitySize: Bool) -> Bool {
+        timerCount >= 3 && !accessibilitySize
+    }
+
+    /// Running timers by end time, then paused ones by time left. A paused timer's `endsAt` is stale, so it can't be
+    /// sorted with the running ones.
+    public static func timersBySoonest(_ timers: [CookTimerEntry]) -> [CookTimerEntry] {
+        let running = timers.filter { !$0.isPaused }.sorted { $0.endsAt < $1.endsAt }
+        let paused = timers.filter(\.isPaused).sorted { ($0.pausedRemaining ?? 0) < ($1.pausedRemaining ?? 0) }
+        return running + paused
+    }
+
+    /// The timer the ring and the island's single chip follow: the first of `timersBySoonest`.
     public static func featuredTimer(in snapshot: CookSessionSnapshot) -> CookTimerEntry? {
-        snapshot.timers.first { !$0.isPaused } ?? snapshot.timers.first
+        timersBySoonest(snapshot.timers).first
     }
 
     public static func ring(for snapshot: CookSessionSnapshot) -> Ring {

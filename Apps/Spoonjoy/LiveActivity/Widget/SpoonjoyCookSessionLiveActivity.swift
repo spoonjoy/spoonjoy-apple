@@ -198,29 +198,37 @@ private struct CookSessionTimerChip: View {
                 .truncationMode(.tail)
                 .frame(maxWidth: fillsRow ? .infinity : nil, alignment: .leading)
                 .accessibilityHidden(true)
-            // A system countdown asks for as much width as it is offered, so the chip sizes to the timer's whole length
-            // and lays the countdown over it. "2:14:23" is never cut to "2:14:…", and the chip never grows past it.
-            HStack(spacing: 2) {
-                if timer.isPaused {
-                    Image(systemName: "pause.fill").imageScale(.small)
-                }
-                Text(CookSessionIslandLayout.clockText(remaining: max(timer.duration, timer.pausedRemaining ?? 0)))
-            }
-                .hidden()
-                .accessibilityHidden(true)
-                .overlay(alignment: .trailing) {
-                    CookSessionTimerReadout(timer: timer)
-                }
-                .font(KitchenTableTheme.uiLabel.monospacedDigit())
-                .foregroundStyle(timer.isPaused ? KitchenTableTheme.ink2 : KitchenTableTheme.brass)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .fixedSize()
-                .layoutPriority(1)
+            CookSessionTimerTime(timer: timer)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .background(KitchenTableTheme.vellum, in: Capsule())
+    }
+}
+
+/// A timer's time. A system countdown asks for as much width as it is offered, so this sizes to the timer's whole
+/// length and lays the countdown over it. "2:14:23" is never cut to "2:14:…", and the time never grows past it.
+private struct CookSessionTimerTime: View {
+    let timer: CookTimerEntry
+
+    var body: some View {
+        HStack(spacing: 2) {
+            if timer.isPaused {
+                Image(systemName: "pause.fill").imageScale(.small)
+            }
+            Text(CookSessionIslandLayout.clockText(remaining: max(timer.duration, timer.pausedRemaining ?? 0)))
+        }
+            .hidden()
+            .accessibilityHidden(true)
+            .overlay(alignment: .trailing) {
+                CookSessionTimerReadout(timer: timer)
+            }
+            .font(KitchenTableTheme.uiLabel.monospacedDigit())
+            .foregroundStyle(timer.isPaused ? KitchenTableTheme.ink2 : KitchenTableTheme.brass)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .fixedSize()
+            .layoutPriority(1)
     }
 }
 
@@ -266,22 +274,25 @@ private struct CookSessionTimerReadout: View {
     }
 }
 
-/// The timers as named chips, one row when every name fits whole. Otherwise it depends on the room: at standard text
-/// sizes the Lock Screen card and the island are capped at about 160 pt, so the chips stay on one row and the names
-/// end in "…"; at accessibility sizes the card grows, so the chips wrap two to a row, then one to a row at the full
-/// width. In the island (`inIsland`) only the soonest timer shows, with a count of the rest. Only the last option can
-/// shrink, so no layout widens the card or island past the screen.
+/// The timers as named chips, soonest first, one row when every name fits whole. Otherwise it depends on the room:
+/// at standard text sizes the chips wrap two to a row and the names end in "…" (the Lock Screen gives up the step
+/// text for the second row); at accessibility sizes the card grows, so the chips wrap two to a row, then one to a row
+/// at the full width. In the island (`inIsland`) only the soonest timer shows, with a count of the rest and when the
+/// next one ends. Only the last option can shrink, so no layout widens the card or island past the screen.
 private struct CookSessionTimerRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let timers: [CookTimerEntry]
     var inIsland = false
 
     var body: some View {
+        // The app sends at most `maxTimers`; capping here too means a fourth chip can never push a third row past the
+        // Lock Screen card's height.
+        let timers = Array(CookSessionIslandLayout.timersBySoonest(self.timers).prefix(CookSessionSnapshot.maxTimers))
         if !timers.isEmpty {
             ViewThatFits(in: .horizontal) {
                 chipRow(timers)
                 if inIsland {
-                    soonestTimer
+                    soonestTimer(timers)
                 } else if typeSize.isAccessibilitySize {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(Array(CookSessionIslandLayout.wrappedTimerRows(timers).enumerated()), id: \.offset) { _, row in
@@ -294,9 +305,13 @@ private struct CookSessionTimerRow: View {
                         }
                     }
                 } else {
-                    HStack(spacing: 6) {
-                        ForEach(timers) { timer in
-                            CookSessionTimerChip(timer: timer, fillsRow: true)
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(Array(CookSessionIslandLayout.wrappedTimerRows(timers).enumerated()), id: \.offset) { _, row in
+                            HStack(spacing: 6) {
+                                ForEach(row) { timer in
+                                    CookSessionTimerChip(timer: timer, fillsRow: true)
+                                }
+                            }
                         }
                     }
                 }
@@ -305,17 +320,26 @@ private struct CookSessionTimerRow: View {
         }
     }
 
+    /// The soonest timer, then "+2 · 7:27": how many more run and the next one's live time, which VoiceOver reads with
+    /// its name.
     @ViewBuilder
-    private var soonestTimer: some View {
-        if let timer = timers.first(where: { !$0.isPaused }) ?? timers.first {
+    private func soonestTimer(_ timers: [CookTimerEntry]) -> some View {
+        if let timer = timers.first {
             HStack(spacing: 6) {
                 CookSessionTimerChip(timer: timer, fillsRow: true)
                 if let more = CookSessionIslandLayout.moreTimersText(count: timers.count) {
-                    Text(more)
-                        .font(KitchenTableTheme.uiLabel.monospacedDigit())
-                        .foregroundStyle(KitchenTableTheme.ink2)
-                        .fixedSize()
-                        .accessibilityLabel("\(timers.count - 1) more timers")
+                    HStack(spacing: 3) {
+                        Text(more)
+                            .font(KitchenTableTheme.uiLabel.monospacedDigit())
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                            .accessibilityLabel(CookSessionIslandLayout.moreTimersAccessibilityLabel(count: timers.count) ?? more)
+                        Text("·")
+                            .font(KitchenTableTheme.uiLabel)
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                            .accessibilityHidden(true)
+                        CookSessionTimerTime(timer: timers[1])
+                    }
+                    .fixedSize()
                 }
             }
         }
@@ -436,6 +460,7 @@ private struct CookSessionExpandedBody: View {
 /// CarPlay) shows only the ring, the step and what comes next.
 private struct CookSessionLockScreenView: View {
     @Environment(\.activityFamily) private var family
+    @Environment(\.dynamicTypeSize) private var typeSize
     let snapshot: CookSessionSnapshot
     let recipeID: String
 
@@ -476,18 +501,24 @@ private struct CookSessionLockScreenView: View {
                     .font(KitchenTableTheme.uiLabel.monospacedDigit())
                     .foregroundStyle(KitchenTableTheme.brass)
             }
-            HStack(alignment: .top, spacing: 12) {
-                CookSessionRing(snapshot: snapshot, diameter: 40)
+            let timersTakeStepText = CookSessionIslandLayout.lockScreenTimersTakeStepText(
+                timerCount: snapshot.timers.count,
+                accessibilitySize: typeSize.isAccessibilitySize
+            )
+            HStack(alignment: timersTakeStepText ? .center : .top, spacing: 12) {
+                CookSessionRing(snapshot: snapshot, diameter: timersTakeStepText ? 32 : 40)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(snapshot.stepTitle)
                         .font(KitchenTableTheme.indexTitle)
                         .foregroundStyle(KitchenTableTheme.ink)
                         .lineLimit(1)
-                    Text(snapshot.stepText)
-                        .font(KitchenTableTheme.meta)
-                        .foregroundStyle(KitchenTableTheme.ink)
-                        .lineLimit(2)
-                    if let next = snapshot.nextStepTitle {
+                    if !timersTakeStepText {
+                        Text(snapshot.stepText)
+                            .font(KitchenTableTheme.meta)
+                            .foregroundStyle(KitchenTableTheme.ink)
+                            .lineLimit(2)
+                    }
+                    if !timersTakeStepText, let next = snapshot.nextStepTitle {
                         Text("Next: \(next)")
                             .font(KitchenTableTheme.runningHead)
                             .foregroundStyle(KitchenTableTheme.ink2)
