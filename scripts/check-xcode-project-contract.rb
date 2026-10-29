@@ -175,6 +175,7 @@ fail_check("#{relative(ENTITLEMENTS)} missing #{ASSOCIATED_DOMAIN}") unless asso
 mac_entitlements = plist_json(MAC_ENTITLEMENTS)
 fail_check("#{relative(MAC_ENTITLEMENTS)} must enable App Sandbox for the Mac App Store") unless mac_entitlements["com.apple.security.app-sandbox"] == true
 fail_check("#{relative(MAC_ENTITLEMENTS)} must allow outgoing network connections") unless mac_entitlements["com.apple.security.network.client"] == true
+fail_check("#{relative(MAC_ENTITLEMENTS)} must allow the microphone for cook-mode voice") unless mac_entitlements["com.apple.security.device.audio-input"] == true
 fail_check("#{relative(MAC_ENTITLEMENTS)} missing #{ASSOCIATED_DOMAIN}") unless Array(mac_entitlements["com.apple.developer.associated-domains"]).include?(ASSOCIATED_DOMAIN)
 fail_check("#{relative(MAC_ENTITLEMENTS)} must keep Sign in with Apple") unless Array(mac_entitlements["com.apple.developer.applesignin"]) == ["Default"]
 

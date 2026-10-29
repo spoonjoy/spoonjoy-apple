@@ -59,6 +59,11 @@ final class JourneyApp {
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
     }
 
+    /// True on the Duo tour's real hinge, where the simulator keeps the app in front when Home is pressed.
+    static var runsOnRealHinge: Bool {
+        ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] == "1"
+    }
+
     /// Makes the next launch report a half-open hinge, so a journey can see tabletop cook mode on a simulator whose
     /// hinge cannot stand half-open. DEBUG builds only (`FoldReading.forcedHinge`).
     ///
@@ -97,6 +102,13 @@ final class JourneyApp {
     /// sees when the system refuses timers, as the CI simulator does.
     func useSystemAlarmsOnNextLaunch() {
         app.launchEnvironment.removeValue(forKey: NativeJourneyAlarmFixture.environmentKey)
+    }
+
+    /// Makes the next launch hear `transcripts` through cook mode's mic, one every five seconds once it listens, or
+    /// report the microphone as refused with `denied` (`NativeJourneyVoiceFixture`, DEBUG builds only). A simulator has
+    /// no voice to speak into the mic.
+    func useVoiceFixtureOnNextLaunch(_ value: String) {
+        app.launchEnvironment[NativeJourneyVoiceFixture.environmentKey] = value
     }
 
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset

@@ -118,6 +118,10 @@ enum JourneyID {
     static let cookStepText = "cook.step.text"
     static let cookStepCard = "cook.step.card"
     static let cookMore = "cook.more"
+    /// Cook mode's hands-free mic beside More (its label carries its state) and the line under it.
+    static let cookVoice = "cookMode.voice"
+    static let cookVoiceNotice = "cookMode.voice.notice"
+    static let cookVoiceSettings = "cookMode.voice.settings"
     /// Tabletop cook mode's two halves: the step above the fold and the checklist and controls below it.
     static let cookTabletopStep = "cookMode.tabletopStep"
     static let cookTabletopControls = "cookMode.tabletopControls"
