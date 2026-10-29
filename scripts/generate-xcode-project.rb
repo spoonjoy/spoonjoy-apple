@@ -284,6 +284,7 @@ add_package_product(project, mac_target, "SpoonjoyCore")
 file_reference(project, WIDGET_INFO_PLIST)
 add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE] + WIDGET_CORE_SWIFT)
 add_sources(project, ui_test_target, UI_TEST_SWIFT)
+add_package_product(project, ui_test_target, "SpoonjoyCore")
 ui_test_target.add_dependency(ios_target)
 ui_test_dependency = ui_test_target.dependencies[0]
 ui_test_dependency_proxy = ui_test_dependency.target_proxy

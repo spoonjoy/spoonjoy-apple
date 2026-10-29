@@ -142,6 +142,9 @@ enum ScreenshotAccessibilityProofWriter {
         visualReadiness: ScreenshotVisualReadinessSnapshot
     ) -> [String: Any] {
         let evidence = routeEvidence(route: route, source: source)
+        // The app cannot see its own frames, so it states no overlap, text-fit or cluster result: the capture
+        // script's layout audit (LayoutAuditUITests) measures noOverlap and textFits from the running screen.
+        // Reduce Motion is reported only as observed.
         return [
             "platform": platform,
             "route": route,
@@ -150,13 +153,9 @@ enum ScreenshotAccessibilityProofWriter {
             "dynamicType": !runtimeContext.dynamicTypeSize.isEmpty && !evidence.dynamicTypeTextStyles.isEmpty,
             "voiceOverLabels": !evidence.voiceOverLabels.isEmpty,
             "keyboardNavigation": !evidence.keyboardNavigationTargets.isEmpty,
-            "reduceMotion": true,
             "contrast": !evidence.contrastPairs.isEmpty,
             "kitchenTableHierarchy": !evidence.hierarchyAnchors.isEmpty,
-            "noOverlap": !evidence.layoutGuards.isEmpty,
             "minimumTargetSize": evidence.minimumTargetSize,
-            "textFits": evidence.layoutGuards.contains("text-fit"),
-            "noTinyClusters": evidence.layoutGuards.contains("no-tiny-clusters"),
             "observedDynamicTypeSize": runtimeContext.dynamicTypeSize,
             "observedReduceMotion": runtimeContext.reduceMotionEnabled,
             "visualReadiness": [
@@ -184,7 +183,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
                 hierarchyAnchors: ["RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("saved-recipes", "SavedRecipesView"):
             RouteAccessibilityEvidence(
@@ -193,7 +192,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
                 hierarchyAnchors: ["SavedRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("everyone-recipes", "EveryoneRecipesView"):
             RouteAccessibilityEvidence(
@@ -202,7 +201,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
                 hierarchyAnchors: ["EveryoneRecipesView", "RecipesView", "KitchenTableHeader", "RecipeCatalogLead", "RecipeIndexRow"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("chefs", "ChefsView"):
             RouteAccessibilityEvidence(
@@ -211,7 +210,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
                 hierarchyAnchors: ["ChefsView", "ProfileSurfaceViewModel", "ProfileGraphPage"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cookbooks", "CookbooksView"):
             RouteAccessibilityEvidence(
@@ -220,7 +219,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
                 hierarchyAnchors: ["CookbooksView", "KitchenTableHeader", "CookbookCoverArt", "CookbookShelf", "KitchenTableObjectRow"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cookbook-detail", "CookbookDetailView"):
             RouteAccessibilityEvidence(
@@ -229,7 +228,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "secondary text on bone"],
                 hierarchyAnchors: ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("capture", "CaptureDraftView"):
             RouteAccessibilityEvidence(
@@ -238,7 +237,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
                 hierarchyAnchors: ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
             )
         case ("capture", "SignedOutSetupView"):
             RouteAccessibilityEvidence(
@@ -247,7 +246,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "herb button on bone", "brass status on bone"],
                 hierarchyAnchors: ["SignedOutSetupView", "SpoonjoyIdentityMark", "pendingRouteLabel", "OAuthProviderHint", "SignInWithAppleButton"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters"]
             )
         case ("search", "SearchView"):
             RouteAccessibilityEvidence(
@@ -256,7 +255,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "herb tint on bone", "status label on card"],
                 hierarchyAnchors: ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView", "OfflineStatusView"],
-                layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "offline-status-section"]
+                declaredLayoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "offline-status-section"]
             )
         case ("settings", "SettingsView"):
             RouteAccessibilityEvidence(
@@ -265,7 +264,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".headline"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
                 hierarchyAnchors: ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
-                layoutGuards: ["kitchen-table-page", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
+                declaredLayoutGuards: ["kitchen-table-page", "text-fit", "no-tiny-clusters", "bottom-offline-row"]
             )
         case ("recipe-detail", "RecipeDetailView"):
             RouteAccessibilityEvidence(
@@ -274,7 +273,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
                 hierarchyAnchors: ["RecipeDetailView", "RecipeDetailHeroMedia", "RecipeDetailMasthead", "recipeIdentityAndProvenance", "recipeMastheadActions", "recipeMastheadLogCookAction", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepDurationCue", "RecipeStepChecklistRow", "SpoonCookLogView"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-log", "SpoonCookLogView"):
             RouteAccessibilityEvidence(
@@ -283,7 +282,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel", ".title2"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "muted text on bone"],
                 hierarchyAnchors: ["SpoonCookLogView", "cookLogForm", "cookLogPhotoSlot", "cookLogActionBar"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("cook-mode", "CookModeView"):
             RouteAccessibilityEvidence(
@@ -292,7 +291,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.cookStep", "KitchenTableTheme.control", "KitchenTableTheme.timer", "KitchenTableTheme.meta"],
                 contrastPairs: ["charcoal on bone", "brass on bone", "herb tint on bone"],
                 hierarchyAnchors: ["CookModeView", "cookPager", "cookPage", "CookStepSegments", "CookModeSystemTimer", "CookTimerRingFace", "stepCard", "cookMoreMenu", "cookModeBottomActionRail"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "dock-safe-area"]
             )
         case ("shopping-list", "ShoppingListView"):
             RouteAccessibilityEvidence(
@@ -301,7 +300,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
                 contrastPairs: ["charcoal on bone", "brass label on bone", "destructive action role"],
                 hierarchyAnchors: ["ShoppingListView", "shoppingHeaderTools", "shoppingReceiptComposer", "shoppingReceiptState", "TabView"],
-                layoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
+                declaredLayoutGuards: ["scroll-list", "text-fit", "no-tiny-clusters", "tab-bar-safe-area"]
             )
         default:
             RouteAccessibilityEvidence(
@@ -310,7 +309,7 @@ enum ScreenshotAccessibilityProofWriter {
                 dynamicTypeTextStyles: ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel", ".title2"],
                 contrastPairs: ["charcoal on bone", "media-aware contrast on real covers", "brass on bone"],
                 hierarchyAnchors: ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndex", "RecipeIndexRow", "CookbookShelf"],
-                layoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
+                declaredLayoutGuards: ["scroll-view", "text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
             )
         }
     }
@@ -343,7 +342,7 @@ enum ScreenshotAccessibilityProofWriter {
         let dynamicTypeTextStyles: [String]
         let contrastPairs: [String]
         let hierarchyAnchors: [String]
-        let layoutGuards: [String]
+        let declaredLayoutGuards: [String]
         let minimumTargetSize = 44
 
         var dictionary: [String: Any] {
@@ -353,7 +352,7 @@ enum ScreenshotAccessibilityProofWriter {
                 "dynamicTypeTextStyles": dynamicTypeTextStyles,
                 "contrastPairs": contrastPairs,
                 "hierarchyAnchors": hierarchyAnchors,
-                "layoutGuards": layoutGuards
+                "declaredLayoutGuards": declaredLayoutGuards
             ]
         }
     }

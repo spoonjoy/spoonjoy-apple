@@ -13,11 +13,12 @@ REQUIRED_ACCESSIBILITY_FIELDS = [
   "dynamicType",
   "voiceOverLabels",
   "keyboardNavigation",
-  "reduceMotion",
   "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
+  "kitchenTableHierarchy"
 ].freeze
+
+# The app cannot measure these, so its proof writer must never state them.
+UNMEASURED_PROOF_KEYS = ["\"reduceMotion\"", "\"noOverlap\"", "\"textFits\"", "\"controlsOnScreen\"", "\"noTinyClusters\""].freeze
 
 EXPECTED_OFFLINE_VISIBLE_STATES = [
   "offline",
@@ -48,10 +49,17 @@ CONTRACTS = {
     "dynamicType",
     "voiceOverLabels",
     "keyboardNavigation",
-    "reduceMotion",
     "contrast",
     "kitchenTableHierarchy",
-    "noOverlap"
+    "observedReduceMotion",
+    "SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN",
+    "LayoutAuditUITests",
+    "SpoonjoyLayoutAuditUITests",
+    "layoutAudit",
+    "controlsOnScreen",
+    "SPOONJOY_REQUIRE_LAYOUT_AUDIT",
+    "layout-audit-known-findings.json",
+    "Default CI does not gate"
   ],
   "scripts/validate-design-review.rb" => [
     "accessibilityProofArtifacts",
@@ -63,8 +71,10 @@ CONTRACTS = {
     "severeStates",
     "OfflineStatusView",
     "Hide offline status",
-    "textFits",
-    "noTinyClusters",
+    "UNMEASURED_MANIFEST_FIELDS",
+    "validate_layout_audit!",
+    "LayoutAuditGate",
+    "SpoonjoyLayoutAuditUITests",
     "emittedBy",
     "bundleIdentifier",
     "observedDynamicTypeSize",
@@ -96,6 +106,13 @@ CONTRACTS = {
     "dismissibleStates",
     "severeStates",
     "SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH",
+    "SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN",
+    "run_ios_layout_audit",
+    "SPOONJOY_REQUIRE_LAYOUT_AUDIT",
+    "SPOONJOY_LAYOUT_AUDIT_EXPECTED_DYNAMIC_TYPE",
+    "check-layout-audit.rb",
+    "controlsOnScreen",
+    "LayoutAuditUITests/testMeasureCaptureRoute",
     "apple/${unit_slug}-accessibility-proof-ios.json",
     "apple/${unit_slug}-accessibility-proof-ipad.json",
     "apple/${unit_slug}-accessibility-proof-macos.json",
@@ -168,7 +185,8 @@ def record_failure(message)
 end
 
 def run_status(*args, chdir: ROOT)
-  stdout, stderr, status = Open3.capture3(*args.map(&:to_s), chdir: chdir.to_s)
+  environment = args.first.is_a?(Hash) ? [args.shift] : []
+  stdout, stderr, status = Open3.capture3(*environment, *args.map(&:to_s), chdir: chdir.to_s)
   [stdout, stderr, status]
 end
 
@@ -216,8 +234,6 @@ def accessibility_proof(platform)
     "emittedBy" => "SpoonjoyApp",
     "bundleIdentifier" => "app.spoonjoy",
     "minimumTargetSize" => 44,
-    "textFits" => true,
-    "noTinyClusters" => true,
     "observedDynamicTypeSize" => "large",
     "observedReduceMotion" => false,
     "visualReadiness" => {
@@ -232,7 +248,7 @@ def accessibility_proof(platform)
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
       "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
+      "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
     },
     "offlineIndicatorProof" => {
       "source" => "OfflineStatusView",
@@ -248,6 +264,10 @@ def accessibility_proof(platform)
 end
 
 CONTRACTS.each { |relative_path, tokens| assert_tokens(relative_path, tokens) }
+
+writer = ROOT.join("Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift").read
+claimed_keys = UNMEASURED_PROOF_KEYS.select { |key| writer.include?(key) }
+record_failure("ScreenshotAccessibilityProofWriter.swift must not claim unmeasured fields: #{claimed_keys.join(", ")}") unless claimed_keys.empty?
 
 capture_script = ROOT.join("scripts/capture-native-screenshots.sh").read
 if capture_script.include?("write_accessibility_proof()")
@@ -287,6 +307,53 @@ Dir.mktmpdir("spoonjoy-design-accessibility-contract") do |directory|
   missing_route_evidence_path.write(JSON.pretty_generate(base_design_review) + "\n")
   assert_status(false, ["ruby", validator, missing_route_evidence_path], "missing routeEvidence design review")
   temp_root.join("apple/unit-contract-accessibility-proof-ios.json").write(JSON.pretty_generate(accessibility_proof("ios")) + "\n")
+
+  ios_proof_path = temp_root.join("apple/unit-contract-accessibility-proof-ios.json")
+  audit_path = temp_root.join("apple/unit-contract-layout-audit-ios.json")
+  measured_audit = {
+    "emittedBy" => "SpoonjoyLayoutAuditUITests",
+    "route" => "kitchen",
+    "observedDynamicTypeSize" => "large",
+    "report" => {
+      "noOverlap" => false,
+      "textFits" => true,
+      "controlsOnScreen" => true,
+      "interactiveCount" => 2,
+      "textCount" => 1,
+      "drawnTextCount" => 1,
+      "overlaps" => [{ "first" => { "identifier" => "contract.first" }, "second" => { "identifier" => "contract.second" } }],
+      "textProblems" => [],
+      "clippedControls" => []
+    }
+  }
+  audit_path.write(JSON.pretty_generate(measured_audit) + "\n")
+  measured_proof = accessibility_proof("ios").merge("noOverlap" => false, "textFits" => true, "controlsOnScreen" => true, "layoutAudit" => "apple/unit-contract-layout-audit-ios.json")
+  {
+    "a proof carrying the layout audit's measured values, even false ones" => [true, measured_proof],
+    "a proof claiming Reduce Motion beyond what was observed" => [false, accessibility_proof("ios").merge("reduceMotion" => true)],
+    "a proof claiming noOverlap with no layout audit" => [false, accessibility_proof("ios").merge("noOverlap" => true)],
+    "a proof claiming noTinyClusters" => [false, accessibility_proof("ios").merge("noTinyClusters" => true)],
+    "a proof whose noOverlap differs from its layout audit" => [false, measured_proof.merge("noOverlap" => true)],
+    "a proof pointing at a missing layout audit" => [false, measured_proof.merge("layoutAudit" => "apple/missing-layout-audit.json")],
+    "a proof claiming controlsOnScreen with no layout audit" => [false, accessibility_proof("ios").merge("controlsOnScreen" => true)]
+  }.each do |label, (expected_success, proof)|
+    ios_proof_path.write(JSON.pretty_generate(proof) + "\n")
+    assert_status(expected_success, ["ruby", validator, valid_review_path], label)
+  end
+  # Strict mode: a finding not in scripts/layout-audit-known-findings.json, or a proof with no audit, fails.
+  strict = { "SPOONJOY_REQUIRE_LAYOUT_AUDIT" => "1" }
+  {
+    "strict mode with an unlisted overlap" => [false, measured_proof],
+    "strict mode with no layout audit" => [false, accessibility_proof("ios")]
+  }.each do |label, (expected_success, proof)|
+    ios_proof_path.write(JSON.pretty_generate(proof) + "\n")
+    assert_status(expected_success, [strict, "ruby", validator, valid_review_path], label)
+  end
+  ios_proof_path.write(JSON.pretty_generate(accessibility_proof("ios")) + "\n")
+
+  claimed_review_path = temp_root.join("claimed-no-overlap-design-review.json")
+  claimed_review_path.write(JSON.pretty_generate(base_design_review.merge("noOverlap" => true, "reduceMotion" => true)) + "\n")
+  assert_status(false, ["ruby", validator, claimed_review_path], "a design review claiming noOverlap and reduceMotion")
 
   missing_accessibility_path = temp_root.join("missing-accessibility-proof.json")
   missing_accessibility_path.write(JSON.pretty_generate(base_design_review.reject { |key, _| key == "accessibilityProofArtifacts" }) + "\n")
