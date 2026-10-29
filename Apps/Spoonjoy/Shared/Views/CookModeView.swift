@@ -106,6 +106,9 @@ struct CookModeView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     /// The cover glance's step title: display type twice the size of the page's, read from across the kitchen.
     @ScaledMetric(relativeTo: .largeTitle) private var coverGlanceTitleSize: CGFloat = 56
+    /// True when the cover is wider than tall (the Duo turned on its side), so the ring sits beside the title and
+    /// clears the pinned Next instead of scrolling under it.
+    @State private var coverGlanceIsWide = false
     @ObservedObject private var stepTimers: CookStepTimerRegistry
     @State private var progress: CookModeProgress
     @State private var shoppingStatusMessage: String?
@@ -1065,22 +1068,19 @@ extension CookModeView {
     @ViewBuilder private var cookModeCoverGlance: some View {
         if let currentStep {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    Text("\(recipe.title) · \(currentIndex + 1) of \(recipe.steps.count)")
-                        .spreadRunningHead()
-                        .lineLimit(2)
-                    Text(currentStep.stepTitle ?? "Step \(currentStep.stepNum)")
-                        .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
-                        .foregroundStyle(KitchenTableTheme.ink)
-                        .lineLimit(4)
-                        // A long word shrinks rather than breaking across lines on the narrow cover.
-                        .minimumScaleFactor(0.5)
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityLabel("Current cooking step \(currentStep.stepNum), \(currentStep.stepTitle ?? "Step")")
-                        .accessibilityIdentifier("cookMode.coverGlance.title")
-                    if let timer = viewModel.systemTimer {
-                        stepTimer(timer, step: currentStep, model: viewModel, isCurrent: true)
-                            .frame(maxWidth: .infinity)
+                Group {
+                    if coverGlanceIsWide {
+                        HStack(alignment: .center, spacing: 24) {
+                            coverGlanceHeading(currentStep)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            coverGlanceRing(currentStep)
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 20) {
+                            coverGlanceHeading(currentStep)
+                            coverGlanceRing(currentStep)
+                                .frame(maxWidth: .infinity)
+                        }
                     }
                 }
                 .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
@@ -1090,8 +1090,36 @@ extension CookModeView {
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 coverGlanceControls
             }
+            .onGeometryChange(for: Bool.self) { proxy in
+                proxy.size.width > proxy.size.height
+            } action: { isWide in
+                coverGlanceIsWide = isWide
+            }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookMode.coverGlance")
+        }
+    }
+
+    private func coverGlanceHeading(_ step: RecipeStep) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("\(recipe.title) · \(currentIndex + 1) of \(recipe.steps.count)")
+                .spreadRunningHead()
+                .lineLimit(2)
+            Text(step.stepTitle ?? "Step \(step.stepNum)")
+                .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
+                .foregroundStyle(KitchenTableTheme.ink)
+                .lineLimit(4)
+                // A long word shrinks rather than breaking across lines on the narrow cover.
+                .minimumScaleFactor(0.5)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
+                .accessibilityIdentifier("cookMode.coverGlance.title")
+        }
+    }
+
+    @ViewBuilder private func coverGlanceRing(_ step: RecipeStep) -> some View {
+        if let timer = viewModel.systemTimer {
+            stepTimer(timer, step: step, model: viewModel, isCurrent: true)
         }
     }
 

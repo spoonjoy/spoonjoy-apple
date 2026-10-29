@@ -122,24 +122,29 @@ jobs:
           xcrun simctl terminate "$udid" app.spoonjoy >/dev/null 2>&1 || true
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
           export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
-          run_spread() {
-            rm -rf "$RUNNER_TEMP/duo/DuoSpread.xcresult"
+          # run_journeys <name> <-only-testing selector>: writes Duo<name>.xcresult and test-<name>.log.
+          run_journeys() {
+            rm -rf "$RUNNER_TEMP/duo/Duo$1.xcresult"
             xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
               -destination "${{ steps.sim.outputs.destination }}" \
-              -only-testing:SpoonjoyWideJourneys \
-              -only-testing:SpoonjoyJourneys/TabletopJourney/testTimerRunsOnForTheDuoTourJourney \
+              "-only-testing:$2" \
               -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" \
               -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
               -collect-test-diagnostics never \
-              -resultBundlePath "$RUNNER_TEMP/duo/DuoSpread.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test-spread.log"
+              -resultBundlePath "$RUNNER_TEMP/duo/Duo$1.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test-$1.log"
           }
-          if ! run_spread; then
-            grep -q "Simulator device failed to launch" "$RUNNER_TEMP/duo/test-spread.log" || exit 1
-            echo "::warning::The simulator refused a launch; running the spread journeys once more."
-            cp "$RUNNER_TEMP/duo/test-spread.log" "$RUNNER_TEMP/duo/test-spread-launch-failure.log"
-            sleep 20
-            run_spread
-          fi
+          run_with_one_retry() {
+            if ! run_journeys "$@"; then
+              grep -q "Simulator device failed to launch" "$RUNNER_TEMP/duo/test-$1.log" || return 1
+              echo "::warning::The simulator refused a launch; running the $1 journeys once more."
+              cp "$RUNNER_TEMP/duo/test-$1.log" "$RUNNER_TEMP/duo/test-$1-launch-failure.log"
+              sleep 20
+              run_journeys "$@"
+            fi
+          }
+          run_with_one_retry spread SpoonjoyWideJourneys
+          # Last, because every journey's fresh launch clears the app's saved state, the running timer included.
+          run_with_one_retry timer SpoonjoyJourneys/TabletopJourney/testTimerRunsOnForTheDuoTourJourney
       - name: Fold the phone with the timer running
         # One launch, then DeviceHub moves the hinge: open flat and wide, stood half-open, shut on the cover, and open
         # again. The DEBUG build logs every posture cook mode takes with each running timer's end date
@@ -150,7 +155,7 @@ jobs:
           udid="${{ steps.sim.outputs.udid }}"
           hub="$RUNNER_TEMP/duo/devicehub"
           shots="$RUNNER_TEMP/duo/shots"
-          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-spread.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           [ -n "$cook_link" ] || { echo "::error::The timer journey printed no cook link."; exit 1; }
           probe="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/tmp/spoonjoy-cook-timer.log"
           shoot() {
@@ -194,7 +199,7 @@ jobs:
           hub="$RUNNER_TEMP/duo/devicehub"
           shots="$RUNNER_TEMP/duo/shots"
           # The journey prints the cook link of the recipe it made; the running app (pointed at QA) opens it.
-          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-spread.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           echo "cook link: ${cook_link:-none}"
           [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link, so the photos would not show cook mode."; exit 1; }
           # The app opens SPOONJOY_LAUNCH_URL itself; `simctl openurl` would stop at the "Open in Spoonjoy?" prompt.
@@ -282,7 +287,7 @@ jobs:
         run: |
           set -euo pipefail
           udid="${{ steps.sim.outputs.udid }}"
-          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-spread.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link."; exit 1; }
           probe="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/tmp/spoonjoy-spread-layout.log"
           "$RUNNER_TEMP/duo/devicehub" press "Open"
@@ -352,7 +357,8 @@ jobs:
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/duo-secrets/accounts.json" \
             "$RUNNER_TEMP/duo/build.log" "$RUNNER_TEMP/duo/test.log" "$RUNNER_TEMP/duo/DuoTour.xcresult" \
-            "$RUNNER_TEMP/duo/test-spread.log" "$RUNNER_TEMP/duo/DuoSpread.xcresult"
+            "$RUNNER_TEMP/duo/test-spread.log" "$RUNNER_TEMP/duo/DuoSpread.xcresult" \
+            "$RUNNER_TEMP/duo/test-timer.log" "$RUNNER_TEMP/duo/DuoTimer.xcresult"
       - name: Remove credentials
         if: always()
         run: rm -rf "$RUNNER_TEMP/duo-secrets"
@@ -364,8 +370,10 @@ jobs:
           path: |
             ${{ runner.temp }}/duo/DuoTour.xcresult
             ${{ runner.temp }}/duo/DuoSpread.xcresult
+            ${{ runner.temp }}/duo/DuoTimer.xcresult
             ${{ runner.temp }}/duo/shots
             ${{ runner.temp }}/duo/test.log
             ${{ runner.temp }}/duo/test-spread.log
+            ${{ runner.temp }}/duo/test-timer.log
           if-no-files-found: warn
           retention-days: 30
