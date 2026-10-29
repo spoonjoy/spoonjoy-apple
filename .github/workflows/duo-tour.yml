@@ -114,16 +114,32 @@ jobs:
           "$hub" press "Open"; sleep 6
           for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
           sleep 4
+          # Right after the hub opens and turns the Duo, CoreSimulator can refuse launches ("No such process"). A
+          # warm-up launch lets it settle, and the journeys run once more only when that launch error is the failure.
+          udid="${{ steps.sim.outputs.udid }}"
+          xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy >/dev/null 2>&1 || true
+          sleep 8
+          xcrun simctl terminate "$udid" app.spoonjoy >/dev/null 2>&1 || true
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
           export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
-          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
-            -destination "${{ steps.sim.outputs.destination }}" \
-            -only-testing:SpoonjoyWideJourneys \
-            -only-testing:SpoonjoyJourneys/TabletopJourney/testTimerRunsOnForTheDuoTourJourney \
-            -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" \
-            -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
-            -collect-test-diagnostics never \
-            -resultBundlePath "$RUNNER_TEMP/duo/DuoSpread.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test-spread.log"
+          run_spread() {
+            rm -rf "$RUNNER_TEMP/duo/DuoSpread.xcresult"
+            xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+              -destination "${{ steps.sim.outputs.destination }}" \
+              -only-testing:SpoonjoyWideJourneys \
+              -only-testing:SpoonjoyJourneys/TabletopJourney/testTimerRunsOnForTheDuoTourJourney \
+              -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" \
+              -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
+              -collect-test-diagnostics never \
+              -resultBundlePath "$RUNNER_TEMP/duo/DuoSpread.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test-spread.log"
+          }
+          if ! run_spread; then
+            grep -q "Simulator device failed to launch" "$RUNNER_TEMP/duo/test-spread.log" || exit 1
+            echo "::warning::The simulator refused a launch; running the spread journeys once more."
+            cp "$RUNNER_TEMP/duo/test-spread.log" "$RUNNER_TEMP/duo/test-spread-launch-failure.log"
+            sleep 20
+            run_spread
+          fi
       - name: Fold the phone with the timer running
         # One launch, then DeviceHub moves the hinge: open flat and wide, stood half-open, shut on the cover, and open
         # again. The DEBUG build logs every posture cook mode takes with each running timer's end date
