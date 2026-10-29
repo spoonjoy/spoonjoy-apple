@@ -1,0 +1,656 @@
+{
+  "drawnText" : [
+    {
+      "frame" : {
+        "height" : 32.146550496419259,
+        "width" : 319.91849772135413,
+        "x" : 23.373039473591273,
+        "y" : 113.97413853656566
+      },
+      "text" : "LEMON PANTRY"
+    },
+    {
+      "frame" : {
+        "height" : 33.673849741617836,
+        "width" : 281.93729654947919,
+        "x" : 24.83386130479467,
+        "y" : 160.66666673354095
+      },
+      "text" : "PASTA • 1 OF 3"
+    },
+    {
+      "frame" : {
+        "height" : 76.079554239908887,
+        "width" : 172.19600423177081,
+        "x" : 22.746346165324667,
+        "y" : 239.30053217061607
+      },
+      "text" : "Boil"
+    },
+    {
+      "frame" : {
+        "height" : 81.127365112304716,
+        "width" : 231.39595540364584,
+        "x" : 21.649768857795038,
+        "y" : 343.49905594745951
+      },
+      "text" : "Pasta"
+    },
+    {
+      "frame" : {
+        "height" : 35.968785603841162,
+        "width" : 218.89088948567706,
+        "x" : 85.633759542966871,
+        "y" : 530.84099172038634
+      },
+      "text" : "→ Next step"
+    },
+    {
+      "frame" : {
+        "height" : 38.145521799723269,
+        "width" : 243.28863525390628,
+        "x" : 72.688533586484098,
+        "y" : 587.88596092915611
+      },
+      "text" : "= Show step"
+    },
+    {
+      "frame" : {
+        "height" : 14.612068176269545,
+        "width" : 35.059560139973961,
+        "x" : 398.80250855038929,
+        "y" : 86.211207108524704
+      },
+      "text" : "2:13"
+    },
+    {
+      "frame" : {
+        "height" : 23.379310607910202,
+        "width" : 17.529780069986955,
+        "x" : 409.02821334024173,
+        "y" : 245.48275834302771
+      },
+      "text" : "U"
+    }
+  ],
+  "elements" : [
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        19
+      ],
+      "container" : {
+        "height" : 823,
+        "width" : 382,
+        "x" : 0,
+        "y" : 82
+      },
+      "frame" : {
+        "height" : 96,
+        "width" : 330,
+        "x" : 24,
+        "y" : 106
+      },
+      "identifier" : "",
+      "index" : 20,
+      "label" : "LEMON PANTRY PASTA · 1 OF 3",
+      "role" : "text",
+      "type" : "staticText",
+      "viewport" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "viewportIndex" : 15
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        19
+      ],
+      "container" : {
+        "height" : 823,
+        "width" : 382,
+        "x" : 0,
+        "y" : 82
+      },
+      "frame" : {
+        "height" : 210.33333333333331,
+        "width" : 224,
+        "x" : 24,
+        "y" : 222
+      },
+      "identifier" : "cookMode.coverGlance.title",
+      "index" : 21,
+      "label" : "Current cooking step 1, Boil Pasta",
+      "role" : "text",
+      "type" : "staticText",
+      "viewport" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "viewportIndex" : 15
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        19
+      ],
+      "container" : {
+        "height" : 823,
+        "width" : 382,
+        "x" : 0,
+        "y" : 82
+      },
+      "frame" : {
+        "height" : 313.99999999999994,
+        "width" : 314,
+        "x" : 34,
+        "y" : 452.33333333333331
+      },
+      "identifier" : "cook.timer.ring",
+      "index" : 22,
+      "label" : "Set 10 min timer",
+      "role" : "interactive",
+      "type" : "button",
+      "viewport" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "viewportIndex" : 15
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        19,
+        22
+      ],
+      "container" : {
+        "height" : 313.99999999999994,
+        "width" : 314,
+        "x" : 34,
+        "y" : 452.33333333333331
+      },
+      "frame" : {
+        "height" : 71.666666666666629,
+        "width" : 157.66666666666663,
+        "x" : 112.16666666666667,
+        "y" : 545.16666666666663
+      },
+      "identifier" : "",
+      "index" : 23,
+      "label" : "10:00",
+      "role" : "text",
+      "type" : "staticText",
+      "viewport" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "viewportIndex" : 15
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        19,
+        22
+      ],
+      "container" : {
+        "height" : 313.99999999999994,
+        "width" : 314,
+        "x" : 34,
+        "y" : 452.33333333333331
+      },
+      "frame" : {
+        "height" : 52.66668701171875,
+        "width" : 140.66665649414062,
+        "x" : 123.33333587646484,
+        "y" : 620.83331298828125
+      },
+      "identifier" : "",
+      "index" : 25,
+      "label" : "Start",
+      "role" : "text",
+      "type" : "staticText",
+      "viewport" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "viewportIndex" : 15
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        19
+      ],
+      "container" : {
+        "height" : 823,
+        "width" : 382,
+        "x" : 0,
+        "y" : 82
+      },
+      "frame" : {
+        "height" : 104.66666666666663,
+        "width" : 264.33333333333326,
+        "x" : 58.833333333333343,
+        "y" : 776.33333333333326
+      },
+      "identifier" : "cook.timer.hint",
+      "index" : 26,
+      "label" : "Tap to start or check both",
+      "role" : "text",
+      "type" : "staticText",
+      "viewport" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "viewportIndex" : 15
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "container" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "frame" : {
+        "height" : 48,
+        "width" : 334,
+        "x" : 24,
+        "y" : 522
+      },
+      "identifier" : "cookMode.coverGlance.next",
+      "index" : 31,
+      "label" : "Move to the next step",
+      "role" : "interactive",
+      "type" : "button"
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        31
+      ],
+      "container" : {
+        "height" : 48,
+        "width" : 334,
+        "x" : 24,
+        "y" : 522
+      },
+      "frame" : {
+        "height" : 48,
+        "width" : 334,
+        "x" : 24,
+        "y" : 522
+      },
+      "identifier" : "",
+      "index" : 32,
+      "label" : "Next step",
+      "role" : "text",
+      "type" : "staticText"
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "container" : {
+        "height" : 678,
+        "width" : 466,
+        "x" : 0,
+        "y" : 0
+      },
+      "frame" : {
+        "height" : 48,
+        "width" : 334,
+        "x" : 24,
+        "y" : 580
+      },
+      "identifier" : "cookMode.coverGlance.showStep",
+      "index" : 34,
+      "label" : "Show step",
+      "role" : "interactive",
+      "type" : "button"
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        10,
+        11,
+        12,
+        13,
+        14,
+        34
+      ],
+      "container" : {
+        "height" : 48,
+        "width" : 334,
+        "x" : 24,
+        "y" : 580
+      },
+      "frame" : {
+        "height" : 48,
+        "width" : 334,
+        "x" : 24,
+        "y" : 580
+      },
+      "identifier" : "",
+      "index" : 35,
+      "label" : "Show step",
+      "role" : "text",
+      "type" : "staticText"
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46
+      ],
+      "container" : {
+        "height" : 38,
+        "width" : 38,
+        "x" : 399,
+        "y" : 179
+      },
+      "frame" : {
+        "height" : 38,
+        "width" : 38,
+        "x" : 399,
+        "y" : 179
+      },
+      "identifier" : "cook.close",
+      "index" : 47,
+      "label" : "Close cook mode",
+      "role" : "interactive",
+      "type" : "button"
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        38,
+        39,
+        40,
+        41,
+        42,
+        48,
+        49,
+        50,
+        51,
+        52,
+        53
+      ],
+      "container" : {
+        "height" : 36,
+        "width" : 38,
+        "x" : 399,
+        "y" : 240
+      },
+      "frame" : {
+        "height" : 36,
+        "width" : 38,
+        "x" : 399,
+        "y" : 240
+      },
+      "identifier" : "cookMode.voice",
+      "index" : 54,
+      "label" : "Listen for next, back, repeat, timer",
+      "role" : "interactive",
+      "type" : "button"
+    },
+    {
+      "ancestors" : [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        38,
+        39,
+        40,
+        41,
+        42,
+        48,
+        56,
+        57,
+        58
+      ],
+      "container" : {
+        "height" : 38,
+        "width" : 38,
+        "x" : 399,
+        "y" : 291
+      },
+      "frame" : {
+        "height" : 38,
+        "width" : 38,
+        "x" : 399,
+        "y" : 291
+      },
+      "identifier" : "cook.more",
+      "index" : 59,
+      "label" : "More cook options",
+      "role" : "interactive",
+      "type" : "button"
+    }
+  ],
+  "emittedBy" : "SpoonjoyLayoutAuditUITests",
+  "method" : "XCUITest snapshot frames and Vision text recognition of a screenshot taken at the same moment. noOverlap: no two visible controls' frames cross, apart from a control inside another. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view continues. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless its label does. Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls.",
+  "observedDynamicTypeSize" : "accessibility5",
+  "report" : {
+    "clippedControls" : [
+
+    ],
+    "controlsOnScreen" : true,
+    "drawnTextCount" : 8,
+    "interactiveCount" : 6,
+    "noOverlap" : false,
+    "overlaps" : [
+      {
+        "first" : {
+          "frame" : {
+            "height" : 313.99999999999994,
+            "width" : 314,
+            "x" : 34,
+            "y" : 452.33333333333331
+          },
+          "identifier" : "cook.timer.ring",
+          "label" : "Set 10 min timer",
+          "type" : "button"
+        },
+        "intersection" : {
+          "height" : 48,
+          "width" : 314,
+          "x" : 34,
+          "y" : 522
+        },
+        "second" : {
+          "frame" : {
+            "height" : 48,
+            "width" : 334,
+            "x" : 24,
+            "y" : 522
+          },
+          "identifier" : "cookMode.coverGlance.next",
+          "label" : "Move to the next step",
+          "type" : "button"
+        }
+      },
+      {
+        "first" : {
+          "frame" : {
+            "height" : 313.99999999999994,
+            "width" : 314,
+            "x" : 34,
+            "y" : 452.33333333333331
+          },
+          "identifier" : "cook.timer.ring",
+          "label" : "Set 10 min timer",
+          "type" : "button"
+        },
+        "intersection" : {
+          "height" : 48,
+          "width" : 314,
+          "x" : 34,
+          "y" : 580
+        },
+        "second" : {
+          "frame" : {
+            "height" : 48,
+            "width" : 334,
+            "x" : 24,
+            "y" : 580
+          },
+          "identifier" : "cookMode.coverGlance.showStep",
+          "label" : "Show step",
+          "type" : "button"
+        }
+      }
+    ],
+    "skippedOffscreenCount" : 1,
+    "skippedPartiallyScrolledCount" : 1,
+    "textCount" : 6,
+    "textFits" : true,
+    "textProblems" : [
+
+    ]
+  },
+  "route" : "cook-mode",
+  "screen" : {
+    "height" : 678,
+    "width" : 466,
+    "x" : 0,
+    "y" : 0
+  },
+  "screenshot" : "ax5-cook-mode-layout-audit-ios.png",
+  "source" : "CookModeView"
+}

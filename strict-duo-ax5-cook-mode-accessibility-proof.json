@@ -1,0 +1,111 @@
+{
+  "bundleIdentifier": "app.spoonjoy",
+  "contrast": true,
+  "dynamicType": true,
+  "emittedBy": "SpoonjoyApp",
+  "keyboardNavigation": true,
+  "kitchenTableHierarchy": true,
+  "launchEnvironmentProof": {
+    "apiBaseURL": "",
+    "screenshotAccountID": "chef_kitchen_capture",
+    "screenshotAPNsPermissionState": "",
+    "screenshotAPNsRegistrationState": "",
+    "screenshotAuth": "1",
+    "screenshotRestoreCacheOnly": "1"
+  },
+  "minimumTargetSize": 44,
+  "observedDynamicTypeSize": "accessibility5",
+  "observedReduceMotion": false,
+  "offlineIndicatorProof": {
+    "dismissButtonLabel": "Hide offline status",
+    "dismissibleStates": [
+      "offline",
+      "stale"
+    ],
+    "hiddenStates": [
+      "synced",
+      "dismissed"
+    ],
+    "severeStates": [
+      "queuedWork",
+      "syncFailure",
+      "conflict",
+      "blocker",
+      "destructiveConfirmation"
+    ],
+    "severityCorrect": true,
+    "source": "OfflineStatusView",
+    "visibleStates": [
+      "offline",
+      "stale",
+      "queuedWork",
+      "syncFailure",
+      "conflict",
+      "blocker",
+      "destructiveConfirmation"
+    ],
+    "voiceOverLabel": true
+  },
+  "platform": "ios",
+  "route": "cook-mode",
+  "routeEvidence": {
+    "contrastPairs": [
+      "charcoal on bone",
+      "brass on bone",
+      "herb tint on bone"
+    ],
+    "declaredLayoutGuards": [
+      "scroll-view",
+      "text-fit",
+      "no-tiny-clusters",
+      "dock-safe-area"
+    ],
+    "dynamicTypeTextStyles": [
+      "KitchenTableTheme.cookStep",
+      "KitchenTableTheme.control",
+      "KitchenTableTheme.timer",
+      "KitchenTableTheme.meta"
+    ],
+    "hierarchyAnchors": [
+      "CookModeView",
+      "cookPager",
+      "cookPage",
+      "CookStepSegments",
+      "CookModeSystemTimer",
+      "CookTimerRingFace",
+      "stepCard",
+      "cookMoreMenu",
+      "cookModeBottomActionRail"
+    ],
+    "keyboardNavigationTargets": [
+      "cook step pager",
+      "timer ring",
+      "ingredient toggles",
+      "dependency toggles",
+      "more menu"
+    ],
+    "voiceOverLabels": [
+      "Current cooking step",
+      "More cook options",
+      "Next step",
+      "Previous step",
+      "For this step",
+      "Finish cooking"
+    ]
+  },
+  "source": "CookModeView",
+  "visualReadiness": {
+    "blockingIndicatorCount": 0,
+    "expectedMediaCount": 0,
+    "failedMediaCount": 0,
+    "isSettled": true,
+    "loadedMediaCount": 0,
+    "pendingMediaCount": 0
+  },
+  "voiceOverLabels": true,
+  "writtenAt": "2026-10-29T21:12:15Z",
+  "noOverlap": false,
+  "textFits": true,
+  "controlsOnScreen": true,
+  "layoutAudit": "apple/ax5-cook-mode-layout-audit-ios.json"
+}
