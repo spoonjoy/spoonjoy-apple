@@ -156,7 +156,81 @@ struct CookSessionIslandLayoutTests {
         #expect(CookSessionIslandLayout.minimalRingDiameter(limitedWidth: true) == 22)
         #expect(CookSessionIslandLayout.minimalRingDiameter(limitedWidth: false) == 24)
         #expect(CookSessionIslandLayout.compactRingDiameter(limitedWidth: false) == 28)
-        #expect(CookSessionIslandLayout.compactRingDiameter(limitedWidth: true) <= CookSessionIslandLayout.limitedWidthIslandWidth - 2 * CookSessionIslandLayout.limitedWidthRingInset)
+        let ringWithInset = CookSessionIslandLayout.compactRingDiameter(limitedWidth: true)
+            + 2 * CookSessionIslandLayout.limitedWidthRingInset
+        #expect(ringWithInset <= CookSessionIslandLayout.limitedWidthCompactRegionWidth)
+    }
+
+    @Test func hiddenTimersReadAsACountWithSingularAndPlural() {
+        #expect(CookSessionIslandLayout.hiddenTimersText(hidden: -1) == nil)
+        #expect(CookSessionIslandLayout.hiddenTimersText(hidden: 0) == nil)
+        #expect(CookSessionIslandLayout.hiddenTimersText(hidden: 2) == "+2")
+        #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: 0) == nil)
+        #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: 1) == "1 more timer")
+        #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: 2) == "2 more timers")
+    }
+
+    @Test func fourAndFiveTimersCountPastTheCap() {
+        let three = [Self.named("a", endsIn: 60), Self.named("b", endsIn: 120), Self.named("c", endsIn: 180)]
+        for total in [4, 5] {
+            let snapshot = CookSessionSnapshot(
+                recipeID: "r1", recipeTitle: "Soup", stepNumber: 1, stepCount: 2, stepTitle: "Simmer", stepText: "",
+                nextStepTitle: nil, checkedCount: 0, ingredientCount: 0, timers: three, timerCount: total
+            )
+            let count = CookSessionIslandLayout.totalTimerCount(in: snapshot)
+            #expect(count == total)
+            // The island shows one chip, so it counts every other timer in the session.
+            #expect(CookSessionIslandLayout.hiddenTimersText(hidden: count - 1) == "+\(total - 1)")
+            #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: count - 1) == "\(total - 1) more timers")
+            // The Lock Screen shows the three it was sent, so it counts the ones past the cap.
+            #expect(CookSessionIslandLayout.hiddenTimersText(hidden: count - three.count) == "+\(total - 3)")
+        }
+        // A count lower than the timers sent can't hide them.
+        let stale = CookSessionSnapshot(
+            recipeID: "r1", recipeTitle: "Soup", stepNumber: 1, stepCount: 2, stepTitle: "Simmer", stepText: "",
+            nextStepTitle: nil, checkedCount: 0, ingredientCount: 0, timers: three, timerCount: 1
+        )
+        #expect(CookSessionIslandLayout.totalTimerCount(in: stale) == 3)
+    }
+
+    @Test func threeTimersAtStandardSizesTakeTheLockScreenStepText() {
+        #expect(!CookSessionIslandLayout.lockScreenTimersTakeStepText(timerCount: 2, accessibilitySize: false))
+        #expect(CookSessionIslandLayout.lockScreenTimersTakeStepText(timerCount: 3, accessibilitySize: false))
+        #expect(!CookSessionIslandLayout.lockScreenTimersTakeStepText(timerCount: 3, accessibilitySize: true))
+    }
+
+    static func named(_ id: String, endsIn: TimeInterval, pausedRemaining: TimeInterval? = nil) -> CookTimerEntry {
+        CookTimerEntry(
+            id: id, stepNumber: 1, label: id, endsAt: t0.addingTimeInterval(endsIn),
+            isPaused: pausedRemaining != nil, duration: 7_200, pausedRemaining: pausedRemaining
+        )
+    }
+
+    @Test func timersSortRunningByEndTimeThenPausedByTimeLeft() {
+        // A paused timer's endsAt is stale, so "pausedLong" ending first must not put it ahead of the running ones.
+        let timers = [
+            Self.named("simmer", endsIn: 7_140),
+            Self.named("pausedLong", endsIn: 10, pausedRemaining: 900),
+            Self.named("roast", endsIn: 1_500),
+            Self.named("pausedShort", endsIn: 20, pausedRemaining: 60),
+            Self.named("rest", endsIn: 480),
+            // Paused with no time left recorded counts as none left.
+            CookTimerEntry(id: "pausedUnknown", stepNumber: 1, label: "pausedUnknown", endsAt: Self.t0, isPaused: true),
+        ]
+        #expect(CookSessionIslandLayout.timersBySoonest(timers).map(\.id) == ["rest", "roast", "simmer", "pausedUnknown", "pausedShort", "pausedLong"])
+        #expect(CookSessionIslandLayout.timersBySoonest(timers.reversed()).map(\.id) == ["rest", "roast", "simmer", "pausedUnknown", "pausedShort", "pausedLong"])
+    }
+
+    @Test func theRingAndIslandFollowTheSoonestTimerWhateverTheOrder() {
+        let snapshot = Self.snapshot(timers: [
+            Self.named("simmer", endsIn: 7_140),
+            Self.named("roast", endsIn: 1_500),
+            Self.named("rest", endsIn: 480),
+        ])
+        #expect(CookSessionIslandLayout.featuredTimer(in: snapshot)?.id == "rest")
+        #expect(CookSessionIslandLayout.ring(for: snapshot) == .timer(start: Self.t0.addingTimeInterval(480 - 7_200), end: Self.t0.addingTimeInterval(480)))
+        let allPaused = Self.snapshot(timers: [Self.named("long", endsIn: 0, pausedRemaining: 900), Self.named("short", endsIn: 0, pausedRemaining: 60)])
+        #expect(CookSessionIslandLayout.featuredTimer(in: allPaused)?.id == "short")
     }
 
     @Test func expandedTrailingKeepsTheStepCountBesideTimers() {
