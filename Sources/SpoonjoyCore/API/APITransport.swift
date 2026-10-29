@@ -105,9 +105,46 @@ public struct URLSessionAPITransport: SpoonjoyAPITransport, Sendable {
         )
     }
 
+    /// Sends a request built ahead of time, such as a sync page. A 401 that asks for new credentials refreshes them
+    /// once and replays the request with the new access token, like the builder overload does.
     public func send<Value: Decodable & Equatable>(
         _ request: APIRequest,
-        configuration _: APIClientConfiguration,
+        configuration: APIClientConfiguration,
+        decode valueType: Value.Type
+    ) async throws -> APIEnvelope<Value> {
+        do {
+            return try await sendOnce(request, decode: valueType)
+        } catch let error as APITransportError {
+            guard case .refreshAuthentication = error.retryDecision,
+                  request.headers["Authorization"] != nil,
+                  let apiError = error.apiError,
+                  let authenticationRefresher else {
+                throw error
+            }
+            let refreshedConfiguration = try await authenticationRefresher.refreshedConfiguration(
+                after: apiError,
+                configuration: configuration
+            )
+            guard let bearerToken = refreshedConfiguration.bearerToken else {
+                throw error
+            }
+            var headers = request.headers
+            headers["Authorization"] = "Bearer \(bearerToken)"
+            let replay = APIRequest(
+                method: request.method,
+                url: request.url,
+                queryItems: request.queryItems,
+                headers: headers,
+                body: request.body,
+                responseCachePolicy: request.responseCachePolicy,
+                timeoutInterval: request.timeoutInterval
+            )
+            return try await sendOnce(replay, decode: valueType)
+        }
+    }
+
+    private func sendOnce<Value: Decodable & Equatable>(
+        _ request: APIRequest,
         decode valueType: Value.Type
     ) async throws -> APIEnvelope<Value> {
         let urlRequest = try buildURLRequest(from: request)

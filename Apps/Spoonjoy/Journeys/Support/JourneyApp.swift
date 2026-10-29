@@ -39,12 +39,33 @@ final class JourneyApp {
         app.launch()
 
         let journey = JourneyApp(app: app)
+        journey.ensureJourneyEnvironment(file: file, line: line)
         journey.waitFor(JourneyID.passwordSignIn, timeout: launchTimeout, "The signed-out screen did not appear after a fresh launch.", file: file, line: line)
         journey.tap(JourneyID.signInSettings, file: file, line: line)
         journey.assertQAEnvironment(file: file, line: line)
         journey.closeSettings(file: file, line: line)
         journey.waitFor(JourneyID.passwordSignIn, timeout: launchTimeout, "Closing Settings did not return to the sign-in screen.", file: file, line: line)
         return journey
+    }
+
+    /// Proves the launched app read the journey environment: only then does it show the sync log element. On the Duo
+    /// tour (run 40916498760) the timer journey's launch came up without it, so the app skipped the reset, talked to
+    /// production with the session the spread journeys left behind and stopped on "We couldn't load your kitchen".
+    /// That launch is replaced once with a clean one; a second miss fails here, naming the cause.
+    private func ensureJourneyEnvironment(file: StaticString, line: UInt) {
+        let log = element("journey.syncLog")
+        if log.waitForExistence(timeout: Self.interactionTimeout) {
+            return
+        }
+        print("::warning::The app launched without the journey environment (state \(app.state.rawValue)); launching it again.")
+        app.terminate()
+        app.launch()
+        XCTAssertTrue(
+            log.waitForExistence(timeout: Self.launchTimeout),
+            "The app launched twice without the journey environment, so it would skip the reset and use production.",
+            file: file,
+            line: line
+        )
     }
 
     /// Terminates the app and launches it again without clearing its state.

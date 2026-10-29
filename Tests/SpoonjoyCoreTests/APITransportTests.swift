@@ -1720,6 +1720,82 @@ struct APITransportTests {
         }
     }
 
+    private static func unauthorizedResponse() -> Result<(Data, URLResponse), Error> {
+        .success(Self.response(
+            statusCode: 401,
+            headers: ["Content-Type": "application/json"],
+            body: Self.errorEnvelope(
+                requestID: "req_expired_token",
+                code: "invalid_token",
+                message: "Refresh required",
+                status: 401
+            )
+        ))
+    }
+
+    @Test("a prebuilt request answered 401 refreshes once and replays with the new token")
+    func prebuiltRequestRefreshesAndReplays() async throws {
+        let session = RecordingURLSession(responses: [
+            Self.unauthorizedResponse(),
+            .success(Self.response(
+                statusCode: 200,
+                headers: ["Content-Type": "application/json"],
+                body: Self.successEnvelope(requestID: "req_after_refresh", name: "Fresh list")
+            ))
+        ])
+        let refresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: Self.configuration(bearerToken: "sj_access_refreshed")
+        )
+        let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
+        let configuration = Self.configuration(bearerToken: "sj_access_expired")
+        let request = try Self.privateReadRequest().urlRequest(configuration: configuration)
+
+        let envelope = try await transport.send(request, configuration: configuration, decode: TransportPayload.self)
+        let requests = await session.capturedRequests()
+
+        #expect(envelope.requestID == "req_after_refresh")
+        #expect(requests.map { $0.value(forHTTPHeaderField: "Authorization") } == [
+            "Bearer sj_access_expired",
+            "Bearer sj_access_refreshed"
+        ])
+        #expect(requests.map(\.url) == [requests[0].url, requests[0].url])
+        #expect(await refresher.capturedErrors().count == 1)
+    }
+
+    @Test("a prebuilt request keeps its 401 when the refresh hands back no token")
+    func prebuiltRequestWithoutRefreshedTokenSurfacesTheRejection() async throws {
+        let session = RecordingURLSession(responses: [Self.unauthorizedResponse()])
+        let refresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!)
+        )
+        let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
+        let configuration = Self.configuration(bearerToken: "sj_access_expired")
+        let request = try Self.privateReadRequest().urlRequest(configuration: configuration)
+
+        await #expect(throws: APITransportError.self) {
+            _ = try await transport.send(request, configuration: configuration, decode: TransportPayload.self)
+        }
+        #expect(await session.capturedRequests().count == 1)
+        #expect(await refresher.capturedErrors().count == 1)
+    }
+
+    @Test("a prebuilt request with no credentials is not refreshed on 401")
+    func prebuiltAnonymousRequestIsNotRefreshed() async throws {
+        let session = RecordingURLSession(responses: [Self.unauthorizedResponse()])
+        let refresher = RecordingAuthenticationRefresher(
+            refreshedConfiguration: Self.configuration(bearerToken: "sj_access_refreshed")
+        )
+        let transport = URLSessionAPITransport(session: session, authenticationRefresher: refresher)
+        let configuration = APIClientConfiguration(baseURL: URL(string: "https://spoonjoy.app")!)
+        let request = try Self.privateReadRequest().urlRequest(configuration: configuration)
+
+        await #expect(throws: APITransportError.self) {
+            _ = try await transport.send(request, configuration: configuration, decode: TransportPayload.self)
+        }
+        #expect(await session.capturedRequests().count == 1)
+        #expect(await refresher.capturedErrors().isEmpty)
+    }
+
     @Test("bare and malformed 401 responses refresh and replay authenticated requests once")
     func bareAndMalformedUnauthorizedResponsesRefreshAndReplayOnce() async throws {
         let nonJSONSession = RecordingURLSession(

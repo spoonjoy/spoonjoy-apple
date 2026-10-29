@@ -2304,7 +2304,7 @@ public final class NativeLiveAppStore: ObservableObject {
     }
 
     public func searchSurfaceRepository(context: SearchSurfaceContext) -> any SearchSurfaceRepository {
-        let refresher = NativeLiveAppStoreAPIRefresher(
+        let refresher = NativeAuthSessionAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
         )
@@ -2589,7 +2589,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
+        let refresher = NativeAuthSessionAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
         )
@@ -2610,7 +2610,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
+        let refresher = NativeAuthSessionAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
         )
@@ -2630,7 +2630,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
+        let refresher = NativeAuthSessionAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
         )
@@ -2644,7 +2644,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
+        let refresher = NativeAuthSessionAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
         )
@@ -2663,7 +2663,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
+        let refresher = NativeAuthSessionAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
         )
@@ -2729,7 +2729,7 @@ public final class NativeLiveAppStore: ObservableObject {
             baseURL: dependencies.configuration.baseURL,
             bearerToken: session.accessToken
         )
-        let refresher = NativeLiveAppStoreAPIRefresher(
+        let refresher = NativeAuthSessionAPIRefresher(
             authSessionRepository: dependencies.authSessionRepository,
             baseURL: dependencies.configuration.baseURL
         )
@@ -4332,11 +4332,18 @@ private enum NativeLiveAppStoreTelemetry {
     }
 }
 
-private struct NativeLiveAppStoreAPIRefresher: APIAuthenticationRefresher {
+/// Answers a 401 by refreshing the stored session and replaying the request with the new access token. A refresh the
+/// server refuses for good throws `TokenRefreshError.sessionExpired` or `.sessionRevoked`, which sign the app out.
+public struct NativeAuthSessionAPIRefresher: APIAuthenticationRefresher {
     let authSessionRepository: NativeAuthSessionRepository
     let baseURL: URL
 
-    func refreshedConfiguration(
+    public init(authSessionRepository: NativeAuthSessionRepository, baseURL: URL) {
+        self.authSessionRepository = authSessionRepository
+        self.baseURL = baseURL
+    }
+
+    public func refreshedConfiguration(
         after _: APIError,
         configuration: APIClientConfiguration
     ) async throws -> APIClientConfiguration {
