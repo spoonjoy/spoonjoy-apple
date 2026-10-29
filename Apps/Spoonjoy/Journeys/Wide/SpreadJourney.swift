@@ -114,7 +114,7 @@ final class SpreadJourney: JourneyTestCase {
                     stepTitle: "Whisk the eggs",
                     description: "Whisk the eggs and sugar until pale and thick enough to hold a ribbon.",
                     duration: nil,
-                    ingredients: [RecipeIngredientDraft(quantity: 3, unit: nil, name: "Journey\(token)eggs")],
+                    ingredients: [RecipeIngredientDraft(quantity: 3, unit: "whole", name: "Journey\(token)eggs")],
                     outputStepNums: []
                 ),
                 RecipeStepDraft(
