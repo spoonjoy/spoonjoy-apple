@@ -127,6 +127,33 @@ struct CookSessionSnapshotTests {
         #expect(snap.stepText.count <= CookSessionSnapshot.maxStepTextLength)
         #expect(snap.stepText.hasSuffix("\u{2026}"))
         #expect(snap.timers.map(\.id) == ["k5", "k4", "k3"])
+        #expect(snap.timerCount == 6)
+    }
+
+    @Test func snapshotCountsFourAndFiveTimersPastTheCap() {
+        let recipe = Self.recipe(steps: Self.steps)
+        for count in [4, 5] {
+            let timers = (0..<count).map {
+                CookTimerEntry(id: "k\($0)", stepNumber: $0, label: "T\($0)", endsAt: Date(timeIntervalSince1970: Double(100 - $0)), isPaused: false)
+            }
+            let snap = CookSessionSnapshot.make(recipe: recipe, progress: .starting(recipe: recipe, startedAt: "t"), board: CookTimerBoard(timers: timers))
+            #expect(snap.timers.count == CookSessionSnapshot.maxTimers)
+            #expect(snap.timerCount == count)
+            #expect(CookSessionIslandLayout.totalTimerCount(in: snap) == count)
+        }
+    }
+
+    @Test func aPayloadWithoutTheTimerCountStillDecodes() throws {
+        // A content state written before `timerCount` existed.
+        let json = #"""
+        {"recipeID":"r1","recipeTitle":"Soup","stepNumber":1,"stepCount":3,"stepTitle":"Chop","stepText":"Chop onions.",
+         "nextStepTitle":"Simmer","checkedCount":0,"ingredientCount":1,
+         "timers":[{"id":"r1#s2","stepNumber":2,"label":"Simmer","endsAt":1000,"isPaused":false,"duration":600}]}
+        """#
+        let snap = try JSONDecoder().decode(CookSessionSnapshot.self, from: Data(json.utf8))
+        #expect(snap.timerCount == nil)
+        #expect(snap.timers.count == 1)
+        #expect(CookSessionIslandLayout.totalTimerCount(in: snap) == 1)
     }
 
     @Test func worstCaseSnapshotStaysUnder4KB() throws {

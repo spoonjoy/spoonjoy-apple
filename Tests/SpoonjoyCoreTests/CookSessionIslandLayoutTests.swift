@@ -161,14 +161,36 @@ struct CookSessionIslandLayoutTests {
         #expect(ringWithInset <= CookSessionIslandLayout.limitedWidthCompactRegionWidth)
     }
 
-    @Test func theIslandCountsTheTimersPastTheSoonest() {
-        #expect(CookSessionIslandLayout.moreTimersText(count: 0) == nil)
-        #expect(CookSessionIslandLayout.moreTimersText(count: 1) == nil)
-        #expect(CookSessionIslandLayout.moreTimersText(count: 3) == "+2")
-        #expect(CookSessionIslandLayout.moreTimersAccessibilityLabel(count: 0) == nil)
-        #expect(CookSessionIslandLayout.moreTimersAccessibilityLabel(count: 1) == nil)
-        #expect(CookSessionIslandLayout.moreTimersAccessibilityLabel(count: 2) == "1 more timer")
-        #expect(CookSessionIslandLayout.moreTimersAccessibilityLabel(count: 3) == "2 more timers")
+    @Test func hiddenTimersReadAsACountWithSingularAndPlural() {
+        #expect(CookSessionIslandLayout.hiddenTimersText(hidden: -1) == nil)
+        #expect(CookSessionIslandLayout.hiddenTimersText(hidden: 0) == nil)
+        #expect(CookSessionIslandLayout.hiddenTimersText(hidden: 2) == "+2")
+        #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: 0) == nil)
+        #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: 1) == "1 more timer")
+        #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: 2) == "2 more timers")
+    }
+
+    @Test func fourAndFiveTimersCountPastTheCap() {
+        let three = [Self.named("a", endsIn: 60), Self.named("b", endsIn: 120), Self.named("c", endsIn: 180)]
+        for total in [4, 5] {
+            let snapshot = CookSessionSnapshot(
+                recipeID: "r1", recipeTitle: "Soup", stepNumber: 1, stepCount: 2, stepTitle: "Simmer", stepText: "",
+                nextStepTitle: nil, checkedCount: 0, ingredientCount: 0, timers: three, timerCount: total
+            )
+            let count = CookSessionIslandLayout.totalTimerCount(in: snapshot)
+            #expect(count == total)
+            // The island shows one chip, so it counts every other timer in the session.
+            #expect(CookSessionIslandLayout.hiddenTimersText(hidden: count - 1) == "+\(total - 1)")
+            #expect(CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: count - 1) == "\(total - 1) more timers")
+            // The Lock Screen shows the three it was sent, so it counts the ones past the cap.
+            #expect(CookSessionIslandLayout.hiddenTimersText(hidden: count - three.count) == "+\(total - 3)")
+        }
+        // A count lower than the timers sent can't hide them.
+        let stale = CookSessionSnapshot(
+            recipeID: "r1", recipeTitle: "Soup", stepNumber: 1, stepCount: 2, stepTitle: "Simmer", stepText: "",
+            nextStepTitle: nil, checkedCount: 0, ingredientCount: 0, timers: three, timerCount: 1
+        )
+        #expect(CookSessionIslandLayout.totalTimerCount(in: stale) == 3)
     }
 
     @Test func threeTimersAtStandardSizesTakeTheLockScreenStepText() {

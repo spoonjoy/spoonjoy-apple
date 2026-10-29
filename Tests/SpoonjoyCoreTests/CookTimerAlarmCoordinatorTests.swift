@@ -199,22 +199,25 @@ struct CookTimerLiveActivityWiringTests {
         let trailing = try #require(widget.range(of: "private struct CookSessionExpandedTrailing: View {"))
         #expect(widget[trailing.upperBound...].prefix(500).contains("CookSessionIslandLayout.expandedStepCount(for: snapshot)"))
         let body = try #require(widget.range(of: "private struct CookSessionExpandedBody: View {"))
-        #expect(widget[body.upperBound...].prefix(600).contains("CookSessionTimerRow(timers: snapshot.timers, inIsland: true)"))
+        #expect(widget[body.upperBound...].prefix(600).contains("CookSessionTimerRow(timers: snapshot.timers, total: CookSessionIslandLayout.totalTimerCount(in: snapshot), inIsland: true)"))
     }
 
     @Test("timer chips fall back to a layout that can shrink instead of clipping")
     func timerChipsWrap() throws {
         let widget = try source("Apps/Spoonjoy/LiveActivity/Widget/SpoonjoyCookSessionLiveActivity.swift")
         let row = try #require(widget.range(of: "private struct CookSessionTimerRow: View {"))
-        let body = widget[row.upperBound...].prefix(3_600)
+        let body = widget[row.upperBound...].prefix(5_500)
         #expect(body.contains("CookSessionIslandLayout.timersBySoonest(self.timers).prefix(CookSessionSnapshot.maxTimers)"))
-        #expect(body.contains("CookSessionIslandLayout.moreTimersAccessibilityLabel(count: timers.count)"))
+        #expect(body.contains("CookSessionIslandLayout.hiddenTimersAccessibilityLabel(hidden: hidden)"))
+        #expect(body.contains("overflow(total - 1)"))
         #expect(body.contains("CookSessionTimerTime(timer: timers[1])"))
         #expect(body.contains("ViewThatFits(in: .horizontal)"))
         #expect(body.contains("CookSessionIslandLayout.wrappedTimerRows(timers)"))
         #expect(body.contains("typeSize.isAccessibilitySize"))
         #expect(body.contains("CookSessionTimerChip(timer: timer, fillsRow: true)"))
-        #expect(body.contains("CookSessionIslandLayout.moreTimersText(count: timers.count)"))
+        #expect(body.contains("CookSessionIslandLayout.hiddenTimersText(hidden: hidden)"))
+        #expect(body.contains("let hidden = max(0, total - timers.count)"))
+        #expect(widget.contains("CookSessionTimerRow(timers: snapshot.timers, total: CookSessionIslandLayout.totalTimerCount(in: snapshot))\n"))
         #expect(widget.contains("CookSessionIslandLayout.lockScreenTimersTakeStepText("))
     }
 

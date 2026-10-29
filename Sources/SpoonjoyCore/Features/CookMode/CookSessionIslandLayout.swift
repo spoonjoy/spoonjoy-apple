@@ -105,17 +105,23 @@ public enum CookSessionIslandLayout {
         stride(from: 0, to: timers.count, by: 2).map { Array(timers[$0..<min($0 + 2, timers.count)]) }
     }
 
-    /// Beside the soonest timer when the island has room for only one: how many more run, or nil when it is the only one.
-    public static func moreTimersText(count: Int) -> String? {
-        count > 1 ? "+\(count - 1)" : nil
+    /// Every timer in the session. The payload carries at most `CookSessionSnapshot.maxTimers`, so it also sends the
+    /// full count; a payload from before that field falls back to the timers it carries.
+    public static func totalTimerCount(in snapshot: CookSessionSnapshot) -> Int {
+        max(snapshot.timerCount ?? 0, snapshot.timers.count)
     }
 
-    /// What VoiceOver reads for `moreTimersText`.
-    public static func moreTimersAccessibilityLabel(count: Int) -> String? {
-        switch count {
-        case ...1: nil
-        case 2: "1 more timer"
-        default: "\(count - 1) more timers"
+    /// "+2" for timers that are running but not shown, or nil when none are hidden.
+    public static func hiddenTimersText(hidden: Int) -> String? {
+        hidden > 0 ? "+\(hidden)" : nil
+    }
+
+    /// What VoiceOver reads for `hiddenTimersText`.
+    public static func hiddenTimersAccessibilityLabel(hidden: Int) -> String? {
+        switch hidden {
+        case ...0: nil
+        case 1: "1 more timer"
+        default: "\(hidden) more timers"
         }
     }
 
