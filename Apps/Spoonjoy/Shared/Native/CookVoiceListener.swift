@@ -1,144 +1,71 @@
 @preconcurrency import AVFoundation
-import Combine
 import Foundation
 import Speech
 import SpoonjoyCore
-#if os(iOS)
-import UIKit
-#else
-import AppKit
-#endif
 
-/// Cook mode's hands-free mic. It hears "next", "back", "repeat", "timer" and "check all" while cook mode is open and
-/// the cook has turned it on, and hands each command to cook mode, which runs the same action as the button.
-///
-/// Recognition is on-device only: `SpeechAnalyzer` with `SpeechTranscriber` runs entirely on this device and sends no
-/// audio anywhere, which is its on-device equivalent of `SFSpeechRecognitionRequest.requiresOnDeviceRecognition`. The
-/// mic runs only in `CookVoiceListenerState.listening`, and cook mode sends `.sceneInactive` and `.cookModeClosed`,
-/// which always stop it. A denied microphone parks the toggle as unavailable, with no prompt until the cook taps it again.
+/// The engine cook mode's mic runs on: the journeys' stand-in when a DEBUG journey asks for one, the device otherwise.
 @MainActor
-final class CookVoiceListener: ObservableObject {
-    @Published private(set) var state: CookVoiceListenerState = .off
-    /// True while the on-device speech model downloads, before the first listen ("Preparing voice…").
-    @Published private(set) var isPreparing = false
-
-    /// Called on the main actor for each command heard at the end of a final transcript segment.
-    var onCommand: (CookVoiceCommand) -> Void = { _ in }
-
-    private let reader = CookStepReader()
-    private var session: CookVoiceSession?
-    private var preparation: Task<Void, Never>?
-
-    private var lifecycle: [NSObjectProtocol] = []
-
-    /// Cook mode also sends `.sceneInactive` from its scene phase. The app-wide notifications back it up: a scene's
-    /// phase can lag when the window shares the screen, and the mic must stop the moment the app leaves the
-    /// foreground or the screen locks.
-    init() {
-#if os(iOS)
-        let names = [
-            UIApplication.willResignActiveNotification,
-            UIApplication.didEnterBackgroundNotification,
-            UIApplication.protectedDataWillBecomeUnavailableNotification
-        ]
-#else
-        let names = [NSApplication.didResignActiveNotification, NSApplication.didHideNotification]
-#endif
-        lifecycle = names.map { name in
-            NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.send(.sceneInactive) }
-            }
-        }
-    }
-
-    deinit {
-        lifecycle.forEach(NotificationCenter.default.removeObserver)
-    }
-
-    func send(_ event: CookVoiceEvent) {
-        let previous = state
-        state = state.next(on: event)
-        guard state != previous else {
-            return
-        }
-        switch state {
-        case .requestingPermission:
-            preparation?.cancel()
-            preparation = Task { await prepare() }
-        case .listening:
-            break
-        case .off, .unavailable:
-            preparation?.cancel()
-            preparation = nil
-            isPreparing = false
-            reader.stop()
-            session?.stop()
-            session = nil
-        }
-    }
-
-    func toggle() {
-        send(state.isToggledOn ? .userToggledOff : .userToggledOn)
-    }
-
-    /// Reads the step aloud. The mic ignores what it hears meanwhile, so the step's own words are never commands.
-    func read(_ text: String) {
-        reader.speak(text)
-    }
-
-    private func prepare() async {
+enum CookVoiceEngines {
+    static func make() -> any CookVoiceEngine {
 #if DEBUG
         if let fixture = NativeJourneyVoiceFixture.requested(environment: ProcessInfo.processInfo.environment) {
-            startFixture(fixture)
-            return
+            return CookVoiceFixtureEngine(fixture: fixture)
         }
 #endif
+        return CookSpeechEngine()
+    }
+}
+
+/// The device's microphone and on-device recognizer.
+///
+/// Recognition is on-device only: `SpeechAnalyzer` with `SpeechTranscriber` runs entirely on this device and sends no
+/// audio anywhere, which is its on-device equivalent of `SFSpeechRecognitionRequest.requiresOnDeviceRecognition`.
+@MainActor
+final class CookSpeechEngine: CookVoiceEngine {
+    private let reader = CookStepReader()
+    private var transcriber: SpeechTranscriber?
+
+    func prepare(downloading: @escaping @MainActor (Bool) -> Void) async -> CookVoicePreparation {
         guard await Self.microphoneAllowed() else {
-            send(.permissionDenied)
-            return
+            return .denied
         }
         guard SpeechTranscriber.isAvailable,
-              let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale.current) else {
-            send(.recognizerUnavailable(reason: "locale"))
-            return
+              let locale = await SpeechTranscriber.supportedLocale(equivalentTo: Locale.current),
+              CookVoiceCommand.supports(languageCode: locale.language.languageCode?.identifier) else {
+            return .unavailable(reason: "locale")
         }
         let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [])
         do {
             if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-                isPreparing = true
+                downloading(true)
                 try await request.downloadAndInstall()
-                isPreparing = false
+                downloading(false)
             }
         } catch {
-            isPreparing = false
-            send(.recognizerUnavailable(reason: "assets"))
-            return
+            downloading(false)
+            return .unavailable(reason: "assets")
         }
-        guard !Task.isCancelled, state == .requestingPermission else {
-            return
-        }
-        do {
-            let session = try await CookVoiceSession.start(
-                transcriber: transcriber,
-                isMuted: { [reader] in reader.isSpeaking },
-                heard: { [weak self] transcript in self?.heard(transcript) }
-            )
-            guard !Task.isCancelled, state == .requestingPermission else {
-                session.stop()
-                return
-            }
-            self.session = session
-            send(.permissionGranted)
-        } catch {
-            send(.recognizerUnavailable(reason: "audio"))
-        }
+        self.transcriber = transcriber
+        return .ready
     }
 
-    private func heard(_ transcript: String) {
-        guard state.isMicLive, let command = CookVoiceCommand.parse(transcript) else {
-            return
+    func start(
+        gate: CookVoiceMuteGate,
+        heard: @escaping @MainActor (String) -> Void,
+        failed: @escaping @MainActor (String) -> Void
+    ) async throws -> any CookVoiceRunning {
+        guard let transcriber else {
+            throw CookVoiceSessionError.notPrepared
         }
-        onCommand(command)
+        return try await CookVoiceSession.start(transcriber: transcriber, gate: gate, heard: heard, failed: failed)
+    }
+
+    func speak(_ text: String, gate: CookVoiceMuteGate) {
+        reader.speak(text, gate: gate)
+    }
+
+    func stopSpeaking() {
+        reader.stop()
     }
 
     private static func microphoneAllowed() async -> Bool {
@@ -151,46 +78,31 @@ final class CookVoiceListener: ObservableObject {
             return await AVAudioApplication.requestRecordPermission()
         }
     }
-
-#if DEBUG
-    /// The journey stand-in: no microphone, and each transcript is "heard" five seconds after the last.
-    private func startFixture(_ fixture: NativeJourneyVoiceFixture) {
-        switch fixture {
-        case .denied:
-            send(.permissionDenied)
-        case .transcripts(let transcripts):
-            send(.permissionGranted)
-            preparation = Task { [weak self] in
-                for transcript in transcripts {
-                    try? await Task.sleep(for: .seconds(5))
-                    guard !Task.isCancelled else { return }
-                    self?.heard(transcript)
-                }
-            }
-        }
-    }
-#endif
 }
 
-/// One run of the microphone into the on-device transcriber, from the first buffer to `stop()`.
+/// One run of the microphone into the on-device transcriber, from the first buffer to `stop()`. Anything that
+/// kills the mic underneath it (the recognizer stopping, an interruption such as a call, the input device going
+/// away, the engine reconfiguring) reports through `failed`, so cook mode never shows a live mic that is dead.
 @MainActor
-private final class CookVoiceSession {
+private final class CookVoiceSession: CookVoiceRunning {
     private let engine: AVAudioEngine
     private let analyzer: SpeechAnalyzer
     private let input: AsyncStream<AnalyzerInput>.Continuation
-    private let results: Task<Void, Never>
+    private var results: Task<Void, Never>?
+    private var observers: [NSObjectProtocol] = []
+    private var stopped = false
 
-    private init(engine: AVAudioEngine, analyzer: SpeechAnalyzer, input: AsyncStream<AnalyzerInput>.Continuation, results: Task<Void, Never>) {
+    private init(engine: AVAudioEngine, analyzer: SpeechAnalyzer, input: AsyncStream<AnalyzerInput>.Continuation) {
         self.engine = engine
         self.analyzer = analyzer
         self.input = input
-        self.results = results
     }
 
     static func start(
         transcriber: SpeechTranscriber,
-        isMuted: @escaping @MainActor () -> Bool,
-        heard: @escaping @MainActor (String) -> Void
+        gate: CookVoiceMuteGate,
+        heard: @escaping @MainActor (String) -> Void,
+        failed: @escaping @MainActor (String) -> Void
     ) async throws -> CookVoiceSession {
 #if os(iOS)
         let audioSession = AVAudioSession.sharedInstance()
@@ -209,34 +121,71 @@ private final class CookVoiceSession {
         let analyzer = SpeechAnalyzer(modules: [transcriber])
         try await analyzer.start(inputSequence: stream)
 
-        let pipe = CookVoiceAudioPipe(converter: converter, format: analyzerFormat, input: input)
-        let tap: AVAudioNodeTapBlock = { buffer, _ in pipe.send(buffer) }
-        if #available(iOS 27, macOS 27, *) {
-            // The throwing tap. Its error pointer comes before the block, so Swift imports it as an `error: ()`
-            // placeholder; a failure throws.
-            try inputNode.__installTap(onBus: 0, bufferSize: 4096, format: micFormat, error: (), block: tap)
-        } else {
-            inputNode.installTap(onBus: 0, bufferSize: 4096, format: micFormat, block: tap)
+        let pipe = CookVoiceAudioPipe(converter: converter, format: analyzerFormat, gate: gate, input: input)
+        CookAudioTap.install(on: inputNode, format: micFormat) { buffer, _ in
+            pipe.send(buffer)
         }
         engine.prepare()
         try engine.start()
 
-        let results = Task { @MainActor in
+        let session = CookVoiceSession(engine: engine, analyzer: analyzer, input: input)
+        session.watch(failed: failed)
+        session.results = Task { @MainActor [weak session] in
             do {
                 for try await result in transcriber.results where result.isFinal {
-                    guard !isMuted() else { continue }
                     heard(String(result.text.characters))
                 }
-            } catch {}
+                guard let session, !session.stopped else { return }
+                failed("stopped")
+            } catch {
+                guard let session, !session.stopped else { return }
+                failed("stopped")
+            }
         }
-        return CookVoiceSession(engine: engine, analyzer: analyzer, input: input, results: results)
+        return session
+    }
+
+    /// Ends listening when the system takes the mic away.
+    private func watch(failed: @escaping @MainActor (String) -> Void) {
+        let center = NotificationCenter.default
+        let report: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.stopped else { return }
+                failed("interrupted")
+            }
+        }
+        observers.append(center.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main, using: report))
+#if os(iOS)
+        // A call, Siri or another app took the session. iOS 27 reports this as the session going inactive.
+        if #available(iOS 27, *) {
+            observers.append(center.addObserver(forName: AVAudioSession.didBecomeInactiveNotification, object: nil, queue: .main, using: report))
+        } else {
+            observers.append(center.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { note in
+                let type = (note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt).flatMap(AVAudioSession.InterruptionType.init)
+                if type == .began {
+                    report(note)
+                }
+            })
+        }
+        observers.append(center.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { note in
+            let reason = (note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt).flatMap(AVAudioSession.RouteChangeReason.init)
+            if reason == .oldDeviceUnavailable {
+                report(note)
+            }
+        })
+        observers.append(center.addObserver(forName: AVAudioSession.mediaServicesWereResetNotification, object: nil, queue: .main, using: report))
+#endif
     }
 
     func stop() {
+        guard !stopped else { return }
+        stopped = true
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers = []
         engine.inputNode.removeTap(onBus: 0)
         engine.stop()
         input.finish()
-        results.cancel()
+        results?.cancel()
         let analyzer = analyzer
         Task { await analyzer.cancelAndFinishNow() }
 #if os(iOS)
@@ -246,18 +195,36 @@ private final class CookVoiceSession {
 }
 
 private enum CookVoiceSessionError: Error {
-    case noAudioFormat
+    case noAudioFormat, notPrepared
 }
 
-/// Converts the mic's buffers to the transcriber's format on the audio thread, where the tap runs.
+/// The tap that feeds the mic into the recognizer. iOS 27 deprecates `installTap(onBus:bufferSize:format:block:)` in
+/// favour of a throwing variant that Swift imports only under a double-underscore name. Calling the original through
+/// this protocol keeps it in one place and keeps its deprecation out of the warnings-as-errors build.
+private protocol CookAudioTapInstalling {
+    func installTap(onBus bus: AVAudioNodeBus, bufferSize: AVAudioFrameCount, format: AVAudioFormat?, block: @escaping AVAudioNodeTapBlock)
+}
+
+extension AVAudioNode: CookAudioTapInstalling {}
+
+private enum CookAudioTap {
+    static func install(on node: AVAudioNode, format: AVAudioFormat, block: @escaping AVAudioNodeTapBlock) {
+        (node as any CookAudioTapInstalling).installTap(onBus: 0, bufferSize: 4096, format: format, block: block)
+    }
+}
+
+/// Converts the mic's buffers to the transcriber's format on the audio thread, where the tap runs. Audio captured
+/// while the app is speaking goes on as silence, judged by when it was captured rather than when it is heard.
 private final class CookVoiceAudioPipe: @unchecked Sendable {
     private let converter: AVAudioConverter
     private let format: AVAudioFormat
+    private let gate: CookVoiceMuteGate
     private let input: AsyncStream<AnalyzerInput>.Continuation
 
-    init(converter: AVAudioConverter, format: AVAudioFormat, input: AsyncStream<AnalyzerInput>.Continuation) {
+    init(converter: AVAudioConverter, format: AVAudioFormat, gate: CookVoiceMuteGate, input: AsyncStream<AnalyzerInput>.Continuation) {
         self.converter = converter
         self.format = format
+        self.gate = gate
         self.input = input
     }
 
@@ -281,27 +248,37 @@ private final class CookVoiceAudioPipe: @unchecked Sendable {
         guard error == nil, converted.frameLength > 0 else {
             return
         }
+        // The tap runs as the audio arrives, so the buffer began about its own length ago.
+        let captured = Date().timeIntervalSinceReferenceDate - Double(buffer.frameLength) / buffer.format.sampleRate
+        if gate.isMuted(at: captured) {
+            for channel in UnsafeMutableAudioBufferListPointer(converted.mutableAudioBufferList) {
+                if let data = channel.mData {
+                    memset(data, 0, Int(channel.mDataByteSize))
+                }
+            }
+        }
         input.yield(AnalyzerInput(buffer: converted))
     }
 }
 
-/// Reads a step aloud for "repeat" and "read it".
+/// Reads a step aloud for "repeat" and "read it", holding the mic deaf while it speaks and for a moment after.
 @MainActor
 private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
+    /// How long the mic stays deaf after speech ends, for the room's echo.
+    static let tail: TimeInterval = 1.5
+
     private let synthesizer = AVSpeechSynthesizer()
-    /// Stays true for a moment after speech ends, so the tail of the step's own words isn't heard as a command.
-    private(set) var isSpeaking = false
-    private var settle: Task<Void, Never>?
+    private var gate: CookVoiceMuteGate?
 
     override init() {
         super.init()
         synthesizer.delegate = self
     }
 
-    func speak(_ text: String) {
-        synthesizer.stopSpeaking(at: .immediate)
-        settle?.cancel()
-        isSpeaking = true
+    func speak(_ text: String, gate: CookVoiceMuteGate) {
+        stop()
+        self.gate = gate
+        gate.speechBegan()
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier(.bcp47))
         synthesizer.speak(utterance)
@@ -309,8 +286,7 @@ private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
 
     func stop() {
         synthesizer.stopSpeaking(at: .immediate)
-        settle?.cancel()
-        isSpeaking = false
+        finished()
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
@@ -322,11 +298,51 @@ private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func finished() {
-        settle?.cancel()
-        settle = Task {
-            try? await Task.sleep(for: .seconds(1.5))
-            guard !Task.isCancelled else { return }
-            isSpeaking = false
-        }
+        gate?.speechEnded(at: Date().timeIntervalSinceReferenceDate, tail: Self.tail)
+        gate = nil
     }
 }
+
+#if DEBUG
+/// The journey stand-in: no microphone, and each transcript is "heard" five seconds after the last.
+@MainActor
+private final class CookVoiceFixtureEngine: CookVoiceEngine {
+    private final class Session: CookVoiceRunning {
+        var feed: Task<Void, Never>?
+        func stop() { feed?.cancel() }
+    }
+
+    private let fixture: NativeJourneyVoiceFixture
+
+    init(fixture: NativeJourneyVoiceFixture) {
+        self.fixture = fixture
+    }
+
+    func prepare(downloading: @escaping @MainActor (Bool) -> Void) async -> CookVoicePreparation {
+        fixture == .denied ? .denied : .ready
+    }
+
+    func start(
+        gate: CookVoiceMuteGate,
+        heard: @escaping @MainActor (String) -> Void,
+        failed: @escaping @MainActor (String) -> Void
+    ) async throws -> any CookVoiceRunning {
+        let session = Session()
+        guard case .transcripts(let transcripts) = fixture else {
+            return session
+        }
+        session.feed = Task { @MainActor in
+            for transcript in transcripts {
+                try? await Task.sleep(for: .seconds(5))
+                guard !Task.isCancelled else { return }
+                heard(transcript)
+            }
+        }
+        return session
+    }
+
+    func speak(_ text: String, gate: CookVoiceMuteGate) {}
+
+    func stopSpeaking() {}
+}
+#endif

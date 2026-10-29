@@ -85,6 +85,11 @@ final class VoiceJourney: JourneyTestCase {
         XCUIDevice.shared.press(.home)
         let leftTheScreen = journey.app.wait(for: .runningBackground, timeout: JourneyApp.interactionTimeout)
             || journey.app.state == .runningBackgroundSuspended
+        // Only the Duo simulator may keep the app in front; on every other phone Home must background it.
+        XCTAssertTrue(
+            leftTheScreen || JourneyApp.runsOnRealHinge,
+            "Home did not move the app to the background. State: \(journey.app.state.rawValue)"
+        )
         if leftTheScreen {
             journey.app.activate()
         } else {
@@ -122,6 +127,10 @@ final class VoiceJourney: JourneyTestCase {
             "A refused microphone did not say to allow it in Settings. Screen: \(journey.screen)"
         )
         XCTAssertFalse(journey.app.alerts.firstMatch.exists, "A refused microphone asked again.")
+        XCTAssertTrue(
+            journey.element(JourneyID.cookVoiceSettings).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "A refused microphone offered no way to Settings. Screen: \(journey.screen)"
+        )
         journey.attachScreenshot(named: "voice-05-mic-unavailable", to: self)
 
         // At the largest text size the mic stays in the toolbar and its line wraps instead of clipping.
@@ -134,6 +143,9 @@ final class VoiceJourney: JourneyTestCase {
         XCTAssertTrue(notice.waitForExistence(timeout: JourneyApp.interactionTimeout), "Listening said nothing at the largest text size.")
         let window = journey.app.windows.firstMatch.frame
         XCTAssertTrue(window.contains(notice.frame), "The listening line runs off the screen at the largest text size.")
+        let heading = stepMeta(journey, "Step 1 of 3")
+        XCTAssertTrue(heading.waitForExistence(timeout: JourneyApp.interactionTimeout), "Cook mode lost its step heading at the largest text size.")
+        XCTAssertLessThanOrEqual(notice.frame.maxY, heading.frame.minY + 1, "The listening line covers the step heading at the largest text size.")
         journey.attachScreenshot(named: "voice-06-mic-listening-ax5", to: self)
     }
 

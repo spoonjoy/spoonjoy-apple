@@ -64,6 +64,11 @@ final class JourneyApp {
     ///
     /// The Duo tour workflow stands an iPhone Duo simulator half-open and sets `SPOONJOY_JOURNEY_REAL_HINGE=1`, so the
     /// app has to read the real hinge and fold.
+    /// True on the Duo tour's real hinge, where the simulator keeps the app in front when Home is pressed.
+    static var runsOnRealHinge: Bool {
+        ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] == "1"
+    }
+
     func useTabletopPostureOnNextLaunch() {
         guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
             return

@@ -1,6 +1,12 @@
+import Combine
 import Foundation
 import SpoonjoyCore
 import SwiftUI
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 #if os(iOS) && canImport(AlarmKit)
 import ActivityKit
 import AlarmKit
@@ -105,10 +111,14 @@ struct CookModeView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityVoiceOverEnabled) private var accessibilityVoiceOverEnabled
+    @Environment(\.openURL) private var openURL
     /// The hands-free mic. It listens only while this screen is open and frontmost and the cook turned it on.
-    @StateObject private var voice = CookVoiceListener()
+    @StateObject private var voice = CookVoiceController(engine: CookVoiceEngines.make())
     /// A short line under the toolbar: what the mic listens for, what it heard, or why it can't listen.
     @State private var voiceNotice: CookVoiceNotice?
+    /// Where the spread's step page starts, so the voice line sits over the step page, clear of the fold; 0 off the spread.
+    @State private var voiceNoticeStepPageMinX: CGFloat = 0
     /// The cover glance's step title: display type twice the size of the page's, read from across the kitchen.
     @ScaledMetric(relativeTo: .largeTitle) private var coverGlanceTitleSize: CGFloat = 56
     /// True when the cover is wider than tall (the Duo turned on its side), so the ring sits beside the title and
@@ -175,6 +185,10 @@ struct CookModeView: View {
 
     var body: some View {
         cookModeBody
+        // Above the page, not over it: the line pushes the page down while it shows, so it never covers the step.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            voiceNoticePill
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.page)
         .toolbar {
@@ -187,9 +201,6 @@ struct CookModeView: View {
             ToolbarItem(placement: .primaryAction) {
                 cookMoreMenu
             }
-        }
-        .overlay(alignment: .top) {
-            voiceNoticePill
         }
         .onChange(of: incomingProgress) { _, incoming in
             // Progress from another device arrives through the store. The step, scale and checked
@@ -204,11 +215,15 @@ struct CookModeView: View {
         .onAppear {
             voice.onCommand = { perform(voiceCommand: $0) }
         }
+        .task {
+            await playVoiceDemo()
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active {
                 voice.send(.sceneInactive)
             }
         }
+        .stopsVoiceWhenTheAppLeaves(voice)
         .onChange(of: voice.state) { _, state in
             voiceStateChanged(state)
         }
@@ -314,6 +329,12 @@ struct CookModeView: View {
             SpreadLayoutReader(isRegularWidth: true) { layout in
                 if layout.isSpread {
                     cookModeSpread(layout)
+                        .onChange(of: layout.trailingPage?.minX, initial: true) { _, minX in
+                            voiceNoticeStepPageMinX = CGFloat(minX ?? 0)
+                        }
+                        .onDisappear {
+                            voiceNoticeStepPageMinX = 0
+                        }
                 } else {
                     cookPager
                         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -1531,6 +1552,8 @@ struct CookVoiceNotice: Equatable {
     let text: String
     /// Shown until the state changes, rather than for a few seconds.
     var persists = false
+    /// Offers a way to allow the microphone in Settings.
+    var offersSettings = false
 }
 
 extension CookModeView {
@@ -1549,7 +1572,7 @@ extension CookModeView {
                         .fill(KitchenTableTheme.brass)
                         .frame(width: 8, height: 8)
                         .offset(x: 1, y: 1)
-                        .transition(.scale.combined(with: .opacity))
+                        .transition(accessibilityReduceMotion ? .opacity : .scale.combined(with: .opacity))
                 }
             }
             .animation(KitchenMotion.animation(.snappy, reduceMotion: accessibilityReduceMotion), value: voice.state)
@@ -1578,37 +1601,64 @@ extension CookModeView {
     }
 
     @ViewBuilder var voiceNoticePill: some View {
-        let notice = voice.isPreparing ? CookVoiceNotice(text: "Preparing voice…", persists: true) : voiceNotice
-        ZStack {
-            if let notice {
-                Text(notice.text)
-                    .font(KitchenTableTheme.uiLabel)
-                    // A passing line, also announced to VoiceOver: past AX2 it would cover the step it sits over.
-                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    // Clear glass lets the step's own words show through the line; a page fill under it keeps it legible.
-                    .background(KitchenTableTheme.page, in: Capsule())
-                    .glassEffect(.regular, in: Capsule())
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .accessibilityIdentifier("cookMode.voice.notice")
-                    .transition(.move(edge: .top).combined(with: .opacity))
-                    .id(notice.id)
-                    .task(id: notice.id) {
-                        guard !notice.persists else { return }
-                        try? await Task.sleep(for: .seconds(4))
-                        guard !Task.isCancelled, voiceNotice?.id == notice.id else { return }
-                        withAnimation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion)) {
-                            voiceNotice = nil
+        let notice = voice.isPreparing ? CookVoiceNotice(text: CookVoiceNoticeText.preparing, persists: true) : voiceNotice
+        HStack(spacing: 0) {
+            Color.clear.frame(width: showsCoverGlance ? 0 : voiceNoticeStepPageMinX, height: 0)
+            ZStack {
+                if let notice {
+                    voiceNoticeContent(notice)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        // Under Reduce Motion the line only fades.
+                        .transition(accessibilityReduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                        .id(notice.id)
+                        .task(id: notice.id) {
+                            guard !notice.persists else { return }
+                            try? await Task.sleep(for: .seconds(4))
+                            guard !Task.isCancelled, voiceNotice?.id == notice.id else { return }
+                            withAnimation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion)) {
+                                voiceNotice = nil
+                            }
                         }
-                    }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .clipped()
+        .animation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion), value: notice?.id)
+    }
+
+    private func voiceNoticeContent(_ notice: CookVoiceNotice) -> some View {
+        HStack(spacing: 10) {
+            Text(notice.text)
+                .accessibilityIdentifier("cookMode.voice.notice")
+            if notice.offersSettings {
+                Button("Settings") {
+                    openURL(Self.microphoneSettingsURL)
+                }
+                .fontWeight(.semibold)
+                .foregroundStyle(KitchenTableTheme.brass)
+                .accessibilityLabel("Open Settings")
+                .accessibilityIdentifier("cookMode.voice.settings")
             }
         }
-        .animation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion), value: notice?.id)
-        .allowsHitTesting(false)
+        .font(KitchenTableTheme.uiLabel)
+        // A passing line: past AX2 it would push the step too far down.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .foregroundStyle(KitchenTableTheme.ink)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(KitchenTableTheme.page, in: Capsule())
+        .glassEffect(.regular, in: Capsule())
+    }
+
+    private static var microphoneSettingsURL: URL {
+#if os(iOS)
+        URL(string: UIApplication.openSettingsURLString)!
+#else
+        URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone")!
+#endif
     }
 
     func voiceStateChanged(_ state: CookVoiceListenerState) {
@@ -1618,40 +1668,62 @@ extension CookModeView {
         case .requestingPermission:
             break
         case .listening:
-            showVoiceNotice("Listening for next, back, repeat, timer")
+            showVoiceNotice(CookVoiceNoticeText.listening)
         case .unavailable(let reason):
-            showVoiceNotice(reason == "permission"
-                ? "Voice needs the microphone. Allow it for Spoonjoy in Settings."
-                : reason == "locale" ? "Voice isn't available in this language yet." : "Voice couldn't start. Tap the mic to try again.")
+            let offersSettings = CookVoiceNoticeText.offersSettings(reason: reason)
+            showVoiceNotice(CookVoiceNoticeText.unavailable(reason: reason), persists: offersSettings, offersSettings: offersSettings)
         }
     }
 
-    private func showVoiceNotice(_ text: String) {
-        voiceNotice = CookVoiceNotice(text: text)
+    /// `-SpoonjoyVoiceDemo YES` (DEBUG): three seconds after cook mode opens the mic turns on by itself, and every
+    /// voice line stays up, so the Duo tour can photograph them. Always false in release builds.
+    private static let voiceDemo: Bool = {
+#if DEBUG
+        UserDefaults.standard.bool(forKey: "SpoonjoyVoiceDemo")
+#else
+        false
+#endif
+    }()
+
+    func playVoiceDemo() async {
+        guard Self.voiceDemo else {
+            return
+        }
+        try? await Task.sleep(for: .seconds(3))
+        voice.toggle()
+    }
+
+    /// Shows a line and has VoiceOver read it. The mic is told, so VoiceOver's voice is never taken for the cook's.
+    private func showVoiceNotice(_ text: String, persists: Bool = false, offersSettings: Bool = false) {
+        voiceNotice = CookVoiceNotice(text: text, persists: persists || Self.voiceDemo, offersSettings: offersSettings)
+        voice.announced(text, spokenAloud: accessibilityVoiceOverEnabled)
         AccessibilityNotification.Announcement(text).post()
     }
 
     /// A heard command runs the same action as its button, so the page turns (or crossfades under Reduce Motion)
     /// exactly as a tap would.
     func perform(voiceCommand command: CookVoiceCommand) {
+        let total = recipe.steps.count
         switch command {
         case .next:
             guard canAdvance else {
-                showVoiceNotice("This is the last step.")
+                showVoiceNotice(CookVoiceNoticeText.lastStep)
                 return
             }
+            let target = currentIndex + 2
             advance()
-            showVoiceNotice("Next step")
+            showVoiceNotice(CookVoiceNoticeText.turnedForward(to: target, of: total))
         case .back:
             guard canGoBack else {
-                showVoiceNotice("This is the first step.")
+                showVoiceNotice(CookVoiceNoticeText.firstStep)
                 return
             }
+            let target = currentIndex
             previous()
-            showVoiceNotice("Back a step")
+            showVoiceNotice(CookVoiceNoticeText.turnedBack(to: target, of: total))
         case .repeatStep:
             voice.read(CookModeSessionResolver.readout(for: viewModel))
-            showVoiceNotice("Reading \(viewModel.stepProgressLabel.lowercased())")
+            showVoiceNotice(CookVoiceNoticeText.reading(step: currentIndex + 1, of: total))
         case .startTimer:
             runVoiceSessionCommand(.startTimer)
         case .checkAll:
@@ -1666,8 +1738,27 @@ extension CookModeView {
             do {
                 showVoiceNotice(try await CookModeSessionCenter.shared.perform(command))
             } catch {
-                showVoiceNotice(CookModeSystemTimerScheduler.message(for: error, fallback: "That didn't work. Try the button."))
+                showVoiceNotice(CookModeSystemTimerScheduler.message(for: error, fallback: CookVoiceNoticeText.actionFailed))
             }
+        }
+    }
+}
+
+private extension View {
+    /// The scene phase can lag when the window shares the screen; the app-wide notifications stop the mic the moment
+    /// the app leaves the foreground or the screen locks.
+    func stopsVoiceWhenTheAppLeaves(_ voice: CookVoiceController) -> some View {
+#if os(iOS)
+        let names = [
+            UIApplication.willResignActiveNotification,
+            UIApplication.didEnterBackgroundNotification,
+            UIApplication.protectedDataWillBecomeUnavailableNotification
+        ]
+#else
+        let names = [NSApplication.didResignActiveNotification, NSApplication.didHideNotification]
+#endif
+        return onReceive(Publishers.MergeMany(names.map { NotificationCenter.default.publisher(for: $0) })) { _ in
+            voice.send(.sceneInactive)
         }
     }
 }
