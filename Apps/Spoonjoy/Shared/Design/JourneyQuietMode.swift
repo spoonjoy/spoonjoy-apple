@@ -24,6 +24,23 @@ extension View {
     }
 }
 
+extension View {
+    /// `-SpoonjoyReduceMotion YES` turns Reduce Motion on for the whole app, so a journey or the Duo tour can see its
+    /// crossfades on a simulator whose setting it cannot change. DEBUG builds only.
+    @ViewBuilder
+    func debugReduceMotion() -> some View {
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "SpoonjoyReduceMotion") {
+            environment(\._accessibilityReduceMotion, true)
+        } else {
+            self
+        }
+        #else
+        self
+        #endif
+    }
+}
+
 #if DEBUG
 /// A progress view that does not move: dots for an unknown amount of work, a plain bar for a known one.
 struct JourneyStillProgressViewStyle: ProgressViewStyle {

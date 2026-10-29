@@ -133,6 +133,30 @@ enum JourneyID {
     static let cookTimerCancel = "cookMode.timer.cancel"
     /// The status line under the ring, such as "10 min timer cancelled."
     static let cookTimerStatus = "cookMode.timer.status"
+    /// The red line under the ring when a timer could not be set, such as when the system refuses timers.
+    static let cookTimerError = "cookMode.timer.error"
+    /// Cook mode on a foldable folded shut mid-cook: the cover's kitchen-timer glance, its Next and "Show step".
+    static let cookCoverGlance = "cookMode.coverGlance"
+    static let cookCoverGlanceNext = "cookMode.coverGlance.next"
+    static let cookCoverGlanceShowStep = "cookMode.coverGlance.showStep"
+    static let cookCoverGlanceTitle = "cookMode.coverGlance.title"
+    /// Tabletop cook mode's controls at accessibility sizes, stacked above the checklist instead of the dock.
+    static let cookTabletopNext = "cookMode.tabletop.next"
+    static let cookTabletopMarkDone = "cookMode.tabletop.markDone"
+    static let cookTabletopBack = "cookMode.tabletop.back"
+    /// The two pages of cook mode's open-flat spread: the left gathers the step's checklist, the right is the step,
+    /// which turns. Back and Close sit on the left page, Mark done and Next on the right.
+    static let cookSpreadGatherPage = "cookSpread.gatherPage"
+    static let cookSpreadStepPage = "cookSpread.stepPage"
+    static let cookSpreadBack = "cookSpread.back"
+    static let cookSpreadClose = "cookSpread.close"
+    static let cookSpreadMarkDone = "cookSpread.markDone"
+    static let cookSpreadNext = "cookSpread.next"
+    /// The last step's Finish cooking.
+    static let cookFinish = "cook.finish"
+    /// The recipe stood half-open: the method above the fold and the step's ingredients below it.
+    static let recipeTabletopMethod = "recipeTabletop.method"
+    static let recipeTabletopIngredients = "recipeTabletop.ingredients"
 
     /// Every result row in Search.
     static let searchResult = "search.result"

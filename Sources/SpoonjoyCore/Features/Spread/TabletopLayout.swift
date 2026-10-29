@@ -11,6 +11,22 @@ public enum HingePosture: Equatable, Sendable {
     case fullyOpen
 }
 
+/// The hinge status `TabletopLayout.posture` reads. It is Core's own mirror of SwiftUI's `DeviceHinge.Status`, so
+/// Core stays independent of the SDK.
+public typealias HingePostureInput = HingePosture
+
+/// How cook mode presents itself for the way a foldable is held.
+public enum CookPosture: Equatable, Sendable {
+    /// Folded shut: the cover screen, read from the stove like a kitchen timer.
+    case closedGlance
+    /// Stood half-open on the counter: the step above the fold, the controls below it.
+    case tabletop
+    /// Laid open flat: a two-page spread that turns like a book.
+    case openFlat
+    /// No hinge, or a bend too shallow to stand on: the ordinary single page.
+    case single
+}
+
 /// A horizontal band of the screen that content must stay out of: the fold of a foldable held tall.
 ///
 /// Built with the iOS 27.1 SDK, the app reads the Reserved Region `.division` rect and converts it with
@@ -133,6 +149,43 @@ public enum TabletopLayout: Equatable, Sendable {
             return .singlePage
         }
         return .split(top: top, fold: fold, bottom: bottom, source: source)
+    }
+
+    /// The narrowest bend that still stands up on the counter.
+    public static let tabletopMinimumAngle: Double = 60
+    /// The widest bend that still reads as a stand rather than a flat book.
+    public static let tabletopMaximumAngle: Double = 140
+    /// The bend from which the screen lies open flat.
+    public static let openFlatMinimumAngle: Double = 150
+
+    /// The cook posture for a hinge status and, when the system reports it, the hinge's opening angle (0° shut,
+    /// 180° flat).
+    ///
+    /// Between the tabletop and open-flat bands, and when there is no angle, the status decides, so the layout does
+    /// not flicker while the hinge moves through the gap. Whether a tabletop actually splits still depends on the
+    /// screen being held tall; `resolve(width:height:hinge:band:)` decides that from the geometry.
+    public static func posture(hingeStatus: HingePostureInput, angleDegrees: Double?) -> CookPosture {
+        switch hingeStatus {
+        case .unknown:
+            return .single
+        case .closed:
+            return .closedGlance
+        case .partiallyOpen, .fullyOpen:
+            break
+        }
+        guard let angleDegrees else {
+            return hingeStatus == .fullyOpen ? .openFlat : .tabletop
+        }
+        if angleDegrees >= openFlatMinimumAngle {
+            return .openFlat
+        }
+        if angleDegrees < tabletopMinimumAngle {
+            return .single
+        }
+        if angleDegrees <= tabletopMaximumAngle {
+            return .tabletop
+        }
+        return hingeStatus == .fullyOpen ? .openFlat : .tabletop
     }
 
     public var isSplit: Bool {
