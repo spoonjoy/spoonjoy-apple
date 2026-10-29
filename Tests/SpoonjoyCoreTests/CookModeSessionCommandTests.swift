@@ -48,7 +48,7 @@ struct CookModeSessionCommandTests {
         let second = CookModeViewModel(recipe: recipe, progress: secondProgress)
         let timed = CookModeSessionResolver.resolve(.startTimer, viewModel: second, updatedAt: stamp)
         #expect(timed.timerToStart?.durationSeconds == 300)
-        #expect(timed.message == "Starting a 5 min timer.")
+        #expect(timed.message == "Timer set for 5 min.")
 
         let read = CookModeSessionResolver.resolve(.readStep, viewModel: second, updatedAt: stamp)
         #expect(read.progress == secondProgress)
@@ -98,6 +98,48 @@ struct CookModeSessionCommandTests {
         )
         #expect(stale.progress.checkedIngredientIDs.isEmpty)
         #expect(stale.progress.checkedStepOutputUseIDs.isEmpty)
+    }
+
+    /// Cook mode shows these replies and VoiceOver reads them, as it does the mic's label. With the mic on, none of
+    /// them may parse as a command, whatever the step's timer says once its numbers are dropped.
+    @Test("no reply and no mic label parses as a voice command")
+    func noReplyIsAVoiceCommand() throws {
+        var lines = [
+            CookStepTimerStartOutcome.alreadyRunningMessage,
+            CookModeSystemTimerScheduler.message(for: CookModeSystemTimerSchedulingError.denied, fallback: CookVoiceNoticeText.actionFailed),
+            CookModeSystemTimerScheduler.message(for: CookModeSystemTimerSchedulingError.authorizationFailed, fallback: CookVoiceNoticeText.actionFailed),
+            CookModeSystemTimerScheduler.message(for: CookModeSystemTimerSchedulingError.schedulingFailed, fallback: CookVoiceNoticeText.actionFailed),
+        ]
+        for state in [CookVoiceListenerState.off, .requestingPermission, .listening, .unavailable(reason: "permission")] {
+            lines += [true, false].map { CookVoiceNoticeText.micLabel(for: state, preparing: $0) }
+        }
+        let use = RecipeStepOutputUse(id: "u1", inputStepNum: 2, outputStepNum: 1, outputOfStep: RecipeStepOutputReference(stepNum: 1, stepTitle: "Chop"))
+        for minutes in [1, 5, 45, 60, 90, 125] {
+            let recipe = try fixtureRecipe(steps: [
+                RecipeStep(id: "s1", stepNum: 1, stepTitle: "Chop", description: "Chop the shallots.", duration: minutes,
+                           ingredients: [RecipeIngredient(id: "i1", name: "Shallot", quantity: 2, unit: nil)]),
+                RecipeStep(id: "s2", stepNum: 2, stepTitle: "Sear", description: "Sear the steaks.", duration: minutes,
+                           ingredients: [RecipeIngredient(id: "i2", name: "Steak", quantity: 1, unit: nil)], usingSteps: [use]),
+                RecipeStep(id: "s3", stepNum: 3, stepTitle: nil, description: "Plate it.", duration: nil, ingredients: []),
+            ])
+            let start = CookModeProgress.starting(recipe: recipe, startedAt: stamp)
+            for stepID in ["s1", "s2", "s3"] {
+                let progress = try start.selectingStep(id: stepID, updatedAt: stamp)
+                let viewModel = CookModeViewModel(recipe: recipe, progress: progress)
+                for command in [CookModeSessionCommand.nextStep, .previousStep, .startTimer, .readStep, .checkStep] {
+                    let outcome = CookModeSessionResolver.resolve(command, viewModel: viewModel, updatedAt: stamp)
+                    lines.append(outcome.message)
+                    // Checking twice gives "already checked".
+                    let again = CookModeSessionResolver.resolve(command, viewModel: CookModeViewModel(recipe: recipe, progress: outcome.progress), updatedAt: stamp)
+                    lines.append(again.message)
+                }
+            }
+        }
+        #expect(lines.contains("Timer set for 5 min."))
+        #expect(lines.contains("Step 2 is already checked."))
+        for line in lines {
+            #expect(CookVoiceCommand.parse(line) == nil, "\(line)")
+        }
     }
 
     @Test("a recipe without steps reports that plainly")

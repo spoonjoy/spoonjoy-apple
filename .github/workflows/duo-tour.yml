@@ -331,6 +331,58 @@ jobs:
           "$RUNNER_TEMP/duo/devicehub" press "Closed"
           sleep 6
           exit "$failed"
+      - name: Photograph voice in every pose
+        # The previous step leaves the Duo closed. In each pose cook mode opens with the mic off, listening, refused,
+        # and listening at the largest text size. The DEBUG demo (-SpoonjoyVoiceDemo) turns the mic on three seconds in
+        # and keeps its line up; the journeys' voice fixture stands in for the microphone, so nothing is recorded. The
+        # line must sit above the step, clear of the fold, and the mic must stay off the hinge. Leaves the Duo closed.
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: |
+          set -uo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          hub="$RUNNER_TEMP/duo/devicehub"
+          shots="$RUNNER_TEMP/duo/shots/voice"
+          mkdir -p "$shots"
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran, so there is no cook link to follow."; exit 1; }
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link."; exit 1; }
+          # launch_voice <fixture or empty> [launch arguments]
+          launch_voice() {
+            fixture="$1"; shift
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$cook_link" \
+              SIMCTL_CHILD_SPOONJOY_JOURNEY_VOICE_FIXTURE="$fixture" \
+              xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy "$@"
+            sleep 12
+          }
+          shoot() {
+            for display in 1 3; do
+              xcrun simctl io "$udid" screenshot --display="$display" "$shots/$1-display$display.png" >/dev/null 2>&1 || true
+            done
+          }
+          shoot_pose() {
+            launch_voice ""
+            shoot "$1-voice-off"
+            launch_voice "mm" -SpoonjoyVoiceDemo YES
+            shoot "$1-voice-listening"
+            launch_voice "denied" -SpoonjoyVoiceDemo YES
+            shoot "$1-voice-unavailable"
+            xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
+            launch_voice "mm" -SpoonjoyVoiceDemo YES
+            shoot "$1-voice-listening-ax5"
+            xcrun simctl ui "$udid" content_size large
+          }
+          shoot_pose 30-closed
+          "$hub" press "Open"; sleep 6
+          "$hub" press "Rotate Right"; sleep 4
+          "$hub" press "Partially Open"; sleep 6
+          shoot_pose 31-tabletop
+          "$hub" press "Open"; sleep 6
+          for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
+          sleep 4
+          shoot_pose 32-open-wide
+          "$hub" press "Closed"; sleep 6
+          ls -la "$shots"
       - name: Photograph the store links
         if: ${{ !cancelled() && inputs.store_links != '' }}
         timeout-minutes: 15
