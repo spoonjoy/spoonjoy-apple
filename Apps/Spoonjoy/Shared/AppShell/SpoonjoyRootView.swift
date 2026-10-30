@@ -111,7 +111,9 @@ struct SpoonjoyRootView: View {
     var body: some View {
         Group {
 #if DEBUG
-            if Self.shoppingUITestFixtureEnabled {
+            if let fixture = LayoutAuditFixture.requested {
+                LayoutAuditFixtureView(fixture: fixture)
+            } else if Self.shoppingUITestFixtureEnabled {
                 shoppingUITestFixture
             } else {
                 rootContent
@@ -133,7 +135,7 @@ struct SpoonjoyRootView: View {
                 // hermetic: bootstrapping the live store here would restore an auth session and, once
                 // rendered through platformNavigation, reach the real sync backend (evidence: CI run
                 // 36349596485 logged native_sync_bootstrap_started while the fixture was on screen).
-                guard !Self.shoppingUITestFixtureEnabled else { return }
+                guard !Self.shoppingUITestFixtureEnabled, LayoutAuditFixture.requested == nil else { return }
 #endif
                 await liveStore.bootstrap()
                 applyRestoredRouteIfNeeded()
@@ -147,7 +149,7 @@ struct SpoonjoyRootView: View {
             }
             .task {
 #if DEBUG
-                guard !Self.shoppingUITestFixtureEnabled else { return }
+                guard !Self.shoppingUITestFixtureEnabled, LayoutAuditFixture.requested == nil else { return }
 #endif
                 await syncWhenNetworkRecovers()
             }

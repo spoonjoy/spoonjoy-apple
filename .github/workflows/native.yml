@@ -83,6 +83,7 @@ jobs:
           ruby scripts/test/app_store_crash_diagnostics_test.rb
           ruby scripts/test/app_store_submission_diagnostics_test.rb
           ruby scripts/test/app_review_watch_test.rb
+          ruby scripts/test/layout_audit_gate_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only
