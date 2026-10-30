@@ -52,7 +52,7 @@ final class JourneyApp {
     /// tour (run 40916498760) the timer journey's launch came up without it, so the app skipped the reset, talked to
     /// production with the session the spread journeys left behind and stopped on "We couldn't load your kitchen".
     /// That launch is replaced once with a clean one, noted in the job summary; a second miss fails here.
-    private func ensureJourneyEnvironment(file: StaticString, line: UInt) {
+    private func ensureJourneyEnvironment(file: StaticString, line: UInt, relaunch: (() -> Void)? = nil) {
         let log = element("journey.syncLog")
         if log.waitForExistence(timeout: Self.launchTimeout) {
             return
@@ -61,7 +61,11 @@ final class JourneyApp {
         print("::warning::\(note)")
         Self.appendToJobSummary("- \(note) Test: \(file):\(line)")
         app.terminate()
-        app.launch()
+        if let relaunch {
+            relaunch()
+        } else {
+            app.launch()
+        }
         XCTAssertTrue(
             log.waitForExistence(timeout: Self.launchTimeout),
             "The app launched twice without the journey environment, so it would skip the reset and use production.",
@@ -167,7 +171,8 @@ final class JourneyApp {
     func openLink(_ url: URL, file: StaticString = #filePath, line: UInt = #line) {
         app.launchEnvironment.removeValue(forKey: NativeJourneyLaunchReset.environmentKey)
         app.open(url)
-        ensureJourneyEnvironment(file: file, line: line)
+        // A retry opens the link again, so the journey still lands where the link points.
+        ensureJourneyEnvironment(file: file, line: line) { [app] in app.open(url) }
     }
 
     func element(_ id: String) -> XCUIElement {

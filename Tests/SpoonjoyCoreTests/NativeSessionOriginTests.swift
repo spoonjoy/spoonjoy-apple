@@ -122,4 +122,18 @@ struct NativeSessionOriginTests {
         // A repository that does not know its server cannot judge, so it keeps the session.
         #expect(try await Self.restore(foreign, on: nil).state == .authenticated(foreign))
     }
+
+    @Test("origins compare without case or a default port, and keep any other port")
+    func originNormalisation() throws {
+        let origin = { (string: String) in NativeAuthSession.canonicalOrigin(of: URL(string: string)!) }
+        #expect(origin("HTTPS://Spoonjoy.APP/api") == "https://spoonjoy.app")
+        #expect(origin("https://spoonjoy.app:443/") == "https://spoonjoy.app")
+        #expect(origin("http://localhost:80") == "http://localhost")
+        #expect(origin("https://spoonjoy.app:8443") == "https://spoonjoy.app:8443")
+        #expect(origin("http://localhost:8787/") == "http://localhost:8787")
+
+        let stamped = try Self.session(clientID: "client_live", serverOrigin: "https://spoonjoy.app")
+        #expect(!stamped.wasIssued(elsewhereThan: URL(string: "HTTPS://SPOONJOY.APP:443")!))
+        #expect(stamped.wasIssued(elsewhereThan: URL(string: "https://spoonjoy.app:8443")!))
+    }
 }
