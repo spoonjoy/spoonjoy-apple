@@ -11,9 +11,21 @@ import UIKit
 
 /// The app-wide image pipeline: memory cache, then a bounded disk cache in Caches, then the network.
 enum AppImagePipeline {
-    static let shared = ImagePipeline.standard(
-        cachesDirectory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-    )
+    static let shared: ImagePipeline = {
+        let pipeline = ImagePipeline.standard(
+            cachesDirectory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        )
+#if os(iOS)
+        // The memory cache never drops decodes on its own, so it lets go of them all when iOS is short of memory.
+        let memory = pipeline.memory
+        _ = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification,
+            object: nil,
+            queue: nil
+        ) { _ in memory.removeAll() }
+#endif
+        return pipeline
+    }()
 }
 
 enum CachedImagePhase {
