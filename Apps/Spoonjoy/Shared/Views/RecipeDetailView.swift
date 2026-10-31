@@ -1636,9 +1636,10 @@ extension RecipeDetailView {
     private func spreadMethodPage(index: RecipeSpreadIngredientIndex) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 6) {
+                // A running head is one line, except at accessibility sizes, where the whole title matters more.
                 Text(viewModel.title)
                     .spreadRunningHead()
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 Text("Method")
                     .font(KitchenTableTheme.displayTitle)
                     .foregroundStyle(KitchenTableTheme.ink)

@@ -7,6 +7,12 @@ public enum CompactTab: String, CaseIterable, Hashable, Sendable {
     case cookbooks
     case shopping
     case search
+
+    /// The dock's accessibility identifier for this tab. It comes from the case, not the localized title, so UI tests
+    /// and the layout audit find the tab in any language.
+    public var dockAccessibilityIdentifier: String {
+        "dock.\(rawValue)"
+    }
 }
 
 /// Where a route appears in the compact shell.

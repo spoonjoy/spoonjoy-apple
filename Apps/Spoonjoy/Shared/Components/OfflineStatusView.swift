@@ -109,6 +109,8 @@ struct OfflineStatusView: View {
                 "Recipe import setup needed"
             case .appleDeveloperProgram:
                 "Apple Developer Program required"
+            case .signInRequired:
+                "Sign in again to sync changes"
             }
         case .destructiveConfirmation:
             "Confirmation required"

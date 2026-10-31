@@ -1,6 +1,9 @@
 import SpoonjoyCore
 import Foundation
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 #if canImport(AppIntents)
 import AppIntents
@@ -389,10 +392,11 @@ struct PlatformNavigationView: View {
         shellLifecycle(
             NavigationStack {
                 regularDetailPage
-                    .navigationTitle(title(for: navigation.route))
+                    .navigationTitle(regularBarTitle(for: navigation.route))
 #if os(iOS)
                     // The Kitchen's and a recipe's photo is the title, so their bar stays inline and the photo runs under it.
-                    .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) ? .inline : .large)
+                    // Cook mode opens with its own step header, as on the phone.
+                    .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) ? .inline : .large)
                     .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
                     // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
@@ -441,6 +445,9 @@ struct PlatformNavigationView: View {
         // selected tab, matching the web dock's brass primary button. Pages set their own action tint.
         .tint(KitchenTableTheme.brass)
         .background(KitchenTableTheme.page.ignoresSafeArea())
+#if os(iOS)
+        .background(DockAccessibilityIdentifiers())
+#endif
     }
 
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
@@ -539,6 +546,25 @@ struct PlatformNavigationView: View {
             return "recipe:\(id)"
         }
         return "page"
+    }
+
+    private func routeIsCookMode(_ route: AppRoute) -> Bool {
+        if case .recipeDetail(_, .cook) = route {
+            return true
+        }
+        return false
+    }
+
+    /// The split view's bar title. Cook mode's bar stays quiet on iPad and the open Duo, as it does on a phone: a large
+    /// "Cook" title showed on a cold open but not after a relaunch restored cook mode, and the step header already
+    /// names the page. The Mac keeps it as the window title.
+    private func regularBarTitle(for route: AppRoute) -> String {
+#if os(iOS)
+        if routeIsCookMode(route) {
+            return ""
+        }
+#endif
+        return title(for: route)
     }
 
     private func routeLeadsWithPhoto(_ route: AppRoute) -> Bool {
@@ -2636,3 +2662,69 @@ private struct RecipeListAddNoticeView: View {
             .accessibilityIdentifier("shell.listAddNotice")
     }
 }
+
+#if os(iOS)
+/// SwiftUI's `Tab` takes no accessibility identifier, so the dock is named through UIKit. Each `UITab` gets
+/// `CompactTab.dockAccessibilityIdentifier` for its position (the TabView declares its tabs in `CompactTab.allCases`
+/// order). The name goes on the `UITab` itself: UIKit rebuilds the tab bar items and buttons from it whenever the
+/// dock's layout or appearance changes, and a name set only on a generated item was lost with it.
+private struct DockAccessibilityIdentifiers: UIViewRepresentable {
+    func makeUIView(context: Context) -> Probe {
+        Probe()
+    }
+
+    func updateUIView(_ uiView: Probe, context: Context) {
+        uiView.apply()
+    }
+
+    final class Probe: UIView {
+        private weak var namedController: UITabBarController?
+        private var searchesLeft = 20
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            apply()
+        }
+
+        func apply() {
+            if let namedController, Self.isNamed(namedController) {
+                return
+            }
+            guard let root = window?.rootViewController else { return }
+            for controller in Self.tabBarControllers(from: root) where controller.tabs.count == CompactTab.allCases.count {
+                for (index, tab) in controller.tabs.enumerated() {
+                    tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
+                }
+                namedController = controller
+            }
+            if namedController == nil, searchesLeft > 0 {
+                // The tab bar controller may not be in the window yet on the first pass.
+                searchesLeft -= 1
+                DispatchQueue.main.async { [weak self] in
+                    self?.apply()
+                }
+            }
+        }
+
+        private static func isNamed(_ controller: UITabBarController) -> Bool {
+            controller.tabs.enumerated().allSatisfy { index, tab in
+                index < CompactTab.allCases.count && tab.accessibilityIdentifier == CompactTab.allCases[index].dockAccessibilityIdentifier
+            }
+        }
+
+        private static func tabBarControllers(from controller: UIViewController) -> [UITabBarController] {
+            var found: [UITabBarController] = []
+            if let tabs = controller as? UITabBarController {
+                found.append(tabs)
+            }
+            for child in controller.children {
+                found += tabBarControllers(from: child)
+            }
+            if let presented = controller.presentedViewController {
+                found += tabBarControllers(from: presented)
+            }
+            return found
+        }
+    }
+}
+#endif

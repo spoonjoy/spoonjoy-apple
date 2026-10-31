@@ -8,6 +8,13 @@ import Foundation
 /// Scope: controls are compared with controls. Text is not compared with other text or with controls, so text drawn
 /// over text or over a button is not caught.
 public enum LayoutAudit {
+    /// The most two dock tabs may share, in points, measured across the thinner side of their overlap. UIKit lays the
+    /// dock out: the iPhone Duo's closed rail shares 8 pt between neighbours, the iPhone 6.9" dock 12.4 pt.
+    public static let dockNeighbourOverlapLimit = 16.0
+    /// The deepest a control in a scroll view may run under a dock tab, in points, across the thinner side of the
+    /// overlap. The iPhone 6.9" Kitchen's "See all" runs 26.4 pt under the floating dock; deeper, it is buried.
+    public static let dockUnderlapLimit = 32.0
+
     /// Frames are in points and snapshots round them, so edges within half a point count as touching.
     public static let tolerance = 0.5
 
@@ -18,6 +25,8 @@ public enum LayoutAudit {
     ) -> LayoutAuditReport {
         var skippedOffscreen = 0
         var skippedPartiallyScrolled = 0
+        // Controls cut by their scroll view's edge that scrolling reveals: the dock covers them only in passing.
+        var partlyScrolled: Set<Int> = []
         var interactive: [(element: LayoutAuditElement, visibleFrame: LayoutAuditRect)] = []
         var visibleElements: [(element: LayoutAuditElement, visibleFrame: LayoutAuditRect)] = []
         var texts: [LayoutAuditElement] = []
@@ -51,6 +60,7 @@ public enum LayoutAudit {
                 }
                 if element.viewport != nil, scrollingReveals(element, beyond: visibleArea, among: elements) {
                     skippedPartiallyScrolled += 1
+                    partlyScrolled.insert(element.index)
                     continue
                 }
                 clippedControls.append(.init(
@@ -74,9 +84,19 @@ public enum LayoutAudit {
         var overlaps: [LayoutAuditReport.Overlap] = []
         for (offset, first) in interactive.enumerated() {
             for second in interactive[(offset + 1)...] where !first.element.isRelated(to: second.element) {
-                if let shared = first.visibleFrame.intersection(second.visibleFrame) {
-                    overlaps.append(.init(first: .init(first.element), second: .init(second.element), intersection: shared))
+                guard let shared = first.visibleFrame.intersection(second.visibleFrame) else {
+                    continue
                 }
+                let depth = min(shared.width, shared.height)
+                if first.element.sharesDock(with: second.element), depth <= dockNeighbourOverlapLimit {
+                    continue
+                }
+                let underDock = first.element.scrollsUnderDock(second.element) || second.element.scrollsUnderDock(first.element)
+                let passing = partlyScrolled.contains(first.element.index) || partlyScrolled.contains(second.element.index)
+                if underDock, passing || depth <= dockUnderlapLimit {
+                    continue
+                }
+                overlaps.append(.init(first: .init(first.element), second: .init(second.element), intersection: shared))
             }
         }
 
@@ -230,6 +250,8 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
     public let viewportIndex: Int?
     /// The nearest non-scrolling ancestor with a frame, which the element must stay inside.
     public let container: LayoutAuditRect?
+    /// True for an item of the system tab bar (the app's dock), which UIKit lays out.
+    public let isDockItem: Bool
 
     public init(
         index: Int,
@@ -241,7 +263,8 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
         frame: LayoutAuditRect,
         viewport: LayoutAuditRect?,
         viewportIndex: Int? = nil,
-        container: LayoutAuditRect?
+        container: LayoutAuditRect?,
+        isDockItem: Bool = false
     ) {
         self.index = index
         self.ancestors = ancestors
@@ -253,11 +276,30 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
         self.viewport = viewport
         self.viewportIndex = viewportIndex
         self.container = container
+        self.isDockItem = isDockItem
     }
 
     /// A control inside another control (a menu inside a row button) shares its parent's frame by design.
     func isRelated(to other: LayoutAuditElement) -> Bool {
         ancestors.contains(other.index) || other.ancestors.contains(index)
+    }
+
+    /// UIKit lays out the dock's tab items, and on the iPhone Duo's closed rail it reports each 58 pt tall at a
+    /// 50 pt pitch at every text size, so neighbours share 8 pt. Two dock items may share up to
+    /// `LayoutAudit.dockNeighbourOverlapLimit`; each is still compared with every control the app lays out.
+    func sharesDock(with other: LayoutAuditElement) -> Bool {
+        isDockItem && other.isDockItem
+    }
+
+    /// The dock floats in glass over the page, and a scroll view under it is inset so its content scrolls clear of
+    /// the dock. A control in a scroll view that runs under the dock, by up to `LayoutAudit.dockUnderlapLimit` (or by any
+    /// depth while it is cut by the scroll view's edge and scrolling reveals the rest), is passing beneath it, not
+    /// overlapping it.
+    func scrollsUnderDock(_ dockItem: LayoutAuditElement) -> Bool {
+        guard dockItem.isDockItem, !isDockItem, let viewport else {
+            return false
+        }
+        return viewport.contains(dockItem.frame)
     }
 }
 

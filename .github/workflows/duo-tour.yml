@@ -259,9 +259,26 @@ jobs:
           xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
           launch
           shoot 10x-half-open-tall-ax5
+          # Kitchen and the recipe page on the stood-up Duo at the largest text size, light and dark.
+          launch_recipe() {
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="${cook_link%/cook}" \
+              xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+            sleep 12
+          }
+          launch_kitchen() {
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+            sleep 10
+          }
+          for appearance in light dark; do
+            xcrun simctl ui "$udid" appearance "$appearance"
+            launch_recipe
+            shoot "10rx-recipe-half-open-tall-ax5-$appearance"
+            launch_kitchen
+            shoot "10bx-kitchen-half-open-tall-ax5-$appearance"
+          done
+          xcrun simctl ui "$udid" appearance light
           xcrun simctl ui "$udid" content_size large
-          SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
-          sleep 10
+          launch_kitchen
           shoot 10b-kitchen-half-open-tall
           launch
           "$hub" press "Open"; sleep 6
@@ -275,14 +292,14 @@ jobs:
           xcrun simctl ui "$udid" appearance light
           launch
           shoot 13-open-wide-relaunched
-          # A DEBUG demo turns one page by itself ten seconds after the spread opens, over eight seconds, so a frame
-          # catches the curl halfway; under Reduce Motion the same turn is a crossfade.
-          launch -SpoonjoyDemoPageTurn 8
-          sleep 3; shoot 15a-page-turn-mid
+          # A DEBUG demo turns one page by itself ten seconds after the spread opens, over 48 seconds, so all three
+          # frames land mid-turn; under Reduce Motion the same turn is a crossfade.
+          launch -SpoonjoyDemoPageTurn 48
+          sleep 14; shoot 15a-page-turn-mid
           sleep 2; shoot 15b-page-turn-mid
           sleep 2; shoot 15c-page-turn-mid
-          launch -SpoonjoyReduceMotion YES -SpoonjoyDemoPageTurn 8
-          sleep 3; shoot 16a-reduce-motion-crossfade-mid
+          launch -SpoonjoyReduceMotion YES -SpoonjoyDemoPageTurn 48
+          sleep 14; shoot 16a-reduce-motion-crossfade-mid
           sleep 2; shoot 16b-reduce-motion-crossfade-mid
           sleep 2; shoot 16c-reduce-motion-crossfade-mid
           launch

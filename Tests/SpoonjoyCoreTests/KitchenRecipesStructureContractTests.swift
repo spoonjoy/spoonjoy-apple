@@ -148,6 +148,22 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
+    // Recipes lists the signed-in chef's own recipes. The fixture recipes belonged to another chef, so the
+    // captured Recipes page was always empty and the catalog lead never rendered at any text size.
+    @Test("the Recipes capture signs in as the chef who owns the fixture recipes")
+    func recipesCaptureOwnsTheFixtureRecipes() throws {
+        let capturePath = "scripts/capture-native-screenshots.sh"
+        expectContent(
+            try readRepoFile(capturePath),
+            in: capturePath,
+            contains: [
+                "if route == \"recipes\"",
+                "recipes = recipes.map { |recipe| recipe.merge(\"chef\" => recipe.fetch(\"chef\").merge(\"id\" => account_id)) }"
+            ],
+            forbids: []
+        )
+    }
+
     @Test("Screenshot proof and validators name the richer kitchen and recipes hierarchy")
     func screenshotProofNamesRicherKitchenAndRecipesHierarchy() throws {
         let proofPath = "Apps/Spoonjoy/Shared/Components/ScreenshotAccessibilityProofWriter.swift"

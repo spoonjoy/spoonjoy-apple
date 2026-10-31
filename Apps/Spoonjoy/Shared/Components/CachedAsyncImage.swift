@@ -11,9 +11,42 @@ import UIKit
 
 /// The app-wide image pipeline: memory cache, then a bounded disk cache in Caches, then the network.
 enum AppImagePipeline {
-    static let shared = ImagePipeline.standard(
-        cachesDirectory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-    )
+    static let shared: ImagePipeline = {
+        let pipeline = ImagePipeline.standard(
+            cachesDirectory: FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        )
+        MemoryRelief.watch(pipeline.memory)
+        return pipeline
+    }()
+
+    /// The memory cache never drops decodes on its own. It trims to its background size when the system warns of
+    /// memory pressure (iOS and macOS) or the app leaves the screen, and empties when memory is critical.
+    private enum MemoryRelief {
+        nonisolated(unsafe) private static var pressureSource: DispatchSourceMemoryPressure?
+
+        static func watch(_ memory: ImageMemoryCache) {
+            let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .global(qos: .utility))
+            source.setEventHandler { [weak source] in
+                if source?.data.contains(.critical) == true {
+                    memory.removeAll()
+                } else {
+                    memory.trim(toCost: memory.backgroundCost)
+                }
+            }
+            source.activate()
+            pressureSource = source
+#if os(iOS)
+            observe(UIApplication.didReceiveMemoryWarningNotification) { memory.removeAll() }
+            observe(UIApplication.didEnterBackgroundNotification) { memory.trim(toCost: memory.backgroundCost) }
+#elseif os(macOS)
+            observe(NSApplication.didHideNotification) { memory.trim(toCost: memory.backgroundCost) }
+#endif
+        }
+
+        private static func observe(_ name: Notification.Name, _ relieve: @escaping @Sendable () -> Void) {
+            _ = NotificationCenter.default.addObserver(forName: name, object: nil, queue: nil) { _ in relieve() }
+        }
+    }
 }
 
 enum CachedImagePhase {

@@ -328,11 +328,92 @@ public enum NativeAppStateLocation {
     }
 }
 
+/// Cook progress and an opened route recorded before the launch restore knows whose kitchen is on screen. They wait
+/// in their own file beside the app state, so an app killed before the restore finishes replays them at the next
+/// launch instead of losing them.
+public struct NativeLaunchPendingRecords: Codable, Equatable {
+    public var cookProgress: [CookModeProgress]
+    public var routeStateIdentifier: String?
+
+    public init(cookProgress: [CookModeProgress] = [], routeStateIdentifier: String? = nil) {
+        self.cookProgress = cookProgress
+        self.routeStateIdentifier = routeStateIdentifier
+    }
+
+    /// How old a pending record may be and still replay. A clear that failed would otherwise replay it every launch.
+    public static let replayWindow: TimeInterval = 24 * 60 * 60
+
+    /// The progress worth replaying: the newest per recipe (records can arrive out of order), unless older than the
+    /// replay window or than what the kitchen already holds. Records without a readable time count as oldest.
+    public func progressToReplay(over current: [String: CookModeProgress], at now: Date) -> [CookModeProgress] {
+        // One slot per recipe, in the order recipes first appear.
+        var newest: [(progress: CookModeProgress, time: Date?)] = []
+        for progress in cookProgress {
+            let time = Self.time(of: progress)
+            if let time, now.timeIntervalSince(time) > Self.replayWindow {
+                continue
+            }
+            if let slot = newest.firstIndex(where: { $0.progress.recipeID == progress.recipeID }) {
+                if !Self.isOlder(time, than: newest[slot].time) {
+                    newest[slot] = (progress, time)
+                }
+            } else {
+                newest.append((progress, time))
+            }
+        }
+        return newest.filter { candidate in
+            guard let held = current[candidate.progress.recipeID] else {
+                return true
+            }
+            return !Self.isOlder(candidate.time, than: Self.time(of: held))
+        }.map(\.progress)
+    }
+
+    /// Strictly older; equal or both untimed is not older, so the later record wins.
+    private static func isOlder(_ time: Date?, than other: Date?) -> Bool {
+        guard let other else {
+            return false
+        }
+        guard let time else {
+            return true
+        }
+        return time < other
+    }
+
+    private static func time(of progress: CookModeProgress) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: progress.updatedAt) {
+            return date
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: progress.updatedAt)
+    }
+}
+
 public struct NativeAppStateStore {
     private let store: JSONFileStore<NativeAppSnapshot>
+    private let pendingLaunchStore: JSONFileStore<NativeLaunchPendingRecords>
 
     public init(fileURL: URL) {
         store = JSONFileStore<NativeAppSnapshot>(fileURL: fileURL)
+        pendingLaunchStore = JSONFileStore<NativeLaunchPendingRecords>(
+            fileURL: fileURL.deletingPathExtension().appendingPathExtension("launch-pending.json")
+        )
+    }
+
+    /// What earlier launches recorded before their restore finished. A missing or unreadable file reads as empty:
+    /// a lost replay costs one step, and must never block the launch.
+    public func loadPendingLaunchRecords() -> NativeLaunchPendingRecords {
+        (try? pendingLaunchStore.load())?.value ?? NativeLaunchPendingRecords()
+    }
+
+    public func savePendingLaunchRecords(_ records: NativeLaunchPendingRecords) throws {
+        try pendingLaunchStore.save(records)
+    }
+
+    public func clearPendingLaunchRecords() throws {
+        try pendingLaunchStore.delete()
     }
 
     public func loadOrCreate(fallback: NativeAppSnapshot) throws -> JSONFileStoreRecord<NativeAppSnapshot> {

@@ -456,16 +456,18 @@ struct RecipeLead: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             leadText
+            // The cap goes on the whole choice: on the row alone it hid the row's overflow from ViewThatFits, so at
+            // accessibility sizes the row won and both labels truncated.
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) {
                     leadButtons
                 }
-                .frame(maxWidth: 420)
 
                 VStack(spacing: 10) {
                     leadButtons
                 }
             }
+            .frame(maxWidth: 420, alignment: .leading)
             .padding(.top, 8)
         }
         .padding(.horizontal, 24)

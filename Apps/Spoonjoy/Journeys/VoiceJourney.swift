@@ -49,7 +49,7 @@ final class VoiceJourney: JourneyTestCase {
         XCTAssertTrue(waitForLabel(mic, prefix: "Listening"), "Tapping the mic did not start listening. Label: \(mic.label)")
         let notice = journey.element(JourneyID.cookVoiceNotice)
         XCTAssertTrue(
-            notice.waitForExistence(timeout: JourneyApp.interactionTimeout) && notice.label.contains("Listening for next, back, repeat, timer"),
+            notice.waitForExistence(timeout: JourneyApp.interactionTimeout) && notice.label.contains("Say next, back, repeat or timer when you're ready"),
             "Listening did not say what it listens for. Screen: \(journey.screen)"
         )
         journey.attachScreenshot(named: "voice-02-mic-listening", to: self)

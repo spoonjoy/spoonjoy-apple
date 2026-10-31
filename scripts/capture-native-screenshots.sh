@@ -908,6 +908,11 @@ write_sync_store() {
         )
       end
     end
+    # Recipes lists only recipes the signed-in chef owns, so the capture account owns the fixture recipes there.
+    # Owned by another chef, they left the page empty and its catalog lead never rendered.
+    if route == "recipes"
+      recipes = recipes.map { |recipe| recipe.merge("chef" => recipe.fetch("chef").merge("id" => account_id)) }
+    end
     cookbooks = if File.file?(cookbooks_path)
                   JSON.parse(File.read(cookbooks_path)).fetch("cookbooks")
                 else

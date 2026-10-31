@@ -12,6 +12,27 @@ struct CompactTabNavigationTests {
         #expect(CompactTab.allCases == [.kitchen, .recipes, .cookbooks, .shopping, .search])
     }
 
+    @Test("each tab's dock identifier comes from its case, not its localized title")
+    func dockIdentifiers() {
+        #expect(CompactTab.allCases.map(\.dockAccessibilityIdentifier) == [
+            "dock.kitchen", "dock.recipes", "dock.cookbooks", "dock.shopping", "dock.search"
+        ])
+    }
+
+    // The app names the dock's UITabs by position, so the TabView must declare its tabs in `allCases` order.
+    @Test("the compact TabView declares its tabs in CompactTab order and names them by case")
+    func tabViewDeclaresTabsInCaseOrder() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(path)
+        let source = try String(contentsOf: url, encoding: .utf8)
+        let declared = source
+            .matches(of: /Tab\("[^"]+", systemImage: "[^"]+", value: CompactTab\.(\w+)/)
+            .map { String($0.output.1) }
+        #expect(declared == CompactTab.allCases.map(\.rawValue))
+        #expect(source.contains("tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier"))
+        #expect(!source.contains("title.lowercased()"))
+    }
+
     @Test("every route has a place in the compact shell")
     func placements() {
         #expect(CompactTabNavigation.placement(for: .kitchen) == .root(.kitchen))

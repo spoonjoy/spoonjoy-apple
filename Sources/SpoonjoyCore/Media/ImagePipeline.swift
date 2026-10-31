@@ -51,23 +51,40 @@ public struct URLSessionImageFetcher: ImageDataFetching {
     }
 }
 
-private final class DecodedImageBox {
-    let image: CGImage
-    init(_ image: CGImage) { self.image = image }
-}
-
-/// Decoded, downsampled images held in memory, bounded by decoded byte cost.
+/// Decoded, downsampled images held in memory, bounded by decoded byte cost. The least recently used decodes go
+/// first once the total passes the limit. It never drops anything on its own (an `NSCache` evicts at random under
+/// memory pressure); the app calls `trim(toCost:)` under memory pressure and on backgrounding, and `removeAll()` when
+/// memory is critical.
 public final class ImageMemoryCache: @unchecked Sendable {
     public static let defaultCostLimit = 64 * 1_024 * 1_024
 
-    private let cache = NSCache<NSString, DecodedImageBox>()
+    private struct Entry {
+        let image: CGImage
+        let cost: Int
+        var lastUse: UInt64
+    }
+
+    private let costLimit: Int
+    private let lock = NSLock()
+    private var entries: [String: Entry] = [:]
+    private var totalCost = 0
+    private var useClock: UInt64 = 0
 
     public init(costLimit: Int = ImageMemoryCache.defaultCostLimit) {
-        cache.totalCostLimit = costLimit
+        self.costLimit = costLimit
     }
 
     public func image(url: URL, maxPixelSize: Int) -> CGImage? {
-        cache.object(forKey: memoryKey(url, maxPixelSize) as NSString)?.image
+        let key = memoryKey(url, maxPixelSize)
+        return lock.withLock {
+            guard var entry = entries[key] else {
+                return nil
+            }
+            useClock += 1
+            entry.lastUse = useClock
+            entries[key] = entry
+            return entry.image
+        }
     }
 
     /// The sharpest decode of `url` held at a size below `maxPixelSize`, to show while that size loads.
@@ -78,8 +95,49 @@ public final class ImageMemoryCache: @unchecked Sendable {
             .first
     }
 
+    /// What to keep while the app is in the background: a quarter of the limit, the most recently used.
+    public var backgroundCost: Int {
+        costLimit / 4
+    }
+
+    /// Drops the least recently used decodes until the total is at most `cost`.
+    public func trim(toCost cost: Int) {
+        lock.withLock {
+            evict(above: cost)
+        }
+    }
+
+    /// Drops every decode, for a memory warning.
+    public func removeAll() {
+        lock.withLock {
+            entries = [:]
+            totalCost = 0
+        }
+    }
+
     func insert(_ image: CGImage, url: URL, maxPixelSize: Int) {
-        cache.setObject(DecodedImageBox(image), forKey: memoryKey(url, maxPixelSize) as NSString, cost: image.width * image.height * 4)
+        let key = memoryKey(url, maxPixelSize)
+        let cost = image.width * image.height * 4
+        lock.withLock {
+            guard cost <= costLimit else {
+                return
+            }
+            if let old = entries[key] {
+                totalCost -= old.cost
+            }
+            useClock += 1
+            entries[key] = Entry(image: image, cost: cost, lastUse: useClock)
+            totalCost += cost
+            evict(above: costLimit)
+        }
+    }
+
+    /// Call with `lock` held.
+    private func evict(above cost: Int) {
+        while totalCost > cost, let oldest = entries.min(by: { $0.value.lastUse < $1.value.lastUse }) {
+            entries[oldest.key] = nil
+            totalCost -= oldest.value.cost
+        }
     }
 
     private func memoryKey(_ url: URL, _ maxPixelSize: Int) -> String {
