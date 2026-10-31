@@ -25,8 +25,9 @@ public enum LayoutAudit {
     ) -> LayoutAuditReport {
         var skippedOffscreen = 0
         var skippedPartiallyScrolled = 0
-        // Controls cut by their scroll view's edge that scrolling reveals: the dock covers them only in passing.
-        var partlyScrolled: Set<Int> = []
+        // Controls cut by their scroll view's edge that scrolling reveals, with the visible area and the edges cut. A
+        // dock at one of those edges covers them only in passing.
+        var partlyScrolled: [Int: (visibleArea: LayoutAuditRect, edges: [Edge])] = [:]
         var interactive: [(element: LayoutAuditElement, visibleFrame: LayoutAuditRect)] = []
         var visibleElements: [(element: LayoutAuditElement, visibleFrame: LayoutAuditRect)] = []
         var texts: [LayoutAuditElement] = []
@@ -58,9 +59,9 @@ public enum LayoutAudit {
                 guard crossesVisibleArea else {
                     continue
                 }
-                if element.viewport != nil, scrollingReveals(element, beyond: visibleArea, among: elements) {
+                if element.viewport != nil, let edges = scrollingReveals(element, beyond: visibleArea, among: elements) {
                     skippedPartiallyScrolled += 1
-                    partlyScrolled.insert(element.index)
+                    partlyScrolled[element.index] = (visibleArea, edges)
                     continue
                 }
                 clippedControls.append(.init(
@@ -91,10 +92,14 @@ public enum LayoutAudit {
                 if first.element.sharesDock(with: second.element), depth <= dockNeighbourOverlapLimit {
                     continue
                 }
-                let underDock = first.element.scrollsUnderDock(second.element) || second.element.scrollsUnderDock(first.element)
-                let passing = partlyScrolled.contains(first.element.index) || partlyScrolled.contains(second.element.index)
-                if underDock, passing || depth <= dockUnderlapLimit {
-                    continue
+                let pair = [(first.element, second.element), (second.element, first.element)]
+                if let (control, dockItem) = pair.first(where: { $0.0.scrollsUnderDock($0.1) }) {
+                    let passing = partlyScrolled[control.index].map { cut in
+                        cut.edges.contains { $0.faces(dockItem.frame, in: cut.visibleArea) }
+                    } ?? false
+                    if passing || depth <= dockUnderlapLimit {
+                        continue
+                    }
                 }
                 overlaps.append(.init(first: .init(first.element), second: .init(second.element), intersection: shared))
             }
@@ -159,20 +164,43 @@ public enum LayoutAudit {
     /// A control cut by its scroll view's edge is scrolled, not clipped, when other content in the same scroll view
     /// starts at or past that edge. With nothing there, the scroll view does not scroll that way (a pager clipping a
     /// tall control at the screen's bottom), so the control is clipped. A neighbour cut by the same edge does not
-    /// count, so two clipped controls cannot excuse each other.
-    private static func scrollingReveals(_ control: LayoutAuditElement, beyond visibleArea: LayoutAuditRect, among elements: [LayoutAuditElement]) -> Bool {
+    /// count, so two clipped controls cannot excuse each other. Returns the edges that cut the control, or nil when
+    /// scrolling does not reveal it.
+    private static func scrollingReveals(_ control: LayoutAuditElement, beyond visibleArea: LayoutAuditRect, among elements: [LayoutAuditElement]) -> [Edge]? {
         let neighbours = elements.filter {
             $0.index != control.index && $0.viewportIndex == control.viewportIndex && !$0.isRelated(to: control)
         }
         let slack = tolerance
         let frame = control.frame
-        let edges: [(crosses: Bool, beyond: (LayoutAuditRect) -> Bool)] = [
-            (frame.x < visibleArea.x - slack, { $0.maxX <= visibleArea.x + slack }),
-            (frame.maxX > visibleArea.maxX + slack, { $0.x >= visibleArea.maxX - slack }),
-            (frame.y < visibleArea.y - slack, { $0.maxY <= visibleArea.y + slack }),
-            (frame.maxY > visibleArea.maxY + slack, { $0.y >= visibleArea.maxY - slack })
+        let edges: [(edge: Edge, crosses: Bool, beyond: (LayoutAuditRect) -> Bool)] = [
+            (.left, frame.x < visibleArea.x - slack, { $0.maxX <= visibleArea.x + slack }),
+            (.right, frame.maxX > visibleArea.maxX + slack, { $0.x >= visibleArea.maxX - slack }),
+            (.top, frame.y < visibleArea.y - slack, { $0.maxY <= visibleArea.y + slack }),
+            (.bottom, frame.maxY > visibleArea.maxY + slack, { $0.y >= visibleArea.maxY - slack })
         ]
-        return edges.filter(\.crosses).allSatisfy { edge in neighbours.contains { edge.beyond($0.frame) } }
+        let cut = edges.filter(\.crosses)
+        guard cut.allSatisfy({ edge in neighbours.contains { edge.beyond($0.frame) } }) else {
+            return nil
+        }
+        return cut.map(\.edge)
+    }
+
+    /// An edge of a scroll view's visible area.
+    enum Edge {
+        case left, right, top, bottom
+
+        /// True when a dock item sits at this edge: its far side within `dockUnderlapLimit` of the edge, along the
+        /// axis the content scrolls across it. Scrolling carries the cut control out from under such a dock. A dock
+        /// beside the content (the closed iPhone Duo's side rail over a row cut at the bottom) stays over it.
+        func faces(_ dock: LayoutAuditRect, in visibleArea: LayoutAuditRect) -> Bool {
+            let gap = switch self {
+            case .left: dock.x - visibleArea.x
+            case .right: visibleArea.maxX - dock.maxX
+            case .top: dock.y - visibleArea.y
+            case .bottom: visibleArea.maxY - dock.maxY
+            }
+            return gap <= LayoutAudit.dockUnderlapLimit
+        }
     }
 }
 
@@ -293,8 +321,8 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
 
     /// The dock floats in glass over the page, and a scroll view under it is inset so its content scrolls clear of
     /// the dock. A control in a scroll view that runs under the dock, by up to `LayoutAudit.dockUnderlapLimit` (or by any
-    /// depth while it is cut by the scroll view's edge and scrolling reveals the rest), is passing beneath it, not
-    /// overlapping it.
+    /// depth while it is cut by the scroll view's edge, scrolling reveals the rest and the dock sits at that edge), is
+    /// passing beneath it, not overlapping it.
     func scrollsUnderDock(_ dockItem: LayoutAuditElement) -> Bool {
         guard dockItem.isDockItem, !isDockItem, let viewport else {
             return false

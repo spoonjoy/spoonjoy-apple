@@ -58,6 +58,44 @@ struct LayoutAuditTests {
         #expect(!LayoutAudit.audit([dock, lead], screen: screen).noOverlap)
     }
 
+    // The closed Duo's side rail sits beside the content, not across the edge where it scrolls out of view. A row cut
+    // at the bottom of the screen with the rail over its middle stays under the rail however it scrolls, so it gets
+    // only the ordinary underlap limit. Reviewer's synthetic case (rr10a/siderail-case.json).
+    @Test("a partly scrolled control passes under the dock only when the dock sits at its cut edge")
+    func partlyScrolledExemptionNeedsTheDockAtTheCutEdge() {
+        let cover = LayoutAuditRect(x: 0, y: 0, width: 466, height: 678)
+        let rail = control(1, LayoutAuditRect(x: 396, y: 434, width: 44, height: 58), isDockItem: true)
+        let row = control(2, LayoutAuditRect(x: 24, y: 420, width: 442, height: 400), viewport: cover, viewportIndex: 0)
+        let nextRow = control(3, LayoutAuditRect(x: 24, y: 900, width: 334, height: 60), viewport: cover, viewportIndex: 0)
+        let report = LayoutAudit.audit([rail, row, nextRow], screen: cover)
+        #expect(report.skippedPartiallyScrolledCount == 1)
+        #expect(!report.noOverlap)
+
+        // The same rail at the bottom of the cover, within the underlap limit of the cut edge, is passed under.
+        let low = control(4, LayoutAuditRect(x: 396, y: 610, width: 44, height: 58), isDockItem: true)
+        #expect(LayoutAudit.audit([low, row, nextRow], screen: cover).noOverlap)
+
+        // A row cut at the cover's right edge in a sideways scroller faces a rail on that edge.
+        let shelf = control(5, LayoutAuditRect(x: 300, y: 420, width: 400, height: 120), viewport: cover, viewportIndex: 1)
+        let nextShelf = control(6, LayoutAuditRect(x: 720, y: 420, width: 200, height: 120), viewport: cover, viewportIndex: 1)
+        #expect(LayoutAudit.audit([rail, shelf, nextShelf], screen: cover).noOverlap)
+        // Cut at the right but with the rail on the left, it does not.
+        let leftRail = control(7, LayoutAuditRect(x: 310, y: 434, width: 44, height: 58), isDockItem: true)
+        #expect(!LayoutAudit.audit([leftRail, shelf, nextShelf], screen: cover).noOverlap)
+
+        // Mirrored: cut at the left and top edges, with the dock at that edge.
+        let earlierShelf = control(8, LayoutAuditRect(x: -300, y: 420, width: 400, height: 120), viewport: cover, viewportIndex: 2)
+        let firstShelf = control(9, LayoutAuditRect(x: -600, y: 420, width: 200, height: 120), viewport: cover, viewportIndex: 2)
+        let edgeRail = control(10, LayoutAuditRect(x: 26, y: 434, width: 44, height: 58), isDockItem: true)
+        #expect(LayoutAudit.audit([edgeRail, earlierShelf, firstShelf], screen: cover).noOverlap)
+        let scrolledRow = control(11, LayoutAuditRect(x: 24, y: -300, width: 442, height: 400), viewport: cover, viewportIndex: 3)
+        let rowAbove = control(12, LayoutAuditRect(x: 24, y: -500, width: 442, height: 100), viewport: cover, viewportIndex: 3)
+        let topDock = control(13, LayoutAuditRect(x: 100, y: 10, width: 44, height: 58), isDockItem: true)
+        #expect(LayoutAudit.audit([topDock, scrolledRow, rowAbove], screen: cover).noOverlap)
+        let lowerDock = control(14, LayoutAuditRect(x: 100, y: 40, width: 44, height: 58), isDockItem: true)
+        #expect(!LayoutAudit.audit([lowerDock, scrolledRow, rowAbove], screen: cover).noOverlap)
+    }
+
     @Test("the dock's tab items are not compared with each other, but are with the app's controls")
     func dockItemsAreComparedOnlyWithOtherControls() {
         // The iPhone Duo's closed rail: 58 pt items at a 50 pt pitch.
