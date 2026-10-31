@@ -622,6 +622,7 @@ struct KitchenTableEmptyTile<Action: View>: View {
     /// Brass by default; herb when the state is a finish rather than a start.
     let tint: Color
     @ViewBuilder let action: () -> Action
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         systemImage: String,
@@ -653,8 +654,9 @@ struct KitchenTableEmptyTile<Action: View>: View {
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
             if Action.self != EmptyView.self {
+                // At the accessibility sizes the action spans the tile, so its label stays on one line where it can.
                 action()
-                    .frame(maxWidth: 320, alignment: .leading)
+                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 320, alignment: .leading)
                     .padding(.top, 4)
             }
         }
