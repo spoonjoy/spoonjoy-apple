@@ -111,6 +111,13 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$coverage_log"
           coverage_json="$(swift test --show-codecov-path)"
           ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
+      - name: TEMP print test crash reports
+        if: failure()
+        run: |
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/*.ips /Library/Logs/DiagnosticReports/*.ips 2>/dev/null | head -3); do
+            echo "== $f"
+            python3 -I -c 'import json,sys; t=open(sys.argv[1]).read().split("\n",1); h=json.loads(t[0]); b=json.loads(t[1]); print(h.get("app_name"), b.get("exception"), b.get("asi")); ft=b.get("faultingThread",0); imgs=b.get("usedImages",[]); [print(i, fr.get("symbol"), imgs[fr["imageIndex"]].get("name") if fr.get("imageIndex") is not None else "") for i,fr in enumerate(b["threads"][ft]["frames"][:40])]' "$f" || head -c 4000 "$f"
+          done
 
   native-scenario-verifier:
     name: Native scenario verifier
