@@ -346,31 +346,27 @@ public struct NativeLaunchPendingRecords: Codable, Equatable {
     /// The progress worth replaying: the newest per recipe (records can arrive out of order), unless older than the
     /// replay window or than what the kitchen already holds. Records without a readable time count as oldest.
     public func progressToReplay(over current: [String: CookModeProgress], at now: Date) -> [CookModeProgress] {
-        var newest: [String: (progress: CookModeProgress, time: Date?)] = [:]
-        var recipeOrder: [String] = []
+        // One slot per recipe, in the order recipes first appear.
+        var newest: [(progress: CookModeProgress, time: Date?)] = []
         for progress in cookProgress {
             let time = Self.time(of: progress)
             if let time, now.timeIntervalSince(time) > Self.replayWindow {
                 continue
             }
-            guard let kept = newest[progress.recipeID] else {
-                recipeOrder.append(progress.recipeID)
-                newest[progress.recipeID] = (progress, time)
-                continue
-            }
-            if !Self.isOlder(time, than: kept.time) {
-                newest[progress.recipeID] = (progress, time)
+            if let slot = newest.firstIndex(where: { $0.progress.recipeID == progress.recipeID }) {
+                if !Self.isOlder(time, than: newest[slot].time) {
+                    newest[slot] = (progress, time)
+                }
+            } else {
+                newest.append((progress, time))
             }
         }
-        return recipeOrder.compactMap { recipeID in
-            guard let candidate = newest[recipeID] else {
-                return nil
+        return newest.filter { candidate in
+            guard let held = current[candidate.progress.recipeID] else {
+                return true
             }
-            if let held = current[recipeID], Self.isOlder(candidate.time, than: Self.time(of: held)) {
-                return nil
-            }
-            return candidate.progress
-        }
+            return !Self.isOlder(candidate.time, than: Self.time(of: held))
+        }.map(\.progress)
     }
 
     /// Strictly older; equal or both untimed is not older, so the later record wins.
