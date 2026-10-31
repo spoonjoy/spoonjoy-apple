@@ -3,7 +3,8 @@ import Foundation
 /// The lines cook mode shows (and VoiceOver reads) about voice. None of them parses as a command, so the mic can
 /// never act on the app's own words.
 public enum CookVoiceNoticeText {
-    public static let listening = "Listening for next, back, repeat, timer"
+    // A command word never ends the line: at a slow VoiceOver rate the mic could hear that last word alone.
+    public static let listening = "Say next, back, repeat or timer when you're ready"
     public static let preparing = "Preparing voice…"
     public static let lastStep = "This is the last step."
     public static let firstStep = "This is the first step."

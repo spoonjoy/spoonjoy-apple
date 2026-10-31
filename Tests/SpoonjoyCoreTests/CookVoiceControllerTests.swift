@@ -253,7 +253,7 @@ struct CookVoiceControllerTests {
         controller.onCommand = { commands.append($0) }
         controller.announced(CookVoiceNoticeText.listening, spokenAloud: true)
         time += CookVoiceController.speakingTime(words: CookVoiceCommand.words(in: CookVoiceNoticeText.listening).count)
-        engine.heard("repeat timer")
+        engine.heard("repeat or timer")
         #expect(commands.isEmpty)
         engine.heard("next")
         engine.heard("timer")
