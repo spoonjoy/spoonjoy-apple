@@ -2664,8 +2664,10 @@ private struct RecipeListAddNoticeView: View {
 }
 
 #if os(iOS)
-/// SwiftUI's `Tab` takes no accessibility identifier, so the dock's tab items are named through UIKit: each tab bar
-/// item gets `dock.<title>`, which stays put however the system lays the dock out.
+/// SwiftUI's `Tab` takes no accessibility identifier, so the dock is named through UIKit. Each `UITab` gets
+/// `CompactTab.dockAccessibilityIdentifier` for its position (the TabView declares its tabs in `CompactTab.allCases`
+/// order). The name goes on the `UITab` itself: UIKit rebuilds the tab bar items and buttons from it whenever the
+/// dock's layout or appearance changes, and a name set only on a generated item was lost with it.
 private struct DockAccessibilityIdentifiers: UIViewRepresentable {
     func makeUIView(context: Context) -> Probe {
         Probe()
@@ -2676,40 +2678,37 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
     }
 
     final class Probe: UIView {
-        override init(frame: CGRect) {
-            super.init(frame: frame)
-            // SwiftUI can rebuild the tab bar items when the appearance or text size changes, dropping the names.
-            registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitPreferredContentSizeCategory.self]) { (probe: Probe, _: UITraitCollection) in
-                probe.apply()
-            }
-        }
-
-        required init?(coder: NSCoder) {
-            fatalError("init(coder:) is not used")
-        }
+        private weak var namedController: UITabBarController?
+        private var searchesLeft = 20
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
             apply()
         }
 
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            apply()
+        func apply() {
+            if let namedController, Self.isNamed(namedController) {
+                return
+            }
+            guard let root = window?.rootViewController else { return }
+            for controller in Self.tabBarControllers(from: root) where controller.tabs.count == CompactTab.allCases.count {
+                for (index, tab) in controller.tabs.enumerated() {
+                    tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
+                }
+                namedController = controller
+            }
+            if namedController == nil, searchesLeft > 0 {
+                // The tab bar controller may not be in the window yet on the first pass.
+                searchesLeft -= 1
+                DispatchQueue.main.async { [weak self] in
+                    self?.apply()
+                }
+            }
         }
 
-        func apply() {
-            DispatchQueue.main.async { [weak self] in
-                guard let root = self?.window?.rootViewController else { return }
-                for controller in Self.tabBarControllers(from: root) {
-                    for item in controller.tabBar.items ?? [] {
-                        guard let title = item.title else { continue }
-                        item.accessibilityIdentifier = "dock.\(title.lowercased())"
-                    }
-                    for tab in controller.tabs {
-                        tab.viewController?.tabBarItem.accessibilityIdentifier = "dock.\(tab.title.lowercased())"
-                    }
-                }
+        private static func isNamed(_ controller: UITabBarController) -> Bool {
+            controller.tabs.enumerated().allSatisfy { index, tab in
+                index < CompactTab.allCases.count && tab.accessibilityIdentifier == CompactTab.allCases[index].dockAccessibilityIdentifier
             }
         }
 
