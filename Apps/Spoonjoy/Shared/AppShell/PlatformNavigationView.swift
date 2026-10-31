@@ -2676,8 +2676,25 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
     }
 
     final class Probe: UIView {
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            // SwiftUI can rebuild the tab bar items when the appearance or text size changes, dropping the names.
+            registerForTraitChanges([UITraitUserInterfaceStyle.self, UITraitPreferredContentSizeCategory.self]) { (probe: Probe, _: UITraitCollection) in
+                probe.apply()
+            }
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) is not used")
+        }
+
         override func didMoveToWindow() {
             super.didMoveToWindow()
+            apply()
+        }
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
             apply()
         }
 
