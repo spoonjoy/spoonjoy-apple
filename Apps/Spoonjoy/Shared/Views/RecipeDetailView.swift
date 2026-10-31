@@ -242,6 +242,11 @@ struct RecipeDetailView: View {
     /// Where each ingredient group starts on the left page, measured in the page's content coordinates.
     @State private var spreadIngredientGroupOffsets: [String: CGFloat] = [:]
     @State private var spreadMethodScrollAnchor: String?
+    /// How far the page is pulled down past its top; the photo stretches by this much.
+    @State private var heroPull: CGFloat = 0
+    /// How far the page has scrolled; paper covers the status bar once the photo has gone under it.
+    @State private var heroScrollOffset: CGFloat = 0
+    @State private var isServesPopoverPresented = false
     /// The fold and hinge of a foldable, read from the system (iOS 27.1 SDK); empty everywhere else.
     @State private var foldReading = FoldReading()
 #if os(iOS)
@@ -250,6 +255,7 @@ struct RecipeDetailView: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.moderation) private var moderation
+    @ScaledMetric(relativeTo: .title3) private var scaledUtilityButtonSize = RecipeHeroMetrics.utilityButtonSize
     @Environment(\.dismiss) private var dismiss
     @State private var moderationPrompt: ModerationPrompt?
 
@@ -264,6 +270,7 @@ struct RecipeDetailView: View {
                 )
             } else {
                 recipeLayout
+                    .toolbar { recipeToolbar }
             }
         }
         .moderationPrompts($moderationPrompt) { dismiss() }
@@ -414,13 +421,74 @@ struct RecipeDetailView: View {
         }
     }
 
-    private var singlePageLayout: some View {
-        KitchenTablePage {
-            offlineIndicator
-            recipeMasthead
-            stepsSection
-            cookLogView(showsHeader: true)
+    /// With a real cover the photo runs edge to edge under the status bar and the recipe sits on a sheet of paper
+    /// over its foot; without one the page opens on the title.
+    @ViewBuilder private var singlePageLayout: some View {
+        if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
+            heroPage(coverImageURL: coverImageURL)
+        } else {
+            KitchenTablePage {
+                offlineIndicator
+                recipeMasthead
+                stepsSection
+                cookLogView(showsHeader: true)
+            }
         }
+    }
+
+    private func heroPage(coverImageURL: URL) -> some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                recipeHeroMedia(coverImageURL: coverImageURL)
+                VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+                    offlineIndicator
+                    recipeMasthead
+                    stepsSection
+                    cookLogView(showsHeader: true)
+                }
+                .padding(.horizontal, KitchenTableTheme.pagePadding)
+                .padding(.top, 26)
+                .padding(.bottom, KitchenTableTheme.compactDockReserve)
+                .frame(maxWidth: 720, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .background(
+                    KitchenTableTheme.page,
+                    in: UnevenRoundedRectangle(
+                        topLeadingRadius: RecipeHeroMetrics.sheetRadius,
+                        topTrailingRadius: RecipeHeroMetrics.sheetRadius,
+                        style: .continuous
+                    )
+                )
+                .padding(.top, -RecipeHeroMetrics.sheetOverlap)
+            }
+        }
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentOffset.y + geometry.contentInsets.top
+        } action: { _, offset in
+            heroScrollOffset = offset
+            heroPull = CGFloat(KitchenHeroStretch.pull(contentOffsetY: Double(offset), topInset: 0))
+        }
+        .background(KitchenTableTheme.page.ignoresSafeArea())
+#if os(iOS)
+        .ignoresSafeArea(edges: .top)
+        // As on the Kitchen: nothing over the photo at rest, a hard edge behind the bar buttons once it scrolls.
+        .scrollEdgeEffectHidden(!KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: Double(heroScrollOffset)), for: .top)
+        .scrollEdgeEffectStyle(.hard, for: .top)
+        // The dish is the title; Back, Share and More float over it as glass.
+        .toolbar(removing: .title)
+        .toolbarBackground(Color.clear, for: .navigationBar)
+        .overlay(alignment: .top) {
+            // Once the photo has scrolled away, paper covers the status bar so text never runs under the clock.
+            Color.clear
+                .frame(height: 0)
+                .background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))
+                .opacity(heroScrollOffset > RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock) - RecipeHeroMetrics.sheetOverlap ? 1 : 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+#else
+        .scrollEdgeEffectStyle(.hard, for: .top)
+#endif
     }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
@@ -451,38 +519,64 @@ struct RecipeDetailView: View {
 #endif
     }
 
+    /// Title, story, the one meta row, then the actions: Cook filled, Save and Add to list as glass.
     private var recipeMasthead: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if viewModel.cover.hasRealCover {
-                recipeHeroMedia
-            }
+        VStack(alignment: .leading, spacing: 18) {
             recipeIdentityAndProvenance
             if !viewModel.cover.hasRealCover {
                 recipeNoPhotoStatus
             }
             recipeMastheadActions
-            // On a phone, Clear progress lives in the Steps heading instead, so checking an ingredient never
-            // pushes the page down.
-            recipeHeaderControls(fillsWidth: usesCompactRecipeDock, includesClearProgress: !usesCompactRecipeDock)
         }
     }
 
-    @ViewBuilder private var recipeHeroMedia: some View {
-        if let coverImageURL = viewModel.cover.imageURL, viewModel.cover.hasRealCover {
+    /// The photo, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
+    private func recipeHeroMedia(coverImageURL: URL) -> some View {
+        GeometryReader { proxy in
+            let scale = KitchenHeroStretch.scale(
+                pull: Double(heroPull),
+                heroHeight: Double(proxy.size.height),
+                reduceMotion: accessibilityReduceMotion
+            )
             RecipeCoverImage(
                 url: coverImageURL,
                 title: viewModel.title,
                 subtitle: "Cover",
                 showsFallbackLabel: false
             )
-                .frame(maxWidth: .infinity, minHeight: 260, maxHeight: 320)
-                .clipped()
-                // One labelled image element, so VoiceOver and the journeys can find the cover.
-                .accessibilityElement(children: .ignore)
-                .accessibilityAddTraits(.isImage)
-                .accessibilityLabel("\(viewModel.title) cover image")
-                .accessibilityIdentifier("recipeDetail.cover")
+            .scaledToFill()
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+            .overlay {
+                // Darkens the top so the status bar and the glass buttons read over any photo, including a bright
+                // plate under dark mode's white glyphs. It holds its weight past the buttons before fading.
+                LinearGradient(
+                    stops: [
+                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0.5), location: 0),
+                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0.3), location: 0.22),
+                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0), location: 0.42)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .scaleEffect(scale, anchor: .top)
+            // Pulled down, the page moves; the photo stays pinned to the top of the screen and grows instead.
+            .offset(y: accessibilityReduceMotion ? 0 : -heroPull)
+            .background(alignment: .top) {
+                // Under Reduce Motion the photo moves down with the page; its dark ground fills the space above it.
+                let fill = CGFloat(KitchenHeroStretch.stillPhotoFill(pull: Double(heroPull), reduceMotion: accessibilityReduceMotion))
+                KitchenTableTheme.photoCharcoal
+                    .frame(height: fill + 1)
+                    .offset(y: -fill)
+            }
         }
+        .frame(height: RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock))
+        // One labelled image element, so VoiceOver and the journeys can find the cover.
+        .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isImage)
+        .accessibilityLabel("\(viewModel.title) cover image")
+        .accessibilityIdentifier("recipeDetail.cover")
     }
 
     private var recipeNoPhotoStatus: some View {
@@ -493,37 +587,104 @@ struct RecipeDetailView: View {
     }
 
     private var recipeIdentityAndProvenance: some View {
-        VStack(alignment: .leading, spacing: usesCompactRecipeDock ? 8 : 14) {
-            Text("Recipe".uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(1.3)
-                .foregroundStyle(KitchenTableTheme.brass)
-
+        VStack(alignment: .leading, spacing: 12) {
             Text(viewModel.title)
                 .font(KitchenTableTheme.displayTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
-                .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("recipeDetail.title")
-            if let subtitle = viewModel.recipe.displaySubtitle {
-                Text(subtitle)
-                    .font(KitchenTableTheme.bodyNote)
+            if let story = viewModel.recipe.displaySubtitle {
+                Text(story)
+                    .font(KitchenTableTheme.story)
                     .foregroundStyle(KitchenTableTheme.ink2)
+                    .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            Text(viewModel.chefAttribution)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.brass)
-
-            if let servingsLabel = viewModel.servingsLabel {
-                Text(servingsLabel)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-            }
-
+            recipeMetaRow
             recipeProvenance
         }
+    }
+
+    /// "23 min · Serves 4 · by maya": every fact once. "Serves 4" is the recipe's one scale control; it opens a
+    /// stepper in place. The time is the timed steps added up and is left out when no step is timed.
+    private var recipeMetaRow: some View {
+        // One layout, so "Serves" has one popover owner: a line, or a stack at accessibility sizes.
+        let stacked = dynamicTypeSize.isAccessibilitySize
+        let layout = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+        return layout {
+            recipeMetaFacts(separated: !stacked)
+        }
+        .font(KitchenTableTheme.meta)
+        .foregroundStyle(KitchenTableTheme.ink2)
+    }
+
+    @ViewBuilder private func recipeMetaFacts(separated: Bool) -> some View {
+        if let cookTime {
+            Text(cookTime)
+                .monospacedDigit()
+                .accessibilityLabel("Takes \(cookTime)")
+            if separated {
+                metaDot
+            }
+        }
+        recipeServesControl
+        if separated {
+            metaDot
+        }
+        Text("by \(viewModel.recipe.chef.username)")
+            .lineLimit(1)
+    }
+
+    private var metaDot: some View {
+        Text("·")
+            .accessibilityHidden(true)
+    }
+
+    private var cookTime: String? {
+        RecipeCookTime.label(stepDurations: viewModel.stepSections.map(\.durationMinutes))
+    }
+
+    private var serves: RecipeServes {
+        RecipeServes(servings: viewModel.recipe.servings)
+    }
+
+    private var recipeServesControl: some View {
+        Button {
+            isServesPopoverPresented = true
+        } label: {
+            HStack(spacing: 4) {
+                Text(serves.label(scale: shoppingScaleFactor))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(value: shoppingScaleFactor))
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.bold))
+                    .accessibilityHidden(true)
+            }
+            .font(KitchenTableTheme.meta.weight(.semibold))
+            .foregroundStyle(KitchenTableTheme.ink)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 7)
+            .background(KitchenTableTheme.vellum, in: Capsule())
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(serves.label(scale: shoppingScaleFactor))
+        .accessibilityHint("Changes how many the recipe serves; every amount scales with it.")
+        .accessibilityIdentifier("recipe.serves")
+        .popover(isPresented: $isServesPopoverPresented, arrowEdge: .top) {
+            RecipeServesPopover(
+                serves: serves,
+                scaleFactor: Binding(
+                    get: { shoppingScaleFactor },
+                    set: { shoppingScaleFactor = RecipeServes.normalizedScale($0) }
+                )
+            )
+        }
+        .kitchenAnimation(.snappy, value: shoppingScaleFactor)
     }
 
     @ViewBuilder private var recipeProvenance: some View {
@@ -531,23 +692,6 @@ struct RecipeDetailView: View {
             Label(sourceAttribution.creditLine, systemImage: Self.provenanceIconName)
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.ink2)
-        }
-    }
-
-    /// On a spread page the yield control fills the page so it lines up with the actions above it.
-    private func recipeHeaderControls(fillsWidth: Bool, includesClearProgress: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            RecipeScaleSelector(
-                scaleFactor: shoppingScaleFactor,
-                displayValue: scaledYieldLabel,
-                setScaleFactor: { shoppingScaleFactor = normalizedScaleFactor($0) },
-                isCompact: usesCompactRecipeDock
-            )
-            .frame(maxWidth: fillsWidth ? .infinity : 440)
-
-            if includesClearProgress {
-                clearProgressButton
-            }
         }
     }
 
@@ -578,23 +722,65 @@ struct RecipeDetailView: View {
             .animation(accessibilityReduceMotion ? nil : .easeOut(duration: 0.2), value: hasRecipeProgress)
     }
 
+    /// Cook is the page's one filled button. Save and Add to list are glass circles beside it; everything else is
+    /// under More in the bar.
+    /// At the accessibility text sizes Cook takes the full width and the circles move to the row under it.
     private var recipeMastheadActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            recipePrimaryActions
-            if !usesCompactRecipeDock {
-                if hasAction(.logCook) || hasSecondaryRecipeActions {
-                    HStack(spacing: 10) {
-                        if hasAction(.logCook) {
-                            recipeMastheadLogCookAction
-                        }
-                        recipeSecondaryActions
-                    }
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(spacing: 10))
+        return VStack(alignment: .leading, spacing: 10) {
+            layout {
+                if hasAction(.startCooking) {
+                    startCookingButton
+                }
+                HStack(spacing: 10) {
+                    recipeUtilityButtons
                 }
             }
-            if !usesCompactRecipeDock {
-                ownerTools
-            }
+            .frame(maxWidth: 520, alignment: .leading)
             actionStatus
+        }
+    }
+
+    /// Grows with the text size, capped so two circles still sit beside each other at AX5.
+    private var utilityButtonSize: CGFloat {
+        min(scaledUtilityButtonSize, RecipeHeroMetrics.maximumUtilityButtonSize)
+    }
+
+    private var utilityButtonFont: Font {
+        .system(size: utilityButtonSize * 0.4, weight: .semibold)
+    }
+
+    @ViewBuilder private var recipeUtilityButtons: some View {
+        if hasAction(.saveToCookbook) {
+            Button {
+                isCookbookSaveSheetPresented = true
+            } label: {
+                Label("Save", systemImage: "bookmark")
+                    .labelStyle(.iconOnly)
+                    .font(utilityButtonFont)
+                    .frame(width: utilityButtonSize, height: utilityButtonSize)
+            }
+            .recipeGlassCircle()
+            .accessibilityLabel("Save")
+            .accessibilityHint("Saves this recipe to a cookbook.")
+        }
+        if hasAction(.addToShoppingList) {
+            Button {
+                addRecipeIngredients()
+            } label: {
+                Label(
+                    hasIngredientsInShoppingList ? "In list" : "Add to list",
+                    systemImage: hasIngredientsInShoppingList ? "checkmark" : "cart.badge.plus"
+                )
+                .labelStyle(.iconOnly)
+                .font(utilityButtonFont)
+                .frame(width: utilityButtonSize, height: utilityButtonSize)
+            }
+            .disabled(hasIngredientsInShoppingList)
+            .recipeGlassCircle()
+            .accessibilityLabel(hasIngredientsInShoppingList ? "In list" : "Add to list")
         }
     }
 
@@ -604,7 +790,6 @@ struct RecipeDetailView: View {
         } label: {
             Label("Log", systemImage: "fork.knife.circle")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
     }
 
     private var cookLogSheet: some View {
@@ -631,98 +816,43 @@ struct RecipeDetailView: View {
 #endif
     }
 
-    @ViewBuilder private var recipePrimaryActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if hasAction(.startCooking) {
-                if usesCompactRecipeDock {
-                    // One row on iPhone: Cook mode, Log, and the actions menu as an icon.
-                    HStack(spacing: 10) {
-                        startCookingButton
-                        if hasAction(.logCook) {
-                            recipeMastheadLogCookAction
-                        }
-                        if hasCompactRecipeMenuActions {
-                            compactRecipeActionsMenu
-                        }
-                    }
-                } else {
-                    startCookingButton
-                }
-            }
-
-            if hasRecipeUtilityActions && !usesCompactRecipeDock {
-                HStack(spacing: 10) {
-                    if hasAction(.saveToCookbook) {
-                        Button {
-                            isCookbookSaveSheetPresented = true
-                        } label: {
-                            Label("Save", systemImage: "book.closed")
-                        }
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                    }
-
-                    if hasAction(.addToShoppingList) {
-                        Button {
-                            addRecipeIngredients()
-                        } label: {
-                            Label(
-                                hasIngredientsInShoppingList ? "In list" : "Add to list",
-                                systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
-                            )
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.76)
-                        }
-                        .disabled(hasIngredientsInShoppingList)
-                        .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
-                    }
-                }
-            }
-        }
-    }
-
     private var startCookingButton: some View {
         Button {
             openRoute(viewModel.actions.startCookingRoute)
         } label: {
-            Label("Cook mode", systemImage: "fork.knife")
+            Label("Cook", systemImage: "play.fill")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .accessibilityHint("Opens cook mode at this recipe's servings.")
         .accessibilityIdentifier("recipeDetail.cook")
     }
 
-    private var compactRecipeActionsMenu: some View {
-        Menu {
-            recipeMenuItems(includeSave: true, includeAddToList: true)
-            ownerToolsMenuItems
-        } label: {
-            Label("Recipe actions", systemImage: "ellipsis.circle")
-                .labelStyle(.iconOnly)
-        }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-        .fixedSize()
-        .accessibilityLabel("Recipe actions")
-        .accessibilityIdentifier("recipeDetail.actions")
-    }
-
-    @ViewBuilder private var recipeSecondaryActions: some View {
-        if hasSecondaryRecipeActions {
-            Menu {
-                recipeMenuItems(includeSave: false, includeAddToList: true)
-            } label: {
-                Label("More", systemImage: "ellipsis.circle")
+    /// Back, Share and More, as glass in the bar over the photo.
+    @ToolbarContentBuilder private var recipeToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .primaryAction) {
+            if hasAction(.share), let shareURL = viewModel.actions.sharePayload?.publicURL {
+                ShareLink(item: shareURL) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .accessibilityIdentifier("recipeDetail.share")
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .accessibilityIdentifier("recipeDetail.actions")
+            if hasMoreRecipeActions || showsSearchAllInMore {
+                Menu {
+                    recipeMoreMenuItems
+                } label: {
+                    Label("More", systemImage: "ellipsis")
+                }
+                .accessibilityLabel("More")
+                .accessibilityIdentifier("recipeDetail.actions")
+            }
         }
     }
 
-    @ViewBuilder private func recipeMenuItems(includeSave: Bool, includeAddToList: Bool) -> some View {
-        if includeSave && hasAction(.saveToCookbook) {
-            Button {
-                isCookbookSaveSheetPresented = true
-            } label: {
-                Label("Save", systemImage: "book.closed")
-            }
+    /// Everything that is not Cook, Save, Add to list or Share: logging a cook, variations, Reminders, owner tools
+    /// and moderation.
+    @ViewBuilder private var recipeMoreMenuItems: some View {
+        if hasAction(.logCook) {
+            recipeMastheadLogCookAction
         }
         if hasAction(.fork) || hasAction(.makeVariation) {
             Button {
@@ -734,21 +864,14 @@ struct RecipeDetailView: View {
                 Label(viewModel.actions.fork.label, systemImage: "arrow.branch")
             }
         }
-        if hasAction(.share), let shareURL = viewModel.actions.sharePayload?.publicURL {
-            ShareLink(item: shareURL) {
-                Label("Share", systemImage: "square.and.arrow.up")
-            }
-        }
-        if includeAddToList && hasAction(.addToShoppingList) {
+        remindersMenuItems
+        ownerToolsMenuItems
+        if showsSearchAllInMore {
             Button {
-                addRecipeIngredients()
+                openRoute(.search(query: "", scope: .all))
             } label: {
-                Label("Add to list", systemImage: "cart.badge.plus")
+                Label("Search All", systemImage: "magnifyingglass")
             }
-            .disabled(hasIngredientsInShoppingList)
-        }
-        if includeAddToList {
-            remindersMenuItems
         }
         if canModerate {
             ModerationMenuItems(
@@ -804,16 +927,19 @@ struct RecipeDetailView: View {
         )
     }
 
-    private var hasSecondaryRecipeActions: Bool {
-        hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || hasAction(.addToShoppingList) || hasIngredientsToSendToReminders || canModerate
+    /// The shell's Actions menu steps aside on the recipe page, so its Search All moves here. Phones have the
+    /// Search tab instead.
+    private var showsSearchAllInMore: Bool {
+#if os(iOS)
+        horizontalSizeClass == .regular
+#else
+        true
+#endif
     }
 
-    private var hasCompactRecipeMenuActions: Bool {
-        hasRecipeUtilityActions || hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders || canModerate
-    }
-
-    private var hasRecipeUtilityActions: Bool {
-        hasAction(.saveToCookbook) || hasAction(.addToShoppingList)
+    private var hasMoreRecipeActions: Bool {
+        hasAction(.logCook) || hasAction(.fork) || hasAction(.makeVariation) || hasIngredientsToSendToReminders
+            || viewModel.ownerTools.isVisible || canModerate
     }
 
     private var stepsSection: some View {
@@ -830,12 +956,11 @@ struct RecipeDetailView: View {
                 }
             }
         } accessory: {
-            if usesCompactRecipeDock {
-                stepsClearProgress
-            }
+            stepsClearProgress
         }
+        // Scaling rolls every amount to its new value.
+        .kitchenAnimation(.snappy, value: shoppingScaleFactor)
     }
-
     /// The step's ingredients as the web shows them: unchecked first, checked ones sunk to the bottom, each
     /// group in the step's own order.
     private func orderedIngredients(_ ingredients: [RecipeDetailIngredientRow]) -> [RecipeDetailIngredientRow] {
@@ -847,16 +972,16 @@ struct RecipeDetailView: View {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
                     stepEyebrow(section)
-                    if let durationLabel = section.durationLabel {
-                        RecipeStepDurationCue(durationLabel: durationLabel)
+                    if let title = section.title, !title.isEmpty {
+                        Text(title)
+                            .font(KitchenTableTheme.stepTitle)
+                            .foregroundStyle(KitchenTableTheme.ink)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
-                if let title = section.title, !title.isEmpty {
-                    Text(title)
-                        .font(KitchenTableTheme.sectionTitle)
-                        .foregroundStyle(KitchenTableTheme.ink)
-                        .fixedSize(horizontal: false, vertical: true)
+                if let durationLabel = section.durationLabel {
+                    RecipeStepDurationCue(durationLabel: durationLabel)
                 }
             }
 
@@ -992,31 +1117,6 @@ struct RecipeDetailView: View {
             onDismissOfflineIndicator: onDismissOfflineIndicator
         )
         .id(viewModel.id)
-    }
-
-    @ViewBuilder private var ownerTools: some View {
-        if viewModel.ownerTools.isVisible {
-            ownerToolsMenu
-        }
-    }
-
-    private var ownerToolsMenu: some View {
-        Menu {
-            ownerToolsMenuItems
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.headline.weight(.semibold))
-                .frame(width: KitchenTableTheme.minimumTouchTarget + 2, height: KitchenTableTheme.minimumTouchTarget + 2)
-                .foregroundStyle(KitchenTableTheme.ink)
-                .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                .overlay {
-                    RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                        .strokeBorder(KitchenTableTheme.hairline.opacity(0.75), lineWidth: 1)
-                }
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Manage recipe")
-        .accessibilityHint("Opens owner tools for this recipe.")
     }
 
     @ViewBuilder private var ownerToolsMenuItems: some View {
@@ -1184,27 +1284,6 @@ struct RecipeDetailView: View {
         if localHasIngredientsInShoppingList == nil {
             localHasIngredientsInShoppingList = viewModel.hasIngredientsInShoppingList
         }
-    }
-
-    private var scaledYieldLabel: String {
-        guard let rawServings = viewModel.recipe.servings?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !rawServings.isEmpty else {
-            return "\(formattedScaleFactor)x"
-        }
-
-        guard let baseServings = Double(rawServings) else {
-            return shoppingScaleFactor == 1 ? "Serves \(rawServings)" : "\(rawServings) at \(formattedScaleFactor)x"
-        }
-
-        return "Serves \(formattedServings(baseServings * shoppingScaleFactor))"
-    }
-
-    private var formattedScaleFactor: String {
-        shoppingScaleFactor.formatted(.number.precision(.fractionLength(0...2)))
-    }
-
-    private func formattedServings(_ servings: Double) -> String {
-        servings.formatted(.number.precision(.fractionLength(0...2)))
     }
 
     private var stepIngredientCount: Int {
@@ -1460,12 +1539,7 @@ extension RecipeDetailView {
                 .accessibilityLabel("\(viewModel.title) cover image")
                 .accessibilityIdentifier("recipeDetail.cover")
             }
-            recipeIdentityAndProvenance
-            if !viewModel.cover.hasRealCover {
-                recipeNoPhotoStatus
-            }
-            spreadActions
-            recipeHeaderControls(fillsWidth: true, includesClearProgress: true)
+            recipeMasthead
             spreadIngredientList(index: index)
         }
         .scrollTargetLayout()
@@ -1473,63 +1547,16 @@ extension RecipeDetailView {
         .coordinateSpace(name: Self.spreadIngredientContentSpace)
     }
 
-    /// Cooking is the page's one primary action, so it gets its own full-width row; the utilities share the row
-    /// beneath it. A single row truncated every label at page width.
-    private var spreadActions: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            if hasAction(.startCooking) {
-                startCookingButton
-            }
-            HStack(spacing: 10) {
-                spreadUtilityButtons
-            }
-            actionStatus
-        }
-    }
-
-    @ViewBuilder private var spreadUtilityButtons: some View {
-        if hasAction(.saveToCookbook) {
-            Button {
-                isCookbookSaveSheetPresented = true
-            } label: {
-                Label("Save", systemImage: "book.closed")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-        }
-        if hasAction(.addToShoppingList) {
-            Button {
-                addRecipeIngredients()
-            } label: {
-                Label(
-                    hasIngredientsInShoppingList ? "In list" : "Add to list",
-                    systemImage: hasIngredientsInShoppingList ? "checkmark.circle.fill" : "cart.badge.plus"
-                )
-                .lineLimit(1)
-            }
-            .disabled(hasIngredientsInShoppingList)
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: hasIngredientsInShoppingList ? .quiet : .secondary))
-        }
-        if hasAction(.fork) || hasAction(.makeVariation) || hasAction(.share) || viewModel.ownerTools.isVisible || hasIngredientsToSendToReminders || canModerate {
-            Menu {
-                recipeMenuItems(includeSave: false, includeAddToList: false)
-                remindersMenuItems
-                ownerToolsMenuItems
-            } label: {
-                Label("More", systemImage: "ellipsis.circle")
-                    .labelStyle(.iconOnly)
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .frame(width: 64)
-            .accessibilityLabel("More recipe actions")
-        }
-    }
-
     @ViewBuilder private func spreadIngredientList(index: RecipeSpreadIngredientIndex) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Ingredients")
-                .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.ink)
-                .accessibilityAddTraits(.isHeader)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text("Ingredients")
+                    .font(KitchenTableTheme.sectionTitle)
+                    .foregroundStyle(KitchenTableTheme.ink)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: 0)
+                stepsClearProgress
+            }
             Text(index.isEmpty ? "No ingredients added yet" : "Grouped by the step that uses them")
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.ink2)
@@ -1808,73 +1835,95 @@ private struct RecipeActionConfirmationDialog {
     let clientMutationID: String
 }
 
-private struct RecipeScaleSelector: View {
-    let scaleFactor: Double
-    let displayValue: String
-    let setScaleFactor: (Double) -> Void
-    var isCompact = false
-
-    private let step = 0.25
-    private let minimum = 0.25
-    private let maximum = 50.0
+/// What "Serves 4" opens: a stepper that scales every amount on the page, in place.
+private struct RecipeServesPopover: View {
+    let serves: RecipeServes
+    @Binding var scaleFactor: Double
 
     var body: some View {
-        HStack(spacing: 0) {
-            scaleButton(systemImage: "minus", label: "Decrease scale", isDisabled: scaleFactor <= minimum) {
-                setScaleFactor(max(minimum, rounded(scaleFactor - step)))
+        VStack(alignment: .leading, spacing: 12) {
+            Stepper {
+                servesLabel
+            } onIncrement: {
+                increment()
+            } onDecrement: {
+                decrement()
             }
+            .accessibilityIdentifier("recipe.serves.stepper")
 
-            VStack(spacing: isCompact ? 0 : 2) {
-                Text("Yield")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .textCase(.uppercase)
-                    .tracking(1.2)
-                Text(displayValue)
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.72)
-            }
-            .frame(maxWidth: .infinity, minHeight: isCompact ? 48 : 64)
-            .padding(.horizontal, 12)
+            Text("Every amount on the page scales with it, and cook mode opens at it.")
+                .font(KitchenTableTheme.meta)
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .fixedSize(horizontal: false, vertical: true)
 
-            scaleButton(systemImage: "plus", label: "Increase scale", isDisabled: scaleFactor >= maximum) {
-                setScaleFactor(min(maximum, rounded(scaleFactor + step)))
+            if scaleFactor != 1 {
+                Button("Back to the recipe's amounts") {
+                    scaleFactor = 1
+                }
+                .font(KitchenTableTheme.control)
+                .foregroundStyle(KitchenTableTheme.brass)
+                .buttonStyle(.plain)
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .kitchenTransition(.opacity)
             }
         }
-        .background(KitchenTableTheme.raised)
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.hairline.opacity(0.72), lineWidth: 1)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Yield")
-        .accessibilityValue(displayValue)
+        .padding(20)
+        .frame(minWidth: 280, idealWidth: 320, maxWidth: 360, alignment: .leading)
+        .kitchenAnimation(.snappy, value: scaleFactor)
+        .kitchenHaptic(.servingsStepped, trigger: scaleFactor)
+        // Paper, so the page under the popover never shows through its words.
+        .presentationBackground(KitchenTableTheme.page)
+        .presentationCompactAdaptation(.popover)
     }
 
-    private func scaleButton(
-        systemImage: String,
-        label: String,
-        isDisabled: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.body.weight(.bold))
-                .frame(width: 52, height: isCompact ? 48 : 64)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .foregroundStyle(isDisabled ? KitchenTableTheme.ink2.opacity(0.42) : KitchenTableTheme.ink)
-        .accessibilityLabel(label)
+    private var servesLabel: some View {
+        Text(serves.label(scale: scaleFactor))
+            .font(KitchenTableTheme.sectionTitle)
+            .foregroundStyle(KitchenTableTheme.ink)
+            .monospacedDigit()
+            .contentTransition(.numericText(value: scaleFactor))
+            .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func rounded(_ value: Double) -> Double {
-        (value * 100).rounded() / 100
+    // At the ends of the range the stepper's button does nothing; the label already shows the limit.
+    private func increment() {
+        guard serves.canIncrement(scaleFactor) else { return }
+        scaleFactor = serves.incremented(scaleFactor)
+    }
+
+    private func decrement() {
+        guard serves.canDecrement(scaleFactor) else { return }
+        scaleFactor = serves.decremented(scaleFactor)
+    }
+}
+
+/// The recipe page's photo and the paper sheet that rides up over its foot, matching the Kitchen's hero.
+private enum RecipeHeroMetrics {
+    static let sheetOverlap: CGFloat = 28
+    static let sheetRadius: CGFloat = 28
+    /// Save and Add to list at the default text size: a full touch target with room for the glass rim. It scales
+    /// with Dynamic Type up to `maximumUtilityButtonSize`.
+    static let utilityButtonSize: CGFloat = 52
+    static let maximumUtilityButtonSize: CGFloat = 80
+
+    /// About half a phone's height, so the dish leads and the title still shows on the first screen.
+    static func height(isRegular: Bool) -> CGFloat {
+#if os(macOS)
+        360
+#else
+        isRegular ? 480 : 420
+#endif
+    }
+}
+
+private extension View {
+    /// A quiet glass circle for the page's secondary actions; Cook is the only filled button.
+    func recipeGlassCircle() -> some View {
+        buttonStyle(.plain)
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(KitchenTableTheme.ink)
+            .contentShape(Circle())
+            .glassEffect(.regular.interactive(), in: Circle())
     }
 }
 
@@ -1973,6 +2022,7 @@ private struct RecipeStepChecklistRow: View {
             Text(amount)
                 .font(KitchenTableTheme.uiLabel)
                 .monospacedDigit()
+                .contentTransition(.numericText())
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }

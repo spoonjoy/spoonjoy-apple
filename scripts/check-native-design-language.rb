@@ -138,7 +138,7 @@ surface_contract_phrases = [
   "Settings",
   "lead food/cookbook/list object",
   "hero/provenance",
-  "header yield controls",
+  "inline serves control",
   "modal `Save to Cookbook` flow",
   "web-parity `Steps`",
   "per-step `Ingredients`",

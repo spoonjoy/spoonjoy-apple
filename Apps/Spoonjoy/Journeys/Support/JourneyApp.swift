@@ -340,6 +340,21 @@ final class JourneyApp {
         back.tap()
     }
 
+    /// Taps a stepper's plus button once. SwiftUI names the button after the stepper: "<id>-Increment".
+    func increment(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
+        let plus = element("\(id)-Increment")
+        XCTAssertTrue(plus.waitForExistence(timeout: Self.interactionTimeout), "\(id) has no plus button. Screen: \(screen)", file: file, line: line)
+        plus.tap()
+    }
+
+    /// Closes the open popover the way a person does, by tapping outside it.
+    func dismissPopover(file: StaticString = #filePath, line: UInt = #line) {
+        let outside = app.otherElements["PopoverDismissRegion"]
+        XCTAssertTrue(outside.waitForExistence(timeout: Self.interactionTimeout), "No popover is open. Screen: \(screen)", file: file, line: line)
+        outside.tap()
+        XCTAssertTrue(outside.waitForNonExistence(timeout: Self.interactionTimeout), "The popover did not close. Screen: \(screen)", file: file, line: line)
+    }
+
     /// Asserts that a text field holds nothing (an empty field reports its placeholder as its value).
     func assertFieldEmpty(_ id: String, file: StaticString = #filePath, line: UInt = #line) {
         let field = element(id)

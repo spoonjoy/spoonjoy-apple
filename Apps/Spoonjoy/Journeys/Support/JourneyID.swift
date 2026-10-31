@@ -83,6 +83,9 @@ enum JourneyID {
     /// button, which on a phone sits in the Steps heading and only exists for VoiceOver once there is progress.
     static let recipeDetailIngredient = "recipeDetail.ingredient"
     static let recipeDetailClearProgress = "recipeDetail.clearProgress"
+    /// The "Serves 4" chip in the recipe page's meta row, and the stepper in the popover it opens.
+    static let recipeServes = "recipe.serves"
+    static let recipeServesStepper = "recipe.serves.stepper"
 
     /// The recipe's cover image, shown once it has a real cover.
     static let recipeDetailCover = "recipeDetail.cover"
@@ -96,7 +99,7 @@ enum JourneyID {
     static let heldChangeUseTheirs = "recipe.heldChange.useTheirs"
     static func heldChangeField(_ field: String, version: String) -> String { "recipe.heldChange.field.\(field).\(version)" }
 
-    /// The recipe detail page's actions menu ("Recipe actions" on a phone, "More" on a wide screen).
+    /// The recipe detail page's More menu, in the bar over the photo.
     static let recipeDetailActions = "recipeDetail.actions"
     static let recipeDetailRemindersSend = "recipeDetail.remindersSend"
     /// The success or error line under the recipe's actions.
@@ -108,7 +111,7 @@ enum JourneyID {
     static let remindersNewListName = "reminders.newListName"
     static let remindersCreateList = "reminders.createList"
 
-    /// The recipe detail page's "Cook mode" button, and every ingredient checkbox in cook mode (the label is the ingredient).
+    /// The recipe detail page's "Cook" button, and every ingredient checkbox in cook mode (the label is the ingredient).
     static let recipeDetailCook = "recipeDetail.cook"
     static let cookIngredient = "cookMode.ingredient"
     /// Cook mode's current step page (the pager turns it by a horizontal swipe), its "Recipe · Step N of M" line, the step

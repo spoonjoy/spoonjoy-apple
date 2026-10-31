@@ -20,7 +20,9 @@ struct KitchenView: View {
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
-    @Namespace private var recipeTransition
+    /// The tab stack's cover-zoom namespace, so a tapped cover grows into its recipe; its own outside a tab stack.
+    @Environment(\.recipeZoomNamespace) private var tabRecipeTransition
+    @Namespace private var localRecipeTransition
     /// How far the page is pulled down past its top; the hero stretches by this much.
     @State private var heroPull: CGFloat = 0
     /// How far the page has scrolled; paper covers the status bar once the hero has gone under it.
@@ -28,6 +30,10 @@ struct KitchenView: View {
     @State private var heroHeight: CGFloat = 0
     /// The status bar, the bar buttons and any offline line above the page, which the photo runs under.
     @State private var chromeHeight: CGFloat = 0
+
+    private var recipeTransition: Namespace.ID {
+        tabRecipeTransition ?? localRecipeTransition
+    }
 
     var body: some View {
         content
@@ -506,6 +512,7 @@ struct RecipeLead: View {
                     .offset(y: -fill)
             }
         }
+        .recipeZoomSource(id: recipe.id)
         .accessibilityHidden(true)
     }
 
@@ -546,9 +553,10 @@ struct RecipeLead: View {
         .frame(maxWidth: 640, alignment: .leading)
     }
 
-    /// "Serves 4 · by maya".
+    /// "23 min · Serves 4 · by maya"; the time is the timed steps added up, and is left out when none is timed.
     private var meta: String? {
         let parts = [
+            RecipeCookTime.label(stepDurations: recipe.steps.map(\.duration)),
             recipe.servings.map { "Serves \($0)" },
             "by \(recipe.chef.username)"
         ]

@@ -21,7 +21,9 @@ struct RecipesView: View {
     @State private var state: RecipeCatalogState
     @State private var query: String
     @State private var isLoading = false
-    @Namespace private var recipeTransition
+    /// The tab stack's cover-zoom namespace, so a tapped cover grows into its recipe; its own outside a tab stack.
+    @Environment(\.recipeZoomNamespace) private var tabRecipeTransition
+    @Namespace private var localRecipeTransition
 
     init(
         viewModel: RecipeCatalogViewModel,
@@ -49,6 +51,10 @@ struct RecipesView: View {
         self.subtitleOverride = subtitleOverride
         _state = State(initialValue: viewModel.state)
         _query = State(initialValue: viewModel.state.query)
+    }
+
+    private var recipeTransition: Namespace.ID {
+        tabRecipeTransition ?? localRecipeTransition
     }
 
     var body: some View {
@@ -359,6 +365,7 @@ private struct RecipeCatalogLead: View {
             )
             .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
             .clipped()
+            .recipeZoomSource(id: row.id)
         } else {
             RecipeCoverImage(
                 url: nil,

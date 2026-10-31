@@ -893,7 +893,9 @@ write_sync_store() {
                   }
                 ]
               end
-    if route == "recipe-detail"
+    # The recipe the Kitchen and Recipes lead with, and the recipe page, carry a real cover photo, so the captures
+    # show the photo-led layouts and the cover zoom has a photo to grow from.
+    if %w[kitchen recipes recipe-detail].include?(route)
       cover_asset_path = File.expand_path("Apps/Spoonjoy/Shared/Assets.xcassets/LemonPantryPasta.imageset/lemon-pantry-pasta.png")
       recipes = recipes.map do |recipe|
         next recipe unless recipe.fetch("id") == "recipe_lemon_pantry_pasta"
@@ -1322,6 +1324,8 @@ ios_launch_app() {
 }
 
 open_macos_app() {
+  # The simulator takes `simctl ui appearance`; the Mac app reads SPOONJOY_SCREENSHOT_APPEARANCE in capture mode
+  # instead, so a dark capture does not switch the whole desktop.
   set_macos_launch_environment
   run_with_timeout "macOS launch timeout" "$macos_launch_timeout_seconds" "$capture_log" \
     env \
@@ -1340,6 +1344,7 @@ open_macos_app() {
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE="$screenshot_route" \
       SPOONJOY_SCREENSHOT_PROOF_PATH="$screenshot_proof_path" \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH="$accessibility_proof_macos_abs" \
+      SPOONJOY_SCREENSHOT_APPEARANCE="$requested_appearance" \
       SPOONJOY_API_BASE_URL="https://spoonjoy.app" \
       open -n "$macos_app"
 }
@@ -1366,6 +1371,7 @@ set_macos_launch_environment() {
       SPOONJOY_SCREENSHOT_EXPECTED_ROUTE \
       SPOONJOY_SCREENSHOT_PROOF_PATH \
       SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH \
+      SPOONJOY_SCREENSHOT_APPEARANCE \
       SPOONJOY_API_BASE_URL
     do
       local value
@@ -1392,6 +1398,7 @@ set_macos_launch_environment() {
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_EXPECTED_ROUTE "$screenshot_route"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_PROOF_PATH "$screenshot_proof_path"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH "$accessibility_proof_macos_abs"
+  launchctl asuser "$uid" launchctl setenv SPOONJOY_SCREENSHOT_APPEARANCE "$requested_appearance"
   launchctl asuser "$uid" launchctl setenv SPOONJOY_API_BASE_URL "https://spoonjoy.app"
 }
 
@@ -1736,11 +1743,11 @@ wait_for_accessibility_proof() {
           "declaredLayoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters"]
         },
         "recipe-detail" => {
-          "voiceOverLabels" => ["Cook mode", "Save", "Yield", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
-          "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "recipe yield controls", "step ingredient rows"],
+          "voiceOverLabels" => ["Cook", "Save", "Serves", "Clear progress", "Add to list", "More", "Steps", "Ingredients", "Cooks"],
+          "keyboardNavigationTargets" => ["recipe primary actions", "recipe secondary menu", "inline serves control", "step ingredient rows"],
           "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
           "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers", "secondary text on bone"],
-          "hierarchyAnchors" => ["RecipeDetailView", "recipeHeaderControls", "RecipeScaleSelector", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
+          "hierarchyAnchors" => ["RecipeDetailView", "recipeServesControl", "RecipeServesPopover", "KitchenTableActionButtonStyle", "stepsSection", "RecipeStepChecklistRow", "SpoonCookLogView"],
           "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
         },
         "cook-log" => {

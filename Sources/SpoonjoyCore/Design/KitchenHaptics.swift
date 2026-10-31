@@ -18,10 +18,12 @@ public enum KitchenHapticMoment: CaseIterable, Sendable {
     case cookFinished
     case listItemChecked
     case destructiveConfirm
+    /// The recipe page's Serves stepper moved a serving (or a step of scale).
+    case servingsStepped
 
     public var feedback: KitchenHapticKind {
         switch self {
-        case .ingredientChecked, .listItemChecked: .selection
+        case .ingredientChecked, .listItemChecked, .servingsStepped: .selection
         case .stepTurned: .impactLight
         case .timerStarted: .impactMedium
         case .timerFinished, .cookFinished: .success

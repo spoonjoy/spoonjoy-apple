@@ -34,6 +34,7 @@ final class RecipesJourney: JourneyTestCase {
         )
         _ = try await qa.createRecipe(
             title: title,
+            servings: "4",
             steps: [
                 RecipeStepDraft(
                     stepNum: 1,
@@ -135,6 +136,36 @@ final class RecipesJourney: JourneyTestCase {
         )
         journey.attachScreenshot(named: "04-saved-recipe", to: self)
 
+        // "Serves 4" in the meta row is the recipe's one scale control: two more servings scale every amount.
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailIngredient, labelContaining: "1 cup").exists,
+            "The basil does not start at 1 cup. Screen: \(journey.screen)"
+        )
+        journey.tap(JourneyID.recipeServes)
+        let servesStepper = journey.element(JourneyID.recipeServesStepper)
+        XCTAssertTrue(servesStepper.waitForExistence(timeout: JourneyApp.interactionTimeout), "Serves 4 did not open its stepper. Screen: \(journey.screen)")
+        journey.increment(JourneyID.recipeServesStepper)
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeServesStepper, labelContaining: "Serves 5").waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "One increment did not reach Serves 5, or the stepper closed. Screen: \(journey.screen)"
+        )
+        journey.increment(JourneyID.recipeServesStepper)
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeServesStepper, labelContaining: "Serves 6").waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Two increments did not reach Serves 6. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "04a-serves-popover", to: self)
+        journey.dismissPopover()
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeServes, labelContaining: "Serves 6").waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "The meta row does not read Serves 6 after scaling. Screen: \(journey.screen)"
+        )
+        XCTAssertTrue(
+            journey.element(JourneyID.recipeDetailIngredient, labelContaining: "1 ½ cup").exists,
+            "Serving 6 instead of 4 did not scale the basil to 1 ½ cups. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "04b-scaled-ingredients", to: self)
+
         journey.openSearch()
         journey.search(for: title)
         XCTAssertTrue(
@@ -184,6 +215,15 @@ final class RecipesJourney: JourneyTestCase {
             XCTAssertTrue(
                 journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
                 "Step 2 lost its spaghetti after a relaunch. Screen: \(journey.screen)"
+            )
+            // The page's scale is saved per recipe, so it comes back at six servings.
+            XCTAssertTrue(
+                journey.element(JourneyID.recipeServes, labelContaining: "Serves 6").exists,
+                "The recipe forgot it serves 6 after a relaunch. Screen: \(journey.screen)"
+            )
+            XCTAssertTrue(
+                journey.element(JourneyID.recipeDetailIngredient, labelContaining: "1 ½ cup").exists,
+                "The basil lost its scaled amount after a relaunch. Screen: \(journey.screen)"
             )
             // Rice is step 2's last ingredient, so checking it keeps the list's order; the tap scrolls the list
             // into view for the capture.
