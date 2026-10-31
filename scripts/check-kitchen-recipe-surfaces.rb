@@ -307,9 +307,15 @@ REQUIRED_TOKENS.each do |relative_path, tokens|
   fail_check("#{relative_path} missing required surface tokens: #{missing_tokens.join(", ")}") unless missing_tokens.empty?
 end
 
+# The 1.1 cookbook shelf is a grid of book covers by design; every other surface stays a list.
+FORBIDDEN_TOKEN_EXCEPTIONS = {
+  "Apps/Spoonjoy/Shared/Views/CookbooksView.swift" => ["LazyVGrid"]
+}.freeze
+
 forbidden_hits = REQUIRED_FILES.select { |relative_path| relative_path.end_with?(".swift") }.flat_map do |relative_path|
   content = uncommented_swift(ROOT.join(relative_path).read)
-  FORBIDDEN_TOKENS.select { |token| content.include?(token) }.map { |token| "#{relative_path} contains #{token}" }
+  allowed = FORBIDDEN_TOKEN_EXCEPTIONS.fetch(relative_path, [])
+  (FORBIDDEN_TOKENS - allowed).select { |token| content.include?(token) }.map { |token| "#{relative_path} contains #{token}" }
 end
 fail_check("forbidden kitchen/recipe surface tokens: #{forbidden_hits.join(", ")}") unless forbidden_hits.empty?
 
