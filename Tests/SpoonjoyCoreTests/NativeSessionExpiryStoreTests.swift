@@ -848,7 +848,8 @@ struct NativeSessionExpiryStoreTests {
 
         let cookRoute = AppRoute.recipeDetail(id: "recipe_cached", presentation: .cook)
         fixture.store.recordingOpenedRoute(cookRoute)
-        let other = CookModeProgress(recipeID: "recipe_other", completedStepIDs: [], currentStepID: nil)
+        // Pending progress carries the time it was made; launch replay drops a record without one.
+        let other = CookModeProgress(recipeID: "recipe_other", stepIDs: ["step_recipe_other"], startedAt: stamp)
         fixture.store.recordCookProgress(other)
 
         let beforeRestore = try Self.appSnapshot(fixture)
@@ -877,7 +878,8 @@ struct NativeSessionExpiryStoreTests {
         let stepOne = CookModeProgress(recipeID: "recipe_cached", completedStepIDs: [], currentStepID: "step_recipe_cached")
         try fixture.appStateStore.save(Self.appSnapshot(fixture).updatingCookProgress(stepOne, savedAt: stamp))
 
-        let stepTwo = CookModeProgress(recipeID: "recipe_cached", completedStepIDs: ["step_recipe_cached"], currentStepID: nil)
+        let stepTwo = try CookModeProgress(recipeID: "recipe_cached", stepIDs: ["step_recipe_cached"], startedAt: stamp)
+            .markingStepCompleted("step_recipe_cached", updatedAt: stamp)
         fixture.store.recordCookProgress(stepTwo)
         let cookRoute = AppRoute.recipeDetail(id: "recipe_cached", presentation: .cook)
         fixture.store.recordingOpenedRoute(cookRoute)

@@ -344,17 +344,17 @@ public struct NativeLaunchPendingRecords: Codable, Equatable {
     public static let replayWindow: TimeInterval = 24 * 60 * 60
 
     /// The progress worth replaying: the newest per recipe (records can arrive out of order), unless older than the
-    /// replay window or than what the kitchen already holds. Records without a readable time count as oldest.
+    /// replay window or than what the kitchen already holds. A record without a readable time cannot be aged, so it
+    /// is dropped; held progress without one counts as oldest.
     public func progressToReplay(over current: [String: CookModeProgress], at now: Date) -> [CookModeProgress] {
         // One slot per recipe, in the order recipes first appear.
-        var newest: [(progress: CookModeProgress, time: Date?)] = []
+        var newest: [(progress: CookModeProgress, time: Date)] = []
         for progress in cookProgress {
-            let time = Self.time(of: progress)
-            if let time, now.timeIntervalSince(time) > Self.replayWindow {
+            guard let time = Self.time(of: progress), now.timeIntervalSince(time) <= Self.replayWindow else {
                 continue
             }
             if let slot = newest.firstIndex(where: { $0.progress.recipeID == progress.recipeID }) {
-                if !Self.isOlder(time, than: newest[slot].time) {
+                if time >= newest[slot].time {
                     newest[slot] = (progress, time)
                 }
             } else {
@@ -362,22 +362,11 @@ public struct NativeLaunchPendingRecords: Codable, Equatable {
             }
         }
         return newest.filter { candidate in
-            guard let held = current[candidate.progress.recipeID] else {
+            guard let held = current[candidate.progress.recipeID], let heldTime = Self.time(of: held) else {
                 return true
             }
-            return !Self.isOlder(candidate.time, than: Self.time(of: held))
+            return candidate.time >= heldTime
         }.map(\.progress)
-    }
-
-    /// Strictly older; equal or both untimed is not older, so the later record wins.
-    private static func isOlder(_ time: Date?, than other: Date?) -> Bool {
-        guard let other else {
-            return false
-        }
-        guard let time else {
-            return true
-        }
-        return time < other
     }
 
     private static func time(of progress: CookModeProgress) -> Date? {
