@@ -28,4 +28,15 @@ public enum KitchenHeroStretch {
     public static func showsTopEdgeEffect(scrollOffset: Double) -> Bool {
         scrollOffset > 1
     }
+
+    /// The recipe hero's height: `preferred`, unless the page is short (under one and a half times `preferred`), when
+    /// it takes half the page. On a closed foldable held sideways the recipe sheet and the offline status at its top
+    /// then start on the first screen; a phone held upright keeps the full photo. A page not yet measured
+    /// (`viewportHeight` 0) gets `preferred`.
+    public static func heroHeight(preferred: Double, viewportHeight: Double) -> Double {
+        guard viewportHeight > 0, viewportHeight < preferred * 1.5 else {
+            return preferred
+        }
+        return viewportHeight / 2
+    }
 }

@@ -246,6 +246,8 @@ struct RecipeDetailView: View {
     @State private var heroPull: CGFloat = 0
     /// How far the page has scrolled; paper covers the status bar once the photo has gone under it.
     @State private var heroScrollOffset: CGFloat = 0
+    /// The hero page's height, which caps the photo on a short screen (`KitchenHeroStretch.heroHeight`).
+    @State private var heroViewportHeight: CGFloat = 0
     @State private var isServesPopoverPresented = false
     /// The fold and hinge of a foldable, read from the system (iOS 27.1 SDK); empty everywhere else.
     @State private var foldReading = FoldReading()
@@ -468,6 +470,11 @@ struct RecipeDetailView: View {
             heroScrollOffset = offset
             heroPull = CGFloat(KitchenHeroStretch.pull(contentOffsetY: Double(offset), topInset: 0))
         }
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.containerSize.height
+        } action: { _, height in
+            heroViewportHeight = height
+        }
         .background(KitchenTableTheme.page.ignoresSafeArea())
 #if os(iOS)
         .ignoresSafeArea(edges: .top)
@@ -482,7 +489,7 @@ struct RecipeDetailView: View {
             Color.clear
                 .frame(height: 0)
                 .background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))
-                .opacity(heroScrollOffset > RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock) - RecipeHeroMetrics.sheetOverlap ? 1 : 0)
+                .opacity(heroScrollOffset > heroHeight - RecipeHeroMetrics.sheetOverlap ? 1 : 0)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
         }
@@ -531,6 +538,13 @@ struct RecipeDetailView: View {
     }
 
     /// The photo, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
+    private var heroHeight: CGFloat {
+        CGFloat(KitchenHeroStretch.heroHeight(
+            preferred: Double(RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock)),
+            viewportHeight: Double(heroViewportHeight)
+        ))
+    }
+
     private func recipeHeroMedia(coverImageURL: URL) -> some View {
         GeometryReader { proxy in
             let scale = KitchenHeroStretch.scale(
@@ -571,7 +585,7 @@ struct RecipeDetailView: View {
                     .offset(y: -fill)
             }
         }
-        .frame(height: RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock))
+        .frame(height: heroHeight)
         // One labelled image element, so VoiceOver and the journeys can find the cover.
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits(.isImage)
