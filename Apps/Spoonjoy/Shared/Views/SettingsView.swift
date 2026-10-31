@@ -61,6 +61,7 @@ struct SettingsView: View {
     @State private var isExportingAccountData = false
     @State private var accountExportURL: URL?
     @State private var isBlockedChefsPresented = false
+    @State private var isConnectionsExpanded = false
     @State private var allowsThirdPartyAI = ThirdPartyAIConsentStore().consent == .granted
 
     var body: some View {
@@ -215,11 +216,7 @@ struct SettingsView: View {
 
     private var settingsForm: some View {
         KitchenTablePage {
-            KitchenTableHeader(
-                eyebrow: "Account",
-                title: "Settings",
-                subtitle: settingsHeaderSubtitle
-            )
+            KitchenTableHeader(title: "Settings", subtitle: nil)
             if let settingsSurfaceViewModel {
                 nativeSettings(surface: settingsSurfaceViewModel)
             } else {
@@ -229,21 +226,9 @@ struct SettingsView: View {
         .tint(KitchenTableTheme.herb)
     }
 
-    private var settingsHeaderSubtitle: String? {
-#if DEBUG
-        if let surface = settingsSurfaceViewModel {
-            "\(surface.data.environment.rawValue.capitalized) - \(sourceLabel(surface.data.source))"
-        } else {
-            "\(authSummary) - \(viewModel.environmentSwitcher.rawValue.capitalized)"
-        }
-#else
-        nil
-#endif
-    }
-
     @ViewBuilder private func nativeSettings(surface: SettingsSurfaceViewModel) -> some View {
         if let profile = surface.profileDraft {
-            KitchenTableSection(title: "Profile", subtitle: "Public identity and chef card") {
+            KitchenTableSection(title: "Account") {
                 SettingsPanel {
                     VStack(alignment: .leading, spacing: 4) {
                         settingsFact("Email", value: profile.email, valueIdentifier: "settings.profile.email")
@@ -258,6 +243,34 @@ struct SettingsView: View {
                         .foregroundStyle(KitchenTableTheme.herb)
                         .accessibilityIdentifier("settings.profile.changeEmail")
                     }
+
+                    // Password and passkeys are managed on the website, where they work today; one row opens it.
+                    Button {
+                        planSettingsAction(.managePassword, using: surface.actionPlanner)
+                    } label: {
+                        settingsRowLabel("Password and Passkeys", systemImage: "key", prominence: .secondary, opensElsewhere: true)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onlineOnlyActionsDisabled(surface))
+
+                    Button(role: .destructive) {
+                        confirmSettingsAction(
+                            .logout,
+                            title: "Sign out?",
+                            message: "Spoonjoy will revoke the local session and send you through the secure sign-out flow.",
+                            confirmButtonTitle: "Sign Out"
+                        )
+                    } label: {
+                        settingsRowLabel("Sign Out", systemImage: "rectangle.portrait.and.arrow.right", prominence: .destructive)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onlineOnlyActionsDisabled(surface))
+                    .accessibilityIdentifier("settings.signout")
+                }
+            }
+
+            KitchenTableSection(title: "Profile") {
+                SettingsPanel {
                     settingsTextField("Username", text: $profileUsername)
 
                     Button {
@@ -301,50 +314,6 @@ struct SettingsView: View {
                 hydrateProfileDraft(profile)
             }
 
-            KitchenTableSection(title: "Security", subtitle: "Online-only account controls") {
-                SettingsPanel {
-                    Button {
-                        planSettingsAction(.managePassword, using: surface.actionPlanner)
-                    } label: {
-                        settingsRowLabel("Password", systemImage: "key", prominence: .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(onlineOnlyActionsDisabled(surface))
-
-                    Button {
-                        planSettingsAction(.managePasskeys, using: surface.actionPlanner)
-                    } label: {
-                        settingsRowLabel("Passkeys", systemImage: "person.badge.key", prominence: .secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(onlineOnlyActionsDisabled(surface))
-
-                    ForEach(surface.securityRows.filter { $0.id == .providerLinks }, id: \.id) { row in
-                        Button {
-                            planSettingsAction(row.action, using: surface.actionPlanner)
-                        } label: {
-                            settingsRowLabel(row.title, systemImage: "link", prominence: .secondary)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(onlineOnlyActionsDisabled(surface))
-                    }
-
-                    Button(role: .destructive) {
-                        confirmSettingsAction(
-                            .logout,
-                            title: "Sign out?",
-                            message: "Spoonjoy will revoke the local session and send you through the secure sign-out flow.",
-                            confirmButtonTitle: "Sign Out"
-                        )
-                    } label: {
-                        settingsRowLabel("Sign Out", systemImage: "rectangle.portrait.and.arrow.right", prominence: .destructive)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(onlineOnlyActionsDisabled(surface))
-                    .accessibilityIdentifier("settings.signout")
-                }
-            }
-
             if let notificationAPNsSurfaceViewModel {
                 if let notificationAPNsSettingsContent {
                     notificationAPNsSettingsContent(notificationAPNsSurfaceViewModel)
@@ -359,7 +328,7 @@ struct SettingsView: View {
                     )
                 }
             } else if let notifications = surface.notificationDraft {
-                KitchenTableSection(title: "Notifications", subtitle: "Activity worth interrupting dinner prep") {
+                KitchenTableSection(title: "Notifications") {
                     SettingsPanel {
                         Toggle("Spoons", isOn: $notifySpoonOnMyRecipe)
                         Toggle("Forks", isOn: $notifyForkOfMyRecipe)
@@ -394,78 +363,29 @@ struct SettingsView: View {
             }
 
             if surface.data.tokenManagementAvailability == .available {
-                KitchenTableSection(title: "Agent access", subtitle: "Keys for agents and connected tools") {
+                KitchenTableSection(title: "Connected") {
                     SettingsPanel {
-                        if let createdCredentialValue {
-                            settingsCreatedCredentialDisclosure(
-                                credentialValue: createdCredentialValue,
-                                credentialPrefix: createdCredentialPrefix
-                            )
-                        }
-
-                        ForEach(surface.apiTokenRows) { token in
-                            VStack(alignment: .leading, spacing: 8) {
-                                settingsFact(token.name, value: token.tokenPrefix)
-                                Button(role: .destructive) {
-                                    confirmSettingsAction(
-                                        .revokeAPIToken(credentialID: token.id),
-                                        title: "Revoke access key?",
-                                        message: "Agents and tools using this key will lose access immediately.",
-                                        confirmButtonTitle: "Revoke access key"
-                                    )
-                                } label: {
-                                    settingsRowLabel("Revoke access key", systemImage: "trash", prominence: .destructive)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(onlineOnlyActionsDisabled(surface))
-                            }
-                        }
-
-                        settingsTextField("Access key name", text: $tokenName)
-                        Toggle("Recipes read", isOn: $tokenCanReadRecipes)
-                        Toggle("Recipes write", isOn: $tokenCanWriteRecipes)
-                        Toggle("Shopping read", isOn: $tokenCanReadShoppingList)
-                        Toggle("Shopping write", isOn: $tokenCanWriteShoppingList)
-
-                        Button {
-                            planSettingsAction(.createAPIToken(name: tokenName, scopes: selectedTokenScopes), using: surface.actionPlanner)
+                        DisclosureGroup(isExpanded: $isConnectionsExpanded) {
+                            connectedAppsContent(surface: surface)
                         } label: {
-                            settingsRowLabel("Create access key", systemImage: "plus.circle", prominence: .primary)
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedTokenScopes.isEmpty || onlineOnlyActionsDisabled(surface))
-                    }
-                }
-
-                KitchenTableSection(title: "Connections", subtitle: "Apps connected to Spoonjoy") {
-                    SettingsPanel {
-                        if surface.oauthConnectionRows.isEmpty {
-                            Text("No connected apps.")
-                                .font(KitchenTableTheme.bodyNote)
-                                .foregroundStyle(KitchenTableTheme.ink2)
-                        }
-                        ForEach(surface.oauthConnectionRows) { connection in
-                            VStack(alignment: .leading, spacing: 8) {
-                                settingsFact(connection.clientName, value: connection.scopes.joined(separator: ", "))
-                                Button(role: .destructive) {
-                                    confirmSettingsAction(
-                                        .disconnectOAuthConnection(connectionID: connection.id),
-                                        title: "Disconnect OAuth app?",
-                                        message: "\(connection.clientName) will no longer be able to access your Spoonjoy account.",
-                                        confirmButtonTitle: "Disconnect"
-                                    )
-                                } label: {
-                                    settingsRowLabel("Disconnect", systemImage: "xmark.circle", prominence: .destructive)
-                                }
-                                .buttonStyle(.plain)
-                                .disabled(onlineOnlyActionsDisabled(surface))
+                            HStack(spacing: 10) {
+                                Text("AI assistants and API tokens")
+                                    .font(KitchenTableTheme.bodyNote.weight(.semibold))
+                                    .foregroundStyle(KitchenTableTheme.ink)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                Spacer(minLength: 8)
+                                Text("\(surface.apiTokenRows.count + surface.oauthConnectionRows.count)")
+                                    .font(KitchenTableTheme.uiLabel.monospacedDigit())
+                                    .foregroundStyle(KitchenTableTheme.ink2)
                             }
+                            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
                         }
+                        .accessibilityIdentifier("settings.connected")
                     }
                 }
             }
         } else if let primaryAuthAction = surface.primaryAuthAction {
-            KitchenTableSection(title: "Session", subtitle: "Secure Spoonjoy handoff") {
+            KitchenTableSection(title: "Session") {
                 SettingsPanel {
                     Button {
                         openSecureHandoff(primaryAuthAction)
@@ -476,7 +396,7 @@ struct SettingsView: View {
                 }
             }
         } else {
-            KitchenTableSection(title: "Account", subtitle: "Sync needs another attempt") {
+            KitchenTableSection(title: "Account") {
                 SettingsPanel {
                     Text("Account sync has not finished yet.")
                         .font(KitchenTableTheme.objectTitle)
@@ -509,7 +429,7 @@ struct SettingsView: View {
 #if DEBUG
         // Diagnostics for builds that point at a non-production environment. Journeys read this row
         // to prove they are on the QA mirror. Release builds keep the account screen to settings only.
-        KitchenTableSection(title: "Environment", subtitle: "Current data source") {
+        KitchenTableSection(title: "Environment") {
             SettingsPanel {
                 settingsFact("Environment", value: surface.data.environment.rawValue, valueIdentifier: "settings.environment.value")
                 settingsFact("Source", value: sourceLabel(surface.data.source))
@@ -517,7 +437,7 @@ struct SettingsView: View {
         }
 #endif
 
-        KitchenTableSection(title: "Offline", subtitle: "What the app is using right now") {
+        KitchenTableSection(title: "Offline") {
             SettingsPanel {
                 if let summary = surface.queuedWorkSummary {
                     Label(summary, systemImage: "arrow.triangle.2.circlepath")
@@ -595,9 +515,87 @@ struct SettingsView: View {
         aboutSection
     }
 
+    /// Access keys and connected apps, one level down under Connected: managed rarely, kept within reach.
+    @ViewBuilder private func connectedAppsContent(surface: SettingsSurfaceViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            settingsSubheading("Agent access")
+            if let createdCredentialValue {
+                settingsCreatedCredentialDisclosure(
+                    credentialValue: createdCredentialValue,
+                    credentialPrefix: createdCredentialPrefix
+                )
+            }
+
+            ForEach(surface.apiTokenRows) { token in
+                VStack(alignment: .leading, spacing: 4) {
+                    settingsFact(token.name, value: token.tokenPrefix)
+                    Button(role: .destructive) {
+                        confirmSettingsAction(
+                            .revokeAPIToken(credentialID: token.id),
+                            title: "Revoke access key?",
+                            message: "Agents and tools using this key will lose access immediately.",
+                            confirmButtonTitle: "Revoke access key"
+                        )
+                    } label: {
+                        settingsRowLabel("Revoke access key", systemImage: "trash", prominence: .destructive)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onlineOnlyActionsDisabled(surface))
+                }
+            }
+
+            settingsTextField("Access key name", text: $tokenName)
+            Toggle("Recipes read", isOn: $tokenCanReadRecipes)
+            Toggle("Recipes write", isOn: $tokenCanWriteRecipes)
+            Toggle("Shopping read", isOn: $tokenCanReadShoppingList)
+            Toggle("Shopping write", isOn: $tokenCanWriteShoppingList)
+
+            Button {
+                planSettingsAction(.createAPIToken(name: tokenName, scopes: selectedTokenScopes), using: surface.actionPlanner)
+            } label: {
+                settingsRowLabel("Create access key", systemImage: "plus.circle", prominence: .primary)
+            }
+            .buttonStyle(.plain)
+            .disabled(tokenName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || selectedTokenScopes.isEmpty || onlineOnlyActionsDisabled(surface))
+
+            settingsSubheading("Connections")
+                .padding(.top, 8)
+            if surface.oauthConnectionRows.isEmpty {
+                Text("No connected apps.")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.ink2)
+            }
+            ForEach(surface.oauthConnectionRows) { connection in
+                VStack(alignment: .leading, spacing: 4) {
+                    settingsFact(connection.clientName, value: connection.scopes.joined(separator: ", "))
+                    Button(role: .destructive) {
+                        confirmSettingsAction(
+                            .disconnectOAuthConnection(connectionID: connection.id),
+                            title: "Disconnect OAuth app?",
+                            message: "\(connection.clientName) will no longer be able to access your Spoonjoy account.",
+                            confirmButtonTitle: "Disconnect"
+                        )
+                    } label: {
+                        settingsRowLabel("Disconnect", systemImage: "xmark.circle", prominence: .destructive)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(onlineOnlyActionsDisabled(surface))
+                }
+            }
+        }
+        .padding(.top, 8)
+    }
+
+    private func settingsSubheading(_ title: String) -> some View {
+        Text(title)
+            .font(KitchenTableTheme.uiLabel.weight(.semibold))
+            .foregroundStyle(KitchenTableTheme.ink2)
+            .accessibilityAddTraits(.isHeader)
+    }
+
     /// Blocked chefs (App Review guideline 1.2) and the AI-features consent (guideline 5.1.2(i)).
     private var safetySection: some View {
-        KitchenTableSection(title: "Safety & privacy", subtitle: "Who you see, and what AI features may send") {
+        KitchenTableSection(title: "Safety & privacy") {
             SettingsPanel {
                 Button {
                     isBlockedChefsPresented = true
@@ -642,11 +640,11 @@ struct SettingsView: View {
 
     /// Privacy policy, terms, support and contact (App Review guideline 5.1.1(i)).
     private var aboutSection: some View {
-        KitchenTableSection(title: "About", subtitle: "Policies and help") {
+        KitchenTableSection(title: "About") {
             SettingsPanel {
                 ForEach(SettingsAboutLink.allCases) { link in
                     Link(destination: link.url) {
-                        settingsRowLabel(link.title, systemImage: link.systemImage, prominence: .secondary)
+                        settingsRowLabel(link.title, systemImage: link.systemImage, prominence: .secondary, opensElsewhere: true)
                     }
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("settings.about.\(link.rawValue)")
@@ -656,7 +654,7 @@ struct SettingsView: View {
     }
 
     private func yourDataSection(surface: SettingsSurfaceViewModel) -> some View {
-        KitchenTableSection(title: "Your data", subtitle: "Online-only: take a copy, or delete your account") {
+        KitchenTableSection(title: "Your data") {
             SettingsPanel {
                 Button {
                     downloadAccountData(using: surface)
@@ -750,20 +748,17 @@ struct SettingsView: View {
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
             .foregroundStyle(KitchenTableTheme.ink)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 46)
-            .background(KitchenTableTheme.page.opacity(0.45), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(KitchenTableTheme.hairline).frame(height: 1)
             }
     }
 
     private func settingsFact(_ title: String, value: String, valueIdentifier: String? = nil) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(title)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.brass)
+                .font(KitchenTableTheme.bodyNote)
+                .foregroundStyle(KitchenTableTheme.ink2)
             Spacer(minLength: 12)
             settingsFactValue(value, identifier: valueIdentifier)
         }
@@ -813,9 +808,10 @@ struct SettingsView: View {
     nonisolated private func settingsRowLabel(
         _ title: String,
         systemImage: String,
-        prominence: SettingsRowProminence
+        prominence: SettingsRowProminence,
+        opensElsewhere: Bool = false
     ) -> some View {
-        SettingsRowLabel(title: title, systemImage: systemImage, prominence: prominence)
+        SettingsRowLabel(title: title, systemImage: systemImage, prominence: prominence, opensElsewhere: opensElsewhere)
     }
 
     private func effectiveOfflineIndicator(_ localDisplay: OfflineIndicatorDisplay) -> OfflineIndicatorDisplay {
@@ -1100,31 +1096,35 @@ struct SettingsView: View {
     }
 }
 
+/// A settings row in the iOS Settings grammar: an icon, the title, and an arrow only when it leaves the app.
 private struct SettingsRowLabel: View {
     let title: String
     let systemImage: String
     let prominence: SettingsRowProminence
+    var opensElsewhere = false
 
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             Image(systemName: systemImage)
-                .font(.system(size: 17, weight: .semibold))
-            Text(title)
                 .font(KitchenTableTheme.bodyNote.weight(.semibold))
-                .lineLimit(2)
-                .minimumScaleFactor(0.82)
+                .frame(minWidth: 24)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(KitchenTableTheme.bodyNote.weight(effectiveProminence == .primary ? .semibold : .regular))
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
+            if opensElsewhere {
+                Image(systemName: "arrow.up.right")
+                    .font(KitchenTableTheme.uiLabel)
+                    .foregroundStyle(KitchenTableTheme.ink2)
+                    .accessibilityHidden(true)
+            }
         }
         .foregroundStyle(effectiveProminence.foreground)
-        .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-        .background(effectiveProminence.background, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(effectiveProminence.stroke, lineWidth: 1)
-        }
+        .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget, alignment: .leading)
+        .contentShape(Rectangle())
     }
 
     private var effectiveProminence: SettingsRowProminence {
@@ -1149,39 +1149,13 @@ private enum SettingsRowProminence {
     var foreground: Color {
         switch self {
         case .primary:
-            KitchenTableTheme.onInk
+            KitchenTableTheme.herb
         case .secondary:
             KitchenTableTheme.ink
         case .destructive:
             KitchenTableTheme.tomato
         case .disabled:
             KitchenTableTheme.ink2.opacity(0.62)
-        }
-    }
-
-    var background: Color {
-        switch self {
-        case .primary:
-            KitchenTableTheme.brass
-        case .secondary:
-            KitchenTableTheme.raised
-        case .destructive:
-            KitchenTableTheme.raised
-        case .disabled:
-            KitchenTableTheme.raised.opacity(0.72)
-        }
-    }
-
-    var stroke: Color {
-        switch self {
-        case .primary:
-            KitchenTableTheme.brass
-        case .secondary:
-            KitchenTableTheme.hairline.opacity(0.55)
-        case .destructive:
-            KitchenTableTheme.tomato.opacity(0.42)
-        case .disabled:
-            KitchenTableTheme.hairline.opacity(0.38)
         }
     }
 }
@@ -1196,13 +1170,10 @@ struct SettingsPanel<Content: View>: View {
         .font(KitchenTableTheme.bodyNote)
         .foregroundStyle(KitchenTableTheme.ink)
         .tint(KitchenTableTheme.herb)
-        .padding(14)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(KitchenTableTheme.hairline.opacity(0.42), lineWidth: 1)
-        }
     }
 }
 

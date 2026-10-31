@@ -113,7 +113,7 @@ struct NativeQuickWinsTests {
 
         let settings = try readRepoFile("Apps/Spoonjoy/Shared/Views/SettingsView.swift")
         let debugRange = try #require(settings.range(of: "#if DEBUG\n        // Diagnostics"))
-        let envRange = try #require(settings.range(of: "title: \"Environment\", subtitle: \"Current data source\""))
+        let envRange = try #require(settings.range(of: "KitchenTableSection(title: \"Environment\")"))
         let endRange = try #require(settings.range(of: "#endif", range: envRange.upperBound..<settings.endIndex))
         #expect(debugRange.lowerBound < envRange.lowerBound && envRange.lowerBound < endRange.lowerBound)
     }
