@@ -358,7 +358,7 @@ private struct CookbookShelfBook: View {
     }
 }
 
-/// A cookbook as a book: one cover photo, or a vellum cover with the title in the serif, with a shadowed spine
+/// A cookbook as a book: one cover photo, or a vellum cover with the title's initial in the serif, with a shadowed spine
 /// along the binding edge.
 private struct CookbookCoverArt: View {
     let title: String
@@ -448,17 +448,14 @@ private struct CookbookFallbackCover: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            // The title on the cover is decoration (the shelf prints it under the book), so it keeps to the
-            // cover's size instead of growing with the text.
-            Text(title)
-                .font(.system(.title2, design: .serif).weight(.bold))
-                .foregroundStyle(KitchenTableTheme.ink)
-                .lineLimit(4)
-                .minimumScaleFactor(0.66)
-                .allowsTightening(true)
+            // The title is printed beside the cover, so the cover carries only its initial, as a recipe without a
+            // photo does. It is decoration and keeps to the cover's size instead of growing with the text.
+            Text(String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)).uppercased())
+                .font(.system(size: 64, weight: .bold, design: .serif))
+                .foregroundStyle(KitchenTableTheme.brass)
                 .dynamicTypeSize(.large)
-                .padding(.leading, 26)
-                .padding([.trailing, .bottom], 14)
+                .padding(.leading, 30)
+                .padding([.trailing, .bottom], 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
