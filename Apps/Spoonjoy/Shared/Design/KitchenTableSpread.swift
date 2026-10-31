@@ -238,7 +238,7 @@ private struct HingeFoldReader: ViewModifier {
             }
     }
 
-    private static func posture(_ status: DeviceHinge.Status?) -> HingePosture {
+    static func posture(_ status: DeviceHinge.Status?) -> HingePosture {
         switch status {
         case .closed?: .closed
         case .partiallyOpen?: .partiallyOpen
@@ -294,4 +294,40 @@ private struct HingeFoldReader: ViewModifier {
             .bounds.height
     }
 }
+#endif
+
+#if os(iOS)
+extension View {
+    /// Hides the dock on a pushed page while a foldable is closed and held sideways
+    /// (`CompactTab.showsDockOnPushedPage`). It lives here because
+    /// this file is the one home for hinge APIs.
+    @ViewBuilder func dockFittingClosedCover() -> some View {
+#if SPOONJOY_IOS_27_1_SDK
+        if #available(iOS 27.1, *) {
+            modifier(ClosedCoverDock())
+        } else {
+            self
+        }
+#else
+        self
+#endif
+    }
+}
+
+#if SPOONJOY_IOS_27_1_SDK
+@available(iOS 27.1, *)
+private struct ClosedCoverDock: ViewModifier {
+    @State private var hinge: HingePosture = .unknown
+    @State private var isLandscape = false
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar(CompactTab.showsDockOnPushedPage(hinge: hinge, isLandscape: isLandscape) ? .automatic : .hidden, for: .tabBar)
+            .onGeometryChange(for: Bool.self) { $0.size.width > $0.size.height } action: { isLandscape = $0 }
+            .onHingeChange { _, new in
+                hinge = HingeFoldReader.posture(new.hinge?.status)
+            }
+    }
+}
+#endif
 #endif
