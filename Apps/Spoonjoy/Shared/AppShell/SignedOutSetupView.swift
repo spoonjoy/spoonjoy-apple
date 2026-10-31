@@ -106,9 +106,9 @@ struct SignedOutSetupView: View {
                     .foregroundStyle(KitchenTableTheme.ink)
                     .multilineTextAlignment(.center)
 
-                Text("Open your kitchen table.")
-                    .font(.body)
-                    .foregroundStyle(KitchenTableTheme.ink.opacity(0.72))
+                Text("Recipes, passed hand to hand.")
+                    .font(KitchenTableTheme.instructionBody)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -126,9 +126,9 @@ struct SignedOutSetupView: View {
                     .font(.system(.largeTitle, design: .serif).weight(.semibold))
                     .foregroundStyle(KitchenTableTheme.ink)
 
-                Text("Open your kitchen table on this Mac.")
-                    .font(.title3)
-                    .foregroundStyle(KitchenTableTheme.ink.opacity(0.70))
+                Text("Recipes, passed hand to hand.")
+                    .font(KitchenTableTheme.spreadInstruction)
+                    .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -147,8 +147,9 @@ struct SignedOutSetupView: View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Sign in")
-                    .font(.title2.weight(.semibold))
+                    .font(KitchenTableTheme.sectionTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
+                    .accessibilityAddTraits(.isHeader)
 
                 Text("Use the same Spoonjoy account you use on spoonjoy.app.")
                     .font(.body)
@@ -167,7 +168,7 @@ struct SignedOutSetupView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 TextField("Email or username", text: $emailOrUsername)
-                    .textFieldStyle(.roundedBorder)
+                    .modifier(SignInFieldStyle())
                     .textContentType(.username)
                     .autocorrectionDisabled()
                     .spoonjoyCredentialIdentifierEntry()
@@ -180,7 +181,7 @@ struct SignedOutSetupView: View {
                     .accessibilityIdentifier("native sign-in email or username")
 
                 SecureField("Password", text: $password)
-                    .textFieldStyle(.roundedBorder)
+                    .modifier(SignInFieldStyle())
                     .textContentType(.password)
                     .focused($focusedField, equals: .password)
                     .submitLabel(.go)
@@ -214,10 +215,7 @@ struct SignedOutSetupView: View {
             .buttonStyle(.plain)
             .foregroundStyle(canSubmitPassword && !isSigningIn ? KitchenTableTheme.onInk : KitchenTableTheme.ink.opacity(0.46))
             .background(passwordButtonBackground, in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke(KitchenTableTheme.ink.opacity(canSubmitPassword ? 0 : 0.10), lineWidth: 1)
-            }
+            .glassEffect(.regular.interactive(), in: Capsule())
             .disabled(isSigningIn || !canSubmitPassword)
             .accessibilityIdentifier(Self.livePasswordSignInIdentifier)
 
@@ -256,11 +254,7 @@ struct SignedOutSetupView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(isSigningIn ? KitchenTableTheme.ink.opacity(0.46) : KitchenTableTheme.ink)
-                    .background(KitchenTableTheme.raised, in: Capsule())
-                    .overlay {
-                        Capsule()
-                            .stroke(KitchenTableTheme.ink.opacity(0.14), lineWidth: 1)
-                    }
+                    .glassEffect(.regular.interactive(), in: Capsule())
                     .disabled(isSigningIn)
                     .accessibilityIdentifier(provider.signInAccessibilityIdentifier)
                 }
@@ -297,11 +291,11 @@ struct SignedOutSetupView: View {
 
             statusRow
 
-            HStack(spacing: 10) {
+            HStack(spacing: 20) {
                 Button(action: openSettings) {
                     Label("Settings", systemImage: "gearshape")
+                        .foregroundStyle(KitchenTableTheme.ink2)
                 }
-                .buttonStyle(.bordered)
                 .accessibilityIdentifier("signin.settings")
 
                 if canDisconnect {
@@ -311,11 +305,13 @@ struct SignedOutSetupView: View {
                         }
                     } label: {
                         Label("Disconnect", systemImage: "xmark.circle")
+                            .foregroundStyle(KitchenTableTheme.tomato)
                     }
-                    .buttonStyle(.bordered)
                 }
             }
-            .controlSize(.regular)
+            .buttonStyle(.plain)
+            .font(KitchenTableTheme.uiLabel)
+            .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
         }
         .frame(maxWidth: 430, alignment: .leading)
     }
@@ -327,12 +323,9 @@ struct SignedOutSetupView: View {
         } icon: {
             Image(systemName: "signature")
         }
-        .font(.caption.weight(.medium))
-        .foregroundStyle(KitchenTableTheme.brass)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .font(KitchenTableTheme.meta)
+        .foregroundStyle(KitchenTableTheme.ink2)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.brass.opacity(0.10), in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel, style: .continuous))
         .accessibilityIdentifier("native Apple sign-in availability")
     }
 
@@ -877,6 +870,19 @@ private extension View {
 #else
         self
 #endif
+    }
+}
+
+/// Sign-in fields sit on glass capsules, like every other field in 1.1.
+private struct SignInFieldStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .font(KitchenTableTheme.bodyNote)
+            .foregroundStyle(KitchenTableTheme.ink)
+            .padding(.horizontal, 18)
+            .frame(minHeight: 48)
+            .glassEffect(.regular.interactive(), in: Capsule())
     }
 }
 
