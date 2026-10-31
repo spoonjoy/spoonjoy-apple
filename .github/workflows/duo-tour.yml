@@ -278,11 +278,11 @@ jobs:
           # A DEBUG demo turns one page by itself ten seconds after the spread opens, over sixteen seconds, so all three
           # frames land mid-turn; under Reduce Motion the same turn is a crossfade.
           launch -SpoonjoyDemoPageTurn 16
-          sleep 3; shoot 15a-page-turn-mid
+          sleep 6; shoot 15a-page-turn-mid
           sleep 2; shoot 15b-page-turn-mid
           sleep 2; shoot 15c-page-turn-mid
           launch -SpoonjoyReduceMotion YES -SpoonjoyDemoPageTurn 16
-          sleep 3; shoot 16a-reduce-motion-crossfade-mid
+          sleep 6; shoot 16a-reduce-motion-crossfade-mid
           sleep 2; shoot 16b-reduce-motion-crossfade-mid
           sleep 2; shoot 16c-reduce-motion-crossfade-mid
           launch

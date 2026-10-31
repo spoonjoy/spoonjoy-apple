@@ -282,9 +282,11 @@ public actor RefreshCoordinator {
 
     /// The session another process stored in place of `sentToken`, waiting briefly for a write still in progress.
     private func sessionRotatedElsewhere(than sentToken: String) async throws -> AuthSession? {
-        for delay in [0] + rotationSettleDelays {
-            if delay > 0 {
-                try await sleep(delay)
+        // No temporary array is iterated across the awaits: with Xcode 26's compiler, iterating `[0] + delays` here
+        // aborted the test process ("freed pointer was not the last allocation").
+        for attempt in 0...rotationSettleDelays.count {
+            if attempt > 0 {
+                try await sleep(rotationSettleDelays[attempt - 1])
             }
             if let stored = try await vault.loadSession(), stored.refreshToken != sentToken {
                 return stored
