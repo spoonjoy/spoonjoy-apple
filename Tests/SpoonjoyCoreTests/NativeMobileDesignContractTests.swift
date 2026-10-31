@@ -421,7 +421,7 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "Text(title)",
                 ".font(KitchenTableTheme.sectionTitle)",
-                ".lineLimit(1)",
+                ".lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)",
                 ".layoutPriority(1)",
                 "Rectangle()",
                 ".layoutPriority(-1)"

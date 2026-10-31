@@ -339,8 +339,10 @@ private struct CookbookShelfBook: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            // At the accessibility sizes the cover stays paperback-sized (200 pt wide, 267 pt tall), so on a phone the
+            // first book's title and count sit above the floating dock instead of under it.
             CookbookCoverArt(row: row)
-                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? 240 : .infinity, alignment: .leading)
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? 200 : .infinity, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(row.title)
                     .font(KitchenTableTheme.indexTitle)
@@ -695,7 +697,7 @@ private struct CookbookDetailView: View {
             Label("Share Cookbook", systemImage: "square.and.arrow.up")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-        .frame(maxWidth: 220)
+        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 220)
     }
 
     @ViewBuilder private var statusBanner: some View {

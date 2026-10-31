@@ -150,7 +150,9 @@ private struct ShoppingReceiptRow: View {
             .font(KitchenTableTheme.instructionBody)
             .foregroundStyle(item.item.isEffectivelyChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
             .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.ink2)
-            .lineLimit(2)
+            // At the accessibility sizes a long name wraps in full instead of truncating.
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var detailLine: some View {

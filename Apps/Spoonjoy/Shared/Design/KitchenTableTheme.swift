@@ -421,6 +421,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     let detail: String?
     let ordinal: String?
     let titleFont: Font
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
@@ -464,19 +465,19 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                 Text(title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(2)
+                    .lineLimit(lineLimit)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(KitchenTableTheme.uiLabel)
                         .foregroundStyle(KitchenTableTheme.ink2)
-                        .lineLimit(2)
+                        .lineLimit(lineLimit)
                 }
                 if let detail, !detail.isEmpty {
                     Text(detail)
                         .font(.footnote)
                         .foregroundStyle(KitchenTableTheme.ink2)
-                        .lineLimit(2)
+                        .lineLimit(lineLimit)
                 }
             }
 
@@ -490,6 +491,11 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                 .frame(height: 1)
         }
         .contentShape(Rectangle())
+    }
+
+    /// Two lines at the standard sizes; at the accessibility sizes the text wraps in full instead of truncating.
+    private var lineLimit: Int? {
+        dynamicTypeSize.isAccessibilitySize ? nil : 2
     }
 }
 
@@ -562,12 +568,14 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     }
 
     let prominence: Prominence
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     func makeBody(configuration: Configuration) -> some View {
         let shape = Capsule()
+        // At the accessibility sizes a label wraps to a second line instead of truncating.
         let label = configuration.label
             .font(.headline)
-            .lineLimit(1)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
             .minimumScaleFactor(0.74)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
