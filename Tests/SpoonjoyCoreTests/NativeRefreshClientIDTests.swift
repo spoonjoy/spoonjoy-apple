@@ -563,6 +563,109 @@ struct NativeRefreshClientIDTests {
         #expect(try await vault.loadSession()?.refreshToken == "sj_refresh_race_2")
     }
 
+    // The other process wins the rotation but stores its new session a moment after the server refuses ours.
+    @Test("a refusal waits briefly for another process to finish storing the rotated session")
+    func rotationRaceWaitsForALateWrite() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let rotatedElsewhere = try Self.session(clientID: "cm_old", refresh: "sj_refresh_other_process", expiresIn: 900)
+        let sleeps = CallCounter()
+        let coordinator = RefreshCoordinator(
+            vault: vault,
+            refresh: { _, _ in throw Self.transportError(status: 400) },
+            rotationSettleDelays: [1, 2],
+            sleep: { _ in
+                await sleeps.bump()
+                if await sleeps.count == 2 {
+                    try await vault.saveSession(rotatedElsewhere)
+                }
+            }
+        )
+
+        let session = try await coordinator.validSession(at: Self.now)
+        #expect(session == rotatedElsewhere)
+        #expect(await sleeps.count == 2)
+    }
+
+    @Test("a refusal ends the session once every settle re-read still finds the refused token")
+    func rotationRaceGivesUpAfterTheSettleReads() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let sleeps = CallCounter()
+        let coordinator = RefreshCoordinator(
+            vault: vault,
+            refresh: { _, _ in throw Self.transportError(status: 400) },
+            rotationSettleDelays: [1, 2],
+            sleep: { _ in await sleeps.bump() }
+        )
+        await #expect(throws: TokenRefreshError.sessionExpired) {
+            try await coordinator.validSession(at: Self.now)
+        }
+        #expect(await sleeps.count == 2)
+    }
+
+    // The app's sync and an App Intent each build a coordinator over the same Keychain.
+    @Test("coordinators sharing a refresh lock send one refresh, and the second uses the session the first stored")
+    func sharedRefreshLockSendsOneRefresh() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(clientID: "cm_old"))
+        let seen = ClientIDLog()
+        let refresh: OAuthRefreshOperation = { clientID, refreshToken in
+            await seen.record(clientID: clientID, refreshToken: refreshToken)
+            try await Task.sleep(nanoseconds: 50_000_000)
+            guard refreshToken == "sj_refresh_old" else {
+                throw Self.transportError(status: 400)
+            }
+            return Self.response(refresh: "sj_refresh_rotated")
+        }
+        let lock = RefreshLock()
+        let app = RefreshCoordinator(vault: vault, refresh: refresh, refreshLock: lock, rotationSettleDelays: [])
+        let intent = RefreshCoordinator(vault: vault, refresh: refresh, refreshLock: lock, rotationSettleDelays: [])
+
+        async let fromApp = app.validSession(at: Self.now)
+        async let fromIntent = intent.validSession(at: Self.now)
+        let sessions = try await [fromApp, fromIntent]
+
+        #expect(sessions.allSatisfy { $0.refreshToken == "sj_refresh_rotated" })
+        #expect(await seen.entries.map(\.refreshToken) == ["sj_refresh_old"])
+        #expect(try await vault.loadSession()?.refreshToken == "sj_refresh_rotated")
+    }
+
+    @Test("a coordinator for one server treats a session another server issued as missing")
+    func coordinatorIgnoresASessionFromAnotherServer() async throws {
+        let vault = InMemoryTokenVault()
+        let qaSession = try AuthSession(
+            clientID: "cm_old",
+            accessToken: "sj_access_qa",
+            refreshToken: "sj_refresh_qa",
+            tokenType: "Bearer",
+            expiresAt: Self.now.addingTimeInterval(900),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari",
+            serverOrigin: NativeAuthSession.canonicalOrigin(of: Self.qaURL)
+        )
+        try await vault.saveSession(qaSession)
+        let counter = CallCounter()
+        let production = RefreshCoordinator(
+            vault: vault,
+            refresh: { _, _ in
+                await counter.bump()
+                return Self.response()
+            },
+            serverBaseURL: Self.productionURL
+        )
+        await #expect(throws: TokenRefreshError.missingSession) {
+            try await production.validSession(at: Self.now)
+        }
+        #expect(try await production.sessionState(at: Self.now) == .signedOut)
+        #expect(await counter.count == 0)
+        // The app's own restore decides whether to forget it; an intent leaves the Keychain alone.
+        #expect(try await vault.loadSession() == qaSession)
+
+        let qa = RefreshCoordinator(vault: vault, refresh: { _, _ in Self.response() }, serverBaseURL: Self.qaURL)
+        #expect(try await qa.validSession(at: Self.now) == qaSession)
+    }
+
     @Test("adopting a session another process stored never writes to the vault")
     func adoptedSessionIsNotWrittenBack() async throws {
         let inner = InMemoryTokenVault()

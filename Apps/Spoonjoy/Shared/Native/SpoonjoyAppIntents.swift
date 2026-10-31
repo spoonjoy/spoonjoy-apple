@@ -1811,12 +1811,19 @@ private struct SpoonjoyIntentAPIRefresher: APIAuthenticationRefresher {
 
     init(vault: any TokenVault, baseURL: URL = APIClientConfiguration.spoonjoyProduction.baseURL) {
         self.baseURL = baseURL
-        self.refreshCoordinator = RefreshCoordinator(vault: vault) { clientID, refreshToken in
-            try await SpoonjoyIntentOAuthSupport.sendDecoded(
-                OAuthRequests.refreshToken(clientID: clientID, refreshToken: refreshToken),
-                configuration: APIClientConfiguration(baseURL: baseURL)
-            )
-        }
+        // The same origin rule and refresh lock as the app's sync: a session another server issued is never sent
+        // here, and an intent never refreshes the token the app is refreshing at the same moment.
+        self.refreshCoordinator = RefreshCoordinator(
+            vault: vault,
+            refresh: { clientID, refreshToken in
+                try await SpoonjoyIntentOAuthSupport.sendDecoded(
+                    OAuthRequests.refreshToken(clientID: clientID, refreshToken: refreshToken),
+                    configuration: APIClientConfiguration(baseURL: baseURL)
+                )
+            },
+            serverBaseURL: baseURL,
+            refreshLock: .keychain
+        )
     }
 
     func validConfiguration() async throws -> APIClientConfiguration {
