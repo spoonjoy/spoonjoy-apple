@@ -96,6 +96,7 @@ jobs:
           # See journeys.yml: the runner gets only the path of the 0600 accounts file.
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
           export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
+          export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
           xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" \
             -only-testing:SpoonjoyJourneys/TabletopJourney/testTabletopCookModeSplitsAtTheFoldJourney \
@@ -122,6 +123,7 @@ jobs:
           xcrun simctl terminate "$udid" app.spoonjoy >/dev/null 2>&1 || true
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
           export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
+          export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
           # run_journeys <name> <-only-testing selector>: writes Duo<name>.xcresult and test-<name>.log.
           run_journeys() {
             rm -rf "$RUNNER_TEMP/duo/Duo$1.xcresult"

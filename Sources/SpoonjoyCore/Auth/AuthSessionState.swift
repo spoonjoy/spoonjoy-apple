@@ -26,6 +26,9 @@ public struct AuthSession: Equatable, Codable, Sendable {
     public let expiresAt: Date
     public let scope: String
     public let accountID: String?
+    /// The origin of the server that issued these tokens (`https://spoonjoy.app`). Nil for a session stored before
+    /// the app kept it.
+    public let serverOrigin: String?
 
     public var authorizationHeader: String {
         "\(tokenType) \(accessToken)"
@@ -38,7 +41,8 @@ public struct AuthSession: Equatable, Codable, Sendable {
         tokenType: String,
         expiresAt: Date,
         scope: String,
-        accountID: String? = nil
+        accountID: String? = nil,
+        serverOrigin: String? = nil
     ) throws {
         let clientID = clientID.trimmingCharacters(in: .whitespacesAndNewlines)
         let accessToken = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -76,6 +80,20 @@ public struct AuthSession: Equatable, Codable, Sendable {
         self.expiresAt = expiresAt
         self.scope = scope
         self.accountID = accountID?.isEmpty == true ? nil : accountID
+        self.serverOrigin = serverOrigin
+    }
+
+    /// True when another server issued this session than the one at `serverBaseURL`. A session without a stored
+    /// origin names its server only through a derived client id (`spoonjoy-apple-native:<digest>`); the plain id is
+    /// ambiguous and counts as a match.
+    public func wasIssued(elsewhereThan serverBaseURL: URL) -> Bool {
+        if let serverOrigin {
+            return serverOrigin != NativeAuthSession.canonicalOrigin(of: serverBaseURL)
+        }
+        guard clientID.hasPrefix(NativeAuthSession.nativeAppClientID + ":") else {
+            return false
+        }
+        return clientID != NativeAuthSession.nativeClientID(forServerBaseURL: serverBaseURL)
     }
 
     /// How long before `expiresAt` the access token is treated as expired, so a request never leaves with a
@@ -102,7 +120,8 @@ public struct AuthSession: Equatable, Codable, Sendable {
             tokenType: response.tokenType,
             expiresAt: receivedAt.addingTimeInterval(TimeInterval(response.expiresIn)),
             scope: response.scope,
-            accountID: accountID
+            accountID: accountID,
+            serverOrigin: serverOrigin
         )
     }
 
@@ -114,7 +133,8 @@ public struct AuthSession: Equatable, Codable, Sendable {
             tokenType: tokenType,
             expiresAt: expiresAt,
             scope: scope,
-            accountID: accountID
+            accountID: accountID,
+            serverOrigin: serverOrigin
         )
     }
 
@@ -126,7 +146,8 @@ public struct AuthSession: Equatable, Codable, Sendable {
             tokenType: tokenType,
             expiresAt: expiresAt,
             scope: scope,
-            accountID: accountID
+            accountID: accountID,
+            serverOrigin: serverOrigin
         )
     }
 }

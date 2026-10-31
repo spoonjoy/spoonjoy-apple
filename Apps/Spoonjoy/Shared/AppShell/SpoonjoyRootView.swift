@@ -831,7 +831,10 @@ struct SpoonjoyRootView: View {
         let stagedMediaDirectory = NativeProcessSyncStore.stagedMediaDirectory(appDirectory: appDirectory)
         // The same store instance the App Intents use, so neither overwrites the other's queue.
         let syncStore = NativeProcessSyncStore.shared(appDirectory: appDirectory)
-        let syncEngine = NativeSyncEngine(store: syncStore, transport: URLSessionNativeSyncTransport())
+        let syncEngine = NativeSyncEngine(
+            store: syncStore,
+            transport: URLSessionNativeSyncTransport.refreshing(authRepository, baseURL: configuration.baseURL)
+        )
         let syncTriggerCoordinator = NativeSyncTriggerCoordinator(runner: syncEngine, configuration: configuration)
         return NativeLiveAppStoreDependencies(
             authSessionRepository: authRepository,
