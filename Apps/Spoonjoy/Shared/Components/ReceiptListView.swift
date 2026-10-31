@@ -50,13 +50,20 @@ struct ReceiptListView: View {
                         }
                     }
                 } header: {
-                    Text(section.title)
-                        .font(KitchenTableTheme.uiLabel)
-                        .textCase(.uppercase)
-                        .tracking(1.6)
-                        .foregroundStyle(KitchenTableTheme.brass)
-                        .padding(.top, 4)
-                        .accessibilityLabel(section.title)
+                    // The aisle in the serif with how many are in it, in place of an all-caps kicker.
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(section.title)
+                            .font(KitchenTableTheme.indexTitle)
+                            .foregroundStyle(KitchenTableTheme.ink)
+                        Text("\(section.items.count)")
+                            .font(KitchenTableTheme.meta.monospacedDigit())
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                    }
+                    .textCase(nil)
+                    .padding(.top, 12)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(section.title), \(section.items.count) \(section.items.count == 1 ? "item" : "items")")
+                    .accessibilityAddTraits(.isHeader)
                 }
             }
         }
@@ -99,13 +106,8 @@ private struct ShoppingReceiptRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        // No aisle icon per row: the aisle heading above already says where it is.
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: symbol(for: item.iconKey))
-                .font(.body.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.brass)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-
             // One line per item, as on the web list: name leading, amount trailing. At accessibility text
             // sizes the amount drops under the name so neither is squeezed.
             if dynamicTypeSize.isAccessibilitySize {
@@ -127,7 +129,7 @@ private struct ShoppingReceiptRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if !item.item.displayQuantity.isEmpty {
                     Text(item.item.displayQuantity)
-                        .font(KitchenTableTheme.uiLabel)
+                        .font(KitchenTableTheme.bodyNote.monospacedDigit())
                         .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(1)
                 }
@@ -145,8 +147,8 @@ private struct ShoppingReceiptRow: View {
 
     private var nameText: some View {
         Text(item.item.name)
-            .font(KitchenTableTheme.objectTitle)
-            .foregroundStyle(KitchenTableTheme.ink)
+            .font(KitchenTableTheme.instructionBody)
+            .foregroundStyle(item.item.isEffectivelyChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
             .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.ink2)
             .lineLimit(2)
     }
@@ -163,29 +165,6 @@ private struct ShoppingReceiptRow: View {
         .font(KitchenTableTheme.uiLabel)
         .foregroundStyle(KitchenTableTheme.ink2)
         .lineLimit(1)
-    }
-
-    private func symbol(for iconKey: String) -> String {
-        switch iconKey {
-        case "leaf":
-            "leaf"
-        case "carrot":
-            "carrot"
-        case "citrus", "apple":
-            "apple.logo"
-        case "drumstick", "beef", "fish", "egg":
-            "fork.knife"
-        case "milk":
-            "fork.knife"
-        case "wheat", "sandwich":
-            "takeoutbag.and.cup.and.straw"
-        case "droplets":
-            "drop"
-        case "pot":
-            "flame"
-        default:
-            "shippingbox"
-        }
     }
 
     private func accessibilityText(for item: ShoppingListItem) -> String {
