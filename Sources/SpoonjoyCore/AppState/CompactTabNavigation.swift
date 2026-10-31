@@ -13,6 +13,13 @@ public enum CompactTab: String, CaseIterable, Hashable, Sendable {
     public var dockAccessibilityIdentifier: String {
         "dock.\(rawValue)"
     }
+
+    /// Whether a page pushed onto a tab shows the dock. Folded shut and held sideways, a foldable's cover stacks the
+    /// page's bar buttons and the dock in one short side column with no room for both, so the pushed page gives the
+    /// column to its own buttons; Back returns to the tab's root, where the dock fits.
+    public static func showsDockOnPushedPage(hinge: HingePosture, isLandscape: Bool) -> Bool {
+        !(hinge == .closed && isLandscape)
+    }
 }
 
 /// Where a route appears in the compact shell.

@@ -520,6 +520,7 @@ struct PlatformNavigationView: View {
             .navigationTitle(compactPushedTitle(for: route))
 #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .dockFittingClosedCover()
 #endif
         if case .recipeDetail(let id, .detail) = route {
             // The recipe grows out of the cover that was tapped, and shrinks back into it on the way out.
@@ -2662,6 +2663,46 @@ private struct RecipeListAddNoticeView: View {
             .accessibilityIdentifier("shell.listAddNotice")
     }
 }
+
+#if os(iOS)
+extension View {
+    /// Hides the dock on a pushed page while a foldable is closed and held sideways
+    /// (`CompactTab.showsDockOnPushedPage`).
+    @ViewBuilder func dockFittingClosedCover() -> some View {
+#if SPOONJOY_IOS_27_1_SDK
+        if #available(iOS 27.1, *) {
+            modifier(ClosedCoverDock())
+        } else {
+            self
+        }
+#else
+        self
+#endif
+    }
+}
+
+#if SPOONJOY_IOS_27_1_SDK
+@available(iOS 27.1, *)
+private struct ClosedCoverDock: ViewModifier {
+    @State private var hinge: HingePosture = .unknown
+    @State private var isLandscape = false
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar(CompactTab.showsDockOnPushedPage(hinge: hinge, isLandscape: isLandscape) ? .automatic : .hidden, for: .tabBar)
+            .onGeometryChange(for: Bool.self) { $0.size.width > $0.size.height } action: { isLandscape = $0 }
+            .onHingeChange { _, new in
+                hinge = switch new.hinge?.status {
+                case .closed?: .closed
+                case .partiallyOpen?: .partiallyOpen
+                case .fullyOpen?: .fullyOpen
+                default: .unknown
+                }
+            }
+    }
+}
+#endif
+#endif
 
 #if os(iOS)
 /// SwiftUI's `Tab` takes no accessibility identifier, so the dock is named through UIKit. Each `UITab` gets

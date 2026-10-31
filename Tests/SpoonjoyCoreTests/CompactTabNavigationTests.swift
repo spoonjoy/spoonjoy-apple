@@ -33,6 +33,18 @@ struct CompactTabNavigationTests {
         #expect(!source.contains("title.lowercased()"))
     }
 
+    // On a closed Duo held sideways, UIKit stacks the page's bar buttons and the dock in one 466 pt side column. A
+    // pushed page's back, share and more buttons left no room: tabs slid under Search and off the screen.
+    @Test("a pushed page hides the dock only on a closed foldable held in landscape")
+    func pushedPageDockVisibility() {
+        #expect(!CompactTab.showsDockOnPushedPage(hinge: .closed, isLandscape: true))
+        #expect(CompactTab.showsDockOnPushedPage(hinge: .closed, isLandscape: false))
+        for hinge in [HingePosture.unknown, .partiallyOpen, .fullyOpen] {
+            #expect(CompactTab.showsDockOnPushedPage(hinge: hinge, isLandscape: true))
+            #expect(CompactTab.showsDockOnPushedPage(hinge: hinge, isLandscape: false))
+        }
+    }
+
     @Test("every route has a place in the compact shell")
     func placements() {
         #expect(CompactTabNavigation.placement(for: .kitchen) == .root(.kitchen))
