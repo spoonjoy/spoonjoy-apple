@@ -62,4 +62,18 @@ struct RecipeHeroHeightTests {
         // Before the page has been measured, the preferred height stands.
         #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 0) == 420)
     }
+
+    // Task 10a: the height snapped from 315 pt to 420 pt as a window or split view crossed 630 pt tall.
+    @Test("the hero height changes continuously as the page grows")
+    func heroHeightIsContinuous() {
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 630) == 315)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 651) == 367.5)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 672) == 420)
+        var previous = KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 300)
+        for viewport in stride(from: 300.5, through: 1000, by: 0.5) {
+            let height = KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: viewport)
+            #expect(height >= previous && height - previous <= 1.25, "jump at \(viewport) pt")
+            previous = height
+        }
+    }
 }

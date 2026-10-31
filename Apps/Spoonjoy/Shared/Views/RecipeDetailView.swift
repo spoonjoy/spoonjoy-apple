@@ -537,7 +537,7 @@ struct RecipeDetailView: View {
         }
     }
 
-    /// The photo, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
+    /// The hero's height for the page as measured now; it changes continuously with the page's height.
     private var heroHeight: CGFloat {
         CGFloat(KitchenHeroStretch.heroHeight(
             preferred: Double(RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock)),
@@ -545,6 +545,7 @@ struct RecipeDetailView: View {
         ))
     }
 
+    /// The photo, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
     private func recipeHeroMedia(coverImageURL: URL) -> some View {
         GeometryReader { proxy in
             let scale = KitchenHeroStretch.scale(
