@@ -72,7 +72,7 @@ public actor RefreshCoordinator {
     private let serverBaseURL: URL?
     private let refreshLock: RefreshLock?
     private let rotationSettleDelays: [UInt64]
-    private let sleep: @Sendable (UInt64) async throws -> Void
+    private let sleep: (@Sendable (UInt64) async throws -> Void)?
 
     /// `alternateClientID` names a second client id to try once, with the same refresh token, when the server
     /// refuses the stored one. It is for sessions stored before the app kept the server-issued id: those may
@@ -90,7 +90,7 @@ public actor RefreshCoordinator {
         serverBaseURL: URL? = nil,
         refreshLock: RefreshLock? = nil,
         rotationSettleDelays: [UInt64] = [150_000_000, 350_000_000],
-        sleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }
+        sleep: (@Sendable (UInt64) async throws -> Void)? = nil
     ) {
         self.vault = vault
         self.refresh = refresh
@@ -282,11 +282,16 @@ public actor RefreshCoordinator {
 
     /// The session another process stored in place of `sentToken`, waiting briefly for a write still in progress.
     private func sessionRotatedElsewhere(than sentToken: String) async throws -> AuthSession? {
-        // No temporary array is iterated across the awaits: with Xcode 26's compiler, iterating `[0] + delays` here
-        // aborted the test process ("freed pointer was not the last allocation").
         for attempt in 0...rotationSettleDelays.count {
             if attempt > 0 {
-                try await sleep(rotationSettleDelays[attempt - 1])
+                let delay = rotationSettleDelays[attempt - 1]
+                // Production sleeps directly: on Xcode 26, awaiting a defaulted stored sleep closure here aborted the
+                // test process ("freed pointer was not the last allocation"). Tests pass their own.
+                if let sleep {
+                    try await sleep(delay)
+                } else {
+                    try await Task.sleep(nanoseconds: delay)
+                }
             }
             if let stored = try await vault.loadSession(), stored.refreshToken != sentToken {
                 return stored
