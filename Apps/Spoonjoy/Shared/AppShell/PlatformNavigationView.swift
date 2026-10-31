@@ -438,7 +438,7 @@ struct PlatformNavigationView: View {
         }
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
-        .tabViewSearchActivation(.searchTabSelection)
+        .modifier(SearchTabActivation(focusesOnSelection: shouldAutoFocusSearchField))
 #endif
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
         // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the
@@ -2577,6 +2577,22 @@ struct PlatformNavigationView: View {
         }.joined()
     }
 }
+
+#if os(iOS)
+/// Selecting the Search tab focuses its field. A capture run that asks for an unfocused search page
+/// (`SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS`) keeps the system default, so the keyboard stays down.
+private struct SearchTabActivation: ViewModifier {
+    let focusesOnSelection: Bool
+
+    func body(content: Content) -> some View {
+        if focusesOnSelection {
+            content.tabViewSearchActivation(.searchTabSelection)
+        } else {
+            content.tabViewSearchActivation(.automatic)
+        }
+    }
+}
+#endif
 
 private struct SpotlightIndexPayload {
     let scope: SpotlightIndexScope
