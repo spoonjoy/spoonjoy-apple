@@ -21,9 +21,17 @@ struct LayoutAuditTests {
     func controlsScrollUnderTheDock() {
         let page = LayoutAuditRect(x: 0, y: 0, width: 400, height: 800)
         let dock = control(1, LayoutAuditRect(x: 20, y: 720, width: 80, height: 54), isDockItem: true)
-        let seeAll = control(2, LayoutAuditRect(x: 20, y: 740, width: 150, height: 60), viewport: page, viewportIndex: 0)
+        // The Pro Max Kitchen's "See all" runs 26.4 pt under the dock.
+        let seeAll = control(2, LayoutAuditRect(x: 20, y: 747.6, width: 150, height: 60), viewport: page, viewportIndex: 0)
         #expect(LayoutAudit.audit([dock, seeAll], screen: screen).noOverlap)
         #expect(LayoutAudit.audit([seeAll, dock], screen: screen).noOverlap)
+
+        // Deeper than the limit, the control is buried under the dock rather than passing beneath its edge.
+        let buried = control(6, LayoutAuditRect(x: 20, y: 730, width: 150, height: 60), viewport: page, viewportIndex: 0)
+        #expect(LayoutAudit.dockUnderlapLimit == 32)
+        let buriedReport = LayoutAudit.audit([dock, buried], screen: screen)
+        #expect(!buriedReport.noOverlap)
+        #expect(buriedReport.overlaps.first?.intersection.height == 44)
 
         // A scroll view that stops above the dock does not run under it, and a fixed control never scrolls clear.
         let shortPage = LayoutAuditRect(x: 0, y: 0, width: 400, height: 760)
@@ -40,6 +48,14 @@ struct LayoutAuditTests {
         let kitchen = control(1, LayoutAuditRect(x: 396, y: 384, width: 44, height: 58), isDockItem: true)
         let recipes = control(2, LayoutAuditRect(x: 396, y: 434, width: 44, height: 58), isDockItem: true)
         #expect(LayoutAudit.audit([kitchen, recipes], screen: screen).noOverlap)
+
+        // The iPhone 6.9" dock's tabs share 12.4 pt side by side; past the limit two dock tabs fail like any controls.
+        let left = control(5, LayoutAuditRect(x: 20, y: 700, width: 90, height: 54), isDockItem: true)
+        let right = control(6, LayoutAuditRect(x: 97.6, y: 700, width: 90, height: 54), isDockItem: true)
+        #expect(LayoutAudit.audit([left, right], screen: screen).noOverlap)
+        #expect(LayoutAudit.dockNeighbourOverlapLimit == 16)
+        let crowded = control(7, LayoutAuditRect(x: 90, y: 700, width: 90, height: 54), isDockItem: true)
+        #expect(!LayoutAudit.audit([left, crowded], screen: screen).noOverlap)
 
         let appButton = control(4, LayoutAuditRect(x: 380, y: 400, width: 44, height: 44))
         let mixed = LayoutAudit.audit([kitchen, recipes, appButton], screen: screen)
