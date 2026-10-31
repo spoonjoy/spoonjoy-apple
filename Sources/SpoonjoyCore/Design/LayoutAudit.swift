@@ -73,7 +73,7 @@ public enum LayoutAudit {
 
         var overlaps: [LayoutAuditReport.Overlap] = []
         for (offset, first) in interactive.enumerated() {
-            for second in interactive[(offset + 1)...] where !first.element.isRelated(to: second.element) && !first.element.sharesDock(with: second.element) {
+            for second in interactive[(offset + 1)...] where !first.element.isRelated(to: second.element) && !first.element.sharesDock(with: second.element) && !first.element.scrollsUnderDock(second.element) && !second.element.scrollsUnderDock(first.element) {
                 if let shared = first.visibleFrame.intersection(second.visibleFrame) {
                     overlaps.append(.init(first: .init(first.element), second: .init(second.element), intersection: shared))
                 }
@@ -269,6 +269,15 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
     /// still compared with every control the app lays out.
     func sharesDock(with other: LayoutAuditElement) -> Bool {
         isDockItem && other.isDockItem
+    }
+
+    /// The dock floats in glass over the page, and a scroll view under it is inset so its content scrolls clear of
+    /// the dock. A control in a scroll view that runs under the dock is passing beneath it, not overlapping it.
+    func scrollsUnderDock(_ dockItem: LayoutAuditElement) -> Bool {
+        guard dockItem.isDockItem, !isDockItem, let viewport else {
+            return false
+        }
+        return viewport.contains(dockItem.frame)
     }
 }
 

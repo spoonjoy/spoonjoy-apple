@@ -17,6 +17,23 @@ struct LayoutAuditTests {
         LayoutAuditElement(index: index, ancestors: ancestors, role: .interactive, type: "button", identifier: "control.\(index)", label: "Control \(index)", frame: frame, viewport: viewport, viewportIndex: viewportIndex, container: nil, isDockItem: isDockItem)
     }
 
+    @Test("a control scrolling under the floating dock is not an overlap; one outside a scroll view is")
+    func controlsScrollUnderTheDock() {
+        let page = LayoutAuditRect(x: 0, y: 0, width: 400, height: 800)
+        let dock = control(1, LayoutAuditRect(x: 20, y: 720, width: 80, height: 54), isDockItem: true)
+        let seeAll = control(2, LayoutAuditRect(x: 20, y: 740, width: 150, height: 60), viewport: page, viewportIndex: 0)
+        #expect(LayoutAudit.audit([dock, seeAll], screen: screen).noOverlap)
+        #expect(LayoutAudit.audit([seeAll, dock], screen: screen).noOverlap)
+
+        // A scroll view that stops above the dock does not run under it, and a fixed control never scrolls clear.
+        let shortPage = LayoutAuditRect(x: 0, y: 0, width: 400, height: 760)
+        let clipped = control(3, LayoutAuditRect(x: 20, y: 700, width: 150, height: 40), viewport: shortPage, viewportIndex: 0)
+        let tallDock = control(5, LayoutAuditRect(x: 20, y: 690, width: 80, height: 90), isDockItem: true)
+        #expect(!LayoutAudit.audit([tallDock, clipped], screen: screen).noOverlap)
+        let fixed = control(4, LayoutAuditRect(x: 20, y: 740, width: 150, height: 60))
+        #expect(!LayoutAudit.audit([dock, fixed], screen: screen).noOverlap)
+    }
+
     @Test("the dock's tab items are not compared with each other, but are with the app's controls")
     func dockItemsAreComparedOnlyWithOtherControls() {
         // The iPhone Duo's closed rail: 58 pt items at a 50 pt pitch.
