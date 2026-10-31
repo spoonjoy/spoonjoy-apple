@@ -1,6 +1,9 @@
 import SpoonjoyCore
 import Foundation
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 #if canImport(AppIntents)
 import AppIntents
@@ -442,6 +445,9 @@ struct PlatformNavigationView: View {
         // selected tab, matching the web dock's brass primary button. Pages set their own action tint.
         .tint(KitchenTableTheme.brass)
         .background(KitchenTableTheme.page.ignoresSafeArea())
+#if os(iOS)
+        .background(DockAccessibilityIdentifiers())
+#endif
     }
 
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
@@ -2656,3 +2662,53 @@ private struct RecipeListAddNoticeView: View {
             .accessibilityIdentifier("shell.listAddNotice")
     }
 }
+
+#if os(iOS)
+/// SwiftUI's `Tab` takes no accessibility identifier, so the dock's tab items are named through UIKit: each tab bar
+/// item gets `dock.<title>`, which stays put however the system lays the dock out.
+private struct DockAccessibilityIdentifiers: UIViewRepresentable {
+    func makeUIView(context: Context) -> Probe {
+        Probe()
+    }
+
+    func updateUIView(_ uiView: Probe, context: Context) {
+        uiView.apply()
+    }
+
+    final class Probe: UIView {
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            apply()
+        }
+
+        func apply() {
+            DispatchQueue.main.async { [weak self] in
+                guard let root = self?.window?.rootViewController else { return }
+                for controller in Self.tabBarControllers(from: root) {
+                    for item in controller.tabBar.items ?? [] {
+                        guard let title = item.title else { continue }
+                        item.accessibilityIdentifier = "dock.\(title.lowercased())"
+                    }
+                    for tab in controller.tabs {
+                        tab.viewController?.tabBarItem.accessibilityIdentifier = "dock.\(tab.title.lowercased())"
+                    }
+                }
+            }
+        }
+
+        private static func tabBarControllers(from controller: UIViewController) -> [UITabBarController] {
+            var found: [UITabBarController] = []
+            if let tabs = controller as? UITabBarController {
+                found.append(tabs)
+            }
+            for child in controller.children {
+                found += tabBarControllers(from: child)
+            }
+            if let presented = controller.presentedViewController {
+                found += tabBarControllers(from: presented)
+            }
+            return found
+        }
+    }
+}
+#endif

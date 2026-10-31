@@ -12,13 +12,15 @@ import XCTest
 /// without an ellipsis; a label overflowing its container or the screen is caught from its frame instead.
 @MainActor
 enum LayoutAuditCollector {
-    static let method = "XCUITest snapshot frames and Vision text recognition of a screenshot taken right after the snapshot, not at the same instant. noOverlap: no two visible controls' frames cross, apart from a control inside another. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view starts at or past that edge; a control wholly off screen outside any scroll view is clipped. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless the label of the element holding it does (so such a label can hide a real truncation). Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls."
+    static let method = "XCUITest snapshot frames and Vision text recognition of a screenshot taken right after the snapshot, not at the same instant. noOverlap: no two visible controls' frames cross, apart from a control inside another and two of the dock's tab items (identifiers dock.*), which UIKit lays out. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view starts at or past that edge; a control wholly off screen outside any scroll view is clipped. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless the label of the element holding it does (so such a label can hide a real truncation). Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls."
 
     private static let interactiveTypes: Set<XCUIElement.ElementType> = [
         .button, .link, .switch, .toggle, .slider, .stepper, .textField, .secureTextField, .searchField,
         .segmentedControl, .menuButton, .popUpButton, .picker, .datePicker, .colorWell, .disclosureTriangle,
         .incrementArrow, .decrementArrow
     ]
+    /// The dock's tab items carry `dock.<tab>` identifiers (`DockAccessibilityIdentifiers`).
+    private static let dockIdentifierPrefix = "dock."
     private static let scrollingTypes: Set<XCUIElement.ElementType> = [.scrollView, .table, .collectionView, .webView]
     private static let unboundedTypes: Set<XCUIElement.ElementType> = [.application, .window]
 
@@ -52,7 +54,8 @@ enum LayoutAuditCollector {
                     frame: rect(node.frame),
                     viewport: viewport.map { rect($0.frame) },
                     viewportIndex: viewport?.index,
-                    container: container.map(rect)
+                    container: container.map(rect),
+                    isDockItem: role == .interactive && node.identifier.hasPrefix(dockIdentifierPrefix)
                 ))
             }
             let scrolls = scrollingTypes.contains(type)

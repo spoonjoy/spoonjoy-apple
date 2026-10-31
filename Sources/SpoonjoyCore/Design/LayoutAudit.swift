@@ -73,7 +73,7 @@ public enum LayoutAudit {
 
         var overlaps: [LayoutAuditReport.Overlap] = []
         for (offset, first) in interactive.enumerated() {
-            for second in interactive[(offset + 1)...] where !first.element.isRelated(to: second.element) {
+            for second in interactive[(offset + 1)...] where !first.element.isRelated(to: second.element) && !first.element.sharesDock(with: second.element) {
                 if let shared = first.visibleFrame.intersection(second.visibleFrame) {
                     overlaps.append(.init(first: .init(first.element), second: .init(second.element), intersection: shared))
                 }
@@ -230,6 +230,8 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
     public let viewportIndex: Int?
     /// The nearest non-scrolling ancestor with a frame, which the element must stay inside.
     public let container: LayoutAuditRect?
+    /// True for an item of the system tab bar (the app's dock), which UIKit lays out.
+    public let isDockItem: Bool
 
     public init(
         index: Int,
@@ -241,7 +243,8 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
         frame: LayoutAuditRect,
         viewport: LayoutAuditRect?,
         viewportIndex: Int? = nil,
-        container: LayoutAuditRect?
+        container: LayoutAuditRect?,
+        isDockItem: Bool = false
     ) {
         self.index = index
         self.ancestors = ancestors
@@ -253,11 +256,19 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
         self.viewport = viewport
         self.viewportIndex = viewportIndex
         self.container = container
+        self.isDockItem = isDockItem
     }
 
     /// A control inside another control (a menu inside a row button) shares its parent's frame by design.
     func isRelated(to other: LayoutAuditElement) -> Bool {
         ancestors.contains(other.index) || other.ancestors.contains(index)
+    }
+
+    /// UIKit lays out the dock's tab items, and on the iPhone Duo's closed rail it reports each 58 pt tall at a
+    /// 50 pt pitch at every text size, so neighbours share 8 pt. Dock items are not compared with each other; each is
+    /// still compared with every control the app lays out.
+    func sharesDock(with other: LayoutAuditElement) -> Bool {
+        isDockItem && other.isDockItem
     }
 }
 

@@ -11,9 +11,23 @@ struct LayoutAuditTests {
         _ frame: LayoutAuditRect,
         ancestors: [Int] = [],
         viewport: LayoutAuditRect? = nil,
-        viewportIndex: Int? = nil
+        viewportIndex: Int? = nil,
+        isDockItem: Bool = false
     ) -> LayoutAuditElement {
-        LayoutAuditElement(index: index, ancestors: ancestors, role: .interactive, type: "button", identifier: "control.\(index)", label: "Control \(index)", frame: frame, viewport: viewport, viewportIndex: viewportIndex, container: nil)
+        LayoutAuditElement(index: index, ancestors: ancestors, role: .interactive, type: "button", identifier: "control.\(index)", label: "Control \(index)", frame: frame, viewport: viewport, viewportIndex: viewportIndex, container: nil, isDockItem: isDockItem)
+    }
+
+    @Test("the dock's tab items are not compared with each other, but are with the app's controls")
+    func dockItemsAreComparedOnlyWithOtherControls() {
+        // The iPhone Duo's closed rail: 58 pt items at a 50 pt pitch.
+        let kitchen = control(1, LayoutAuditRect(x: 396, y: 384, width: 44, height: 58), isDockItem: true)
+        let recipes = control(2, LayoutAuditRect(x: 396, y: 434, width: 44, height: 58), isDockItem: true)
+        #expect(LayoutAudit.audit([kitchen, recipes], screen: screen).noOverlap)
+
+        let appButton = control(4, LayoutAuditRect(x: 380, y: 400, width: 44, height: 44))
+        let mixed = LayoutAudit.audit([kitchen, recipes, appButton], screen: screen)
+        #expect(Set(mixed.overlaps.map(\.first.identifier) + mixed.overlaps.map(\.second.identifier)) == ["control.1", "control.2", "control.4"])
+        #expect(mixed.overlaps.count == 2)
     }
 
     private func text(
