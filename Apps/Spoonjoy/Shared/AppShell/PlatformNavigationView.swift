@@ -2729,8 +2729,10 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                         tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
                     }
                     // UIKit reads the name from the UITab only when it builds a dock button, so buttons built before
-                    // this pass keep the image name. Name those directly; later rebuilds read the UITab.
-                    Self.nameBuiltButtons(in: controller.view, tabs: controller.tabs)
+                    // this pass keep the image name. Name those directly; later rebuilds read the UITab. The walk
+                    // skips the tabs' pages, where a back button can carry a tab's title; on iOS 27 the floating dock
+                    // sits beside them in the controller's view, not inside `tabBar`.
+                    Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
                 }
                 named = true
                 namedController = controller
@@ -2745,12 +2747,15 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             }
         }
 
-        private static func nameBuiltButtons(in view: UIView, tabs: [UITab]) {
+        private static func nameBuiltButtons(in view: UIView, skipping content: Set<UIView>, tabs: [UITab]) {
+            guard !content.contains(view) else {
+                return
+            }
             if view is UIControl, let label = view.accessibilityLabel, let tab = tabs.first(where: { $0.title == label }) {
                 view.accessibilityIdentifier = tab.accessibilityIdentifier
             }
             for subview in view.subviews {
-                nameBuiltButtons(in: subview, tabs: tabs)
+                nameBuiltButtons(in: subview, skipping: content, tabs: tabs)
             }
         }
 

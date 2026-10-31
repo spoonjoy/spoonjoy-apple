@@ -47,7 +47,10 @@ struct CompactTabNavigationTests {
         #expect(probe.contains("DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval)"))
         #expect(!probe.contains("if namedController == nil"))
         // Buttons UIKit built before the tabs were named keep the image name unless they are named directly.
-        #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, tabs: controller.tabs)"))
+        // Only the dock's own views: page content, where a back button can read "Kitchen", lives in the child view
+        // controllers' views, which the walk skips. (On iOS 27 the floating dock is not inside `tabBar`.)
+        #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\\.viewIfLoaded)), tabs: controller.tabs)"))
+        #expect(probe.contains("guard !content.contains(view) else"))
         // Layout runs often; once the dock is named, a pass must not walk the view controller tree again.
         let apply = try #require(probe.range(of: "func apply() {").map { String(probe[$0.upperBound...]) })
         let firstStatement = apply.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
