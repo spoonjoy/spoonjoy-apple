@@ -2681,11 +2681,13 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
         uiView.apply()
     }
 
-    /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. Each
-    /// pass is cheap once the tabs carry their names. Until then it retries every `retryInterval` for a few seconds,
-    /// because on a slow launch the tab bar controller joins the window late.
+    /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. While
+    /// the named controller's tabs keep their names, a pass returns without searching. Until a controller is found it
+    /// retries every `retryInterval` for a few seconds, because on a slow launch the tab bar controller joins the
+    /// window late.
     final class Probe: UIView {
         private static let retryInterval: TimeInterval = 0.1
+        private weak var namedController: UITabBarController?
         private var retriesLeft = 50
         private var retryScheduled = false
 
@@ -2716,6 +2718,9 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
         }
 
         func apply() {
+            if let namedController, Self.isNamed(namedController) {
+                return
+            }
             guard let root = window?.rootViewController else { return }
             var named = false
             for controller in Self.tabBarControllers(from: root) where controller.tabs.count == CompactTab.allCases.count {
@@ -2728,6 +2733,7 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                     Self.nameBuiltButtons(in: controller.view, tabs: controller.tabs)
                 }
                 named = true
+                namedController = controller
             }
             if !named, retriesLeft > 0, !retryScheduled {
                 retriesLeft -= 1

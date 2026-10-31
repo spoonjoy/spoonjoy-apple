@@ -48,6 +48,10 @@ struct CompactTabNavigationTests {
         #expect(!probe.contains("if namedController == nil"))
         // Buttons UIKit built before the tabs were named keep the image name unless they are named directly.
         #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, tabs: controller.tabs)"))
+        // Layout runs often; once the dock is named, a pass must not walk the view controller tree again.
+        let apply = try #require(probe.range(of: "func apply() {").map { String(probe[$0.upperBound...]) })
+        let firstStatement = apply.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
+        #expect(firstStatement == "if let namedController, Self.isNamed(namedController) {")
     }
 
     // On a closed Duo held sideways, UIKit stacks the page's bar buttons and the dock in one 466 pt side column. A
