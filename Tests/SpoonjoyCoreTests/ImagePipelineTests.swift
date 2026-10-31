@@ -19,6 +19,13 @@ private func makeImageData(width: Int = 640, height: Int = 320) -> Data {
     return output as Data
 }
 
+private func makeImage(width: Int, height: Int) -> CGImage {
+    CGContext(
+        data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+        space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    )!.makeImage()!
+}
+
 private func temporaryDirectory() -> URL {
     FileManager.default.temporaryDirectory.appendingPathComponent("image-pipeline-\(UUID().uuidString)", isDirectory: true)
 }
@@ -312,6 +319,67 @@ struct ImagePipelineTests {
     }
 
     private var variant256: URL { URL(string: "\(coverURL.absoluteString)?w=256")! }
+
+    // The memory cache used to be an NSCache, which drops entries whenever the system is under memory pressure, so
+    // these assertions failed at random on a loaded machine.
+    @Test("the memory cache keeps decodes until the cost limit, then drops the least recently used")
+    func memoryCacheEvictsLeastRecentlyUsed() {
+        let tenByTen = 10 * 10 * 4
+        let memory = ImageMemoryCache(costLimit: tenByTen * 2)
+        let a = URL(string: "https://spoonjoy.app/a.jpg")!
+        let b = URL(string: "https://spoonjoy.app/b.jpg")!
+        let c = URL(string: "https://spoonjoy.app/c.jpg")!
+        memory.insert(makeImage(width: 10, height: 10), url: a, maxPixelSize: 128)
+        memory.insert(makeImage(width: 10, height: 10), url: b, maxPixelSize: 128)
+        // Reading a makes b the least recently used.
+        #expect(memory.image(url: a, maxPixelSize: 128) != nil)
+        memory.insert(makeImage(width: 10, height: 10), url: c, maxPixelSize: 128)
+        #expect(memory.image(url: a, maxPixelSize: 128) != nil)
+        #expect(memory.image(url: b, maxPixelSize: 128) == nil)
+        #expect(memory.image(url: c, maxPixelSize: 128) != nil)
+
+        // Replacing a decode counts its cost once.
+        memory.insert(makeImage(width: 10, height: 10), url: c, maxPixelSize: 128)
+        #expect(memory.image(url: a, maxPixelSize: 128) != nil)
+
+        // A decode larger than the whole cache is not kept and evicts nothing.
+        memory.insert(makeImage(width: 20, height: 20), url: b, maxPixelSize: 512)
+        #expect(memory.image(url: b, maxPixelSize: 512) == nil)
+        #expect(memory.image(url: a, maxPixelSize: 128) != nil)
+
+        memory.removeAll()
+        #expect(memory.image(url: a, maxPixelSize: 128) == nil)
+        #expect(memory.image(url: c, maxPixelSize: 128) == nil)
+    }
+
+    @Test("trimming the memory cache drops the least recently used decodes down to the target cost")
+    func memoryCacheTrimsLeastRecentlyUsed() {
+        let tenByTen = 10 * 10 * 4
+        let memory = ImageMemoryCache(costLimit: tenByTen * 4)
+        let urls = ["a", "b", "c"].map { URL(string: "https://spoonjoy.app/\($0).jpg")! }
+        urls.forEach { memory.insert(makeImage(width: 10, height: 10), url: $0, maxPixelSize: 128) }
+        // Reading a makes b the least recently used.
+        #expect(memory.image(url: urls[0], maxPixelSize: 128) != nil)
+
+        memory.trim(toCost: tenByTen * 2)
+        #expect(memory.image(url: urls[1], maxPixelSize: 128) == nil)
+        #expect(memory.image(url: urls[0], maxPixelSize: 128) != nil)
+        #expect(memory.image(url: urls[2], maxPixelSize: 128) != nil)
+
+        // The trim also frees room: two more decodes fit under the limit without evicting.
+        memory.insert(makeImage(width: 10, height: 10), url: urls[1], maxPixelSize: 128)
+        memory.insert(makeImage(width: 10, height: 10), url: urls[1], maxPixelSize: 256)
+        #expect(memory.image(url: urls[0], maxPixelSize: 128) != nil)
+
+        memory.trim(toCost: 0)
+        #expect(urls.allSatisfy { memory.image(url: $0, maxPixelSize: 128) == nil })
+    }
+
+    @Test("the background trim target is a quarter of the cost limit")
+    func backgroundTrimTarget() {
+        #expect(ImageMemoryCache(costLimit: 400).backgroundCost == 100)
+        #expect(ImageMemoryCache().backgroundCost == ImageMemoryCache.defaultCostLimit / 4)
+    }
 
     @Test("a second load of the same URL hits no network")
     func secondLoadHitsNoNetwork() async {

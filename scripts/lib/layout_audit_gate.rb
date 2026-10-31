@@ -79,8 +79,17 @@ module LayoutAuditGate
       end
       problems << "#{where} must be owned by #{OWNER}" unless entry["task"] == OWNER
       problems << "#{where} must give a reason" unless entry["reason"].is_a?(String) && !entry["reason"].strip.empty?
+      earlier = document["findings"].first(index).index { |other| same_entry?(other, entry) }
+      problems << "#{where} repeats known finding #{earlier}" if earlier
       problems
     end
+  end
+
+  def same_entry?(first, second)
+    return false unless first.is_a?(Hash) && second.is_a?(Hash)
+
+    %w[route dynamicType kind].all? { |key| first[key] == second[key] } &&
+      Array(first["elements"]).sort == Array(second["elements"]).sort
   end
 
   def load_known_findings(path = DEFAULT_KNOWN_FINDINGS)
@@ -113,7 +122,8 @@ module LayoutAuditGate
     allowed = []
     unexpected = []
     findings(audit).each do |finding|
-      entry = applicable.find { |candidate| matches?(candidate, finding) }
+      # Each entry excuses one finding: a second overlap between two same-labelled elements is a new problem.
+      entry = applicable.find { |candidate| !matched.any? { |used| used.equal?(candidate) } && matches?(candidate, finding) }
       if entry
         matched << entry
         allowed << finding
@@ -121,7 +131,7 @@ module LayoutAuditGate
         unexpected << finding
       end
     end
-    Result.new(errors: errors, allowed: allowed, unexpected: unexpected, stale: applicable - matched)
+    Result.new(errors: errors, allowed: allowed, unexpected: unexpected, stale: applicable.reject { |entry| matched.any? { |used| used.equal?(entry) } })
   end
 
   def describe(finding)

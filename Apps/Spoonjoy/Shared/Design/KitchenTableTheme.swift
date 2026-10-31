@@ -338,6 +338,7 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
     let subtitle: String?
     @ViewBuilder let content: () -> Content
     @ViewBuilder let accessory: () -> Accessory
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         title: String,
@@ -364,7 +365,9 @@ struct KitchenTableSection<Content: View, Accessory: View>: View {
                 Text(title)
                     .font(KitchenTableTheme.sectionTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(1)
+                    // One line beside the rule at the default sizes; at the accessibility sizes a title such as
+                    // "No recipes yet" wraps rather than ending in an ellipsis on a narrow screen.
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                     .layoutPriority(1)
                 Rectangle()
                     .fill(KitchenTableTheme.hairline.opacity(0.55))

@@ -128,14 +128,28 @@ private final class CookVoiceSession: CookVoiceRunning {
         }
         let (stream, input) = AsyncStream<AnalyzerInput>.makeStream()
         let analyzer = SpeechAnalyzer(modules: [transcriber])
-        try await analyzer.start(inputSequence: stream)
+        do {
+            try await analyzer.start(inputSequence: stream)
+        } catch {
+            input.finish()
+            throw error
+        }
 
         let pipe = CookVoiceAudioPipe(converter: converter, format: analyzerFormat, gate: gate, input: input)
         CookAudioTap.install(on: inputNode, format: micFormat) { buffer, _ in
             pipe.send(buffer)
         }
         engine.prepare()
-        try engine.start()
+        do {
+            try engine.start()
+        } catch {
+            // Nothing owns the tap or the analyzer yet: undo both, or the mic stays tapped and the analyzer waits forever.
+            inputNode.removeTap(onBus: 0)
+            engine.stop()
+            input.finish()
+            await analyzer.cancelAndFinishNow()
+            throw error
+        }
 
         let session = CookVoiceSession(engine: engine, analyzer: analyzer, input: input)
         session.watch(failed: failed)
@@ -205,7 +219,7 @@ private final class CookVoiceSession: CookVoiceRunning {
 /// deactivate the audio session underneath the newer one. Only the last session to stop deactivates it.
 @MainActor
 private enum CookAudioSessionUse {
-    private static var users = 0
+    private static var count = CookAudioSessionUseCount()
 
     static func begin() throws {
 #if os(iOS)
@@ -214,12 +228,11 @@ private enum CookAudioSessionUse {
         try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .duckOthers, .allowBluetoothHFP])
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
 #endif
-        users += 1
+        count.begin()
     }
 
     static func end() {
-        users = max(0, users - 1)
-        guard users == 0 else { return }
+        guard count.end() else { return }
 #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
 #endif
@@ -302,7 +315,8 @@ private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
     /// The utterance being read and the gate it holds deaf. A late callback for an earlier utterance, such as the
     /// cancel of the one this replaced, must not end this one's mute.
-    private var current: (utterance: AVSpeechUtterance, gate: CookVoiceMuteGate)?
+    private var ownership = CookSpeechOwnership<AVSpeechUtterance>()
+    private var gate: CookVoiceMuteGate?
 
     override init() {
         super.init()
@@ -313,15 +327,16 @@ private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
         stop()
         let utterance = AVSpeechUtterance(string: text)
         utterance.voice = AVSpeechSynthesisVoice(language: Locale.current.identifier(.bcp47))
-        current = (utterance, gate)
+        ownership.began(utterance)
+        self.gate = gate
         gate.speechBegan()
         synthesizer.speak(utterance)
     }
 
     func stop() {
-        guard let current else { return }
+        guard let utterance = ownership.current else { return }
         synthesizer.stopSpeaking(at: .immediate)
-        finished(current.utterance)
+        finished(utterance)
     }
 
     // The callback holds the utterance itself until it is compared, so a newer utterance can't reuse its address.
@@ -336,9 +351,9 @@ private final class CookStepReader: NSObject, AVSpeechSynthesizerDelegate {
     }
 
     private func finished(_ utterance: AVSpeechUtterance) {
-        guard let current, current.utterance === utterance else { return }
-        current.gate.speechEnded(at: Date().timeIntervalSinceReferenceDate, tail: Self.tail)
-        self.current = nil
+        guard ownership.finished(utterance), let gate else { return }
+        gate.speechEnded(at: Date().timeIntervalSinceReferenceDate, tail: Self.tail)
+        self.gate = nil
     }
 }
 

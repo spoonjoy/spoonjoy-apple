@@ -823,7 +823,8 @@ struct SpoonjoyRootView: View {
                 )
             },
             reusesSavedClientID: Self.reusesSavedOAuthClientID(environment: environment),
-            serverBaseURL: configuration.baseURL
+            serverBaseURL: configuration.baseURL,
+            refreshLock: .keychain
         )
         let cacheStore = NativeDurableCacheStore(
             fileURL: appDirectory.appendingPathComponent("native-durable-cache.json")
