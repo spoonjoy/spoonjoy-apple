@@ -642,7 +642,8 @@ struct NativeMobileDesignContractTests {
                 ".matchedTransitionSource(id: content.id, in: namespace)",
                 ".accessibilityLabel(content.accessibilityLabel)",
                 ".contextMenu",
-                "ShareLink(item: content.shareURL)",
+                "if let shareURL = content.shareURL",
+                "ShareLink(item: shareURL)",
                 "Label(\"Add to list\"",
                 "RecipeInitialTile(title: title)"
             ],
@@ -691,15 +692,15 @@ struct NativeMobileDesignContractTests {
             recipes,
             in: recipesPath,
             contains: [
-                "Image(systemName: \"chevron.forward\")",
                 "subtitle: nil",
-                "subtitle: \"Photo not added\"",
                 "showsFallbackLabel: false",
-                "showsFallbackLabel: !dynamicTypeSize.isAccessibilitySize",
+                "recipeIndex(rows: state.rows)",
+                "RecipeIndexRow(row: row",
                 "RecipeCoverPrefetcher.prefetch"
             ],
             forbids: [
                 "Text(\"Open\")",
+                "RecipeCatalogLead(row:",
                 "row.servingsLabel,\n            row.coverProvenanceLabel"
             ]
         )

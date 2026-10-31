@@ -98,7 +98,7 @@ REQUIRED_TOKENS = {
     "KitchenTableTheme"
   ],
   "Apps/Spoonjoy/Shared/Views/RecipesView.swift" => [
-    "state.indexRows",
+    "recipeIndex(rows: state.rows)",
     "@State private var query",
     "@State private var isLoading",
     ".searchable(text: $query",

@@ -80,7 +80,8 @@ struct KitchenRecipesStructureContractTests {
                 "recipe.servings",
                 "recipe.displayCoverProvenanceLabel",
                 ".joined(separator: \" · \")",
-                "ShareLink(item: content.shareURL)",
+                "if let shareURL = content.shareURL",
+                "ShareLink(item: shareURL)",
                 ".accessibilityHint(\"Opens the recipe\")"
             ],
             forbids: [
@@ -109,12 +110,13 @@ struct KitchenRecipesStructureContractTests {
                 "emptyState.title",
                 "emptyState.message",
                 "emptyState.systemImage",
-                "state.leadRow",
-                "state.indexRows",
+                "recipeIndex(rows: state.rows)",
+                "KitchenTableEmptyTile(",
                 "RecipeCoverPrefetcher.prefetch"
             ],
             forbids: [
                 "KitchenEmptySection(title: emptyState",
+                "RecipeCatalogLead(row:",
                 "emptyState: String?",
                 "catch {\n            state = viewModel.state\n        }"
             ]

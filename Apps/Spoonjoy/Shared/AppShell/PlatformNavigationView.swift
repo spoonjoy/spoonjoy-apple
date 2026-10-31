@@ -987,7 +987,11 @@ struct PlatformNavigationView: View {
                 seeAllRecipes: { openRoute(.recipes) }
             )
         case .recipes:
-            RecipesView(viewModel: myRecipesCatalogViewModel, openRoute: openRoute)
+            RecipesView(
+                viewModel: myRecipesCatalogViewModel,
+                openRoute: openRoute,
+                emptyAction: RecipesEmptyAction(title: "Add a recipe", systemImage: "plus", perform: createRecipe)
+            )
         case .savedRecipes:
             SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
         case .everyoneRecipes:

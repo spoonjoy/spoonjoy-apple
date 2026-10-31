@@ -19,6 +19,8 @@ extension EnvironmentValues {
 struct RecipeIndexRow: View {
     private let content: RecipeIndexRowContent
     private let namespace: Namespace.ID
+    /// The recipe's place in an ordered list, such as a cookbook's contents; nil for an unordered list.
+    private let ordinal: Int?
     private let action: () -> Void
 
     @Environment(\.spoonjoyAddRecipeToList) private var addRecipeToList
@@ -33,12 +35,40 @@ struct RecipeIndexRow: View {
     init(recipe: Recipe, namespace: Namespace.ID, action: @escaping () -> Void) {
         self.content = RecipeIndexRowContent(recipe: recipe)
         self.namespace = namespace
+        self.ordinal = nil
         self.action = action
     }
 
     init(row: RecipeCatalogRowViewModel, namespace: Namespace.ID, action: @escaping () -> Void) {
         self.content = RecipeIndexRowContent(row: row)
         self.namespace = namespace
+        self.ordinal = nil
+        self.action = action
+    }
+
+    /// A recipe from a list that only has its summary, such as a search result, a profile or a cookbook's contents.
+    /// `accessibilityLabel` replaces the title-and-line label when the source already composes one.
+    init(
+        id: String,
+        title: String,
+        detail: String?,
+        coverURL: URL?,
+        shareURL: URL? = nil,
+        accessibilityLabel: String? = nil,
+        ordinal: Int? = nil,
+        namespace: Namespace.ID,
+        action: @escaping () -> Void
+    ) {
+        self.content = RecipeIndexRowContent(
+            id: id,
+            title: title,
+            detail: detail,
+            coverURL: coverURL,
+            shareURL: shareURL,
+            accessibilityLabel: accessibilityLabel
+        )
+        self.namespace = namespace
+        self.ordinal = ordinal
         self.action = action
     }
 
@@ -49,10 +79,18 @@ struct RecipeIndexRow: View {
             : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
         Button(action: action) {
             layout {
+                if let ordinal, !dynamicTypeSize.isAccessibilitySize {
+                    ordinalText(ordinal)
+                        .frame(minWidth: 24, alignment: .leading)
+                }
                 RecipeIndexThumbnail(title: content.title, coverURL: content.coverURL)
                     .frame(width: thumbnailSize, height: thumbnailSize)
                     .matchedTransitionSource(id: content.id, in: namespace)
                 VStack(alignment: .leading, spacing: 2) {
+                    // At the accessibility sizes the number leads the text, over the title.
+                    if let ordinal, dynamicTypeSize.isAccessibilitySize {
+                        ordinalText(ordinal)
+                    }
                     Text(content.title)
                         .font(KitchenTableTheme.indexTitle)
                         .foregroundStyle(KitchenTableTheme.ink)
@@ -78,8 +116,10 @@ struct RecipeIndexRow: View {
         .accessibilityLabel(content.accessibilityLabel)
         .accessibilityHint("Opens the recipe")
         .contextMenu {
-            ShareLink(item: content.shareURL) {
-                Label("Share", systemImage: "square.and.arrow.up")
+            if let shareURL = content.shareURL {
+                ShareLink(item: shareURL) {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
             }
             if let recipe = content.recipe, let addRecipeToList, recipe.steps.contains(where: { !$0.ingredients.isEmpty }) {
                 Button {
@@ -91,6 +131,16 @@ struct RecipeIndexRow: View {
         } preview: {
             RecipeIndexRowPreview(content: content)
         }
+    }
+}
+
+extension RecipeIndexRow {
+    private func ordinalText(_ ordinal: Int) -> some View {
+        Text(ordinal < 10 ? "0\(ordinal)" : "\(ordinal)")
+            .font(.caption.weight(.bold).monospacedDigit())
+            .tracking(1.0)
+            .foregroundStyle(KitchenTableTheme.brass)
+            .accessibilityHidden(true)
     }
 }
 
@@ -121,7 +171,7 @@ private struct RecipeIndexRowContent {
     /// What VoiceOver reads: the title, the line under it and, when the line leaves it out, who wrote it.
     let accessibilityLabel: String
     let coverURL: URL?
-    let shareURL: URL
+    let shareURL: URL?
     /// The full recipe, when the list has it; only full recipes can add their ingredients to the list.
     let recipe: Recipe?
 
@@ -142,6 +192,16 @@ private struct RecipeIndexRowContent {
         accessibilityLabel = Self.accessibilityLabel(title: row.title, detail: detail, chef: nil)
         coverURL = row.coverImageURL
         shareURL = row.shareURL
+        recipe = nil
+    }
+
+    init(id: String, title: String, detail: String?, coverURL: URL?, shareURL: URL?, accessibilityLabel: String?) {
+        self.id = id
+        self.title = title
+        self.detail = Self.detail([detail])
+        self.accessibilityLabel = accessibilityLabel ?? Self.accessibilityLabel(title: title, detail: self.detail, chef: nil)
+        self.coverURL = coverURL
+        self.shareURL = shareURL
         recipe = nil
     }
 

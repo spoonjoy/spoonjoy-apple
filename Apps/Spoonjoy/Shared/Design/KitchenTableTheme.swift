@@ -245,8 +245,10 @@ struct KitchenTableHeader<Trailing: View>: View {
     let titleFont: Font
     @ViewBuilder let trailing: () -> Trailing
 
+    /// `eyebrow` is a kicker that carries state, such as the day or a cookbook's owner; leave it empty when it would
+    /// only repeat where the reader already is.
     init(
-        eyebrow: String,
+        eyebrow: String = "",
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
@@ -278,10 +280,12 @@ struct KitchenTableHeader<Trailing: View>: View {
 
     private var titleStack: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(eyebrow.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(1.4)
-                .foregroundStyle(KitchenTableTheme.brass)
+            if !eyebrow.isEmpty {
+                Text(eyebrow.uppercased())
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.4)
+                    .foregroundStyle(KitchenTableTheme.brass)
+            }
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
                     .font(titleFont)
@@ -302,7 +306,7 @@ struct KitchenTableHeader<Trailing: View>: View {
 
 extension KitchenTableHeader where Trailing == EmptyView {
     init(
-        eyebrow: String,
+        eyebrow: String = "",
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
@@ -490,8 +494,14 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
 }
 
 extension KitchenTableObjectRow where Trailing == EmptyView {
-    init(title: String, subtitle: String? = nil, @ViewBuilder leading: @escaping () -> Leading) {
-        self.init(title: title, subtitle: subtitle, detail: nil, ordinal: nil, titleFont: KitchenTableTheme.objectTitle, leading: leading) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        detail: String? = nil,
+        titleFont: Font = KitchenTableTheme.objectTitle,
+        @ViewBuilder leading: @escaping () -> Leading
+    ) {
+        self.init(title: title, subtitle: subtitle, detail: detail, ordinal: nil, titleFont: titleFont, leading: leading) {
             EmptyView()
         }
     }
@@ -592,5 +602,67 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
 
     private var fill: Color {
         prominence == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.ink
+    }
+}
+
+/// A designed empty state: a brass mark, the title in the serif, one line of copy and at most one way in. It sits on the
+/// page under a strong rule, never in a box, so an empty screen reads like the Kitchen's "The table is set".
+struct KitchenTableEmptyTile<Action: View>: View {
+    let systemImage: String
+    let title: String
+    let message: String
+    /// Brass by default; herb when the state is a finish rather than a start.
+    let tint: Color
+    @ViewBuilder let action: () -> Action
+
+    init(
+        systemImage: String,
+        title: String,
+        message: String,
+        tint: Color = KitchenTableTheme.brass,
+        @ViewBuilder action: @escaping () -> Action
+    ) {
+        self.systemImage = systemImage
+        self.title = title
+        self.message = message
+        self.tint = tint
+        self.action = action
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(.title, design: .serif))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Text(message)
+                .font(KitchenTableTheme.instructionBody)
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+            if Action.self != EmptyView.self {
+                action()
+                    .frame(maxWidth: 320, alignment: .leading)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) {
+            Rectangle().fill(KitchenTableTheme.lineStrong).frame(height: 1)
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+extension KitchenTableEmptyTile where Action == EmptyView {
+    init(systemImage: String, title: String, message: String) {
+        self.init(systemImage: systemImage, title: title, message: message) {
+            EmptyView()
+        }
     }
 }
