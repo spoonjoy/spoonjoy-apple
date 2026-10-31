@@ -46,11 +46,26 @@ class LayoutAuditGateTest < Minitest::Test
     { "first" => reference("cook.timer.ring"), "second" => reference("cookMode.coverGlance.next"), "intersection" => {} }
   end
 
-  def test_checked_in_known_findings_are_valid_and_owned_by_task_10
-    findings = LayoutAuditGate.load_known_findings
+  # Task 10 fixed every known finding; strict captures now pass with nothing excused.
+  def test_checked_in_known_findings_are_valid_and_empty
+    assert_empty LayoutAuditGate.load_known_findings
+  end
 
-    refute_empty findings
-    assert(findings.all? { |entry| entry["task"] == "Task 10" })
+  def test_one_entry_excuses_one_finding
+    dock = ->(first, second) { { "first" => reference("", first), "second" => reference("", second), "intersection" => {} } }
+    found = audit(overlaps: [dock.call("Kitchen", "Recipes"), dock.call("Kitchen", "Recipes")])
+    result = LayoutAuditGate.evaluate(proof: proof_for(found), audit: found, known: [known("overlap", ["label:Kitchen", "label:Recipes"])])
+
+    refute result.passes?
+    assert_equal 1, result.allowed.length
+    assert_equal ["overlap label:Kitchen + label:Recipes"], result.unexpected.map { |finding| LayoutAuditGate.describe(finding) }
+  end
+
+  def test_duplicate_known_findings_are_rejected
+    entry = known("overlap", ["a", "b"])
+    swapped = known("overlap", ["b", "a"])
+
+    assert_equal ["known finding 1 repeats known finding 0"], LayoutAuditGate.validate_known_findings({ "findings" => [entry, swapped] })
   end
 
   def test_a_clean_audit_passes
