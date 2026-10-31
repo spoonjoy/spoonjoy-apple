@@ -164,8 +164,12 @@ public enum LayoutAudit {
     /// A control cut by its scroll view's edge is scrolled, not clipped, when other content in the same scroll view
     /// starts at or past that edge. With nothing there, the scroll view does not scroll that way (a pager clipping a
     /// tall control at the screen's bottom), so the control is clipped. A neighbour cut by the same edge does not
-    /// count, so two clipped controls cannot excuse each other. Returns the edges that cut the control, or nil when
-    /// scrolling does not reveal it.
+    /// count, so two clipped controls cannot excuse each other.
+    ///
+    /// One exception: the last control in a scroll view laid out under the floating dock, cut at the edge the dock
+    /// sits on. Pages under the dock reserve room past their content so it scrolls clear of the dock, so that edge
+    /// scrolls even with nothing past it. The control must cross the scroll view's edge; one that ends under the dock
+    /// is judged by `dockUnderlapLimit`. Returns the edges that cut the control, or nil when scrolling does not reveal it.
     private static func scrollingReveals(_ control: LayoutAuditElement, beyond visibleArea: LayoutAuditRect, among elements: [LayoutAuditElement]) -> [Edge]? {
         let neighbours = elements.filter {
             $0.index != control.index && $0.viewportIndex == control.viewportIndex && !$0.isRelated(to: control)
@@ -178,8 +182,11 @@ public enum LayoutAudit {
             (.top, frame.y < visibleArea.y - slack, { $0.maxY <= visibleArea.y + slack }),
             (.bottom, frame.maxY > visibleArea.maxY + slack, { $0.y >= visibleArea.maxY - slack })
         ]
+        let docks = elements.filter { control.scrollsUnderDock($0) }
         let cut = edges.filter(\.crosses)
-        guard cut.allSatisfy({ edge in neighbours.contains { edge.beyond($0.frame) } }) else {
+        guard cut.allSatisfy({ edge in
+            neighbours.contains { edge.beyond($0.frame) } || docks.contains { edge.edge.faces($0.frame, in: visibleArea) }
+        }) else {
             return nil
         }
         return cut.map(\.edge)

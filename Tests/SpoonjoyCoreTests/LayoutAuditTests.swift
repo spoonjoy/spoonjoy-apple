@@ -54,8 +54,45 @@ struct LayoutAuditTests {
         #expect(report.noOverlap)
         #expect(report.skippedPartiallyScrolledCount == 1)
 
-        // With nothing beyond the edge, scrolling cannot bring it clear, so it is buried under the dock.
-        #expect(!LayoutAudit.audit([dock, lead], screen: screen).noOverlap)
+        // As the last row, with nothing beyond the edge, the dock at that edge still scrolls it clear: the page
+        // reserves room under the dock past its last row.
+        let lastRow = LayoutAudit.audit([dock, lead], screen: screen)
+        #expect(lastRow.noOverlap)
+        #expect(lastRow.controlsOnScreen)
+        #expect(lastRow.skippedPartiallyScrolledCount == 1)
+    }
+
+    // The Pro Max Recipes list at AX5 holds two rows; the second runs off the bottom of the screen under the dock with
+    // nothing past it. Only the cut edge that faces the dock earns the exemption.
+    @Test("the last control cut at the dock's edge is scrolled; one buried under the dock or cut elsewhere is not")
+    func lastControlCutAtTheDocksEdgeIsScrolled() {
+        let page = LayoutAuditRect(x: 0, y: 0, width: 400, height: 800)
+        let dock = control(1, LayoutAuditRect(x: 25, y: 721, width: 89, height: 54), isDockItem: true)
+        let lastRow = control(2, LayoutAuditRect(x: 20, y: 600, width: 360, height: 400), viewport: page, viewportIndex: 0)
+        let passing = LayoutAudit.audit([dock, lastRow], screen: screen)
+        #expect(passing.noOverlap)
+        #expect(passing.controlsOnScreen)
+
+        // Real content under the dock that does not reach the scroll view's edge has no scrolling to excuse it.
+        let buried = control(3, LayoutAuditRect(x: 20, y: 700, width: 360, height: 80), viewport: page, viewportIndex: 0)
+        let buriedReport = LayoutAudit.audit([dock, buried], screen: screen)
+        #expect(!buriedReport.noOverlap)
+        #expect(buriedReport.controlsOnScreen)
+
+        // Outside a scroll view, a control running off the screen under the dock is clipped and overlaps it.
+        let fixed = control(4, LayoutAuditRect(x: 20, y: 600, width: 360, height: 400))
+        let fixedReport = LayoutAudit.audit([dock, fixed], screen: screen)
+        #expect(!fixedReport.noOverlap)
+        #expect(fixedReport.clippedControls.map(\.control.identifier) == ["control.4"])
+
+        // A scroll view that stops above the dock does not hold it, so its last control is clipped.
+        let shortPage = LayoutAuditRect(x: 0, y: 0, width: 400, height: 700)
+        let shortRow = control(5, LayoutAuditRect(x: 20, y: 600, width: 360, height: 400), viewport: shortPage, viewportIndex: 1)
+        #expect(LayoutAudit.audit([dock, shortRow], screen: screen).clippedControls.map(\.control.identifier) == ["control.5"])
+
+        // Cut at the right edge with the dock at the bottom, the right edge is not excused.
+        let wide = control(6, LayoutAuditRect(x: 300, y: 100, width: 200, height: 80), viewport: page, viewportIndex: 2)
+        #expect(LayoutAudit.audit([dock, wide], screen: screen).clippedControls.map(\.control.identifier) == ["control.6"])
     }
 
     // The closed Duo's side rail sits beside the content, not across the edge where it scrolls out of view. A row cut
