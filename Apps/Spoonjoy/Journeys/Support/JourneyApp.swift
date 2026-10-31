@@ -59,6 +59,11 @@ final class JourneyApp {
         app.launchArguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]
     }
 
+    /// True on the Duo tour's real hinge, where the simulator keeps the app in front when Home is pressed.
+    static var runsOnRealHinge: Bool {
+        ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] == "1"
+    }
+
     /// Makes the next launch report a half-open hinge, so a journey can see tabletop cook mode on a simulator whose
     /// hinge cannot stand half-open. DEBUG builds only (`FoldReading.forcedHinge`).
     ///
@@ -68,7 +73,42 @@ final class JourneyApp {
         guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
             return
         }
-        app.launchArguments += ["-SpoonjoyForcePosture", "tabletop"]
+        forcePostureOnNextLaunch("tabletop")
+    }
+
+    /// Makes the next launch report a hinge folded shut, so a journey can see the cover glance. DEBUG builds only.
+    func useClosedPostureOnNextLaunch() {
+        guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
+            return
+        }
+        forcePostureOnNextLaunch("closed")
+    }
+
+    /// A later posture replaces an earlier one, so a journey can fold the phone between relaunches.
+    private func forcePostureOnNextLaunch(_ posture: String) {
+        if let index = app.launchArguments.firstIndex(of: "-SpoonjoyForcePosture"), index + 1 < app.launchArguments.count {
+            app.launchArguments.removeSubrange(index...(index + 1))
+        }
+        app.launchArguments += ["-SpoonjoyForcePosture", posture]
+    }
+
+    /// Makes the next launch run with Reduce Motion on (`-SpoonjoyReduceMotion`, DEBUG builds only), which a journey
+    /// cannot switch on in the simulator's settings.
+    func useReduceMotionOnNextLaunch() {
+        app.launchArguments += ["-SpoonjoyReduceMotion", "YES"]
+    }
+
+    /// Makes the next launch use AlarmKit itself rather than the stand-in alarm, so a journey can see what the cook
+    /// sees when the system refuses timers, as the CI simulator does.
+    func useSystemAlarmsOnNextLaunch() {
+        app.launchEnvironment.removeValue(forKey: NativeJourneyAlarmFixture.environmentKey)
+    }
+
+    /// Makes the next launch hear `transcripts` through cook mode's mic, one every five seconds once it listens, or
+    /// report the microphone as refused with `denied` (`NativeJourneyVoiceFixture`, DEBUG builds only). A simulator has
+    /// no voice to speak into the mic.
+    func useVoiceFixtureOnNextLaunch(_ value: String) {
+        app.launchEnvironment[NativeJourneyVoiceFixture.environmentKey] = value
     }
 
     /// Opens a `spoonjoy://` link. `XCUIApplication.open` starts a new app process, so the launch-time reset

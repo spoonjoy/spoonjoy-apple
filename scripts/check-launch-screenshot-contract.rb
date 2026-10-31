@@ -18,20 +18,16 @@ REQUIRED_REVIEW_FIELDS = [
   "dynamicType",
   "voiceOverLabels",
   "keyboardNavigation",
-  "reduceMotion",
   "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
+  "kitchenTableHierarchy"
 ].freeze
 
 ACCESSIBILITY_REVIEW_FIELDS = [
   "dynamicType",
   "voiceOverLabels",
   "keyboardNavigation",
-  "reduceMotion",
   "contrast",
-  "kitchenTableHierarchy",
-  "noOverlap"
+  "kitchenTableHierarchy"
 ].freeze
 
 SCRIPT_CONTRACTS = {
@@ -462,7 +458,7 @@ def route_accessibility_evidence(route)
       "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "herb tint on bone"],
       "hierarchyAnchors" => ["SearchView", "SearchSurfaceContract.searchableScopes", "SearchSurfaceContract.typedRows", "SearchSurfaceSectionView", "SearchSurfaceRowView"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters"]
+      "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters"]
     }
   when "settings"
     {
@@ -471,7 +467,7 @@ def route_accessibility_evidence(route)
       "dynamicTypeTextStyles" => ["KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass label on bone"],
       "hierarchyAnchors" => ["SettingsView", "KitchenTableHeader", "KitchenTableSection", "SettingsPanel", "NotificationAPNsSettingsView", "AppleDeveloperProgramBlockerView", "NotificationDiagnosticsDisclosure", "OfflineStatusView"],
-      "layoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters", "offline-status-section"]
+      "declaredLayoutGuards" => ["kitchen-table-page", "text-fit", "no-tiny-clusters", "offline-status-section"]
     }
   when "cookbook-detail"
     {
@@ -480,7 +476,7 @@ def route_accessibility_evidence(route)
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass on bone", "secondary text on bone"],
       "hierarchyAnchors" => ["CookbookDetailView", "KitchenTableHeader", "CookbookCoverArt", "CookbookDetailHero", "CookbookRecipeIndexRow", "CookbookOwnerToolsDisclosure"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
+      "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area"]
     }
   when "capture"
     {
@@ -489,7 +485,7 @@ def route_accessibility_evidence(route)
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.bodyNote", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "brass on bone", "destructive action role", "status label on bone"],
       "hierarchyAnchors" => ["CaptureDraftView", "KitchenTableHeader", "CaptureImportEntryPoint", "ImportStatusPanel", "CaptureDraft", "OfflineStatusView"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
+      "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "dock-safe-area", "offline-status-section"]
     }
   else
     {
@@ -498,7 +494,7 @@ def route_accessibility_evidence(route)
       "dynamicTypeTextStyles" => ["KitchenTableTheme.displayTitle", "KitchenTableTheme.uiLabel"],
       "contrastPairs" => ["charcoal on bone", "media-aware contrast on real covers"],
       "hierarchyAnchors" => ["KitchenView", "KitchenMasthead", "RecipeLead", "RecipeIndexRow", "CookbookShelf"],
-      "layoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
+      "declaredLayoutGuards" => ["text-fit", "no-tiny-clusters", "edge-to-edge-hero"]
     }
   end
 end
@@ -524,8 +520,6 @@ def add_accessibility_proofs!(root, manifest, stem)
         "emittedBy" => "SpoonjoyApp",
         "bundleIdentifier" => "app.spoonjoy",
         "minimumTargetSize" => 44,
-        "textFits" => true,
-        "noTinyClusters" => true,
         "observedDynamicTypeSize" => "large",
         "observedReduceMotion" => false,
         "visualReadiness" => {
@@ -688,7 +682,7 @@ Dir.mktmpdir("spoonjoy-screenshot-matrix-timeout-contract") do |directory|
       path, route = ARGV
       fields = %w[
         mobileScreenshot desktopScreenshot dynamicType voiceOverLabels
-        keyboardNavigation reduceMotion contrast kitchenTableHierarchy noOverlap
+        keyboardNavigation contrast kitchenTableHierarchy
       ].to_h { |field| [field, true] }
       File.write(path, JSON.pretty_generate(fields.merge("blockers" => [], "screenshotRoute" => route)) + "\n")
     ' "$artifact_root/design-review.json" "$route"
@@ -1461,6 +1455,10 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   bin_dir.mkpath
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
   FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  FileUtils.mkdir_p(scripts_dir.join("lib"))
+  FileUtils.cp(ROOT.join("scripts/lib/layout_audit_gate.rb"), scripts_dir.join("lib/layout_audit_gate.rb"))
+  FileUtils.cp(ROOT.join("scripts/layout-audit-known-findings.json"), scripts_dir.join("layout-audit-known-findings.json"))
+  FileUtils.cp(ROOT.join("scripts/check-layout-audit.rb"), scripts_dir.join("check-layout-audit.rb"))
   FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
 
   blocker_stub = lambda do |capability|
@@ -1512,6 +1510,32 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
   assert_missing(artifact_root.join("screenshots/ios-mobile.png"), "screenshot blocker lane")
   assert_missing(artifact_root.join("screenshots/macos-desktop.png"), "screenshot blocker lane")
 
+  # Strict layout audit fails closed: a blocked capture exits 1, and a capture with no iOS layout audit is refused.
+  strict_capture = lambda do |platform|
+    run_status(
+      "bash",
+      "scripts/capture-native-screenshots.sh",
+      "--artifact-root",
+      script_root.join("strict-artifacts-#{platform}"),
+      "--unit-slug",
+      "unit-contract",
+      "--capture-platform",
+      platform,
+      env: {
+        "HOME" => script_root.join("home").to_s,
+        "SPOONJOY_REQUIRE_LAYOUT_AUDIT" => "1",
+        "SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN" => script_root.join("audit.xctestrun").to_s
+      },
+      chdir: script_root
+    )
+  end
+  _, strict_blocked_stderr, strict_blocked = strict_capture.call("iphone")
+  record_failure("strict blocked capture expected exit 1, got #{strict_blocked.exitstatus}\n#{strict_blocked_stderr}") unless strict_blocked.exitstatus == 1
+  record_failure("strict blocked capture must say why it failed") unless strict_blocked_stderr.include?("a blocked capture has no layout audit to pass")
+  record_failure("strict blocked capture must still write its blocker") unless script_root.join("strict-artifacts-iphone/design-review-blocked.json").file?
+  _, strict_macos_stderr, strict_macos = strict_capture.call("all")
+  record_failure("strict capture including macOS expected exit 2, got #{strict_macos.exitstatus}\n#{strict_macos_stderr}") unless strict_macos.exitstatus == 2
+
   success_stub = <<~'SH'
     #!/usr/bin/env bash
     set -euo pipefail
@@ -1548,23 +1572,23 @@ Dir.mktmpdir("spoonjoy-capture-script-contract") do |directory|
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      route_evidence='{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]}'
+      route_evidence='{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]}'
       case "$route" in
         search)
-          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["native search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["native search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"declaredLayoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Session","Sign In","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","session handoff controls","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Session","Sign In","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","session handoff controls","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"declaredLayoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
           ;;
         cookbook-detail)
-          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
           ;;
         capture)
-          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
+          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"contrast":true,"kitchenTableHierarchy":true,"minimumTargetSize":44,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
@@ -1737,23 +1761,23 @@ PY
       if [[ "${SPOONJOY_CONTRACT_WRONG_ACCESSIBILITY_PROOF:-}" == "1" ]]; then
         source="WrongAccessibilityView"
       fi
-      route_evidence='{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]}'
+      route_evidence='{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]}'
       case "$route" in
         search)
-          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["native search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"layoutGuards":["text-fit","no-tiny-clusters"]}'
+          route_evidence='{"voiceOverLabels":["Search","row.accessibilityLabel"],"keyboardNavigationTargets":["native search field","typed rows","SearchSurfaceSectionView buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","herb tint on bone"],"hierarchyAnchors":["SearchView","SearchSurfaceContract.searchableScopes","SearchSurfaceContract.typedRows","SearchSurfaceSectionView","SearchSurfaceRowView"],"declaredLayoutGuards":["text-fit","no-tiny-clusters"]}'
           ;;
         settings)
-          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Session","Sign In","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","session handoff controls","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"layoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
+          route_evidence='{"voiceOverLabels":["Settings","Profile","Security","Notifications","This Device","Push Delivery","Notification Sync","Turn On for This Device","Open System Settings","Session","Sign In","Hide offline status"],"keyboardNavigationTargets":["profile form fields","security token controls","APNs device controls","notification toggles","notification sync status","session handoff controls","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass label on bone"],"hierarchyAnchors":["SettingsView","KitchenTableHeader","KitchenTableSection","SettingsPanel","NotificationAPNsSettingsView","AppleDeveloperProgramBlockerView","NotificationDiagnosticsDisclosure","OfflineStatusView"],"declaredLayoutGuards":["kitchen-table-page","text-fit","no-tiny-clusters","offline-status-section"]}'
           ;;
         cookbook-detail)
-          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
+          route_evidence='{"voiceOverLabels":["Weeknights","Contents","Share Cookbook","Owner tools","Lemon Pantry Pasta","Tomato Toast"],"keyboardNavigationTargets":["cookbook primary actions","CookbookRecipeIndexRow buttons","share menu","CookbookOwnerToolsDisclosure"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","secondary text on bone"],"hierarchyAnchors":["CookbookDetailView","KitchenTableHeader","CookbookCoverArt","CookbookDetailHero","CookbookRecipeIndexRow","CookbookOwnerToolsDisclosure"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","dock-safe-area"]}'
           ;;
         capture)
-          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"layoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
+          route_evidence='{"voiceOverLabels":["Import queue","Capture","Submit import","Retry when online","Hide offline status"],"keyboardNavigationTargets":["entry point ledger","saved capture actions","Retry when online","offline status dismiss"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.bodyNote","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","brass on bone","destructive action role","status label on bone"],"hierarchyAnchors":["CaptureDraftView","KitchenTableHeader","CaptureImportEntryPoint","ImportStatusPanel","CaptureDraft","OfflineStatusView"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","dock-safe-area","offline-status-section"]}'
           ;;
       esac
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"%s","source":"%s","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"contrast":true,"kitchenTableHierarchy":true,"minimumTargetSize":44,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":%s,"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$route" "$source" "$route_evidence" "$bundle" > "$output_path"
     }
     proof_path="${SPOONJOY_SCREENSHOT_PROOF_PATH:-}"
     accessibility_proof_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
@@ -2174,6 +2198,10 @@ Dir.mktmpdir("spoonjoy-capture-ios-launch-timeout-contract") do |directory|
   bin_dir.mkpath
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
   FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  FileUtils.mkdir_p(scripts_dir.join("lib"))
+  FileUtils.cp(ROOT.join("scripts/lib/layout_audit_gate.rb"), scripts_dir.join("lib/layout_audit_gate.rb"))
+  FileUtils.cp(ROOT.join("scripts/layout-audit-known-findings.json"), scripts_dir.join("layout-audit-known-findings.json"))
+  FileUtils.cp(ROOT.join("scripts/check-layout-audit.rb"), scripts_dir.join("check-layout-audit.rb"))
   FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
 
   write_executable(scripts_dir.join("smoke-ios-simulator.sh"), <<~'SH')
@@ -2282,6 +2310,10 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
   bin_dir.mkpath
   FileUtils.cp(ROOT.join("scripts/capture-native-screenshots.sh"), scripts_dir.join("capture-native-screenshots.sh"))
   FileUtils.cp(ROOT.join("scripts/validate-design-review.rb"), scripts_dir.join("validate-design-review.rb"))
+  FileUtils.mkdir_p(scripts_dir.join("lib"))
+  FileUtils.cp(ROOT.join("scripts/lib/layout_audit_gate.rb"), scripts_dir.join("lib/layout_audit_gate.rb"))
+  FileUtils.cp(ROOT.join("scripts/layout-audit-known-findings.json"), scripts_dir.join("layout-audit-known-findings.json"))
+  FileUtils.cp(ROOT.join("scripts/check-layout-audit.rb"), scripts_dir.join("check-layout-audit.rb"))
   FileUtils.cp(ROOT.join("scripts/validate-design-review-blocker.rb"), scripts_dir.join("validate-design-review-blocker.rb"))
 
   success_stub = <<~'SH'
@@ -2324,7 +2356,7 @@ Dir.mktmpdir("spoonjoy-capture-cleanup-timeout-contract") do |directory|
       local platform="$2"
       local bundle="$3"
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
+      printf '{"platform":"%s","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"contrast":true,"kitchenTableHierarchy":true,"minimumTargetSize":44,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"%s"}\n' "$platform" "$bundle" > "$output_path"
     }
     case "$*" in
       simctl\ get_app_container\ *)
@@ -2405,7 +2437,7 @@ PY
     output_path="${SPOONJOY_SCREENSHOT_ACCESSIBILITY_PROOF_PATH:-}"
     if [[ -n "$output_path" ]]; then
       mkdir -p "$(dirname "$output_path")"
-      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"reduceMotion":true,"contrast":true,"kitchenTableHierarchy":true,"noOverlap":true,"minimumTargetSize":44,"textFits":true,"noTinyClusters":true,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"layoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy"}\n' > "$output_path"
+      printf '{"platform":"macos","route":"kitchen","source":"KitchenView","dynamicType":true,"voiceOverLabels":true,"keyboardNavigation":true,"contrast":true,"kitchenTableHierarchy":true,"minimumTargetSize":44,"observedDynamicTypeSize":"large","observedReduceMotion":false,"visualReadiness":{"expectedMediaCount":1,"loadedMediaCount":1,"pendingMediaCount":0,"failedMediaCount":0,"blockingIndicatorCount":0,"isSettled":true},"routeEvidence":{"voiceOverLabels":["On the counter","Start cooking","Your recipes","See all","Cookbook shelf"],"keyboardNavigationTargets":["lead recipe actions","RecipeIndexRow buttons","See all","cookbook shelf buttons"],"dynamicTypeTextStyles":["KitchenTableTheme.displayTitle","KitchenTableTheme.uiLabel"],"contrastPairs":["charcoal on bone","media-aware contrast on real covers"],"hierarchyAnchors":["KitchenView","KitchenMasthead","RecipeLead","RecipeIndexRow","CookbookShelf"],"declaredLayoutGuards":["text-fit","no-tiny-clusters","edge-to-edge-hero"]},"offlineIndicatorProof":{"source":"OfflineStatusView","visibleStates":["offline","stale","queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"dismissibleStates":["offline","stale"],"severeStates":["queuedWork","syncFailure","conflict","blocker","destructiveConfirmation"],"hiddenStates":["synced","dismissed"],"voiceOverLabel":true,"dismissButtonLabel":"Hide offline status","severityCorrect":true},"emittedBy":"SpoonjoyApp","bundleIdentifier":"app.spoonjoy"}\n' > "$output_path"
     fi
   SH
 

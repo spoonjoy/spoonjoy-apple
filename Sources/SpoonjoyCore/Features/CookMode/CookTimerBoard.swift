@@ -32,14 +32,22 @@ public struct CookTimerEntry: Equatable, Hashable, Codable, Sendable, Identifiab
     }
 }
 
-/// Several named running timers, soonest to end first.
+/// Several named timers, soonest first. This order is the one rule for which timers the Live Activity keeps and shows.
 public struct CookTimerBoard: Equatable, Sendable {
     public let ordered: [CookTimerEntry]
 
+    /// Running timers by end time, then paused ones by time left, ties by step. A paused timer's `endsAt` is stale and
+    /// slides into the past, so sorting it with the running ones would put it first.
     public init(timers: [CookTimerEntry]) {
-        ordered = timers.sorted {
+        let running = timers.filter { !$0.isPaused }.sorted {
             $0.endsAt != $1.endsAt ? $0.endsAt < $1.endsAt : $0.stepNumber < $1.stepNumber
         }
+        let paused = timers.filter(\.isPaused).sorted {
+            let left = $0.pausedRemaining ?? 0
+            let right = $1.pausedRemaining ?? 0
+            return left != right ? left < right : $0.stepNumber < $1.stepNumber
+        }
+        ordered = running + paused
     }
 
     public var soonest: CookTimerEntry? {

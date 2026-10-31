@@ -1,6 +1,12 @@
+import Combine
 import Foundation
 import SpoonjoyCore
 import SwiftUI
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
 #if os(iOS) && canImport(AlarmKit)
 import ActivityKit
 import AlarmKit
@@ -104,6 +110,20 @@ struct CookModeView: View {
 #endif
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityVoiceOverEnabled) private var accessibilityVoiceOverEnabled
+    @Environment(\.openURL) private var openURL
+    /// The hands-free mic. It listens only while this screen is open and frontmost and the cook turned it on.
+    @StateObject private var voice = CookVoiceController(engine: CookVoiceEngines.make())
+    /// A short line under the toolbar: what the mic listens for, what it heard, or why it can't listen.
+    @State private var voiceNotice: CookVoiceNotice?
+    /// Where the spread's step page starts, so the voice line sits over the step page, clear of the fold; 0 off the spread.
+    @State private var voiceNoticeStepPageMinX: CGFloat = 0
+    /// The cover glance's step title: display type twice the size of the page's, read from across the kitchen.
+    @ScaledMetric(relativeTo: .largeTitle) private var coverGlanceTitleSize: CGFloat = 56
+    /// True when the cover is wider than tall (the Duo turned on its side), so the ring sits beside the title and
+    /// clears the pinned Next instead of scrolling under it.
+    @State private var coverGlanceIsWide = false
     @ObservedObject private var stepTimers: CookStepTimerRegistry
     @State private var progress: CookModeProgress
     @State private var shoppingStatusMessage: String?
@@ -121,6 +141,12 @@ struct CookModeView: View {
     @State private var localCheckCount = 0
     /// An auto-started timer that failed to set, by step, shown on that step's ring.
     @State private var autoStartErrors: [String: String] = [:]
+    /// True after a foldable is folded shut mid-cook: the cover shows the step as a kitchen timer until it opens
+    /// again or the cook asks for the whole step.
+    @State private var showsCoverGlance = false
+    /// How far the open-flat spread's page turn has run, 0 to 1. At rest it is 1.
+    @State private var spreadTurnPhase: Double = 1
+    @State private var spreadTurnIsForward = true
     private let incomingProgress: CookModeProgress?
     /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
     private let recipePageScale: Double?
@@ -159,13 +185,19 @@ struct CookModeView: View {
 
     var body: some View {
         cookModeBody
+        // Above the page, not over it: the line pushes the page down while it shows, so it never covers the step.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            voiceNoticePill
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(KitchenTableTheme.page)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 stepProgressRail
             }
-            // Task 8 puts the voice "next" mic beside More.
+            ToolbarItem(placement: .primaryAction) {
+                voiceMicButton
+            }
             ToolbarItem(placement: .primaryAction) {
                 cookMoreMenu
             }
@@ -180,6 +212,24 @@ struct CookModeView: View {
             progress = progress.applyingSyncProgress(incoming.syncProgress, updatedAt: incoming.updatedAt)
         }
         .keepsScreenAwake()
+        .onAppear {
+            voice.onCommand = { perform(voiceCommand: $0) }
+        }
+        .task {
+            await playVoiceDemo()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active {
+                voice.send(.sceneInactive)
+            }
+        }
+        .stopsVoiceWhenTheAppLeaves(voice)
+        .onChange(of: voice.state) { _, state in
+            voiceStateChanged(state)
+        }
+        .onDisappear {
+            voice.send(.cookModeClosed)
+        }
         .kitchenHaptic(.stepTurned, trigger: progress.currentStepID)
         .kitchenHaptic(.ingredientChecked, trigger: localCheckCount)
         .kitchenHaptic(.timerStarted, trigger: runningTimerCount) { before, after in after > before }
@@ -215,23 +265,55 @@ struct CookModeView: View {
         }
     }
 
-    /// Stood half-open on the counter (or laid open tall), a foldable's inner screen folds across the middle: the
-    /// step goes above the fold and the controls below it. Everywhere else cook mode is unchanged.
+    /// Cook mode follows the hinge (see "Duo postures" in docs/native-design-language.md). Folded shut mid-cook, the
+    /// cover becomes a kitchen timer. Stood half-open on the counter (or laid open tall), the step goes above the
+    /// fold and the controls below it. Laid open wide, it is a spread whose page turns. Everywhere else, and on a
+    /// phone with no hinge, cook mode is the single page. The step, the checks and running timers live in this view
+    /// and the system, so they carry across every change of posture.
     private var cookModeBody: some View {
         GeometryReader { proxy in
+            let reading = foldReading.applyingForcedHinge
             let tabletop = TabletopLayout.resolve(
                 width: Double(proxy.size.width),
                 height: Double(proxy.size.height),
-                hinge: FoldReading.forcedHinge ?? foldReading.hinge,
-                band: foldReading.band
+                hinge: reading.tabletopHinge,
+                band: reading.band
             )
-            if tabletop.isSplit {
-                cookModeTabletop(tabletop)
-            } else {
-                standardCookModeBody
+            Group {
+                if showsCoverGlance, currentStep != nil {
+                    cookModeCoverGlance
+                } else if tabletop.isSplit {
+                    cookModeTabletop(tabletop)
+                } else {
+                    standardCookModeBody
+                }
             }
+            .kitchenTransition(.opacity)
         }
         .readingFold($foldReading)
+        .onChange(of: foldReading.applyingForcedHinge.posture, initial: true) { old, new in
+            updateCoverGlance(from: old, to: new)
+#if DEBUG
+            CookTimerProbe.record(posture: new, timers: timerBoard.ordered)
+#endif
+        }
+        .onChange(of: currentIndex) { old, new in
+            playSpreadTurn(forward: new > old)
+        }
+    }
+
+    /// The cover glance starts when the hinge closes while cook mode is open, not when cook mode opens on a closed
+    /// phone, where the full page is what the cook came for. A DEBUG launch forced closed shows it from the start.
+    private func updateCoverGlance(from old: CookPosture, to new: CookPosture) {
+        let foldedShut = new == .closedGlance && old != .closedGlance
+        let launchedClosed = new == .closedGlance && old == new && FoldReading.forcedHinge == .closed
+        let glance = new == .closedGlance && (foldedShut || launchedClosed || showsCoverGlance)
+        guard glance != showsCoverGlance else {
+            return
+        }
+        withAnimation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion)) {
+            showsCoverGlance = glance
+        }
     }
 
     /// Compact iPhone turns steps by swipe and has no dock. Regular width and Mac keep the dock (Back, Done, Next)
@@ -247,6 +329,12 @@ struct CookModeView: View {
             SpreadLayoutReader(isRegularWidth: true) { layout in
                 if layout.isSpread {
                     cookModeSpread(layout)
+                        .onChange(of: layout.trailingPage?.minX, initial: true) { _, minX in
+                            voiceNoticeStepPageMinX = CGFloat(minX ?? 0)
+                        }
+                        .onDisappear {
+                            voiceNoticeStepPageMinX = 0
+                        }
                 } else {
                     cookPager
                         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -545,9 +633,37 @@ struct CookModeView: View {
             return
         }
         let next = (try? progress.selectingStep(id: recipe.steps[index].id, updatedAt: timestamp())) ?? progress
-        withAnimation(KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)) {
+        withAnimation(pageTurnAnimation) {
             updateProgress(next)
         }
+    }
+
+    /// The page turn's spring, or its crossfade under Reduce Motion. A DEBUG demo turn plays it slowly enough to
+    /// photograph halfway.
+    private var pageTurnAnimation: Animation {
+        if let duration = Self.demoPageTurnDuration {
+            return .easeInOut(duration: duration)
+        }
+        return KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)
+    }
+
+    /// `-SpoonjoyDemoPageTurn <seconds>` (DEBUG): ten seconds after the spread opens it turns one page by itself, over
+    /// that many seconds, so the Duo tour can photograph the turn, or its crossfade under Reduce Motion, halfway.
+    private static let demoPageTurnDuration: Double? = {
+#if DEBUG
+        let seconds = UserDefaults.standard.double(forKey: "SpoonjoyDemoPageTurn")
+        return seconds > 0 ? seconds : nil
+#else
+        nil
+#endif
+    }()
+
+    private func playDemoPageTurn() async {
+        guard Self.demoPageTurnDuration != nil else {
+            return
+        }
+        try? await Task.sleep(for: .seconds(10))
+        turnPage(to: currentIndex + 1 < recipe.steps.count ? currentIndex + 1 : currentIndex - 1)
     }
 
     /// One step's page, top to bottom: where you are, the step title in brass, the step in large serif, its timer
@@ -992,6 +1108,133 @@ final class CookPageTurnTapGuard {
 // MARK: - Cookbook spread
 
 extension CookModeView {
+    /// Folded shut on the counter, the cover is a kitchen timer: the step's title in type you can read from the stove,
+    /// its timer ring when the step has one, and Next. "Show step" brings back the whole page.
+    @ViewBuilder private var cookModeCoverGlance: some View {
+        if let currentStep {
+            ScrollView {
+                Group {
+                    if coverGlanceIsWide {
+                        HStack(alignment: .center, spacing: 24) {
+                            coverGlanceHeading(currentStep)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            coverGlanceRing(currentStep)
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 20) {
+                            coverGlanceHeading(currentStep)
+                            coverGlanceRing(currentStep)
+                                .frame(maxWidth: .infinity)
+                        }
+                    }
+                }
+                .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+                .padding(.vertical, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                coverGlanceControls
+            }
+            .onGeometryChange(for: Bool.self) { proxy in
+                proxy.size.width > proxy.size.height
+            } action: { isWide in
+                coverGlanceIsWide = isWide
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("cookMode.coverGlance")
+        }
+    }
+
+    private func coverGlanceHeading(_ step: RecipeStep) -> some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("\(recipe.title) · \(currentIndex + 1) of \(recipe.steps.count)")
+                .spreadRunningHead()
+                .lineLimit(2)
+            Text(step.stepTitle ?? "Step \(step.stepNum)")
+                .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
+                .foregroundStyle(KitchenTableTheme.ink)
+                .lineLimit(4)
+                // A long word shrinks rather than breaking across lines on the narrow cover.
+                .minimumScaleFactor(0.5)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityLabel("Current cooking step \(step.stepNum), \(step.stepTitle ?? "Step")")
+                .accessibilityIdentifier("cookMode.coverGlance.title")
+        }
+    }
+
+    @ViewBuilder private func coverGlanceRing(_ step: RecipeStep) -> some View {
+        if let timer = viewModel.systemTimer {
+            stepTimer(timer, step: step, model: viewModel, isCurrent: true)
+        }
+    }
+
+    /// Next fills the cover's width under the thumb; Show step sits under it.
+    private var coverGlanceControls: some View {
+        VStack(spacing: 10) {
+            coverGlanceNext
+            coverGlanceShowStep
+        }
+        .controlSize(.extraLarge)
+        // The cover is narrow: past AX3 the extra-large buttons would cut their labels short. They stay thumb-sized,
+        // and the step above still grows to the largest size.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+        .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+        .padding(.top, 12)
+        .padding(.bottom, 16)
+        .background(KitchenTableTheme.page)
+    }
+
+    private var coverGlanceShowStep: some View {
+        Button {
+            withAnimation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion)) {
+                showsCoverGlance = false
+            }
+        } label: {
+            Label("Show step", systemImage: "text.alignleft")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .accessibilityHint("Shows the whole step and its checklist.")
+        .accessibilityIdentifier("cookMode.coverGlance.showStep")
+    }
+
+    @ViewBuilder private var coverGlanceNext: some View {
+        if isLastStep {
+            finishControl
+        } else {
+            nextStepButton(identifier: "cookMode.coverGlance.next")
+        }
+    }
+
+    // MARK: Step controls
+
+    private func nextStepButton(identifier: String) -> some View {
+        Button(action: advance) {
+            Label("Next step", systemImage: "arrow.forward.circle.fill")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        .disabled(!canAdvance)
+        .accessibilityLabel("Move to the next step")
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func markDoneButton(identifier: String) -> some View {
+        Button(action: markCurrentStepComplete) {
+            Label("Mark done", systemImage: "checkmark.circle.fill")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .accessibilityLabel("Mark the current step done")
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func backStepButton(identifier: String) -> some View {
+        Button(action: previous) {
+            Label("Back step", systemImage: "chevron.backward.circle")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .disabled(!canGoBack)
+        .accessibilityIdentifier(identifier)
+    }
+
     /// Tabletop cook mode: the step on the half above the fold, angled toward the cook, and the checklist and step
     /// controls on the half below it, flat on the counter. Nothing sits on the fold. A swipe on the step turns it.
     private func cookModeTabletop(_ layout: TabletopLayout) -> some View {
@@ -1019,9 +1262,12 @@ extension CookModeView {
             VStack(spacing: 0) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
+                        if dynamicTypeSize.isAccessibilitySize {
+                            tabletopStackedControls
+                        }
                         CookTimerStack(timers: otherRunningTimers)
                         stepCard(viewModel, isCurrent: true)
-                        if isLastStep {
+                        if isLastStep && !dynamicTypeSize.isAccessibilitySize {
                             finishControl
                         }
                     }
@@ -1029,13 +1275,31 @@ extension CookModeView {
                     .padding(.top, 8)
                     .padding(.bottom, 16)
                 }
-                // The dock at every width: the half on the counter wants the few large controls the dock carries.
-                cookModeBottomActionRail
+                // The dock: the half on the counter wants the few large controls the dock carries. At accessibility
+                // sizes its three buttons would cut their labels short, so the controls stack above the checklist.
+                if !dynamicTypeSize.isAccessibilitySize {
+                    cookModeBottomActionRail
+                }
             }
             .frame(height: bottomHeight)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookMode.tabletopControls")
         }
+    }
+
+    /// The tabletop controls at accessibility sizes, one to a row with whole labels: Next (or Finish cooking on the
+    /// last step), Mark done, then Back.
+    private var tabletopStackedControls: some View {
+        VStack(spacing: 10) {
+            if isLastStep {
+                finishControl
+            } else {
+                nextStepButton(identifier: "cookMode.tabletop.next")
+            }
+            markDoneButton(identifier: "cookMode.tabletop.markDone")
+            backStepButton(identifier: "cookMode.tabletop.back")
+        }
+        .controlSize(.large)
     }
 
     private var tabletopStepPage: some View {
@@ -1088,8 +1352,61 @@ extension CookModeView {
                 cookSpreadTrailingControls
                     .spreadPagePadding(.trailing, top: 12, bottom: 16)
             }
+            .background(KitchenTableTheme.page)
+            .modifier(PageCurlSweep(
+                phase: spreadCurlPhase(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)),
+                isForward: spreadCurlIsForward
+            ))
+            .contentShape(Rectangle())
+            .simultaneousGesture(pageTurnGesture(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)))
+            .simultaneousGesture(touchTrackingGesture)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("cookSpread.stepPage")
+            .accessibilityAction(named: "Next step") {
+                turnPage(to: currentIndex + 1)
+            }
+            .accessibilityAction(named: "Previous step") {
+                turnPage(to: currentIndex - 1)
+            }
+            .task {
+                await playDemoPageTurn()
+            }
+        }
+    }
+
+    /// While a finger drags the right page it lifts up to halfway; a turned step then plays the rest of the turn.
+    private func spreadCurlPhase(pageWidth: CGFloat) -> Double {
+        guard !accessibilityReduceMotion else {
+            return 1
+        }
+        if spreadTurnPhase < 1 {
+            return spreadTurnPhase
+        }
+        let dragged = min(1, abs(pageDrag.offset) / max(pageWidth, 1))
+        return dragged > 0 ? Double(dragged) / 2 : 1
+    }
+
+    private var spreadCurlIsForward: Bool {
+        spreadTurnPhase < 1 ? spreadTurnIsForward : pageDrag.offset <= 0
+    }
+
+    /// Sweeps the curl's shadow across the right page as the step changes, like a page lifting off the spine. Under
+    /// Reduce Motion nothing sweeps: the step page itself crossfades (`cookSpreadStepPage`'s transition, driven by the
+    /// turn's crossfade animation).
+    private func playSpreadTurn(forward: Bool) {
+        guard !accessibilityReduceMotion else {
+            return
+        }
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) {
+            spreadTurnIsForward = forward
+            spreadTurnPhase = 0
+        }
+        Task { @MainActor in
+            withAnimation(.easeInOut(duration: Self.demoPageTurnDuration ?? KitchenSpring.pageTurn.response)) {
+                spreadTurnPhase = 1
+            }
         }
     }
 
@@ -1125,6 +1442,7 @@ extension CookModeView {
             VStack(alignment: .leading, spacing: 18) {
                 Text(viewModel.stepProgressLabel)
                     .spreadRunningHead()
+                    .accessibilityIdentifier("cook.step.meta")
                 HStack(alignment: .firstTextBaseline, spacing: 14) {
                     Text("\(currentStep.stepNum)")
                         .font(KitchenTableTheme.displayTitle)
@@ -1159,9 +1477,6 @@ extension CookModeView {
                     }
                     .id(timer.stepID)
                 }
-                if isLastStep {
-                    finishControl
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(currentStep.id)
@@ -1169,48 +1484,308 @@ extension CookModeView {
         }
     }
 
+    /// Back and Close at the outer corner of the left page, side by side when they fit and stacked when the text is
+    /// too large, so they never push the page past its edge or into the gutter.
     private var cookSpreadLeadingControls: some View {
-        HStack(spacing: 10) {
-            Button(action: previous) {
-                Label("Back step", systemImage: "chevron.backward.circle")
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                backStepButton(identifier: "cookSpread.back")
+                    .fixedSize()
+                cookSpreadCloseButton
+                    .fixedSize()
+                Spacer(minLength: 0)
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-            .disabled(!canGoBack)
-            .fixedSize()
-
-            Button(action: close) {
-                Label("Close", systemImage: "text.book.closed")
+            VStack(alignment: .leading, spacing: 10) {
+                backStepButton(identifier: "cookSpread.back")
+                cookSpreadCloseButton
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
-            .accessibilityLabel("Return to recipe detail")
-            .fixedSize()
-
-            Spacer(minLength: 0)
         }
         .controlSize(.large)
+        // Past AX3 a page is too narrow for "Finish cooking" on one line, and the button style never wraps. The
+        // controls stop growing there, as on the cover glance; the step text keeps growing.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
     }
 
-    private var cookSpreadTrailingControls: some View {
-        HStack(spacing: 10) {
-            Spacer(minLength: 0)
-            Button(action: markCurrentStepComplete) {
-                Label("Mark done", systemImage: "checkmark.circle.fill")
-            }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            .accessibilityLabel("Mark the current step done")
-            .fixedSize()
+    private var cookSpreadCloseButton: some View {
+        Button(action: close) {
+            Label("Close", systemImage: "text.book.closed")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
+        .accessibilityLabel("Return to recipe detail")
+        .accessibilityIdentifier("cookSpread.close")
+    }
 
-            Button(action: advance) {
-                Label("Next step", systemImage: "arrow.forward.circle.fill")
+    /// Mark done and Next at the outer corner of the right page, stacked when the text is too large. On the last step
+    /// Finish cooking takes Next's place, so it stays on screen however long the step's text runs.
+    private var cookSpreadTrailingControls: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                Spacer(minLength: 0)
+                markDoneButton(identifier: "cookSpread.markDone")
+                    .fixedSize()
+                cookSpreadForwardControl
+                    .fixedSize()
             }
-            .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-            .disabled(!canAdvance)
-            .accessibilityLabel("Move to the next step")
-            .fixedSize()
+            VStack(alignment: .trailing, spacing: 10) {
+                cookSpreadForwardControl
+                markDoneButton(identifier: "cookSpread.markDone")
+            }
         }
         .controlSize(.large)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+    }
+
+    @ViewBuilder private var cookSpreadForwardControl: some View {
+        if isLastStep {
+            finishControl
+        } else {
+            nextStepButton(identifier: "cookSpread.next")
+        }
     }
 }
+
+// MARK: Voice
+
+/// A line the voice pill shows. Each one has its own identity, so the same words heard twice show twice.
+struct CookVoiceNotice: Equatable {
+    let id = UUID()
+    let text: String
+    /// Shown until the state changes, rather than for a few seconds.
+    var persists = false
+    /// Offers a way to allow the microphone in Settings.
+    var offersSettings = false
+}
+
+extension CookModeView {
+    /// The mic beside More. Off it is `mic`; listening it fills and wears a brass live dot; refused, it is slashed.
+    var voiceMicButton: some View {
+        Button {
+            voice.toggle()
+        } label: {
+            // A drawn label, not a `Label`: the toolbar turns a plain symbol into a bar button image and drops the dot.
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: voiceMicSymbol)
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 28, height: 28)
+                if voice.state.isMicLive {
+                    Circle()
+                        .fill(KitchenTableTheme.brass)
+                        .frame(width: 8, height: 8)
+                        .offset(x: 1, y: 1)
+                        .transition(accessibilityReduceMotion ? .opacity : .scale.combined(with: .opacity))
+                }
+            }
+            .animation(KitchenMotion.animation(.snappy, reduceMotion: accessibilityReduceMotion), value: voice.state)
+            .accessibilityHidden(true)
+        }
+        .accessibilityLabel(voiceMicTitle)
+        .accessibilityIdentifier("cookMode.voice")
+    }
+
+    private var voiceMicSymbol: String {
+        switch voice.state {
+        case .off: "mic"
+        case .requestingPermission, .listening: "mic.fill"
+        case .unavailable: "mic.slash"
+        }
+    }
+
+    private var voiceMicTitle: String {
+        CookVoiceNoticeText.micLabel(for: voice.state, preparing: voice.isPreparing)
+    }
+
+    @ViewBuilder var voiceNoticePill: some View {
+        let notice = voice.isPreparing ? CookVoiceNotice(text: CookVoiceNoticeText.preparing, persists: true) : voiceNotice
+        HStack(spacing: 0) {
+            Color.clear.frame(width: showsCoverGlance ? 0 : voiceNoticeStepPageMinX, height: 0)
+            ZStack {
+                if let notice {
+                    voiceNoticeContent(notice)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 6)
+                        // Under Reduce Motion the line only fades.
+                        .transition(accessibilityReduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
+                        .id(notice.id)
+                        .task(id: notice.id) {
+                            guard !notice.persists else { return }
+                            try? await Task.sleep(for: .seconds(4))
+                            guard !Task.isCancelled, voiceNotice?.id == notice.id else { return }
+                            withAnimation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion)) {
+                                voiceNotice = nil
+                            }
+                        }
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .clipped()
+        .animation(KitchenMotion.animation(.glide, reduceMotion: accessibilityReduceMotion), value: notice?.id)
+    }
+
+    private func voiceNoticeContent(_ notice: CookVoiceNotice) -> some View {
+        HStack(spacing: 10) {
+            Text(notice.text)
+                .accessibilityIdentifier("cookMode.voice.notice")
+            if notice.offersSettings {
+                Button("Settings") {
+                    openURL(Self.microphoneSettingsURL)
+                }
+                .fontWeight(.semibold)
+                .foregroundStyle(KitchenTableTheme.brass)
+                .accessibilityLabel("Open Settings")
+                .accessibilityIdentifier("cookMode.voice.settings")
+            }
+        }
+        .font(KitchenTableTheme.uiLabel)
+        // A passing line: past AX2 it would push the step too far down.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+        .foregroundStyle(KitchenTableTheme.ink)
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(KitchenTableTheme.page, in: Capsule())
+        .glassEffect(.regular, in: Capsule())
+    }
+
+    private static var microphoneSettingsURL: URL {
+#if os(iOS)
+        URL(string: UIApplication.openSettingsURLString)!
+#else
+        URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone")!
+#endif
+    }
+
+    func voiceStateChanged(_ state: CookVoiceListenerState) {
+        switch state {
+        case .off:
+            voiceNotice = nil
+        case .requestingPermission:
+            break
+        case .listening:
+            showVoiceNotice(CookVoiceNoticeText.listening)
+        case .unavailable(let reason):
+            let offersSettings = CookVoiceNoticeText.offersSettings(reason: reason)
+            showVoiceNotice(CookVoiceNoticeText.unavailable(reason: reason), persists: offersSettings, offersSettings: offersSettings)
+        }
+    }
+
+    /// `-SpoonjoyVoiceDemo YES` (DEBUG): three seconds after cook mode opens the mic turns on by itself, and every
+    /// voice line stays up, so the Duo tour can photograph them. Always false in release builds.
+    private static let voiceDemo: Bool = {
+#if DEBUG
+        UserDefaults.standard.bool(forKey: "SpoonjoyVoiceDemo")
+#else
+        false
+#endif
+    }()
+
+    func playVoiceDemo() async {
+        guard Self.voiceDemo else {
+            return
+        }
+        // SwiftUI can cancel and restart this task while the screen settles, so a cancelled wait must not turn the mic
+        // on, and a restarted one must not turn it back off.
+        do {
+            try await Task.sleep(for: .seconds(3))
+        } catch {
+            return
+        }
+        guard !voice.state.isToggledOn else {
+            return
+        }
+        voice.toggle()
+    }
+
+    /// Shows a line and has VoiceOver read it. The mic is told, so VoiceOver's voice is never taken for the cook's.
+    private func showVoiceNotice(_ text: String, persists: Bool = false, offersSettings: Bool = false) {
+        voiceNotice = CookVoiceNotice(text: text, persists: persists || Self.voiceDemo, offersSettings: offersSettings)
+        voice.announced(text, spokenAloud: accessibilityVoiceOverEnabled)
+        AccessibilityNotification.Announcement(text).post()
+    }
+
+    /// A heard command runs the same action as its button, so the page turns (or crossfades under Reduce Motion)
+    /// exactly as a tap would.
+    func perform(voiceCommand command: CookVoiceCommand) {
+        let total = recipe.steps.count
+        switch command {
+        case .next:
+            guard canAdvance else {
+                showVoiceNotice(CookVoiceNoticeText.lastStep)
+                return
+            }
+            let target = currentIndex + 2
+            advance()
+            showVoiceNotice(CookVoiceNoticeText.turnedForward(to: target, of: total))
+        case .back:
+            guard canGoBack else {
+                showVoiceNotice(CookVoiceNoticeText.firstStep)
+                return
+            }
+            let target = currentIndex
+            previous()
+            showVoiceNotice(CookVoiceNoticeText.turnedBack(to: target, of: total))
+        case .repeatStep:
+            voice.read(CookModeSessionResolver.readout(for: viewModel))
+            showVoiceNotice(CookVoiceNoticeText.reading(step: currentIndex + 1, of: total))
+        case .startTimer:
+            runVoiceSessionCommand(.startTimer)
+        case .checkAll:
+            runVoiceSessionCommand(.checkStep)
+        }
+    }
+
+    /// Timer and check-all go through the session center, the path Siri and the Live Activity take, so a running
+    /// timer is never set twice.
+    private func runVoiceSessionCommand(_ command: CookModeSessionCommand) {
+        Task { @MainActor in
+            do {
+                showVoiceNotice(try await CookModeSessionCenter.shared.perform(command))
+            } catch {
+                showVoiceNotice(CookModeSystemTimerScheduler.message(for: error, fallback: CookVoiceNoticeText.actionFailed))
+            }
+        }
+    }
+}
+
+private extension View {
+    /// The scene phase can lag when the window shares the screen; the app-wide notifications stop the mic the moment
+    /// the app leaves the foreground or the screen locks.
+    func stopsVoiceWhenTheAppLeaves(_ voice: CookVoiceController) -> some View {
+#if os(iOS)
+        let names = [
+            UIApplication.willResignActiveNotification,
+            UIApplication.didEnterBackgroundNotification,
+            UIApplication.protectedDataWillBecomeUnavailableNotification
+        ]
+#else
+        let names = [NSApplication.didResignActiveNotification, NSApplication.didHideNotification]
+#endif
+        return onReceive(Publishers.MergeMany(names.map { NotificationCenter.default.publisher(for: $0) })) { _ in
+            voice.send(.sceneInactive)
+        }
+    }
+}
+
+#if DEBUG
+/// Appends each posture cook mode takes, with every running timer's end date, to `tmp/spoonjoy-cook-timer.log` in the
+/// app's data container. The Duo tour folds the phone with a timer running and fails if an end date moves.
+enum CookTimerProbe {
+    static func record(posture: CookPosture, timers: [CookTimerEntry]) {
+        let ends = timers
+            .map { "\($0.id)=\(String(format: "%.3f", $0.endsAt.timeIntervalSince1970))" }
+            .joined(separator: ",")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-cook-timer.log")
+        let line = Data("posture=\(posture) timers=\(ends)\n".utf8)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(line)
+            try? handle.close()
+        } else {
+            try? line.write(to: url)
+        }
+    }
+}
+#endif
 
 private struct CookModeIngredientChecklistLabel: View {
     let row: CookModeChecklistRow
@@ -1305,6 +1880,7 @@ private struct CookModeSystemTimer: View {
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.tomato)
+                    .accessibilityIdentifier("cookMode.timer.error")
             }
         }
         .frame(maxWidth: .infinity)
@@ -1600,4 +2176,52 @@ private enum CookModeAlarmKitTimerScheduler {
         return alarmID
     }
 #endif
+}
+
+/// The page curl on the open-flat spread: the right page lifts off the spine toward the cook and a soft shadow
+/// sweeps across it, from the outer edge to the fold on a forward turn and back again on a turn back. At 0 and 1
+/// the page lies flat with no shadow.
+private struct PageCurlSweep: ViewModifier, Animatable {
+    nonisolated var phase: Double
+    nonisolated let isForward: Bool
+
+    nonisolated var animatableData: Double {
+        get { phase }
+        set { phase = newValue }
+    }
+
+    /// How far the lifted page tilts at the middle of a turn.
+    private static let liftDegrees = 14.0
+
+    func body(content: Content) -> some View {
+        let lift = sin(.pi * min(max(phase, 0), 1))
+        return content
+            .rotation3DEffect(
+                .degrees((isForward ? -1 : 1) * Self.liftDegrees * lift),
+                axis: (x: 0, y: 1, z: 0),
+                anchor: .leading,
+                perspective: 0.6
+            )
+            .overlay {
+                GeometryReader { proxy in
+                    let width = proxy.size.width
+                    let band = min(120, width * 0.35)
+                    let travel = isForward ? 1 - phase : phase
+                    LinearGradient(
+                        stops: [
+                            .init(color: KitchenTableTheme.foldShadow.opacity(0), location: 0),
+                            .init(color: KitchenTableTheme.foldShadow, location: 0.6),
+                            .init(color: KitchenTableTheme.foldShadow.opacity(0), location: 1)
+                        ],
+                        startPoint: isForward ? .trailing : .leading,
+                        endPoint: isForward ? .leading : .trailing
+                    )
+                    .frame(width: band)
+                    .offset(x: width * travel - band / 2)
+                    .opacity(lift)
+                }
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            }
+    }
 }

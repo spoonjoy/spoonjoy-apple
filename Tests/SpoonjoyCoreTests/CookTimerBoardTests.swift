@@ -23,6 +23,18 @@ struct CookTimerBoardTests {
         #expect(CookTimerBoard(timers: []).ordered.isEmpty)
     }
 
+    @Test func pausedTimersFollowRunningOnesByTimeLeft() {
+        // Paused timers keep the endsAt from before the pause, which slides into the past.
+        let board = CookTimerBoard(timers: [
+            CookTimerEntry(id: "p2", stepNumber: 2, label: "p2", endsAt: Date(timeIntervalSince1970: 1), isPaused: true, pausedRemaining: 90),
+            Self.entry("r", step: 5, ends: 500),
+            CookTimerEntry(id: "p1", stepNumber: 1, label: "p1", endsAt: Date(timeIntervalSince1970: 2), isPaused: true, pausedRemaining: 30),
+            CookTimerEntry(id: "p3", stepNumber: 3, label: "p3", endsAt: Date(timeIntervalSince1970: 3), isPaused: true, pausedRemaining: 90),
+        ])
+        #expect(board.ordered.map(\.id) == ["r", "p1", "p2", "p3"])
+        #expect(board.soonest?.id == "r")
+    }
+
     @Test func tiesKeepStepOrder() {
         let board = CookTimerBoard(timers: [
             Self.entry("b", step: 2, ends: 100),

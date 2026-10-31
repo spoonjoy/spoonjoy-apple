@@ -1,0 +1,70 @@
+{
+  "about": "Layout audit findings known to be real and not yet fixed. In strict mode (SPOONJOY_REQUIRE_LAYOUT_AUDIT=1) any finding not listed here fails the capture. Each entry is owned by Task 10 (accessibility polish), which must fix it and remove the entry; the list should end empty. Elements are accessibility identifiers, or label:<label> for an element without one.",
+  "findings": [
+    {
+      "route": "recipe-detail",
+      "dynamicType": "accessibility5",
+      "kind": "overlap",
+      "elements": [
+        "label:Kitchen",
+        "label:Recipes"
+      ],
+      "task": "Task 10",
+      "reason": "Dock tab buttons are 58 pt tall at a 50 pt pitch, so neighbours share 8 pt."
+    },
+    {
+      "route": "recipe-detail",
+      "dynamicType": "accessibility5",
+      "kind": "overlap",
+      "elements": [
+        "label:Cookbooks",
+        "label:Recipes"
+      ],
+      "task": "Task 10",
+      "reason": "Dock tab buttons are 58 pt tall at a 50 pt pitch, so neighbours share 8 pt."
+    },
+    {
+      "route": "recipe-detail",
+      "dynamicType": "accessibility5",
+      "kind": "overlap",
+      "elements": [
+        "label:Cookbooks",
+        "label:Shopping"
+      ],
+      "task": "Task 10",
+      "reason": "Dock tab buttons are 58 pt tall at a 50 pt pitch, so neighbours share 8 pt."
+    },
+    {
+      "route": "recipe-detail",
+      "dynamicType": "accessibility5",
+      "kind": "truncated",
+      "elements": [
+        "label:Saved kitchen may be out of date"
+      ],
+      "task": "Task 10",
+      "reason": "The quiet offline status pill draws \"Saved copy…\" for \"Saved copy may be stale\" (one line)."
+    },
+    {
+      "route": "cook-mode",
+      "dynamicType": "accessibility5",
+      "kind": "overlap",
+      "elements": [
+        "cook.timer.ring",
+        "cookMode.coverGlance.next"
+      ],
+      "task": "Task 10",
+      "reason": "Next step sits on top of the timer ring."
+    },
+    {
+      "route": "cook-mode",
+      "dynamicType": "accessibility5",
+      "kind": "overlap",
+      "elements": [
+        "cook.timer.ring",
+        "cookMode.coverGlance.showStep"
+      ],
+      "task": "Task 10",
+      "reason": "Show step sits on top of the timer ring."
+    }
+  ]
+}

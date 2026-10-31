@@ -26,7 +26,8 @@ extension CookSessionSnapshot {
             nextStepTitle: next.map { truncated(title(for: $0), limit: maxTitleLength, maxBytes: maxTitleBytes) },
             checkedCount: Set(progress.checkedIngredientIDs).intersection(progress.ingredientIDs).count,
             ingredientCount: progress.ingredientIDs.count,
-            timers: Array(timers)
+            timers: Array(timers),
+            timerCount: board.ordered.count
         )
     }
 

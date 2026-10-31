@@ -1,9 +1,11 @@
 name: Duo tour
 
 # Runs Spoonjoy on an iPhone Duo simulator in its real poses. DeviceHub (Xcode 27.1) stands the inner screen tall and
-# half-open, the tabletop journey runs there with the real hinge instead of the forced posture, and the app is then
-# photographed half-open, open tall, open wide and closed. It drives DeviceHub's window through accessibility, so it
-# runs on demand rather than on every pull request.
+# half-open, and the tabletop journey runs there with the real hinge instead of the forced posture. Opened flat and
+# wide, the spread journeys run, and the last journey leaves a step timer running. The tour then folds the phone through
+# open flat, tabletop and shut without relaunching the app, and fails if the timer's end date moves. Last, the app is
+# photographed half-open, open tall, open wide and closed, and its page turn halfway. It drives DeviceHub's window
+# through accessibility, so it runs on demand rather than on every pull request.
 
 on:
   workflow_dispatch:
@@ -63,6 +65,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/duo"
           xcodebuild build-for-testing -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys/TabletopJourney \
+            -only-testing:SpoonjoyWideJourneys \
             -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$RUNNER_TEMP/duo/build.log"
       - name: Wait for the simulator to settle
         timeout-minutes: 8
@@ -94,11 +97,117 @@ jobs:
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
           export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
           xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
-            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys/TabletopJourney \
+            -destination "${{ steps.sim.outputs.destination }}" \
+            -only-testing:SpoonjoyJourneys/TabletopJourney/testTabletopCookModeSplitsAtTheFoldJourney \
             -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" \
             -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
             -collect-test-diagnostics never \
             -resultBundlePath "$RUNNER_TEMP/duo/DuoTour.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test.log"
+      - name: Run the spread journeys open flat and wide
+        # The controls must stay on their pages at the largest text size, and a swipe must turn the step under Reduce
+        # Motion. The last journey starts a step timer, prints its cook link and leaves the timer running for the next
+        # step. This leaves the Duo open flat and wide.
+        timeout-minutes: 20
+        run: |
+          set -euo pipefail
+          hub="$RUNNER_TEMP/duo/devicehub"
+          "$hub" press "Open"; sleep 6
+          for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
+          sleep 4
+          # Right after the hub opens and turns the Duo, CoreSimulator can refuse launches ("No such process"). A
+          # warm-up launch lets it settle, and the journeys run once more only when that launch error is the failure.
+          udid="${{ steps.sim.outputs.udid }}"
+          xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy >/dev/null 2>&1 || true
+          sleep 8
+          xcrun simctl terminate "$udid" app.spoonjoy >/dev/null 2>&1 || true
+          export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/duo-secrets/accounts.json"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_REAL_HINGE=1
+          # run_journeys <name> <-only-testing selector>: writes Duo<name>.xcresult and test-<name>.log.
+          run_journeys() {
+            rm -rf "$RUNNER_TEMP/duo/Duo$1.xcresult"
+            xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+              -destination "${{ steps.sim.outputs.destination }}" \
+              "-only-testing:$2" \
+              -derivedDataPath "$RUNNER_TEMP/duo/DerivedData" \
+              -parallel-testing-enabled NO -test-timeouts-enabled YES -default-test-execution-time-allowance 600 \
+              -collect-test-diagnostics never \
+              -resultBundlePath "$RUNNER_TEMP/duo/Duo$1.xcresult" 2>&1 | tee "$RUNNER_TEMP/duo/test-$1.log"
+          }
+          run_with_one_retry() {
+            if ! run_journeys "$@"; then
+              grep -q "Simulator device failed to launch" "$RUNNER_TEMP/duo/test-$1.log" || return 1
+              echo "::warning::The simulator refused a launch; running the $1 journeys once more."
+              cp "$RUNNER_TEMP/duo/test-$1.log" "$RUNNER_TEMP/duo/test-$1-launch-failure.log"
+              sleep 20
+              run_journeys "$@"
+            fi
+          }
+          run_with_one_retry spread SpoonjoyWideJourneys
+          # Last, because every journey's fresh launch clears the app's saved state, the running timer included.
+          run_with_one_retry timer SpoonjoyJourneys/TabletopJourney/testTimerRunsOnForTheDuoTourJourney
+      - name: Fold the phone with the timer running
+        # One launch, then DeviceHub moves the hinge: open flat and wide, stood half-open, shut on the cover, and open
+        # again. The DEBUG build logs every posture cook mode takes with each running timer's end date
+        # (CookTimerProbe). Every posture must appear and every end date must be the one the timer started with.
+        timeout-minutes: 8
+        run: |
+          set -euo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          hub="$RUNNER_TEMP/duo/devicehub"
+          shots="$RUNNER_TEMP/duo/shots"
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran (an earlier step failed), so there is no cook link to follow."; exit 1; }
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          [ -n "$cook_link" ] || { echo "::error::The timer journey printed no cook link."; exit 1; }
+          probe="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/tmp/spoonjoy-cook-timer.log"
+          shoot() {
+            for display in 1 3; do
+              xcrun simctl io "$udid" screenshot --display="$display" "$shots/$1-display$display.png" >/dev/null 2>&1 || true
+            done
+          }
+          # The journey left its step timer saved in the app's defaults. If it is gone, cook mode has nothing to keep.
+          prefs="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/Library/Preferences/app.spoonjoy.plist"
+          # Read the key whole: plutil's key paths split "cookMode.stepTimerAlarms" at the dot.
+          saved="$(python3 -I -c 'import json, plistlib, sys; print(json.dumps(plistlib.load(open(sys.argv[1], "rb")).get("cookMode.stepTimerAlarms") or {}))' "$prefs" 2>/dev/null || true)"
+          echo "saved step timers before the fold: ${saved:-none}"
+          if [ -z "$saved" ] || [ "$saved" = "{}" ]; then
+            echo "::error::No step timer is saved on the Duo before the fold, so there is no running timer to follow. The timer journey's timer did not survive to this step: a journey's fresh launch after it clears the app's saved state."
+            exit 1
+          fi
+          : > "$probe"
+          SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$cook_link" \
+            SIMCTL_CHILD_SPOONJOY_JOURNEY_ALARM_FIXTURE=1 \
+            xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+          sleep 14
+          shoot 20-timer-open-wide
+          "$hub" press "Rotate Right"; sleep 4
+          "$hub" press "Partially Open"; sleep 6
+          shoot 21-timer-tabletop
+          "$hub" press "Closed"; sleep 6
+          shoot 22-timer-closed
+          "$hub" press "Open"; sleep 6
+          for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
+          sleep 4
+          shoot 23-timer-open-wide-again
+          cat "$probe"
+          failed=0
+          for posture in openFlat tabletop closedGlance; do
+            grep -q "^posture=$posture " "$probe" || { echo "::error::Cook mode never took the $posture posture."; failed=1; }
+          done
+          ends="$(sed -n 's/^posture=[^ ]* timers=\(..*\)$/\1/p' "$probe" | sort -u)"
+          echo "distinct timer end dates: ${ends:-none}"
+          bare="$(sed -n 's/^posture=\([^ ]*\) timers=$/\1/p' "$probe" | sort -u | tr '\n' ' ')"
+          if [ -n "$ends" ] && [ -n "$bare" ]; then
+            echo "::error::The running timer went missing in these postures: $bare"
+            failed=1
+          fi
+          if [ -z "$ends" ]; then
+            echo "::error::A step timer was saved before the fold, but cook mode restored no running timer at any posture."
+            failed=1
+          elif [ "$(printf '%s\n' "$ends" | wc -l)" -ne 1 ]; then
+            echo "::error::The running timer's end date changed as the phone folded: $(printf '%s' "$ends" | tr '\n' ' ')"
+            failed=1
+          fi
+          exit "$failed"
       - name: Photograph every pose
         if: ${{ !cancelled() }}
         timeout-minutes: 10
@@ -108,13 +217,16 @@ jobs:
           hub="$RUNNER_TEMP/duo/devicehub"
           shots="$RUNNER_TEMP/duo/shots"
           # The journey prints the cook link of the recipe it made; the running app (pointed at QA) opens it.
-          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran (an earlier step failed), so there is no cook link to follow."; exit 1; }
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           echo "cook link: ${cook_link:-none}"
           [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link, so the photos would not show cook mode."; exit 1; }
           # The app opens SPOONJOY_LAUNCH_URL itself; `simctl openurl` would stop at the "Open in Spoonjoy?" prompt.
+          # The stand-in alarm the timer journey set is shown only with the journeys' alarm fixture.
           launch() {
             SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$cook_link" \
-              xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+              SIMCTL_CHILD_SPOONJOY_JOURNEY_ALARM_FIXTURE=1 \
+              xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy "$@"
             sleep 12
           }
           shoot() {
@@ -123,8 +235,29 @@ jobs:
               xcrun simctl io "$udid" screenshot --display="$display" "$shots/$1-display$display.png" >/dev/null 2>&1 || true
             done
           }
+          # The previous step leaves the Duo open flat and wide; stand it tall and half-open again.
+          "$hub" press "Rotate Right"; sleep 4
+          "$hub" press "Partially Open"; sleep 6
           launch
           shoot 10-half-open-tall
+          xcrun simctl ui "$udid" appearance dark
+          launch
+          shoot 10d-half-open-tall-dark
+          xcrun simctl ui "$udid" appearance light
+          SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="${cook_link%/cook}" \
+            xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+          sleep 12
+          shoot 10r-recipe-half-open-tall
+          xcrun simctl ui "$udid" appearance dark
+          SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="${cook_link%/cook}" \
+            xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+          sleep 12
+          shoot 10rd-recipe-half-open-tall-dark
+          xcrun simctl ui "$udid" appearance light
+          xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
+          launch
+          shoot 10x-half-open-tall-ax5
+          xcrun simctl ui "$udid" content_size large
           SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
           sleep 10
           shoot 10b-kitchen-half-open-tall
@@ -134,10 +267,35 @@ jobs:
           for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
           sleep 4
           shoot 12-open-wide
+          xcrun simctl ui "$udid" appearance dark
+          launch
+          shoot 12d-open-wide-dark
+          xcrun simctl ui "$udid" appearance light
           launch
           shoot 13-open-wide-relaunched
+          # A DEBUG demo turns one page by itself ten seconds after the spread opens, over eight seconds, so a frame
+          # catches the curl halfway; under Reduce Motion the same turn is a crossfade.
+          launch -SpoonjoyDemoPageTurn 8
+          sleep 3; shoot 15a-page-turn-mid
+          sleep 2; shoot 15b-page-turn-mid
+          sleep 2; shoot 15c-page-turn-mid
+          launch -SpoonjoyReduceMotion YES -SpoonjoyDemoPageTurn 8
+          sleep 3; shoot 16a-reduce-motion-crossfade-mid
+          sleep 2; shoot 16b-reduce-motion-crossfade-mid
+          sleep 2; shoot 16c-reduce-motion-crossfade-mid
+          launch
+          # Folded shut with cook mode open, the cover becomes the kitchen-timer glance.
           "$hub" press "Closed"; sleep 6
           shoot 14-closed
+          # Unfolded again, the glance gives way to the spread.
+          "$hub" press "Open"; sleep 6
+          shoot 14o-reopened-wide
+          xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
+          launch
+          shoot 13x-open-wide-ax5
+          "$hub" press "Closed"; sleep 6
+          shoot 14x-closed-ax5
+          xcrun simctl ui "$udid" content_size large
           ls -la "$shots"
       - name: Check the open-flat spread
         # The previous step leaves the Duo closed. Opened, it lies flat and wide, and the recipe and cook mode must each
@@ -148,7 +306,8 @@ jobs:
         run: |
           set -euo pipefail
           udid="${{ steps.sim.outputs.udid }}"
-          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran (an earlier step failed), so there is no cook link to follow."; exit 1; }
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
           [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link."; exit 1; }
           probe="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/tmp/spoonjoy-spread-layout.log"
           "$RUNNER_TEMP/duo/devicehub" press "Open"
@@ -170,6 +329,58 @@ jobs:
           "$RUNNER_TEMP/duo/devicehub" press "Closed"
           sleep 6
           exit "$failed"
+      - name: Photograph voice in every pose
+        # The previous step leaves the Duo closed. In each pose cook mode opens with the mic off, listening, refused,
+        # and listening at the largest text size. The DEBUG demo (-SpoonjoyVoiceDemo) turns the mic on three seconds in
+        # and keeps its line up; the journeys' voice fixture stands in for the microphone, so nothing is recorded. The
+        # line must sit above the step, clear of the fold, and the mic must stay off the hinge. Leaves the Duo closed.
+        if: ${{ !cancelled() }}
+        timeout-minutes: 10
+        run: |
+          set -uo pipefail
+          udid="${{ steps.sim.outputs.udid }}"
+          hub="$RUNNER_TEMP/duo/devicehub"
+          shots="$RUNNER_TEMP/duo/shots/voice"
+          mkdir -p "$shots"
+          [ -f "$RUNNER_TEMP/duo/test-timer.log" ] || { echo "::error::The timer journey never ran, so there is no cook link to follow."; exit 1; }
+          cook_link="$(grep -o 'Duo tour cook link: spoonjoy://[^ ]*' "$RUNNER_TEMP/duo/test-timer.log" | head -1 | sed 's/^Duo tour cook link: //')"
+          [ -n "$cook_link" ] || { echo "::error::The journey printed no cook link."; exit 1; }
+          # launch_voice <fixture or empty> [launch arguments]
+          launch_voice() {
+            fixture="$1"; shift
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="$cook_link" \
+              SIMCTL_CHILD_SPOONJOY_JOURNEY_VOICE_FIXTURE="$fixture" \
+              xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy "$@"
+            sleep 12
+          }
+          shoot() {
+            for display in 1 3; do
+              xcrun simctl io "$udid" screenshot --display="$display" "$shots/$1-display$display.png" >/dev/null 2>&1 || true
+            done
+          }
+          shoot_pose() {
+            launch_voice ""
+            shoot "$1-voice-off"
+            launch_voice "mm" -SpoonjoyVoiceDemo YES
+            shoot "$1-voice-listening"
+            launch_voice "denied" -SpoonjoyVoiceDemo YES
+            shoot "$1-voice-unavailable"
+            xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
+            launch_voice "mm" -SpoonjoyVoiceDemo YES
+            shoot "$1-voice-listening-ax5"
+            xcrun simctl ui "$udid" content_size large
+          }
+          shoot_pose 30-closed
+          "$hub" press "Open"; sleep 6
+          "$hub" press "Rotate Right"; sleep 4
+          "$hub" press "Partially Open"; sleep 6
+          shoot_pose 31-tabletop
+          "$hub" press "Open"; sleep 6
+          for turn in 1 2 3; do "$hub" press "Rotate Right"; sleep 3; done
+          sleep 4
+          shoot_pose 32-open-wide
+          "$hub" press "Closed"; sleep 6
+          ls -la "$shots"
       - name: Photograph the store links
         if: ${{ !cancelled() && inputs.store_links != '' }}
         timeout-minutes: 15
@@ -217,7 +428,9 @@ jobs:
         if: always()
         run: |
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/duo-secrets/accounts.json" \
-            "$RUNNER_TEMP/duo/build.log" "$RUNNER_TEMP/duo/test.log" "$RUNNER_TEMP/duo/DuoTour.xcresult"
+            "$RUNNER_TEMP/duo/build.log" "$RUNNER_TEMP/duo/test.log" "$RUNNER_TEMP/duo/DuoTour.xcresult" \
+            "$RUNNER_TEMP/duo/test-spread.log" "$RUNNER_TEMP/duo/DuoSpread.xcresult" \
+            "$RUNNER_TEMP/duo/test-timer.log" "$RUNNER_TEMP/duo/DuoTimer.xcresult"
       - name: Remove credentials
         if: always()
         run: rm -rf "$RUNNER_TEMP/duo-secrets"
@@ -228,7 +441,11 @@ jobs:
           name: duo-tour-${{ github.sha }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/duo/DuoTour.xcresult
+            ${{ runner.temp }}/duo/DuoSpread.xcresult
+            ${{ runner.temp }}/duo/DuoTimer.xcresult
             ${{ runner.temp }}/duo/shots
             ${{ runner.temp }}/duo/test.log
+            ${{ runner.temp }}/duo/test-spread.log
+            ${{ runner.temp }}/duo/test-timer.log
           if-no-files-found: warn
           retention-days: 30

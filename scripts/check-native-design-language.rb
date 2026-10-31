@@ -177,10 +177,10 @@ manifest_contract_phrases = [
   "dynamicType",
   "voiceOverLabels",
   "keyboardNavigation",
-  "reduceMotion",
   "contrast",
   "kitchenTableHierarchy",
-  "noOverlap",
+  "observedReduceMotion",
+  "LayoutAuditUITests",
   "blockers[]"
 ]
 assert_includes(native_content, manifest_contract_phrases, "design-review manifest schema", native_doc)

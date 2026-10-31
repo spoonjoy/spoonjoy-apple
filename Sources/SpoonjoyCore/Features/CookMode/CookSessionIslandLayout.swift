@@ -81,14 +81,14 @@ public enum CookSessionIslandLayout {
         return Compact(leading: .stepLabel("Step \(snapshot.stepNumber)"), trailing: trailing)
     }
 
-    /// On the iPhone Duo the island is a vertical pill (37 pt across), and the compact region inside it is about this
-    /// tall, measured on the iOS 27.1 simulator. A 28 pt ring lost its bottom edge there.
-    public static let limitedWidthIslandWidth: Double = 26
+    /// On the iPhone Duo the island is a vertical pill 37 pt across, and the compact region inside it is about this
+    /// wide, measured on the iOS 27.1 simulator (not yet on a real Duo). A 28 pt ring reached the pill's sides there.
+    public static let limitedWidthCompactRegionWidth: Double = 26
     /// Clear space kept between the ring and the region's edge.
     public static let limitedWidthRingInset: Double = 2
 
     public static func compactRingDiameter(limitedWidth: Bool) -> Double {
-        limitedWidth ? limitedWidthIslandWidth - 2 * limitedWidthRingInset : 28
+        limitedWidth ? limitedWidthCompactRegionWidth - 2 * limitedWidthRingInset : 28
     }
 
     public static func minimalRingDiameter(limitedWidth: Bool) -> Double {
@@ -105,9 +105,40 @@ public enum CookSessionIslandLayout {
         stride(from: 0, to: timers.count, by: 2).map { Array(timers[$0..<min($0 + 2, timers.count)]) }
     }
 
-    /// The timer the ring follows: the soonest running one, else the soonest paused one.
+    /// Every timer in the session. The payload carries at most `CookSessionSnapshot.maxTimers`, so it also sends the
+    /// full count; a payload from before that field falls back to the timers it carries.
+    public static func totalTimerCount(in snapshot: CookSessionSnapshot) -> Int {
+        max(snapshot.timerCount ?? 0, snapshot.timers.count)
+    }
+
+    /// "+2" for timers in the session that aren't shown, running or paused, or nil when none are hidden.
+    public static func hiddenTimersText(hidden: Int) -> String? {
+        hidden > 0 ? "+\(hidden)" : nil
+    }
+
+    /// What VoiceOver reads for `hiddenTimersText`.
+    public static func hiddenTimersAccessibilityLabel(hidden: Int) -> String? {
+        switch hidden {
+        case ...0: nil
+        case 1: "1 more timer"
+        default: "\(hidden) more timers"
+        }
+    }
+
+    /// At standard text sizes the Lock Screen card is capped at about 160 pt. With three timers the step shows only its
+    /// title, beside a smaller ring, so the chips can take a second row and keep their names apart.
+    public static func lockScreenTimersTakeStepText(timerCount: Int, accessibilitySize: Bool) -> Bool {
+        timerCount >= 3 && !accessibilitySize
+    }
+
+    /// The timers in `CookTimerBoard` order, so the widget and the payload share one rule.
+    public static func timersBySoonest(_ timers: [CookTimerEntry]) -> [CookTimerEntry] {
+        CookTimerBoard(timers: timers).ordered
+    }
+
+    /// The timer the ring and the island's single chip follow: the first of `timersBySoonest`.
     public static func featuredTimer(in snapshot: CookSessionSnapshot) -> CookTimerEntry? {
-        snapshot.timers.first { !$0.isPaused } ?? snapshot.timers.first
+        timersBySoonest(snapshot.timers).first
     }
 
     public static func ring(for snapshot: CookSessionSnapshot) -> Ring {

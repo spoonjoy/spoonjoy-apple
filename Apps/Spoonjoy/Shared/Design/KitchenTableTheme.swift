@@ -66,6 +66,9 @@ enum KitchenTableTheme {
     static let onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted
     static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
     static let photoOverlay = Color.black.opacity(0.28)
+    /// The soft shadow at a spread's fold: 10% ink by day. At night ink is light, so the fold darkens the paper with
+    /// black instead, the same way a real crease shades in low light.
+    static let foldShadow = dynamic(Day.charcoal.opacity(0.10), Color.black.opacity(0.32))
 
     enum Radius {
         static let edge: CGFloat = 0

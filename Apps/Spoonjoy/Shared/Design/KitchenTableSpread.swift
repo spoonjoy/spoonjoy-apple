@@ -4,48 +4,61 @@ import SwiftUI
 import UIKit
 #endif
 
-/// Two facing pages split by a hairline gutter, like a cookbook laid open on the counter.
+/// Two facing pages split by a gutter that shades like the fold of a cookbook laid open on the counter.
 ///
 /// `BookSpreadLayout` decides where the gutter goes. Built with the iOS 27.1 SDK and running on iOS 27.1 or later,
 /// the gutter follows the hinge: `SpreadLayoutReader` reads the Reserved Region `.division` rect (see
-/// `HingeDivisionProbe` below). Otherwise the gutter sits in the middle of the screen, which is where the iPhone
+/// `HingeFoldReader` below). Otherwise the gutter sits in the middle of the screen, which is where the iPhone
 /// Duo folds. See "iPhone Duo Inner Screen" in docs/native-design-language.md.
 struct KitchenTableSpread<Leading: View, Trailing: View>: View {
     let layout: BookSpreadLayout
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
-    private static var ruleWidth: CGFloat { 1 }
+    private static var shadowWidth: CGFloat { CGFloat(BookSpreadLayout.gutterShadowWidth) }
 
     var body: some View {
-        let leadingWidth = CGFloat(layout.leadingPage?.width ?? 0)
-        let trailingWidth = CGFloat(layout.trailingPage?.width ?? 0)
-        let gutterWidth = max(CGFloat(layout.gutter?.width ?? 0), Self.ruleWidth)
-        // A zero-width gutter still needs a visible rule; it takes half a point from each page.
-        let overlap = (gutterWidth - CGFloat(layout.gutter?.width ?? 0)) / 2
+        let gutterWidth = CGFloat(layout.gutter?.width ?? 0)
 
         HStack(spacing: 0) {
             leading()
-                .frame(width: max(0, leadingWidth - overlap))
+                .frame(width: CGFloat(layout.leadingPage?.width ?? 0))
                 .frame(maxHeight: .infinity, alignment: .top)
-            gutter(width: gutterWidth)
+            Color.clear
+                .frame(width: gutterWidth)
             trailing()
-                .frame(width: max(0, trailingWidth - overlap))
+                .frame(width: CGFloat(layout.trailingPage?.width ?? 0))
                 .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .overlay(alignment: .leading) {
+            foldShadow(gutterWidth: gutterWidth)
+                .offset(x: CGFloat(layout.leadingPage?.width ?? 0) - Self.shadowWidth)
         }
         .background(KitchenTableTheme.page.ignoresSafeArea())
     }
 
-    private func gutter(width: CGFloat) -> some View {
-        ZStack {
-            Color.clear
-            Rectangle()
-                .fill(KitchenTableTheme.spreadGutterRule)
-                .frame(width: Self.ruleWidth)
-        }
-        .frame(width: width)
+    /// One soft shade mirrored about the fold line: darkest at the fold, half as dark at the gutter's edges, and gone
+    /// by `gutterShadowWidth` into each page. The pages' gutter-side margin is wider than this, so text never sits in
+    /// the shade.
+    private func foldShadow(gutterWidth: CGFloat) -> some View {
+        let total = gutterWidth + Self.shadowWidth * 2
+        let edge = total > 0 ? Self.shadowWidth / total : 0.5
+        let shade = KitchenTableTheme.foldShadow
+        return LinearGradient(
+            stops: [
+                .init(color: shade.opacity(0), location: 0),
+                .init(color: shade.opacity(0.5), location: edge),
+                .init(color: shade, location: 0.5),
+                .init(color: shade.opacity(0.5), location: 1 - edge),
+                .init(color: shade.opacity(0), location: 1)
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+        .frame(width: total)
         .frame(maxHeight: .infinity)
-        .ignoresSafeArea(edges: .bottom)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
 }
@@ -126,20 +139,51 @@ struct FoldReading: Equatable {
     /// A horizontal fold (the screen held tall, or stood half-open on the counter).
     var band: FoldBand?
     var hinge: HingePosture = .unknown
+    /// How far the hinge is open, 0° shut to 180° flat, when the system reports it.
+    var angleDegrees: Double?
 
-    /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop`), so screenshots and previews
-    /// can show tabletop cook mode on a simulator that cannot half-open its hinge. Always nil in release builds.
+    /// How cook mode should present itself for this reading.
+    var posture: CookPosture {
+        TabletopLayout.posture(hingeStatus: hinge, angleDegrees: angleDegrees)
+    }
+
+    /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop`, `flat` or `closed`), so
+    /// screenshots and journeys can show each posture on a simulator whose hinge they cannot move. Always nil in
+    /// release builds.
     static let forcedHinge: HingePosture? = {
 #if DEBUG
         switch UserDefaults.standard.string(forKey: "SpoonjoyForcePosture") {
         case "tabletop": .partiallyOpen
         case "flat": .fullyOpen
+        case "closed": .closed
         default: nil
         }
 #else
         nil
 #endif
     }()
+
+    /// The hinge `TabletopLayout.resolve` should split for. A bend in the tabletop band stands up even when the
+    /// system calls it fully open, and one too shallow to stand on never splits.
+    var tabletopHinge: HingePosture {
+        switch posture {
+        case .tabletop: .partiallyOpen
+        case .openFlat: .fullyOpen
+        case .closedGlance: .closed
+        case .single: .unknown
+        }
+    }
+
+    /// This reading with a DEBUG forced posture applied. A forced posture carries no angle, so the status decides.
+    var applyingForcedHinge: FoldReading {
+        guard let forced = Self.forcedHinge else {
+            return self
+        }
+        var reading = self
+        reading.hinge = forced
+        reading.angleDegrees = nil
+        return reading
+    }
 }
 
 extension View {
@@ -152,11 +196,16 @@ extension View {
         ))
     }
 
-    /// Reports the fold and the hinge posture in this view's coordinate space. Compiles to a no-op unless the app is
-    /// built with the iOS 27.1 SDK, and does nothing at run time before iOS 27.1.
+    /// Reports the fold, the hinge posture and the hinge angle in this view's coordinate space. Compiles to a no-op
+    /// unless the app is built with the iOS 27.1 SDK, and does nothing at run time before iOS 27.1, where no API
+    /// reports a fold.
     @ViewBuilder func readingFold(_ reading: Binding<FoldReading>) -> some View {
 #if os(iOS) && SPOONJOY_IOS_27_1_SDK
-        background(HingeDivisionProbe(reading: reading))
+        if #available(iOS 27.1, *) {
+            modifier(HingeFoldReader(reading: reading))
+        } else {
+            self
+        }
 #else
         self
 #endif
@@ -164,105 +213,98 @@ extension View {
 }
 
 #if os(iOS) && SPOONJOY_IOS_27_1_SDK
-/// An invisible view that fills the space it measures and reads the `.division` Reserved Region and the hinge from
-/// UIKit.
-///
-/// UIKit's `UIView.reservedRegions(kind:options:)` gives the fold's rect; `UIHingeInteraction` gives the hinge's
-/// status, and asks for a fresh read of the rect when the hinge moves.
-private struct HingeDivisionProbe: UIViewRepresentable {
-    @Binding var reading: FoldReading
-
-    func makeUIView(context: Context) -> UIView {
-        guard #available(iOS 27.1, *) else {
-            return UIView()
-        }
-        let view = HingeDivisionView()
-        view.onChange = { [binding = $reading] new in binding.wrappedValue = new }
-        return view
-    }
-
-    func updateUIView(_ view: UIView, context: Context) {
-        guard #available(iOS 27.1, *), let view = view as? HingeDivisionView else {
-            return
-        }
-        view.onChange = { [binding = $reading] new in binding.wrappedValue = new }
-    }
-}
-
+/// Reads the fold with SwiftUI's own hinge APIs: `onHingeChange` for the hinge's status and angle, and
+/// `GeometryProxy.reservedRegions(kind: .division)` for where the fold lies in this view.
 @available(iOS 27.1, *)
-private final class HingeDivisionView: UIView {
-    var onChange: ((FoldReading) -> Void)?
-    private var reported: FoldReading?
-    private var hinge: HingePosture = .unknown
+private struct HingeFoldReader: ViewModifier {
+    @Binding var reading: FoldReading
+    @State private var hinge: DeviceHinge?
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-        isUserInteractionEnabled = false
-        isAccessibilityElement = false
-        addInteraction(UIHingeInteraction { [weak self] _, update in
-            guard let self else {
-                return
+    func body(content: Content) -> some View {
+        content
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onChange(of: Self.reading(in: proxy, hinge: hinge), initial: true) { _, new in
+                            if reading != new {
+                                reading = new
+                            }
+                        }
+                }
+                .accessibilityHidden(true)
             }
-            self.hinge = Self.posture(update.hinge?.status)
-            self.setNeedsLayout()
-        })
+            .onHingeChange { _, new in
+                hinge = new.hinge
+            }
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("HingeDivisionView is created in code only")
-    }
-
-    private static func posture(_ status: UIHinge.Status?) -> HingePosture {
+    private static func posture(_ status: DeviceHinge.Status?) -> HingePosture {
         switch status {
-        case .closed: .closed
-        case .partiallyOpen: .partiallyOpen
-        case .fullyOpen: .fullyOpen
+        case .closed?: .closed
+        case .partiallyOpen?: .partiallyOpen
+        case .fullyOpen?: .fullyOpen
         default: .unknown
         }
     }
 
+    private static func reading(in proxy: GeometryProxy, hinge: DeviceHinge?) -> FoldReading {
+        // Open flat, iOS marks the fold inactive, and a plain query drops it; see FoldRegionChoice.
+        let regions = proxy.reservedRegions(kind: .division, options: .includeInactive, layoutDirectionBehavior: .fixed)
+            .map { region in
+                ReportedFoldRegion(
+                    minX: Double(region.frame.minX),
+                    minY: Double(region.frame.minY),
+                    width: Double(region.frame.width),
+                    height: Double(region.frame.height),
+                    isActive: region.isActive
+                )
+            }
+        let width = Double(proxy.size.width)
+        let height = Double(proxy.size.height)
+        let posture = posture(hinge?.status)
+        let band = FoldRegionChoice.band(from: regions, containerWidth: width, containerHeight: height)
+            ?? screenMidline(in: proxy, hinge: posture)
+        return FoldReading(
+            division: FoldRegionChoice.division(from: regions, containerWidth: width, containerHeight: height),
+            band: band,
+            hinge: posture,
+            angleDegrees: hinge.map { $0.angle.degrees }
+        )
+    }
+
+    /// The key window's height by this view's size. The window keeps its height while the view keeps its size, so the
+    /// scenes are walked once per size rather than on every geometry pass.
+    private static var windowHeights: [String: CGFloat] = [:]
+
     /// With a half-open hinge and no reported fold, the fold is at the middle of the screen, which is not the middle
-    /// of this view when it sits under a navigation bar.
-    private var screenMidline: FoldBand? {
-        guard hinge == .partiallyOpen, let window else {
+    /// of this view when it sits under a navigation bar. The global space is the window's.
+    private static func screenMidline(in proxy: GeometryProxy, hinge: HingePosture) -> FoldBand? {
+        guard hinge == .partiallyOpen, let windowHeight = windowHeight(forViewSize: proxy.size) else {
             return nil
         }
-        let midY = Double(convert(CGPoint(x: 0, y: window.bounds.midY), from: window).y)
-        guard midY > 0, midY < Double(bounds.height) else {
+        let midY = Double(windowHeight / 2 - proxy.frame(in: .global).minY)
+        guard midY > 0, midY < Double(proxy.size.height) else {
             return nil
         }
         return FoldBand(minY: midY, height: 0)
     }
 
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        setNeedsLayout()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // Open flat, iOS marks the fold inactive, and a plain query drops it; see FoldRegionChoice.
-        let regions = reservedRegions(kind: .division, options: .includeInactive).map { region in
-            ReportedFoldRegion(
-                minX: Double(region.frame.minX),
-                minY: Double(region.frame.minY),
-                width: Double(region.frame.width),
-                height: Double(region.frame.height),
-                isActive: region.isActive
-            )
+    private static func windowHeight(forViewSize size: CGSize) -> CGFloat? {
+        let key = "\(size.width)x\(size.height)"
+        if let height = windowHeights[key] {
+            return height
         }
-        let width = Double(bounds.width)
-        let height = Double(bounds.height)
-        let division = FoldRegionChoice.division(from: regions, containerWidth: width, containerHeight: height)
-        let band = FoldRegionChoice.band(from: regions, containerWidth: width, containerHeight: height)
-        let reading = FoldReading(division: division, band: band ?? screenMidline, hinge: hinge)
-        guard reading != reported else {
-            return
+        let window = UIApplication.shared.connectedScenes
+            .compactMap { ($0 as? UIWindowScene)?.keyWindow }
+            .first
+        guard let height = window?.bounds.height else {
+            return nil
         }
-        reported = reading
-        DispatchQueue.main.async { [onChange] in
-            onChange?(reading)
+        if windowHeights.count > 16 {
+            windowHeights.removeAll()
         }
+        windowHeights[key] = height
+        return height
     }
 }
 #endif

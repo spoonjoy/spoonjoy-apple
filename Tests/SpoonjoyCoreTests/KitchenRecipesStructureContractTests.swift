@@ -163,7 +163,7 @@ struct KitchenRecipesStructureContractTests {
             contains: [
                 "voiceOverLabels: [\"Recipes\", \"On the Counter\", \"Recipe index\", \"Loading recipes\"]",
                 "keyboardNavigationTargets: [\"recipe lead button\", \"RecipeIndexRow buttons\", \"search field\"]",
-                "layoutGuards: [\"scroll-view\", \"text-fit\", \"no-tiny-clusters\", \"dock-safe-area\"]"
+                "declaredLayoutGuards: [\"scroll-view\", \"text-fit\", \"no-tiny-clusters\", \"dock-safe-area\"]"
             ],
             forbids: [
                 "\"recipe lead button\", \"RecipeIndexRow buttons\", \"search field\", \"offline status dismiss\"",

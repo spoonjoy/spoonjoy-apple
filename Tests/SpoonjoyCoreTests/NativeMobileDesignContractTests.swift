@@ -103,14 +103,15 @@ struct NativeMobileDesignContractTests {
                 "division: division",
                 "SPOONJOY_IOS_27_1_SDK",
                 "#available(iOS 27.1, *)",
-                "reservedRegions(kind: .division, options: .includeInactive)",
+                "proxy.reservedRegions(kind: .division, options: .includeInactive, layoutDirectionBehavior: .fixed)",
+                ".onHingeChange { _, new in",
                 "FoldRegionChoice.division(from: regions",
                 "FoldRegionChoice.band(from: regions",
-                "UIHingeInteraction",
                 "BookSpreadLayout.pageInsets(for: side)",
-                "KitchenTableTheme.spreadGutterRule"
+                "BookSpreadLayout.gutterShadowWidth",
+                "KitchenTableTheme.foldShadow"
             ],
-            forbids: ["onHingeChange", "ArrangementView", "shadow(", "Image(\"paper"]
+            forbids: ["UIHingeInteraction", "ArrangementView", "shadow(", "Image(\"paper"]
         )
         expectContent(
             navigation,

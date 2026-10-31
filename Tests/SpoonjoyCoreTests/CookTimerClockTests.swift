@@ -75,9 +75,10 @@ struct CookTimerClockTests {
             // A step whose alarm the clock never saw has no end date, so it is left out.
             "r1#s3": UUID(),
         ])
+        // The running timer comes first; the paused one follows by time left, whatever its stale end date.
         #expect(board.ordered == [
-            CookTimerEntry(id: "r1#s1", stepNumber: 1, label: "Chop", endsAt: Self.t0.addingTimeInterval(300), isPaused: true, duration: 300, pausedRemaining: 240),
             CookTimerEntry(id: "r1#s2", stepNumber: 2, label: "Step 2", endsAt: Self.t0.addingTimeInterval(600), isPaused: false, duration: 600, pausedRemaining: nil),
+            CookTimerEntry(id: "r1#s1", stepNumber: 1, label: "Chop", endsAt: Self.t0.addingTimeInterval(300), isPaused: true, duration: 300, pausedRemaining: 240),
         ])
     }
 
