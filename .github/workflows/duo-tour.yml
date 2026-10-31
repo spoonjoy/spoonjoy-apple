@@ -259,9 +259,26 @@ jobs:
           xcrun simctl ui "$udid" content_size accessibility-extra-extra-extra-large
           launch
           shoot 10x-half-open-tall-ax5
+          # Kitchen and the recipe page on the stood-up Duo at the largest text size, light and dark.
+          launch_recipe() {
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" SIMCTL_CHILD_SPOONJOY_LAUNCH_URL="${cook_link%/cook}" \
+              xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+            sleep 12
+          }
+          launch_kitchen() {
+            SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
+            sleep 10
+          }
+          for appearance in light dark; do
+            xcrun simctl ui "$udid" appearance "$appearance"
+            launch_recipe
+            shoot "10rx-recipe-half-open-tall-ax5-$appearance"
+            launch_kitchen
+            shoot "10bx-kitchen-half-open-tall-ax5-$appearance"
+          done
+          xcrun simctl ui "$udid" appearance light
           xcrun simctl ui "$udid" content_size large
-          SIMCTL_CHILD_SPOONJOY_API_BASE_URL="$SPOONJOY_QA_BASE_URL" xcrun simctl launch --terminate-running-process "$udid" app.spoonjoy
-          sleep 10
+          launch_kitchen
           shoot 10b-kitchen-half-open-tall
           launch
           "$hub" press "Open"; sleep 6
