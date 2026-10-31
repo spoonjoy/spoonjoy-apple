@@ -522,11 +522,13 @@ struct RecipeDetailView: View {
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
             .overlay {
-                // Darkens the top so the status bar and the glass buttons read over any photo.
+                // Darkens the top so the status bar and the glass buttons read over any photo, including a bright
+                // plate under dark mode's white glyphs. It holds its weight past the buttons before fading.
                 LinearGradient(
                     stops: [
-                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0.34), location: 0),
-                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0), location: 0.26)
+                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0.5), location: 0),
+                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0.3), location: 0.22),
+                        .init(color: KitchenTableTheme.photoCharcoal.opacity(0), location: 0.42)
                     ],
                     startPoint: .top,
                     endPoint: .bottom

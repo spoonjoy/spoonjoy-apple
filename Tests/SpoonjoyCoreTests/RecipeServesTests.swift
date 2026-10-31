@@ -107,3 +107,17 @@ struct RecipeCookTimeTests {
         #expect(RecipeCookTime.label(stepDurations: [nil, 0, -5]) == nil)
     }
 }
+
+/// The Serves stepper and cook mode each normalise the shared scale. They must agree, or cook mode would open at a
+/// different amount than the page shows.
+@Suite("Recipe scale normalisers agree")
+struct RecipeScaleNormalisersAgreeTests {
+    @Test(arguments: [
+        -1, 0, 0.01, 0.24, 0.25, 0.333, 0.5, 0.75, 1, 1.25, 4.0 / 3.0, 1.5, 1.666, 2, 2.004, 2.005, 12.5, 50, 50.01, 900,
+        Double.nan, Double.infinity, -Double.infinity
+    ])
+    func servesAndCookModeNormaliseIdentically(_ value: Double) {
+        #expect(RecipeServes.normalizedScale(value) == CookModeProgress.normalizedScaleFactor(value))
+        #expect(RecipeServes.normalizedScale(value) == RecipePageProgressSnapshot.normalizedScaleFactor(value))
+    }
+}

@@ -10,6 +10,7 @@ struct OfflineStatusView: View {
     let display: OfflineIndicatorDisplay
     let prominence: Prominence?
     var onDismiss: (@MainActor @Sendable () -> Void)?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         display: OfflineIndicatorDisplay,
@@ -35,8 +36,10 @@ struct OfflineStatusView: View {
                 Label(visibleLabel, systemImage: symbol)
                     .font(statusFont)
                     .foregroundStyle(foregroundStyle)
-                    .lineLimit(1)
+                    // At accessibility sizes the status wraps rather than truncating to "Saved copy may…".
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 1)
                     .minimumScaleFactor(0.78)
+                    .fixedSize(horizontal: false, vertical: dynamicTypeSize.isAccessibilitySize)
                     .accessibilityLabel(label)
 
                 if display.informationalOnly, display != .synced {
