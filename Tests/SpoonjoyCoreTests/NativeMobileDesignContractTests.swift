@@ -745,7 +745,7 @@ struct NativeMobileDesignContractTests {
             capture,
             in: capturePath,
             contains: [
-                "eyebrow: \"Import queue\"",
+                "KitchenTableSection(title: \"Import queue\")",
                 "title: \"Capture\"",
                 "agentImportStatus",
                 "header\n            offlineStatus\n            agentImportStatus\n            if let currentDraft {\n                draftPreview(currentDraft)\n            }\n            entryPointLedger",
