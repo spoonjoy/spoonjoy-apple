@@ -107,7 +107,7 @@ jobs:
         run: |
           set -euo pipefail
           coverage_log="$RUNNER_TEMP/swift-coverage.log"
-          SWIFT_BACKTRACE=enable=yes,interactive=no,color=no swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$coverage_log"
+          swift test --enable-code-coverage --disable-xctest --parallel -Xswiftc -warnings-as-errors 2>&1 | tee "$coverage_log"
           ruby scripts/fail-on-warning.rb --log "$coverage_log"
           coverage_json="$(swift test --show-codecov-path)"
           ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
