@@ -446,7 +446,7 @@ struct PlatformNavigationView: View {
         .tint(KitchenTableTheme.brass)
         .background(KitchenTableTheme.page.ignoresSafeArea())
 #if os(iOS)
-        .background(DockAccessibilityIdentifiers())
+        .background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab))
 #endif
     }
 
@@ -2670,6 +2670,9 @@ private struct RecipeListAddNoticeView: View {
 /// order). The name goes on the `UITab` itself: UIKit rebuilds the tab bar items and buttons from it whenever the
 /// dock's layout or appearance changes, and a name set only on a generated item was lost with it.
 private struct DockAccessibilityIdentifiers: UIViewRepresentable {
+    /// Only here so that a tab change, which can make SwiftUI rebuild the tabs, runs `updateUIView` again.
+    let selection: CompactTab
+
     func makeUIView(context: Context) -> Probe {
         Probe()
     }
@@ -2678,30 +2681,56 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
         uiView.apply()
     }
 
+    /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. Each
+    /// pass is cheap once the tabs carry their names. Until then it retries every `retryInterval` for a few seconds,
+    /// because on a slow launch the tab bar controller joins the window late.
     final class Probe: UIView {
-        private weak var namedController: UITabBarController?
-        private var searchesLeft = 20
+        private static let retryInterval: TimeInterval = 0.1
+        private var retriesLeft = 50
+        private var retryScheduled = false
+
+        override init(frame: CGRect) {
+            super.init(frame: frame)
+            registerForTraitChanges([
+                UITraitUserInterfaceStyle.self,
+                UITraitPreferredContentSizeCategory.self,
+                UITraitHorizontalSizeClass.self,
+                UITraitVerticalSizeClass.self
+            ]) { (probe: Probe, _: UITraitCollection) in
+                probe.apply()
+            }
+        }
+
+        required init?(coder: NSCoder) {
+            fatalError("init(coder:) is not used")
+        }
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
             apply()
         }
 
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            apply()
+        }
+
         func apply() {
-            if let namedController, Self.isNamed(namedController) {
-                return
-            }
             guard let root = window?.rootViewController else { return }
+            var named = false
             for controller in Self.tabBarControllers(from: root) where controller.tabs.count == CompactTab.allCases.count {
-                for (index, tab) in controller.tabs.enumerated() {
-                    tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
+                if !Self.isNamed(controller) {
+                    for (index, tab) in controller.tabs.enumerated() {
+                        tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
+                    }
                 }
-                namedController = controller
+                named = true
             }
-            if namedController == nil, searchesLeft > 0 {
-                // The tab bar controller may not be in the window yet on the first pass.
-                searchesLeft -= 1
-                DispatchQueue.main.async { [weak self] in
+            if !named, retriesLeft > 0, !retryScheduled {
+                retriesLeft -= 1
+                retryScheduled = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval) { [weak self] in
+                    self?.retryScheduled = false
                     self?.apply()
                 }
             }

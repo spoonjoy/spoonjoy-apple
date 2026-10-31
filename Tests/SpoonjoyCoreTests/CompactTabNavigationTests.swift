@@ -33,6 +33,21 @@ struct CompactTabNavigationTests {
         #expect(!source.contains("title.lowercased()"))
     }
 
+    // A closed Duo launched sideways in dark mode came up with an unnamed dock: the probe had stopped looking. It now
+    // checks again whenever the shell lays out, changes traits or changes tab, and keeps retrying for a few seconds.
+    @Test("the dock probe names the tabs again after UIKit rebuilds them")
+    func dockProbeRechecks() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(path)
+        let source = try String(contentsOf: url, encoding: .utf8)
+        let probe = try #require(source.range(of: "private struct DockAccessibilityIdentifiers").map { String(source[$0.lowerBound...]) })
+        #expect(source.contains(".background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab))"))
+        #expect(probe.contains("override func layoutSubviews()"))
+        #expect(probe.contains("registerForTraitChanges("))
+        #expect(probe.contains("DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval)"))
+        #expect(!probe.contains("if namedController == nil"))
+    }
+
     // On a closed Duo held sideways, UIKit stacks the page's bar buttons and the dock in one 466 pt side column. A
     // pushed page's back, share and more buttons left no room: tabs slid under Search and off the screen.
     @Test("a pushed page hides the dock only on a closed foldable held in landscape")
