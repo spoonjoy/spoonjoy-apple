@@ -2723,6 +2723,9 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                     for (index, tab) in controller.tabs.enumerated() {
                         tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
                     }
+                    // UIKit reads the name from the UITab only when it builds a dock button, so buttons built before
+                    // this pass keep the image name. Name those directly; later rebuilds read the UITab.
+                    Self.nameBuiltButtons(in: controller.view, tabs: controller.tabs)
                 }
                 named = true
             }
@@ -2733,6 +2736,15 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                     self?.retryScheduled = false
                     self?.apply()
                 }
+            }
+        }
+
+        private static func nameBuiltButtons(in view: UIView, tabs: [UITab]) {
+            if view is UIControl, let label = view.accessibilityLabel, let tab = tabs.first(where: { $0.title == label }) {
+                view.accessibilityIdentifier = tab.accessibilityIdentifier
+            }
+            for subview in view.subviews {
+                nameBuiltButtons(in: subview, tabs: tabs)
             }
         }
 

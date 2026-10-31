@@ -33,8 +33,8 @@ struct CompactTabNavigationTests {
         #expect(!source.contains("title.lowercased()"))
     }
 
-    // A closed Duo launched sideways in dark mode came up with an unnamed dock: the probe had stopped looking. It now
-    // checks again whenever the shell lays out, changes traits or changes tab, and keeps retrying for a few seconds.
+    // A closed Duo launched sideways came up with an unnamed dock now and then. UIKit had built the dock buttons before
+    // the tabs were named, and a button reads its name from the UITab only when it is built.
     @Test("the dock probe names the tabs again after UIKit rebuilds them")
     func dockProbeRechecks() throws {
         let path = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
@@ -46,6 +46,8 @@ struct CompactTabNavigationTests {
         #expect(probe.contains("registerForTraitChanges("))
         #expect(probe.contains("DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval)"))
         #expect(!probe.contains("if namedController == nil"))
+        // Buttons UIKit built before the tabs were named keep the image name unless they are named directly.
+        #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, tabs: controller.tabs)"))
     }
 
     // On a closed Duo held sideways, UIKit stacks the page's bar buttons and the dock in one 466 pt side column. A
