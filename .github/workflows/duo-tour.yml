@@ -275,13 +275,13 @@ jobs:
           xcrun simctl ui "$udid" appearance light
           launch
           shoot 13-open-wide-relaunched
-          # A DEBUG demo turns one page by itself ten seconds after the spread opens, over eight seconds, so a frame
-          # catches the curl halfway; under Reduce Motion the same turn is a crossfade.
-          launch -SpoonjoyDemoPageTurn 8
+          # A DEBUG demo turns one page by itself ten seconds after the spread opens, over sixteen seconds, so all three
+          # frames land mid-turn; under Reduce Motion the same turn is a crossfade.
+          launch -SpoonjoyDemoPageTurn 16
           sleep 3; shoot 15a-page-turn-mid
           sleep 2; shoot 15b-page-turn-mid
           sleep 2; shoot 15c-page-turn-mid
-          launch -SpoonjoyReduceMotion YES -SpoonjoyDemoPageTurn 8
+          launch -SpoonjoyReduceMotion YES -SpoonjoyDemoPageTurn 16
           sleep 3; shoot 16a-reduce-motion-crossfade-mid
           sleep 2; shoot 16b-reduce-motion-crossfade-mid
           sleep 2; shoot 16c-reduce-motion-crossfade-mid

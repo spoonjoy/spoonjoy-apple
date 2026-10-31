@@ -1151,7 +1151,8 @@ extension CookModeView {
         VStack(alignment: .leading, spacing: 20) {
             Text("\(recipe.title) · \(currentIndex + 1) of \(recipe.steps.count)")
                 .spreadRunningHead()
-                .lineLimit(2)
+                // At accessibility sizes the whole head shows, so a long title can't cut off the step count.
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
             Text(step.stepTitle ?? "Step \(step.stepNum)")
                 .font(.system(size: min(coverGlanceTitleSize, 88), weight: .bold, design: .serif))
                 .foregroundStyle(KitchenTableTheme.ink)
