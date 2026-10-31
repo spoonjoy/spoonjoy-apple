@@ -1112,27 +1112,29 @@ extension CookModeView {
     /// its timer ring when the step has one, and Next. "Show step" brings back the whole page.
     @ViewBuilder private var cookModeCoverGlance: some View {
         if let currentStep {
-            ScrollView {
-                Group {
-                    if coverGlanceIsWide {
-                        HStack(alignment: .center, spacing: 24) {
-                            coverGlanceHeading(currentStep)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            coverGlanceRing(currentStep)
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: 20) {
-                            coverGlanceHeading(currentStep)
-                            coverGlanceRing(currentStep)
-                                .frame(maxWidth: .infinity)
+            // The controls sit under the scroll view, not in a bottom inset over it: at the largest text sizes the
+            // timer ring scrolled under an inset Next step and Show step, so their frames crossed.
+            VStack(spacing: 0) {
+                ScrollView {
+                    Group {
+                        if coverGlanceIsWide {
+                            HStack(alignment: .center, spacing: 24) {
+                                coverGlanceHeading(currentStep)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                coverGlanceRing(currentStep)
+                            }
+                        } else {
+                            VStack(alignment: .leading, spacing: 20) {
+                                coverGlanceHeading(currentStep)
+                                coverGlanceRing(currentStep)
+                                    .frame(maxWidth: .infinity)
+                            }
                         }
                     }
+                    .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
+                    .padding(.vertical, 24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(.horizontal, KitchenTableTheme.pagePadding + 4)
-                .padding(.vertical, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
                 coverGlanceControls
             }
             .onGeometryChange(for: Bool.self) { proxy in
@@ -1480,7 +1482,9 @@ extension CookModeView {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(currentStep.id)
-            .kitchenTransition(.opacity.combined(with: .move(edge: .trailing)))
+            // The page itself swings on the spine (PageCurlSweep); the step only crossfades, so the turn doesn't
+            // read as a slide.
+            .kitchenTransition(.opacity)
         }
     }
 
@@ -1501,8 +1505,10 @@ extension CookModeView {
             }
         }
         .controlSize(.large)
-        // Past AX3 a page is too narrow for "Finish cooking" on one line, and the button style never wraps. The
-        // controls stop growing there, as on the cover glance; the step text keeps growing.
+        // Past AX3 a page is too narrow for "Finish cooking" on one line, and the button style never wraps: at AX5 the
+        // button needs about 434 pt, and a page of the open Duo leaves about 407 pt between its margins (475 pt less
+        // 28 pt outer and 40 pt gutter-side). The controls stop growing there, as on the cover glance; the step text
+        // keeps growing.
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)
     }
 
@@ -1990,20 +1996,27 @@ private struct CookModeSystemTimer: View {
         return remaining / entry.duration
     }
 
-    /// "Cancel timer", or "Cancel" where that does not fit (the largest text on a narrow screen). A button wider than
+    /// "Cancel timer", "Cancel" where that does not fit (the largest text on a narrow screen), and the icon alone where
+    /// even that does not (AX5 in a cook card, where "Cancel" ran its icon past the card's edge). A button wider than
     /// the page would widen the whole page and clip it.
     private var cancelButton: some View {
         ViewThatFits(in: .horizontal) {
             cancelButton(title: "Cancel timer")
             cancelButton(title: "Cancel")
+            cancelButton(title: "Cancel", iconOnly: true)
         }
     }
 
-    private func cancelButton(title: String) -> some View {
+    private func cancelButton(title: String, iconOnly: Bool = false) -> some View {
         Button(role: .cancel) {
             cancelTimer()
         } label: {
-            Label(title, systemImage: "xmark.circle")
+            if iconOnly {
+                Label(title, systemImage: "xmark.circle")
+                    .labelStyle(.iconOnly)
+            } else {
+                Label(title, systemImage: "xmark.circle")
+            }
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .quiet))
         .fixedSize()
@@ -2178,9 +2191,10 @@ private enum CookModeAlarmKitTimerScheduler {
 #endif
 }
 
-/// The page curl on the open-flat spread: the right page lifts off the spine toward the cook and a soft shadow
-/// sweeps across it, from the outer edge to the fold on a forward turn and back again on a turn back. At 0 and 1
-/// the page lies flat with no shadow.
+/// The page turn on the open-flat spread. SwiftUI has no page curl, so the right page swings on its spine like a
+/// leaf: at the middle of a turn it stands about two-thirds of the way up, foreshortened toward the fold and shaded
+/// as it leaves the light, while a soft shadow sweeps across it, from the outer edge to the fold on a forward turn and
+/// back again on a turn back. At 0 and 1 the page lies flat with no shadow. Reduce Motion never drives it.
 private struct PageCurlSweep: ViewModifier, Animatable {
     nonisolated var phase: Double
     nonisolated let isForward: Bool
@@ -2190,18 +2204,22 @@ private struct PageCurlSweep: ViewModifier, Animatable {
         set { phase = newValue }
     }
 
-    /// How far the lifted page tilts at the middle of a turn.
-    private static let liftDegrees = 14.0
+    /// How far the page swings off the spine at the middle of a turn. Past about 70° the foreshortened page is a
+    /// sliver and the step can't be read through the turn.
+    private static let liftDegrees = 64.0
+    /// How dark the page gets at the middle of a turn, as a multiple of the fold's shadow.
+    private static let leafShade = 3.0
 
     func body(content: Content) -> some View {
         let lift = sin(.pi * min(max(phase, 0), 1))
+        // The shade and the sweep sit on the page before it swings, so they turn with it.
         return content
-            .rotation3DEffect(
-                .degrees((isForward ? -1 : 1) * Self.liftDegrees * lift),
-                axis: (x: 0, y: 1, z: 0),
-                anchor: .leading,
-                perspective: 0.6
-            )
+            .overlay {
+                KitchenTableTheme.foldShadow
+                    .opacity(Self.leafShade * lift)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
             .overlay {
                 GeometryReader { proxy in
                     let width = proxy.size.width
@@ -2223,5 +2241,11 @@ private struct PageCurlSweep: ViewModifier, Animatable {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+            .rotation3DEffect(
+                .degrees((isForward ? -1 : 1) * Self.liftDegrees * lift),
+                axis: (x: 0, y: 1, z: 0),
+                anchor: .leading,
+                perspective: 0.45
+            )
     }
 }
