@@ -168,7 +168,7 @@ struct SignedOutSetupView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 TextField("Email or username", text: $emailOrUsername)
-                    .modifier(SignInFieldStyle())
+                    .modifier(SignInFieldStyle { focusField(.identifier) })
                     .textContentType(.username)
                     .autocorrectionDisabled()
                     .spoonjoyCredentialIdentifierEntry()
@@ -181,7 +181,7 @@ struct SignedOutSetupView: View {
                     .accessibilityIdentifier("native sign-in email or username")
 
                 SecureField("Password", text: $password)
-                    .modifier(SignInFieldStyle())
+                    .modifier(SignInFieldStyle { focusField(.password) })
                     .textContentType(.password)
                     .focused($focusedField, equals: .password)
                     .submitLabel(.go)
@@ -511,6 +511,11 @@ struct SignedOutSetupView: View {
         statusTone = .neutral
         authStatus = "Browser sign-in canceled."
         _ = error
+    }
+
+    private func focusField(_ field: SignInField) {
+        guard !isSigningIn else { return }
+        focusedField = field
     }
 
     private func handlePasswordSignIn() async {
@@ -873,8 +878,11 @@ private extension View {
     }
 }
 
-/// Sign-in fields sit on glass capsules, like every other field in 1.1.
+/// Sign-in fields sit on glass capsules, like every other field in 1.1. The text field is narrower than its
+/// capsule, so a tap anywhere on the capsule focuses it.
 private struct SignInFieldStyle: ViewModifier {
+    let focus: () -> Void
+
     func body(content: Content) -> some View {
         content
             .textFieldStyle(.plain)
@@ -882,6 +890,8 @@ private struct SignInFieldStyle: ViewModifier {
             .foregroundStyle(KitchenTableTheme.ink)
             .padding(.horizontal, 18)
             .frame(minHeight: 48)
+            .contentShape(Capsule())
+            .onTapGesture(perform: focus)
             .glassEffect(.regular.interactive(), in: Capsule())
     }
 }
