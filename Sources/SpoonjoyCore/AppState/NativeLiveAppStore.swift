@@ -3811,8 +3811,8 @@ public final class NativeLiveAppStore: ObservableObject {
                 syncConflicts: report.conflicts,
                 offlineIndicatorState: OfflineIndicatorState(display: .conflict(recordID: conflict.clientMutationID, mutationID: conflict.clientMutationID), dismissal: nil)
             )))
-        } else if case .authRequired(let message)? = report.pausedReason {
-            apply(.blocker(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .blocker(.providerSecret(resourceID: message)), dismissal: nil))))
+        } else if case .authRequired? = report.pausedReason {
+            apply(.blocker(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .blocker(.signInRequired), dismissal: nil))))
         } else if let providerSecretResourceID {
             try? persistCaptureImportProviderBlocker(resourceID: providerSecretResourceID, authSessionState: boundAuthState)
             apply(.blocker(content.copy(offlineIndicatorState: OfflineIndicatorState(display: .blocker(.providerSecret(resourceID: providerSecretResourceID)), dismissal: nil))))
