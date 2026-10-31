@@ -331,6 +331,8 @@ final class TabletopJourney: JourneyTestCase {
     /// tabletop, open flat and shut without relaunching, and compares the end date the app logs at each posture. Here,
     /// on any simulator, the timer survives a relaunch with its end time.
     func testTimerRunsOnForTheDuoTourJourney() async throws {
+        // The tour's fold step opens this journey's cook mode with its timer still running.
+        keepsAppStateAfterTest = true
         let account = try JourneyAccounts.account(4)
         let token = try JourneyAccounts.runToken()
         let stock = "Journey\(token)stock"

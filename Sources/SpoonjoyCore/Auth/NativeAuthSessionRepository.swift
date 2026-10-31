@@ -149,7 +149,8 @@ public actor NativeAuthSessionRepository {
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
-            scope: response.scope
+            scope: response.scope,
+            serverOrigin: serverOrigin
         )
         try await vault.saveClientID(clientID)
         try await vault.saveSession(session)
@@ -166,7 +167,8 @@ public actor NativeAuthSessionRepository {
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
-            scope: response.scope
+            scope: response.scope,
+            serverOrigin: serverOrigin
         )
         try await vault.saveClientID(clientID)
         try await vault.saveSession(session)
@@ -183,7 +185,8 @@ public actor NativeAuthSessionRepository {
             refreshToken: response.refreshToken,
             tokenType: response.tokenType,
             expiresAt: now().addingTimeInterval(TimeInterval(response.expiresIn)),
-            scope: response.scope
+            scope: response.scope,
+            serverOrigin: serverOrigin
         )
         try await vault.saveClientID(clientID)
         try await vault.saveSession(session)
@@ -203,8 +206,19 @@ public actor NativeAuthSessionRepository {
         serverBaseURL.map(NativeAuthSession.nativeClientID(forServerBaseURL:))
     }
 
+    private var serverOrigin: String? {
+        serverBaseURL.map(NativeAuthSession.canonicalOrigin(of:))
+    }
+
+    /// The stored session, or signed out. A session another server issued is forgotten, client id included, so its
+    /// tokens never reach this server: a build pointed at production must not send a QA token, or the reverse.
     public func restoreState() async throws -> NativeAuthSessionState {
         guard let session = try await vault.loadSession() else {
+            return .signedOut
+        }
+        if let serverBaseURL, session.wasIssued(elsewhereThan: serverBaseURL) {
+            try await vault.clearSession()
+            try await vault.clearClientID()
             return .signedOut
         }
 
