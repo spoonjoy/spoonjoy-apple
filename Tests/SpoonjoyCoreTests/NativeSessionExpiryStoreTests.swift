@@ -866,6 +866,39 @@ struct NativeSessionExpiryStoreTests {
         #expect(afterRestore.lastOpenedRoute == cookRoute.stateIdentifier)
     }
 
+    // Cook progress recorded before the launch restore waited only in memory, so an app killed before the
+    // restore finished (a cold launch from the Live Activity, then a swipe-away) lost the step the chef reached.
+    @MainActor
+    @Test("cook progress recorded before the launch restore survives the app being killed")
+    func cookProgressBeforeLaunchRestoreSurvivesAKill() async throws {
+        let fixture = try await Self.fixture(outcomes: [.success], lastOpenedRoute: .kitchen, fileBackedSync: true)
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let stamp = ISO8601DateFormatter().string(from: Self.now)
+        let stepOne = CookModeProgress(recipeID: "recipe_cached", completedStepIDs: [], currentStepID: "step_recipe_cached")
+        try fixture.appStateStore.save(Self.appSnapshot(fixture).updatingCookProgress(stepOne, savedAt: stamp))
+
+        let stepTwo = CookModeProgress(recipeID: "recipe_cached", completedStepIDs: ["step_recipe_cached"], currentStepID: nil)
+        fixture.store.recordCookProgress(stepTwo)
+        let cookRoute = AppRoute.recipeDetail(id: "recipe_cached", presentation: .cook)
+        fixture.store.recordingOpenedRoute(cookRoute)
+        #expect(try Self.appSnapshot(fixture).cookProgress(for: "recipe_cached") == stepOne)
+
+        // Killed here: the first store never restores. A new process over the same files does.
+        let relaunched = try await Self.relaunched(from: fixture)
+        await relaunched.store.bootstrap()
+
+        let afterRestore = try Self.appSnapshot(fixture)
+        #expect(afterRestore.accountID == "chef_ari")
+        #expect(afterRestore.cookProgress(for: "recipe_cached") == stepTwo)
+        #expect(afterRestore.lastOpenedRoute == cookRoute.stateIdentifier)
+        #expect(fixture.appStateStore.loadPendingLaunchRecords() == NativeLaunchPendingRecords())
+
+        // A third launch has nothing left to replay, so it keeps what the second one saved.
+        let third = try await Self.relaunched(from: fixture)
+        await third.store.bootstrap()
+        #expect(try Self.appSnapshot(fixture).cookProgress(for: "recipe_cached") == stepTwo)
+    }
+
     @MainActor
     private static func appSnapshot(_ fixture: Fixture) throws -> NativeAppSnapshot {
         try fixture.appStateStore.loadOrCreate(fallback: NativeAppSnapshot.bootstrap(

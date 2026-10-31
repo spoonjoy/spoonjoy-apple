@@ -3008,14 +3008,25 @@ public final class NativeLiveAppStore: ObservableObject {
             return
         }
         hasFinishedLaunchRestore = true
-        let progress = cookProgressAwaitingLaunchRestore
-        let route = routeAwaitingLaunchRestore
+        let appStateStore = dependencies.appStateStoreProvider()
+        // The file holds this launch's records too (each was written as it arrived), plus any from a launch that was
+        // killed before its restore. Memory covers a write that failed.
+        let persisted = appStateStore?.loadPendingLaunchRecords() ?? NativeLaunchPendingRecords()
+        let progress = persisted.cookProgress + cookProgressAwaitingLaunchRestore.filter { !persisted.cookProgress.contains($0) }
+        let route = routeAwaitingLaunchRestore ?? persisted.routeStateIdentifier.flatMap(AppRoute.init(stateIdentifier:))
         cookProgressAwaitingLaunchRestore = []
         routeAwaitingLaunchRestore = nil
+        try? appStateStore?.clearPendingLaunchRecords()
         progress.forEach(recordCookProgress)
         if let route {
             recordingOpenedRoute(route)
         }
+    }
+
+    private func persistPendingLaunchRecords(_ appStateStore: NativeAppStateStore, update: (inout NativeLaunchPendingRecords) -> Void) {
+        var records = appStateStore.loadPendingLaunchRecords()
+        update(&records)
+        try? appStateStore.savePendingLaunchRecords(records)
     }
 
     public func recordingOpenedRoute(_ route: AppRoute) {
@@ -3035,6 +3046,7 @@ public final class NativeLiveAppStore: ObservableObject {
             let isScoped = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
             guard isScoped || hasFinishedLaunchRestore else {
                 routeAwaitingLaunchRestore = route
+                persistPendingLaunchRecords(appStateStore) { $0.routeStateIdentifier = route.stateIdentifier }
                 return
             }
             let baseSnapshot = isScoped ? record.value : fallback
@@ -3065,6 +3077,7 @@ public final class NativeLiveAppStore: ObservableObject {
             let isScoped = record.value.isScoped(accountID: accountID, environment: cacheEnvironment)
             guard isScoped || hasFinishedLaunchRestore else {
                 cookProgressAwaitingLaunchRestore.append(progress)
+                persistPendingLaunchRecords(appStateStore) { $0.cookProgress.append(progress) }
                 return
             }
             let baseSnapshot = isScoped ? record.value : fallback

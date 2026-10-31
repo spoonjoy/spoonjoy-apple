@@ -328,11 +328,42 @@ public enum NativeAppStateLocation {
     }
 }
 
+/// Cook progress and an opened route recorded before the launch restore knows whose kitchen is on screen. They wait
+/// in their own file beside the app state, so an app killed before the restore finishes replays them at the next
+/// launch instead of losing them.
+public struct NativeLaunchPendingRecords: Codable, Equatable {
+    public var cookProgress: [CookModeProgress]
+    public var routeStateIdentifier: String?
+
+    public init(cookProgress: [CookModeProgress] = [], routeStateIdentifier: String? = nil) {
+        self.cookProgress = cookProgress
+        self.routeStateIdentifier = routeStateIdentifier
+    }
+}
+
 public struct NativeAppStateStore {
     private let store: JSONFileStore<NativeAppSnapshot>
+    private let pendingLaunchStore: JSONFileStore<NativeLaunchPendingRecords>
 
     public init(fileURL: URL) {
         store = JSONFileStore<NativeAppSnapshot>(fileURL: fileURL)
+        pendingLaunchStore = JSONFileStore<NativeLaunchPendingRecords>(
+            fileURL: fileURL.deletingPathExtension().appendingPathExtension("launch-pending.json")
+        )
+    }
+
+    /// What earlier launches recorded before their restore finished. A missing or unreadable file reads as empty:
+    /// a lost replay costs one step, and must never block the launch.
+    public func loadPendingLaunchRecords() -> NativeLaunchPendingRecords {
+        (try? pendingLaunchStore.load())?.value ?? NativeLaunchPendingRecords()
+    }
+
+    public func savePendingLaunchRecords(_ records: NativeLaunchPendingRecords) throws {
+        try pendingLaunchStore.save(records)
+    }
+
+    public func clearPendingLaunchRecords() throws {
+        try pendingLaunchStore.delete()
     }
 
     public func loadOrCreate(fallback: NativeAppSnapshot) throws -> JSONFileStoreRecord<NativeAppSnapshot> {
