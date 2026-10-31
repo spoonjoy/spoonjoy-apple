@@ -102,8 +102,8 @@ struct RecipeIndexRow: View {
                             .font(KitchenTableTheme.meta)
                             .foregroundStyle(KitchenTableTheme.ink2)
                             .multilineTextAlignment(.leading)
-                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
-                            .fixedSize(horizontal: false, vertical: dynamicTypeSize.isAccessibilitySize)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -226,15 +226,17 @@ private struct RecipeIndexThumbnail: View {
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: RecipeIndexRowMetrics.thumbnailRadius, style: .continuous)
-        Group {
-            if let coverURL {
-                RecipeCoverImage(url: coverURL, title: title, subtitle: nil, showsFallbackLabel: false)
-                    .scaledToFill()
-            } else {
-                RecipeInitialTile(title: title)
+        // The clear base takes the row's square frame, so a filled photo is cropped to it rather than to its own size.
+        Color.clear
+            .overlay {
+                if let coverURL {
+                    RecipeCoverImage(url: coverURL, title: title, subtitle: nil, showsFallbackLabel: false)
+                        .scaledToFill()
+                } else {
+                    RecipeInitialTile(title: title)
+                }
             }
-        }
-        .clipShape(shape)
+            .clipShape(shape)
         .accessibilityHidden(true)
     }
 }
