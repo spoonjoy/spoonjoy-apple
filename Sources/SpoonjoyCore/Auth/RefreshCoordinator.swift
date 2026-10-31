@@ -8,7 +8,7 @@ public enum TokenRefreshError: Error, Equatable, Sendable {
     /// The server refused the refresh token and said the chef revoked the session on purpose. The device must
     /// forget the account's private data, not just ask for a new sign-in.
     case sessionRevoked
-    /// Several processes kept rotating the refresh token while this one tried to refresh, and the session it
+    /// Other writers kept rotating the refresh token while this one tried to refresh, and the session it
     /// ended with still needs a refresh. Nothing is wrong with the session; trying again later settles it.
     case refreshInconclusive
 
@@ -24,7 +24,7 @@ public enum TokenRefreshError: Error, Equatable, Sendable {
 public typealias OAuthRefreshOperation = @Sendable (_ clientID: String, _ refreshToken: String) async throws -> OAuthTokenResponse
 
 /// Serializes refreshes between coordinators that share one Keychain in one process: the app's sync and each App
-/// Intent build their own coordinator, and the server revokes a refresh token the moment it is used, so two of
+/// Intent (App Intents run in the app's process) build their own coordinator, and the server revokes a refresh token the moment it is used, so two of
 /// them sending the same token at once sign the loser out. A coordinator holding the lock re-reads the vault first
 /// and uses a session another coordinator already stored.
 public actor RefreshLock {
@@ -81,8 +81,8 @@ public actor RefreshCoordinator {
     /// `serverBaseURL` names the server this coordinator talks to: a stored session another server issued counts as
     /// missing, so its tokens never reach this one. `refreshLock` serializes refreshes with other coordinators on the
     /// same Keychain. After the server refuses a refresh token, the coordinator re-reads the vault once per
-    /// `rotationSettleDelays` entry (nanoseconds) before it ends the session, because another process that won the
-    /// rotation may still be writing its new session.
+    /// `rotationSettleDelays` entry (nanoseconds) before it ends the session, because a writer outside this lock (a
+    /// coordinator built without it, or another process on the Keychain) that won the rotation may still be writing.
     public init(
         vault: any TokenVault,
         refresh: @escaping OAuthRefreshOperation,
@@ -103,6 +103,11 @@ public actor RefreshCoordinator {
 
     /// The stored session, unless another server issued it.
     private func storedSession() async throws -> AuthSession? {
+        try await Self.storedSession(in: vault, for: serverBaseURL)
+    }
+
+    /// Every read that may hand back or adopt a session goes through here, so another server's session never counts.
+    private static func storedSession(in vault: any TokenVault, for serverBaseURL: URL?) async throws -> AuthSession? {
         guard let session = try await vault.loadSession() else {
             return nil
         }
@@ -192,10 +197,12 @@ public actor RefreshCoordinator {
         let generation = refreshGeneration
         let vault = self.vault
         let refreshLock = self.refreshLock
+        let serverBaseURL = self.serverBaseURL
         let task = Task<RefreshedSession, Error> {
             let send: @Sendable () async throws -> AuthSession = {
                 // Another coordinator on this Keychain may have rotated while this one waited for the lock.
-                if refreshLock != nil, let stored = try await vault.loadSession(), stored.refreshToken != session.refreshToken {
+                if refreshLock != nil, let stored = try await Self.storedSession(in: vault, for: serverBaseURL),
+                   stored.refreshToken != session.refreshToken {
                     throw RotatedElsewhere(session: stored)
                 }
                 do {
@@ -229,8 +236,8 @@ public actor RefreshCoordinator {
         let outcome = try await value(of: task, id: id, sentToken: session.refreshToken, generation: generation)
         try ensureCurrentRefreshGeneration(generation)
         if outcome.adoptedFromVault {
-            // Already stored: by another process that rotated first (writing it back could overwrite a newer
-            // one), or by this refresh while it held the lock.
+            // Already stored: by a writer outside the lock that rotated first (writing it back could overwrite a
+            // newer one), by a coordinator that held the lock before this one, or by this refresh under the lock.
             return outcome.session
         }
         try await store(outcome.session, generation: generation)
@@ -266,9 +273,9 @@ public actor RefreshCoordinator {
             return (rotated.session, true)
         } catch {
             if TokenRefreshError.isPermanent(error), generation == refreshGeneration {
-                // The server revokes a refresh token the moment it is used. Another process on this Keychain
-                // (a widget, or App Intents in its own process) may have rotated it first; if the vault holds, or
-                // shortly holds, a different token, that session is the live one.
+                // The server revokes a refresh token the moment it is used. A writer the lock doesn't cover (a
+                // coordinator built without it, or another process on this Keychain) may have rotated it first; if
+                // the vault holds, or shortly holds, a different token, that session is the live one.
                 if let stored = try await sessionRotatedElsewhere(than: sentToken) {
                     return (stored, true)
                 }
@@ -280,20 +287,23 @@ public actor RefreshCoordinator {
         }
     }
 
-    /// The session another process stored in place of `sentToken`, waiting briefly for a write still in progress.
+    /// The session another writer stored in place of `sentToken`, waiting briefly for a write still in progress.
     private func sessionRotatedElsewhere(than sentToken: String) async throws -> AuthSession? {
         for attempt in 0...rotationSettleDelays.count {
             if attempt > 0 {
                 let delay = rotationSettleDelays[attempt - 1]
                 // Production sleeps directly: on Xcode 26, awaiting a defaulted stored sleep closure here aborted the
                 // test process ("freed pointer was not the last allocation"). Tests pass their own.
+                // Repro (suspected compiler bug, not confirmed or reported): Xcode 26.6 on macOS 26.6.2, CI runs
+                // 41182776634 and 41184479923; an actor method that awaits a stored `@Sendable` async closure with a
+                // default value inside a loop crashed `swift test --parallel` with signal 6. Untested on newer Xcode.
                 if let sleep {
                     try await sleep(delay)
                 } else {
                     try await Task.sleep(nanoseconds: delay)
                 }
             }
-            if let stored = try await vault.loadSession(), stored.refreshToken != sentToken {
+            if let stored = try await storedSession(), stored.refreshToken != sentToken {
                 return stored
             }
         }

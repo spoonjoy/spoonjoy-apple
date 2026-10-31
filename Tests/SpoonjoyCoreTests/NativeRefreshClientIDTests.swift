@@ -631,6 +631,58 @@ struct NativeRefreshClientIDTests {
         #expect(try await vault.loadSession()?.refreshToken == "sj_refresh_rotated")
     }
 
+    private static func session(issuedBy server: URL, refresh: String) throws -> AuthSession {
+        try AuthSession(
+            clientID: "cm_old",
+            accessToken: "sj_access_old",
+            refreshToken: refresh,
+            tokenType: "Bearer",
+            expiresAt: now.addingTimeInterval(-60),
+            scope: NativeAuthSession.defaultScope,
+            accountID: "chef_ari",
+            serverOrigin: NativeAuthSession.canonicalOrigin(of: server)
+        )
+    }
+
+    @Test("after a refusal, a session another server stored is not adopted as the rotated one")
+    func refusalDoesNotAdoptAnotherServersSession() async throws {
+        let vault = InMemoryTokenVault()
+        try await vault.saveSession(try Self.session(issuedBy: Self.productionURL, refresh: "sj_refresh_old"))
+        let qaSession = try Self.session(issuedBy: Self.qaURL, refresh: "sj_refresh_qa")
+        let coordinator = RefreshCoordinator(
+            vault: vault,
+            refresh: { _, _ in throw Self.transportError(status: 400) },
+            serverBaseURL: Self.productionURL,
+            rotationSettleDelays: [1],
+            sleep: { _ in try await vault.saveSession(qaSession) }
+        )
+        await #expect(throws: TokenRefreshError.sessionExpired) {
+            try await coordinator.validSession(at: Self.now)
+        }
+    }
+
+    @Test("under the refresh lock, a session another server stored is not adopted; this server's token is refreshed")
+    func lockedRefreshDoesNotAdoptAnotherServersSession() async throws {
+        let vault = OneSwapVault(
+            first: try Self.session(issuedBy: Self.productionURL, refresh: "sj_refresh_old"),
+            then: try Self.session(issuedBy: Self.qaURL, refresh: "sj_refresh_qa")
+        )
+        let sent = ClientIDLog()
+        let coordinator = RefreshCoordinator(
+            vault: vault,
+            refresh: { clientID, refreshToken in
+                await sent.record(clientID: clientID, refreshToken: refreshToken)
+                return Self.response(refresh: "sj_refresh_rotated")
+            },
+            serverBaseURL: Self.productionURL,
+            refreshLock: RefreshLock(),
+            rotationSettleDelays: []
+        )
+        let session = try await coordinator.validSession(at: Self.now)
+        #expect(session.refreshToken == "sj_refresh_rotated")
+        #expect(await sent.entries.map(\.refreshToken) == ["sj_refresh_old"])
+    }
+
     @Test("a coordinator for one server treats a session another server issued as missing")
     func coordinatorIgnoresASessionFromAnotherServer() async throws {
         let vault = InMemoryTokenVault()
@@ -839,4 +891,31 @@ private actor ClientIDLog {
     func record(clientID: String, refreshToken: String) {
         entries.append(Entry(clientID: clientID, refreshToken: refreshToken))
     }
+}
+
+/// Hands out `first`, then `then` from the second read on (as if another server's sign-in landed), until something is saved.
+private actor OneSwapVault: TokenVault {
+    private var reads = 0
+    private let first: AuthSession
+    private let then: AuthSession
+    private var saved: AuthSession?
+    private var clientID: String?
+
+    init(first: AuthSession, then: AuthSession) {
+        self.first = first
+        self.then = then
+    }
+
+    func loadClientID() async throws -> String? { clientID }
+    func saveClientID(_ clientID: String) async throws { self.clientID = clientID }
+    func clearClientID() async throws { clientID = nil }
+    func loadSession() async throws -> AuthSession? {
+        reads += 1
+        if let saved {
+            return saved
+        }
+        return reads >= 2 ? then : first
+    }
+    func saveSession(_ session: AuthSession) async throws { saved = session }
+    func clearSession() async throws { saved = nil }
 }
