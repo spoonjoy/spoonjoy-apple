@@ -35,16 +35,6 @@
       "reason": "Dock tab buttons are 58 pt tall at a 50 pt pitch, so neighbours share 8 pt."
     },
     {
-      "route": "recipe-detail",
-      "dynamicType": "accessibility5",
-      "kind": "truncated",
-      "elements": [
-        "label:Saved kitchen may be out of date"
-      ],
-      "task": "Task 10",
-      "reason": "The quiet offline status pill draws \"Saved copy…\" for \"Saved copy may be stale\" (one line)."
-    },
-    {
       "route": "cook-mode",
       "dynamicType": "accessibility5",
       "kind": "overlap",
