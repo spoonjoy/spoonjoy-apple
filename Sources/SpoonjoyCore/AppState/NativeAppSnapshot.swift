@@ -339,6 +339,60 @@ public struct NativeLaunchPendingRecords: Codable, Equatable {
         self.cookProgress = cookProgress
         self.routeStateIdentifier = routeStateIdentifier
     }
+
+    /// How old a pending record may be and still replay. A clear that failed would otherwise replay it every launch.
+    public static let replayWindow: TimeInterval = 24 * 60 * 60
+
+    /// The progress worth replaying: the newest per recipe (records can arrive out of order), unless older than the
+    /// replay window or than what the kitchen already holds. Records without a readable time count as oldest.
+    public func progressToReplay(over current: [String: CookModeProgress], at now: Date) -> [CookModeProgress] {
+        var newest: [String: (progress: CookModeProgress, time: Date?)] = [:]
+        var recipeOrder: [String] = []
+        for progress in cookProgress {
+            let time = Self.time(of: progress)
+            if let time, now.timeIntervalSince(time) > Self.replayWindow {
+                continue
+            }
+            guard let kept = newest[progress.recipeID] else {
+                recipeOrder.append(progress.recipeID)
+                newest[progress.recipeID] = (progress, time)
+                continue
+            }
+            if !Self.isOlder(time, than: kept.time) {
+                newest[progress.recipeID] = (progress, time)
+            }
+        }
+        return recipeOrder.compactMap { recipeID in
+            guard let candidate = newest[recipeID] else {
+                return nil
+            }
+            if let held = current[recipeID], Self.isOlder(candidate.time, than: Self.time(of: held)) {
+                return nil
+            }
+            return candidate.progress
+        }
+    }
+
+    /// Strictly older; equal or both untimed is not older, so the later record wins.
+    private static func isOlder(_ time: Date?, than other: Date?) -> Bool {
+        guard let other else {
+            return false
+        }
+        guard let time else {
+            return true
+        }
+        return time < other
+    }
+
+    private static func time(of progress: CookModeProgress) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = formatter.date(from: progress.updatedAt) {
+            return date
+        }
+        formatter.formatOptions = [.withInternetDateTime]
+        return formatter.date(from: progress.updatedAt)
+    }
 }
 
 public struct NativeAppStateStore {

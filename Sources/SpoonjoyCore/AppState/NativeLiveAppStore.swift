@@ -3012,10 +3012,14 @@ public final class NativeLiveAppStore: ObservableObject {
         // The file holds this launch's records too (each was written as it arrived), plus any from a launch that was
         // killed before its restore. Memory covers a write that failed.
         let persisted = appStateStore?.loadPendingLaunchRecords() ?? NativeLaunchPendingRecords()
-        let progress = persisted.cookProgress + cookProgressAwaitingLaunchRestore.filter { !persisted.cookProgress.contains($0) }
+        let pending = NativeLaunchPendingRecords(
+            cookProgress: persisted.cookProgress + cookProgressAwaitingLaunchRestore.filter { !persisted.cookProgress.contains($0) }
+        )
+        let progress = pending.progressToReplay(over: currentContentState.cookProgressByRecipeID, at: dependencies.now())
         let route = routeAwaitingLaunchRestore ?? persisted.routeStateIdentifier.flatMap(AppRoute.init(stateIdentifier:))
         cookProgressAwaitingLaunchRestore = []
         routeAwaitingLaunchRestore = nil
+        // If this clear fails, the next launch's replay skips what this one stores (or what has gone stale).
         try? appStateStore?.clearPendingLaunchRecords()
         progress.forEach(recordCookProgress)
         if let route {

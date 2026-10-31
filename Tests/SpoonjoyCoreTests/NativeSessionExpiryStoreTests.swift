@@ -899,6 +899,25 @@ struct NativeSessionExpiryStoreTests {
         #expect(try Self.appSnapshot(fixture).cookProgress(for: "recipe_cached") == stepTwo)
     }
 
+    // A clear that failed left an earlier launch's record behind; replaying it every launch rewound the cook.
+    @MainActor
+    @Test("a leftover pending record older than the saved progress does not rewind the cook")
+    func leftoverPendingRecordDoesNotRewind() async throws {
+        let fixture = try await Self.fixture(outcomes: [.success], lastOpenedRoute: .kitchen, fileBackedSync: true)
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let formatter = ISO8601DateFormatter()
+        let stepOne = try CookModeProgress(recipeID: "recipe_cached", stepIDs: ["s1", "s2"], startedAt: formatter.string(from: Self.now.addingTimeInterval(-600)))
+            .selectingStep(id: "s1", updatedAt: formatter.string(from: Self.now.addingTimeInterval(-300)))
+        let stepTwo = try stepOne.selectingStep(id: "s2", updatedAt: formatter.string(from: Self.now.addingTimeInterval(-60)))
+        try fixture.appStateStore.save(Self.appSnapshot(fixture).updatingCookProgress(stepTwo, savedAt: formatter.string(from: Self.now)))
+        try fixture.appStateStore.savePendingLaunchRecords(NativeLaunchPendingRecords(cookProgress: [stepOne]))
+
+        let relaunched = try await Self.relaunched(from: fixture)
+        await relaunched.store.bootstrap()
+
+        #expect(try Self.appSnapshot(fixture).cookProgress(for: "recipe_cached") == stepTwo)
+    }
+
     @MainActor
     private static func appSnapshot(_ fixture: Fixture) throws -> NativeAppSnapshot {
         try fixture.appStateStore.loadOrCreate(fallback: NativeAppSnapshot.bootstrap(
