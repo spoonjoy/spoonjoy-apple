@@ -1802,12 +1802,15 @@ extension RecipeDetailView {
 
 /// An ingredient on the left page of a recipe spread, set like a printed cookbook: the amount in its own
 /// column, then the ingredient in serif. Tapping it checks it off, the same progress the single page keeps.
+/// At the accessibility text sizes a half page is too narrow for the column, so the amount sits above the name.
 private struct RecipeSpreadIngredientRow: View {
     let name: String
     let amount: String
     let note: String?
     let isChecked: Bool
     let toggle: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Button(action: toggle) {
@@ -1817,12 +1820,15 @@ private struct RecipeSpreadIngredientRow: View {
                     .foregroundStyle(isChecked ? KitchenTableTheme.herb : KitchenTableTheme.lineStrong)
                     .frame(width: 24)
                     .accessibilityHidden(true)
-                Text(amount)
-                    .font(KitchenTableTheme.uiLabel)
-                    .monospacedDigit()
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .frame(width: 72, alignment: .leading)
+                if !dynamicTypeSize.isAccessibilitySize {
+                    amountText
+                        .frame(width: 72, alignment: .leading)
+                }
                 VStack(alignment: .leading, spacing: 2) {
+                    if dynamicTypeSize.isAccessibilitySize, !amount.isEmpty {
+                        amountText
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     Text(name)
                         .font(KitchenTableTheme.instructionBody)
                         .foregroundStyle(isChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
@@ -1843,6 +1849,13 @@ private struct RecipeSpreadIngredientRow: View {
         .buttonStyle(.plain)
         .accessibilityLabel([name, amount, note ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
         .accessibilityValue(isChecked ? "used" : "not used")
+    }
+
+    private var amountText: some View {
+        Text(amount)
+            .font(KitchenTableTheme.uiLabel)
+            .monospacedDigit()
+            .foregroundStyle(KitchenTableTheme.ink2)
     }
 }
 
@@ -1945,7 +1958,7 @@ private extension View {
 
 /// An ingredient, or an earlier step's output, in a step's checklist. The separator starts under the text, not
 /// the checkbox, and the name and amount share a baseline. At accessibility text sizes the cart icon gives its
-/// room to the words and the amount moves under the name.
+/// room to the words and the amount moves above the name.
 private struct RecipeStepChecklistRow: View {
     let title: String
     let note: String?
@@ -2001,8 +2014,8 @@ private struct RecipeStepChecklistRow: View {
     @ViewBuilder private var rowText: some View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: 4) {
-                nameAndNote
                 amountText
+                nameAndNote
             }
         } else {
             HStack(alignment: .firstTextBaseline, spacing: 12) {

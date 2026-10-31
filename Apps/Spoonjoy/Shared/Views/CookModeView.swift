@@ -1799,13 +1799,13 @@ private struct CookModeIngredientChecklistLabel: View {
     let row: CookModeChecklistRow
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// At accessibility sizes the amount goes under the name, so the name never breaks mid-word beside it.
+    /// At accessibility sizes the amount goes above the name, so neither breaks mid-word beside the other.
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 4) {
-                    title
                     quantity
+                    title
                 }
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -1835,8 +1835,8 @@ private struct CookModeIngredientChecklistLabel: View {
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.82)
         }
     }
 }
