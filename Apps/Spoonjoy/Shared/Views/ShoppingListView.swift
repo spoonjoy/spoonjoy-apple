@@ -74,8 +74,7 @@ struct ShoppingListView: View {
             shoppingRunHeader
             VStack(alignment: .leading, spacing: 10) {
                 shoppingReceiptComposer
-                shoppingModeStrip
-                shoppingCategoryFilters
+                activeFilterLine
                 statusBanner
             }
             shoppingReceiptState
@@ -160,7 +159,6 @@ struct ShoppingListView: View {
     @ViewBuilder private var shoppingRunHeader: some View {
         if !usesCompactNavigation {
             KitchenTableHeader(
-                eyebrow: "Kitchen",
                 title: "Shopping List",
                 subtitle: viewModel.shoppingRunSummary,
                 hidesTitleInCompactNavigation: true
@@ -199,6 +197,12 @@ struct ShoppingListView: View {
 
     private var receiptActionsMenu: some View {
         Menu {
+            // Need, Basket and All, and the aisle filter, live here rather than as bars over the list.
+            if let presentation = shoppingPresentation {
+                shoppingModeStrip(presentation)
+                shoppingCategoryFilters(presentation)
+                Divider()
+            }
             Button {
                 remindersSender.send(
                     ingredients: ReminderIncomingIngredient.fromShoppingItems(shoppingList?.items ?? []),
@@ -236,13 +240,9 @@ struct ShoppingListView: View {
                 }
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.ink)
-                .padding(.horizontal, 12)
+                .padding(.horizontal, 14)
                 .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                .background(KitchenTableTheme.raised, in: Capsule())
-                .overlay {
-                    Capsule()
-                        .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
-                }
+                .glassEffect(.regular.interactive(), in: Capsule())
             }
         }
         .buttonStyle(.plain)
@@ -257,90 +257,80 @@ struct ShoppingListView: View {
         viewModel.presentation(mode: viewMode, activeCategory: activeCategory)
     }
 
-    @ViewBuilder private var shoppingModeStrip: some View {
-        if let presentation = shoppingPresentation {
-            if isAccessibilityLayout {
-                Menu {
-                    ForEach(presentation.modeOptions, id: \.mode) { option in
-                        Button(option.label) {
-                            viewMode = option.mode
-                            activeCategory = "all"
-                        }
-                    }
-                } label: {
-                    Label(selectedModeLabel(in: presentation), systemImage: "line.3.horizontal.decrease.circle")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                .accessibilityLabel("Shopping view, \(selectedModeLabel(in: presentation)) selected")
-            } else {
-                HStack(spacing: 0) {
-                    ForEach(presentation.modeOptions, id: \.mode) { option in
-                        Button {
-                            viewMode = option.mode
-                            activeCategory = "all"
-                        } label: {
-                            Text(option.label)
-                                .font(KitchenTableTheme.uiLabel)
-                                .textCase(.uppercase)
-                                .tracking(1.2)
-                                .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget)
-                                .foregroundStyle(viewMode == option.mode ? KitchenTableTheme.onInk : KitchenTableTheme.ink2)
-                                .background(viewMode == option.mode ? KitchenTableTheme.ink : Color.clear)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(viewMode == option.mode ? .isSelected : [])
-                    }
-                }
-                .overlay(alignment: .top) { Divider() }
-                .overlay(alignment: .bottom) { Divider() }
-                .accessibilityElement(children: .contain)
-                .accessibilityLabel("Shopping view")
+    /// Need, Basket and All, as an inline picker in the ⋯ menu.
+    private func shoppingModeStrip(_ presentation: ShoppingPresentationModel) -> some View {
+        Picker("Show", selection: modeSelection) {
+            ForEach(presentation.modeOptions, id: \.mode) { option in
+                Text(option.label).tag(option.mode)
             }
+        }
+        .pickerStyle(.inline)
+    }
+
+    /// The aisle filter, as a submenu in the ⋯ menu; a list with one aisle has nothing to filter.
+    @ViewBuilder private func shoppingCategoryFilters(_ presentation: ShoppingPresentationModel) -> some View {
+        if presentation.categoryOptions.count > 1 {
+            Picker(selection: $activeCategory) {
+                ForEach(presentation.categoryOptions, id: \.self) { category in
+                    Text(categoryLabel(category)).tag(category)
+                }
+            } label: {
+                Label("Aisle: \(categoryLabel(presentation.activeCategory))", systemImage: "basket")
+            }
+            .pickerStyle(.menu)
         }
     }
 
-    @ViewBuilder private var shoppingCategoryFilters: some View {
-        if let presentation = shoppingPresentation {
-            if isAccessibilityLayout {
-                Menu {
-                    ForEach(presentation.categoryOptions, id: \.self) { category in
-                        Button(categoryLabel(category)) {
-                            activeCategory = category
-                        }
-                    }
-                } label: {
-                    Label(categoryLabel(presentation.activeCategory), systemImage: "basket")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-                .accessibilityLabel("Aisle filter, \(categoryLabel(presentation.activeCategory)) selected")
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(presentation.categoryOptions, id: \.self) { category in
-                            let isSelected = presentation.activeCategory == category
-                            Button {
-                                activeCategory = category
-                            } label: {
-                                Text(categoryLabel(category))
-                                    .font(KitchenTableTheme.uiLabel)
-                                    .padding(.horizontal, 14)
-                                    .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
-                                    .foregroundStyle(isSelected ? KitchenTableTheme.onInk : KitchenTableTheme.ink)
-                                    .background(isSelected ? KitchenTableTheme.ink : KitchenTableTheme.raised, in: Capsule())
-                                    .overlay {
-                                        Capsule().strokeBorder(KitchenTableTheme.hairline.opacity(0.6), lineWidth: isSelected ? 0 : 1)
-                                    }
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityAddTraits(isSelected ? .isSelected : [])
-                        }
-                    }
-                }
-                .accessibilityLabel("Aisle filter")
+    /// Changing the view resets the aisle, as the old bar did, so a filter never hides a whole view.
+    private var modeSelection: Binding<ShoppingListViewMode> {
+        Binding(
+            get: { viewMode },
+            set: { mode in
+                viewMode = mode
+                activeCategory = "all"
             }
+        )
+    }
+
+    /// While the list is narrowed, one quiet line says how, with the way back to everything.
+    @ViewBuilder private var activeFilterLine: some View {
+        if let presentation = shoppingPresentation, viewMode != .all || presentation.activeCategory != "all" {
+            let layout = isAccessibilityLayout
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+                : AnyLayout(HStackLayout(spacing: 10))
+            layout {
+                activeFilterLabel(presentation)
+                if !isAccessibilityLayout {
+                    Spacer(minLength: 8)
+                }
+                showAllButton
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("shopping.activeFilter")
         }
+    }
+
+    private func activeFilterLabel(_ presentation: ShoppingPresentationModel) -> some View {
+        let parts = [
+            viewMode == .all ? nil : selectedModeLabel(in: presentation),
+            presentation.activeCategory == "all" ? nil : presentation.activeCategory
+        ].compactMap { $0 }
+        return Label("Showing \(parts.joined(separator: " · "))", systemImage: "line.3.horizontal.decrease")
+            .font(KitchenTableTheme.uiLabel)
+            .foregroundStyle(KitchenTableTheme.ink2)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var showAllButton: some View {
+        Button("Show all") {
+            viewMode = .all
+            activeCategory = "all"
+        }
+        .font(KitchenTableTheme.uiLabel.weight(.semibold))
+        .foregroundStyle(KitchenTableTheme.brass)
+        .buttonStyle(.plain)
+        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+        .accessibilityIdentifier("shopping.showAll")
     }
 
     private var shoppingReceiptComposer: some View {
@@ -369,13 +359,9 @@ struct ShoppingListView: View {
         TextField("Add an item", text: $addItemForm.itemName)
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 46)
-            .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
-            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 48)
+            .glassEffect(.regular.interactive(), in: Capsule())
             .focused($isItemFieldFocused)
             .onSubmit(addItem)
     }
@@ -384,13 +370,9 @@ struct ShoppingListView: View {
         TextField("Amount", text: $addItemForm.itemQuantity)
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 46)
-            .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
-            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 48)
+            .glassEffect(.regular.interactive(), in: Capsule())
             .frame(maxWidth: 120)
 #if os(iOS)
             .keyboardType(.decimalPad)
@@ -401,13 +383,9 @@ struct ShoppingListView: View {
         TextField("Measure", text: $addItemForm.itemUnit)
             .textFieldStyle(.plain)
             .font(KitchenTableTheme.bodyNote)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 46)
-            .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-            .overlay {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                    .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
-            }
+            .padding(.horizontal, 16)
+            .frame(minHeight: 48)
+            .glassEffect(.regular.interactive(), in: Capsule())
             .frame(maxWidth: .infinity)
     }
 
@@ -422,9 +400,10 @@ struct ShoppingListView: View {
         Button(action: addItem) {
             Image(systemName: "plus")
                 .font(.headline.weight(.bold))
-                .frame(width: 46, height: 46)
+                .frame(width: 48, height: 48)
                 .foregroundStyle(KitchenTableTheme.onInk)
-                .background(KitchenTableTheme.action, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+                .background(KitchenTableTheme.ink, in: Circle())
+                .glassEffect(.regular.interactive(), in: Circle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Add item")
@@ -452,13 +431,9 @@ struct ShoppingListView: View {
                 Label("Add from recipe", systemImage: "book")
                     .labelStyle(.iconOnly)
                     .font(.headline)
-                    .frame(width: 46, height: 46)
+                    .frame(width: 48, height: 48)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                            .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
-                    }
+                    .glassEffect(.regular.interactive(), in: Circle())
             }
             .buttonStyle(.plain)
         } else {
@@ -466,13 +441,9 @@ struct ShoppingListView: View {
                 Label("Add a recipe", systemImage: "plus")
                     .labelStyle(.iconOnly)
                     .font(.headline)
-                    .frame(width: 46, height: 46)
+                    .frame(width: 48, height: 48)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                            .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
-                    }
+                    .glassEffect(.regular.interactive(), in: Circle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("shopping.createRecipe")
@@ -541,18 +512,7 @@ struct ShoppingListView: View {
     }
 
     private func shoppingMarketEmptyState(title: String, message: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(KitchenTableTheme.sectionTitle)
-                .foregroundStyle(KitchenTableTheme.ink)
-            Text(message)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.ink2)
-        }
-        .padding(.vertical, 22)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .top) { Divider() }
-        .overlay(alignment: .bottom) { Divider() }
+        KitchenTableEmptyTile(systemImage: "basket", title: title, message: message)
     }
 
     @ViewBuilder private var statusBanner: some View {
@@ -819,44 +779,26 @@ private struct ShoppingReceiptStateView: View {
         (self.recipeActionTitle, self.addFromRecipeAction) = (recipeActionTitle, addFromRecipeAction)
     }
 
+    /// One way in: Clear checked when everything is in the basket, otherwise a recipe's ingredients. Typing an item
+    /// is already the field above.
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Image(systemName: state.systemImage)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass)
-                .frame(width: 44, height: 44)
-                .background(KitchenTableTheme.raised, in: Circle())
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(state.title)
-                    .font(KitchenTableTheme.sectionTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(2)
-                Text(state.message)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
+        KitchenTableEmptyTile(
+            systemImage: state.systemImage,
+            title: state.title,
+            message: state.message,
+            tint: state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass
+        ) {
+            if state.actionTitle == "Clear checked" {
                 Button(action: primaryAction) {
-                    Label(state.actionTitle ?? "Add item", systemImage: state.actionTitle == "Clear checked" ? "checkmark.circle" : "plus.circle")
+                    Label("Clear checked", systemImage: "checkmark.circle")
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+            } else {
                 Button(action: addFromRecipeAction) {
                     Label(recipeActionTitle, systemImage: recipeActionTitle == "Add from recipe" ? "book" : "plus")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .strokeBorder(KitchenTableTheme.hairline.opacity(0.55), lineWidth: 1)
-        }
-        .accessibilityElement(children: .contain)
     }
 }
