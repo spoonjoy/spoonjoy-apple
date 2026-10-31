@@ -327,6 +327,7 @@ struct ChefsView: View {
 private struct RecipeCatalogLead: View {
     let row: RecipeCatalogRowViewModel
     let openRoute: (AppRoute) -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         Button {
@@ -342,7 +343,9 @@ private struct RecipeCatalogLead: View {
                 Text(row.title)
                     .font(KitchenTableTheme.displayTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(3)
+                    // Three lines hold a long title at the default sizes; at the accessibility sizes it takes
+                    // the lines it needs rather than ending in an ellipsis.
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
                     .fixedSize(horizontal: false, vertical: true)
                 Text(leadSubtitle)
                     .font(KitchenTableTheme.uiLabel)
@@ -367,11 +370,13 @@ private struct RecipeCatalogLead: View {
             .clipped()
             .recipeZoomSource(id: row.id)
         } else {
+            // "Photo not added" does not fit the short plate at the accessibility sizes, so the plate stays
+            // plain and VoiceOver still reads the label.
             RecipeCoverImage(
                 url: nil,
                 title: row.title,
                 subtitle: "Photo not added",
-                showsFallbackLabel: true
+                showsFallbackLabel: !dynamicTypeSize.isAccessibilitySize
             )
             .frame(maxWidth: .infinity, minHeight: 126, maxHeight: 126)
             .clipped()
