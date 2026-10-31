@@ -53,7 +53,8 @@ public struct URLSessionImageFetcher: ImageDataFetching {
 
 /// Decoded, downsampled images held in memory, bounded by decoded byte cost. The least recently used decodes go
 /// first once the total passes the limit. It never drops anything on its own (an `NSCache` evicts at random under
-/// memory pressure); the app calls `removeAll()` on a memory warning.
+/// memory pressure); the app calls `trim(toCost:)` under memory pressure and on backgrounding, and `removeAll()` when
+/// memory is critical.
 public final class ImageMemoryCache: @unchecked Sendable {
     public static let defaultCostLimit = 64 * 1_024 * 1_024
 
@@ -94,6 +95,18 @@ public final class ImageMemoryCache: @unchecked Sendable {
             .first
     }
 
+    /// What to keep while the app is in the background: a quarter of the limit, the most recently used.
+    public var backgroundCost: Int {
+        costLimit / 4
+    }
+
+    /// Drops the least recently used decodes until the total is at most `cost`.
+    public func trim(toCost cost: Int) {
+        lock.withLock {
+            evict(above: cost)
+        }
+    }
+
     /// Drops every decode, for a memory warning.
     public func removeAll() {
         lock.withLock {
@@ -115,10 +128,15 @@ public final class ImageMemoryCache: @unchecked Sendable {
             useClock += 1
             entries[key] = Entry(image: image, cost: cost, lastUse: useClock)
             totalCost += cost
-            while totalCost > costLimit, let oldest = entries.min(by: { $0.value.lastUse < $1.value.lastUse }) {
-                entries[oldest.key] = nil
-                totalCost -= oldest.value.cost
-            }
+            evict(above: costLimit)
+        }
+    }
+
+    /// Call with `lock` held.
+    private func evict(above cost: Int) {
+        while totalCost > cost, let oldest = entries.min(by: { $0.value.lastUse < $1.value.lastUse }) {
+            entries[oldest.key] = nil
+            totalCost -= oldest.value.cost
         }
     }
 

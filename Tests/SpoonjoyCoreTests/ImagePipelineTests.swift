@@ -352,6 +352,35 @@ struct ImagePipelineTests {
         #expect(memory.image(url: c, maxPixelSize: 128) == nil)
     }
 
+    @Test("trimming the memory cache drops the least recently used decodes down to the target cost")
+    func memoryCacheTrimsLeastRecentlyUsed() {
+        let tenByTen = 10 * 10 * 4
+        let memory = ImageMemoryCache(costLimit: tenByTen * 4)
+        let urls = ["a", "b", "c"].map { URL(string: "https://spoonjoy.app/\($0).jpg")! }
+        urls.forEach { memory.insert(makeImage(width: 10, height: 10), url: $0, maxPixelSize: 128) }
+        // Reading a makes b the least recently used.
+        #expect(memory.image(url: urls[0], maxPixelSize: 128) != nil)
+
+        memory.trim(toCost: tenByTen * 2)
+        #expect(memory.image(url: urls[1], maxPixelSize: 128) == nil)
+        #expect(memory.image(url: urls[0], maxPixelSize: 128) != nil)
+        #expect(memory.image(url: urls[2], maxPixelSize: 128) != nil)
+
+        // The trim also frees room: two more decodes fit under the limit without evicting.
+        memory.insert(makeImage(width: 10, height: 10), url: urls[1], maxPixelSize: 128)
+        memory.insert(makeImage(width: 10, height: 10), url: urls[1], maxPixelSize: 256)
+        #expect(memory.image(url: urls[0], maxPixelSize: 128) != nil)
+
+        memory.trim(toCost: 0)
+        #expect(urls.allSatisfy { memory.image(url: $0, maxPixelSize: 128) == nil })
+    }
+
+    @Test("the background trim target is a quarter of the cost limit")
+    func backgroundTrimTarget() {
+        #expect(ImageMemoryCache(costLimit: 400).backgroundCost == 100)
+        #expect(ImageMemoryCache().backgroundCost == ImageMemoryCache.defaultCostLimit / 4)
+    }
+
     @Test("a second load of the same URL hits no network")
     func secondLoadHitsNoNetwork() async {
         let fetcher = ScriptedFetcher(result: .success(makeImageData()))
