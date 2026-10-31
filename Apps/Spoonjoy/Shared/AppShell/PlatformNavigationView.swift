@@ -389,10 +389,11 @@ struct PlatformNavigationView: View {
         shellLifecycle(
             NavigationStack {
                 regularDetailPage
-                    .navigationTitle(title(for: navigation.route))
+                    .navigationTitle(regularBarTitle(for: navigation.route))
 #if os(iOS)
                     // The Kitchen's and a recipe's photo is the title, so their bar stays inline and the photo runs under it.
-                    .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) ? .inline : .large)
+                    // Cook mode opens with its own step header, as on the phone.
+                    .navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) ? .inline : .large)
                     .toolbar(hidesNavigationBar ? .hidden : .automatic, for: .navigationBar)
 #endif
                     // Must stay inside this NavigationStack's closure: chained onto the NavigationStack value itself,
@@ -539,6 +540,25 @@ struct PlatformNavigationView: View {
             return "recipe:\(id)"
         }
         return "page"
+    }
+
+    private func routeIsCookMode(_ route: AppRoute) -> Bool {
+        if case .recipeDetail(_, .cook) = route {
+            return true
+        }
+        return false
+    }
+
+    /// The split view's bar title. Cook mode's bar stays quiet on iPad and the open Duo, as it does on a phone: a large
+    /// "Cook" title showed on a cold open but not after a relaunch restored cook mode, and the step header already
+    /// names the page. The Mac keeps it as the window title.
+    private func regularBarTitle(for route: AppRoute) -> String {
+#if os(iOS)
+        if routeIsCookMode(route) {
+            return ""
+        }
+#endif
+        return title(for: route)
     }
 
     private func routeLeadsWithPhoto(_ route: AppRoute) -> Bool {
