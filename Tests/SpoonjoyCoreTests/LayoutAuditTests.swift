@@ -42,6 +42,22 @@ struct LayoutAuditTests {
         #expect(!LayoutAudit.audit([dock, fixed], screen: screen).noOverlap)
     }
 
+    // The Pro Max Recipes catalog lead at AX5 is 659 pt tall and runs off the bottom of the screen, 54 pt under the
+    // dock. Scrolling carries it out from under the dock, as it does for any control cut by the scroll view's edge.
+    @Test("a control that scrolling reveals past the screen edge passes under the dock at any depth")
+    func partlyScrolledControlPassesUnderTheDock() {
+        let page = LayoutAuditRect(x: 0, y: 0, width: 400, height: 800)
+        let dock = control(1, LayoutAuditRect(x: 25, y: 721, width: 89, height: 54), isDockItem: true)
+        let lead = control(2, LayoutAuditRect(x: 20, y: 300, width: 360, height: 659), viewport: page, viewportIndex: 0)
+        let nextRow = control(3, LayoutAuditRect(x: 20, y: 980, width: 360, height: 80), viewport: page, viewportIndex: 0)
+        let report = LayoutAudit.audit([dock, lead, nextRow], screen: screen)
+        #expect(report.noOverlap)
+        #expect(report.skippedPartiallyScrolledCount == 1)
+
+        // With nothing beyond the edge, scrolling cannot bring it clear, so it is buried under the dock.
+        #expect(!LayoutAudit.audit([dock, lead], screen: screen).noOverlap)
+    }
+
     @Test("the dock's tab items are not compared with each other, but are with the app's controls")
     func dockItemsAreComparedOnlyWithOtherControls() {
         // The iPhone Duo's closed rail: 58 pt items at a 50 pt pitch.
