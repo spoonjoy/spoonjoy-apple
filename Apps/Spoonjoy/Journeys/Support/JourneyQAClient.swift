@@ -3,7 +3,7 @@ import SpoonjoyCore
 
 enum JourneyQAClientError: Error, CustomStringConvertible {
     case invalidURL(String)
-    case unexpectedStatus(Int, path: String)
+    case unexpectedStatus(Int, path: String, detail: String)
     case missingRecipeID
     case missingCookbookID
     case missingIngredient(String)
@@ -15,8 +15,8 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
         switch self {
         case .invalidURL(let path):
             "Could not build a QA URL for \(path)."
-        case .unexpectedStatus(let status, let path):
-            "QA answered HTTP \(status) for \(path)."
+        case .unexpectedStatus(let status, let path, let detail):
+            "QA answered HTTP \(status) for \(path)\(detail)."
         case .missingRecipeID:
             "QA created a recipe but the response had no data.recipe.id."
         case .missingCookbookID:
@@ -225,10 +225,36 @@ struct JourneyQAClient: Sendable {
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            throw JourneyQAClientError.unexpectedStatus(status, path: request.url.path)
+            throw JourneyQAClientError.unexpectedStatus(status, path: request.url.path, detail: errorDetail(data))
         }
         return data
     }
+
+    /// The error code and request id from an API error body, so a failed journey names the
+    /// server's request in the QA Worker's logs. A body that is not an API error (a Cloudflare
+    /// error page, for one) is quoted briefly instead. The message is left out: it adds nothing
+    /// the code does not say, and an error body never needs to reach the log whole.
+    static func errorDetail(_ data: Data) -> String {
+        if let body = try? JSONDecoder().decode(JourneyAPIErrorBody.self, from: data) {
+            let parts = [body.error?.code.map { "code \($0)" }, body.requestId.map { "request \($0)" }].compactMap { $0 }
+            if !parts.isEmpty {
+                return " (" + parts.joined(separator: ", ") + ")"
+            }
+        }
+        let text = String(decoding: data.prefix(120), as: UTF8.self)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+        return text.isEmpty ? " (empty body)" : " (body: \(text))"
+    }
+}
+
+private struct JourneyAPIErrorBody: Decodable {
+    struct Detail: Decodable {
+        let code: String?
+    }
+
+    let requestId: String?
+    let error: Detail?
 }
 
 private struct JourneyCookSessionEnvelope: Decodable {
