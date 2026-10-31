@@ -1415,9 +1415,10 @@ extension CookModeView {
     private var cookSpreadGatherPage: some View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
+                // A running head is one line, except at accessibility sizes, where the whole title matters more.
                 Text(recipe.title)
                     .spreadRunningHead()
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                     Text("Gather")
                         .font(KitchenTableTheme.displayTitle)
