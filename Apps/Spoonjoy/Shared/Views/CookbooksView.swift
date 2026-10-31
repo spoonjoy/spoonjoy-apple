@@ -693,10 +693,13 @@ private struct CookbookDetailView: View {
     }
 
     private var detailShareAction: some View {
+        // At the accessibility sizes the button reads "Share" so it stays one line; the cookbook's title is already on
+        // the page, and VoiceOver still says "Share Cookbook".
         ShareLink(item: shareURL) {
-            Label("Share Cookbook", systemImage: "square.and.arrow.up")
+            Label(dynamicTypeSize.isAccessibilitySize ? "Share" : "Share Cookbook", systemImage: "square.and.arrow.up")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+        .accessibilityLabel("Share Cookbook")
         .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 220)
     }
 
