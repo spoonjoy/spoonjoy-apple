@@ -47,3 +47,19 @@ struct KitchenTopEdgeEffectTests {
         #expect(KitchenHeroStretch.showsTopEdgeEffect(scrollOffset: 640) == true)
     }
 }
+
+@Suite("Recipe hero height")
+struct RecipeHeroHeightTests {
+    // A closed iPhone Duo held sideways is 466 pt tall. The 420 pt hero filled it, so the offline status and its
+    // close button at the top of the recipe sheet started off the bottom of the screen.
+    @Test("the hero keeps its height on a tall screen and takes half of a short one")
+    func heroHeight() {
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 956) == 420)
+        // The closed Duo upright (678 pt) keeps the full photo.
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 678) == 420)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 629) == 314.5)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 466) == 233)
+        // Before the page has been measured, the preferred height stands.
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 0) == 420)
+    }
+}

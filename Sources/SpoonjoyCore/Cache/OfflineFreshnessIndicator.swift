@@ -7,6 +7,9 @@ public enum OfflineIndicatorRetryAfter: Codable, Equatable, Hashable, Sendable {
 public enum OfflineIndicatorBlocker: Codable, Equatable, Hashable, Sendable {
     case providerSecret(resourceID: String)
     case appleDeveloperProgram(capability: String)
+    /// The server refused a queued edit because the sign-in expired. The edit waits in the queue until the chef
+    /// signs in again.
+    case signInRequired
 }
 
 public enum OfflineIndicatorDismissalReason: String, Codable, Equatable, Hashable, Sendable {

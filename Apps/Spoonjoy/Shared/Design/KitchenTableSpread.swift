@@ -238,7 +238,7 @@ private struct HingeFoldReader: ViewModifier {
             }
     }
 
-    private static func posture(_ status: DeviceHinge.Status?) -> HingePosture {
+    static func posture(_ status: DeviceHinge.Status?) -> HingePosture {
         switch status {
         case .closed?: .closed
         case .partiallyOpen?: .partiallyOpen
@@ -272,14 +272,10 @@ private struct HingeFoldReader: ViewModifier {
         )
     }
 
-    /// The key window's height by this view's size. The window keeps its height while the view keeps its size, so the
-    /// scenes are walked once per size rather than on every geometry pass.
-    private static var windowHeights: [String: CGFloat] = [:]
-
     /// With a half-open hinge and no reported fold, the fold is at the middle of the screen, which is not the middle
     /// of this view when it sits under a navigation bar. The global space is the window's.
     private static func screenMidline(in proxy: GeometryProxy, hinge: HingePosture) -> FoldBand? {
-        guard hinge == .partiallyOpen, let windowHeight = windowHeight(forViewSize: proxy.size) else {
+        guard hinge == .partiallyOpen, let windowHeight = keyWindowHeight() else {
             return nil
         }
         let midY = Double(windowHeight / 2 - proxy.frame(in: .global).minY)
@@ -289,22 +285,49 @@ private struct HingeFoldReader: ViewModifier {
         return FoldBand(minY: midY, height: 0)
     }
 
-    private static func windowHeight(forViewSize size: CGSize) -> CGFloat? {
-        let key = "\(size.width)x\(size.height)"
-        if let height = windowHeights[key] {
-            return height
-        }
-        let window = UIApplication.shared.connectedScenes
+    /// The key window's height. It is read on every pass, never cached: folding, unfolding or resizing changes the
+    /// window's height while a view can keep its size, and this runs only for a half-open hinge that reports no fold.
+    private static func keyWindowHeight() -> CGFloat? {
+        UIApplication.shared.connectedScenes
             .compactMap { ($0 as? UIWindowScene)?.keyWindow }
-            .first
-        guard let height = window?.bounds.height else {
-            return nil
-        }
-        if windowHeights.count > 16 {
-            windowHeights.removeAll()
-        }
-        windowHeights[key] = height
-        return height
+            .first?
+            .bounds.height
     }
 }
+#endif
+
+#if os(iOS)
+extension View {
+    /// Hides the dock on a pushed page while a foldable is closed and held sideways
+    /// (`CompactTab.showsDockOnPushedPage`). It lives here because
+    /// this file is the one home for hinge APIs.
+    @ViewBuilder func dockFittingClosedCover() -> some View {
+#if SPOONJOY_IOS_27_1_SDK
+        if #available(iOS 27.1, *) {
+            modifier(ClosedCoverDock())
+        } else {
+            self
+        }
+#else
+        self
+#endif
+    }
+}
+
+#if SPOONJOY_IOS_27_1_SDK
+@available(iOS 27.1, *)
+private struct ClosedCoverDock: ViewModifier {
+    @State private var hinge: HingePosture = .unknown
+    @State private var isLandscape = false
+
+    func body(content: Content) -> some View {
+        content
+            .toolbar(CompactTab.showsDockOnPushedPage(hinge: hinge, isLandscape: isLandscape) ? .automatic : .hidden, for: .tabBar)
+            .onGeometryChange(for: Bool.self) { $0.size.width > $0.size.height } action: { isLandscape = $0 }
+            .onHingeChange { _, new in
+                hinge = HingeFoldReader.posture(new.hinge?.status)
+            }
+    }
+}
+#endif
 #endif

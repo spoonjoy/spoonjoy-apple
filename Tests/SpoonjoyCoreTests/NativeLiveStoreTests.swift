@@ -5467,14 +5467,16 @@ struct NativeLiveStoreTests {
         }
 
         try await assertSyncOutcome(
-            sendResult: .authFailure(message: "Provider secret expired."),
+            sendResult: .authFailure(message: "Session expired."),
             expectedState: "blocker"
         ) { state in
             guard case .blocker(let content) = state else {
                 Issue.record("Expected blocker state; got \(state)")
                 return
             }
-            #expect(content.offlineIndicatorState.display == .blocker(.providerSecret(resourceID: "Provider secret expired.")))
+            // A queued edit refused because the sign-in expired asks the chef to sign in again; it is not the
+            // recipe-import provider setup blocker.
+            #expect(content.offlineIndicatorState.display == .blocker(.signInRequired))
         }
 
         try await assertSyncOutcome(

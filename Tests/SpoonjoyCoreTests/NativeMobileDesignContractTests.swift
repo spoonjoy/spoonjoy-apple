@@ -362,7 +362,7 @@ struct NativeMobileDesignContractTests {
                 "desktopClassShell",
                 "NavigationSplitView",
                 ".background(KitchenTableTheme.page.ignoresSafeArea())",
-                ".navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) ? .inline : .large)",
+                ".navigationBarTitleDisplayMode(routeLeadsWithPhoto(navigation.route) || routeIsCookMode(navigation.route) ? .inline : .large)",
                 ".navigationBarTitleDisplayMode(.inline)"
             ],
             forbids: [
@@ -695,7 +695,7 @@ struct NativeMobileDesignContractTests {
                 "subtitle: nil",
                 "subtitle: \"Photo not added\"",
                 "showsFallbackLabel: false",
-                "showsFallbackLabel: true",
+                "showsFallbackLabel: !dynamicTypeSize.isAccessibilitySize",
                 "RecipeCoverPrefetcher.prefetch"
             ],
             forbids: [

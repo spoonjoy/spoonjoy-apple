@@ -12,6 +12,63 @@ struct CompactTabNavigationTests {
         #expect(CompactTab.allCases == [.kitchen, .recipes, .cookbooks, .shopping, .search])
     }
 
+    @Test("each tab's dock identifier comes from its case, not its localized title")
+    func dockIdentifiers() {
+        #expect(CompactTab.allCases.map(\.dockAccessibilityIdentifier) == [
+            "dock.kitchen", "dock.recipes", "dock.cookbooks", "dock.shopping", "dock.search"
+        ])
+    }
+
+    // The app names the dock's UITabs by position, so the TabView must declare its tabs in `allCases` order.
+    @Test("the compact TabView declares its tabs in CompactTab order and names them by case")
+    func tabViewDeclaresTabsInCaseOrder() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(path)
+        let source = try String(contentsOf: url, encoding: .utf8)
+        let declared = source
+            .matches(of: /Tab\("[^"]+", systemImage: "[^"]+", value: CompactTab\.(\w+)/)
+            .map { String($0.output.1) }
+        #expect(declared == CompactTab.allCases.map(\.rawValue))
+        #expect(source.contains("tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier"))
+        #expect(!source.contains("title.lowercased()"))
+    }
+
+    // A closed Duo launched sideways came up with an unnamed dock now and then. UIKit had built the dock buttons before
+    // the tabs were named, and a button reads its name from the UITab only when it is built.
+    @Test("the dock probe names the tabs again after UIKit rebuilds them")
+    func dockProbeRechecks() throws {
+        let path = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(path)
+        let source = try String(contentsOf: url, encoding: .utf8)
+        let probe = try #require(source.range(of: "private struct DockAccessibilityIdentifiers").map { String(source[$0.lowerBound...]) })
+        #expect(source.contains(".background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab))"))
+        #expect(probe.contains("override func layoutSubviews()"))
+        #expect(probe.contains("registerForTraitChanges("))
+        #expect(probe.contains("DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval)"))
+        #expect(!probe.contains("if namedController == nil"))
+        // Buttons UIKit built before the tabs were named keep the image name unless they are named directly.
+        // Only the dock's own views: page content, where a back button can read "Kitchen", lives in the child view
+        // controllers' views, which the walk skips. (On iOS 27 the floating dock is not inside `tabBar`.)
+        #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\\.viewIfLoaded)), tabs: controller.tabs)"))
+        #expect(probe.contains("guard !content.contains(view) else"))
+        // Layout runs often; once the dock is named, a pass must not walk the view controller tree again.
+        let apply = try #require(probe.range(of: "func apply() {").map { String(probe[$0.upperBound...]) })
+        let firstStatement = apply.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
+        #expect(firstStatement == "if let namedController, Self.isNamed(namedController) {")
+    }
+
+    // On a closed Duo held sideways, UIKit stacks the page's bar buttons and the dock in one 466 pt side column. A
+    // pushed page's back, share and more buttons left no room: tabs slid under Search and off the screen.
+    @Test("a pushed page hides the dock only on a closed foldable held in landscape")
+    func pushedPageDockVisibility() {
+        #expect(!CompactTab.showsDockOnPushedPage(hinge: .closed, isLandscape: true))
+        #expect(CompactTab.showsDockOnPushedPage(hinge: .closed, isLandscape: false))
+        for hinge in [HingePosture.unknown, .partiallyOpen, .fullyOpen] {
+            #expect(CompactTab.showsDockOnPushedPage(hinge: hinge, isLandscape: true))
+            #expect(CompactTab.showsDockOnPushedPage(hinge: hinge, isLandscape: false))
+        }
+    }
+
     @Test("every route has a place in the compact shell")
     func placements() {
         #expect(CompactTabNavigation.placement(for: .kitchen) == .root(.kitchen))

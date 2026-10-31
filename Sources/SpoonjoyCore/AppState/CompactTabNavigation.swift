@@ -7,6 +7,19 @@ public enum CompactTab: String, CaseIterable, Hashable, Sendable {
     case cookbooks
     case shopping
     case search
+
+    /// The dock's accessibility identifier for this tab. It comes from the case, not the localized title, so UI tests
+    /// and the layout audit find the tab in any language.
+    public var dockAccessibilityIdentifier: String {
+        "dock.\(rawValue)"
+    }
+
+    /// Whether a page pushed onto a tab shows the dock. Folded shut and held sideways, a foldable's cover stacks the
+    /// page's bar buttons and the dock in one short side column with no room for both, so the pushed page gives the
+    /// column to its own buttons; Back returns to the tab's root, where the dock fits.
+    public static func showsDockOnPushedPage(hinge: HingePosture, isLandscape: Bool) -> Bool {
+        !(hinge == .closed && isLandscape)
+    }
 }
 
 /// Where a route appears in the compact shell.

@@ -167,8 +167,8 @@ public final class CookVoiceController: ObservableObject {
     /// An utterance of two or more words that all appear, in order, in a line VoiceOver is saying or just said.
     ///
     /// A single word is never taken for an echo: the mic is muted while the line is spoken, so a lone "next" in the
-    /// seconds after is the cook. Otherwise "Listening for next, back, repeat, timer" would swallow every one-word
-    /// command for several seconds after the mic turns on.
+    /// seconds after is the cook. Otherwise "Say next, back, repeat or timer when you're ready" would swallow every
+    /// one-word command for several seconds after the mic turns on.
     private func isEcho(_ transcript: String, at now: TimeInterval) -> Bool {
         let words = CookVoiceCommand.words(in: transcript)
         guard words.count > 1 else {

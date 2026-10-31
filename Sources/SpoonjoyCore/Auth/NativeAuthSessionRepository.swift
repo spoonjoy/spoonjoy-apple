@@ -60,6 +60,7 @@ public actor NativeAuthSessionRepository {
         revoke: @escaping NativeRevokeOperation,
         reusesSavedClientID: Bool = true,
         serverBaseURL: URL? = nil,
+        refreshLock: RefreshLock? = nil,
         now: @escaping @Sendable () -> Date = Date.init
     ) {
         self.vault = vault
@@ -89,7 +90,8 @@ public actor NativeAuthSessionRepository {
                     return nil
                 }
                 return derivedClientID
-            }
+            },
+            refreshLock: refreshLock
         )
     }
 
