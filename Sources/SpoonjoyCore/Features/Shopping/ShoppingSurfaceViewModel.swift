@@ -1307,7 +1307,7 @@ public struct ShoppingSurfaceViewModel {
         let activeCount = shoppingList.activeItems.count
         let completedCount = shoppingList.completedItems.count
         if completedCount > 0 {
-            return "\(activeCount) active - \(completedCount) checked"
+            return "\(activeCount) active · \(completedCount) checked"
         }
 
         return "\(activeCount) active"

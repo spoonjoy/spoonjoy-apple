@@ -822,7 +822,7 @@ struct ShoppingSurfaceParityTests {
 
         #expect(completedOnly.activeItems.isEmpty)
         #expect(completedViewModel.activeCountLabel == "0 active")
-        #expect(completedViewModel.shoppingRunSummary == "0 active - 1 checked")
+        #expect(completedViewModel.shoppingRunSummary == "0 active · 1 checked")
         #expect(completedViewModel.emptyState == ShoppingSurfaceEmptyState(
             title: "All checked off",
             message: "Nice. Clear checked items when you're ready to reset the receipt.",
