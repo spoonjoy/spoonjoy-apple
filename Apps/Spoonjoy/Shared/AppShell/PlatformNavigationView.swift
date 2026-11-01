@@ -1126,9 +1126,7 @@ struct PlatformNavigationView: View {
                 search: $search,
                 viewModel: searchViewModel(for: routeSearch),
                 openRoute: openRoute,
-                recipeCovers: contentState.recipes.reduce(into: [:]) { covers, recipe in
-                    covers[recipe.id] = recipe.displayCoverImageURL
-                },
+                recipeCovers: searchRecipeCovers,
                 cookbookCovers: contentState.cookbooks.reduce(into: [:]) { covers, cookbook in
                     covers[cookbook.id] = cookbook.cover.primaryImageURL
                 },
@@ -1568,6 +1566,21 @@ struct PlatformNavigationView: View {
 
     private var myRecipesCatalogRepository: any RecipeCatalogRepository {
         personalRecipeCatalogRepository(page: contentState.myRecipesCatalog)
+    }
+
+    /// Every recipe cover the app already holds, so a search result shows the photo the Recipes list shows. The
+    /// catalogs carry the lists' covers; a loaded recipe's own cover wins when both are present.
+    private var searchRecipeCovers: [String: URL] {
+        var covers: [String: URL] = [:]
+        for page in [contentState.recipeCatalog, contentState.savedRecipesCatalog, contentState.myRecipesCatalog] {
+            for summary in page.rows {
+                covers[summary.id] = summary.displayCoverImageURL ?? covers[summary.id]
+            }
+        }
+        for recipe in contentState.recipes {
+            covers[recipe.id] = recipe.displayCoverImageURL ?? covers[recipe.id]
+        }
+        return covers
     }
 
     private var myRecipesCatalogViewModel: RecipeCatalogViewModel {

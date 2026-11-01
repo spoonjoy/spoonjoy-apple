@@ -67,6 +67,22 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
+    @Test("Search results use the recipe photos the Recipes list shows")
+    func searchUsesCatalogCovers() throws {
+        // Review round 1: search read covers only from loaded recipes, so it showed initials where Recipes had photos.
+        let shellPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let shell = uncommentedSwift(try readRepoFile(shellPath))
+        expectContent(
+            shell,
+            in: shellPath,
+            contains: [
+                "recipeCovers: searchRecipeCovers,",
+                "for page in [contentState.recipeCatalog, contentState.savedRecipesCatalog, contentState.myRecipesCatalog] {"
+            ],
+            forbids: []
+        )
+    }
+
     @Test("Page paper covers the top bar only once scrolled, so a large title shows at rest")
     func pagePaperWaitsForScroll() throws {
         // At rest the paper strip drew over the large title on the 6.9-inch phone, leaving an empty band.
