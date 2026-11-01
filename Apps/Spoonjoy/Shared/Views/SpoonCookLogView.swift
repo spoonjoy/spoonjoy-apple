@@ -187,7 +187,8 @@ struct SpoonCookLogView: View {
             Label("I cooked this", systemImage: "fork.knife")
         }
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-        .frame(maxWidth: 320, alignment: .leading)
+        // At accessibility sizes the 320 pt cap wraps "I cooked this" to two lines, which pushes it off a phone sheet.
+        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 320, alignment: .leading)
         .accessibilityIdentifier("cookLog.start")
     }
 
