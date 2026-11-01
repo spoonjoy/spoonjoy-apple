@@ -2698,7 +2698,7 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: Probe, context: Context) {
-        uiView.apply()
+        uiView.rearm()
     }
 
     /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. Until a
@@ -2706,7 +2706,9 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
     /// controller joins the window late. Once one is found, a main run-loop observer that runs after every Core Animation
     /// commit (where UIKit lays out the dock) names whatever the dock gained in that pass, so a button UIKit builds at any
     /// time is named before the run loop sleeps. SwiftUI owns the tab bar controller and UIKit the dock's containers, so
-    /// neither's `layoutSubviews` can be overridden; the observer is the hook that follows every layout pass.
+    /// neither's `layoutSubviews` can be overridden; the observer is the hook that follows every layout pass. It stops
+    /// once every dock button carries its name, and a tab or trait change, the moments UIKit rebuilds the dock, starts it
+    /// again, so it doesn't run on every wake of the app.
     final class Probe: UIView {
         private static let retryInterval: TimeInterval = 0.1
         private weak var namedController: UITabBarController?
@@ -2724,7 +2726,7 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                 UITraitHorizontalSizeClass.self,
                 UITraitVerticalSizeClass.self
             ]) { (probe: Probe, _: UITraitCollection) in
-                probe.apply()
+                probe.rearm()
             }
         }
 
@@ -2732,12 +2734,23 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             fatalError("init(coder:) is not used")
         }
 
+        isolated deinit {
+            stopObservingLayout()
+        }
+
+        /// A tab or trait change can make UIKit rebuild the dock's buttons, so the observer runs again until they're named.
+        func rearm() {
+            if window != nil, namedController != nil {
+                observeLayout()
+            }
+            apply()
+        }
+
         override func didMoveToWindow() {
             super.didMoveToWindow()
-            if window == nil, let layoutObserver {
-                CFRunLoopObserverInvalidate(layoutObserver)
-                self.layoutObserver = nil
-            } else if window != nil, namedController != nil {
+            if window == nil {
+                stopObservingLayout()
+            } else if namedController != nil {
                 observeLayout()
             }
             apply()
@@ -2776,30 +2789,43 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             }
             let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, Self.afterLayoutOrder) { [weak self] _, _ in
                 MainActor.assumeIsolated {
-                    guard let controller = self?.namedController else {
+                    guard let self, let controller = self.namedController else {
                         return
                     }
-                    Self.name(controller)
+                    if Self.name(controller) {
+                        self.stopObservingLayout()
+                    }
                 }
             }
             CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
             layoutObserver = observer
         }
 
+        private func stopObservingLayout() {
+            if let layoutObserver {
+                CFRunLoopObserverInvalidate(layoutObserver)
+                self.layoutObserver = nil
+            }
+        }
+
         /// Names the controller's tabs if SwiftUI replaced them, and any dock button that lacks its tab's name. UIKit reads
         /// the name from the `UITab` only when it builds a button, so a button built before the tab was named keeps the
         /// image name. The walk skips the tabs' pages, where a back button can carry a tab's title; on iOS 27 the floating
-        /// dock sits beside them in the controller's view, not inside `tabBar`.
-        private static func name(_ controller: UITabBarController) {
+        /// dock sits beside them in the controller's view, not inside `tabBar`. Returns whether every tab now has a named
+        /// button in the dock.
+        @discardableResult
+        private static func name(_ controller: UITabBarController) -> Bool {
             if !isNamed(controller) {
                 for (index, tab) in controller.tabs.enumerated() where index < CompactTab.allCases.count {
                     tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
                 }
             }
-            Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
+            var namedTabs = Set<String>()
+            Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs, named: &namedTabs)
+            return namedTabs.count == controller.tabs.count
         }
 
-        private static func nameBuiltButtons(in view: UIView, skipping content: Set<UIView>, tabs: [UITab]) {
+        private static func nameBuiltButtons(in view: UIView, skipping content: Set<UIView>, tabs: [UITab], named: inout Set<String>) {
             guard !content.contains(view) else {
                 return
             }
@@ -2807,9 +2833,10 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                 if view.accessibilityIdentifier != tab.accessibilityIdentifier {
                     view.accessibilityIdentifier = tab.accessibilityIdentifier
                 }
+                named.insert(tab.identifier)
             }
             for subview in view.subviews {
-                nameBuiltButtons(in: subview, skipping: content, tabs: tabs)
+                nameBuiltButtons(in: subview, skipping: content, tabs: tabs, named: &named)
             }
         }
 
