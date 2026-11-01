@@ -51,6 +51,13 @@ struct CompactTabNavigationTests {
         // controllers' views, which the walk skips. (On iOS 27 the floating dock is not inside `tabBar`.)
         #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\\.viewIfLoaded)), tabs: controller.tabs)"))
         #expect(probe.contains("guard !content.contains(view) else"))
+        // UIKit can build a dock button at any time after the tabs are named. A run-loop observer after each Core
+        // Animation commit names it, rather than a fixed window of timed passes.
+        #expect(probe.contains("CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, Self.afterLayoutOrder)"))
+        #expect(probe.contains("CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)"))
+        #expect(probe.contains("CFRunLoopObserverInvalidate(layoutObserver)"))
+        #expect(!probe.contains("buttonPassesLeft"))
+        #expect(probe.contains("if view.accessibilityIdentifier != tab.accessibilityIdentifier {"))
         // Layout runs often; once the dock is named, a pass must not walk the view controller tree again.
         let apply = try #require(probe.range(of: "func apply() {").map { String(probe[$0.upperBound...]) })
         let firstStatement = apply.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }

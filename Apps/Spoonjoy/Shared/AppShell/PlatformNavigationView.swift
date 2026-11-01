@@ -2701,18 +2701,20 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
         uiView.apply()
     }
 
-    /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. While
-    /// the named controller's tabs keep their names, a pass returns without searching. Until a controller is found it
-    /// retries every `retryInterval` for a few seconds, because on a slow launch the tab bar controller joins the
-    /// window late.
+    /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. Until a
+    /// controller is found it retries every `retryInterval` for a few seconds, because on a slow launch the tab bar
+    /// controller joins the window late. Once one is found, a main run-loop observer that runs after every Core Animation
+    /// commit (where UIKit lays out the dock) names whatever the dock gained in that pass, so a button UIKit builds at any
+    /// time is named before the run loop sleeps. SwiftUI owns the tab bar controller and UIKit the dock's containers, so
+    /// neither's `layoutSubviews` can be overridden; the observer is the hook that follows every layout pass.
     final class Probe: UIView {
         private static let retryInterval: TimeInterval = 0.1
         private weak var namedController: UITabBarController?
         private var retriesLeft = 50
         private var retryScheduled = false
-        /// Follow-up passes that name dock buttons UIKit lays out after the tabs were named, which would otherwise keep
-        /// their image names because a named controller skips the search.
-        private var buttonPassesLeft = 0
+        private var layoutObserver: CFRunLoopObserver?
+        /// After `CATransaction`'s commit (order 2,000,000), where layout runs, and UIKit's after-commit handler.
+        private static let afterLayoutOrder: CFIndex = 2_002_000
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -2732,6 +2734,12 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
+            if window == nil, let layoutObserver {
+                CFRunLoopObserverInvalidate(layoutObserver)
+                self.layoutObserver = nil
+            } else if window != nil, namedController != nil {
+                observeLayout()
+            }
             apply()
         }
 
@@ -2747,20 +2755,10 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             guard let root = window?.rootViewController else { return }
             var named = false
             for controller in Self.tabBarControllers(from: root) where controller.tabs.count == CompactTab.allCases.count {
-                if !Self.isNamed(controller) {
-                    for (index, tab) in controller.tabs.enumerated() {
-                        tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
-                    }
-                    // UIKit reads the name from the UITab only when it builds a dock button, so buttons built before
-                    // this pass keep the image name. Name those directly; later rebuilds read the UITab. The walk
-                    // skips the tabs' pages, where a back button can carry a tab's title; on iOS 27 the floating dock
-                    // sits beside them in the controller's view, not inside `tabBar`.
-                    Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
-                    buttonPassesLeft = 20
-                    scheduleButtonPass()
-                }
+                Self.name(controller)
                 named = true
                 namedController = controller
+                observeLayout()
             }
             if !named, retriesLeft > 0, !retryScheduled {
                 retriesLeft -= 1
@@ -2772,19 +2770,33 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             }
         }
 
-        /// Names the named controller's dock buttons again every `retryInterval` for two seconds after naming.
-        private func scheduleButtonPass() {
-            guard buttonPassesLeft > 0 else {
+        private func observeLayout() {
+            guard layoutObserver == nil else {
                 return
             }
-            buttonPassesLeft -= 1
-            DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval) { [weak self] in
-                guard let self, let controller = self.namedController else {
-                    return
+            let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, Self.afterLayoutOrder) { [weak self] _, _ in
+                MainActor.assumeIsolated {
+                    guard let controller = self?.namedController else {
+                        return
+                    }
+                    Self.name(controller)
                 }
-                Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
-                self.scheduleButtonPass()
             }
+            CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+            layoutObserver = observer
+        }
+
+        /// Names the controller's tabs if SwiftUI replaced them, and any dock button that lacks its tab's name. UIKit reads
+        /// the name from the `UITab` only when it builds a button, so a button built before the tab was named keeps the
+        /// image name. The walk skips the tabs' pages, where a back button can carry a tab's title; on iOS 27 the floating
+        /// dock sits beside them in the controller's view, not inside `tabBar`.
+        private static func name(_ controller: UITabBarController) {
+            if !isNamed(controller) {
+                for (index, tab) in controller.tabs.enumerated() where index < CompactTab.allCases.count {
+                    tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
+                }
+            }
+            Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
         }
 
         private static func nameBuiltButtons(in view: UIView, skipping content: Set<UIView>, tabs: [UITab]) {
@@ -2792,7 +2804,9 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                 return
             }
             if view is UIControl, let label = view.accessibilityLabel, let tab = tabs.first(where: { $0.title == label }) {
-                view.accessibilityIdentifier = tab.accessibilityIdentifier
+                if view.accessibilityIdentifier != tab.accessibilityIdentifier {
+                    view.accessibilityIdentifier = tab.accessibilityIdentifier
+                }
             }
             for subview in view.subviews {
                 nameBuiltButtons(in: subview, skipping: content, tabs: tabs)
