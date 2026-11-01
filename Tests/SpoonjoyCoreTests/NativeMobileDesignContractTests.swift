@@ -1304,7 +1304,7 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "@FocusState private var isItemFieldFocused",
                 "openSearch: @escaping () -> Void",
-                "focusAddItem",
+                ".focused($isItemFieldFocused)",
                 "shoppingHeaderTools",
                 "Menu",
                 "KitchenTableHeader(",
@@ -1375,12 +1375,16 @@ struct NativeMobileDesignContractTests {
                 "private var shoppingRunHeader",
                 "private var shoppingReceiptComposer",
                 "private var shoppingReceiptState",
-                "ShoppingReceiptStateView(",
+                "ShoppingReceiptStateView(state: receiptState, clearChecked: clearCompleted)",
+                "state.action == .clearChecked",
                 "receiptActionsMenu",
                 "Clear checked",
                 "Add from recipe"
             ],
             forbids: [
+                // The composer carries the recipe action; the empty tile repeating it showed "Add a recipe" twice.
+                "recipeActionTitle:",
+                "actionTitle == \"Clear checked\"",
                 "ContentUnavailableView(",
                 "Label(\"List Actions\"",
                 "TextField(\"Qty\"",

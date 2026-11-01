@@ -496,18 +496,7 @@ struct ShoppingListView: View {
                 deleteItem: deleteItem
             )
         } else if let receiptState = viewModel.shoppingReceiptState {
-            ShoppingReceiptStateView(
-                state: receiptState,
-                primaryAction: {
-                    if receiptState.actionTitle == "Clear checked" {
-                        clearCompleted()
-                    } else {
-                        focusAddItem()
-                    }
-                },
-                recipeActionTitle: hasRecipes ? "Add from recipe" : "Add a recipe",
-                addFromRecipeAction: hasRecipes ? openSearch : createRecipe
-            )
+            ShoppingReceiptStateView(state: receiptState, clearChecked: clearCompleted)
         }
     }
 
@@ -574,10 +563,6 @@ struct ShoppingListView: View {
 #else
         return nil
 #endif
-    }
-
-    private func focusAddItem() {
-        isItemFieldFocused = true
     }
 
     private func addItem() {
@@ -770,17 +755,10 @@ private struct ShoppingConfirmationDialog: Identifiable {
 
 private struct ShoppingReceiptStateView: View {
     let state: ShoppingReceiptState
-    let primaryAction: () -> Void
-    let recipeActionTitle: String
-    let addFromRecipeAction: () -> Void
+    let clearChecked: () -> Void
 
-    init(state: ShoppingReceiptState, primaryAction: @escaping () -> Void, recipeActionTitle: String, addFromRecipeAction: @escaping () -> Void) {
-        (self.state, self.primaryAction) = (state, primaryAction)
-        (self.recipeActionTitle, self.addFromRecipeAction) = (recipeActionTitle, addFromRecipeAction)
-    }
-
-    /// One way in: Clear checked when everything is in the basket, otherwise a recipe's ingredients. Typing an item
-    /// is already the field above.
+    /// Clear checked when everything is in the basket, and otherwise no button: the composer above already offers
+    /// both typing an item and the recipe action, so repeating "Add a recipe" here showed it twice.
     var body: some View {
         KitchenTableEmptyTile(
             systemImage: state.systemImage,
@@ -788,14 +766,9 @@ private struct ShoppingReceiptStateView: View {
             message: state.message,
             tint: state.isSuccess ? KitchenTableTheme.herb : KitchenTableTheme.brass
         ) {
-            if state.actionTitle == "Clear checked" {
-                Button(action: primaryAction) {
-                    Label("Clear checked", systemImage: "checkmark.circle")
-                }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
-            } else {
-                Button(action: addFromRecipeAction) {
-                    Label(recipeActionTitle, systemImage: recipeActionTitle == "Add from recipe" ? "book" : "plus")
+            if state.action == .clearChecked {
+                Button(action: clearChecked) {
+                    Label(ShoppingReceiptAction.clearChecked.title, systemImage: "checkmark.circle")
                 }
                 .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
             }

@@ -88,6 +88,8 @@ struct ShoppingSurfaceParityTests {
             systemImage: "cart"
         ))
         #expect(emptyOffline.offlineIndicator.display == .offline)
+        #expect(emptyOffline.shoppingReceiptState?.action == .addItem)
+        #expect(emptyOffline.shoppingReceiptState?.actionTitle == "Add item")
 
         let needsLiveLoad = ShoppingSurfaceViewModel(
             shoppingList: nil,
@@ -105,6 +107,8 @@ struct ShoppingSurfaceParityTests {
             systemImage: "arrow.clockwise"
         ))
         #expect(needsLiveLoad.offlineIndicator.display == .synced)
+        #expect(needsLiveLoad.shoppingReceiptState?.action == nil)
+        #expect(needsLiveLoad.shoppingReceiptState?.actionTitle == nil)
     }
 
     @Test("live shopping repository fetches API read data into native state")
@@ -825,6 +829,8 @@ struct ShoppingSurfaceParityTests {
             systemImage: "checkmark.circle"
         ))
         #expect(completedViewModel.shoppingReceiptState?.isSuccess == true)
+        #expect(completedViewModel.shoppingReceiptState?.action == .clearChecked)
+        #expect(completedViewModel.shoppingReceiptState?.actionTitle == "Clear checked")
 
         let addRecipe = try ShoppingSurfaceViewModel(
             shoppingList: try Self.emptyShoppingList(),
@@ -953,8 +959,9 @@ struct ShoppingSurfaceParityTests {
             title: "Saved for sync",
             message: "1 shopping change waiting to sync",
             systemImage: "arrow.triangle.2.circlepath",
-            actionTitle: "Review queued work"
+            action: .reviewQueuedWork
         ))
+        #expect(queuedEmpty.shoppingReceiptState?.actionTitle == "Review queued work")
 
         let replacement = try Self.emptyShoppingList()
         #expect(queuedViewModel.replacingShoppingList(replacement).sections.isEmpty)
