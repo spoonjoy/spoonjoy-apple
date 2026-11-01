@@ -67,6 +67,23 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
+    @Test("Closing Cook mode cancels a spread turn in flight")
+    func spreadTurnCancelsOnClose() throws {
+        // Review round 1: the turn's task outlived Cook mode and could write progress after it closed.
+        let path = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
+        let cook = uncommentedSwift(try readRepoFile(path))
+        expectContent(
+            cook,
+            in: path,
+            contains: [
+                "spreadTurnTask = Task { @MainActor in",
+                "voice.send(.cookModeClosed)\n            spreadTurnTask?.cancel()",
+                "guard (try? await Task.sleep(for: .seconds(half))) != nil else {"
+            ],
+            forbids: []
+        )
+    }
+
     @Test("Search results use the recipe photos the Recipes list shows")
     func searchUsesCatalogCovers() throws {
         // Review round 1: search read covers only from loaded recipes, so it showed initials where Recipes had photos.

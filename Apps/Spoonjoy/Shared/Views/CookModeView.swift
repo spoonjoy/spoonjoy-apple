@@ -151,6 +151,8 @@ struct CookModeView: View {
     @State private var isShowingSpread = false
     /// True from the start of a two-half spread turn until it settles.
     @State private var spreadTurnInFlight = false
+    /// The running two-half turn, cancelled when Cook mode closes so it never writes progress afterwards.
+    @State private var spreadTurnTask: Task<Void, Never>?
     private let incomingProgress: CookModeProgress?
     /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
     private let recipePageScale: Double?
@@ -233,6 +235,8 @@ struct CookModeView: View {
         }
         .onDisappear {
             voice.send(.cookModeClosed)
+            spreadTurnTask?.cancel()
+            spreadTurnTask = nil
         }
         .kitchenHaptic(.stepTurned, trigger: progress.currentStepID)
         .kitchenHaptic(.ingredientChecked, trigger: localCheckCount)
@@ -664,11 +668,17 @@ struct CookModeView: View {
             spreadTurnIsForward = forward
             spreadTurnPhase = 0
         }
-        Task { @MainActor in
+        spreadTurnTask = Task { @MainActor in
+            defer {
+                spreadTurnInFlight = false
+                spreadTurnTask = nil
+            }
             withAnimation(Self.demoPageTurnDuration == nil ? .easeIn(duration: half) : .linear(duration: half)) {
                 spreadTurnPhase = 0.5
             }
-            try? await Task.sleep(for: .seconds(half))
+            guard (try? await Task.sleep(for: .seconds(half))) != nil else {
+                return
+            }
             let next = (try? progress.selectingStep(id: stepID, updatedAt: timestamp())) ?? progress
             withTransaction(reset) {
                 updateProgress(next)
@@ -677,7 +687,6 @@ struct CookModeView: View {
                 spreadTurnPhase = 1
             }
             try? await Task.sleep(for: .seconds(half))
-            spreadTurnInFlight = false
         }
     }
 
