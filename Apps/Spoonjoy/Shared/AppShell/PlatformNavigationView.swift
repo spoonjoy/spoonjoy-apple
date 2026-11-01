@@ -2710,6 +2710,9 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
         private weak var namedController: UITabBarController?
         private var retriesLeft = 50
         private var retryScheduled = false
+        /// Follow-up passes that name dock buttons UIKit lays out after the tabs were named, which would otherwise keep
+        /// their image names because a named controller skips the search.
+        private var buttonPassesLeft = 0
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -2753,6 +2756,8 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                     // skips the tabs' pages, where a back button can carry a tab's title; on iOS 27 the floating dock
                     // sits beside them in the controller's view, not inside `tabBar`.
                     Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
+                    buttonPassesLeft = 20
+                    scheduleButtonPass()
                 }
                 named = true
                 namedController = controller
@@ -2764,6 +2769,21 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                     self?.retryScheduled = false
                     self?.apply()
                 }
+            }
+        }
+
+        /// Names the named controller's dock buttons again every `retryInterval` for two seconds after naming.
+        private func scheduleButtonPass() {
+            guard buttonPassesLeft > 0 else {
+                return
+            }
+            buttonPassesLeft -= 1
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval) { [weak self] in
+                guard let self, let controller = self.namedController else {
+                    return
+                }
+                Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
+                self.scheduleButtonPass()
             }
         }
 
