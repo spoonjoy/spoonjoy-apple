@@ -6,6 +6,10 @@ struct ReceiptListView: View {
     let pendingItemIDs: Set<String>
     let setChecked: (ShoppingListItem, Bool) -> Void
     let deleteItem: (ShoppingListItem) -> Void
+    /// The list's measured content height. The page scrolls the list, so the list is as tall as its rows and never
+    /// scrolls inside itself, where its last rows sat under the dock out of the page's reach. Until the first layout
+    /// reports a height, `estimatedHeight` stands in.
+    @State private var contentHeight: CGFloat?
 
     init(
         sections: [ShoppingPresentationSection],
@@ -75,6 +79,12 @@ struct ReceiptListView: View {
         .listSectionSpacing(0)
 #endif
         .background(KitchenTableTheme.page)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentSize.height + geometry.contentInsets.top + geometry.contentInsets.bottom
+        } action: { _, height in
+            contentHeight = height
+        }
+        .scrollDisabled(contentHeight != nil)
         .frame(minHeight: receiptListHeight)
     }
 
@@ -90,11 +100,15 @@ struct ReceiptListView: View {
         )
     }
 
+    /// A fixed guess per row and header cut off the last row once the aisle headers grew, and a 680 pt cap left a
+    /// long list scrolling inside the page, so the height is the list's own layout, uncapped.
     private var receiptListHeight: CGFloat {
+        max(contentHeight ?? estimatedHeight, 260)
+    }
+
+    private var estimatedHeight: CGFloat {
         let rowCount = sections.reduce(0) { $0 + $1.items.count }
-        let sectionCount = sections.count
-        let estimated = CGFloat(rowCount * 52 + sectionCount * 34 + 28)
-        return min(max(estimated, 260), 680)
+        return CGFloat(rowCount * 52 + sections.count * 50 + 28)
     }
 
 }
