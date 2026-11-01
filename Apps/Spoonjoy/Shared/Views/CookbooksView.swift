@@ -756,6 +756,7 @@ private struct CookbookDetailView: View {
                         .id(Self.recipeSearchAnchor)
                 }
                 let visibleRecipeIDs = matchingRecipeIDs
+                let firstVisibleID = visibleRecipeIDs.firstID(in: viewModel.recipes)
                 if visibleRecipeIDs.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("No recipes match \u{201C}\(recipeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}")
@@ -772,7 +773,7 @@ private struct CookbookDetailView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(viewModel.recipes.enumerated()), id: \.element.id) { index, recipe in
                         if visibleRecipeIDs.contains(recipe.id) {
-                            if recipe.id != visibleRecipeIDs.firstID(in: viewModel.recipes) {
+                            if recipe.id != firstVisibleID {
                                 RecipeIndexRowSeparator()
                             }
                             CookbookRecipeIndexRow(
@@ -1034,15 +1035,6 @@ private struct CookbookConfirmationDialog: Identifiable {
     let id = UUID()
     let prompt: CookbookActionConfirmationPrompt
     let confirmedAction: CookbookSurfaceAction
-}
-
-private extension String {
-    func padStart(length: Int, pad: Character) -> String {
-        if count >= length {
-            return self
-        }
-        return String(repeating: String(pad), count: length - count) + self
-    }
 }
 
 private extension Set where Element == String {

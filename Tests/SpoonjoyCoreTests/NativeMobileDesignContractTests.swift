@@ -1773,6 +1773,7 @@ struct NativeMobileDesignContractTests {
                 "private var detailCoverWidth",
                 "ForEach(Array(viewModel.recipes.enumerated()), id: \\.element.id)",
                 "CookbookRecipeIndexRow(\n                                recipe: recipe,\n                                ordinal: index + 1",
+                "let firstVisibleID = visibleRecipeIDs.firstID(in: viewModel.recipes)",
                 "private struct CookbookRecipeIndexRow",
                 "KitchenTableEmptyTile(",
                 "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)",
@@ -1781,6 +1782,9 @@ struct NativeMobileDesignContractTests {
                 ".accessibilityIdentifier(\"cookbook.recipe.remove\")"
             ],
             forbids: [
+                // Review round 1: finding the first visible row inside the loop made the list quadratic.
+                "recipe.id != visibleRecipeIDs.firstID(in:",
+                "func padStart(",
                 ".swipeActions",
                 "private var leadCookbook",
                 "private var cookbookLibrarySpread",
