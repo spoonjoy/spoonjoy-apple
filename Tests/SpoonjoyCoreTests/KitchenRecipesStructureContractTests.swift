@@ -67,6 +67,24 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
+    @Test("The spread's amount column moves above the name instead of splitting a word")
+    func spreadAmountNeverSplitsWords() throws {
+        // Review round 1: the fixed 72 pt column split "tablespoons" at the largest standard text size.
+        let path = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let detail = uncommentedSwift(try readRepoFile(path))
+        expectContent(
+            detail,
+            in: path,
+            contains: [
+                "@ScaledMetric(relativeTo: .caption) private var amountColumnWidth: CGFloat = 72",
+                "SpreadAmountColumn.placement(",
+                ".frame(width: amountColumnWidth, alignment: .leading)",
+                ".onGeometryChange(for: CGFloat.self, of: \\.size.width) { longestAmountWordWidth = $0 }"
+            ],
+            forbids: [".frame(width: 72, alignment: .leading)"]
+        )
+    }
+
     @Test("The cook-log sheet uses an inline title, with no empty large-title band")
     func cookLogSheetInlineTitle() throws {
         // Review round 1: the sheet reserved a large-title row between Done and its first line.
