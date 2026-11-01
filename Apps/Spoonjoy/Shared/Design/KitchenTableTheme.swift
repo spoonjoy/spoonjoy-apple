@@ -209,22 +209,34 @@ extension View {
     /// the clock and the bar buttons, and toolbarBackground does not change it, so on iOS the edge effect is
     /// off and a zero-height line at the top of the safe area carries paper up to the screen edge. (A
     /// GeometryReader that ignores the safe area reports a top inset of zero, so it cannot size this.) Bar
-    /// buttons still sit on top. On the Mac the page fades under a solid edge instead.
+    /// buttons and an inline title still sit on top, but a large title does not, so the paper appears only
+    /// once the page has scrolled off its top: at rest the large title shows, and scrolled it has collapsed
+    /// into the inline title. On the Mac the page fades under a solid edge instead.
     func paperTopEdge() -> some View {
         modifier(PaperTopEdge())
     }
 }
 
 private struct PaperTopEdge: ViewModifier {
+#if os(iOS)
+    @State private var isScrolled = false
+#endif
+
     func body(content: Content) -> some View {
 #if os(iOS)
         content
             .scrollEdgeEffectHidden(true, for: .top)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 1
+            } action: { _, scrolled in
+                isScrolled = scrolled
+            }
             .overlay(alignment: .top) {
                 Color.clear
                     .frame(maxWidth: .infinity)
                     .frame(height: 0)
                     .background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))
+                    .opacity(isScrolled ? 1 : 0)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }

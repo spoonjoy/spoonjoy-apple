@@ -67,6 +67,23 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
+    @Test("Page paper covers the top bar only once scrolled, so a large title shows at rest")
+    func pagePaperWaitsForScroll() throws {
+        // At rest the paper strip drew over the large title on the 6.9-inch phone, leaving an empty band.
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "geometry.contentOffset.y + geometry.contentInsets.top > 1",
+                ".background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))\n                    .opacity(isScrolled ? 1 : 0)"
+            ],
+            forbids: []
+        )
+    }
+
     @Test("Recipe index rows read as index entries instead of bare open rows")
     func kitchenRecipeIndexRowsReadAsIndexEntries() throws {
         let rowPath = "Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift"
