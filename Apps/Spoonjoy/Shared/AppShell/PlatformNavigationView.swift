@@ -438,7 +438,7 @@ struct PlatformNavigationView: View {
         }
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
-        .tabViewSearchActivation(.searchTabSelection)
+        .modifier(SearchTabActivation(focusesOnSelection: shouldAutoFocusSearchField))
 #endif
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
         // tint made the selected tab look like every other one. Brass (4.5:1 on bone) marks the
@@ -446,7 +446,7 @@ struct PlatformNavigationView: View {
         .tint(KitchenTableTheme.brass)
         .background(KitchenTableTheme.page.ignoresSafeArea())
 #if os(iOS)
-        .background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab))
+        .background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab, depth: compactTabs.path(for: compactTabs.selectedTab).count))
 #endif
     }
 
@@ -461,6 +461,11 @@ struct PlatformNavigationView: View {
                 }
         }
         .environment(\.recipeZoomNamespace, zoom)
+#if os(iOS)
+        .onScrollPhaseChange { _, _ in
+            NotificationCenter.default.post(name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)
+        }
+#endif
         if tab == .search {
             // Only the Search tab owns the search field. Attached to the TabView, iOS also drew a
             // "Search Spoonjoy" field in the navigation bar of every other tab (it showed on a pull-down
@@ -987,7 +992,11 @@ struct PlatformNavigationView: View {
                 seeAllRecipes: { openRoute(.recipes) }
             )
         case .recipes:
-            RecipesView(viewModel: myRecipesCatalogViewModel, openRoute: openRoute)
+            RecipesView(
+                viewModel: myRecipesCatalogViewModel,
+                openRoute: openRoute,
+                emptyAction: RecipesEmptyAction(title: "Add a recipe", systemImage: "plus", perform: createRecipe)
+            )
         case .savedRecipes:
             SavedRecipesView(viewModel: savedRecipesCatalogViewModel, openRoute: openRoute)
         case .everyoneRecipes:
@@ -1122,9 +1131,7 @@ struct PlatformNavigationView: View {
                 search: $search,
                 viewModel: searchViewModel(for: routeSearch),
                 openRoute: openRoute,
-                recipeCovers: contentState.recipes.reduce(into: [:]) { covers, recipe in
-                    covers[recipe.id] = recipe.displayCoverImageURL
-                },
+                recipeCovers: searchRecipeCovers,
                 cookbookCovers: contentState.cookbooks.reduce(into: [:]) { covers, cookbook in
                     covers[cookbook.id] = cookbook.cover.primaryImageURL
                 },
@@ -1564,6 +1571,21 @@ struct PlatformNavigationView: View {
 
     private var myRecipesCatalogRepository: any RecipeCatalogRepository {
         personalRecipeCatalogRepository(page: contentState.myRecipesCatalog)
+    }
+
+    /// Every recipe cover the app already holds, so a search result shows the photo the Recipes list shows. The
+    /// catalogs carry the lists' covers; a loaded recipe's own cover wins when both are present.
+    private var searchRecipeCovers: [String: URL] {
+        var covers: [String: URL] = [:]
+        for page in [contentState.recipeCatalog, contentState.savedRecipesCatalog, contentState.myRecipesCatalog] {
+            for summary in page.rows {
+                covers[summary.id] = summary.displayCoverImageURL ?? covers[summary.id]
+            }
+        }
+        for recipe in contentState.recipes {
+            covers[recipe.id] = recipe.displayCoverImageURL ?? covers[recipe.id]
+        }
+        return covers
     }
 
     private var myRecipesCatalogViewModel: RecipeCatalogViewModel {
@@ -2574,6 +2596,22 @@ struct PlatformNavigationView: View {
     }
 }
 
+#if os(iOS)
+/// Selecting the Search tab focuses its field. A capture run that asks for an unfocused search page
+/// (`SPOONJOY_SCREENSHOT_DISABLE_SEARCH_FOCUS`) keeps the system default, so the keyboard stays down.
+private struct SearchTabActivation: ViewModifier {
+    let focusesOnSelection: Bool
+
+    func body(content: Content) -> some View {
+        if focusesOnSelection {
+            content.tabViewSearchActivation(.searchTabSelection)
+        } else {
+            content.tabViewSearchActivation(.automatic)
+        }
+    }
+}
+#endif
+
 private struct SpotlightIndexPayload {
     let scope: SpotlightIndexScope
     let documents: [SpotlightIndexDocument]
@@ -2670,26 +2708,43 @@ private struct RecipeListAddNoticeView: View {
 /// order). The name goes on the `UITab` itself: UIKit rebuilds the tab bar items and buttons from it whenever the
 /// dock's layout or appearance changes, and a name set only on a generated item was lost with it.
 private struct DockAccessibilityIdentifiers: UIViewRepresentable {
-    /// Only here so that a tab change, which can make SwiftUI rebuild the tabs, runs `updateUIView` again.
+    /// Only here so that a tab change or a push or pop, which can make UIKit rebuild the dock, runs `updateUIView` again.
     let selection: CompactTab
+    let depth: Int
+
+    /// Posted when a page's scroll phase changes: the tab bar minimizes and expands on scroll, and UIKit rebuilds the
+    /// dock's buttons as it does, after the observer may have stopped.
+    static let dockMayRebuild = Notification.Name("SpoonjoyDockMayRebuild")
 
     func makeUIView(context: Context) -> Probe {
         Probe()
     }
 
     func updateUIView(_ uiView: Probe, context: Context) {
-        uiView.apply()
+        uiView.rearm()
     }
 
-    /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. While
-    /// the named controller's tabs keep their names, a pass returns without searching. Until a controller is found it
-    /// retries every `retryInterval` for a few seconds, because on a slow launch the tab bar controller joins the
-    /// window late.
+    /// Names the tabs whenever they might have been rebuilt: on layout, on a trait change and on a tab change. Until a
+    /// controller is found it retries every `retryInterval` for a few seconds, because on a slow launch the tab bar
+    /// controller joins the window late. Once one is found, a main run-loop observer that runs after every Core Animation
+    /// commit (where UIKit lays out the dock) names whatever the dock gained in that pass, so a button UIKit builds at any
+    /// time is named before the run loop sleeps. SwiftUI owns the tab bar controller and UIKit the dock's containers, so
+    /// neither's `layoutSubviews` can be overridden; the observer is the hook that follows every layout pass. It stops
+    /// once every dock button has carried its name for `settleInterval` with nothing to rename, and a tab change, a push
+    /// or pop, or a trait change (the moments UIKit rebuilds the dock) starts it again, so it doesn't run on every wake
+    /// of the app.
     final class Probe: UIView {
         private static let retryInterval: TimeInterval = 0.1
+        /// UIKit can rebuild the dock a moment after it first looks complete (a restored page settling, for one), so
+        /// the observer waits this long with nothing left to rename before it stops.
+        private static let settleInterval: TimeInterval = 3
+        private var lastRename = Date.distantPast
         private weak var namedController: UITabBarController?
         private var retriesLeft = 50
         private var retryScheduled = false
+        private var layoutObserver: CFRunLoopObserver?
+        /// After `CATransaction`'s commit (order 2,000,000), where layout runs, and UIKit's after-commit handler.
+        private static let afterLayoutOrder: CFIndex = 2_002_000
 
         override init(frame: CGRect) {
             super.init(frame: frame)
@@ -2699,16 +2754,39 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
                 UITraitHorizontalSizeClass.self,
                 UITraitVerticalSizeClass.self
             ]) { (probe: Probe, _: UITraitCollection) in
-                probe.apply()
+                probe.rearm()
             }
+            NotificationCenter.default.addObserver(self, selector: #selector(dockMayRebuild), name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)
+        }
+
+        /// Posted on the main thread by the pages' scroll phase changes.
+        @objc private func dockMayRebuild() {
+            rearm()
         }
 
         required init?(coder: NSCoder) {
             fatalError("init(coder:) is not used")
         }
 
+        isolated deinit {
+            stopObservingLayout()
+        }
+
+        /// A tab or trait change can make UIKit rebuild the dock's buttons, so the observer runs again until they're named.
+        func rearm() {
+            if window != nil, namedController != nil {
+                observeLayout()
+            }
+            apply()
+        }
+
         override func didMoveToWindow() {
             super.didMoveToWindow()
+            if window == nil {
+                stopObservingLayout()
+            } else if namedController != nil {
+                observeLayout()
+            }
             apply()
         }
 
@@ -2724,18 +2802,10 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             guard let root = window?.rootViewController else { return }
             var named = false
             for controller in Self.tabBarControllers(from: root) where controller.tabs.count == CompactTab.allCases.count {
-                if !Self.isNamed(controller) {
-                    for (index, tab) in controller.tabs.enumerated() {
-                        tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
-                    }
-                    // UIKit reads the name from the UITab only when it builds a dock button, so buttons built before
-                    // this pass keep the image name. Name those directly; later rebuilds read the UITab. The walk
-                    // skips the tabs' pages, where a back button can carry a tab's title; on iOS 27 the floating dock
-                    // sits beside them in the controller's view, not inside `tabBar`.
-                    Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs)
-                }
+                Self.name(controller)
                 named = true
                 namedController = controller
+                observeLayout()
             }
             if !named, retriesLeft > 0, !retryScheduled {
                 retriesLeft -= 1
@@ -2747,15 +2817,67 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             }
         }
 
-        private static func nameBuiltButtons(in view: UIView, skipping content: Set<UIView>, tabs: [UITab]) {
+        private func observeLayout() {
+            guard layoutObserver == nil else {
+                return
+            }
+            let observer = CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, Self.afterLayoutOrder) { [weak self] _, _ in
+                MainActor.assumeIsolated {
+                    guard let self, let controller = self.namedController else {
+                        return
+                    }
+                    let pass = Self.name(controller)
+                    if pass.renamed || !pass.complete {
+                        self.lastRename = .now
+                    } else if Date.now.timeIntervalSince(self.lastRename) > Self.settleInterval {
+                        self.stopObservingLayout()
+                    }
+                }
+            }
+            CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)
+            layoutObserver = observer
+            lastRename = .now
+        }
+
+        private func stopObservingLayout() {
+            if let layoutObserver {
+                CFRunLoopObserverInvalidate(layoutObserver)
+                self.layoutObserver = nil
+            }
+        }
+
+        /// Names the controller's tabs if SwiftUI replaced them, and any dock button that lacks its tab's name. UIKit reads
+        /// the name from the `UITab` only when it builds a button, so a button built before the tab was named keeps the
+        /// image name. The walk skips the tabs' pages, where a back button can carry a tab's title; on iOS 27 the floating
+        /// dock sits beside them in the controller's view, not inside `tabBar`. Reports whether every tab has a named
+        /// button and whether this pass had to name anything.
+        @discardableResult
+        private static func name(_ controller: UITabBarController) -> (complete: Bool, renamed: Bool) {
+            var renamed = false
+            if !isNamed(controller) {
+                renamed = true
+                for (index, tab) in controller.tabs.enumerated() where index < CompactTab.allCases.count {
+                    tab.accessibilityIdentifier = CompactTab.allCases[index].dockAccessibilityIdentifier
+                }
+            }
+            var namedTabs = Set<String>()
+            Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\.viewIfLoaded)), tabs: controller.tabs, named: &namedTabs, renamed: &renamed)
+            return (namedTabs.count == controller.tabs.count, renamed)
+        }
+
+        private static func nameBuiltButtons(in view: UIView, skipping content: Set<UIView>, tabs: [UITab], named: inout Set<String>, renamed: inout Bool) {
             guard !content.contains(view) else {
                 return
             }
             if view is UIControl, let label = view.accessibilityLabel, let tab = tabs.first(where: { $0.title == label }) {
-                view.accessibilityIdentifier = tab.accessibilityIdentifier
+                if view.accessibilityIdentifier != tab.accessibilityIdentifier {
+                    view.accessibilityIdentifier = tab.accessibilityIdentifier
+                    renamed = true
+                }
+                named.insert(tab.identifier)
             }
             for subview in view.subviews {
-                nameBuiltButtons(in: subview, skipping: content, tabs: tabs)
+                nameBuiltButtons(in: subview, skipping: content, tabs: tabs, named: &named, renamed: &renamed)
             }
         }
 

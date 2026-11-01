@@ -29,14 +29,21 @@ public enum KitchenHeroStretch {
         scrollOffset > 1
     }
 
-    /// The recipe hero's height: `preferred`, unless the page is short (under one and a half times `preferred`), when
-    /// it takes half the page. On a closed foldable held sideways the recipe sheet and the offline status at its top
-    /// then start on the first screen; a phone held upright keeps the full photo. A page not yet measured
-    /// (`viewportHeight` 0) gets `preferred`.
+    /// The recipe hero's height: half the page on a short page (under 1.2 times `preferred`), and `preferred` from
+    /// 1.6 times `preferred` up, rising in a straight line between at one point per point of page, so resizing a
+    /// window or a split view never makes the photo jump or outrun the resize. On a closed foldable held sideways the
+    /// recipe sheet and the offline status at its top then start on the first screen; a phone held upright keeps the
+    /// full photo. A page not yet measured (`viewportHeight` 0) gets `preferred`.
     public static func heroHeight(preferred: Double, viewportHeight: Double) -> Double {
-        guard viewportHeight > 0, viewportHeight < preferred * 1.5 else {
+        let rampStart = preferred * 1.2
+        let rampEnd = preferred * 1.6
+        guard viewportHeight > 0, viewportHeight < rampEnd else {
             return preferred
         }
-        return viewportHeight / 2
+        guard viewportHeight > rampStart else {
+            return viewportHeight / 2
+        }
+        let progress = (viewportHeight - rampStart) / (rampEnd - rampStart)
+        return rampStart / 2 + progress * (preferred - rampStart / 2)
     }
 }

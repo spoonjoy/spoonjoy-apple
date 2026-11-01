@@ -28,6 +28,10 @@ struct KitchenCookbookSearchPolishTests {
         #expect(row(snippet: " ... ").snippetText == nil)
         #expect(row(snippet: "miso glazed salmon").snippetText == nil)
         #expect(row(snippet: "recipe by ari").snippetText == nil)
+        // Review round 1: a bare number ("· 4") said nothing about what it counted.
+        #expect(row(snippet: "4").snippetText == nil)
+        #expect(row(snippet: " 1/2 ").snippetText == nil)
+        #expect(row(snippet: "4 servings").snippetText == "4 servings")
     }
 
     @Test("search rows fall back to the cover the app already holds")

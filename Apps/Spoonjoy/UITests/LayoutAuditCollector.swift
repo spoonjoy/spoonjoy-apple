@@ -12,7 +12,7 @@ import XCTest
 /// without an ellipsis; a label overflowing its container or the screen is caught from its frame instead.
 @MainActor
 enum LayoutAuditCollector {
-    static let method = "XCUITest snapshot frames and Vision text recognition of a screenshot taken right after the snapshot, not at the same instant. noOverlap: no two visible controls' frames cross, apart from a control inside another, two of the dock's tab items (identifiers dock.*), which UIKit lays out, sharing at most \(Int(LayoutAudit.dockNeighbourOverlapLimit)) pt, and a control in a scroll view that runs at most \(Int(LayoutAudit.dockUnderlapLimit)) pt under the floating dock, or any depth while it runs off the scroll view's edge with more of that scroll view beyond and the dock sits within \(Int(LayoutAudit.dockUnderlapLimit)) pt of that edge. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view starts at or past that edge; a control wholly off screen outside any scroll view is clipped. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless the label of the element holding it does (so such a label can hide a real truncation). Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls."
+    static let method = "XCUITest snapshot frames and Vision text recognition of a screenshot taken right after the snapshot, not at the same instant. noOverlap: no two visible controls' frames cross, apart from a control inside another, two of the dock's tab items (identifiers dock.*), which UIKit lays out, sharing at most \(Int(LayoutAudit.dockNeighbourOverlapLimit)) pt, and a control in a scroll view that runs at most \(Int(LayoutAudit.dockUnderlapLimit)) pt under the floating dock, or any depth while it runs off the scroll view's edge where scrolling reveals it and the dock sits within \(Int(LayoutAudit.dockUnderlapLimit)) pt of that edge. controlsOnScreen: no control runs off the screen, or off a scroll view's edge where nothing else in that scroll view starts at or past that edge, unless a dock item in that scroll view sits within \(Int(LayoutAudit.dockUnderlapLimit)) pt of that edge and the scroll view's measured metrics (content size, offset and adjusted inset, from the app's debug probe) show it scrolls along that edge's axis with room left to carry the control past the dock; a control wholly off screen outside any scroll view is clipped. textFits: every visible label lies inside its container and the screen, and no drawn line ends in an ellipsis unless the label of the element holding it does (so such a label can hide a real truncation). Labels cut by a scroll view's edge are skipped. Text is not compared with other text or with controls."
 
     private static let interactiveTypes: Set<XCUIElement.ElementType> = [
         .button, .link, .switch, .toggle, .slider, .stepper, .textField, .secureTextField, .searchField,
@@ -32,12 +32,19 @@ enum LayoutAuditCollector {
         let report: LayoutAuditReport
     }
 
-    static func measure(_ app: XCUIApplication) throws -> Measurement {
+    /// The Darwin notification the app's `LayoutAuditScrollProbe` answers by writing every scroll view's metrics.
+    static let scrollMetricsRequest = "app.spoonjoy.layout-audit.scroll-metrics"
+
+    /// Measures the screen. With `scrollMetricsPath` (the path the app was launched with as
+    /// `SPOONJOY_SCREENSHOT_SCROLL_METRICS_PATH`), it first asks the app for its scroll views' metrics and gives each
+    /// element the metrics of its nearest scrolling ancestor, matched by frame; without them no last-row exemption applies.
+    static func measure(_ app: XCUIApplication, scrollMetricsPath: String? = nil) throws -> Measurement {
+        let scrollMetrics = try scrollMetricsPath.map(requestScrollMetrics) ?? []
         let root = try app.snapshot()
         var elements: [LayoutAuditElement] = []
         var nextIndex = 0
 
-        func walk(_ node: XCUIElementSnapshot, ancestors: [Int], viewport: (frame: CGRect, index: Int)?, container: CGRect?) {
+        func walk(_ node: XCUIElementSnapshot, ancestors: [Int], viewport: (frame: CGRect, index: Int, scroll: LayoutAuditScrollMetrics?)?, container: CGRect?) {
             let index = nextIndex
             nextIndex += 1
             let type = node.elementType
@@ -53,12 +60,13 @@ enum LayoutAuditCollector {
                     frame: rect(node.frame),
                     viewport: viewport.map { rect($0.frame) },
                     viewportIndex: viewport?.index,
+                    scroll: viewport?.scroll,
                     container: container.map(rect),
                     isDockItem: role == .interactive && node.identifier.hasPrefix(dockIdentifierPrefix)
                 ))
             }
             let scrolls = scrollingTypes.contains(type)
-            let childViewport = scrolls ? (node.frame, index) : viewport
+            let childViewport = scrolls ? (node.frame, index, matching(node.frame, in: scrollMetrics)) : viewport
             let childContainer: CGRect? = if scrolls {
                 nil
             } else if unboundedTypes.contains(type) || node.frame.isEmpty {
@@ -83,6 +91,33 @@ enum LayoutAuditCollector {
             drawnText: drawnText,
             report: LayoutAudit.audit(elements, drawnText: drawnText, screen: screen)
         )
+    }
+
+    /// Posts the request, then waits for the app to write the metrics file.
+    private static func requestScrollMetrics(at path: String) throws -> [LayoutAuditScrollMetrics] {
+        try? FileManager.default.removeItem(atPath: path)
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            CFNotificationName(scrollMetricsRequest as CFString),
+            nil,
+            nil,
+            true
+        )
+        let deadline = Date().addingTimeInterval(10)
+        while !FileManager.default.fileExists(atPath: path), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        return try JSONDecoder().decode([LayoutAuditScrollMetrics].self, from: data)
+    }
+
+    /// The metrics of the app scroll view at this snapshot frame. When several share the frame (a scroll view nested
+    /// in another of the same size), the one with the least room left below is taken, so the audit never credits room
+    /// a page does not have.
+    private static func matching(_ frame: CGRect, in metrics: [LayoutAuditScrollMetrics]) -> LayoutAuditScrollMetrics? {
+        metrics
+            .filter { abs($0.frame.x - frame.minX) <= 1 && abs($0.frame.y - frame.minY) <= 1 && abs($0.frame.width - frame.width) <= 1 && abs($0.frame.height - frame.height) <= 1 }
+            .min { ($0.contentHeight + $0.insetBottom - $0.offsetY - $0.frame.height) < ($1.contentHeight + $1.insetBottom - $1.offsetY - $1.frame.height) }
     }
 
     /// The app's largest window. On the Duo open wide the application element keeps the inner screen's portrait size

@@ -240,7 +240,24 @@ fail_check("#{display_path(shell_source)} compact tab bar must use .tabBarMinimi
 # bottom search field. The .searchable itself sits on the Search tab's NavigationStack only: attached to the
 # TabView, iOS also drew a "Search Spoonjoy" field over every other tab, including the shopping list.
 tab_stack = shell_source.read[/@ViewBuilder private func compactTabStack\(for tab: CompactTab\) -> some View \{.*?\n    \}\n/m].to_s
-fail_check("#{display_path(shell_source)} compact TabView must use .tabViewSearchActivation(.searchTabSelection)") unless tab_shell.include?(".tabViewSearchActivation(.searchTabSelection)")
+# A capture run that asks for an unfocused search page keeps the system default through SearchTabActivation;
+# users always get .searchTabSelection.
+search_activation = shell_source.read[/private struct SearchTabActivation: ViewModifier \{.*?\n\}\n/m].to_s
+uses_search_activation = tab_shell.include?(".tabViewSearchActivation(.searchTabSelection)") ||
+  (tab_shell.include?(".modifier(SearchTabActivation(focusesOnSelection: shouldAutoFocusSearchField))") &&
+    search_activation.include?("content.tabViewSearchActivation(.searchTabSelection)"))
+fail_check("#{display_path(shell_source)} compact TabView must use .tabViewSearchActivation(.searchTabSelection)") unless uses_search_activation
+# The capture-only switch must not reach a Release build: outside DEBUG the gate returns true unconditionally,
+# and the screenshot environment key is read only inside the DEBUG branch.
+if !tab_shell.include?(".tabViewSearchActivation(.searchTabSelection)")
+  focus_gate = shell_source.read[/private var shouldAutoFocusSearchField: Bool \{\n(.*?)\n    \}\n/m, 1].to_s
+  debug_branch, release_branch = focus_gate.split(/^#else$/, 2)
+  release_branch = release_branch.to_s.sub(/\n#endif\s*\z/, "")
+  fail_check("#{display_path(shell_source)} shouldAutoFocusSearchField must be #if DEBUG ... #else return true #endif") unless
+    debug_branch.to_s.start_with?("#if DEBUG\n") && focus_gate.rstrip.end_with?("#endif") && release_branch.strip == "return true"
+  fail_check("#{display_path(shell_source)} the screenshot search-focus key must be read only in the DEBUG branch") if
+    release_branch.include?("screenshotDisableSearchFocusEnvironmentKey") || !debug_branch.to_s.include?("screenshotDisableSearchFocusEnvironmentKey")
+end
 fail_check("#{display_path(shell_source)} compact .searchable must sit on the Search tab's stack only, not on the TabView") if tab_shell.include?(".searchable(") || !tab_stack.include?("if tab == .search") || !tab_stack.include?(".searchable(text: searchText")
 fail_check("#{display_path(shell_source)} compact TabView must use .tint(KitchenTableTheme.brass) so the selected tab is visible") unless tab_shell.match?(/^        \.tint\(KitchenTableTheme\.brass\)$/)
 fail_check("#{display_path(shell_source)} each compact tab must own a NavigationStack(path:)") unless shell_source.read.include?("NavigationStack(path: compactPath(for: tab))")

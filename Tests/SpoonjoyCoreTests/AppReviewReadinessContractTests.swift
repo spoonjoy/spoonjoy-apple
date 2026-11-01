@@ -34,6 +34,24 @@ struct AppReviewReadinessContractTests {
         }
     }
 
+    // Review round 1: the 1.1 restyle dropped the row, so a chef could no longer link Google from the app.
+    @Test("Settings offers Provider Links, which plans the in-app Google link handoff")
+    func providerLinks() throws {
+        let settings = try Self.source("Apps/Spoonjoy/Shared/Views/SettingsView.swift")
+        #expect(settings.contains("ForEach(surface.securityRows.filter { $0.id == .providerLinks }, id: \\.id) { row in"))
+        #expect(settings.contains("planSettingsAction(row.action, using: surface.actionPlanner)"))
+        #expect(settings.contains("settings.providerLinks"))
+    }
+
+    // Review round 1: signed-out Settings stacked an "Account" bar title over the page's "Settings" header.
+    @Test("standalone Settings shows one title, the page header, like signed-in Settings")
+    func standaloneSettingsSingleTitle() throws {
+        let root = try Self.source("Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift")
+        #expect(!root.contains(".navigationTitle(\"Account\")"))
+        #expect(root.contains("#if os(macOS)\n            .navigationTitle(\"Settings\")\n#else\n            .navigationBarTitleDisplayMode(.inline)\n#endif"))
+        #expect(try Self.source("Apps/Spoonjoy/Shared/Views/SettingsView.swift").contains("KitchenTableHeader(title: \"Settings\", subtitle: nil)"))
+    }
+
     @Test("every path that sends content to an AI service asks for consent first (guideline 5.1.2(i))")
     func aiConsentGates() throws {
         #expect(try Self.source("Apps/Spoonjoy/Shared/Views/RecipeCoverControlsView.swift").contains("ThirdPartyAIConsentGate.request(use)"))

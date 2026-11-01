@@ -57,9 +57,25 @@ struct RecipeHeroHeightTests {
         #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 956) == 420)
         // The closed Duo upright (678 pt) keeps the full photo.
         #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 678) == 420)
-        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 629) == 314.5)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 500) == 250)
         #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 466) == 233)
         // Before the page has been measured, the preferred height stands.
         #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 0) == 420)
+    }
+
+    // Task 10a: the height snapped from 315 pt to 420 pt as a window or split view crossed 630 pt tall. Review round
+    // 1: the ramp that replaced it rose 2.5 pt per point of window, so the photo still outran a resize.
+    @Test("the hero height changes continuously, never faster than the page grows")
+    func heroHeightIsContinuous() {
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 504) == 252)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 588) == 336)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 629) == 377)
+        #expect(KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 672) == 420)
+        var previous = KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: 300)
+        for viewport in stride(from: 300.5, through: 1000, by: 0.5) {
+            let height = KitchenHeroStretch.heroHeight(preferred: 420, viewportHeight: viewport)
+            #expect(height >= previous && height - previous <= 0.5, "slope over 1 at \(viewport) pt")
+            previous = height
+        }
     }
 }

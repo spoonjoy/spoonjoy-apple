@@ -148,7 +148,7 @@ struct SpoonCookLogSurfaceTests {
         )
         #expect(offlineEmpty.emptyState == SpoonCookLogEmptyState(
             title: "No cooks logged yet",
-            message: "No cooks logged yet.",
+            message: "When you make this recipe, note how it went and what to try next time.",
             systemImage: "fork.knife"
         ))
         #expect(offlineEmpty.offlineIndicator.display == .offline)
@@ -710,7 +710,9 @@ struct SpoonCookLogSurfaceTests {
         #expect(spoonSource.contains("mediaRejectionMessage"))
         #expect(spoonSource.contains("conflictDidRequestReview"))
         #expect(!spoonSource.contains("RecipeCoverImage(url: row.photoURL)"))
-        #expect(spoonSource.contains("Image(systemName: \"fork.knife.circle\")"))
+        // A cook without a photo is a text entry; no placeholder tile stands in for the plate.
+        #expect(spoonSource.contains("if let photoURL = row.photoURL"))
+        #expect(!spoonSource.contains("Image(systemName: \"fork.knife.circle\")"))
         #expect(spoonSource.contains("supportedSpoonPhotoContentTypes"))
         #expect(spoonSource.contains("Unsupported photo format. Choose a JPEG, PNG, or WebP image."))
         #expect(spoonSource.contains("Label(\"Clear\", systemImage: \"xmark.circle\")"))
