@@ -1745,6 +1745,9 @@ struct NativeMobileDesignContractTests {
         let capture = try readRepoFile(capturePath)
         let validator = try readRepoFile(validatorPath)
 
+        // Review round 1: a fixed point size ignores the chef's text size; every font here scales.
+        #expect(cookbook.range(of: #"\.system\(size: *[0-9]"#, options: .regularExpression) == nil, "CookbooksView uses a fixed .system(size:)")
+
         expectContent(
             cookbook,
             in: cookbookPath,
@@ -1760,7 +1763,8 @@ struct NativeMobileDesignContractTests {
                 "CookbookCoverArt(cookbook:",
                 "CookbookFallbackCover",
                 "CookbookImageCover",
-                ".system(size: 64, weight: .bold, design: .serif)",
+                "@ScaledMetric(relativeTo: .largeTitle) private var initialSize: CGFloat = 64",
+                ".system(size: min(initialSize, 88), weight: .bold, design: .serif)",
                 "title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",

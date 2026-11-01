@@ -442,6 +442,7 @@ private struct CookbookImageCover: View {
 
 private struct CookbookFallbackCover: View {
     let title: String
+    @ScaledMetric(relativeTo: .largeTitle) private var initialSize: CGFloat = 64
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -451,11 +452,10 @@ private struct CookbookFallbackCover: View {
                 endPoint: .bottomTrailing
             )
             // The title is printed beside the cover, so the cover carries only its initial, as a recipe without a
-            // photo does. It is decoration and keeps to the cover's size instead of growing with the text.
+            // photo does. It grows with the text size, but only until it would crowd the cover.
             Text(String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)).uppercased())
-                .font(.system(size: 64, weight: .bold, design: .serif))
+                .font(.system(size: min(initialSize, 88), weight: .bold, design: .serif))
                 .foregroundStyle(KitchenTableTheme.brass)
-                .dynamicTypeSize(.large)
                 .padding(.leading, 30)
                 .padding([.trailing, .bottom], 16)
         }
