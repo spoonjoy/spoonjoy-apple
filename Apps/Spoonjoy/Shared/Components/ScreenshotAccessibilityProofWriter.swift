@@ -101,6 +101,9 @@ enum ScreenshotAccessibilityProofWriter {
               !rawPath.isEmpty else {
             return
         }
+#if os(iOS)
+        LayoutAuditScrollProbe.startIfNeeded()
+#endif
         let visualReadiness = await ScreenshotVisualReadiness.waitForSettled()
         guard !Task.isCancelled else {
             return
@@ -358,3 +361,84 @@ enum ScreenshotAccessibilityProofWriter {
     }
 #endif
 }
+
+#if os(iOS) && DEBUG
+/// Answers the layout audit's request for every scroll view's metrics, which an accessibility snapshot does not
+/// report: frame on screen, content size, content offset and adjusted content inset. The audit uses them to check that
+/// a page really can scroll its last row out from under the floating dock. Active only in debug builds launched by the
+/// audit with `SPOONJOY_SCREENSHOT_SCROLL_METRICS_PATH`; the UI test asks by posting a Darwin notification, and the
+/// probe writes the metrics as JSON to that path.
+@MainActor
+enum LayoutAuditScrollProbe {
+    static let environmentKey = "SPOONJOY_SCREENSHOT_SCROLL_METRICS_PATH"
+    static let requestNotification = "app.spoonjoy.layout-audit.scroll-metrics"
+    private static var started = false
+
+    static func startIfNeeded() {
+        guard !started, outputPath != nil else {
+            return
+        }
+        started = true
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            nil,
+            { _, _, _, _, _ in
+                DispatchQueue.main.async {
+                    MainActor.assumeIsolated { LayoutAuditScrollProbe.write() }
+                }
+            },
+            requestNotification as CFString,
+            nil,
+            .deliverImmediately
+        )
+    }
+
+    private static var outputPath: String? {
+        guard let path = ProcessInfo.processInfo.environment[environmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !path.isEmpty else {
+            return nil
+        }
+        return path
+    }
+
+    private static func write() {
+        guard let path = outputPath else {
+            return
+        }
+        var metrics: [LayoutAuditScrollMetrics] = []
+        let windows = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows)
+        for window in windows where !window.isHidden {
+            collect(in: window, window: window, into: &metrics)
+        }
+        guard let data = try? JSONEncoder().encode(metrics) else {
+            return
+        }
+        try? data.write(to: URL(fileURLWithPath: path), options: [.atomic])
+    }
+
+    private static func collect(in view: UIView, window: UIWindow, into metrics: inout [LayoutAuditScrollMetrics]) {
+        guard !view.isHidden, view.alpha > 0 else {
+            return
+        }
+        if let scrollView = view as? UIScrollView {
+            // Window coordinates, offset by the window's own origin, are the screen points the snapshot reports.
+            let frame = scrollView.convert(scrollView.bounds, to: nil).offsetBy(dx: window.frame.minX, dy: window.frame.minY)
+            let inset = scrollView.adjustedContentInset
+            metrics.append(LayoutAuditScrollMetrics(
+                frame: LayoutAuditRect(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height),
+                contentWidth: scrollView.contentSize.width,
+                contentHeight: scrollView.contentSize.height,
+                offsetX: scrollView.contentOffset.x,
+                offsetY: scrollView.contentOffset.y,
+                insetTop: inset.top,
+                insetLeft: inset.left,
+                insetBottom: inset.bottom,
+                insetRight: inset.right
+            ))
+        }
+        for subview in view.subviews {
+            collect(in: subview, window: window, into: &metrics)
+        }
+    }
+}
+#endif

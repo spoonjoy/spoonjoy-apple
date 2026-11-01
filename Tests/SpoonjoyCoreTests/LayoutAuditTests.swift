@@ -12,9 +12,26 @@ struct LayoutAuditTests {
         ancestors: [Int] = [],
         viewport: LayoutAuditRect? = nil,
         viewportIndex: Int? = nil,
+        scroll: LayoutAuditScrollMetrics? = nil,
         isDockItem: Bool = false
     ) -> LayoutAuditElement {
-        LayoutAuditElement(index: index, ancestors: ancestors, role: .interactive, type: "button", identifier: "control.\(index)", label: "Control \(index)", frame: frame, viewport: viewport, viewportIndex: viewportIndex, container: nil, isDockItem: isDockItem)
+        LayoutAuditElement(index: index, ancestors: ancestors, role: .interactive, type: "button", identifier: "control.\(index)", label: "Control \(index)", frame: frame, viewport: viewport, viewportIndex: viewportIndex, scroll: scroll, container: nil, isDockItem: isDockItem)
+    }
+
+    /// A scroll view's metrics: `content` is its content size, `offset` its content offset and the insets its
+    /// adjusted content inset, all in points.
+    private func metrics(
+        _ frame: LayoutAuditRect,
+        content: (width: Double, height: Double),
+        offset: (x: Double, y: Double) = (0, 0),
+        insets: (top: Double, left: Double, bottom: Double, right: Double) = (0, 0, 0, 0)
+    ) -> LayoutAuditScrollMetrics {
+        LayoutAuditScrollMetrics(
+            frame: frame,
+            contentWidth: content.width, contentHeight: content.height,
+            offsetX: offset.x, offsetY: offset.y,
+            insetTop: insets.top, insetLeft: insets.left, insetBottom: insets.bottom, insetRight: insets.right
+        )
     }
 
     @Test("a control scrolling under the floating dock is not an overlap; one outside a scroll view is")
@@ -54,12 +71,19 @@ struct LayoutAuditTests {
         #expect(report.noOverlap)
         #expect(report.skippedPartiallyScrolledCount == 1)
 
-        // As the last row, with nothing beyond the edge, the dock at that edge still scrolls it clear: the page
-        // reserves room under the dock past its last row.
-        let lastRow = LayoutAudit.audit([dock, lead], screen: screen)
+        // As the last row, with nothing beyond the edge, the dock at that edge scrolls it clear when the page
+        // reserves room under the dock past its last row: 959 + 120 - 800 = 279 pt left, 238 pt needed to clear the dock.
+        let reserved = metrics(page, content: (400, 959), insets: (0, 0, 120, 0))
+        let leadWithReserve = control(2, lead.frame, viewport: page, viewportIndex: 0, scroll: reserved)
+        let lastRow = LayoutAudit.audit([dock, leadWithReserve], screen: screen)
         #expect(lastRow.noOverlap)
         #expect(lastRow.controlsOnScreen)
         #expect(lastRow.skippedPartiallyScrolledCount == 1)
+
+        // Without the scroll view's metrics nothing shows it can scroll the row clear, so it is clipped and buried.
+        let unmeasured = LayoutAudit.audit([dock, lead], screen: screen)
+        #expect(!unmeasured.noOverlap)
+        #expect(unmeasured.clippedControls.map(\.control.identifier) == ["control.2"])
     }
 
     // The Pro Max Recipes list at AX5 holds two rows; the second runs off the bottom of the screen under the dock with
@@ -68,10 +92,32 @@ struct LayoutAuditTests {
     func lastControlCutAtTheDocksEdgeIsScrolled() {
         let page = LayoutAuditRect(x: 0, y: 0, width: 400, height: 800)
         let dock = control(1, LayoutAuditRect(x: 25, y: 721, width: 89, height: 54), isDockItem: true)
-        let lastRow = control(2, LayoutAuditRect(x: 20, y: 600, width: 360, height: 400), viewport: page, viewportIndex: 0)
+        // The row ends at 1000 and the dock starts at 721, so the page must scroll 279 pt more to carry the row clear.
+        let reserved = metrics(page, content: (400, 1000), insets: (0, 0, 79, 0))
+        let lastRow = control(2, LayoutAuditRect(x: 20, y: 600, width: 360, height: 400), viewport: page, viewportIndex: 0, scroll: reserved)
         let passing = LayoutAudit.audit([dock, lastRow], screen: screen)
         #expect(passing.noOverlap)
         #expect(passing.controlsOnScreen)
+
+        // A page with no room past its last row (200 pt left, 279 needed) leaves the row under the dock.
+        let noReserve = metrics(page, content: (400, 1000))
+        let stuck = control(2, lastRow.frame, viewport: page, viewportIndex: 0, scroll: noReserve)
+        let stuckReport = LayoutAudit.audit([dock, stuck], screen: screen)
+        #expect(!stuckReport.noOverlap)
+        #expect(stuckReport.clippedControls.map(\.control.identifier) == ["control.2"])
+
+        // A horizontal pager whose frame holds the dock does not scroll the row up at all.
+        let pager = metrics(page, content: (1200, 800))
+        #expect(pager.axis == .horizontal)
+        let paged = control(2, lastRow.frame, viewport: page, viewportIndex: 0, scroll: pager)
+        let pagedReport = LayoutAudit.audit([dock, paged], screen: screen)
+        #expect(!pagedReport.noOverlap)
+        #expect(pagedReport.clippedControls.map(\.control.identifier) == ["control.2"])
+
+        // Scrolled partway already, only the extent left below counts: 1079 - 100 - 800 = 179 pt, short of 279.
+        let scrolledDown = metrics(page, content: (400, 1000), offset: (0, 100), insets: (0, 0, 79, 0))
+        let late = control(2, lastRow.frame, viewport: page, viewportIndex: 0, scroll: scrolledDown)
+        #expect(!LayoutAudit.audit([dock, late], screen: screen).controlsOnScreen)
 
         // Real content under the dock that does not reach the scroll view's edge has no scrolling to excuse it.
         let buried = control(3, LayoutAuditRect(x: 20, y: 700, width: 360, height: 80), viewport: page, viewportIndex: 0)
@@ -131,6 +177,47 @@ struct LayoutAuditTests {
         #expect(LayoutAudit.audit([topDock, scrolledRow, rowAbove], screen: cover).noOverlap)
         let lowerDock = control(14, LayoutAuditRect(x: 100, y: 40, width: 44, height: 58), isDockItem: true)
         #expect(!LayoutAudit.audit([lowerDock, scrolledRow, rowAbove], screen: cover).noOverlap)
+    }
+
+    // Any edge's exemption needs the scroll view to scroll along that edge's axis, with room left to carry the control
+    // past the dock: hidden depth plus the dock's clearance from the edge.
+    @Test("the last control cut at a dock's edge is scrolled only along an axis the scroll view scrolls, with room left")
+    func lastControlExemptionNeedsRoomAlongTheCutAxis() {
+        let cover = LayoutAuditRect(x: 0, y: 0, width: 466, height: 678)
+
+        // Top edge, dock at the top: the row starts at -300 and the dock ends at 68, so 368 pt are needed.
+        let topDock = control(1, LayoutAuditRect(x: 100, y: 10, width: 44, height: 58), isDockItem: true)
+        let room = metrics(cover, content: (466, 1600), offset: (0, 400))
+        #expect(room.axis == .vertical)
+        let scrolledRow = control(2, LayoutAuditRect(x: 24, y: -300, width: 442, height: 400), viewport: cover, viewportIndex: 0, scroll: room)
+        #expect(LayoutAudit.audit([topDock, scrolledRow], screen: cover).controlsOnScreen)
+        let cramped = metrics(cover, content: (466, 1600), offset: (0, 300))
+        let crampedRow = control(2, scrolledRow.frame, viewport: cover, viewportIndex: 0, scroll: cramped)
+        #expect(!LayoutAudit.audit([topDock, crampedRow], screen: cover).controlsOnScreen)
+
+        // Right edge, rail on the right, in a shelf that scrolls sideways: 700 - 396 = 304 pt needed.
+        let rail = control(3, LayoutAuditRect(x: 396, y: 434, width: 44, height: 58), isDockItem: true)
+        let shelf = metrics(cover, content: (800, 678), insets: (0, 0, 0, 40))
+        #expect(shelf.axis == .horizontal)
+        let shelfItem = control(4, LayoutAuditRect(x: 300, y: 420, width: 400, height: 120), viewport: cover, viewportIndex: 1, scroll: shelf)
+        #expect(LayoutAudit.audit([rail, shelfItem], screen: cover).controlsOnScreen)
+        // The same item in a page that scrolls only up and down cannot be carried out from under the rail.
+        let tall = metrics(cover, content: (466, 1600))
+        let pageItem = control(4, shelfItem.frame, viewport: cover, viewportIndex: 1, scroll: tall)
+        #expect(!LayoutAudit.audit([rail, pageItem], screen: cover).controlsOnScreen)
+
+        // Left edge, rail on the left, in a shelf scrolled sideways that also scrolls down (both axes).
+        let leftRail = control(5, LayoutAuditRect(x: 26, y: 434, width: 44, height: 58), isDockItem: true)
+        let both = metrics(cover, content: (1400, 1600), offset: (400, 0))
+        #expect(both.axis == .both)
+        let leftItem = control(6, LayoutAuditRect(x: -300, y: 420, width: 400, height: 120), viewport: cover, viewportIndex: 2, scroll: both)
+        #expect(LayoutAudit.audit([leftRail, leftItem], screen: cover).controlsOnScreen)
+
+        // A scroll view whose content fits its frame does not scroll at all.
+        let still = metrics(cover, content: (466, 678))
+        #expect(still.axis == .none)
+        let stillItem = control(6, leftItem.frame, viewport: cover, viewportIndex: 2, scroll: still)
+        #expect(!LayoutAudit.audit([leftRail, stillItem], screen: cover).controlsOnScreen)
     }
 
     @Test("the dock's tab items are not compared with each other, but are with the app's controls")
@@ -395,5 +482,9 @@ struct LayoutAuditTests {
         #expect(decoded == report)
         #expect(decoded.textProblems[0].kind == .truncated)
         #expect(decoded.clippedControls.count == 1)
+
+        let page = LayoutAuditRect(x: 0, y: 0, width: 400, height: 800)
+        let measured = control(5, .init(x: 0, y: 700, width: 100, height: 200), viewport: page, viewportIndex: 4, scroll: metrics(page, content: (400, 1200), offset: (0, 10), insets: (1, 2, 3, 4)))
+        #expect(try JSONDecoder().decode(LayoutAuditElement.self, from: JSONEncoder().encode(measured)) == measured)
     }
 }
