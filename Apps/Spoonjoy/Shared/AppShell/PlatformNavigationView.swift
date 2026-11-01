@@ -461,6 +461,11 @@ struct PlatformNavigationView: View {
                 }
         }
         .environment(\.recipeZoomNamespace, zoom)
+#if os(iOS)
+        .onScrollPhaseChange { _, _ in
+            NotificationCenter.default.post(name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)
+        }
+#endif
         if tab == .search {
             // Only the Search tab owns the search field. Attached to the TabView, iOS also drew a
             // "Search Spoonjoy" field in the navigation bar of every other tab (it showed on a pull-down
@@ -2707,6 +2712,10 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
     let selection: CompactTab
     let depth: Int
 
+    /// Posted when a page's scroll phase changes: the tab bar minimizes and expands on scroll, and UIKit rebuilds the
+    /// dock's buttons as it does, after the observer may have stopped.
+    static let dockMayRebuild = Notification.Name("SpoonjoyDockMayRebuild")
+
     func makeUIView(context: Context) -> Probe {
         Probe()
     }
@@ -2747,6 +2756,12 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
             ]) { (probe: Probe, _: UITraitCollection) in
                 probe.rearm()
             }
+            NotificationCenter.default.addObserver(self, selector: #selector(dockMayRebuild), name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)
+        }
+
+        /// Posted on the main thread by the pages' scroll phase changes.
+        @objc private func dockMayRebuild() {
+            rearm()
         }
 
         required init?(coder: NSCoder) {

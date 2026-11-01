@@ -62,6 +62,11 @@ struct CompactTabNavigationTests {
         #expect(probe.contains("return (namedTabs.count == controller.tabs.count, renamed)"))
         #expect(probe.contains("isolated deinit {\n            stopObservingLayout()"))
         #expect(probe.contains("uiView.rearm()"))
+        // Review round 2: the tab bar's minimize-on-scroll rebuilds the dock's buttons after the observer has stopped,
+        // so they lost their names. Each tab's scroll phase change re-arms the observer.
+        #expect(source.contains(".onScrollPhaseChange { _, _ in\n            NotificationCenter.default.post(name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)\n        }"))
+        #expect(probe.contains("static let dockMayRebuild = Notification.Name(\"SpoonjoyDockMayRebuild\")"))
+        #expect(probe.contains("NotificationCenter.default.addObserver(self, selector: #selector(dockMayRebuild), name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)"))
         #expect(probe.contains("probe.rearm()"))
         #expect(!probe.contains("buttonPassesLeft"))
         #expect(probe.contains("if view.accessibilityIdentifier != tab.accessibilityIdentifier {"))
