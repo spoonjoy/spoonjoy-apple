@@ -253,6 +253,18 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .disabled(onlineOnlyActionsDisabled(surface))
 
+                    // Linking Google runs in an in-app secure sign-in sheet, so the row doesn't mark itself as leaving.
+                    ForEach(surface.securityRows.filter { $0.id == .providerLinks }, id: \.id) { row in
+                        Button {
+                            planSettingsAction(row.action, using: surface.actionPlanner)
+                        } label: {
+                            settingsRowLabel(row.title, systemImage: "link", prominence: .secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(onlineOnlyActionsDisabled(surface))
+                        .accessibilityIdentifier("settings.providerLinks")
+                    }
+
                     Button(role: .destructive) {
                         confirmSettingsAction(
                             .logout,
