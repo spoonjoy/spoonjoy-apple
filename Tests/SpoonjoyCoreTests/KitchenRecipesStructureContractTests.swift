@@ -109,7 +109,8 @@ struct KitchenRecipesStructureContractTests {
             contains: [
                 "spreadTurnTask = Task { @MainActor in",
                 "voice.send(.cookModeClosed)\n            spreadTurnTask?.cancel()",
-                "guard (try? await Task.sleep(for: .seconds(half))) != nil else {"
+                // Review round 2: a turn cancelled halfway must not leave the page folded at 0.5.
+                "guard (try? await Task.sleep(for: .seconds(half))) != nil else {\n                withTransaction(reset) {\n                    spreadTurnPhase = 0\n                }\n                return\n            }"
             ],
             forbids: []
         )

@@ -677,6 +677,9 @@ struct CookModeView: View {
                 spreadTurnPhase = 0.5
             }
             guard (try? await Task.sleep(for: .seconds(half))) != nil else {
+                withTransaction(reset) {
+                    spreadTurnPhase = 0
+                }
                 return
             }
             let next = (try? progress.selectingStep(id: stepID, updatedAt: timestamp())) ?? progress
