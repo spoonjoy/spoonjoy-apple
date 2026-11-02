@@ -46,4 +46,10 @@ struct QAResponseTraceTests {
         #expect(QAResponseTrace.describe(response) == " [cf-ray r-2; content-length: 0]")
         #expect(QAResponseTrace.describe(nil) == "")
     }
+
+    @Test("keeps one value when a header arrives under two spellings")
+    func mergesHeaderSpellings() {
+        let trace = QAResponseTrace.describe(headers: ["CF-Ray": "r-b", "cf-ray": "r-a"])
+        #expect(trace == " [cf-ray r-a]")
+    }
 }

@@ -9,7 +9,8 @@ public enum QAResponseTrace {
 
     /// " [cf-ray <id>; name: value; ...]", or " [no cf-ray; ...]" when the response had none.
     public static func describe(headers: [String: String]) -> String {
-        let lowered = Dictionary(headers.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: { first, _ in first })
+        // Two spellings of one header keep the smaller value, so the trace doesn't depend on dictionary order.
+        let lowered = Dictionary(headers.map { ($0.key.lowercased(), $0.value) }, uniquingKeysWith: min)
         let rest = lowered
             .filter { $0.key != "cf-ray" && !withheld.contains($0.key) }
             .sorted { $0.key < $1.key }
@@ -20,10 +21,10 @@ public enum QAResponseTrace {
 
     public static func describe(_ response: HTTPURLResponse?) -> String {
         guard let response else { return "" }
-        let pairs = response.allHeaderFields.compactMap { key, value -> (String, String)? in
-            guard let key = key as? String, let value = value as? String else { return nil }
-            return (key, value)
+        var headers: [String: String] = [:]
+        for case let (key as String, value as String) in response.allHeaderFields {
+            headers[key] = value
         }
-        return describe(headers: Dictionary(pairs, uniquingKeysWith: { first, _ in first }))
+        return describe(headers: headers)
     }
 }
