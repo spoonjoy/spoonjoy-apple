@@ -329,7 +329,7 @@ public struct SpoonCookLogViewModel: Equatable, Sendable {
         guard rows.isEmpty else { return nil }
         return SpoonCookLogEmptyState(
             title: "No cooks logged yet",
-            message: "No cooks logged yet.",
+            message: "When you make this recipe, note how it went and what to try next time.",
             systemImage: "fork.knife"
         )
     }

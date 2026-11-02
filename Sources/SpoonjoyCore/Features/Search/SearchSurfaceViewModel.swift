@@ -66,7 +66,8 @@ public struct SearchSurfaceRow: Identifiable, Equatable, Sendable {
         }
         let collapsed = raw.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         let text = collapsed.trimmingCharacters(in: CharacterSet(charactersIn: ". \u{2026}"))
-        guard !text.isEmpty else {
+        // A snippet without a word, such as a bare "4", doesn't say what it counts.
+        guard text.rangeOfCharacter(from: .letters) != nil else {
             return nil
         }
         let repeated = [result.title, subtitle].contains {

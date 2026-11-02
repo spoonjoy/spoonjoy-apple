@@ -16,6 +16,8 @@ struct RecipesView: View {
     private let proofRoute: String
     private let proofSource: String
     private let emptyStateOverride: RecipeCatalogEmptyState?
+    /// The empty list's one way in: Add a recipe for your own kitchen, Open cookbooks for the saved list.
+    private let emptyAction: RecipesEmptyAction?
     /// Replaces the result count under the title when the list is not the whole set, like Everyone's most recent.
     private let subtitleOverride: String?
     @State private var state: RecipeCatalogState
@@ -28,7 +30,7 @@ struct RecipesView: View {
     init(
         viewModel: RecipeCatalogViewModel,
         openRoute: @escaping (AppRoute) -> Void,
-        headerEyebrow: String = "My Kitchen",
+        headerEyebrow: String = "",
         title: String = "My Recipes",
         searchPrompt: String = "Search my recipes",
         loadingTitle: String = "Loading recipes",
@@ -36,6 +38,7 @@ struct RecipesView: View {
         proofRoute: String = "recipes",
         proofSource: String = "RecipesView",
         emptyStateOverride: RecipeCatalogEmptyState? = nil,
+        emptyAction: RecipesEmptyAction? = nil,
         subtitleOverride: String? = nil
     ) {
         self.viewModel = viewModel
@@ -48,6 +51,7 @@ struct RecipesView: View {
         self.proofRoute = proofRoute
         self.proofSource = proofSource
         self.emptyStateOverride = emptyStateOverride
+        self.emptyAction = emptyAction
         self.subtitleOverride = subtitleOverride
         _state = State(initialValue: viewModel.state)
         _query = State(initialValue: viewModel.state.query)
@@ -70,13 +74,10 @@ struct RecipesView: View {
                 KitchenTableLoadingStateView(title: loadingTitle, subtitle: loadingSubtitle, systemImage: "book.closed")
             } else if let emptyState = state.resolvedEmptyState(overridingDefaultWith: emptyStateOverride) {
                 recipesEmptyState(emptyState)
-            } else if let leadRow = state.leadRow {
-                RecipeCatalogLead(row: leadRow, openRoute: openRoute)
-                if !state.indexRows.isEmpty {
-                    recipeIndexSection(rows: state.indexRows)
-                }
             } else {
-                recipeIndexSection(rows: state.rows)
+                // The Kitchen already leads with a recipe, so the index starts at the first row instead of
+                // repeating that hero.
+                recipeIndex(rows: state.rows)
             }
         }
         .reloadsOnPull { await loadCatalog(query: query) }
@@ -101,40 +102,51 @@ struct RecipesView: View {
     }
 
     private func recipesEmptyState(_ emptyState: RecipeCatalogEmptyState) -> some View {
-        KitchenTableSection(title: emptyState.title) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: emptyState.systemImage)
-                    .font(.title3)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                    .frame(width: 28)
-                Text(emptyState.message)
-                    .font(KitchenTableTheme.bodyNote)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
+        KitchenTableEmptyTile(
+            systemImage: emptyState.systemImage,
+            title: emptyState.title,
+            message: emptyState.message
+        ) {
+            if emptyState == .noMatches {
+                Button {
+                    query = ""
+                    Task { await loadCatalog(query: "") }
+                } label: {
+                    Label("Clear search", systemImage: "xmark.circle")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityIdentifier("recipes.empty.clearSearch")
+            } else if let emptyAction {
+                Button(action: emptyAction.perform) {
+                    Label(emptyAction.title, systemImage: emptyAction.systemImage)
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+                .accessibilityIdentifier("recipes.empty.action")
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .background(KitchenTableTheme.raised)
-            .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
         }
+        .accessibilityIdentifier("recipes.emptyState")
     }
 
-    private func recipeIndexSection(rows: [RecipeCatalogRowViewModel]) -> some View {
-        KitchenTableSection(title: "Recipe Index") {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(rows) { row in
-                    if row.id != rows.first?.id {
-                        RecipeIndexRowSeparator()
-                    }
-                    RecipeIndexRow(row: row, namespace: recipeTransition) {
-                        openRoute(row.openRoute)
-                    }
-                    .accessibilityIdentifier("recipes.row")
+    private func recipeIndex(rows: [RecipeCatalogRowViewModel]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(rows) { row in
+                if row.id != rows.first?.id {
+                    RecipeIndexRowSeparator()
                 }
+                RecipeIndexRow(row: row, namespace: recipeTransition) {
+                    openRoute(row.openRoute)
+                }
+                .accessibilityIdentifier("recipes.row")
             }
         }
     }
+}
+
+/// The one action an empty recipe list offers.
+struct RecipesEmptyAction {
+    let title: String
+    let systemImage: String
+    let perform: () -> Void
 }
 
 /// Every public recipe, the same list the website's Recipes page shows, searched on the server.
@@ -146,7 +158,6 @@ struct EveryoneRecipesView: View {
         RecipesView(
             viewModel: viewModel,
             openRoute: openRoute,
-            headerEyebrow: "Spoonjoy",
             title: "Everyone's Recipes",
             searchPrompt: "Search every recipe",
             loadingTitle: "Loading recipes",
@@ -173,7 +184,10 @@ struct SavedRecipesView: View {
             loadingSubtitle: "Opening the recipes saved in your cookbooks.",
             proofRoute: "saved-recipes",
             proofSource: "SavedRecipesView",
-            emptyStateOverride: RecipeCatalogEmptyState.noSavedRecipes
+            emptyStateOverride: RecipeCatalogEmptyState.noSavedRecipes,
+            emptyAction: RecipesEmptyAction(title: "Open cookbooks", systemImage: "books.vertical") {
+                openRoute(.cookbooks)
+            }
         )
     }
 }
@@ -192,16 +206,20 @@ struct ChefsView: View {
         let resolved = content ?? .cachedFallback(fallbackChefs)
         KitchenTablePage {
             KitchenTableHeader(
-                eyebrow: "My Kitchen",
                 title: "Chefs",
                 subtitle: resolved.subtitle
             )
 
             fellowChefsSection(resolved)
 
+            // An empty kitchen graph says so once, above; the sections below appear when they have someone in them.
             if case .live = resolved {
-                chefsUsingMyRecipesSection(resolved)
-                activitySection(resolved)
+                if !resolved.chefsUsingMyRecipes.isEmpty {
+                    chefsUsingMyRecipesSection(resolved)
+                }
+                if !resolved.activity.isEmpty {
+                    activitySection(resolved)
+                }
             }
         }
         .task(id: fallbackChefs.map(\.id)) {
@@ -222,10 +240,19 @@ struct ChefsView: View {
     @ViewBuilder
     private func fellowChefsSection(_ resolved: ChefsSurfaceContent) -> some View {
         if resolved.fellowChefs.isEmpty {
-            emptySection(
+            KitchenTableEmptyTile(
+                systemImage: "person.2",
                 title: "No fellow chefs yet",
                 message: "Cook, save, or fork another chef's recipe to start building your kitchen."
-            )
+            ) {
+                Button {
+                    openRoute(.everyoneRecipes)
+                } label: {
+                    Label("Browse everyone's recipes", systemImage: "fork.knife")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .accessibilityIdentifier("chefs.empty.browse")
+            }
         } else {
             KitchenTableSection(title: "Fellow Chefs") {
                 ForEach(resolved.fellowChefs, id: \.id) { chef in
@@ -240,49 +267,29 @@ struct ChefsView: View {
 
     @ViewBuilder
     private func chefsUsingMyRecipesSection(_ resolved: ChefsSurfaceContent) -> some View {
-        if resolved.chefsUsingMyRecipes.isEmpty {
-            emptySection(title: "Chefs Using My Recipes", message: "No one has used your recipes yet.")
-        } else {
-            KitchenTableSection(title: "Chefs Using My Recipes") {
-                ForEach(resolved.chefsUsingMyRecipes) { row in
-                    chefRow(
-                        chef: NativeChefRef(id: row.chefID, username: row.username, photoURL: row.photoURL),
-                        subtitle: row.interactionSummary
-                    )
-                }
+        KitchenTableSection(title: "Chefs Using My Recipes") {
+            ForEach(resolved.chefsUsingMyRecipes) { row in
+                chefRow(
+                    chef: NativeChefRef(id: row.chefID, username: row.username, photoURL: row.photoURL),
+                    subtitle: row.interactionSummary
+                )
             }
         }
     }
 
     @ViewBuilder
     private func activitySection(_ resolved: ChefsSurfaceContent) -> some View {
-        if resolved.activity.isEmpty {
-            emptySection(
-                title: "No chef activity yet",
-                message: "Cook, fork, or save another chef's recipe to start building your kitchen graph."
-            )
-        } else {
-            KitchenTableSection(title: "Activity") {
-                ForEach(resolved.activity) { row in
-                    Button {
-                        openRoute(row.recipeRoute ?? row.otherChef.profileRoute)
-                    } label: {
-                        KitchenTableObjectRow(title: row.label, subtitle: row.directionLabel) {
-                            Image(systemName: "text.bubble")
-                                .font(.title2)
-                                .foregroundStyle(KitchenTableTheme.brass)
-                                .frame(width: 44, height: 44)
-                                .background(KitchenTableTheme.raised)
-                        } trailing: {
-                            Image(systemName: "chevron.forward")
-                                .font(KitchenTableTheme.uiLabel)
-                                .foregroundStyle(KitchenTableTheme.brass)
-                                .accessibilityHidden(true)
-                        }
+        KitchenTableSection(title: "Activity") {
+            ForEach(resolved.activity) { row in
+                Button {
+                    openRoute(row.recipeRoute ?? row.otherChef.profileRoute)
+                } label: {
+                    KitchenTableObjectRow(title: row.label, subtitle: row.directionLabel) {
+                        ChefAvatar(url: row.otherChef.photoURL, name: row.otherChef.displayName)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("chefs.activity.row")
                 }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("chefs.activity.row")
             }
         }
     }
@@ -295,103 +302,34 @@ struct ChefsView: View {
                 title: chef.displayName,
                 subtitle: (subtitle?.isEmpty == false ? subtitle : nil) ?? "Open kitchen profile"
             ) {
-                Image(systemName: "person.crop.circle")
-                    .font(.title2)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                    .frame(width: 44, height: 44)
-                    .background(KitchenTableTheme.raised)
-            } trailing: {
-                Image(systemName: "chevron.forward")
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                    .accessibilityHidden(true)
+                ChefAvatar(url: chef.photoURL, name: chef.displayName)
             }
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens chef profile")
     }
 
-    private func emptySection(title: String, message: String) -> some View {
-        KitchenTableSection(title: title) {
-            Text(message)
-                .font(KitchenTableTheme.bodyNote)
-                .foregroundStyle(KitchenTableTheme.ink2)
-                .padding(14)
-                .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-                .background(KitchenTableTheme.raised)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        }
-    }
 }
 
-private struct RecipeCatalogLead: View {
-    let row: RecipeCatalogRowViewModel
-    let openRoute: (AppRoute) -> Void
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+/// A chef's photo in a circle, or their initial on a vellum tile when they have none.
+struct ChefAvatar: View {
+    let url: URL?
+    let name: String
 
     var body: some View {
-        Button {
-            openRoute(row.openRoute)
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                leadCover
-
-                Text("On the Counter".uppercased())
-                    .font(.caption2.weight(.bold))
-                    .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                Text(row.title)
-                    .font(KitchenTableTheme.displayTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    // Three lines hold a long title at the default sizes; at the accessibility sizes it takes
-                    // the lines it needs rather than ending in an ellipsis.
-                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 3)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text(leadSubtitle)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.ink2)
+        Group {
+            if let url {
+                RecipeCoverImage(url: url, title: name, subtitle: nil, showsFallbackLabel: false)
+                    .scaledToFill()
+            } else {
+                RecipeInitialTile(title: name)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Opens recipe detail")
-        .accessibilityIdentifier("recipes.row")
-    }
-
-    @ViewBuilder private var leadCover: some View {
-        if let coverImageURL = row.coverImageURL {
-            RecipeCoverImage(
-                url: coverImageURL,
-                title: row.title,
-                subtitle: nil,
-                showsFallbackLabel: false
-            )
-            .frame(maxWidth: .infinity, minHeight: 220, maxHeight: 220)
-            .clipped()
-            .recipeZoomSource(id: row.id)
-        } else {
-            // "Photo not added" does not fit the short plate at the accessibility sizes, so the plate stays
-            // plain and VoiceOver still reads the label.
-            RecipeCoverImage(
-                url: nil,
-                title: row.title,
-                subtitle: "Photo not added",
-                showsFallbackLabel: !dynamicTypeSize.isAccessibilitySize
-            )
-            .frame(maxWidth: .infinity, minHeight: 126, maxHeight: 126)
-            .clipped()
+        .clipShape(Circle())
+        .overlay {
+            Circle().strokeBorder(KitchenTableTheme.hairline, lineWidth: 0.5)
         }
-    }
-
-    private var leadSubtitle: String {
-        [
-            row.subtitle,
-            row.chefLine,
-            row.servingsLabel
-        ]
-        .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
-        .filter { !$0.isEmpty }
-        .joined(separator: " - ")
+        .accessibilityHidden(true)
     }
 }
 

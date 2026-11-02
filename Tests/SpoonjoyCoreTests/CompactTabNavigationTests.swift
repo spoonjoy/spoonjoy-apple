@@ -41,7 +41,7 @@ struct CompactTabNavigationTests {
         let url = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(path)
         let source = try String(contentsOf: url, encoding: .utf8)
         let probe = try #require(source.range(of: "private struct DockAccessibilityIdentifiers").map { String(source[$0.lowerBound...]) })
-        #expect(source.contains(".background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab))"))
+        #expect(source.contains(".background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab, depth: compactTabs.path(for: compactTabs.selectedTab).count))"))
         #expect(probe.contains("override func layoutSubviews()"))
         #expect(probe.contains("registerForTraitChanges("))
         #expect(probe.contains("DispatchQueue.main.asyncAfter(deadline: .now() + Self.retryInterval)"))
@@ -49,8 +49,27 @@ struct CompactTabNavigationTests {
         // Buttons UIKit built before the tabs were named keep the image name unless they are named directly.
         // Only the dock's own views: page content, where a back button can read "Kitchen", lives in the child view
         // controllers' views, which the walk skips. (On iOS 27 the floating dock is not inside `tabBar`.)
-        #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\\.viewIfLoaded)), tabs: controller.tabs)"))
+        #expect(probe.contains("Self.nameBuiltButtons(in: controller.view, skipping: Set(controller.children.compactMap(\\.viewIfLoaded)), tabs: controller.tabs, named: &namedTabs, renamed: &renamed)"))
         #expect(probe.contains("guard !content.contains(view) else"))
+        // UIKit can build a dock button at any time after the tabs are named. A run-loop observer after each Core
+        // Animation commit names it, rather than a fixed window of timed passes.
+        #expect(probe.contains("CFRunLoopObserverCreateWithHandler(nil, CFRunLoopActivity.beforeWaiting.rawValue, true, Self.afterLayoutOrder)"))
+        #expect(probe.contains("CFRunLoopAddObserver(CFRunLoopGetMain(), observer, .commonModes)"))
+        #expect(probe.contains("CFRunLoopObserverInvalidate(layoutObserver)"))
+        // Review round 1: the observer ran on every wake for the life of the app. It stops once every dock button is
+        // named, a tab or trait change starts it again, and the probe invalidates it when it goes away.
+        #expect(probe.contains("} else if Date.now.timeIntervalSince(self.lastRename) > Self.settleInterval {\n                        self.stopObservingLayout()"))
+        #expect(probe.contains("return (namedTabs.count == controller.tabs.count, renamed)"))
+        #expect(probe.contains("isolated deinit {\n            stopObservingLayout()"))
+        #expect(probe.contains("uiView.rearm()"))
+        // Review round 2: the tab bar's minimize-on-scroll rebuilds the dock's buttons after the observer has stopped,
+        // so they lost their names. Each tab's scroll phase change re-arms the observer.
+        #expect(source.contains(".onScrollPhaseChange { _, _ in\n            NotificationCenter.default.post(name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)\n        }"))
+        #expect(probe.contains("static let dockMayRebuild = Notification.Name(\"SpoonjoyDockMayRebuild\")"))
+        #expect(probe.contains("NotificationCenter.default.addObserver(self, selector: #selector(dockMayRebuild), name: DockAccessibilityIdentifiers.dockMayRebuild, object: nil)"))
+        #expect(probe.contains("probe.rearm()"))
+        #expect(!probe.contains("buttonPassesLeft"))
+        #expect(probe.contains("if view.accessibilityIdentifier != tab.accessibilityIdentifier {"))
         // Layout runs often; once the dock is named, a pass must not walk the view controller tree again.
         let apply = try #require(probe.range(of: "func apply() {").map { String(probe[$0.upperBound...]) })
         let firstStatement = apply.split(separator: "\n").map { $0.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }

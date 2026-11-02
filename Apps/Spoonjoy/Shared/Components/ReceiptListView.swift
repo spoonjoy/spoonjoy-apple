@@ -6,6 +6,10 @@ struct ReceiptListView: View {
     let pendingItemIDs: Set<String>
     let setChecked: (ShoppingListItem, Bool) -> Void
     let deleteItem: (ShoppingListItem) -> Void
+    /// The list's measured content height. The page scrolls the list, so the list is as tall as its rows and never
+    /// scrolls inside itself, where its last rows sat under the dock out of the page's reach. Until the first layout
+    /// reports a height, `estimatedHeight` stands in.
+    @State private var contentHeight: CGFloat?
 
     init(
         sections: [ShoppingPresentationSection],
@@ -50,13 +54,20 @@ struct ReceiptListView: View {
                         }
                     }
                 } header: {
-                    Text(section.title)
-                        .font(KitchenTableTheme.uiLabel)
-                        .textCase(.uppercase)
-                        .tracking(1.6)
-                        .foregroundStyle(KitchenTableTheme.brass)
-                        .padding(.top, 4)
-                        .accessibilityLabel(section.title)
+                    // The aisle in the serif with how many are in it, in place of an all-caps kicker.
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(section.title)
+                            .font(KitchenTableTheme.indexTitle)
+                            .foregroundStyle(KitchenTableTheme.ink)
+                        Text("\(section.items.count)")
+                            .font(KitchenTableTheme.meta.monospacedDigit())
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                    }
+                    .textCase(nil)
+                    .padding(.top, 12)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("\(section.title), \(section.items.count) \(section.items.count == 1 ? "item" : "items")")
+                    .accessibilityAddTraits(.isHeader)
                 }
             }
         }
@@ -68,6 +79,12 @@ struct ReceiptListView: View {
         .listSectionSpacing(0)
 #endif
         .background(KitchenTableTheme.page)
+        .onScrollGeometryChange(for: CGFloat.self) { geometry in
+            geometry.contentSize.height + geometry.contentInsets.top + geometry.contentInsets.bottom
+        } action: { _, height in
+            contentHeight = height
+        }
+        .scrollDisabled(contentHeight != nil)
         .frame(minHeight: receiptListHeight)
     }
 
@@ -83,11 +100,15 @@ struct ReceiptListView: View {
         )
     }
 
+    /// A fixed guess per row and header cut off the last row once the aisle headers grew, and a 680 pt cap left a
+    /// long list scrolling inside the page, so the height is the list's own layout, uncapped.
     private var receiptListHeight: CGFloat {
+        max(contentHeight ?? estimatedHeight, 260)
+    }
+
+    private var estimatedHeight: CGFloat {
         let rowCount = sections.reduce(0) { $0 + $1.items.count }
-        let sectionCount = sections.count
-        let estimated = CGFloat(rowCount * 52 + sectionCount * 34 + 28)
-        return min(max(estimated, 260), 680)
+        return CGFloat(rowCount * 52 + sections.count * 50 + 28)
     }
 
 }
@@ -99,13 +120,8 @@ private struct ShoppingReceiptRow: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
+        // No aisle icon per row: the aisle heading above already says where it is.
         HStack(alignment: .center, spacing: 12) {
-            Image(systemName: symbol(for: item.iconKey))
-                .font(.body.weight(.semibold))
-                .foregroundStyle(KitchenTableTheme.brass)
-                .frame(width: 24)
-                .accessibilityHidden(true)
-
             // One line per item, as on the web list: name leading, amount trailing. At accessibility text
             // sizes the amount drops under the name so neither is squeezed.
             if dynamicTypeSize.isAccessibilitySize {
@@ -127,7 +143,7 @@ private struct ShoppingReceiptRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 if !item.item.displayQuantity.isEmpty {
                     Text(item.item.displayQuantity)
-                        .font(KitchenTableTheme.uiLabel)
+                        .font(KitchenTableTheme.bodyNote.monospacedDigit())
                         .foregroundStyle(KitchenTableTheme.ink2)
                         .lineLimit(1)
                 }
@@ -145,10 +161,12 @@ private struct ShoppingReceiptRow: View {
 
     private var nameText: some View {
         Text(item.item.name)
-            .font(KitchenTableTheme.objectTitle)
-            .foregroundStyle(KitchenTableTheme.ink)
+            .font(KitchenTableTheme.instructionBody)
+            .foregroundStyle(item.item.isEffectivelyChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
             .strikethrough(item.item.isEffectivelyChecked, color: KitchenTableTheme.ink2)
-            .lineLimit(2)
+            // At the accessibility sizes a long name wraps in full instead of truncating.
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var detailLine: some View {
@@ -163,29 +181,6 @@ private struct ShoppingReceiptRow: View {
         .font(KitchenTableTheme.uiLabel)
         .foregroundStyle(KitchenTableTheme.ink2)
         .lineLimit(1)
-    }
-
-    private func symbol(for iconKey: String) -> String {
-        switch iconKey {
-        case "leaf":
-            "leaf"
-        case "carrot":
-            "carrot"
-        case "citrus", "apple":
-            "apple.logo"
-        case "drumstick", "beef", "fish", "egg":
-            "fork.knife"
-        case "milk":
-            "fork.knife"
-        case "wheat", "sandwich":
-            "takeoutbag.and.cup.and.straw"
-        case "droplets":
-            "drop"
-        case "pot":
-            "flame"
-        default:
-            "shippingbox"
-        }
     }
 
     private func accessibilityText(for item: ShoppingListItem) -> String {

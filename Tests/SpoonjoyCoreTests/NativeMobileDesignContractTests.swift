@@ -421,7 +421,7 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "Text(title)",
                 ".font(KitchenTableTheme.sectionTitle)",
-                ".lineLimit(1)",
+                ".lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)",
                 ".layoutPriority(1)",
                 "Rectangle()",
                 ".layoutPriority(-1)"
@@ -642,7 +642,8 @@ struct NativeMobileDesignContractTests {
                 ".matchedTransitionSource(id: content.id, in: namespace)",
                 ".accessibilityLabel(content.accessibilityLabel)",
                 ".contextMenu",
-                "ShareLink(item: content.shareURL)",
+                "if let shareURL = content.shareURL",
+                "ShareLink(item: shareURL)",
                 "Label(\"Add to list\"",
                 "RecipeInitialTile(title: title)"
             ],
@@ -691,15 +692,15 @@ struct NativeMobileDesignContractTests {
             recipes,
             in: recipesPath,
             contains: [
-                "Image(systemName: \"chevron.forward\")",
                 "subtitle: nil",
-                "subtitle: \"Photo not added\"",
                 "showsFallbackLabel: false",
-                "showsFallbackLabel: !dynamicTypeSize.isAccessibilitySize",
+                "recipeIndex(rows: state.rows)",
+                "RecipeIndexRow(row: row",
                 "RecipeCoverPrefetcher.prefetch"
             ],
             forbids: [
                 "Text(\"Open\")",
+                "RecipeCatalogLead(row:",
                 "row.servingsLabel,\n            row.coverProvenanceLabel"
             ]
         )
@@ -744,7 +745,7 @@ struct NativeMobileDesignContractTests {
             capture,
             in: capturePath,
             contains: [
-                "eyebrow: \"Import queue\"",
+                "KitchenTableSection(title: \"Import queue\")",
                 "title: \"Capture\"",
                 "agentImportStatus",
                 "header\n            offlineStatus\n            agentImportStatus\n            if let currentDraft {\n                draftPreview(currentDraft)\n            }\n            entryPointLedger",
@@ -1303,7 +1304,7 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "@FocusState private var isItemFieldFocused",
                 "openSearch: @escaping () -> Void",
-                "focusAddItem",
+                ".focused($isItemFieldFocused)",
                 "shoppingHeaderTools",
                 "Menu",
                 "KitchenTableHeader(",
@@ -1374,12 +1375,16 @@ struct NativeMobileDesignContractTests {
                 "private var shoppingRunHeader",
                 "private var shoppingReceiptComposer",
                 "private var shoppingReceiptState",
-                "ShoppingReceiptStateView(",
+                "ShoppingReceiptStateView(state: receiptState, clearChecked: clearCompleted)",
+                "state.action == .clearChecked",
                 "receiptActionsMenu",
                 "Clear checked",
                 "Add from recipe"
             ],
             forbids: [
+                // The composer carries the recipe action; the empty tile repeating it showed "Add a recipe" twice.
+                "recipeActionTitle:",
+                "actionTitle == \"Clear checked\"",
                 "ContentUnavailableView(",
                 "Label(\"List Actions\"",
                 "TextField(\"Qty\"",
@@ -1740,42 +1745,53 @@ struct NativeMobileDesignContractTests {
         let capture = try readRepoFile(capturePath)
         let validator = try readRepoFile(validatorPath)
 
+        // Review round 1: a fixed point size ignores the chef's text size; every font here scales.
+        #expect(cookbook.range(of: #"\.system\(size: *[0-9]"#, options: .regularExpression) == nil, "CookbooksView uses a fixed .system(size:)")
+
         expectContent(
             cookbook,
             in: cookbookPath,
             contains: [
-                "private var leadCookbook",
-                "current.cover.primaryImageURL != candidate.cover.primaryImageURL",
-                "current.recipeCount != candidate.recipeCount",
                 "private var usesCompactCookbookLayout",
                 "private var cookbookPageBottomReserve",
-                "private func leadCookbookActions",
-                "private var cookbookLibrarySpread",
-                "private var cookbookShelfStrip",
-                "private var cookbookIndexRows",
-                "ScrollView(.horizontal",
+                "private var cookbookShelf: some View",
+                "LazyVGrid(columns: shelfColumns",
+                "GridItem(.adaptive(minimum: 148, maximum: 220)",
+                "CookbookShelfBook(row: row)",
+                "CookbookSpine",
                 "CookbookCoverArt(row:",
                 "CookbookCoverArt(cookbook:",
                 "CookbookFallbackCover",
                 "CookbookImageCover",
-                ".system(.title2, design: .serif).weight(.bold)",
-                ".minimumScaleFactor(0.66)",
+                "@ScaledMetric(relativeTo: .largeTitle) private var initialSize: CGFloat = 64",
+                ".system(size: min(initialSize, 88), weight: .bold, design: .serif)",
+                "title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",
                 "HStack(alignment: .top, spacing: 28)",
                 ".frame(width: detailHeaderWidth, alignment: .leading)",
                 "private var detailCoverWidth",
                 "ForEach(Array(viewModel.recipes.enumerated()), id: \\.element.id)",
-                "CookbookRecipeIndexRow(recipe: recipe, ordinal: index + 1",
+                "CookbookRecipeIndexRow(\n                                recipe: recipe,\n                                ordinal: index + 1",
+                "let firstVisibleID = visibleRecipeIDs.firstID(in: viewModel.recipes)",
                 "private struct CookbookRecipeIndexRow",
-                "if recipe.coverImageURL != nil",
+                "KitchenTableEmptyTile(",
                 "DisclosureGroup(isExpanded: $isOwnerToolsExpanded)",
                 "Label(\"Owner tools\", systemImage: \"wrench.and.screwdriver\")",
                 "Button(role: .destructive, action: remove)",
                 ".accessibilityIdentifier(\"cookbook.recipe.remove\")"
             ],
             forbids: [
+                // Review round 1: finding the first visible row inside the loop made the list quadratic.
+                "recipe.id != visibleRecipeIDs.firstID(in:",
+                "func padStart(",
                 ".swipeActions",
+                "private var leadCookbook",
+                "private var cookbookLibrarySpread",
+                "private var cookbookShelfStrip",
+                "private var cookbookIndexRows",
+                "ScrollView(.horizontal",
+                "\"Spoonjoy cookbook\"",
                 "title: \"\\(emptyState.title). \\(emptyState.message)\"",
                 "RecipeCoverImage(\n                    url: row.cover.primaryImageURL",
                 "Image(systemName: \"books.vertical\")\n                    .foregroundStyle(KitchenTableTheme.brass)",

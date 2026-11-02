@@ -118,6 +118,8 @@ final class LayoutAuditUITests: XCTestCase {
         for (key, value) in environment where key.hasPrefix("SPOONJOY_SCREENSHOT_") {
             app.launchEnvironment[key] = value
         }
+        let scrollMetricsPath = URL(fileURLWithPath: output).deletingPathExtension().appendingPathExtension("scroll-metrics.json").path
+        app.launchEnvironment["SPOONJOY_SCREENSHOT_SCROLL_METRICS_PATH"] = scrollMetricsPath
         app.launch()
         launchedApp = app
 
@@ -130,7 +132,7 @@ final class LayoutAuditUITests: XCTestCase {
         let observedSize = try XCTUnwrap(proof["observedDynamicTypeSize"] as? String, "The app's proof has no observedDynamicTypeSize.")
         XCTAssertEqual(observedSize, expectedSize, "The app drew \(observedSize), not the requested \(expectedSize); the audit would measure the wrong screen.")
 
-        let measurement = try LayoutAuditCollector.measure(app)
+        let measurement = try LayoutAuditCollector.measure(app, scrollMetricsPath: scrollMetricsPath)
         let screenshotURL = URL(fileURLWithPath: output).deletingPathExtension().appendingPathExtension("png")
         try measurement.screenshot.pngRepresentation.write(to: screenshotURL)
 

@@ -147,6 +147,12 @@ struct CookModeView: View {
     /// How far the open-flat spread's page turn has run, 0 to 1. At rest it is 1.
     @State private var spreadTurnPhase: Double = 1
     @State private var spreadTurnIsForward = true
+    /// True while the open-flat spread is on screen, so a turn plays in two halves around the step change.
+    @State private var isShowingSpread = false
+    /// True from the start of a two-half spread turn until it settles.
+    @State private var spreadTurnInFlight = false
+    /// The running two-half turn, cancelled when Cook mode closes so it never writes progress afterwards.
+    @State private var spreadTurnTask: Task<Void, Never>?
     private let incomingProgress: CookModeProgress?
     /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
     private let recipePageScale: Double?
@@ -229,6 +235,8 @@ struct CookModeView: View {
         }
         .onDisappear {
             voice.send(.cookModeClosed)
+            spreadTurnTask?.cancel()
+            spreadTurnTask = nil
         }
         .kitchenHaptic(.stepTurned, trigger: progress.currentStepID)
         .kitchenHaptic(.ingredientChecked, trigger: localCheckCount)
@@ -298,7 +306,10 @@ struct CookModeView: View {
 #endif
         }
         .onChange(of: currentIndex) { old, new in
-            playSpreadTurn(forward: new > old)
+            // A step picked elsewhere (another device, a check that finishes the step) settles the page from edge-on.
+            if !spreadTurnInFlight {
+                playSpreadTurn(forward: new > old)
+            }
         }
     }
 
@@ -632,9 +643,53 @@ struct CookModeView: View {
         guard recipe.steps.indices.contains(index), index != currentIndex else {
             return
         }
+        if isShowingSpread && !accessibilityReduceMotion {
+            turnSpread(toStepID: recipe.steps[index].id, forward: index > currentIndex)
+            return
+        }
         let next = (try? progress.selectingStep(id: recipe.steps[index].id, updatedAt: timestamp())) ?? progress
         withAnimation(pageTurnAnimation) {
             updateProgress(next)
+        }
+    }
+
+    /// The open-flat turn in two halves: the right page swings up to edge-on, the step changes while none of the
+    /// page shows, then the new page swings down. No frame shows two steps at once, and the page never passes 90°,
+    /// so its back never shows. A turn asked for mid-turn is dropped.
+    private func turnSpread(toStepID stepID: String, forward: Bool) {
+        guard !spreadTurnInFlight else {
+            return
+        }
+        let half = (Self.demoPageTurnDuration ?? KitchenSpring.pageTurn.response) / 2
+        var reset = Transaction()
+        reset.disablesAnimations = true
+        withTransaction(reset) {
+            spreadTurnInFlight = true
+            spreadTurnIsForward = forward
+            spreadTurnPhase = 0
+        }
+        spreadTurnTask = Task { @MainActor in
+            defer {
+                spreadTurnInFlight = false
+                spreadTurnTask = nil
+            }
+            withAnimation(Self.demoPageTurnDuration == nil ? .easeIn(duration: half) : .linear(duration: half)) {
+                spreadTurnPhase = 0.5
+            }
+            guard (try? await Task.sleep(for: .seconds(half))) != nil else {
+                withTransaction(reset) {
+                    spreadTurnPhase = 0
+                }
+                return
+            }
+            let next = (try? progress.selectingStep(id: stepID, updatedAt: timestamp())) ?? progress
+            withTransaction(reset) {
+                updateProgress(next)
+            }
+            withAnimation(Self.demoPageTurnDuration == nil ? .easeOut(duration: half) : .linear(duration: half)) {
+                spreadTurnPhase = 1
+            }
+            try? await Task.sleep(for: .seconds(half))
         }
     }
 
@@ -1348,18 +1403,20 @@ extension CookModeView {
             .accessibilityIdentifier("cookSpread.gatherPage")
         } trailing: {
             VStack(alignment: .leading, spacing: 0) {
+                // Only the page turns. The glass controls stay flat below it, so they never swing with the leaf.
                 ScrollView {
                     cookSpreadStepPage
                         .spreadPagePadding(.trailing, bottom: 24)
                 }
+                .background(KitchenTableTheme.page)
+                .modifier(PageCurlSweep(
+                    phase: spreadCurlPhase(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)),
+                    isForward: spreadCurlIsForward
+                ))
                 cookSpreadTrailingControls
                     .spreadPagePadding(.trailing, top: 12, bottom: 16)
             }
             .background(KitchenTableTheme.page)
-            .modifier(PageCurlSweep(
-                phase: spreadCurlPhase(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)),
-                isForward: spreadCurlIsForward
-            ))
             .contentShape(Rectangle())
             .simultaneousGesture(pageTurnGesture(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)))
             .simultaneousGesture(touchTrackingGesture)
@@ -1375,9 +1432,11 @@ extension CookModeView {
                 await playDemoPageTurn()
             }
         }
+        .onAppear { isShowingSpread = true }
+        .onDisappear { isShowingSpread = false }
     }
 
-    /// While a finger drags the right page it lifts up to halfway; a turned step then plays the rest of the turn.
+    /// While a finger drags the right page it lifts, short of edge-on; a turned step then plays the turn.
     private func spreadCurlPhase(pageWidth: CGFloat) -> Double {
         guard !accessibilityReduceMotion else {
             return 1
@@ -1386,28 +1445,28 @@ extension CookModeView {
             return spreadTurnPhase
         }
         let dragged = min(1, abs(pageDrag.offset) / max(pageWidth, 1))
-        return dragged > 0 ? Double(dragged) / 2 : 1
+        return dragged > 0 ? Double(dragged) * 0.4 : 1
     }
 
     private var spreadCurlIsForward: Bool {
         spreadTurnPhase < 1 ? spreadTurnIsForward : pageDrag.offset <= 0
     }
 
-    /// Sweeps the curl's shadow across the right page as the step changes, like a page lifting off the spine. Under
-    /// Reduce Motion nothing sweeps: the step page itself crossfades (`cookSpreadStepPage`'s transition, driven by the
-    /// turn's crossfade animation).
+    /// Settles the right page from edge-on when the step changed without a turn here, the second half of a turn.
+    /// Under Reduce Motion nothing swings: the step page itself crossfades (`cookSpreadStepPage`'s transition,
+    /// driven by the turn's crossfade animation).
     private func playSpreadTurn(forward: Bool) {
-        guard !accessibilityReduceMotion else {
+        guard !accessibilityReduceMotion, isShowingSpread else {
             return
         }
         var reset = Transaction()
         reset.disablesAnimations = true
         withTransaction(reset) {
             spreadTurnIsForward = forward
-            spreadTurnPhase = 0
+            spreadTurnPhase = 0.5
         }
         Task { @MainActor in
-            withAnimation(.easeInOut(duration: Self.demoPageTurnDuration ?? KitchenSpring.pageTurn.response)) {
+            withAnimation(.easeOut(duration: (Self.demoPageTurnDuration ?? KitchenSpring.pageTurn.response) / 2)) {
                 spreadTurnPhase = 1
             }
         }
@@ -1484,8 +1543,8 @@ extension CookModeView {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .id(currentStep.id)
-            // The page itself swings on the spine (PageCurlSweep); the step only crossfades, so the turn doesn't
-            // read as a slide.
+            // The page itself swings on the spine (PageCurlSweep) and the step changes while it is edge-on, with no
+            // animation, so a turn never shows two steps. Under Reduce Motion the step crossfades instead.
             .kitchenTransition(.opacity)
         }
     }
@@ -1799,13 +1858,13 @@ private struct CookModeIngredientChecklistLabel: View {
     let row: CookModeChecklistRow
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// At accessibility sizes the amount goes under the name, so the name never breaks mid-word beside it.
+    /// At accessibility sizes the amount goes above the name, so neither breaks mid-word beside the other.
     var body: some View {
         Group {
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 4) {
-                    title
                     quantity
+                    title
                 }
             } else {
                 HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -1835,8 +1894,8 @@ private struct CookModeIngredientChecklistLabel: View {
                 .font(KitchenTableTheme.uiLabel)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.82)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                .minimumScaleFactor(dynamicTypeSize.isAccessibilitySize ? 1 : 0.82)
         }
     }
 }
@@ -2194,9 +2253,9 @@ private enum CookModeAlarmKitTimerScheduler {
 }
 
 /// The page turn on the open-flat spread. SwiftUI has no page curl, so the right page swings on its spine like a
-/// leaf: at the middle of a turn it stands about two-thirds of the way up, foreshortened toward the fold and shaded
-/// as it leaves the light, while a soft shadow sweeps across it, from the outer edge to the fold on a forward turn and
-/// back again on a turn back. At 0 and 1 the page lies flat with no shadow. Reduce Motion never drives it.
+/// leaf: at the middle of a turn it stands edge-on, foreshortened toward the fold and shaded as it leaves the light,
+/// while a soft shadow sweeps across it, from the outer edge to the fold on a forward turn and back again on a turn
+/// back. At 0 and 1 the page lies flat with no shadow. Reduce Motion never drives it.
 private struct PageCurlSweep: ViewModifier, Animatable {
     nonisolated var phase: Double
     nonisolated let isForward: Bool
@@ -2206,14 +2265,14 @@ private struct PageCurlSweep: ViewModifier, Animatable {
         set { phase = newValue }
     }
 
-    /// How far the page swings off the spine at the middle of a turn. Past about 70° the foreshortened page is a
-    /// sliver and the step can't be read through the turn.
-    private static let liftDegrees = 64.0
+    /// How far the page swings off the spine at the middle of a turn: edge-on, where the step changes unseen.
+    private static let liftDegrees = 90.0
     /// How dark the page gets at the middle of a turn, as a multiple of the fold's shadow.
     private static let leafShade = 3.0
 
     func body(content: Content) -> some View {
         let lift = sin(.pi * min(max(phase, 0), 1))
+        let degrees = Self.liftDegrees * lift
         // The shade and the sweep sit on the page before it swings, so they turn with it.
         return content
             .overlay {
@@ -2243,8 +2302,10 @@ private struct PageCurlSweep: ViewModifier, Animatable {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             }
+            // At edge-on and past it the page's back would face the cook, so the page hides.
+            .opacity(degrees < 89.5 ? 1 : 0)
             .rotation3DEffect(
-                .degrees((isForward ? -1 : 1) * Self.liftDegrees * lift),
+                .degrees((isForward ? -1 : 1) * degrees),
                 axis: (x: 0, y: 1, z: 0),
                 anchor: .leading,
                 perspective: 0.45

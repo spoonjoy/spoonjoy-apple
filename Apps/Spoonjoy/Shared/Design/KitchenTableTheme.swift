@@ -209,22 +209,34 @@ extension View {
     /// the clock and the bar buttons, and toolbarBackground does not change it, so on iOS the edge effect is
     /// off and a zero-height line at the top of the safe area carries paper up to the screen edge. (A
     /// GeometryReader that ignores the safe area reports a top inset of zero, so it cannot size this.) Bar
-    /// buttons still sit on top. On the Mac the page fades under a solid edge instead.
+    /// buttons and an inline title still sit on top, but a large title does not, so the paper appears only
+    /// once the page has scrolled off its top: at rest the large title shows, and scrolled it has collapsed
+    /// into the inline title. On the Mac the page fades under a solid edge instead.
     func paperTopEdge() -> some View {
         modifier(PaperTopEdge())
     }
 }
 
 private struct PaperTopEdge: ViewModifier {
+#if os(iOS)
+    @State private var isScrolled = false
+#endif
+
     func body(content: Content) -> some View {
 #if os(iOS)
         content
             .scrollEdgeEffectHidden(true, for: .top)
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y + geometry.contentInsets.top > 1
+            } action: { _, scrolled in
+                isScrolled = scrolled
+            }
             .overlay(alignment: .top) {
                 Color.clear
                     .frame(maxWidth: .infinity)
                     .frame(height: 0)
                     .background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))
+                    .opacity(isScrolled ? 1 : 0)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
@@ -245,8 +257,10 @@ struct KitchenTableHeader<Trailing: View>: View {
     let titleFont: Font
     @ViewBuilder let trailing: () -> Trailing
 
+    /// `eyebrow` is a kicker that carries state, such as the day or a cookbook's owner; leave it empty when it would
+    /// only repeat where the reader already is.
     init(
-        eyebrow: String,
+        eyebrow: String = "",
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
@@ -278,10 +292,12 @@ struct KitchenTableHeader<Trailing: View>: View {
 
     private var titleStack: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(eyebrow.uppercased())
-                .font(.caption2.weight(.bold))
-                .tracking(1.4)
-                .foregroundStyle(KitchenTableTheme.brass)
+            if !eyebrow.isEmpty {
+                Text(eyebrow.uppercased())
+                    .font(.caption2.weight(.bold))
+                    .tracking(1.4)
+                    .foregroundStyle(KitchenTableTheme.brass)
+            }
             if !usesCompactNavigation || !hidesTitleInCompactNavigation {
                 Text(title)
                     .font(titleFont)
@@ -302,7 +318,7 @@ struct KitchenTableHeader<Trailing: View>: View {
 
 extension KitchenTableHeader where Trailing == EmptyView {
     init(
-        eyebrow: String,
+        eyebrow: String = "",
         title: String,
         subtitle: String? = nil,
         hidesTitleInCompactNavigation: Bool = false,
@@ -417,6 +433,7 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
     let detail: String?
     let ordinal: String?
     let titleFont: Font
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ViewBuilder let leading: () -> Leading
     @ViewBuilder let trailing: () -> Trailing
 
@@ -460,19 +477,19 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
                 Text(title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(2)
+                    .lineLimit(lineLimit)
                     .fixedSize(horizontal: false, vertical: true)
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
                         .font(KitchenTableTheme.uiLabel)
                         .foregroundStyle(KitchenTableTheme.ink2)
-                        .lineLimit(2)
+                        .lineLimit(lineLimit)
                 }
                 if let detail, !detail.isEmpty {
                     Text(detail)
                         .font(.footnote)
                         .foregroundStyle(KitchenTableTheme.ink2)
-                        .lineLimit(2)
+                        .lineLimit(lineLimit)
                 }
             }
 
@@ -487,11 +504,22 @@ struct KitchenTableObjectRow<Leading: View, Trailing: View>: View {
         }
         .contentShape(Rectangle())
     }
+
+    /// Two lines at the standard sizes; at the accessibility sizes the text wraps in full instead of truncating.
+    private var lineLimit: Int? {
+        dynamicTypeSize.isAccessibilitySize ? nil : 2
+    }
 }
 
 extension KitchenTableObjectRow where Trailing == EmptyView {
-    init(title: String, subtitle: String? = nil, @ViewBuilder leading: @escaping () -> Leading) {
-        self.init(title: title, subtitle: subtitle, detail: nil, ordinal: nil, titleFont: KitchenTableTheme.objectTitle, leading: leading) {
+    init(
+        title: String,
+        subtitle: String? = nil,
+        detail: String? = nil,
+        titleFont: Font = KitchenTableTheme.objectTitle,
+        @ViewBuilder leading: @escaping () -> Leading
+    ) {
+        self.init(title: title, subtitle: subtitle, detail: detail, ordinal: nil, titleFont: titleFont, leading: leading) {
             EmptyView()
         }
     }
@@ -552,12 +580,14 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
     }
 
     let prominence: Prominence
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     func makeBody(configuration: Configuration) -> some View {
         let shape = Capsule()
+        // At the accessibility sizes a label wraps to a second line instead of truncating.
         let label = configuration.label
             .font(.headline)
-            .lineLimit(1)
+            .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
             .minimumScaleFactor(0.74)
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity, minHeight: KitchenTableTheme.minimumTouchTarget + 2)
@@ -592,5 +622,69 @@ struct KitchenTableActionButtonStyle: ButtonStyle {
 
     private var fill: Color {
         prominence == .destructive ? KitchenTableTheme.tomato : KitchenTableTheme.ink
+    }
+}
+
+/// A designed empty state: a brass mark, the title in the serif, one line of copy and at most one way in. It sits on the
+/// page under a strong rule, never in a box, so an empty screen reads like the Kitchen's "The table is set".
+struct KitchenTableEmptyTile<Action: View>: View {
+    let systemImage: String
+    let title: String
+    let message: String
+    /// Brass by default; herb when the state is a finish rather than a start.
+    let tint: Color
+    @ViewBuilder let action: () -> Action
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    init(
+        systemImage: String,
+        title: String,
+        message: String,
+        tint: Color = KitchenTableTheme.brass,
+        @ViewBuilder action: @escaping () -> Action
+    ) {
+        self.systemImage = systemImage
+        self.title = title
+        self.message = message
+        self.tint = tint
+        self.action = action
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.system(.title, design: .serif))
+                .foregroundStyle(tint)
+                .accessibilityHidden(true)
+            Text(title)
+                .font(KitchenTableTheme.sectionTitle)
+                .foregroundStyle(KitchenTableTheme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityAddTraits(.isHeader)
+            Text(message)
+                .font(KitchenTableTheme.instructionBody)
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .fixedSize(horizontal: false, vertical: true)
+            if Action.self != EmptyView.self {
+                // At the accessibility sizes the action spans the tile, so its label stays on one line where it can.
+                action()
+                    .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 320, alignment: .leading)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .top) {
+            Rectangle().fill(KitchenTableTheme.lineStrong).frame(height: 1)
+        }
+        .accessibilityElement(children: .contain)
+    }
+}
+
+extension KitchenTableEmptyTile where Action == EmptyView {
+    init(systemImage: String, title: String, message: String) {
+        self.init(systemImage: systemImage, title: title, message: message) {
+            EmptyView()
+        }
     }
 }

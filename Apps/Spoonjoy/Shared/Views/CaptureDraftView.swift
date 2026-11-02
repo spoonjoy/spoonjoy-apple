@@ -87,39 +87,43 @@ struct CaptureDraftView: View {
 
     private var header: some View {
         KitchenTableHeader(
-            eyebrow: "Import queue",
             title: "Capture",
             subtitle: "Recipes sent by your Spoonjoy agent appear here for review. Shortcuts and Siri use the same local retry flow."
         )
     }
 
+    /// The two ways a recipe reaches the queue, as plain rows under a hairline.
     private var entryPointLedger: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(CaptureImportEntryPoint.allCases) { entryPoint in
+                Rectangle().fill(KitchenTableTheme.hairline).frame(height: 1)
                 CaptureImportEntryPointRow(entryPoint: entryPoint)
-                if entryPoint.id != CaptureImportEntryPoint.allCases.last?.id {
-                    Divider()
-                        .overlay(KitchenTableTheme.hairline.opacity(0.55))
-                }
             }
-        }
-        .background(KitchenTableTheme.raised)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(KitchenTableTheme.hairline.opacity(0.45), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
     }
 
     private var agentImportStatus: some View {
-        ImportStatusPanel(
-            hasCurrentDraft: currentDraft != nil,
-            hasPendingImport: hasPendingImport,
-            hasProviderBlocker: hasProviderBlocker,
-            isOffline: isOffline
-        )
+        KitchenTableSection(title: "Import queue") {
+            ImportStatusPanel(
+                hasCurrentDraft: currentDraft != nil,
+                hasPendingImport: hasPendingImport,
+                hasProviderBlocker: hasProviderBlocker,
+                isOffline: isOffline
+            )
+            // An empty queue offers one way to fill it.
+            if currentDraft == nil, !hasPendingImport, !hasProviderBlocker, let shortcutsURL = Self.shortcutsURL {
+                Link(destination: shortcutsURL) {
+                    Label("Open Shortcuts", systemImage: "square.2.layers.3d")
+                }
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                .frame(maxWidth: 320, alignment: .leading)
+                .accessibilityIdentifier("capture.empty.openShortcuts")
+            }
+        }
     }
+
+    private static let shortcutsURL = URL(string: "shortcuts://")
 
     @ViewBuilder private var offlineStatus: some View {
         if let display = shellOfflineIndicatorState?.display, display.isVisible {
@@ -180,20 +184,17 @@ struct CaptureDraftView: View {
                     Task { await discard(draft) }
                 } label: {
                     Label("Delete capture", systemImage: "trash")
+                        .font(KitchenTableTheme.uiLabel)
+                        .foregroundStyle(KitchenTableTheme.tomato)
+                        .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                        .contentShape(Rectangle())
                 }
-                .buttonStyle(KitchenTableActionButtonStyle(prominence: .destructive))
+                .buttonStyle(.plain)
                 .disabled(actionInFlight)
             }
-            .buttonStyle(.borderless)
         }
-        .padding()
+        .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.page)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(KitchenTableTheme.brass.opacity(0.24))
-                .frame(height: 1)
-        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("capture.draft")
     }
@@ -292,13 +293,6 @@ private enum CaptureImportEntryPoint: String, CaseIterable, Identifiable {
         }
     }
 
-    var status: String {
-        switch self {
-        case .agentMCP, .appIntent:
-            "Ready"
-        }
-    }
-
     var symbolName: String {
         switch self {
         case .agentMCP:
@@ -320,22 +314,16 @@ private struct CaptureImportEntryPointRow: View {
                 .frame(width: 24)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(entryPoint.title)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.ink)
-                    Text(entryPoint.status)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.ink2)
-                }
+                Text(entryPoint.title)
+                    .font(KitchenTableTheme.objectTitle)
+                    .foregroundStyle(KitchenTableTheme.ink)
                 Text(entryPoint.detail)
                     .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
+        .padding(.vertical, 14)
     }
 }
 
@@ -346,23 +334,28 @@ private struct ImportStatusPanel: View {
     let isOffline: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
             Label(statusTitle, systemImage: statusSymbol)
-                .font(KitchenTableTheme.sectionTitle)
+                .font(KitchenTableTheme.indexTitle)
                 .foregroundStyle(statusForeground)
+                .fixedSize(horizontal: false, vertical: true)
             Text(statusBody)
-                .font(KitchenTableTheme.bodyNote)
+                .font(KitchenTableTheme.instructionBody)
                 .foregroundStyle(KitchenTableTheme.ink2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(statusBackground)
-        .overlay {
-            RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel)
-                .stroke(statusStroke, lineWidth: 1)
+        .padding(.leading, needsAttention ? 14 : 0)
+        .overlay(alignment: .leading) {
+            if needsAttention {
+                Rectangle().fill(statusForeground).frame(width: 2)
+            }
         }
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var needsAttention: Bool {
+        hasProviderBlocker || hasPendingImport
     }
 
     private var statusTitle: String {
@@ -418,25 +411,5 @@ private struct ImportStatusPanel: View {
             return KitchenTableTheme.brass
         }
         return KitchenTableTheme.ink
-    }
-
-    private var statusBackground: Color {
-        if hasProviderBlocker {
-            return KitchenTableTheme.tomato.opacity(0.08)
-        }
-        if hasPendingImport {
-            return KitchenTableTheme.brass.opacity(0.10)
-        }
-        return KitchenTableTheme.raised
-    }
-
-    private var statusStroke: Color {
-        if hasProviderBlocker {
-            return KitchenTableTheme.tomato.opacity(0.35)
-        }
-        if hasPendingImport {
-            return KitchenTableTheme.brass.opacity(0.35)
-        }
-        return KitchenTableTheme.hairline.opacity(0.45)
     }
 }

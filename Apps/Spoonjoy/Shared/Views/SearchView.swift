@@ -44,7 +44,6 @@ struct SearchView: View {
     var body: some View {
         KitchenTablePage {
             KitchenTableHeader(
-                eyebrow: "Kitchen Index",
                 title: "Search",
                 subtitle: search.query.isEmpty ? "Find something cookable." : "Results for \(search.query)",
                 hidesTitleInCompactNavigation: true
@@ -63,11 +62,22 @@ struct SearchView: View {
             }
 
             if viewModel.sections.isEmpty, let emptyState = viewModel.emptyState {
-                SearchSurfaceMessageView(
+                KitchenTableEmptyTile(
+                    systemImage: emptyState.systemImage,
                     title: emptyState.title,
-                    message: emptyState.message,
-                    systemImage: emptyState.systemImage
-                )
+                    message: emptyState.message
+                ) {
+                    // A narrowed search that finds nothing offers the whole of Spoonjoy as its one way on.
+                    if !search.query.isEmpty, search.scope != .all {
+                        Button {
+                            searchScopeBinding.wrappedValue = .all
+                        } label: {
+                            Label("Search everything", systemImage: "magnifyingglass")
+                        }
+                        .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
+                        .accessibilityIdentifier("search.empty.searchEverything")
+                    }
+                }
             } else {
                 ForEach(viewModel.sections) { section in
                     SearchSurfaceSectionView(section: section, recipeCovers: recipeCovers, cookbookCovers: cookbookCovers, openRoute: openRoute)
@@ -273,6 +283,9 @@ private struct SearchSurfaceSectionView: View {
     let cookbookCovers: [String: URL]
     let openRoute: (AppRoute) -> Void
     @Environment(\.moderation) private var moderation
+    /// The tab stack's cover-zoom namespace, so a recipe result grows into its recipe.
+    @Environment(\.recipeZoomNamespace) private var tabRecipeTransition
+    @Namespace private var localRecipeTransition
 
     /// Results from blocked chefs and things this person reported leave search at once, before the server's own
     /// filtering catches up.
@@ -288,14 +301,34 @@ private struct SearchSurfaceSectionView: View {
 
     private var rows: some View {
         KitchenTableSection(title: section.title) {
-            ForEach(visibleRows) { row in
-                Button {
-                    openRoute(row.openRoute)
-                } label: {
-                    SearchSurfaceRowView(row: row, imageURL: row.imageURL(recipeCovers: recipeCovers, cookbookCovers: cookbookCovers))
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(visibleRows) { row in
+                    if row.result.type == .recipe {
+                        if row.id != visibleRows.first?.id {
+                            RecipeIndexRowSeparator()
+                        }
+                        RecipeIndexRow(
+                            id: row.result.id,
+                            title: row.title,
+                            detail: [row.subtitle, row.snippetText ?? ""].filter { !$0.isEmpty }.joined(separator: " · "),
+                            coverURL: row.imageURL(recipeCovers: recipeCovers, cookbookCovers: cookbookCovers),
+                            shareURL: row.result.canonicalURL,
+                            accessibilityLabel: row.accessibilityLabel,
+                            namespace: tabRecipeTransition ?? localRecipeTransition
+                        ) {
+                            openRoute(row.openRoute)
+                        }
+                        .accessibilityIdentifier("search.result")
+                    } else {
+                        Button {
+                            openRoute(row.openRoute)
+                        } label: {
+                            SearchSurfaceRowView(row: row, imageURL: row.imageURL(recipeCovers: recipeCovers, cookbookCovers: cookbookCovers))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("search.result")
+                    }
                 }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("search.result")
             }
         }
     }
@@ -308,11 +341,6 @@ private struct SearchSurfaceRowView: View {
     var body: some View {
         KitchenTableObjectRow(title: row.title, subtitle: row.subtitle, detail: row.snippetText, titleFont: KitchenTableTheme.indexTitle) {
             SearchSurfaceThumbnail(row: row, imageURL: imageURL)
-        } trailing: {
-            Image(systemName: "chevron.right")
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.brass)
-                .accessibilityHidden(true)
         }
         .contentShape(Rectangle())
         .accessibilityElement(children: .combine)
@@ -448,22 +476,6 @@ private struct SearchSurfaceMessageView: View {
     let systemImage: String
 
     var body: some View {
-        Label {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(title)
-                    .font(.headline)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                Text(message)
-                    .font(KitchenTableTheme.uiLabel)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-            }
-        } icon: {
-            Image(systemName: systemImage)
-                .foregroundStyle(KitchenTableTheme.brass)
-        }
-        .padding(.vertical, 8)
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        KitchenTableEmptyTile(systemImage: systemImage, title: title, message: message)
     }
 }

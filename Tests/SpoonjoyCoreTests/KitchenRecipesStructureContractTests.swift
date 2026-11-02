@@ -67,6 +67,88 @@ struct KitchenRecipesStructureContractTests {
         )
     }
 
+    @Test("The spread's amount column moves above the name instead of splitting a word")
+    func spreadAmountNeverSplitsWords() throws {
+        // Review round 1: the fixed 72 pt column split "tablespoons" at the largest standard text size.
+        let path = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let detail = uncommentedSwift(try readRepoFile(path))
+        expectContent(
+            detail,
+            in: path,
+            contains: [
+                "@ScaledMetric(relativeTo: .caption) private var amountColumnWidth: CGFloat = 72",
+                "SpreadAmountColumn.placement(",
+                ".frame(width: amountColumnWidth, alignment: .leading)",
+                ".onGeometryChange(for: CGFloat.self, of: \\.size.width) { longestAmountWordWidth = $0 }"
+            ],
+            forbids: [".frame(width: 72, alignment: .leading)"]
+        )
+    }
+
+    @Test("The cook-log sheet uses an inline title, with no empty large-title band")
+    func cookLogSheetInlineTitle() throws {
+        // Review round 1: the sheet reserved a large-title row between Done and its first line.
+        let path = "Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"
+        let detail = uncommentedSwift(try readRepoFile(path))
+        expectContent(
+            detail,
+            in: path,
+            contains: [".navigationTitle(\"Cooks\")\n#if os(iOS)\n            .navigationBarTitleDisplayMode(.inline)\n#endif"],
+            forbids: []
+        )
+    }
+
+    @Test("Closing Cook mode cancels a spread turn in flight")
+    func spreadTurnCancelsOnClose() throws {
+        // Review round 1: the turn's task outlived Cook mode and could write progress after it closed.
+        let path = "Apps/Spoonjoy/Shared/Views/CookModeView.swift"
+        let cook = uncommentedSwift(try readRepoFile(path))
+        expectContent(
+            cook,
+            in: path,
+            contains: [
+                "spreadTurnTask = Task { @MainActor in",
+                "voice.send(.cookModeClosed)\n            spreadTurnTask?.cancel()",
+                // Review round 2: a turn cancelled halfway must not leave the page folded at 0.5.
+                "guard (try? await Task.sleep(for: .seconds(half))) != nil else {\n                withTransaction(reset) {\n                    spreadTurnPhase = 0\n                }\n                return\n            }"
+            ],
+            forbids: []
+        )
+    }
+
+    @Test("Search results use the recipe photos the Recipes list shows")
+    func searchUsesCatalogCovers() throws {
+        // Review round 1: search read covers only from loaded recipes, so it showed initials where Recipes had photos.
+        let shellPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
+        let shell = uncommentedSwift(try readRepoFile(shellPath))
+        expectContent(
+            shell,
+            in: shellPath,
+            contains: [
+                "recipeCovers: searchRecipeCovers,",
+                "for page in [contentState.recipeCatalog, contentState.savedRecipesCatalog, contentState.myRecipesCatalog] {"
+            ],
+            forbids: []
+        )
+    }
+
+    @Test("Page paper covers the top bar only once scrolled, so a large title shows at rest")
+    func pagePaperWaitsForScroll() throws {
+        // At rest the paper strip drew over the large title on the 6.9-inch phone, leaving an empty band.
+        let themePath = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+        let theme = uncommentedSwift(try readRepoFile(themePath))
+
+        expectContent(
+            theme,
+            in: themePath,
+            contains: [
+                "geometry.contentOffset.y + geometry.contentInsets.top > 1",
+                ".background(KitchenTableTheme.page.ignoresSafeArea(edges: .top))\n                    .opacity(isScrolled ? 1 : 0)"
+            ],
+            forbids: []
+        )
+    }
+
     @Test("Recipe index rows read as index entries instead of bare open rows")
     func kitchenRecipeIndexRowsReadAsIndexEntries() throws {
         let rowPath = "Apps/Spoonjoy/Shared/Components/RecipeIndexRow.swift"
@@ -80,7 +162,8 @@ struct KitchenRecipesStructureContractTests {
                 "recipe.servings",
                 "recipe.displayCoverProvenanceLabel",
                 ".joined(separator: \" · \")",
-                "ShareLink(item: content.shareURL)",
+                "if let shareURL = content.shareURL",
+                "ShareLink(item: shareURL)",
                 ".accessibilityHint(\"Opens the recipe\")"
             ],
             forbids: [
@@ -109,12 +192,13 @@ struct KitchenRecipesStructureContractTests {
                 "emptyState.title",
                 "emptyState.message",
                 "emptyState.systemImage",
-                "state.leadRow",
-                "state.indexRows",
+                "recipeIndex(rows: state.rows)",
+                "KitchenTableEmptyTile(",
                 "RecipeCoverPrefetcher.prefetch"
             ],
             forbids: [
                 "KitchenEmptySection(title: emptyState",
+                "RecipeCatalogLead(row:",
                 "emptyState: String?",
                 "catch {\n            state = viewModel.state\n        }"
             ]

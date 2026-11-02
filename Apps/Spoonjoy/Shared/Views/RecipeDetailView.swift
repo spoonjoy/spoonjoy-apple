@@ -537,7 +537,7 @@ struct RecipeDetailView: View {
         }
     }
 
-    /// The photo, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
+    /// The hero's height for the page as measured now; it changes continuously with the page's height.
     private var heroHeight: CGFloat {
         CGFloat(KitchenHeroStretch.heroHeight(
             preferred: Double(RecipeHeroMetrics.height(isRegular: !usesCompactRecipeDock)),
@@ -545,6 +545,7 @@ struct RecipeDetailView: View {
         ))
     }
 
+    /// The photo, stretched from its top edge while the page is pulled down, as the Kitchen's hero is.
     private func recipeHeroMedia(coverImageURL: URL) -> some View {
         GeometryReader { proxy in
             let scale = KitchenHeroStretch.scale(
@@ -812,6 +813,9 @@ struct RecipeDetailView: View {
                 cookLogView(showsHeader: false)
             }
             .navigationTitle("Cooks")
+#if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+#endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
@@ -1801,12 +1805,26 @@ extension RecipeDetailView {
 
 /// An ingredient on the left page of a recipe spread, set like a printed cookbook: the amount in its own
 /// column, then the ingredient in serif. Tapping it checks it off, the same progress the single page keeps.
+/// The column grows with the text size; when the amount's longest word would not fit it (and at every accessibility
+/// size), the amount sits above the name instead, so a unit such as "tablespoons" never splits mid-word.
 private struct RecipeSpreadIngredientRow: View {
     let name: String
     let amount: String
     let note: String?
     let isChecked: Bool
     let toggle: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption) private var amountColumnWidth: CGFloat = 72
+    @State private var longestAmountWordWidth: CGFloat = 0
+
+    private var amountPlacement: SpreadAmountColumn.Placement {
+        SpreadAmountColumn.placement(
+            longestWordWidth: longestAmountWordWidth,
+            columnWidth: amountColumnWidth,
+            isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
+        )
+    }
 
     var body: some View {
         Button(action: toggle) {
@@ -1816,12 +1834,15 @@ private struct RecipeSpreadIngredientRow: View {
                     .foregroundStyle(isChecked ? KitchenTableTheme.herb : KitchenTableTheme.lineStrong)
                     .frame(width: 24)
                     .accessibilityHidden(true)
-                Text(amount)
-                    .font(KitchenTableTheme.uiLabel)
-                    .monospacedDigit()
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .frame(width: 72, alignment: .leading)
+                if amountPlacement == .column {
+                    amountText
+                        .frame(width: amountColumnWidth, alignment: .leading)
+                }
                 VStack(alignment: .leading, spacing: 2) {
+                    if amountPlacement == .aboveName, !amount.isEmpty {
+                        amountText
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                     Text(name)
                         .font(KitchenTableTheme.instructionBody)
                         .foregroundStyle(isChecked ? KitchenTableTheme.ink2 : KitchenTableTheme.ink)
@@ -1838,10 +1859,33 @@ private struct RecipeSpreadIngredientRow: View {
             }
             .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
             .contentShape(Rectangle())
+            .background(alignment: .topLeading) { amountWordProbe }
         }
         .buttonStyle(.plain)
         .accessibilityLabel([name, amount, note ?? ""].filter { !$0.isEmpty }.joined(separator: ", "))
         .accessibilityValue(isChecked ? "used" : "not used")
+    }
+
+    /// Measures the amount's widest word at the current text size, unwrapped and out of sight.
+    private var amountWordProbe: some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(Array(SpreadAmountColumn.words(in: amount).enumerated()), id: \.offset) { _, word in
+                Text(word)
+                    .font(KitchenTableTheme.uiLabel)
+                    .monospacedDigit()
+                    .fixedSize()
+            }
+        }
+        .hidden()
+        .accessibilityHidden(true)
+        .onGeometryChange(for: CGFloat.self, of: \.size.width) { longestAmountWordWidth = $0 }
+    }
+
+    private var amountText: some View {
+        Text(amount)
+            .font(KitchenTableTheme.uiLabel)
+            .monospacedDigit()
+            .foregroundStyle(KitchenTableTheme.ink2)
     }
 }
 
@@ -1944,7 +1988,7 @@ private extension View {
 
 /// An ingredient, or an earlier step's output, in a step's checklist. The separator starts under the text, not
 /// the checkbox, and the name and amount share a baseline. At accessibility text sizes the cart icon gives its
-/// room to the words and the amount moves under the name.
+/// room to the words and the amount moves above the name.
 private struct RecipeStepChecklistRow: View {
     let title: String
     let note: String?
@@ -2000,8 +2044,8 @@ private struct RecipeStepChecklistRow: View {
     @ViewBuilder private var rowText: some View {
         if dynamicTypeSize.isAccessibilitySize {
             VStack(alignment: .leading, spacing: 4) {
-                nameAndNote
                 amountText
+                nameAndNote
             }
         } else {
             HStack(alignment: .firstTextBaseline, spacing: 12) {

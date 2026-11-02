@@ -28,6 +28,7 @@ struct SpoonCookLogView: View {
     @State private var actionStatusMessage: String?
     @State private var actionErrorMessage: String?
     @State private var actionInFlight = false
+    @State private var isLogging: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
@@ -49,6 +50,8 @@ struct SpoonCookLogView: View {
         _note = State(initialValue: draft?.note ?? "")
         _nextTime = State(initialValue: draft?.nextTime ?? "")
         _useAsRecipeCover = State(initialValue: draft?.useAsRecipeCover ?? false)
+        // A half-written cook stays open; otherwise logging starts from one button.
+        _isLogging = State(initialValue: draft != nil)
         _stagedPhoto = State(initialValue: draft?.stagedPhoto.map {
             SpoonCookLogPhotoAttachment(
                 localStageID: $0.localStageID,
@@ -69,6 +72,7 @@ struct SpoonCookLogView: View {
             createForm
             rows
         }
+        .animation(accessibilityReduceMotion ? nil : .snappy, value: isLogging)
         .sheet(item: $editingRow) { editing in
             SpoonCookLogEditSheet(
                 row: editing,
@@ -109,17 +113,33 @@ struct SpoonCookLogView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
+        VStack(alignment: .leading, spacing: 4) {
             Text("Cooks")
-                .font(.title2)
+                .font(KitchenTableTheme.sectionTitle)
                 .foregroundStyle(KitchenTableTheme.ink)
-            Spacer()
+                .accessibilityAddTraits(.isHeader)
+            if let tally {
+                Text(tally)
+                    .font(KitchenTableTheme.meta)
+                    .foregroundStyle(KitchenTableTheme.ink2)
+            }
             if let queuedWorkSummary = viewModel.queuedWorkSummary {
                 Label(queuedWorkSummary, systemImage: "clock.arrow.circlepath")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.brass)
             }
         }
+    }
+
+    /// "Cooked 7 times by 3 people": the dish's social proof, from the cooks already on the page.
+    private var tally: String? {
+        let rows = viewModel.rows
+        guard !rows.isEmpty else {
+            return nil
+        }
+        let cooks = rows.count == 1 ? "Cooked once" : "Cooked \(rows.count) times"
+        let people = Set(rows.map(\.chefLine)).count
+        return people > 1 ? "\(cooks) by \(people) people" : cooks
     }
 
     @ViewBuilder private var statusMessages: some View {
@@ -134,7 +154,7 @@ struct SpoonCookLogView: View {
                 Button(conflictBanner.actionTitle) {
                     runConflictAction(clientMutationID: conflictBanner.localClientMutationID)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(KitchenTableActionButtonStyle(prominence: .secondary))
                 .disabled(actionInFlight)
             }
         }
@@ -150,19 +170,33 @@ struct SpoonCookLogView: View {
         }
     }
 
-    private var createForm: some View {
-        cookLogForm
+    /// Logging is a moment, not a standing form: one button opens the note, the tip and the photo.
+    @ViewBuilder private var createForm: some View {
+        if isLogging {
+            cookLogForm
+                .transition(.opacity)
+        } else if viewModel.emptyState == nil {
+            logThisCookButton
+        }
+    }
+
+    private var logThisCookButton: some View {
+        Button {
+            isLogging = true
+        } label: {
+            Label("I cooked this", systemImage: "fork.knife")
+        }
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        // At accessibility sizes the 320 pt cap wraps "I cooked this" to two lines, which pushes it off a phone sheet.
+        .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 320, alignment: .leading)
+        .accessibilityIdentifier("cookLog.start")
     }
 
     private var cookLogForm: some View {
         let hasStagedPhoto = stagedPhoto != nil
         return VStack(alignment: .leading, spacing: 12) {
-            TextField("What changed?", text: $note, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(2...4)
-            TextField("Next time", text: $nextTime, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...3)
+            cookLogField("What changed?", text: $note, lines: 2...4)
+            cookLogField("Next time", text: $nextTime, lines: 1...3)
 
             cookLogPhotoSlot
             cookLogActionBar
@@ -185,6 +219,18 @@ struct SpoonCookLogView: View {
         .onChange(of: useAsRecipeCover) { _, _ in
             persistDraft()
         }
+    }
+
+    private func cookLogField(_ prompt: String, text: Binding<String>, lines: ClosedRange<Int>) -> some View {
+        TextField(prompt, text: text, prompt: Text(prompt).foregroundStyle(KitchenTableTheme.ink2), axis: .vertical)
+            .textFieldStyle(.plain)
+            .font(KitchenTableTheme.instructionBody)
+            .foregroundStyle(KitchenTableTheme.ink)
+            .lineLimit(lines)
+            .padding(.vertical, 10)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(KitchenTableTheme.hairline).frame(height: 1)
+            }
     }
 
     private var cookLogPhotoSlot: some View {
@@ -228,11 +274,20 @@ struct SpoonCookLogView: View {
 
     private var cookLogActionBar: some View {
         let hasStagedPhoto = stagedPhoto != nil
-        return HStack(spacing: 10) {
+        return HStack(spacing: 14) {
+            logCookButton
             if hasStagedPhoto {
                 clearPhotoButton
+            } else if note.isEmpty && nextTime.isEmpty {
+                Button("Not now") {
+                    isLogging = false
+                }
+                .buttonStyle(.plain)
+                .font(KitchenTableTheme.uiLabel)
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .frame(minHeight: KitchenTableTheme.minimumTouchTarget)
+                .disabled(actionInFlight)
             }
-            logCookButton
         }
     }
 
@@ -277,71 +332,65 @@ struct SpoonCookLogView: View {
 
     @ViewBuilder private var rows: some View {
         if let emptyState = viewModel.emptyState {
-            Label(emptyState.title, systemImage: emptyState.systemImage)
-                .font(KitchenTableTheme.uiLabel)
-                .foregroundStyle(KitchenTableTheme.ink2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityHint(emptyState.message)
+            if !isLogging {
+                KitchenTableEmptyTile(systemImage: emptyState.systemImage, title: emptyState.title, message: emptyState.message) {
+                    logThisCookButton
+                }
+            }
         } else {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(viewModel.rows) { row in
+                    if row.id != viewModel.rows.first?.id {
+                        Rectangle().fill(KitchenTableTheme.hairline).frame(height: 1)
+                    }
                     spoonRow(row)
                 }
             }
         }
     }
 
+    /// One cook as a journal entry: the plate's photo large, the note in the serif, and "next time" as the tip.
     private func spoonRow(_ row: SpoonCookLogRow) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            spoonPhoto(for: row)
-
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Label(row.chefLine, systemImage: "fork.knife")
-                        .font(.headline)
-                        .foregroundStyle(KitchenTableTheme.ink)
-                    Spacer()
-                    Text(row.cookedAtLabel)
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.ink2)
-                }
-                if let note = row.note {
-                    Text(note)
-                        .font(KitchenTableTheme.bodyNote)
-                        .foregroundStyle(KitchenTableTheme.ink2)
-                }
-                if let nextTime = row.nextTime {
-                    Label(nextTime, systemImage: "arrow.clockwise")
-                        .font(KitchenTableTheme.uiLabel)
-                        .foregroundStyle(KitchenTableTheme.brass)
-                }
+        VStack(alignment: .leading, spacing: 10) {
+            if let photoURL = row.photoURL {
+                RecipeCoverImage(url: photoURL)
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(4 / 3, contentMode: .fit)
+                    .frame(maxWidth: 520)
+                    .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                    .accessibilityHidden(true)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(row.chefLine)
+                    .font(KitchenTableTheme.objectTitle)
+                    .foregroundStyle(KitchenTableTheme.ink)
+                Text(row.cookedAtLabel)
+                    .font(KitchenTableTheme.meta)
+                    .foregroundStyle(KitchenTableTheme.ink2)
+                Spacer(minLength: 8)
                 if row.canEdit || row.canDelete {
-                    HStack {
-                        if row.canEdit {
-                            Button {
-                                editingRow = row
-                            } label: {
-                                Label("Edit", systemImage: "pencil")
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(actionInFlight)
-                        }
-                        if row.canDelete {
-                            Button(role: .destructive) {
-                                deletingRow = row
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                            .buttonStyle(.bordered)
-                            .disabled(actionInFlight)
-                        }
-                    }
+                    rowMenu(row)
                 }
             }
+            if let note = row.note {
+                Text(note)
+                    .font(KitchenTableTheme.instructionBody)
+                    .foregroundStyle(KitchenTableTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let nextTime = row.nextTime {
+                Text("\(Text("Next time").font(KitchenTableTheme.uiLabel).foregroundStyle(KitchenTableTheme.brass))  \(nextTime)")
+                    .font(KitchenTableTheme.bodyNote)
+                    .foregroundStyle(KitchenTableTheme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 12)
+                    .overlay(alignment: .leading) {
+                        Rectangle().fill(KitchenTableTheme.brass).frame(width: 2)
+                    }
+            }
         }
-        .padding()
-        .background(.background)
-        .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel))
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .confirmationDialog(
             "Delete cook log?",
             isPresented: Binding(
@@ -367,21 +416,32 @@ struct SpoonCookLogView: View {
         }
     }
 
-    @ViewBuilder private func spoonPhoto(for row: SpoonCookLogRow) -> some View {
-        if let photoURL = row.photoURL {
-            RecipeCoverImage(url: photoURL)
-                .frame(width: 76, height: 76)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
-        } else {
-            ZStack {
-                RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media)
-                    .fill(KitchenTableTheme.page)
-                Image(systemName: "fork.knife.circle")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(KitchenTableTheme.brass)
+    private func rowMenu(_ row: SpoonCookLogRow) -> some View {
+        Menu {
+            if row.canEdit {
+                Button {
+                    editingRow = row
+                } label: {
+                    Label("Edit", systemImage: "pencil")
+                }
             }
-            .frame(width: 76, height: 76)
+            if row.canDelete {
+                Button(role: .destructive) {
+                    deletingRow = row
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(KitchenTableTheme.bodyNote.weight(.semibold))
+                .foregroundStyle(KitchenTableTheme.ink2)
+                .frame(minWidth: KitchenTableTheme.minimumTouchTarget, minHeight: KitchenTableTheme.minimumTouchTarget)
+                .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .disabled(actionInFlight)
+        .accessibilityLabel("Cook actions")
     }
 
     @MainActor private func loadPhoto(_ item: PhotosPickerItem?) async {
@@ -490,6 +550,7 @@ struct SpoonCookLogView: View {
                 actionErrorMessage = nil
                 onSuccess?()
                 if case .create = action {
+                    isLogging = false
                     note = ""
                     nextTime = ""
                     selectedPhoto = nil

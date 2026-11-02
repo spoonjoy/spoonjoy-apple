@@ -307,9 +307,11 @@ struct SpoonjoyRootView: View {
                 },
                 onDismissOfflineIndicator: liveStore.dismissOfflineIndicator
             )
-            .navigationTitle("Account")
-#if os(iOS)
-            .navigationBarTitleDisplayMode(.large)
+            // The page header already says "Settings"; a bar title would stack a second one over it.
+#if os(macOS)
+            .navigationTitle("Settings")
+#else
+            .navigationBarTitleDisplayMode(.inline)
 #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

@@ -164,8 +164,14 @@ public enum LayoutAudit {
     /// A control cut by its scroll view's edge is scrolled, not clipped, when other content in the same scroll view
     /// starts at or past that edge. With nothing there, the scroll view does not scroll that way (a pager clipping a
     /// tall control at the screen's bottom), so the control is clipped. A neighbour cut by the same edge does not
-    /// count, so two clipped controls cannot excuse each other. Returns the edges that cut the control, or nil when
-    /// scrolling does not reveal it.
+    /// count, so two clipped controls cannot excuse each other.
+    ///
+    /// One exception: the last control in a scroll view laid out under the floating dock, cut at the edge the dock
+    /// sits on. Pages under the dock reserve room past their content so it scrolls clear of the dock, but that is
+    /// checked, not assumed: the scroll view's measured metrics must show it scrolls along that edge's axis with room
+    /// left to carry the control past the dock (`LayoutAuditElement.scrollsClear`). Without metrics there is no
+    /// exception. The control must cross the scroll view's edge; one that ends under the dock is judged by
+    /// `dockUnderlapLimit`. Returns the edges that cut the control, or nil when scrolling does not reveal it.
     private static func scrollingReveals(_ control: LayoutAuditElement, beyond visibleArea: LayoutAuditRect, among elements: [LayoutAuditElement]) -> [Edge]? {
         let neighbours = elements.filter {
             $0.index != control.index && $0.viewportIndex == control.viewportIndex && !$0.isRelated(to: control)
@@ -178,8 +184,13 @@ public enum LayoutAudit {
             (.top, frame.y < visibleArea.y - slack, { $0.maxY <= visibleArea.y + slack }),
             (.bottom, frame.maxY > visibleArea.maxY + slack, { $0.y >= visibleArea.maxY - slack })
         ]
+        let docks = elements.filter { control.scrollsUnderDock($0) }
         let cut = edges.filter(\.crosses)
-        guard cut.allSatisfy({ edge in neighbours.contains { edge.beyond($0.frame) } }) else {
+        guard cut.allSatisfy({ edge in
+            neighbours.contains { edge.beyond($0.frame) } || docks.contains {
+                edge.edge.faces($0.frame, in: visibleArea) && control.scrollsClear(of: $0.frame, past: edge.edge)
+            }
+        }) else {
             return nil
         }
         return cut.map(\.edge)
@@ -276,6 +287,8 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
     public let viewport: LayoutAuditRect?
     /// The nearest scrolling ancestor's snapshot index, so elements in the same scroll view can be compared.
     public let viewportIndex: Int?
+    /// The nearest scrolling ancestor's measured metrics; nil when they were not measured.
+    public let scroll: LayoutAuditScrollMetrics?
     /// The nearest non-scrolling ancestor with a frame, which the element must stay inside.
     public let container: LayoutAuditRect?
     /// True for an item of the system tab bar (the app's dock), which UIKit lays out.
@@ -291,6 +304,7 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
         frame: LayoutAuditRect,
         viewport: LayoutAuditRect?,
         viewportIndex: Int? = nil,
+        scroll: LayoutAuditScrollMetrics? = nil,
         container: LayoutAuditRect?,
         isDockItem: Bool = false
     ) {
@@ -303,6 +317,7 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
         self.frame = frame
         self.viewport = viewport
         self.viewportIndex = viewportIndex
+        self.scroll = scroll
         self.container = container
         self.isDockItem = isDockItem
     }
@@ -328,6 +343,95 @@ public struct LayoutAuditElement: Codable, Equatable, Sendable {
             return false
         }
         return viewport.contains(dockItem.frame)
+    }
+
+    /// True when the scroll view's measured metrics show it can carry this control, cut at `edge`, out from under
+    /// the dock at that edge: it scrolls along the edge's axis, and the extent left that way is at least the control's
+    /// hidden depth plus the dock's clearance from the edge, which is how far the control's far side runs past the
+    /// dock's near side.
+    func scrollsClear(of dock: LayoutAuditRect, past edge: LayoutAudit.Edge) -> Bool {
+        guard let scroll else {
+            return false
+        }
+        let needed = switch edge {
+        case .bottom: frame.maxY - dock.y
+        case .top: dock.maxY - frame.y
+        case .right: frame.maxX - dock.x
+        case .left: dock.maxX - frame.x
+        }
+        return scroll.axis.scrolls(across: edge) && scroll.remainingExtent(toward: edge) + LayoutAudit.tolerance >= needed
+    }
+}
+
+/// What the app measured of a scroll view at the moment of the audit, in points: its frame on screen, content size,
+/// content offset and adjusted content inset (the room UIKit adds for bars and the floating dock).
+public struct LayoutAuditScrollMetrics: Codable, Equatable, Sendable {
+    public enum Axis: String, Codable, Sendable {
+        case none
+        case vertical
+        case horizontal
+        case both
+
+        func scrolls(across edge: LayoutAudit.Edge) -> Bool {
+            switch edge {
+            case .top, .bottom: self == .vertical || self == .both
+            case .left, .right: self == .horizontal || self == .both
+            }
+        }
+    }
+
+    public let frame: LayoutAuditRect
+    public let contentWidth: Double
+    public let contentHeight: Double
+    public let offsetX: Double
+    public let offsetY: Double
+    public let insetTop: Double
+    public let insetLeft: Double
+    public let insetBottom: Double
+    public let insetRight: Double
+
+    public init(
+        frame: LayoutAuditRect,
+        contentWidth: Double,
+        contentHeight: Double,
+        offsetX: Double,
+        offsetY: Double,
+        insetTop: Double,
+        insetLeft: Double,
+        insetBottom: Double,
+        insetRight: Double
+    ) {
+        self.frame = frame
+        self.contentWidth = contentWidth
+        self.contentHeight = contentHeight
+        self.offsetX = offsetX
+        self.offsetY = offsetY
+        self.insetTop = insetTop
+        self.insetLeft = insetLeft
+        self.insetBottom = insetBottom
+        self.insetRight = insetRight
+    }
+
+    /// The axes along which the content, with its insets, is larger than the frame.
+    public var axis: Axis {
+        let vertical = contentHeight + insetTop + insetBottom - frame.height > LayoutAudit.tolerance
+        let horizontal = contentWidth + insetLeft + insetRight - frame.width > LayoutAudit.tolerance
+        return switch (vertical, horizontal) {
+        case (true, true): .both
+        case (true, false): .vertical
+        case (false, true): .horizontal
+        case (false, false): .none
+        }
+    }
+
+    /// How much farther the content can scroll to bring in what lies past `edge`.
+    func remainingExtent(toward edge: LayoutAudit.Edge) -> Double {
+        switch edge {
+        case .bottom: contentHeight + insetBottom - offsetY - frame.height
+        case .top: offsetY + insetTop
+        case .right: contentWidth + insetRight - offsetX - frame.width
+        case .left: offsetX + insetLeft
+        }
     }
 }
 

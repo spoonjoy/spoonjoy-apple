@@ -72,11 +72,26 @@ public enum ShoppingReceiptStateRole: Equatable, Sendable {
     case success
 }
 
+/// What an empty receipt offers, so a view branches on the action rather than on its title.
+public enum ShoppingReceiptAction: Equatable, Sendable {
+    case addItem
+    case clearChecked
+    case reviewQueuedWork
+
+    public var title: String {
+        switch self {
+        case .addItem: "Add item"
+        case .clearChecked: "Clear checked"
+        case .reviewQueuedWork: "Review queued work"
+        }
+    }
+}
+
 public struct ShoppingReceiptState: Equatable, Sendable {
     public let title: String
     public let message: String
     public let systemImage: String
-    public let actionTitle: String?
+    public let action: ShoppingReceiptAction?
     public let duplicateCountLabel: String?
     public let role: ShoppingReceiptStateRole
 
@@ -84,16 +99,20 @@ public struct ShoppingReceiptState: Equatable, Sendable {
         title: String,
         message: String,
         systemImage: String,
-        actionTitle: String? = nil,
+        action: ShoppingReceiptAction? = nil,
         duplicateCountLabel: String? = nil,
         role: ShoppingReceiptStateRole = .ordinary
     ) {
         self.title = title
         self.message = message
         self.systemImage = systemImage
-        self.actionTitle = actionTitle
+        self.action = action
         self.duplicateCountLabel = duplicateCountLabel
         self.role = role
+    }
+
+    public var actionTitle: String? {
+        action?.title
     }
 
     public var isSuccess: Bool {
@@ -1288,7 +1307,7 @@ public struct ShoppingSurfaceViewModel {
         let activeCount = shoppingList.activeItems.count
         let completedCount = shoppingList.completedItems.count
         if completedCount > 0 {
-            return "\(activeCount) active - \(completedCount) checked"
+            return "\(activeCount) active · \(completedCount) checked"
         }
 
         return "\(activeCount) active"
@@ -1338,7 +1357,7 @@ public struct ShoppingSurfaceViewModel {
                 ? "Connect to Spoonjoy to load your current shopping list."
                 : "Add an item or pull ingredients from a recipe.",
             systemImage: loadState == .needsLiveLoad ? "arrow.clockwise" : "cart",
-            actionTitle: loadState == .needsLiveLoad ? nil : "Add item"
+            action: loadState == .needsLiveLoad ? nil : .addItem
         )
     }
 
@@ -1347,7 +1366,7 @@ public struct ShoppingSurfaceViewModel {
             title: "All checked off",
             message: "Nice. Clear checked items when you're ready to reset the receipt.",
             systemImage: "checkmark.circle",
-            actionTitle: "Clear checked",
+            action: .clearChecked,
             role: .success
         )
     }
@@ -1361,7 +1380,7 @@ public struct ShoppingSurfaceViewModel {
             title: "Saved for sync",
             message: queuedWorkSummary,
             systemImage: "arrow.triangle.2.circlepath",
-            actionTitle: "Review queued work"
+            action: .reviewQueuedWork
         )
     }
 
