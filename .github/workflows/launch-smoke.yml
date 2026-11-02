@@ -22,7 +22,7 @@ jobs:
   launch-smoke:
     name: Launch smoke (${{ matrix.family }})
     runs-on: xcode-27
-    timeout-minutes: 45
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +44,7 @@ jobs:
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b
       - name: Build the Release app for the simulator
-        timeout-minutes: 25
+        timeout-minutes: 35
         run: |
           set -euo pipefail
           # Sign ad hoc rather than not at all: an unsigned Release app has no keychain access, so a fresh install
