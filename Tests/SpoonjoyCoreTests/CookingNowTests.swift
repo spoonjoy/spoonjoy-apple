@@ -163,7 +163,8 @@ struct CookingNowTests {
                 Self.entry("pasta", stepIndex: 1, stepCount: 5, touched: -10, cover: URL(string: "https://spoonjoy.app/old.jpg")),
                 Self.entry("away", stepIndex: 1, stepCount: 2, touched: -20, cover: URL(string: "https://spoonjoy.app/a.jpg"))
             ],
-            recipes: [pasta]
+            // A recipe listed twice keeps its first record.
+            recipes: [pasta, Self.recipe("pasta", title: "Pasta", cover: URL(string: "https://spoonjoy.app/second.jpg"))]
         )
         #expect(rows.map(\.coverURL) == [photo, URL(string: "https://spoonjoy.app/a.jpg")])
         #expect(rows[0].stepIndex == 1)
