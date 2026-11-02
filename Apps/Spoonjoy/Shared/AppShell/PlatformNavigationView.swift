@@ -447,14 +447,14 @@ struct PlatformNavigationView: View {
         // While a recipe is part-way cooked, the tab bar carries it: one tap back to its step from any tab, and a
         // menu to switch between recipes on the go. The Kitchen's own page leaves it off: its Cooking now strip is
         // already the switcher, and on the closed Duo the accessory would float over the strip's first plate.
-        .tabViewBottomAccessory(isEnabled: showsCookingNowAccessory) {
+        .modifier(CookingNowTabAccessory(isEnabled: showsCookingNowAccessory) {
             CookingNowAccessory(entries: cookingNow?.entries ?? [], resume: startCooking)
                 .onGeometryChange(for: CGRect.self) { proxy in
                     proxy.frame(in: .global)
                 } action: { frame in
                     cookingNowAccessoryFrame = frame
                 }
-        }
+        })
         .modifier(SearchTabActivation(focusesOnSelection: shouldAutoFocusSearchField))
 #endif
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
@@ -2962,3 +2962,20 @@ struct ClearsBottomAccessory: ViewModifier {
         return max(0, visibleBottom - accessory.minY + 12)
     }
 }
+
+#if os(iOS)
+/// The tab bar's Cooking now switcher. Turning the accessory off per page needs iOS 26.1; the release archive targets
+/// iOS 26.0, where the switcher is left off and the Kitchen strip still resumes every recipe.
+private struct CookingNowTabAccessory<Accessory: View>: ViewModifier {
+    let isEnabled: Bool
+    @ViewBuilder let accessory: () -> Accessory
+
+    func body(content: Content) -> some View {
+        if #available(iOS 26.1, *) {
+            content.tabViewBottomAccessory(isEnabled: isEnabled, content: accessory)
+        } else {
+            content
+        }
+    }
+}
+#endif
