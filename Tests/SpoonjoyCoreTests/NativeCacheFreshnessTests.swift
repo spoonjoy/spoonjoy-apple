@@ -24,6 +24,22 @@ struct NativeCacheFreshnessTests {
         #expect(try JSONDecoder().decode(NativeCacheEnvironment.self, from: encoded) == .previewHost("branch-preview.spoonjoy.app"))
     }
 
+    @Test("a page's informational status hides once the chef dismisses the app's offline status")
+    func pageInformationalStatusHonorsShellDismissal() {
+        let stale = OfflineIndicatorDisplay.stale(domain: .recipeCatalog)
+        let dismissedShell = OfflineIndicatorDisplay.dismissed(previous: .offline, reason: .informationalOnly)
+
+        #expect(stale.honoringShellDismissal(dismissedShell) == .dismissed(previous: stale, reason: .informationalOnly))
+        #expect(!stale.honoringShellDismissal(dismissedShell).isVisible)
+        #expect(stale.honoringShellDismissal(.offline) == stale)
+        #expect(stale.honoringShellDismissal(nil) == stale)
+        #expect(OfflineIndicatorDisplay.synced.honoringShellDismissal(dismissedShell) == .synced)
+        let queued = OfflineIndicatorDisplay.queuedWork(count: 1, oldestClientMutationID: "mutation_1")
+        #expect(queued.honoringShellDismissal(dismissedShell) == queued)
+        let alreadyDismissed = OfflineIndicatorDisplay.dismissed(previous: stale, reason: .informationalOnly)
+        #expect(alreadyDismissed.honoringShellDismissal(dismissedShell) == alreadyDismissed)
+    }
+
     @Test("expanded native cache behavior contract is executable")
     func expandedNativeCacheBehaviorContractIsExecutable() throws {
         let result = try runSwiftContractPackage(

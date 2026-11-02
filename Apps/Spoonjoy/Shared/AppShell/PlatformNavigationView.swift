@@ -965,6 +965,7 @@ struct PlatformNavigationView: View {
             discardSpoonCookLogConflict: discardSpoonCookLogConflict(clientMutationID:),
             performShoppingAction: performShoppingAction,
             onDismissOfflineIndicator: dismissOfflineIndicator,
+            shellOfflineIndicatorDisplay: offlineIndicatorState.display,
         )
     }
 

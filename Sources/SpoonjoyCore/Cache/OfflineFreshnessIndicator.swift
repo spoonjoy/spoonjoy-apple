@@ -46,6 +46,16 @@ public indirect enum OfflineIndicatorDisplay: Codable, Equatable, Hashable, Send
             true
         }
     }
+
+    /// A page's own status, hidden once the chef has dismissed the app's offline status. A page's informational
+    /// status (a saved copy that may be stale) has no dismissal of its own; its dismiss button hides the app's, so
+    /// the page follows that choice the way the reducer carries a dismissed offline status into a stale one.
+    public func honoringShellDismissal(_ shell: OfflineIndicatorDisplay?) -> OfflineIndicatorDisplay {
+        guard case .dismissed = shell, isVisible, informationalOnly else {
+            return self
+        }
+        return .dismissed(previous: self, reason: .informationalOnly)
+    }
 }
 
 public struct OfflineIndicatorState: Codable, Equatable, Hashable, Sendable {
