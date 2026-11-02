@@ -2,6 +2,7 @@
 
 # Run: ruby scripts/test/app_store_listing_test.rb
 require "minitest/autorun"
+require "stringio"
 require "tmpdir"
 require "zlib"
 require_relative "../lib/app_store_listing"
@@ -96,11 +97,14 @@ class AppStoreListingTest < Minitest::Test
     steps = AppStoreListing.plan(listing: listing, snapshot: empty_snapshot, screenshots: shots,
                                  secrets: { "demoAccountName" => "johnnyappleseed", "demoAccountPassword" => "s3cret" })
     actions = steps.map { |s| s["action"] }
-    assert_equal %w[patch_app patch_categories patch_age_rating patch_app_info_localization create_version attach_build
-                    create_version_localization create_review_detail set_free_price set_availability sync_screenshots], actions
+    assert_equal %w[patch_app patch_categories patch_age_rating patch_app_info_localization create_version create_phased_release
+                    attach_build create_version_localization create_review_detail set_free_price set_availability sync_screenshots], actions
     refute(actions.any? { |a| a.include?("submi") })
+    create = steps.find { |s| s["action"] == "create_version" }
+    refute create["attributes"].key?("phasedRelease"), "phasedRelease is its own App Store Connect object, not a version attribute"
+    assert_equal "$version", steps.find { |s| s["action"] == "create_phased_release" }["versionId"]
     version_localization = steps.find { |s| s["action"] == "create_version_localization" }
-    refute version_localization["attributes"].key?("whatsNew"), "a first version cannot carry What's New"
+    assert_equal listing["localizations"]["en-US"]["whatsNew"], version_localization["attributes"]["whatsNew"]
     review = steps.find { |s| s["action"] == "create_review_detail" }
     assert_equal "johnnyappleseed", review["attributes"]["demoAccountName"]
     assert_equal "$version", review["versionId"]
@@ -123,7 +127,7 @@ class AppStoreListingTest < Minitest::Test
                      "ageRatingId" => "age1", "ageRating" => listing["ageRating"],
                      "localization" => { "id" => "il", "attributes" => fields.slice(*AppStoreListing::APP_INFO_LOCALIZATION_FIELDS) } },
       "version" => {
-        "id" => "v1", "attributes" => listing["version"], "buildId" => "build88",
+        "id" => "v1", "attributes" => listing["version"], "buildId" => "build88", "phasedRelease" => { "id" => "pr1" },
         "localization" => { "id" => "vl", "attributes" => fields.slice(*AppStoreListing::VERSION_LOCALIZATION_FIELDS) },
         "reviewDetail" => { "id" => "rd", "attributes" => listing["review"].slice(*AppStoreListing::REVIEW_FIELDS) },
         "screenshotSets" => { "APP_IPHONE_67" => { "id" => "set1", "checksums" => ["c1"] } }
@@ -182,8 +186,8 @@ class AppStoreListingTest < Minitest::Test
       errors = AppStoreListing.validate(mac_listing, dir)
       assert_equal ["mac/02-spread.png is 2752x2064; allowed: 2880x1800, 2560x1600, 1440x900, 1280x800"], errors
     end
-    copy = mac_listing["localizations"]["en-US"].values_at("description", "promotionalText").join("\n") + mac_listing["review"]["notes"]
-    ["Lock Screen", "Dynamic Island", "Duo", "hinge", "stays awake", "system timer", "tap"].each do |claim|
+    copy = mac_listing["localizations"]["en-US"].values_at("description", "promotionalText", "whatsNew").join("\n") + mac_listing["review"]["notes"]
+    ["Lock Screen", "Dynamic Island", "Duo", "hinge", "stays awake", "system timer", "tap", "Command-N", "iPhone Duo"].each do |claim|
       refute_includes copy, claim
     end
   end
@@ -200,16 +204,17 @@ class AppStoreListingTest < Minitest::Test
     steps = AppStoreListing.plan(listing: mac_listing, snapshot: mac_snapshot, screenshots: mac_shots,
                                  secrets: { "demoAccountName" => "johnnyappleseed", "demoAccountPassword" => "s3cret" })
     actions = steps.map { |s| s["action"] }
-    assert_equal %w[create_version attach_build create_version_localization create_review_detail sync_screenshots], actions
+    assert_equal %w[create_version create_phased_release attach_build create_version_localization create_review_detail sync_screenshots],
+                 actions
     assert_empty actions & APP_LEVEL_ACTIONS
     create = steps.first
-    assert_equal ["Create macOS version 1.0", "MAC_OS"], [create["summary"], create["platform"]]
-    assert_equal "macbuild2", steps[1]["buildId"]
-    localization = steps[2]["attributes"]
+    assert_equal ["Create macOS version 1.1", "MAC_OS"], [create["summary"], create["platform"]]
+    assert_equal "macbuild2", steps[2]["buildId"]
+    localization = steps[3]["attributes"]
     assert_equal mac_listing["localizations"]["en-US"]["description"], localization["description"]
     assert_equal "https://spoonjoy.app/support", localization["supportUrl"]
-    refute localization.key?("whatsNew")
-    assert_equal listing["mac"]["review"]["notes"], steps[3]["attributes"]["notes"]
+    assert_equal listing["mac"]["localizations"]["en-US"]["whatsNew"], localization["whatsNew"]
+    assert_equal listing["mac"]["review"]["notes"], steps[4]["attributes"]["notes"]
     assert_equal "APP_DESKTOP", steps.last["displayType"]
   end
 
@@ -222,11 +227,12 @@ class AppStoreListingTest < Minitest::Test
     }
     steps = AppStoreListing.plan(listing: mac, snapshot: mac_snapshot(version: version), screenshots: mac_shots,
                                  secrets: { "demoAccountPassword" => "s3cret" })
-    assert_equal %w[patch_version attach_build patch_version_localization create_review_detail sync_screenshots], steps.map { |s| s["action"] }
-    assert_equal({ "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" }, steps.first["attributes"])
+    assert_equal %w[patch_version create_phased_release attach_build patch_version_localization create_review_detail sync_screenshots],
+                 steps.map { |s| s["action"] }
+    assert_equal({ "versionString" => "1.1", "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" }, steps.first["attributes"])
 
     staged = version.merge(
-      "attributes" => mac["version"], "buildId" => "macbuild2",
+      "attributes" => mac["version"], "buildId" => "macbuild2", "phasedRelease" => { "id" => "macpr" },
       "localization" => { "id" => "macvl", "attributes" => fields.slice(*AppStoreListing::VERSION_LOCALIZATION_FIELDS) },
       "reviewDetail" => { "id" => "macrd", "attributes" => mac["review"].slice(*AppStoreListing::REVIEW_FIELDS) },
       "screenshotSets" => { "APP_DESKTOP" => { "id" => "macset", "checksums" => ["m1"] } }
@@ -359,6 +365,81 @@ class AppStoreListingTest < Minitest::Test
     source = File.read(File.join(ROOT, "scripts/lib/app_store_listing.rb")) + File.read(File.join(ROOT, "scripts/stage-app-store-listing.rb"))
     refute_match(/reviewSubmission/, source)
   end
+  def test_listing_ships_1_1_with_whats_new_and_a_phased_automatic_release
+    [listing, mac_listing].each do |platform_listing|
+      version = platform_listing["version"]
+      assert_equal ["1.1", "AFTER_APPROVAL", true], version.values_at("versionString", "releaseType", "phasedRelease")
+      whats_new = platform_listing["localizations"]["en-US"]["whatsNew"].to_s
+      refute_empty whats_new
+      assert_operator whats_new.length, :<=, AppStoreListing::LIMITS.fetch("whatsNew")
+    end
+    refute_equal listing["localizations"]["en-US"]["whatsNew"], mac_listing["localizations"]["en-US"]["whatsNew"]
+  end
+
+  def test_listing_no_longer_promises_adding_a_recipe_in_the_app
+    copy = [listing["localizations"]["en-US"]["description"], mac_listing["localizations"]["en-US"]["description"]].join("\n")
+    refute_includes copy, "Command-N"
+    refute_match(/to add a recipe/i, copy)
+  end
+
+  def test_unwanted_or_existing_phased_release_plans_no_step
+    unwanted = JSON.parse(JSON.generate(mac_listing))
+    unwanted["version"]["phasedRelease"] = false
+    steps = AppStoreListing.plan(listing: unwanted, snapshot: mac_snapshot, screenshots: mac_shots, secrets: {})
+    refute_includes steps.map { |s| s["action"] }, "create_phased_release"
+  end
+
+  class FakeVersionClient
+    def get(path, _query = {})
+      case path
+      when "/v1/apps" then { "data" => [{ "id" => "app1" }] }
+      when "/v1/appStoreVersions/v1/appStoreVersionPhasedRelease"
+        { "data" => { "id" => "pr1", "attributes" => { "phasedReleaseState" => "INACTIVE" } } }
+      else { "data" => nil }
+      end
+    end
+
+    def get_all(path, _query = {})
+      return [] unless path == "/v1/apps/app1/appStoreVersions"
+
+      [{ "id" => "v1", "attributes" => { "appStoreState" => "PREPARE_FOR_SUBMISSION", "versionString" => "1.1",
+                                          "copyright" => "2026 Ari Mendelow", "releaseType" => "AFTER_APPROVAL" } }]
+    end
+  end
+
+  def test_reader_reads_the_versions_phased_release
+    version = AppStoreListing::Reader.new(FakeVersionClient.new, listing).send(:version)
+    assert_equal({ "id" => "pr1", "state" => "INACTIVE" }, version["phasedRelease"])
+  end
+
+  def test_reader_treats_a_missing_phased_release_as_none
+    client = Class.new(FakeVersionClient) do
+      def get(path, query = {})
+        raise AppStoreListing::Error, "HTTP 404 #{path}" if path.end_with?("/appStoreVersionPhasedRelease")
+
+        super
+      end
+    end.new
+    assert_nil AppStoreListing::Reader.new(client, listing).send(:version)["phasedRelease"]
+  end
+
+  def test_executor_creates_an_inactive_phased_release_for_the_new_version
+    posts = []
+    client = Object.new
+    client.define_singleton_method(:post) do |path, body|
+      posts << [path, body]
+      { "data" => { "id" => path == "/v1/appStoreVersions" ? "newv" : "newpr" } }
+    end
+    client.define_singleton_method(:get_all) { |_path, _query = {}| [{ "id" => "newvl" }] }
+    steps = [{ "action" => "create_version", "attributes" => { "versionString" => "1.1" }, "platform" => "IOS" },
+             { "action" => "create_phased_release", "versionId" => "$version" }]
+    AppStoreListing::Executor.new(client, "app1", log: StringIO.new).run(steps)
+    path, body = posts.last
+    assert_equal "/v1/appStoreVersionPhasedReleases", path
+    assert_equal({ data: { type: "appStoreVersionPhasedReleases", attributes: { phasedReleaseState: "INACTIVE" },
+                           relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: "newv" } } } } }, body)
+  end
+
   def test_api_errors_include_associated_errors
     body = JSON.generate("errors" => [{ "title" => "not in valid state", "detail" => "check associated errors",
                                         "meta" => { "associatedErrors" => { "/v1/appStoreVersions/x" => [
