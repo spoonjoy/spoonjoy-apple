@@ -1096,13 +1096,16 @@ write_cache_state() {
   local route="$2"
   ruby -rjson -rfileutils -rtime -e '
     path, route, account_id, settings_variant, apns_registration_state = ARGV
+    # Store art shows a kitchen synced moments ago, so it sets SPOONJOY_SCREENSHOT_CACHE_VALIDATED_AT to the capture time.
+    # Without it the fixed 2026 date keeps captures reproducible, and older pages show their real "may be stale" state.
+    cache_time = Time.parse(ENV.fetch("SPOONJOY_SCREENSHOT_CACHE_VALIDATED_AT", "2026-06-16T12:09:00Z")) - Time.utc(2001, 1, 1)
     FileUtils.mkdir_p(File.dirname(path))
     if route == "settings" && settings_variant == "signed-out"
       File.write(path, JSON.pretty_generate({
         "schemaVersion" => 2,
         "accountID" => account_id,
         "environment" => "production",
-        "createdAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+        "createdAt" => cache_time,
         "records" => [],
         "dismissedIndicators" => [],
         "pendingMutationQueue" => { "mutations" => [] }
@@ -1114,7 +1117,7 @@ write_cache_state() {
         "schemaVersion" => 2,
         "accountID" => account_id,
         "environment" => "production",
-        "createdAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+        "createdAt" => cache_time,
         "records" => [
           {
             "id" => "recipe-catalog",
@@ -1123,8 +1126,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "recipeCatalog" => {} },
-              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
-              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "fetchedAt" => cache_time,
+              "lastValidatedAt" => cache_time,
               "sourceEndpoint" => "/api/v1/recipes",
               "serverRevision" => { "cursor" => { "_0" => "screenshot-kitchen" } }
             },
@@ -1137,8 +1140,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "recipeDetail" => { "id" => "recipe_lemon_pantry_pasta" } },
-              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
-              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "fetchedAt" => cache_time,
+              "lastValidatedAt" => cache_time,
               "sourceEndpoint" => "/api/v1/recipes/recipe_lemon_pantry_pasta",
               "serverRevision" => { "etag" => { "_0" => "\"recipe-screenshot-v1\"" } }
             },
@@ -1156,8 +1159,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "cookbookList" => {} },
-              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
-              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "fetchedAt" => cache_time,
+              "lastValidatedAt" => cache_time,
               "sourceEndpoint" => "/api/v1/cookbooks",
               "serverRevision" => { "cursor" => { "_0" => "screenshot-cookbooks" } }
             },
@@ -1170,8 +1173,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "cookbookDetail" => { "id" => "cookbook_weeknights" } },
-              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
-              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "fetchedAt" => cache_time,
+              "lastValidatedAt" => cache_time,
               "sourceEndpoint" => "/api/v1/cookbooks/cookbook_weeknights",
               "serverRevision" => { "etag" => { "_0" => "\"cookbook-screenshot-v1\"" } }
             },
@@ -2028,6 +2031,9 @@ capture_ios_app() {
     printf 'Spoonjoy did not write the expected %s accessibility proof for %s\n' "$expected_platform" "$screenshot_route" >> "$capture_log"
     return 1
   fi
+  if [[ "${SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS:-0}" == "1" ]]; then
+    hide_ios_offline_status "$udid" || return 1
+  fi
   if ! wait_for_ios_foreground "$udid"; then
     printf 'Spoonjoy stopped being the front display before screenshot capture\n' >> "$capture_log"
     return 1
@@ -2045,6 +2051,25 @@ capture_ios_app() {
   validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1 || return 1
   if [[ -n "$layout_audit_xctestrun" ]]; then
     run_ios_layout_audit "$udid" "$expected_platform" "$accessibility_proof_output" "$ios_app_dir" || return 1
+  fi
+}
+
+# Store art: taps the offline status's own dismiss button on the running app, as a chef would, so a capture from the
+# saved kitchen looks like the online app. Needs the layout audit's test bundle.
+hide_ios_offline_status() {
+  local udid="$1"
+  if [[ -z "$layout_audit_xctestrun" ]]; then
+    printf 'SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS=1 needs SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN\n' >> "$capture_log"
+    return 1
+  fi
+  if ! run_with_timeout "hide offline status timeout" "$layout_audit_timeout_seconds" "$capture_log" \
+    env TEST_RUNNER_SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS=1 \
+      xcodebuild test-without-building -xctestrun "$layout_audit_xctestrun" \
+        -destination "platform=iOS Simulator,id=$udid" \
+        -only-testing:SpoonjoyShoppingUITests/LayoutAuditUITests/testHideOfflineStatusOnRunningApp \
+        -parallel-testing-enabled NO -collect-test-diagnostics never; then
+    printf 'hiding the offline status failed for %s\n' "$udid" >> "$capture_log"
+    return 1
   fi
 }
 
