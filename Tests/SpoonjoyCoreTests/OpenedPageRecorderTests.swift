@@ -46,7 +46,8 @@ struct OpenedPageRecorderTests {
         // The link starts a new process: it arrives before the window is named.
         var recorder = OpenedPageRecorder()
         #expect(recorder.opened(.kitchen) == nil)
-        let page = try #require(recorder.sceneIdentified("scene_a"))
+        let identified = recorder.sceneIdentified("scene_a")
+        let page = try #require(identified)
         book.record(page.route, scene: page.sceneID, at: Date(timeIntervalSince1970: 1_793_000_060))
 
         let reopened = SceneRestoration.route(
