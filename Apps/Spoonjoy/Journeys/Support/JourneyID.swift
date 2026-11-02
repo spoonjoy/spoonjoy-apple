@@ -165,6 +165,14 @@ enum JourneyID {
     static let recipeTabletopMethod = "recipeTabletop.method"
     static let recipeTabletopIngredients = "recipeTabletop.ingredients"
 
+    /// Every recipe in the Kitchen's "Cooking now"; the label starts with the recipe's title and its step.
+    static let kitchenCookingNowCard = "kitchen.cookingNow.card"
+    /// The tab bar accessory, and its button that goes back to the newest recipe in progress.
+    static let cookingNowAccessoryBar = "cookingNow.accessory"
+    static let cookingNowAccessoryResume = "cookingNow.accessory.resume"
+    /// Compact cook mode's Close, in the toolbar over the full-screen cover.
+    static let cookClose = "cook.close"
+
     /// Every result row in Search.
     static let searchResult = "search.result"
 

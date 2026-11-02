@@ -33,6 +33,8 @@ struct PlatformNavigationView: View {
     @State private var isSidebarCookbookContentsExpanded = true
     /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
     @Environment(\.scenePhase) private var scenePhase
+    /// What the chef is part-way through, for the tab bar's switcher; absent in previews and fixtures.
+    @Environment(CookingNowCenter.self) private var cookingNow: CookingNowCenter?
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
     /// Add a recipe replaces the old New Recipe form: every create entry, ⌘N and `/recipes/new` open this sheet.
@@ -438,6 +440,11 @@ struct PlatformNavigationView: View {
         }
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
+        // While a recipe is part-way cooked, the tab bar carries it: one tap back to its step from any tab, and a
+        // menu to switch between recipes on the go.
+        .tabViewBottomAccessory(isEnabled: !(cookingNow?.entries.isEmpty ?? true)) {
+            CookingNowAccessory(entries: cookingNow?.entries ?? [], resume: startCooking)
+        }
         .modifier(SearchTabActivation(focusesOnSelection: shouldAutoFocusSearchField))
 #endif
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal

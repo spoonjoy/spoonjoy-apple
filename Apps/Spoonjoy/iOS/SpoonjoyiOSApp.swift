@@ -5,6 +5,10 @@ import UIKit
 @main
 struct SpoonjoyiOSApp: App {
     @UIApplicationDelegateAdaptor(SpoonjoyiOSAppDelegate.self) private var appDelegate
+    /// One store and one Cooking now list for every window, so two windows side by side show the same kitchen and
+    /// sync it once.
+    @StateObject private var liveStore = NativeLiveAppStore(dependencies: SpoonjoyRootView.defaultDependencies())
+    @State private var cookingNow = CookingNowCenter()
 
     init() {
         #if DEBUG
@@ -15,8 +19,11 @@ struct SpoonjoyiOSApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
-            SpoonjoyRootView()
+        // Each window carries the page it was opened for; the system keeps that value with the window, and the root
+        // view keeps where the window went from there. Opening a recipe that already has a window brings that window
+        // forward, so a recipe is never open twice.
+        WindowGroup(for: WindowRoute.self) { $windowRoute in
+            SpoonjoyRootView(liveStore: liveStore, cookingNow: cookingNow, windowValue: windowRoute)
                 .debugReduceMotion()
                 .journeyQuietMode()
         }
@@ -37,6 +44,14 @@ final class SpoonjoyiOSAppDelegate: NSObject, UIApplicationDelegate {
         }
         cookSessionActivity = CookSessionLiveActivityController()
         return true
+    }
+
+    /// A window the chef closed will not come back, so its page leaves the book.
+    func application(_ application: UIApplication, didDiscardSceneSessions sceneSessions: Set<UISceneSession>) {
+        let identifiers = sceneSessions.map(\.persistentIdentifier)
+        SceneRouteBookLocation.store.update { book in
+            book.forget(scenes: identifiers)
+        }
     }
 
     func application(

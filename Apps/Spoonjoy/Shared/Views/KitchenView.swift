@@ -17,6 +17,8 @@ struct KitchenView: View {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    /// What the chef is part-way through on every device; absent in previews and fixtures.
+    @Environment(CookingNowCenter.self) private var cookingNow: CookingNowCenter?
 #if os(iOS)
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 #endif
@@ -39,6 +41,9 @@ struct KitchenView: View {
         content
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("kitchen.root")
+            .task {
+                await cookingNow?.refresh()
+            }
             .task {
                 await ScreenshotAccessibilityProofWriter.writeIfNeeded(
                     route: "kitchen",
@@ -131,12 +136,15 @@ struct KitchenView: View {
     private var kitchenSheet: some View {
         Group {
             if usesWideKitchenSpread {
-                HStack(alignment: .top, spacing: 28) {
-                    recipeIndex
-                        .frame(maxWidth: 640, alignment: .topLeading)
-                    if !cookbooks.isEmpty {
-                        CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
-                            .frame(maxWidth: 408, alignment: .topLeading)
+                VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing + 8) {
+                    cookingNowSection
+                    HStack(alignment: .top, spacing: 28) {
+                        recipeIndex
+                            .frame(maxWidth: 640, alignment: .topLeading)
+                        if !cookbooks.isEmpty {
+                            CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
+                                .frame(maxWidth: 408, alignment: .topLeading)
+                        }
                     }
                 }
             } else {
@@ -180,11 +188,22 @@ struct KitchenView: View {
 
     @ViewBuilder private var kitchenIndexStack: some View {
         VStack(alignment: .leading, spacing: KitchenTableTheme.pageSpacing) {
+            cookingNowSection
+
             recipeIndex
 
             if !cookbooks.isEmpty {
                 CookbookShelf(cookbooks: cookbooks, openCookbook: openCookbook)
             }
+        }
+    }
+
+    /// The recipes on the stove, on this device and others, less the one the hero already leads with: the page never
+    /// names the same cook twice.
+    @ViewBuilder private var cookingNowSection: some View {
+        let entries = (cookingNow?.entries ?? []).filter { $0.recipeID != counterCook?.recipeID }
+        if !entries.isEmpty {
+            CookingNowSection(entries: entries, isWide: usesWideKitchenSpread, resume: startCooking)
         }
     }
 

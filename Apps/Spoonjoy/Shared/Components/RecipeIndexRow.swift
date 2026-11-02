@@ -14,7 +14,8 @@ extension EnvironmentValues {
 }
 
 /// One recipe in a list: the photo (or a designed initial tile), the title in the serif and one quiet line.
-/// Tapping opens the recipe; long-pressing previews it with Share and Add to list. The Kitchen and the Recipes
+/// Tapping opens the recipe; long-pressing previews it with Share, Add to list and, where the device can show two
+/// windows, Open in New Window. The Kitchen and the Recipes
 /// tab share it. The thumbnail is the zoom transition's source (`matchedTransitionSource(id: recipe id, in:)`).
 struct RecipeIndexRow: View {
     private let content: RecipeIndexRowContent
@@ -22,6 +23,8 @@ struct RecipeIndexRow: View {
     /// The recipe's place in an ordered list, such as a cookbook's contents; nil for an unordered list.
     private let ordinal: Int?
     private let action: () -> Void
+    /// How "Open in New Window" opens the recipe: on its page, or in cook mode for a recipe part-way cooked.
+    private var windowPresentation: RecipePresentation = .detail
 
     @Environment(\.spoonjoyAddRecipeToList) private var addRecipeToList
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -121,6 +124,7 @@ struct RecipeIndexRow: View {
                     Label("Share", systemImage: "square.and.arrow.up")
                 }
             }
+            OpenInNewWindowButton(route: .recipeDetail(id: content.id, presentation: windowPresentation))
             if let recipe = content.recipe, let addRecipeToList, recipe.steps.contains(where: { !$0.ingredients.isEmpty }) {
                 Button {
                     addRecipeToList(recipe)
@@ -135,6 +139,13 @@ struct RecipeIndexRow: View {
 }
 
 extension RecipeIndexRow {
+    /// The same row, with "Open in New Window" opening the recipe straight into cook mode on its saved step.
+    func opensNewWindowInCookMode() -> RecipeIndexRow {
+        var row = self
+        row.windowPresentation = .cook
+        return row
+    }
+
     private func ordinalText(_ ordinal: Int) -> some View {
         Text(ordinal < 10 ? "0\(ordinal)" : "\(ordinal)")
             .font(.caption.weight(.bold).monospacedDigit())
