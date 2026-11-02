@@ -154,13 +154,29 @@ struct CookingNowTests {
         #expect(CookingNowBoard.date("") == nil)
     }
 
-    @Test("merging keeps the newest row per recipe, keeps server timers, drops what the server cleared, newest first")
+    @Test("a recipe the kitchen knows shows the kitchen's cover, never the server's stand-in")
+    func kitchenCovers() {
+        let photo = URL(string: "https://spoonjoy.app/c.jpg")
+        let pasta = Self.recipe("pasta", title: "Pasta", cover: photo)
+        let rows = CookingNowBoard.showingKitchenCovers(
+            [
+                Self.entry("pasta", stepIndex: 1, stepCount: 5, touched: -10, cover: URL(string: "https://spoonjoy.app/old.jpg")),
+                Self.entry("away", stepIndex: 1, stepCount: 2, touched: -20, cover: URL(string: "https://spoonjoy.app/a.jpg"))
+            ],
+            recipes: [pasta]
+        )
+        #expect(rows.map(\.coverURL) == [photo, URL(string: "https://spoonjoy.app/a.jpg")])
+        #expect(rows[0].stepIndex == 1)
+    }
+
+    @Test("merging keeps the newest row per recipe, keeps server timers and the kitchen's covers, drops what the server cleared, newest first")
     func merge() {
         let fetchedAt = Self.now.addingTimeInterval(-60)
         let timer = CookingNowTimer(label: "Boil", endsAt: Self.now.addingTimeInterval(300))
         let serverPasta = Self.entry("pasta", stepIndex: 1, stepCount: 5, touched: -900, timers: [timer], slug: "lemon-pasta", cover: URL(string: "https://spoonjoy.app/p.jpg"))
         let localPasta = Self.entry("pasta", stepIndex: 3, stepCount: 5, touched: -30)
-        let serverTart = Self.entry("tart", stepIndex: 1, stepCount: 2, touched: -100)
+        // The server lists a stand-in cover the kitchen leaves out; the kitchen's own record decides.
+        let serverTart = Self.entry("tart", stepIndex: 1, stepCount: 2, touched: -100, cover: URL(string: "https://spoonjoy.app/placeholder.jpg"))
         let staleLocalTart = Self.entry("tart", stepIndex: 0, stepCount: 2, touched: -400)
         let duplicateOlderServerSoup = Self.entry("soup", stepIndex: 0, stepCount: 4, touched: -800)
         let serverSoup = Self.entry("soup", stepIndex: 2, stepCount: 4, touched: -200)
@@ -179,8 +195,9 @@ struct CookingNowTests {
         #expect(pasta.stepIndex == 3)
         #expect(pasta.timers == [timer])
         #expect(pasta.slug == "lemon-pasta")
-        #expect(pasta.coverURL == URL(string: "https://spoonjoy.app/p.jpg"))
+        #expect(pasta.coverURL == nil)
         #expect(merged[2].stepIndex == 1)
+        #expect(merged[2].coverURL == nil)
         #expect(merged[3].stepIndex == 2)
 
         // Signed out or offline with nothing saved: every local row stays. Equal times sort by recipe.

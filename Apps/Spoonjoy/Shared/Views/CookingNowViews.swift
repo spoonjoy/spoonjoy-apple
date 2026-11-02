@@ -19,6 +19,7 @@ final class CookingNowCenter {
     @ObservationIgnored private var serverFetchedAt: Date?
     @ObservationIgnored private var scope: String?
     @ObservationIgnored private var local: [CookingNowEntry] = []
+    @ObservationIgnored private var recipes: [Recipe] = []
     @ObservationIgnored private var configuration: APIClientConfiguration?
     @ObservationIgnored private var isFetching = false
     @ObservationIgnored private let cacheStore: CookingNowCacheStore
@@ -42,7 +43,8 @@ final class CookingNowCenter {
             serverFetchedAt = cache?.fetchedAt
         }
         configuration = contentState.configuration.bearerToken == nil ? nil : contentState.configuration
-        local = CookingNowBoard.localEntries(progress: contentState.cookProgressByRecipeID, recipes: contentState.recipes)
+        recipes = contentState.recipes
+        local = CookingNowBoard.localEntries(progress: contentState.cookProgressByRecipeID, recipes: recipes)
         publish()
         // The Kitchen asks for the list when it appears, which can be before the saved sign-in is read; the list is
         // read again once the account and its token are known.
@@ -82,7 +84,10 @@ final class CookingNowCenter {
     }
 
     private func publish() {
-        let merged = CookingNowBoard.merge(server: server, serverFetchedAt: serverFetchedAt, local: local, now: Date())
+        let merged = CookingNowBoard.showingKitchenCovers(
+            CookingNowBoard.merge(server: server, serverFetchedAt: serverFetchedAt, local: local, now: Date()),
+            recipes: recipes
+        )
         if merged != entries {
             entries = merged
         }

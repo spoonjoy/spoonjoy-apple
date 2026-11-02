@@ -92,13 +92,14 @@ public struct CookingNowEntry: Codable, Hashable, Sendable, Identifiable {
         timers.filter { $0.endsAt > now }.min { $0.endsAt < $1.endsAt }
     }
 
-    /// The same entry with the other one's running timers, for a local row the server knows timers for.
+    /// The same entry with the other one's running timers, for a local row the server knows timers for. The cover
+    /// stays this one's: the kitchen's own recipe leaves out a stand-in cover the server still lists.
     func carryingTimers(from other: CookingNowEntry) -> CookingNowEntry {
         CookingNowEntry(
             recipeID: recipeID,
             title: title,
             slug: slug ?? other.slug,
-            coverURL: coverURL ?? other.coverURL,
+            coverURL: coverURL,
             activeStepID: activeStepID,
             stepIndex: stepIndex,
             stepCount: stepCount,
@@ -107,6 +108,24 @@ public struct CookingNowEntry: Codable, Hashable, Sendable, Identifiable {
             lastTouchedAt: lastTouchedAt,
             expiresAt: expiresAt,
             timers: timers.isEmpty ? other.timers : timers
+        )
+    }
+
+    /// The same entry with `cover`: the kitchen's own cover for the recipe, which leaves out a stand-in cover.
+    func showingCover(_ cover: URL?) -> CookingNowEntry {
+        CookingNowEntry(
+            recipeID: recipeID,
+            title: title,
+            slug: slug,
+            coverURL: cover,
+            activeStepID: activeStepID,
+            stepIndex: stepIndex,
+            stepCount: stepCount,
+            checkedCount: checkedCount,
+            totalCount: totalCount,
+            lastTouchedAt: lastTouchedAt,
+            expiresAt: expiresAt,
+            timers: timers
         )
     }
 }
@@ -157,6 +176,15 @@ public enum CookingNowBoard {
         }
     }
 
+    /// The rows with the kitchen's own cover for each recipe the kitchen knows: a recipe whose only cover is a stand-in
+    /// shows the initial plate, as it does everywhere else, even when the server's list names the stand-in.
+    public static func showingKitchenCovers(_ entries: [CookingNowEntry], recipes: [Recipe]) -> [CookingNowEntry] {
+        let recipesByID = Dictionary(recipes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return entries.map { entry in
+            recipesByID[entry.recipeID].map { entry.showingCover($0.displayCoverImageURL) } ?? entry
+        }
+    }
+
     /// The rows to show, newest first. For a recipe both lists hold, the one touched last wins and keeps any timers the
     /// server reported. A row only this device has is kept unless a server list read after it was touched left it out,
     /// which means the server cleared it (Clear progress, a logged cook, or another device's rules).
@@ -171,7 +199,7 @@ public enum CookingNowBoard {
         })
         for entry in local {
             if let known = byRecipe[entry.recipeID] {
-                byRecipe[entry.recipeID] = entry.lastTouchedAt >= known.lastTouchedAt ? entry.carryingTimers(from: known) : known
+                byRecipe[entry.recipeID] = entry.lastTouchedAt >= known.lastTouchedAt ? entry.carryingTimers(from: known) : known.showingCover(entry.coverURL)
             } else if serverFetchedAt.map({ entry.lastTouchedAt > $0.addingTimeInterval(-pushAllowance) }) ?? true {
                 byRecipe[entry.recipeID] = entry
             }
