@@ -157,7 +157,7 @@ struct CookModeView: View {
     /// the room that is left instead of running under the controls.
     @State private var spreadStepRoom: CGFloat = 0
     @State private var spreadStepTextBottom: CGFloat = 0
-    private static let spreadStepSpace = "cookSpread.stepPage.scroll"
+    nonisolated private static let spreadStepSpace = "cookSpread.stepPage.scroll"
     private let incomingProgress: CookModeProgress?
     /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
     private let recipePageScale: Double?
