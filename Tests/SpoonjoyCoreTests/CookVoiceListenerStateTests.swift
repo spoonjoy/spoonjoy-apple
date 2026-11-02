@@ -60,6 +60,8 @@ struct CookVoiceListenerStateTests {
         #expect(CookVoiceListenerState.listening.next(on: .userToggledOn) == .listening)
         #expect(CookVoiceListenerState.listening.next(on: .permissionGranted) == .listening)
         #expect(CookVoiceListenerState.requestingPermission.next(on: .userToggledOn) == .requestingPermission)
+        #expect(CookVoiceListenerState.listening.next(on: .sceneActive) == .listening)
+        #expect(CookVoiceListenerState.off.next(on: .sceneActive) == .off)
     }
 
     @Test func micIsLiveOnlyWhileListening() {

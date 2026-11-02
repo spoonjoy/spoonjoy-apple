@@ -6,6 +6,8 @@ public enum CookVoiceEvent: Equatable, Sendable {
     case sceneInactive
     /// The app left the screen, or the device locked.
     case sceneBackground
+    /// The app is frontmost again.
+    case sceneActive
     /// The recognizer can't run: unsupported locale, missing on-device assets, or an audio failure.
     case recognizerUnavailable(reason: String)
 }

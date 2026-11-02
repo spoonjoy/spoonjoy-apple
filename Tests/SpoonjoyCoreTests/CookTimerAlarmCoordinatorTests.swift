@@ -106,7 +106,10 @@ struct CookTimerLiveActivityWiringTests {
     @Test("the permission alert does not cancel the first mic tap (final review I1)")
     func permissionAlertKeepsTheRequest() throws {
         let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
-        #expect(view.contains("voice.send(phase == .background ? .sceneBackground : .sceneInactive)"))
+        #expect(view.contains("case .active: voice.send(.sceneActive)"))
+        #expect(view.contains("case .background: voice.send(.sceneBackground)"))
+        #expect(view.contains("UIApplication.didBecomeActiveNotification: .sceneActive"))
+        #expect(view.contains("NSApplication.didBecomeActiveNotification: .sceneActive"))
         #expect(view.contains("UIApplication.didEnterBackgroundNotification: .sceneBackground"))
         #expect(view.contains("UIApplication.willResignActiveNotification: .sceneInactive"))
     }

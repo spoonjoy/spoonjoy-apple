@@ -227,8 +227,10 @@ struct CookModeView: View {
             await playVoiceDemo()
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active {
-                voice.send(phase == .background ? .sceneBackground : .sceneInactive)
+            switch phase {
+            case .active: voice.send(.sceneActive)
+            case .background: voice.send(.sceneBackground)
+            default: voice.send(.sceneInactive)
             }
         }
         .stopsVoiceWhenTheAppLeaves(voice)
@@ -1823,12 +1825,14 @@ private extension View {
 #if os(iOS)
         let events: [Notification.Name: CookVoiceEvent] = [
             UIApplication.willResignActiveNotification: .sceneInactive,
+            UIApplication.didBecomeActiveNotification: .sceneActive,
             UIApplication.didEnterBackgroundNotification: .sceneBackground,
             UIApplication.protectedDataWillBecomeUnavailableNotification: .sceneBackground
         ]
 #else
         let events: [Notification.Name: CookVoiceEvent] = [
             NSApplication.didResignActiveNotification: .sceneInactive,
+            NSApplication.didBecomeActiveNotification: .sceneActive,
             NSApplication.didHideNotification: .sceneBackground
         ]
 #endif
