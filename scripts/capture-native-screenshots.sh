@@ -2028,6 +2028,9 @@ capture_ios_app() {
     printf 'Spoonjoy did not write the expected %s accessibility proof for %s\n' "$expected_platform" "$screenshot_route" >> "$capture_log"
     return 1
   fi
+  if [[ "${SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS:-0}" == "1" ]]; then
+    hide_ios_offline_status "$udid" || return 1
+  fi
   if ! wait_for_ios_foreground "$udid"; then
     printf 'Spoonjoy stopped being the front display before screenshot capture\n' >> "$capture_log"
     return 1
@@ -2045,6 +2048,25 @@ capture_ios_app() {
   validate_ios_screenshot "$screenshot_output" >> "$capture_log" 2>&1 || return 1
   if [[ -n "$layout_audit_xctestrun" ]]; then
     run_ios_layout_audit "$udid" "$expected_platform" "$accessibility_proof_output" "$ios_app_dir" || return 1
+  fi
+}
+
+# Store art: taps the offline status's own dismiss button on the running app, as a chef would, so a capture from the
+# saved kitchen looks like the online app. Needs the layout audit's test bundle.
+hide_ios_offline_status() {
+  local udid="$1"
+  if [[ -z "$layout_audit_xctestrun" ]]; then
+    printf 'SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS=1 needs SPOONJOY_SCREENSHOT_LAYOUT_AUDIT_XCTESTRUN\n' >> "$capture_log"
+    return 1
+  fi
+  if ! run_with_timeout "hide offline status timeout" "$layout_audit_timeout_seconds" "$capture_log" \
+    env TEST_RUNNER_SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS=1 \
+      xcodebuild test-without-building -xctestrun "$layout_audit_xctestrun" \
+        -destination "platform=iOS Simulator,id=$udid" \
+        -only-testing:SpoonjoyShoppingUITests/LayoutAuditUITests/testHideOfflineStatusOnRunningApp \
+        -parallel-testing-enabled NO -collect-test-diagnostics never; then
+    printf 'hiding the offline status failed for %s\n' "$udid" >> "$capture_log"
+    return 1
   fi
 }
 

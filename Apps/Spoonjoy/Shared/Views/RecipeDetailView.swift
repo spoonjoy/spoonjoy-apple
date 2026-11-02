@@ -28,6 +28,7 @@ struct RecipeDetailRouteView: View {
     let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
+    let shellOfflineIndicatorDisplay: OfflineIndicatorDisplay?
 
     @State private var routeState: RecipeDetailRouteState
     @State private var errorMessage: String?
@@ -55,7 +56,8 @@ struct RecipeDetailRouteView: View {
         recordSpoonCookLogDraft: @escaping @MainActor @Sendable (SpoonCookLogDraftState?, String) -> Void,
         discardSpoonCookLogConflict: @escaping @MainActor @Sendable (String) async throws -> Void,
         performShoppingAction: @escaping @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome,
-        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {}
+        onDismissOfflineIndicator: @escaping @MainActor @Sendable () -> Void = {},
+        shellOfflineIndicatorDisplay: OfflineIndicatorDisplay? = nil
     ) {
         self.recipeID = recipeID
         self.repository = repository
@@ -75,6 +77,7 @@ struct RecipeDetailRouteView: View {
         self.discardSpoonCookLogConflict = discardSpoonCookLogConflict
         self.performShoppingAction = performShoppingAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
+        self.shellOfflineIndicatorDisplay = shellOfflineIndicatorDisplay
         _routeState = State(initialValue: initialViewModel.map(RecipeDetailRouteState.loaded) ?? .loading(snapshotTitle: loadingTitle))
     }
 
@@ -95,7 +98,8 @@ struct RecipeDetailRouteView: View {
                     recordSpoonCookLogDraft: recordSpoonCookLogDraft,
                     discardSpoonCookLogConflict: discardSpoonCookLogConflict,
                     performShoppingAction: performShoppingAction,
-                    onDismissOfflineIndicator: onDismissOfflineIndicator
+                    onDismissOfflineIndicator: onDismissOfflineIndicator,
+                    shellOfflineIndicatorDisplay: shellOfflineIndicatorDisplay
                 )
             case .loading(let snapshotTitle):
                 let loadingTitle = snapshotTitle
@@ -222,6 +226,8 @@ struct RecipeDetailView: View {
     let discardSpoonCookLogConflict: @MainActor @Sendable (String) async throws -> Void
     let performShoppingAction: @MainActor @Sendable (ShoppingSurfaceMutationPlan) async throws -> ShoppingSurfaceMutationOutcome
     let onDismissOfflineIndicator: @MainActor @Sendable () -> Void
+    /// The app's offline status, so this page's own status hides once the chef dismisses it.
+    var shellOfflineIndicatorDisplay: OfflineIndicatorDisplay? = nil
 
     @State private var actionErrorMessage: String?
     @State private var actionStatusMessage: String?
@@ -1168,8 +1174,9 @@ struct RecipeDetailView: View {
     }
 
     @ViewBuilder private var offlineIndicator: some View {
-        if viewModel.offlineIndicator.display != .synced {
-            OfflineStatusView(display: viewModel.offlineIndicator.display, onDismiss: onDismissOfflineIndicator)
+        let display = viewModel.offlineIndicator.display.honoringShellDismissal(shellOfflineIndicatorDisplay)
+        if display != .synced {
+            OfflineStatusView(display: display, onDismiss: onDismissOfflineIndicator)
         }
     }
 

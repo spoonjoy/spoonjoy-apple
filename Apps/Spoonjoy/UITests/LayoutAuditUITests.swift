@@ -154,6 +154,29 @@ final class LayoutAuditUITests: XCTestCase {
         try data.write(to: URL(fileURLWithPath: output))
     }
 
+    /// Hides the offline status on the app the capture script already launched, the way a chef does: by tapping
+    /// its dismiss button. Store art is captured from the saved kitchen, which the app rightly labels offline; a
+    /// chef who is online never sees that label. Only `scripts/capture-native-screenshots.sh` runs this, with
+    /// `SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS=1`.
+    func testHideOfflineStatusOnRunningApp() throws {
+        guard ProcessInfo.processInfo.environment["SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS"] == "1" else {
+            throw XCTSkip("SPOONJOY_SCREENSHOT_HIDE_OFFLINE_STATUS is not set; only the screenshot capture script runs this test.")
+        }
+        let app = XCUIApplication(bundleIdentifier: "app.spoonjoy")
+        app.activate()
+        // A screen can show more than one status. A recipe page's own "may be stale" status stays after the shell's is
+        // hidden, so on that route the test fails rather than hand the capture a screen with a status left on it.
+        let hide = app.buttons.matching(identifier: "xmark.circle").matching(NSPredicate(format: "label == %@", "Hide offline status"))
+        if hide.firstMatch.waitForExistence(timeout: 15) {
+            for _ in 0..<4 where hide.firstMatch.exists {
+                hide.firstMatch.tap()
+                _ = hide.firstMatch.waitForNonExistence(timeout: 2)
+            }
+            XCTAssertEqual(hide.count, 0, "The offline status is still showing after its dismiss buttons were tapped.")
+        }
+        app.activate()
+    }
+
     private func measureFixture(_ fixture: String, proofPath: String? = nil) throws -> LayoutAuditReport {
         let app = XCUIApplication()
         app.launchEnvironment["SPOONJOY_LAYOUT_AUDIT_FIXTURE"] = fixture
