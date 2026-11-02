@@ -118,7 +118,7 @@ def apply_common_settings(target, bundle_id:, product_name:, deployment_key:, de
       # development profiles.
       build_configuration.build_settings["SPOONJOY_APS_ENVIRONMENT"] = configuration == "Release" ? "production" : "development"
     end
-    build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
+    build_configuration.build_settings["MARKETING_VERSION"] = "1.1"
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "32"
     build_configuration.build_settings[deployment_key] = deployment_targets.fetch(configuration)
     build_configuration.build_settings["ASSETCATALOG_COMPILER_APPICON_NAME"] = "AppIcon"
@@ -246,7 +246,7 @@ def apply_widget_settings(target)
     build_configuration.build_settings["SWIFT_ACTIVE_COMPILATION_CONDITIONS"] = configuration == "Release" ? WIDGET_COMPILATION_CONDITION : "DEBUG #{WIDGET_COMPILATION_CONDITION}"
     build_configuration.build_settings["GENERATE_INFOPLIST_FILE"] = "NO"
     build_configuration.build_settings["INFOPLIST_FILE"] = WIDGET_INFO_PLIST
-    build_configuration.build_settings["MARKETING_VERSION"] = "1.0"
+    build_configuration.build_settings["MARKETING_VERSION"] = "1.1"
     build_configuration.build_settings["CURRENT_PROJECT_VERSION"] = "32"
     build_configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = configuration == "BootstrapDebug" ? "26.5" : "27.0"
     build_configuration.build_settings["SKIP_INSTALL"] = "YES"

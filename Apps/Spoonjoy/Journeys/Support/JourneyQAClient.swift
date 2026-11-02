@@ -268,7 +268,7 @@ struct JourneyQAClient: Sendable {
         let (data, response) = try await URLSession.shared.data(for: urlRequest)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
-            throw JourneyQAClientError.unexpectedStatus(status, path: request.url.path, detail: errorDetail(data))
+            throw JourneyQAClientError.unexpectedStatus(status, path: request.url.path, detail: errorDetail(data) + QAResponseTrace.describe(response as? HTTPURLResponse))
         }
         return data
     }
