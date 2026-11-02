@@ -33,6 +33,12 @@ struct PlatformNavigationView: View {
     @State private var isSidebarCookbookContentsExpanded = true
     /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
     @Environment(\.scenePhase) private var scenePhase
+    /// What the chef is part-way through, for the tab bar's switcher; absent in previews and fixtures.
+    @Environment(CookingNowCenter.self) private var cookingNow: CookingNowCenter?
+#if os(iOS)
+    /// Where the tab bar's Cooking now accessory sits on screen, while it shows.
+    @State private var cookingNowAccessoryFrame: CGRect?
+#endif
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
     /// Add a recipe replaces the old New Recipe form: every create entry, ⌘N and `/recipes/new` open this sheet.
@@ -421,23 +427,34 @@ struct PlatformNavigationView: View {
     private var compactTabShellContent: some View {
         TabView(selection: compactTabSelection) {
             Tab("Kitchen", systemImage: "house", value: CompactTab.kitchen) {
-                compactTabStack(for: .kitchen)
+                compactTabStack(for: .kitchen).modifier(clearsCookingNowAccessory)
             }
             Tab("Recipes", systemImage: "book.closed", value: CompactTab.recipes) {
-                compactTabStack(for: .recipes)
+                compactTabStack(for: .recipes).modifier(clearsCookingNowAccessory)
             }
             Tab("Cookbooks", systemImage: "books.vertical", value: CompactTab.cookbooks) {
-                compactTabStack(for: .cookbooks)
+                compactTabStack(for: .cookbooks).modifier(clearsCookingNowAccessory)
             }
             Tab("Shopping", systemImage: "cart", value: CompactTab.shopping) {
-                compactTabStack(for: .shopping)
+                compactTabStack(for: .shopping).modifier(clearsCookingNowAccessory)
             }
             Tab("Search", systemImage: "magnifyingglass", value: CompactTab.search, role: .search) {
-                compactTabStack(for: .search)
+                compactTabStack(for: .search).modifier(clearsCookingNowAccessory)
             }
         }
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
+        // While a recipe is part-way cooked, the tab bar carries it: one tap back to its step from any tab, and a
+        // menu to switch between recipes on the go. The Kitchen's own page leaves it off: its Cooking now strip is
+        // already the switcher, and on the closed Duo the accessory would float over the strip's first plate.
+        .tabViewBottomAccessory(isEnabled: showsCookingNowAccessory) {
+            CookingNowAccessory(entries: cookingNow?.entries ?? [], resume: startCooking)
+                .onGeometryChange(for: CGRect.self) { proxy in
+                    proxy.frame(in: .global)
+                } action: { frame in
+                    cookingNowAccessoryFrame = frame
+                }
+        }
         .modifier(SearchTabActivation(focusesOnSelection: shouldAutoFocusSearchField))
 #endif
         // iOS draws unselected tabs in near-black, the same as the charcoal action color, so a charcoal
@@ -450,7 +467,23 @@ struct PlatformNavigationView: View {
 #endif
     }
 
+    /// The tab bar carries Cooking now on every page but the Kitchen's own, where the strip does the same job.
+    private var showsCookingNowAccessory: Bool {
+        guard !(cookingNow?.entries.isEmpty ?? true) else {
+            return false
+        }
+        return compactTabs.selectedTab != .kitchen || !compactTabs.path(for: .kitchen).isEmpty
+    }
+
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
+    private var clearsCookingNowAccessory: ClearsBottomAccessory {
+#if os(iOS)
+        ClearsBottomAccessory(accessory: showsCookingNowAccessory ? cookingNowAccessoryFrame : nil)
+#else
+        ClearsBottomAccessory(accessory: nil)
+#endif
+    }
+
     @ViewBuilder private func compactTabStack(for tab: CompactTab) -> some View {
         let zoom = recipeZoomNamespace(for: tab)
         let stack = NavigationStack(path: compactPath(for: tab)) {
@@ -2904,3 +2937,28 @@ private struct DockAccessibilityIdentifiers: UIViewRepresentable {
     }
 }
 #endif
+
+/// Gives a tab's scrolling pages room at the foot to scroll clear of the tab bar's floating accessory where the system
+/// leaves it out of the safe area, as on the closed iPhone Duo, whose tabs stand in a rail at the side. Where the tab bar
+/// runs along the bottom the safe area already ends above the accessory, so this adds nothing.
+struct ClearsBottomAccessory: ViewModifier {
+    let accessory: CGRect?
+    @State private var visibleBottom: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        content
+            .contentMargins(.bottom, overlap, for: .scrollContent)
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.frame(in: .global).maxY - proxy.safeAreaInsets.bottom
+            } action: { bottom in
+                visibleBottom = bottom
+            }
+    }
+
+    private var overlap: CGFloat {
+        guard let accessory, accessory.height > 0 else {
+            return 0
+        }
+        return max(0, visibleBottom - accessory.minY + 12)
+    }
+}

@@ -147,13 +147,15 @@ struct FoldReading: Equatable {
         TabletopLayout.posture(hingeStatus: hinge, angleDegrees: angleDegrees)
     }
 
-    /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop`, `flat` or `closed`), so
+    /// The posture a DEBUG build was launched with (`-SpoonjoyForcePosture tabletop`, `book`, `flat` or `closed`), so
     /// screenshots and journeys can show each posture on a simulator whose hinge they cannot move. Always nil in
     /// release builds.
     static let forcedHinge: HingePosture? = {
 #if DEBUG
         switch UserDefaults.standard.string(forKey: "SpoonjoyForcePosture") {
         case "tabletop": .partiallyOpen
+        // Book is the same half-open hinge with the phone held sideways, so the fold runs down the middle.
+        case "book": .partiallyOpen
         case "flat": .fullyOpen
         case "closed": .closed
         default: nil

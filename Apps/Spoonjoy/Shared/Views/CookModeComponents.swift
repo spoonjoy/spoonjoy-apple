@@ -174,12 +174,24 @@ struct CookTimerDigits: View {
 /// the page width.
 struct CookTimerRingFace<Center: View>: View {
     static var minimumDiameter: CGFloat { 120 }
+    /// The smallest a ring goes, on a page too short for even the usual smallest size.
+    static var compactDiameter: CGFloat { 88 }
 
     let fraction: Double?
     @ViewBuilder let center: () -> Center
 
     @ScaledMetric(relativeTo: .largeTitle) private var diameter: CGFloat = 184
     @ScaledMetric(relativeTo: .largeTitle) private var lineWidth: CGFloat = 8
+    /// The most room a page can give the ring, set where the ring would otherwise fall off a short page.
+    @Environment(\.cookTimerRingLimit) private var ringLimit
+
+    /// The usual smallest size, or the compact size where a page asks for less.
+    private var smallest: CGFloat {
+        guard let ringLimit, ringLimit < Self.minimumDiameter else {
+            return Self.minimumDiameter
+        }
+        return max(Self.compactDiameter, ringLimit)
+    }
 
     var body: some View {
         ZStack {
@@ -196,7 +208,14 @@ struct CookTimerRingFace<Center: View>: View {
             center()
                 .padding(lineWidth * 2)
         }
-        .frame(minWidth: Self.minimumDiameter, maxWidth: max(diameter, Self.minimumDiameter))
+        .frame(minWidth: smallest, maxWidth: max(min(diameter, ringLimit ?? diameter), smallest))
         .aspectRatio(1, contentMode: .fit)
     }
+}
+
+extension EnvironmentValues {
+    /// The largest diameter a cook timer ring may take on this page; nil leaves the ring at its full size.
+    @Entry var cookTimerRingLimit: CGFloat?
+    /// Whether a cook timer shows its start hint under the ring; false where only the compact ring fits.
+    @Entry var cookTimerShowsHint: Bool = true
 }

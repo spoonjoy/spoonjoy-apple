@@ -20,6 +20,8 @@ enum JourneyCopy {
     static let recipeNotFound = "We couldn't find this recipe."
     /// The App Shortcut phrase the Add a recipe sheet teaches (`SpoonjoyAppShortcuts`, CaptureRecipeIntent).
     static let addRecipeSiriPhrase = AddRecipeCopy.siriPhrase
+    /// The context menu item that opens a recipe in a window of its own (`OpenInNewWindowButton`).
+    static let openInNewWindow = "Open in New Window"
     /// The editor's confirmation for leaving with unsaved changes.
     static let discardChanges = "Discard Changes"
 }

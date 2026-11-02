@@ -32,6 +32,8 @@ JOURNEYS_TARGET = "SpoonjoyJourneys"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 WIDE_JOURNEYS_TARGET = "SpoonjoyWideJourneys"
 WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
+DUO_JOURNEYS_TARGET = "SpoonjoyDuoJourneys"
+DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
 WIDGET_TARGET = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
@@ -164,6 +166,7 @@ missing_orientations = expected_orientations - supported_orientations
 fail_check("#{relative(INFO_PLIST)} missing supported interface orientation(s): #{missing_orientations.join(", ")}") unless missing_orientations.empty?
 
 fail_check("#{relative(INFO_PLIST)} must set NSSupportsLiveActivities so the cook timer can start a Live Activity") unless info_plist["NSSupportsLiveActivities"] == true
+fail_check("#{relative(INFO_PLIST)} must set UIApplicationSupportsMultipleScenes so each recipe can open in its own window") unless info_plist.dig("UIApplicationSceneManifest", "UIApplicationSupportsMultipleScenes") == true
 
 widget_plist = plist_json(WIDGET_INFO_PLIST)
 widget_point = widget_plist.dig("NSExtension", "NSExtensionPointIdentifier")
@@ -218,12 +221,15 @@ def swift_files_under(dir)
   dir.find.select { |path| path.file? && path.extname == ".swift" }.map(&:to_s).sort
 end
 
-# The wide-screen journeys (Journeys/Wide) are their own target, which the Duo tour runs; both targets share
-# Journeys/Support.
+# The wide-screen journeys (Journeys/Wide) are their own target, which the Duo tour runs, and the iPhone Duo journey
+# (Journeys/Duo) is another, which the Duo journeys job runs; every target shares Journeys/Support.
 wide_journey_files = swift_files_under(APP_ROOT.join("Journeys/Wide"))
+duo_journey_files = swift_files_under(APP_ROOT.join("Journeys/Duo"))
+support_journey_files = swift_files_under(APP_ROOT.join("Journeys/Support"))
 {
-  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/"],
-  WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + swift_files_under(APP_ROOT.join("Journeys/Support"))).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift"]
+  JOURNEYS_TARGET => [JOURNEYS_BUNDLE_ID, swift_files_under(APP_ROOT.join("Journeys")) - wide_journey_files - duo_journey_files, "Apps/Spoonjoy/Journeys/**/*.swift outside Wide/ and Duo/"],
+  WIDE_JOURNEYS_TARGET => [WIDE_JOURNEYS_BUNDLE_ID, (wide_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Wide,Support}/**/*.swift"],
+  DUO_JOURNEYS_TARGET => [DUO_JOURNEYS_BUNDLE_ID, (duo_journey_files + support_journey_files).sort, "Apps/Spoonjoy/Journeys/{Duo,Support}/**/*.swift"]
 }.each do |name, (bundle_id, expected_sources, description)|
   target = target_by_name[name] || fail_check("missing target #{name}")
   fail_check("#{name} must be a UI test bundle") unless target.symbol_type == :ui_test_bundle
@@ -290,7 +296,7 @@ def assert_package_product(target, product_name)
   fail_check("#{target.name} has duplicate #{product_name} Frameworks entries") if framework_entries.length > 1
 end
 
-[ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[WIDE_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
+[ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[WIDE_JOURNEYS_TARGET], target_by_name[DUO_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
 
 mac_bootstrap = Gem::Version.new(
   mac_target.build_configuration_list["BootstrapDebug"].build_settings.fetch("MACOSX_DEPLOYMENT_TARGET")

@@ -127,7 +127,7 @@ final class JourneyApp {
         guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
             return
         }
-        forcePostureOnNextLaunch("tabletop")
+        useForcedPostureOnNextLaunch("tabletop")
     }
 
     /// Makes the next launch report a hinge folded shut, so a journey can see the cover glance. DEBUG builds only.
@@ -135,15 +135,18 @@ final class JourneyApp {
         guard ProcessInfo.processInfo.environment["SPOONJOY_JOURNEY_REAL_HINGE"] != "1" else {
             return
         }
-        forcePostureOnNextLaunch("closed")
+        useForcedPostureOnNextLaunch("closed")
     }
 
-    /// A later posture replaces an earlier one, so a journey can fold the phone between relaunches.
-    private func forcePostureOnNextLaunch(_ posture: String) {
+    /// Makes the next launch report the hinge `posture` ("tabletop", "book", "flat" or "closed"), or the real hinge
+    /// when nil. A later posture replaces an earlier one, so a journey can fold the phone between relaunches.
+    func useForcedPostureOnNextLaunch(_ posture: String?) {
         if let index = app.launchArguments.firstIndex(of: "-SpoonjoyForcePosture"), index + 1 < app.launchArguments.count {
             app.launchArguments.removeSubrange(index...(index + 1))
         }
-        app.launchArguments += ["-SpoonjoyForcePosture", posture]
+        if let posture {
+            app.launchArguments += ["-SpoonjoyForcePosture", posture]
+        }
     }
 
     /// Makes the next launch run with Reduce Motion on (`-SpoonjoyReduceMotion`, DEBUG builds only), which a journey
@@ -267,9 +270,22 @@ final class JourneyApp {
     /// After the content scrolls, iOS minimizes the tab bar to one button for the selected tab (its value is
     /// "Collapsed") and hides the others. The page now updates in place instead of being rebuilt, so that state
     /// survives. Tapping the collapsed button expands the bar, and only then is the wanted tab tapped.
+    ///
+    /// The closed iPhone Duo can show the tabs as a rail at the side, which XCUITest does not report as a tab bar;
+    /// there the tab is the button with its title.
     func openTab(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
         let tabButtons = app.tabBars.buttons
-        XCTAssertTrue(tabButtons.firstMatch.waitForExistence(timeout: Self.launchTimeout), "The tab bar is missing.", file: file, line: line)
+        let railTab = app.buttons.matching(NSPredicate(format: "label == %@", title)).firstMatch
+        XCTAssertTrue(
+            tabButtons.firstMatch.waitForExistence(timeout: Self.launchTimeout) || railTab.exists,
+            "The tab bar is missing.",
+            file: file,
+            line: line
+        )
+        guard tabButtons.firstMatch.exists else {
+            railTab.tap()
+            return
+        }
         let collapsed = tabButtons.matching(NSPredicate(format: "value == %@", "Collapsed")).firstMatch
         if collapsed.exists {
             collapsed.tap()
@@ -423,7 +439,7 @@ final class JourneyApp {
 
     /// The app's current accessibility hierarchy, for failure messages only.
     var screen: String {
-        "Sync log: \(syncLog)\n" + app.debugDescription
+        "Sync log: \(syncLog)\nCooking now: \(cookingNowLog)\n" + app.debugDescription
     }
 
     /// Asserts the visible Settings screen's Environment row names the QA mirror.
@@ -461,6 +477,29 @@ final class JourneyApp {
     var syncLog: String {
         let log = element("journey.syncLog")
         return log.exists ? ((log.value as? String) ?? "unreadable") : "no sync log element"
+    }
+
+    /// What the app built its Cooking now list from, recorded for this run.
+    var cookingNowLog: String {
+        let log = element("journey.cookingNow")
+        return log.exists ? ((log.value as? String) ?? "unreadable") : "no Cooking now log element"
+    }
+
+    /// The labels of buttons that `cover` overlaps while they can still be tapped: a floating bar must not sit over a
+    /// control at rest. Buttons inside `cover` are its own.
+    func hittableButtons(coveredBy cover: XCUIElement) -> [String] {
+        let area = cover.frame
+        return app.buttons.allElementsBoundByIndex.compactMap { button in
+            guard button.exists, button.isHittable else {
+                return nil
+            }
+            let frame = button.frame
+            guard !frame.isEmpty, frame.intersects(area), !area.contains(frame),
+                  !button.identifier.hasPrefix(cover.identifier) else {
+                return nil
+            }
+            return button.label.isEmpty ? button.identifier : button.label
+        }
     }
 
     /// Keeps a screenshot of the current screen in the result bundle.
