@@ -225,8 +225,8 @@ final class CookModeSessionCenter {
         guard let registration = screens.entry(for: token) else {
             throw CookModeSessionError.notCooking
         }
-        // Speaking to this window is using it, so the session follows before the change is published.
-        _ = screens.use(token)
+        // Speaking to this window is using it, so the session follows it.
+        use(token: token)
         return try await perform(command, on: registration, updatedAt: ISO8601DateFormatter().string(from: Date()))
     }
 
