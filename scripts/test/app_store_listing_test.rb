@@ -376,6 +376,17 @@ class AppStoreListingTest < Minitest::Test
     refute_equal listing["localizations"]["en-US"]["whatsNew"], mac_listing["localizations"]["en-US"]["whatsNew"]
   end
 
+  # The build App Store Connect attaches must carry the listing's version, or the upload lands on the wrong version.
+  def test_the_app_and_widget_build_the_listing_version
+    generator = File.read(File.join(ROOT, "scripts/generate-xcode-project.rb"))
+    versions = generator.scan(/\["MARKETING_VERSION"\] = "([^"]+)"/).flatten.uniq
+    assert_equal [listing["version"]["versionString"]], versions
+    %w[Apps/Spoonjoy/Shared/Info.plist Apps/Spoonjoy/LiveActivity/Widget/Info.plist].each do |path|
+      plist = File.read(File.join(ROOT, path))
+      assert_match %r{<key>CFBundleShortVersionString</key>\s*<string>\$\(MARKETING_VERSION\)</string>}, plist, path
+    end
+  end
+
   def test_listing_no_longer_promises_adding_a_recipe_in_the_app
     copy = [listing["localizations"]["en-US"]["description"], mac_listing["localizations"]["en-US"]["description"]].join("\n")
     refute_includes copy, "Command-N"
