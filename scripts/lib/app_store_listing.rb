@@ -161,7 +161,8 @@ module AppStoreListing
     steps.concat(app_level_steps(listing, snapshot, fields, locale)) if app_level?(listing)
 
     version = snapshot["version"]
-    wanted_version = listing.fetch("version")
+    # phasedRelease is its own App Store Connect object, so it never travels as a version attribute.
+    wanted_version = listing.fetch("version").reject { |key, _| key == "phasedRelease" }
     if version.nil?
       platform = listing.fetch("platform")
       steps << { "action" => "create_version", "summary" => "Create #{PLATFORM_NAMES.fetch(platform)} version #{wanted_version['versionString']}",
@@ -174,6 +175,11 @@ module AppStoreListing
         steps << { "action" => "patch_version", "summary" => "Update version #{version_changes.keys.join(', ')}",
                    "versionId" => version["id"], "attributes" => version_changes }
       end
+    end
+
+    if listing.fetch("version")["phasedRelease"] == true && version["phasedRelease"].nil?
+      steps << { "action" => "create_phased_release", "summary" => "Release automatically in phases over 7 days",
+                 "versionId" => version["id"] }
     end
 
     build = snapshot["build"]
@@ -486,10 +492,20 @@ module AppStoreListing
         "id" => id,
         "attributes" => current["attributes"].slice("versionString", "copyright", "releaseType"),
         "buildId" => build && build["id"],
+        "phasedRelease" => phased_release(id),
         "localization" => localization && { "id" => localization["id"], "attributes" => localization["attributes"] },
         "reviewDetail" => review && { "id" => review["id"], "attributes" => review["attributes"] },
         "screenshotSets" => sets
       }
+    rescue Error => e
+      raise unless e.message.include?("HTTP 404")
+
+      nil
+    end
+
+    def phased_release(version_id)
+      data = @client.get("/v1/appStoreVersions/#{version_id}/appStoreVersionPhasedRelease")["data"]
+      data && { "id" => data["id"], "state" => data.dig("attributes", "phasedReleaseState") }
     rescue Error => e
       raise unless e.message.include?("HTTP 404")
 
@@ -614,6 +630,14 @@ module AppStoreListing
     def apply_patch_version(step)
       @client.patch("/v1/appStoreVersions/#{step['versionId']}",
                     data: { type: "appStoreVersions", id: step["versionId"], attributes: step["attributes"] })
+    end
+
+    # INACTIVE until the version is released; App Store Connect then runs the 7-day phased rollout.
+    def apply_create_phased_release(step)
+      @client.post("/v1/appStoreVersionPhasedReleases", data: {
+        type: "appStoreVersionPhasedReleases", attributes: { phasedReleaseState: "INACTIVE" },
+        relationships: { appStoreVersion: { data: { type: "appStoreVersions", id: ref(step["versionId"]) } } }
+      })
     end
 
     def apply_attach_build(step)
