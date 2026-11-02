@@ -1096,16 +1096,13 @@ write_cache_state() {
   local route="$2"
   ruby -rjson -rfileutils -rtime -e '
     path, route, account_id, settings_variant, apns_registration_state = ARGV
-    # Store art shows a kitchen synced moments ago, so it sets SPOONJOY_SCREENSHOT_CACHE_VALIDATED_AT to the capture time.
-    # Without it the fixed 2026 date keeps captures reproducible, and older pages show their real "may be stale" state.
-    cache_time = Time.parse(ENV.fetch("SPOONJOY_SCREENSHOT_CACHE_VALIDATED_AT", "2026-06-16T12:09:00Z")) - Time.utc(2001, 1, 1)
     FileUtils.mkdir_p(File.dirname(path))
     if route == "settings" && settings_variant == "signed-out"
       File.write(path, JSON.pretty_generate({
         "schemaVersion" => 2,
         "accountID" => account_id,
         "environment" => "production",
-        "createdAt" => cache_time,
+        "createdAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
         "records" => [],
         "dismissedIndicators" => [],
         "pendingMutationQueue" => { "mutations" => [] }
@@ -1117,7 +1114,7 @@ write_cache_state() {
         "schemaVersion" => 2,
         "accountID" => account_id,
         "environment" => "production",
-        "createdAt" => cache_time,
+        "createdAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
         "records" => [
           {
             "id" => "recipe-catalog",
@@ -1126,8 +1123,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "recipeCatalog" => {} },
-              "fetchedAt" => cache_time,
-              "lastValidatedAt" => cache_time,
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
               "sourceEndpoint" => "/api/v1/recipes",
               "serverRevision" => { "cursor" => { "_0" => "screenshot-kitchen" } }
             },
@@ -1140,8 +1137,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "recipeDetail" => { "id" => "recipe_lemon_pantry_pasta" } },
-              "fetchedAt" => cache_time,
-              "lastValidatedAt" => cache_time,
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
               "sourceEndpoint" => "/api/v1/recipes/recipe_lemon_pantry_pasta",
               "serverRevision" => { "etag" => { "_0" => "\"recipe-screenshot-v1\"" } }
             },
@@ -1159,8 +1156,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "cookbookList" => {} },
-              "fetchedAt" => cache_time,
-              "lastValidatedAt" => cache_time,
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
               "sourceEndpoint" => "/api/v1/cookbooks",
               "serverRevision" => { "cursor" => { "_0" => "screenshot-cookbooks" } }
             },
@@ -1173,8 +1170,8 @@ write_cache_state() {
               "environment" => "production",
               "schemaVersion" => 2,
               "domain" => { "cookbookDetail" => { "id" => "cookbook_weeknights" } },
-              "fetchedAt" => cache_time,
-              "lastValidatedAt" => cache_time,
+              "fetchedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
+              "lastValidatedAt" => Time.parse("2026-06-16T12:09:00Z") - Time.utc(2001, 1, 1),
               "sourceEndpoint" => "/api/v1/cookbooks/cookbook_weeknights",
               "serverRevision" => { "etag" => { "_0" => "\"cookbook-screenshot-v1\"" } }
             },

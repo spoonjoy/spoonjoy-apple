@@ -164,10 +164,15 @@ final class LayoutAuditUITests: XCTestCase {
         }
         let app = XCUIApplication(bundleIdentifier: "app.spoonjoy")
         app.activate()
-        let hide = app.buttons["Hide offline status"]
-        if hide.waitForExistence(timeout: 15) {
-            hide.tap()
-            XCTAssertTrue(hide.waitForNonExistence(timeout: 10), "The offline status is still showing after its dismiss button was tapped.")
+        // A screen can show more than one status. A recipe page's own "may be stale" status stays after the shell's is
+        // hidden, so on that route the test fails rather than hand the capture a screen with a status left on it.
+        let hide = app.buttons.matching(identifier: "xmark.circle").matching(NSPredicate(format: "label == %@", "Hide offline status"))
+        if hide.firstMatch.waitForExistence(timeout: 15) {
+            for _ in 0..<4 where hide.firstMatch.exists {
+                hide.firstMatch.tap()
+                _ = hide.firstMatch.waitForNonExistence(timeout: 2)
+            }
+            XCTAssertEqual(hide.count, 0, "The offline status is still showing after its dismiss buttons were tapped.")
         }
         app.activate()
     }
