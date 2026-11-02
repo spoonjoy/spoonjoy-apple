@@ -15,8 +15,10 @@ protocol CookSessionActivityObserving: AnyObject {
     func cookSessionEnded()
 }
 
-/// Lets Siri, Shortcuts and the Live Activity drive the cook-mode screen that is open right now.
-/// Cook mode registers while it is on screen, and every command goes through the same view model methods the buttons use.
+/// Lets Siri, Shortcuts and the Live Activity drive cook mode. Each window's cook-mode screen registers while it is
+/// on screen; Siri, the Live Activity and the session activity follow the one the cook used last
+/// (`CookSessionRegistry`), and every command goes through the same view model methods the buttons use. A screen's
+/// own voice commands and automatic timer starts go through its own registration.
 @MainActor
 final class CookModeSessionCenter {
     struct Registration {
@@ -28,6 +30,8 @@ final class CookModeSessionCenter {
         var timerStartFailed: @MainActor (_ stepID: String, _ message: String) -> Void = { _, _ in }
         /// Turns the mic back on when this screen replaced one that had it on (a fold, a rotation, a resize).
         var resumeVoice: @MainActor () -> Void = {}
+        /// Turns the mic off because another window's mic came on: one live mic at a time.
+        var stopVoice: @MainActor () -> Void = {}
     }
 
     static let shared = CookModeSessionCenter()
@@ -66,9 +70,12 @@ final class CookModeSessionCenter {
 
     private var stepTimersSubscription: AnyCancellable?
 
-    private(set) var registration: Registration?
-    private var ownership = CookSessionOwnership()
-    private var voiceHandoff = CookVoiceHandoff()
+    private var screens = CookSessionRegistry<Registration>()
+
+    /// The registration Siri, the Live Activity and the session activity act on: the screen the cook used last.
+    var registration: Registration? {
+        screens.ownerEntry
+    }
 
     private init() {
         // The registry publishes before it stores, so the published value is the one to draw.
@@ -85,30 +92,41 @@ final class CookModeSessionCenter {
         registration != nil
     }
 
-    /// `token` names the cook-mode screen, so a screen rebuilt mid-cook never loses the session to the one it replaced.
+    /// `token` names the cook-mode screen. Registering makes it the screen the session follows.
     func register(token: UUID, _ registration: Registration) {
-        ownership.claim(token)
-        self.registration = registration
-        publishSession()
         let recipeID = registration.viewModel().recipe.id
-        if voiceHandoff.resumes(recipeID: recipeID, at: Date().timeIntervalSinceReferenceDate) {
+        let registered = screens.register(token, recipeID: recipeID, entry: registration, at: Date().timeIntervalSinceReferenceDate)
+        publishSession()
+        if registered.resumesVoice {
             registration.resumeVoice()
         }
     }
 
-    /// Leaving cook mode stops the commands and ends the session activity. A running step timer belongs to the
-    /// system alarm and keeps going, with its own alarm activity. When a rebuilt screen has already taken the
-    /// session, only the mic is handed over; when it has yet to appear, the mic choice waits for it briefly.
-    func unregister(token: UUID, recipeID: String, voiceOn: Bool) {
-        guard ownership.release(token) else {
-            if voiceOn, let registration, registration.viewModel().recipe.id == recipeID {
-                registration.resumeVoice()
-            }
-            return
+    /// The cook used this screen: its window became active, or its progress changed here. The session follows it.
+    func use(token: UUID) {
+        if screens.use(token) {
+            publishSession()
         }
-        registration = nil
-        voiceHandoff.leave(recipeID: recipeID, voiceOn: voiceOn, at: Date().timeIntervalSinceReferenceDate)
-        activityObserver?.cookSessionEnded()
+    }
+
+    /// This screen's mic came on, so every other window's mic goes off.
+    func voiceTurnedOn(token: UUID) {
+        for other in screens.entries(except: token) {
+            other.stopVoice()
+        }
+    }
+
+    /// Leaving cook mode. When another window is still cooking, the session passes to it; when none is, the session
+    /// activity ends. A running step timer belongs to the system alarm and keeps going, with its own alarm activity.
+    /// A screen rebuilt mid-cook gets the mic back, whichever of the two screens SwiftUI shows first.
+    func unregister(token: UUID, voiceOn: Bool) {
+        let left = screens.unregister(token, voiceOn: voiceOn, at: Date().timeIntervalSinceReferenceDate)
+        left.resumeVoiceIn?.resumeVoice()
+        if left.sessionEnded {
+            activityObserver?.cookSessionEnded()
+        } else if left.ownerChanged {
+            publishSession()
+        }
     }
 
     func updateTimerClock(_ change: (inout CookTimerClock) -> Void) {
@@ -147,8 +165,8 @@ final class CookModeSessionCenter {
     /// Called on every change to the open session's checks. When a check completes a step's ingredients and the step
     /// has a duration and no running timer (`CookAutoTimerPolicy`), the step's timer starts through the same path the
     /// ring uses, so it is still one alarm per step. Progress that arrives from another device does not come here.
-    func checksChanged(from previous: CookModeProgress, to next: CookModeProgress) {
-        guard let registration, previous.checkedIngredientIDs != next.checkedIngredientIDs else {
+    func checksChanged(token: UUID, from previous: CookModeProgress, to next: CookModeProgress) {
+        guard let registration = screens.entry(for: token), previous.checkedIngredientIDs != next.checkedIngredientIDs else {
             return
         }
         let recipe = registration.viewModel().recipe
@@ -175,7 +193,7 @@ final class CookModeSessionCenter {
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: Self.autoStartDelay)
             // An uncheck during the pause, or leaving cook mode, calls the start off.
-            guard let current = self?.registration else {
+            guard let current = self?.screens.entry(for: token) else {
                 return
             }
             let stillChecked = Set(current.viewModel().progress.checkedIngredientIDs)
@@ -194,11 +212,25 @@ final class CookModeSessionCenter {
         registration?.viewModel().onScreenStep
     }
 
+    /// Siri, Shortcuts and the Live Activity: the screen the cook used last.
     func perform(_ command: CookModeSessionCommand, updatedAt: String = ISO8601DateFormatter().string(from: Date())) async throws -> String {
         guard let registration else {
             throw CookModeSessionError.notCooking
         }
+        return try await perform(command, on: registration, updatedAt: updatedAt)
+    }
 
+    /// A screen's own voice commands act on that screen's recipe, whichever window owns the session.
+    func perform(_ command: CookModeSessionCommand, token: UUID) async throws -> String {
+        guard let registration = screens.entry(for: token) else {
+            throw CookModeSessionError.notCooking
+        }
+        // Speaking to this window is using it, so the session follows before the change is published.
+        _ = screens.use(token)
+        return try await perform(command, on: registration, updatedAt: ISO8601DateFormatter().string(from: Date()))
+    }
+
+    private func perform(_ command: CookModeSessionCommand, on registration: Registration, updatedAt: String) async throws -> String {
         let outcome = CookModeSessionResolver.resolve(command, viewModel: registration.viewModel(), updatedAt: updatedAt)
         if outcome.progress != registration.viewModel().progress {
             registration.apply(outcome.progress)

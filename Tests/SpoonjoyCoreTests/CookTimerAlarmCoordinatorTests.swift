@@ -70,7 +70,7 @@ struct CookTimerLiveActivityWiringTests {
     @Test("leaving cook mode keeps the timer running and Next step reopens the recipe")
     func leavingKeepsTheTimer() throws {
         let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
-        let unregister = try #require(center.range(of: "func unregister(token: UUID, recipeID: String, voiceOn: Bool) {"))
+        let unregister = try #require(center.range(of: "func unregister(token: UUID, voiceOn: Bool) {"))
         let body = center[unregister.upperBound...].prefix(600)
         // Only the session activity ends; the step alarms keep running.
         #expect(!body.contains("cancel") && !body.contains("stepTimers") && !body.contains("host"))
@@ -85,14 +85,32 @@ struct CookTimerLiveActivityWiringTests {
     func rebuildKeepsSessionAndMic() throws {
         let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
         #expect(!center.contains("func unregister() {"))
-        #expect(center.contains("guard ownership.release(token) else {"))
-        #expect(center.contains("voiceHandoff.leave(recipeID: recipeID, voiceOn: voiceOn, at: Date().timeIntervalSinceReferenceDate)"))
-        #expect(center.contains("voiceHandoff.resumes(recipeID: recipeID, at: Date().timeIntervalSinceReferenceDate)"))
+        // The rules live in `CookSessionRegistry` (CookSessionRegistryTests); the center acts on what it returns.
+        #expect(center.contains("private var screens = CookSessionRegistry<Registration>()"))
+        #expect(center.contains("left.resumeVoiceIn?.resumeVoice()"))
+        #expect(center.contains("if registered.resumesVoice {\n            registration.resumeVoice()"))
 
         let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
         // Leaving reads the mic before closing it, so the next screen can turn it back on.
-        #expect(view.contains("CookModeSessionCenter.shared.unregister(token: sessionToken, recipeID: recipe.id, voiceOn: voice.state.isToggledOn)\n            voice.send(.cookModeClosed)"))
+        #expect(view.contains("CookModeSessionCenter.shared.unregister(token: sessionToken, voiceOn: voice.state.isToggledOn)\n            voice.send(.cookModeClosed)"))
         #expect(view.contains("resumeVoice: { voice.resumeAfterRebuild() }"))
+    }
+
+    @Test("each cook window acts on its own recipe and one mic is live (#192 review I1, I2)")
+    func eachWindowUsesItsOwnRegistration() throws {
+        let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
+        #expect(center.contains("guard let registration = screens.entry(for: token), previous.checkedIngredientIDs != next.checkedIngredientIDs else {"))
+        #expect(center.contains("guard let current = self?.screens.entry(for: token) else {"))
+        #expect(center.contains("for other in screens.entries(except: token) {\n            other.stopVoice()"))
+
+        let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
+        #expect(view.contains("CookModeSessionCenter.shared.perform(command, token: sessionToken)"))
+        #expect(view.contains("CookModeSessionCenter.shared.checksChanged(token: sessionToken, from: previousProgress, to: nextProgress)"))
+        #expect(view.contains("CookModeSessionCenter.shared.voiceTurnedOn(token: sessionToken)"))
+        #expect(view.contains("stopVoice: { voice.send(.userToggledOff) }"))
+        // The window the cook uses takes the session: coming to the front, or changing progress there.
+        #expect(view.contains("case .active:\n                // The window the cook comes back to takes the session (Siri, the Live Activity).\n                CookModeSessionCenter.shared.use(token: sessionToken)"))
+        #expect(view.contains("progressDidChange(nextProgress)\n        CookModeSessionCenter.shared.use(token: sessionToken)"))
     }
 
     @Test("a timer's Next step only moves its own recipe (final review I2)")
@@ -106,7 +124,7 @@ struct CookTimerLiveActivityWiringTests {
     @Test("the permission alert does not cancel the first mic tap (final review I1)")
     func permissionAlertKeepsTheRequest() throws {
         let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
-        #expect(view.contains("case .active: voice.send(.sceneActive)"))
+        #expect(view.contains("CookModeSessionCenter.shared.use(token: sessionToken)\n                voice.send(.sceneActive)"))
         #expect(view.contains("case .background: voice.send(.sceneBackground)"))
         #expect(view.contains("UIApplication.didBecomeActiveNotification: .sceneActive"))
         #expect(view.contains("NSApplication.didBecomeActiveNotification: .sceneActive"))
