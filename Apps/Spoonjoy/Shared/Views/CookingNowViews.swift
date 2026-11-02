@@ -187,39 +187,9 @@ struct CookingNowPlate: View {
 
     var body: some View {
         Button(action: resume) {
-            VStack(alignment: .leading, spacing: 10) {
-                // The column sets the width and the photo fills it; a filled photo laid out directly widens the plate.
-                Color.clear
-                    .aspectRatio(3 / 2, contentMode: .fit)
-                    .overlay {
-                        if let coverURL = entry.coverURL {
-                            RecipeCoverImage(url: coverURL, title: entry.title, subtitle: nil, showsFallbackLabel: false)
-                                .scaledToFill()
-                        } else {
-                            RecipeInitialTile(title: entry.title)
-                        }
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .accessibilityHidden(true)
-                Text(entry.stepLabel.uppercased())
-                    .font(KitchenTableTheme.runningHead)
-                    .tracking(1.2)
-                    .foregroundStyle(KitchenTableTheme.brass)
-                Text(entry.title)
-                    .font(KitchenTableTheme.indexTitle)
-                    .foregroundStyle(KitchenTableTheme.ink)
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-                CookingNowProgressRule(fraction: entry.fractionComplete)
-                if entry.totalCount > 0 {
-                    Text("\(entry.checkedCount) of \(entry.totalCount) checked")
-                        .font(KitchenTableTheme.meta)
-                        .foregroundStyle(KitchenTableTheme.ink2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(Rectangle())
+            plate
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(entry.title), \(entry.progressLine)")
@@ -227,6 +197,47 @@ struct CookingNowPlate: View {
         .accessibilityIdentifier("kitchen.cookingNow.card")
         .contextMenu {
             OpenInNewWindowButton(route: entry.route)
+        } preview: {
+            // The plate sits open on the page, so lifted on its own it needs the page under it; without it the text
+            // floated over the dimmed Kitchen.
+            plate
+                .frame(width: 300)
+                .padding(18)
+                .background(KitchenTableTheme.page)
+        }
+    }
+
+    private var plate: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            // The column sets the width and the photo fills it; a filled photo laid out directly widens the plate.
+            Color.clear
+                .aspectRatio(3 / 2, contentMode: .fit)
+                .overlay {
+                    if let coverURL = entry.coverURL {
+                        RecipeCoverImage(url: coverURL, title: entry.title, subtitle: nil, showsFallbackLabel: false)
+                            .scaledToFill()
+                    } else {
+                        RecipeInitialTile(title: entry.title)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .accessibilityHidden(true)
+            Text(entry.stepLabel.uppercased())
+                .font(KitchenTableTheme.runningHead)
+                .tracking(1.2)
+                .foregroundStyle(KitchenTableTheme.brass)
+            Text(entry.title)
+                .font(KitchenTableTheme.indexTitle)
+                .foregroundStyle(KitchenTableTheme.ink)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+            CookingNowProgressRule(fraction: entry.fractionComplete)
+            if entry.totalCount > 0 {
+                Text("\(entry.checkedCount) of \(entry.totalCount) checked")
+                    .font(KitchenTableTheme.meta)
+                    .foregroundStyle(KitchenTableTheme.ink2)
+            }
         }
     }
 }
