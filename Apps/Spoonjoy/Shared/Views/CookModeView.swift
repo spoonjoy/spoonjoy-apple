@@ -1467,8 +1467,18 @@ extension CookModeView {
         guard spreadStepRoom > 0, spreadStepTextBottom > 0 else {
             return nil
         }
+        return max(CookTimerRingFace<EmptyView>.minimumDiameter, spreadStepRoomUnderText)
+    }
+
+    private var spreadStepRoomUnderText: CGFloat {
         let reserved: CGFloat = 18 + 56 + 24
-        return max(CookTimerRingFace<EmptyView>.minimumDiameter, spreadStepRoom - spreadStepTextBottom - reserved)
+        return spreadStepRoom - spreadStepTextBottom - reserved
+    }
+
+    /// A step too long to leave the ring whole under it (the Duo held as a book) hands the ring to the gather page,
+    /// under the checks that start it. Where the ring sits never changes the text above it, so this settles at once.
+    private var spreadRingOnGatherPage: Bool {
+        spreadStepRoom > 0 && spreadStepTextBottom > 0 && spreadStepRoomUnderText < CookTimerRingFace<EmptyView>.minimumDiameter
     }
 
     /// While a finger drags the right page it lifts, short of edge-on; a turned step then plays the turn.
@@ -1531,6 +1541,10 @@ extension CookModeView {
             }
             CookTimerStack(timers: otherRunningTimers)
             stepCard(viewModel, isCurrent: true)
+            if spreadRingOnGatherPage, let currentStep, let timer = viewModel.systemTimer {
+                stepTimer(timer, step: currentStep, model: viewModel, isCurrent: true)
+                    .padding(.top, 8)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1560,7 +1574,7 @@ extension CookModeView {
                     .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.spreadStepSpace)).maxY } action: {
                         spreadStepTextBottom = $0
                     }
-                if let timer = viewModel.systemTimer {
+                if !spreadRingOnGatherPage, let timer = viewModel.systemTimer {
                     CookModeSystemTimer(
                         timer: timer,
                         stepTimers: stepTimers,
