@@ -157,8 +157,8 @@ final class DuoJourney: JourneyTestCase {
         )
         try capture("09-book-cook", journey)
 
-        // Back to the real hinge, open flat and sideways: the chickpeas open in a window of its own beside the
-        // Kitchen, and the Kitchen's window goes on to cook the pasta. One recipe per window.
+        // Back to the real hinge, open flat and sideways: the chickpeas open in a window of their own, and the Kitchen
+        // keeps its window. One recipe per window.
         journey.useForcedPostureOnNextLaunch(nil)
         journey.relaunch()
         journey.openLink(kitchenLink)
@@ -170,7 +170,7 @@ final class DuoJourney: JourneyTestCase {
         let openInNewWindow = journey.copy(JourneyCopy.openInNewWindow)
         XCTAssertTrue(
             openInNewWindow.waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "The Cooking now row's menu has no Open in New Window on the open Duo. Screen: \(journey.screen)"
+            "The Cooking now plate's menu has no Open in New Window on the open Duo. Screen: \(journey.screen)"
         )
         try captureScreen("10-open-in-new-window-menu", journey)
         openInNewWindow.tap()
@@ -178,29 +178,27 @@ final class DuoJourney: JourneyTestCase {
         try captureScreen("11-two-windows", journey)
         attachText("11-two-windows-probes", windows.joined(separator: "\n"))
         XCTAssertGreaterThanOrEqual(windows.count, 2, "Open in New Window did not open a second window. Screen: \(journey.screen)")
-
-        let keepCooking = journey.element(JourneyID.kitchenRecipeCook)
-        if journey.waitForFront(keepCooking, timeout: JourneyApp.interactionTimeout) {
-            keepCooking.tap()
-        }
-        _ = cookOnStepTwo(journey, stepLabel: pastaStepTwo).waitForExistence(timeout: JourneyApp.networkTimeout)
-        try captureScreen("12-two-windows-two-recipes", journey)
-        let twoRecipes = journey.windowProbes
-        attachText("12-two-windows-probes", twoRecipes.joined(separator: "\n"))
         XCTAssertTrue(
-            twoRecipes.contains { $0.contains(pastaID) } && twoRecipes.contains { $0.contains(chickpeasID) },
-            "The two windows are not on the pasta and the chickpeas: \(twoRecipes). Screen: \(journey.screen)"
+            windows.contains { $0.contains(chickpeasID) } && windows.contains { $0.hasSuffix(" kitchen") },
+            "The new window is not the chickpeas beside the Kitchen: \(windows). Screen: \(journey.screen)"
         )
 
-        // Killed with two windows open, the window that comes back in front is on its own recipe, not the other's.
+        // Side by side, as a person asks for it from the Home Screen; what the system offers is kept as pictures.
+        try journey.requestSplitViewFromHomeScreen { stage in
+            try captureScreen("12-\(stage)", journey)
+        }
+        let beforeKill = journey.windowProbes
+        attachText("12-windows-before-kill", beforeKill.joined(separator: "\n"))
+
+        // Killed with two windows open, every window that comes back, the front one first, is on the page it held.
         journey.relaunch()
-        let front = journey.waitForWindows(1)
+        let afterKill = journey.waitForWindowsRestored(to: beforeKill)
         try captureScreen("13-windows-after-relaunch", journey)
-        attachText("13-windows-after-relaunch-probes", front.joined(separator: "\n"))
-        XCTAssertFalse(front.isEmpty, "No window came back after the app was killed. Screen: \(journey.screen)")
+        attachText("13-windows-after-relaunch-probes", afterKill.joined(separator: "\n"))
+        XCTAssertFalse(afterKill.isEmpty, "No window came back after the app was killed. Screen: \(journey.screen)")
         XCTAssertTrue(
-            front.allSatisfy { $0.contains(pastaID) || $0.contains(chickpeasID) },
-            "A window came back on neither recipe after the app was killed: \(front). Screen: \(journey.screen)"
+            afterKill.allSatisfy { beforeKill.contains($0) },
+            "A window came back on a page it did not hold: \(afterKill), before the kill \(beforeKill). Screen: \(journey.screen)"
         )
     }
 
