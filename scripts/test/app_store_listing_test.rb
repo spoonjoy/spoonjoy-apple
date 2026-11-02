@@ -381,6 +381,11 @@ class AppStoreListingTest < Minitest::Test
     generator = File.read(File.join(ROOT, "scripts/generate-xcode-project.rb"))
     versions = generator.scan(/\["MARKETING_VERSION"\] = "([^"]+)"/).flatten.uniq
     assert_equal [listing["version"]["versionString"]], versions
+    manifest = JSON.parse(File.read(File.join(ROOT, "distribution/apple-distribution.json")))
+    manifest["channels"].each do |channel|
+      next unless channel["store"]
+      assert_equal listing["version"]["versionString"], channel["store"]["version"], "#{channel["id"]} store.version"
+    end
     %w[Apps/Spoonjoy/Shared/Info.plist Apps/Spoonjoy/LiveActivity/Widget/Info.plist].each do |path|
       plist = File.read(File.join(ROOT, path))
       assert_match %r{<key>CFBundleShortVersionString</key>\s*<string>\$\(MARKETING_VERSION\)</string>}, plist, path
