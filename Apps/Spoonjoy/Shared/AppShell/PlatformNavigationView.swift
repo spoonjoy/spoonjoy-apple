@@ -445,8 +445,9 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         .tabBarMinimizeBehavior(.onScrollDown)
         // While a recipe is part-way cooked, the tab bar carries it: one tap back to its step from any tab, and a
-        // menu to switch between recipes on the go.
-        .tabViewBottomAccessory(isEnabled: !(cookingNow?.entries.isEmpty ?? true)) {
+        // menu to switch between recipes on the go. The Kitchen's own page leaves it off: its Cooking now strip is
+        // already the switcher, and on the closed Duo the accessory would float over the strip's first plate.
+        .tabViewBottomAccessory(isEnabled: showsCookingNowAccessory) {
             CookingNowAccessory(entries: cookingNow?.entries ?? [], resume: startCooking)
                 .onGeometryChange(for: CGRect.self) { proxy in
                     proxy.frame(in: .global)
@@ -466,10 +467,18 @@ struct PlatformNavigationView: View {
 #endif
     }
 
+    /// The tab bar carries Cooking now on every page but the Kitchen's own, where the strip does the same job.
+    private var showsCookingNowAccessory: Bool {
+        guard !(cookingNow?.entries.isEmpty ?? true) else {
+            return false
+        }
+        return compactTabs.selectedTab != .kitchen || !compactTabs.path(for: .kitchen).isEmpty
+    }
+
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
     private var clearsCookingNowAccessory: ClearsBottomAccessory {
 #if os(iOS)
-        ClearsBottomAccessory(accessory: (cookingNow?.entries.isEmpty ?? true) ? nil : cookingNowAccessoryFrame)
+        ClearsBottomAccessory(accessory: showsCookingNowAccessory ? cookingNowAccessoryFrame : nil)
 #else
         ClearsBottomAccessory(accessory: nil)
 #endif

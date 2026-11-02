@@ -2,8 +2,8 @@ import SpoonjoyCore
 import XCTest
 
 /// The iPhone Duo journey: two real recipes on the go, cooked through every posture of the device. Closed, the Kitchen
-/// shows "Cooking now" and the tab bar's switcher, and the app reopens in cook mode on the saved step after it is
-/// killed. Opened flat, the Kitchen fills the inner screen held sideways and held tall. Half-open (forced with
+/// shows "Cooking now", the other tabs carry the tab bar's switcher, and the app reopens in cook mode on the saved
+/// step after it is killed. Opened flat, the Kitchen fills the inner screen held sideways and held tall. Half-open (forced with
 /// `-SpoonjoyForcePosture`, as the simulator's hinge cannot stand half-open), cook mode splits at the fold on the
 /// counter and lies open held like a book. Last, a recipe opens in a window of its own beside the first, and after a
 /// kill whichever window comes back in front is on its own recipe. Every screen is saved twice: by XCUITest, and by the
@@ -72,21 +72,27 @@ final class DuoJourney: JourneyTestCase {
             journey.element(JourneyID.kitchenCookingNowCard, labelContaining: JourneyRecipes.pastaTitle).exists,
             "Cooking now names the pasta the hero already leads with. Screen: \(journey.screen)"
         )
+        // On the Kitchen the strip is the switcher, so the tab bar leaves its accessory off and covers no plate.
         let accessory = journey.element(JourneyID.cookingNowAccessoryResume)
         XCTAssertTrue(
+            accessory.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
+            "The tab bar's Cooking now switcher is on the Kitchen, over its own strip. Screen: \(journey.screen)"
+        )
+        try capture("02-closed-kitchen-cooking-now", journey)
+
+        // Every other tab carries the switcher, leading with the pasta; scrolled to the foot, the last row clears it.
+        journey.openTab(JourneyCopy.recipesTab)
+        XCTAssertTrue(
             accessory.waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "The tab bar has no Cooking now switcher. Screen: \(journey.screen)"
+            "The Recipes tab has no Cooking now switcher. Screen: \(journey.screen)"
         )
         XCTAssertTrue(accessory.label.contains(JourneyRecipes.pastaTitle), "The switcher does not lead with the pasta: \(accessory.label)")
-        try capture("02-closed-kitchen-cooking-now", journey)
-        // Rows pass under the switcher as the page scrolls, as under any bar; scrolled to the foot, the last row
-        // clears it.
-        journey.element(JourneyID.kitchenRoot).swipeUp()
-        journey.element(JourneyID.kitchenRoot).swipeUp()
-        try capture("03-closed-kitchen-foot-with-switcher", journey)
+        journey.app.swipeUp()
+        journey.app.swipeUp()
+        try capture("03-closed-recipes-foot-with-switcher", journey)
         XCTAssertEqual(
             journey.hittableButtons(coveredBy: journey.element(JourneyID.cookingNowAccessoryBar)), [],
-            "The Cooking now switcher covers buttons at the foot of the Kitchen. Screen: \(journey.screen)"
+            "The Cooking now switcher covers buttons at the foot of Recipes. Screen: \(journey.screen)"
         )
 
         // The switcher goes back to the pasta's step; killed there, the app reopens in cook mode on that step.
