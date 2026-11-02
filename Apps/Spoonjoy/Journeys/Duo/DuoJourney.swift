@@ -94,7 +94,7 @@ final class DuoJourney: JourneyTestCase {
 
         // The switcher goes back to the pasta's step; killed there, the app reopens in cook mode on that step.
         accessory.tap()
-        let pastaCookStep = journey.element(JourneyID.cookStepMeta, labelContaining: pastaStepTwo)
+        let pastaCookStep = cookOnStepTwo(journey, stepLabel: pastaStepTwo)
         XCTAssertTrue(
             pastaCookStep.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "The switcher did not go back to cooking the pasta on step 2. Screen: \(journey.screen)"
@@ -128,7 +128,7 @@ final class DuoJourney: JourneyTestCase {
 
         // A Cooking now row goes straight back into cook mode on its step.
         chickpeasRow.tap()
-        let chickpeasCookStep = journey.element(JourneyID.cookStepMeta, labelContaining: chickpeasStepTwo)
+        let chickpeasCookStep = cookOnStepTwo(journey, stepLabel: chickpeasStepTwo)
         XCTAssertTrue(
             chickpeasCookStep.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The Cooking now row did not open the chickpeas' cook mode on step 2. Screen: \(journey.screen)"
@@ -186,7 +186,7 @@ final class DuoJourney: JourneyTestCase {
         if journey.waitForFront(keepCooking, timeout: JourneyApp.interactionTimeout) {
             keepCooking.tap()
         }
-        _ = journey.element(JourneyID.cookStepMeta, labelContaining: pastaStepTwo).waitForExistence(timeout: JourneyApp.networkTimeout)
+        _ = cookOnStepTwo(journey, stepLabel: pastaStepTwo).waitForExistence(timeout: JourneyApp.networkTimeout)
         try captureScreen("12-two-windows-two-recipes", journey)
         let twoRecipes = journey.windowProbes
         attachText("12-two-windows-probes", twoRecipes.joined(separator: "\n"))
@@ -207,17 +207,28 @@ final class DuoJourney: JourneyTestCase {
         )
     }
 
-    /// Opens a recipe by link, starts cooking and turns to its second step, by a swipe on the closed Duo.
+    /// Opens a recipe by link, starts cooking and turns to its second step. On the closed Duo cook mode opens as the
+    /// cover glance, whose Next turns the step.
     private func cookToStepTwo(_ journey: JourneyApp, link: URL, stepLabel: String) throws {
         journey.openLink(link)
         journey.tap(JourneyID.recipeDetailCook)
-        let page = journey.element(JourneyID.cookPage)
-        XCTAssertTrue(page.waitForExistence(timeout: JourneyApp.networkTimeout), "Cook mode did not open. Screen: \(journey.screen)")
-        page.swipeLeft()
+        journey.tap(JourneyID.cookCoverGlanceNext)
         XCTAssertTrue(
-            journey.element(JourneyID.cookStepMeta, labelContaining: stepLabel).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "A swipe did not turn cook mode to \(stepLabel). Screen: \(journey.screen)"
+            cookOnStepTwo(journey, stepLabel: stepLabel).waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "Next did not turn cook mode to \(stepLabel). Screen: \(journey.screen)"
         )
+    }
+
+    /// Cook mode on its second step, in whichever form the posture gives it: the page's step line ("Step 2 of 5"),
+    /// or the closed Duo's cover glance ("Current cooking step 2, ...").
+    private func cookOnStepTwo(_ journey: JourneyApp, stepLabel: String) -> XCUIElement {
+        journey.app.descendants(matching: .any).matching(NSPredicate(
+            format: "(identifier == %@ AND label CONTAINS %@) OR (identifier == %@ AND label BEGINSWITH %@)",
+            JourneyID.cookStepMeta,
+            stepLabel,
+            JourneyID.cookCoverGlanceTitle,
+            "Current cooking step 2,"
+        )).firstMatch
     }
 
     /// Saves the app's screenshot in the result bundle and the Mac's screenshots of both Duo displays.
