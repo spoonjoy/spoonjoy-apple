@@ -153,6 +153,11 @@ struct CookModeView: View {
     @State private var spreadTurnInFlight = false
     /// The running two-half turn, cancelled when Cook mode closes so it never writes progress afterwards.
     @State private var spreadTurnTask: Task<Void, Never>?
+    /// The spread's step page: how tall its window is, and where the step's text ends in it, so the timer ring takes
+    /// the room that is left instead of running under the controls.
+    @State private var spreadStepRoom: CGFloat = 0
+    @State private var spreadStepTextBottom: CGFloat = 0
+    nonisolated private static let spreadStepSpace = "cookSpread.stepPage.scroll"
     private let incomingProgress: CookModeProgress?
     /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
     private let recipePageScale: Double?
@@ -810,17 +815,34 @@ struct CookModeView: View {
         }
     }
 
+    /// The tabletop's standing half. It is about half a phone tall, so the ring stands beside the step at its smallest,
+    /// where it stays whole above the fold; at accessibility sizes the step needs the full width and the ring goes under it.
     @ViewBuilder private var currentStepCard: some View {
         if let currentStep {
-            VStack(alignment: .leading, spacing: 14) {
+            let instruction = VStack(alignment: .leading, spacing: 14) {
                 stepHeading(currentStep)
                 Text(currentStep.description)
                     .font(KitchenTableTheme.cookInstruction)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .lineSpacing(5)
                     .fixedSize(horizontal: false, vertical: true)
-                if let timer = viewModel.systemTimer {
-                    stepTimer(timer, step: currentStep, model: viewModel, isCurrent: true)
+            }
+            Group {
+                if let timer = viewModel.systemTimer, !dynamicTypeSize.isAccessibilitySize {
+                    HStack(alignment: .center, spacing: 24) {
+                        instruction
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        stepTimer(timer, step: currentStep, model: viewModel, isCurrent: true)
+                            .environment(\.cookTimerRingLimit, CookTimerRingFace<EmptyView>.minimumDiameter)
+                            .frame(width: CookTimerRingFace<EmptyView>.minimumDiameter + 24)
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 14) {
+                        instruction
+                        if let timer = viewModel.systemTimer {
+                            stepTimer(timer, step: currentStep, model: viewModel, isCurrent: true)
+                        }
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1407,7 +1429,9 @@ extension CookModeView {
                 ScrollView {
                     cookSpreadStepPage
                         .spreadPagePadding(.trailing, bottom: 24)
+                        .coordinateSpace(.named(Self.spreadStepSpace))
                 }
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { spreadStepRoom = $0 }
                 .background(KitchenTableTheme.page)
                 .modifier(PageCurlSweep(
                     phase: spreadCurlPhase(pageWidth: CGFloat(layout.trailingPage?.width ?? 1)),
@@ -1434,6 +1458,25 @@ extension CookModeView {
         }
         .onAppear { isShowingSpread = true }
         .onDisappear { isShowingSpread = false }
+    }
+
+    /// The ring's largest diameter on the spread's step page: what is left under the step, less the space between
+    /// and the page's foot, and the start hint while the ring can keep it. A step that leaves less than the ring's usual
+    /// smallest size (the Duo held as a book) gets the compact ring, without the hint, so the ring stays whole above the
+    /// controls instead of running under them. Nil until the page has been measured.
+    private var spreadRingLimit: CGFloat? {
+        guard spreadStepRoom > 0, spreadStepTextBottom > 0 else {
+            return nil
+        }
+        let withHint = spreadStepRoom - spreadStepTextBottom - (18 + 56 + 24)
+        if withHint >= CookTimerRingFace<EmptyView>.minimumDiameter {
+            return withHint
+        }
+        return max(CookTimerRingFace<EmptyView>.compactDiameter, spreadStepRoom - spreadStepTextBottom - (18 + 24))
+    }
+
+    private var spreadRingShowsHint: Bool {
+        (spreadRingLimit ?? .infinity) >= CookTimerRingFace<EmptyView>.minimumDiameter
     }
 
     /// While a finger drags the right page it lifts, short of edge-on; a turned step then plays the turn.
@@ -1522,6 +1565,9 @@ extension CookModeView {
                     .foregroundStyle(KitchenTableTheme.ink)
                     .lineSpacing(6)
                     .fixedSize(horizontal: false, vertical: true)
+                    .onGeometryChange(for: CGFloat.self) { $0.frame(in: .named(Self.spreadStepSpace)).maxY } action: {
+                        spreadStepTextBottom = $0
+                    }
                 if let timer = viewModel.systemTimer {
                     CookModeSystemTimer(
                         timer: timer,
@@ -1539,6 +1585,8 @@ extension CookModeView {
                         try cancelSystemTimer(step: currentStep)
                     }
                     .id(timer.stepID)
+                    .environment(\.cookTimerRingLimit, spreadRingLimit)
+                    .environment(\.cookTimerShowsHint, spreadRingShowsHint)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1928,6 +1976,8 @@ private struct CookModeSystemTimer: View {
     let schedule: () async throws -> String
     let cancel: () throws -> Void
 
+    /// False on a page with room only for the compact ring.
+    @Environment(\.cookTimerShowsHint) private var showsHint
     @State private var isScheduling = false
     @State private var statusMessage: String?
     @State private var errorMessage: String?
@@ -2115,7 +2165,7 @@ private struct CookModeSystemTimer: View {
             .accessibilityLabel(timer.startButtonTitle)
             .accessibilityIdentifier("cook.timer.ring")
 
-            if isInteractive {
+            if isInteractive && showsHint {
                 Text(hint)
                     .font(KitchenTableTheme.meta)
                     .foregroundStyle(KitchenTableTheme.ink2)

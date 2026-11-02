@@ -284,8 +284,7 @@ struct V2APIRecordingContractTests {
         case "blocks-list": try envelope(ChefBlockListResponse.self, data)
         case "block-create": try envelope(ChefBlockResponse.self, data)
         case "block-delete": try envelope(ChefUnblockResponse.self, data)
-        // The app does not read the cooking-now list yet; this keeps the recording decodable as an envelope.
-        case "cooking-now": try envelope(JSONValue.self, data)
+        case "cooking-now": try envelope(CookingNowServerList.self, data)
         default: return false
         }
         return true
@@ -518,6 +517,23 @@ struct V2APIRecordingContractTests {
         #expect(try Self.cookResult("cook-session-read") == .state(written))
         // A write against an older revision is refused with the newer state, which the app merges its changes onto.
         #expect(try Self.cookResult("cook-session-patch-stale-revision") == .conflict(written))
+    }
+
+    @Test("the cooking-now recording gives the Kitchen strip its recipe, step and checks")
+    func cookingNowRecordingDrivesTheStrip() throws {
+        let list = try APIEnvelope<CookingNowServerList>.decode(Self.body("cooking-now")).data
+        let row = try #require(list.entries.first)
+        #expect(list.entries.count == 1)
+        #expect(row.recipeID == "id_004")
+        #expect(row.title == "Lemon Pantry Pasta")
+        #expect(row.coverURL == nil)
+        #expect(row.activeStepID == "id_005")
+        // activeStepIndex is zero-based on the wire.
+        #expect(row.stepLabel == "Step 1 of 2")
+        #expect(row.checkedCount == 1)
+        #expect(row.totalCount == 5)
+        #expect(row.expiresAt == CookingNowBoard.date("2026-01-01T00:00:00.000Z"))
+        #expect(row.route == .recipeDetail(id: "id_004", presentation: .cook))
     }
 
     @Test("signed-in profile recordings say the chef owns their own profile")
