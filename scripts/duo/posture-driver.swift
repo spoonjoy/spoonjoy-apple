@@ -197,7 +197,8 @@ while Date() < deadline {
     } else {
         outcome = press(command) ? "ok" : "missing"
     }
-    try? Data(outcome.utf8).write(to: base.appendingPathExtension("done"))
+    // Atomic, so the journey never reads the answer before its contents land (run 41426883256 read "").
+    try? Data(outcome.utf8).write(to: base.appendingPathExtension("done"), options: .atomic)
     next += 1
 }
 log("done after \(next - 1) request(s)")
