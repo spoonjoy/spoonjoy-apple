@@ -36,34 +36,4 @@ extension JourneyApp {
         let front = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in element.exists && element.isHittable }, object: nil)
         return XCTWaiter().wait(for: [front], timeout: timeout) == .completed
     }
-
-    /// Asks the system for Split View the way a person does on the open iPhone Duo held sideways: from the Home Screen,
-    /// touch and hold the app's icon, choose Open in Split View, then choose the app again for its other window. Each
-    /// stage calls `snap`, so the journey keeps a picture of what the system offered. It never touches the system's
-    /// window switcher, and it stops quietly where the system offers nothing, so the journey proves windows by their
-    /// probes, not by this.
-    func requestSplitViewFromHomeScreen(_ snap: (String) throws -> Void) rethrows {
-        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        XCUIDevice.shared.press(.home)
-        let icon = springboard.icons[JourneyCopy.appName]
-        guard icon.waitForExistence(timeout: JourneyApp.interactionTimeout) else {
-            try snap("split-1-no-icon")
-            return
-        }
-        icon.press(forDuration: 1.5)
-        try snap("split-1-icon-menu")
-        let split = springboard.buttons.matching(NSPredicate(format: "label CONTAINS[c] %@", "Split View")).firstMatch
-        guard split.waitForExistence(timeout: JourneyApp.interactionTimeout) else {
-            XCUIDevice.shared.press(.home)
-            app.activate()
-            return
-        }
-        split.tap()
-        try snap("split-2-choose-second")
-        if icon.waitForExistence(timeout: JourneyApp.interactionTimeout) {
-            icon.tap()
-        }
-        _ = app.wait(for: .runningForeground, timeout: JourneyApp.interactionTimeout)
-        try snap("split-3-side-by-side")
-    }
 }

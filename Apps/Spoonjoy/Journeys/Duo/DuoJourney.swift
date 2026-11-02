@@ -189,10 +189,6 @@ final class DuoJourney: JourneyTestCase {
             "The new window is not the chickpeas beside the Kitchen: \(windows). Screen: \(journey.screen)"
         )
 
-        // Side by side, as a person asks for it from the Home Screen; what the system offers is kept as pictures.
-        try journey.requestSplitViewFromHomeScreen { stage in
-            try captureScreen("12-\(stage)", journey)
-        }
         let beforeKill = journey.windowProbes
         attachText("12-windows-before-kill", beforeKill.joined(separator: "\n"))
 
