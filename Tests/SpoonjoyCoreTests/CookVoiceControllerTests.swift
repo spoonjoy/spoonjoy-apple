@@ -18,6 +18,8 @@ private final class FakeVoiceEngine: CookVoiceEngine {
     var startFails = false
     /// Runs while `start` is in flight, before it returns, to race the start against the cook.
     var duringStart: () -> Void = {}
+    /// Runs while `prepare` is in flight, as the system permission alert does.
+    var duringPrepare: () -> Void = {}
     var sessions: [FakeVoiceSession] = []
     var heard: (String) -> Void = { _ in }
     var failed: (String) -> Void = { _ in }
@@ -28,6 +30,7 @@ private final class FakeVoiceEngine: CookVoiceEngine {
         if downloads {
             downloading(true)
         }
+        duringPrepare()
         return preparation
     }
 
@@ -158,11 +161,34 @@ struct CookVoiceControllerTests {
     @Test func stoppingDuringStartReleasesTheMic() async {
         let engine = FakeVoiceEngine()
         let controller = CookVoiceController(engine: engine)
-        engine.duringStart = { controller.send(.sceneInactive) }
+        engine.duringStart = { controller.send(.sceneBackground) }
         controller.toggle()
         await controller.settle()
         #expect(controller.state == .off)
         #expect(engine.sessions.first?.stopped == 1)
+    }
+
+    @Test func rebuiltScreenTurnsTheMicBackOnOnlyFromOff() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        controller.resumeAfterRebuild()
+        await controller.settle()
+        #expect(controller.state == .listening)
+        controller.resumeAfterRebuild()
+        await controller.settle()
+        #expect(controller.state == .listening)
+        #expect(engine.sessions.count == 1)
+    }
+
+    /// Final review I1: on a fresh install the permission alert makes the scene inactive. The first tap still listens.
+    @Test func firstTapListensThroughThePermissionAlert() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        engine.duringPrepare = { controller.send(.sceneInactive) }
+        controller.toggle()
+        await controller.settle()
+        #expect(controller.state == .listening)
+        #expect(engine.sessions.count == 1)
     }
 
     @Test func stoppingDuringPermissionOpensNothing() async {

@@ -70,8 +70,8 @@ struct CookTimerLiveActivityWiringTests {
     @Test("leaving cook mode keeps the timer running and Next step reopens the recipe")
     func leavingKeepsTheTimer() throws {
         let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
-        let unregister = try #require(center.range(of: "func unregister() {"))
-        let body = center[unregister.upperBound...].prefix(80)
+        let unregister = try #require(center.range(of: "func unregister(token: UUID, recipeID: String, voiceOn: Bool) {"))
+        let body = center[unregister.upperBound...].prefix(600)
         // Only the session activity ends; the step alarms keep running.
         #expect(!body.contains("cancel") && !body.contains("stepTimers") && !body.contains("host"))
         #expect(body.contains("activityObserver?.cookSessionEnded()"))
@@ -79,6 +79,42 @@ struct CookTimerLiveActivityWiringTests {
         let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
         #expect(!host.contains("cookModeEnded"))
         #expect(host.contains("UIApplication.shared.open(DeepLinkURLBuilder.url(for: .recipeDetail(id: recipeID, presentation: .cook)))"))
+    }
+
+    @Test("a rebuilt cook-mode screen keeps its session and its mic (final review I3)")
+    func rebuildKeepsSessionAndMic() throws {
+        let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
+        #expect(!center.contains("func unregister() {"))
+        #expect(center.contains("guard ownership.release(token) else {"))
+        #expect(center.contains("voiceHandoff.leave(recipeID: recipeID, voiceOn: voiceOn, at: Date().timeIntervalSinceReferenceDate)"))
+        #expect(center.contains("voiceHandoff.resumes(recipeID: recipeID, at: Date().timeIntervalSinceReferenceDate)"))
+
+        let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
+        // Leaving reads the mic before closing it, so the next screen can turn it back on.
+        #expect(view.contains("CookModeSessionCenter.shared.unregister(token: sessionToken, recipeID: recipe.id, voiceOn: voice.state.isToggledOn)\n            voice.send(.cookModeClosed)"))
+        #expect(view.contains("resumeVoice: { voice.resumeAfterRebuild() }"))
+    }
+
+    @Test("a timer's Next step only moves its own recipe (final review I2)")
+    func timerNextStepChecksTheRecipe() throws {
+        let host = try source("Apps/Spoonjoy/iOS/CookTimerLiveActivityController.swift")
+        let next = try #require(host.range(of: "case .nextStep(let recipeID):\n            // Cook mode owns step state."))
+        let body = host[next.upperBound...].prefix(600)
+        #expect(body.contains("center.registration?.viewModel().recipe.id == recipeID"))
+    }
+
+    @Test("the permission alert does not cancel the first mic tap (final review I1)")
+    func permissionAlertKeepsTheRequest() throws {
+        let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
+        #expect(view.contains("voice.send(phase == .background ? .sceneBackground : .sceneInactive)"))
+        #expect(view.contains("UIApplication.didEnterBackgroundNotification: .sceneBackground"))
+        #expect(view.contains("UIApplication.willResignActiveNotification: .sceneInactive"))
+    }
+
+    @Test("the recipe page keeps one filled button: the embedded I cooked this is secondary (final review I4)")
+    func embeddedCookLogButtonIsSecondary() throws {
+        let log = try source("Apps/Spoonjoy/Shared/Views/SpoonCookLogView.swift")
+        #expect(log.contains(".buttonStyle(KitchenTableActionButtonStyle(prominence: showsHeader ? .secondary : .primary))"))
     }
 
     @Test("switching recipes re-registers the cook-mode session so commands act on the new recipe")

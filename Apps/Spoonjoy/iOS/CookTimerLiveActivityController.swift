@@ -192,7 +192,12 @@ final class CookTimerAlarmHost {
             center.updateTimerClock { $0.retain(activeAlarmIDs: Set(center.stepTimers.alarmIDsByStep.values)) }
         case .nextStep(let recipeID):
             // Cook mode owns step state. After the user left it there is no session, so open the recipe in cook mode instead.
-            if (try? await CookModeSessionCenter.shared.perform(.nextStep)) == nil {
+            // Cook mode open on another recipe is not this timer's session either.
+            var moved = false
+            if center.registration?.viewModel().recipe.id == recipeID {
+                moved = (try? await center.perform(.nextStep)) != nil
+            }
+            if !moved {
                 await UIApplication.shared.open(DeepLinkURLBuilder.url(for: .recipeDetail(id: recipeID, presentation: .cook)))
             }
         }

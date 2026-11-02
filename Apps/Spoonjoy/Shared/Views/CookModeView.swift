@@ -153,6 +153,8 @@ struct CookModeView: View {
     @State private var spreadTurnInFlight = false
     /// The running two-half turn, cancelled when Cook mode closes so it never writes progress afterwards.
     @State private var spreadTurnTask: Task<Void, Never>?
+    /// Names this screen to the session center, so a screen rebuilt mid-cook keeps the session.
+    @State private var sessionToken = UUID()
     private let incomingProgress: CookModeProgress?
     /// The scale the recipe page shows. Cook mode opens at it, and a scale picked here goes back to the page.
     private let recipePageScale: Double?
@@ -226,7 +228,7 @@ struct CookModeView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase != .active {
-                voice.send(.sceneInactive)
+                voice.send(phase == .background ? .sceneBackground : .sceneInactive)
             }
         }
         .stopsVoiceWhenTheAppLeaves(voice)
@@ -234,6 +236,7 @@ struct CookModeView: View {
             voiceStateChanged(state)
         }
         .onDisappear {
+            CookModeSessionCenter.shared.unregister(token: sessionToken, recipeID: recipe.id, voiceOn: voice.state.isToggledOn)
             voice.send(.cookModeClosed)
             spreadTurnTask?.cancel()
             spreadTurnTask = nil
@@ -253,9 +256,6 @@ struct CookModeView: View {
             scaleDidChange(scale)
         }
         .onAppear(perform: registerCookModeSession)
-        .onDisappear {
-            CookModeSessionCenter.shared.unregister()
-        }
         .onChange(of: progress) { _, _ in
             CookModeSessionCenter.shared.publishSession()
         }
@@ -1111,6 +1111,7 @@ struct CookModeView: View {
     /// Lets Siri, Shortcuts and the Live Activity drive this screen while it is open.
     private func registerCookModeSession() {
         CookModeSessionCenter.shared.register(
+            token: sessionToken,
             CookModeSessionCenter.Registration(
                 viewModel: { viewModel },
                 apply: { updateProgress($0) },
@@ -1123,7 +1124,8 @@ struct CookModeView: View {
                 },
                 timerStartFailed: { stepID, message in
                     autoStartErrors[stepID] = message
-                }
+                },
+                resumeVoice: { voice.resumeAfterRebuild() }
             )
         )
     }
@@ -1819,16 +1821,19 @@ private extension View {
     /// the app leaves the foreground or the screen locks.
     func stopsVoiceWhenTheAppLeaves(_ voice: CookVoiceController) -> some View {
 #if os(iOS)
-        let names = [
-            UIApplication.willResignActiveNotification,
-            UIApplication.didEnterBackgroundNotification,
-            UIApplication.protectedDataWillBecomeUnavailableNotification
+        let events: [Notification.Name: CookVoiceEvent] = [
+            UIApplication.willResignActiveNotification: .sceneInactive,
+            UIApplication.didEnterBackgroundNotification: .sceneBackground,
+            UIApplication.protectedDataWillBecomeUnavailableNotification: .sceneBackground
         ]
 #else
-        let names = [NSApplication.didResignActiveNotification, NSApplication.didHideNotification]
+        let events: [Notification.Name: CookVoiceEvent] = [
+            NSApplication.didResignActiveNotification: .sceneInactive,
+            NSApplication.didHideNotification: .sceneBackground
+        ]
 #endif
-        return onReceive(Publishers.MergeMany(names.map { NotificationCenter.default.publisher(for: $0) })) { _ in
-            voice.send(.sceneInactive)
+        return onReceive(Publishers.MergeMany(events.keys.map { NotificationCenter.default.publisher(for: $0) })) { note in
+            voice.send(events[note.name] ?? .sceneBackground)
         }
     }
 }

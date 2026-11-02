@@ -91,6 +91,14 @@ public final class CookVoiceController: ObservableObject {
         send(state.isToggledOn ? .userToggledOff : .userToggledOn)
     }
 
+    /// Turns the mic back on for a cook-mode screen rebuilt mid-cook, when the cook had it on. Permission is
+    /// already granted by then, so no alert shows.
+    public func resumeAfterRebuild() {
+        if state == .off {
+            send(.userToggledOn)
+        }
+    }
+
     /// Reads the step aloud; the mic hears nothing while it does.
     public func read(_ text: String) {
         engine.speak(text, gate: gate)
