@@ -102,11 +102,31 @@ final class CookModeSessionCenter {
         }
     }
 
-    /// The cook used this screen: its window became active, or its progress changed here. The session follows it.
+    /// The cook used this screen: its progress changed here, or it was spoken to. The session follows it.
     func use(token: UUID) {
         if screens.use(token) {
             publishSession()
         }
+    }
+
+    /// How long to let every window report its new scene phase before deciding whether one came forward alone.
+    static let sceneSettleDelay: Duration = .milliseconds(300)
+
+    /// The screen's window became active. It takes the session only if it is the one cook window active once the
+    /// phases settle: in Split View both windows come back together after unlocking, Control Center or an alert.
+    func sceneBecameActive(token: UUID) {
+        screens.sceneActive(token, true)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.sceneSettleDelay)
+            guard let self, self.screens.claimIfOnlyActive(token) else {
+                return
+            }
+            self.publishSession()
+        }
+    }
+
+    func sceneLeftActive(token: UUID) {
+        screens.sceneActive(token, false)
     }
 
     /// This screen's mic came on, so every other window's mic goes off.
@@ -118,12 +138,18 @@ final class CookModeSessionCenter {
 
     /// Leaving cook mode. When another window is still cooking, the session passes to it; when none is, the session
     /// activity ends. A running step timer belongs to the system alarm and keeps going, with its own alarm activity.
-    /// A screen rebuilt mid-cook gets the mic back, whichever of the two screens SwiftUI shows first.
+    /// A screen rebuilt mid-cook gets the session's place and the mic back, whichever of the two screens SwiftUI shows
+    /// first; while the owner's replacement may still appear, the activity waits instead of switching recipes.
     func unregister(token: UUID, voiceOn: Bool) {
         let left = screens.unregister(token, voiceOn: voiceOn, at: Date().timeIntervalSinceReferenceDate)
         left.resumeVoiceIn?.resumeVoice()
         if left.sessionEnded {
             activityObserver?.cookSessionEnded()
+        } else if left.awaitsReplacement {
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(CookSessionRegistry<Registration>.rebuildWindow))
+                self?.publishSession()
+            }
         } else if left.ownerChanged {
             publishSession()
         }

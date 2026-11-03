@@ -234,11 +234,15 @@ struct CookModeView: View {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
-                // The window the cook comes back to takes the session (Siri, the Live Activity).
-                CookModeSessionCenter.shared.use(token: sessionToken)
+                // A window that comes forward on its own takes the session (Siri, the Live Activity).
+                CookModeSessionCenter.shared.sceneBecameActive(token: sessionToken)
                 voice.send(.sceneActive)
-            case .background: voice.send(.sceneBackground)
-            default: voice.send(.sceneInactive)
+            case .background:
+                CookModeSessionCenter.shared.sceneLeftActive(token: sessionToken)
+                voice.send(.sceneBackground)
+            default:
+                CookModeSessionCenter.shared.sceneLeftActive(token: sessionToken)
+                voice.send(.sceneInactive)
             }
         }
         .stopsVoiceWhenTheAppLeaves(voice)

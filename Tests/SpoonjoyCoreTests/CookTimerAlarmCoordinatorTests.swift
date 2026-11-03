@@ -108,8 +108,12 @@ struct CookTimerLiveActivityWiringTests {
         #expect(view.contains("CookModeSessionCenter.shared.checksChanged(token: sessionToken, from: previousProgress, to: nextProgress)"))
         #expect(view.contains("CookModeSessionCenter.shared.voiceTurnedOn(token: sessionToken)"))
         #expect(view.contains("stopVoice: { voice.send(.userToggledOff) }"))
-        // The window the cook uses takes the session: coming to the front, or changing progress there.
-        #expect(view.contains("case .active:\n                // The window the cook comes back to takes the session (Siri, the Live Activity).\n                CookModeSessionCenter.shared.use(token: sessionToken)"))
+        // The window the cook uses takes the session: changing progress there, or coming forward alone
+        // (`CookSessionRegistryTests` covers both Split View windows coming back together).
+        #expect(view.contains("CookModeSessionCenter.shared.sceneLeftActive(token: sessionToken)\n                voice.send(.sceneBackground)"))
+        #expect(view.contains("CookModeSessionCenter.shared.sceneLeftActive(token: sessionToken)\n                voice.send(.sceneInactive)"))
+        #expect(center.contains("guard let self, self.screens.claimIfOnlyActive(token) else {"))
+        #expect(center.contains("} else if left.awaitsReplacement {"))
         #expect(view.contains("progressDidChange(nextProgress)\n        CookModeSessionCenter.shared.use(token: sessionToken)"))
     }
 
@@ -124,8 +128,8 @@ struct CookTimerLiveActivityWiringTests {
     @Test("the permission alert does not cancel the first mic tap (final review I1)")
     func permissionAlertKeepsTheRequest() throws {
         let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
-        #expect(view.contains("CookModeSessionCenter.shared.use(token: sessionToken)\n                voice.send(.sceneActive)"))
-        #expect(view.contains("case .background: voice.send(.sceneBackground)"))
+        #expect(view.contains("CookModeSessionCenter.shared.sceneBecameActive(token: sessionToken)\n                voice.send(.sceneActive)"))
+        #expect(view.contains("case .background:\n                CookModeSessionCenter.shared.sceneLeftActive(token: sessionToken)\n                voice.send(.sceneBackground)"))
         #expect(view.contains("UIApplication.didBecomeActiveNotification: .sceneActive"))
         #expect(view.contains("NSApplication.didBecomeActiveNotification: .sceneActive"))
         #expect(view.contains("UIApplication.didEnterBackgroundNotification: .sceneBackground"))
