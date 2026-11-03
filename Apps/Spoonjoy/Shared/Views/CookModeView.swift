@@ -233,9 +233,16 @@ struct CookModeView: View {
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
-            case .active: voice.send(.sceneActive)
-            case .background: voice.send(.sceneBackground)
-            default: voice.send(.sceneInactive)
+            case .active:
+                // A window that comes forward on its own takes the session (Siri, the Live Activity).
+                CookModeSessionCenter.shared.sceneBecameActive(token: sessionToken)
+                voice.send(.sceneActive)
+            case .background:
+                CookModeSessionCenter.shared.sceneLeftActive(token: sessionToken)
+                voice.send(.sceneBackground)
+            default:
+                CookModeSessionCenter.shared.sceneLeftActive(token: sessionToken)
+                voice.send(.sceneInactive)
             }
         }
         .stopsVoiceWhenTheAppLeaves(voice)
@@ -243,7 +250,7 @@ struct CookModeView: View {
             voiceStateChanged(state)
         }
         .onDisappear {
-            CookModeSessionCenter.shared.unregister(token: sessionToken, recipeID: recipe.id, voiceOn: voice.state.isToggledOn)
+            CookModeSessionCenter.shared.unregister(token: sessionToken, voiceOn: voice.state.isToggledOn)
             voice.send(.cookModeClosed)
             spreadTurnTask?.cancel()
             spreadTurnTask = nil
@@ -1051,7 +1058,8 @@ struct CookModeView: View {
         let previousProgress = progress
         progress = nextProgress
         progressDidChange(nextProgress)
-        CookModeSessionCenter.shared.checksChanged(from: previousProgress, to: nextProgress)
+        CookModeSessionCenter.shared.use(token: sessionToken)
+        CookModeSessionCenter.shared.checksChanged(token: sessionToken, from: previousProgress, to: nextProgress)
     }
 
     private func addRecipeIngredients(scaleFactor: Double) {
@@ -1136,6 +1144,7 @@ struct CookModeView: View {
     private func registerCookModeSession() {
         CookModeSessionCenter.shared.register(
             token: sessionToken,
+            isActive: scenePhase == .active,
             CookModeSessionCenter.Registration(
                 viewModel: { viewModel },
                 apply: { updateProgress($0) },
@@ -1149,7 +1158,8 @@ struct CookModeView: View {
                 timerStartFailed: { stepID, message in
                     autoStartErrors[stepID] = message
                 },
-                resumeVoice: { voice.resumeAfterRebuild() }
+                resumeVoice: { voice.resumeAfterRebuild() },
+                stopVoice: { voice.send(.userToggledOff) }
             )
         )
     }
@@ -1781,6 +1791,8 @@ extension CookModeView {
         case .requestingPermission:
             break
         case .listening:
+            // One live mic: in Split View both windows hear the cook, so only one may act on what it hears.
+            CookModeSessionCenter.shared.voiceTurnedOn(token: sessionToken)
             showVoiceNotice(CookVoiceNoticeText.listening)
         case .unavailable(let reason):
             let offersSettings = CookVoiceNoticeText.offersSettings(reason: reason)
@@ -1854,11 +1866,11 @@ extension CookModeView {
     }
 
     /// Timer and check-all go through the session center, the path Siri and the Live Activity take, so a running
-    /// timer is never set twice.
+    /// timer is never set twice. They act on this screen's recipe, whichever window owns the session.
     private func runVoiceSessionCommand(_ command: CookModeSessionCommand) {
         Task { @MainActor in
             do {
-                showVoiceNotice(try await CookModeSessionCenter.shared.perform(command))
+                showVoiceNotice(try await CookModeSessionCenter.shared.perform(command, token: sessionToken))
             } catch {
                 showVoiceNotice(CookModeSystemTimerScheduler.message(for: error, fallback: CookVoiceNoticeText.actionFailed))
             }
