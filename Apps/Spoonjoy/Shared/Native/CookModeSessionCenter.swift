@@ -26,6 +26,8 @@ final class CookModeSessionCenter {
         let startTimer: @MainActor (CookModeSystemTimerViewModel) async throws -> CookStepTimerStartOutcome
         /// An auto-start that failed, with the message the step's ring shows.
         var timerStartFailed: @MainActor (_ stepID: String, _ message: String) -> Void = { _, _ in }
+        /// Turns the mic back on when this screen replaced one that had it on (a fold, a rotation, a resize).
+        var resumeVoice: @MainActor () -> Void = {}
     }
 
     static let shared = CookModeSessionCenter()
@@ -65,6 +67,8 @@ final class CookModeSessionCenter {
     private var stepTimersSubscription: AnyCancellable?
 
     private(set) var registration: Registration?
+    private var ownership = CookSessionOwnership()
+    private var voiceHandoff = CookVoiceHandoff()
 
     private init() {
         // The registry publishes before it stores, so the published value is the one to draw.
@@ -81,15 +85,29 @@ final class CookModeSessionCenter {
         registration != nil
     }
 
-    func register(_ registration: Registration) {
+    /// `token` names the cook-mode screen, so a screen rebuilt mid-cook never loses the session to the one it replaced.
+    func register(token: UUID, _ registration: Registration) {
+        ownership.claim(token)
         self.registration = registration
         publishSession()
+        let recipeID = registration.viewModel().recipe.id
+        if voiceHandoff.resumes(recipeID: recipeID, at: Date().timeIntervalSinceReferenceDate) {
+            registration.resumeVoice()
+        }
     }
 
     /// Leaving cook mode stops the commands and ends the session activity. A running step timer belongs to the
-    /// system alarm and keeps going, with its own alarm activity.
-    func unregister() {
+    /// system alarm and keeps going, with its own alarm activity. When a rebuilt screen has already taken the
+    /// session, only the mic is handed over; when it has yet to appear, the mic choice waits for it briefly.
+    func unregister(token: UUID, recipeID: String, voiceOn: Bool) {
+        guard ownership.release(token) else {
+            if voiceOn, let registration, registration.viewModel().recipe.id == recipeID {
+                registration.resumeVoice()
+            }
+            return
+        }
         registration = nil
+        voiceHandoff.leave(recipeID: recipeID, voiceOn: voiceOn, at: Date().timeIntervalSinceReferenceDate)
         activityObserver?.cookSessionEnded()
     }
 

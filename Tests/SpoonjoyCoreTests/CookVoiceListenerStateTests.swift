@@ -22,7 +22,17 @@ struct CookVoiceListenerStateTests {
 
     @Test func stopsWhenSceneGoesInactive() {
         #expect(CookVoiceListenerState.listening.next(on: .sceneInactive) == .off)
-        #expect(CookVoiceListenerState.requestingPermission.next(on: .sceneInactive) == .off)
+    }
+
+    /// The system's permission alert makes the app inactive. That must not cancel the request it answers.
+    @Test func permissionAlertDoesNotCancelTheRequest() {
+        #expect(CookVoiceListenerState.requestingPermission.next(on: .sceneInactive) == .requestingPermission)
+    }
+
+    @Test func stopsWhenTheAppGoesToTheBackground() {
+        #expect(CookVoiceListenerState.listening.next(on: .sceneBackground) == .off)
+        #expect(CookVoiceListenerState.requestingPermission.next(on: .sceneBackground) == .off)
+        #expect(CookVoiceListenerState.off.next(on: .sceneBackground) == .off)
     }
 
     @Test func stopsWhenCookModeCloses() {
@@ -50,6 +60,8 @@ struct CookVoiceListenerStateTests {
         #expect(CookVoiceListenerState.listening.next(on: .userToggledOn) == .listening)
         #expect(CookVoiceListenerState.listening.next(on: .permissionGranted) == .listening)
         #expect(CookVoiceListenerState.requestingPermission.next(on: .userToggledOn) == .requestingPermission)
+        #expect(CookVoiceListenerState.listening.next(on: .sceneActive) == .listening)
+        #expect(CookVoiceListenerState.off.next(on: .sceneActive) == .off)
     }
 
     @Test func micIsLiveOnlyWhileListening() {

@@ -186,7 +186,8 @@ struct SpoonCookLogView: View {
         } label: {
             Label("I cooked this", systemImage: "fork.knife")
         }
-        .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
+        // On the recipe page Cook is the one filled button; the sheet has only this one.
+        .buttonStyle(KitchenTableActionButtonStyle(prominence: showsHeader ? .secondary : .primary))
         // At accessibility sizes the 320 pt cap wraps "I cooked this" to two lines, which pushes it off a phone sheet.
         .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 320, alignment: .leading)
         .accessibilityIdentifier("cookLog.start")

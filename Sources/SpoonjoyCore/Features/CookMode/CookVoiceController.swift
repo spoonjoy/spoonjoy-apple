@@ -53,6 +53,10 @@ public final class CookVoiceController: ObservableObject {
     private var session: (any CookVoiceRunning)?
     private var preparation: Task<Void, Never>?
     private var announcements: [(words: [String], until: TimeInterval)] = []
+    /// Whether the app is frontmost. The mic never opens while it isn't.
+    private var isSceneActive = true
+    /// Permission came back while the app wasn't frontmost; the mic opens when it is again.
+    private var startsWhenActive = false
 
     public init(
         engine: any CookVoiceEngine,
@@ -65,6 +69,18 @@ public final class CookVoiceController: ObservableObject {
     }
 
     public func send(_ event: CookVoiceEvent) {
+        switch event {
+        case .sceneActive:
+            isSceneActive = true
+            if startsWhenActive, state == .requestingPermission {
+                startsWhenActive = false
+                preparation = Task { await start() }
+            }
+        case .sceneInactive, .sceneBackground:
+            isSceneActive = false
+        default:
+            break
+        }
         let previous = state
         state = state.next(on: event)
         guard state != previous else {
@@ -72,11 +88,13 @@ public final class CookVoiceController: ObservableObject {
         }
         switch state {
         case .requestingPermission:
+            startsWhenActive = false
             preparation?.cancel()
             preparation = Task { await prepare() }
         case .listening:
             break
         case .off, .unavailable:
+            startsWhenActive = false
             preparation?.cancel()
             preparation = nil
             isPreparing = false
@@ -89,6 +107,14 @@ public final class CookVoiceController: ObservableObject {
 
     public func toggle() {
         send(state.isToggledOn ? .userToggledOff : .userToggledOn)
+    }
+
+    /// Turns the mic back on for a cook-mode screen rebuilt mid-cook, when the cook had it on. Permission is
+    /// already granted by then, so no alert shows.
+    public func resumeAfterRebuild() {
+        if state == .off {
+            send(.userToggledOn)
+        }
     }
 
     /// Reads the step aloud; the mic hears nothing while it does.
@@ -133,21 +159,36 @@ public final class CookVoiceController: ObservableObject {
         case .unavailable(let reason):
             send(.recognizerUnavailable(reason: reason))
         case .ready:
-            do {
-                let session = try await engine.start(
-                    gate: gate,
-                    heard: { [weak self] in self?.heard($0) },
-                    failed: { [weak self] in self?.failed($0) }
-                )
-                guard !Task.isCancelled, state == .requestingPermission else {
-                    session.stop()
-                    return
-                }
-                self.session = session
-                send(.permissionGranted)
-            } catch {
-                send(.recognizerUnavailable(reason: "audio"))
+            guard isSceneActive else {
+                startsWhenActive = true
+                return
             }
+            await start()
+        }
+    }
+
+    /// Opens the mic. Only runs while the app is frontmost.
+    private func start() async {
+        do {
+            let session = try await engine.start(
+                gate: gate,
+                heard: { [weak self] in self?.heard($0) },
+                failed: { [weak self] in self?.failed($0) }
+            )
+            guard !Task.isCancelled, state == .requestingPermission else {
+                session.stop()
+                return
+            }
+            guard isSceneActive else {
+                // The app stopped being frontmost while the mic opened: close it and open it again on return.
+                session.stop()
+                startsWhenActive = true
+                return
+            }
+            self.session = session
+            send(.permissionGranted)
+        } catch {
+            send(.recognizerUnavailable(reason: "audio"))
         }
     }
 

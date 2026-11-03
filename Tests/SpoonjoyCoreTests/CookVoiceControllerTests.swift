@@ -18,6 +18,8 @@ private final class FakeVoiceEngine: CookVoiceEngine {
     var startFails = false
     /// Runs while `start` is in flight, before it returns, to race the start against the cook.
     var duringStart: () -> Void = {}
+    /// Runs while `prepare` is in flight, as the system permission alert does.
+    var duringPrepare: () -> Void = {}
     var sessions: [FakeVoiceSession] = []
     var heard: (String) -> Void = { _ in }
     var failed: (String) -> Void = { _ in }
@@ -28,6 +30,7 @@ private final class FakeVoiceEngine: CookVoiceEngine {
         if downloads {
             downloading(true)
         }
+        duringPrepare()
         return preparation
     }
 
@@ -158,11 +161,90 @@ struct CookVoiceControllerTests {
     @Test func stoppingDuringStartReleasesTheMic() async {
         let engine = FakeVoiceEngine()
         let controller = CookVoiceController(engine: engine)
-        engine.duringStart = { controller.send(.sceneInactive) }
+        engine.duringStart = { controller.send(.sceneBackground) }
         controller.toggle()
         await controller.settle()
         #expect(controller.state == .off)
         #expect(engine.sessions.first?.stopped == 1)
+    }
+
+    @Test func rebuiltScreenTurnsTheMicBackOnOnlyFromOff() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        controller.resumeAfterRebuild()
+        await controller.settle()
+        #expect(controller.state == .listening)
+        controller.resumeAfterRebuild()
+        await controller.settle()
+        #expect(controller.state == .listening)
+        #expect(engine.sessions.count == 1)
+    }
+
+    /// Final review I1: on a fresh install the permission alert makes the scene inactive. The first tap still listens.
+    @Test func firstTapListensThroughThePermissionAlert() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        engine.duringPrepare = { controller.send(.sceneInactive) }
+        controller.toggle()
+        await controller.settle()
+        // Tapping Allow dismisses the alert and the app is frontmost again.
+        controller.send(.sceneActive)
+        await controller.settle()
+        #expect(controller.state == .listening)
+        #expect(engine.sessions.count == 1)
+    }
+
+    /// Re-review: a grant that lands while the app isn't frontmost (Mac app switch, Notification Center during the
+    /// model download) must not open the mic in the background. It waits for the app to be active again.
+    @Test func grantWhileInactiveWaitsForTheAppToBeActive() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        engine.duringPrepare = { controller.send(.sceneInactive) }
+        controller.toggle()
+        await controller.settle()
+        #expect(controller.state == .requestingPermission)
+        #expect(engine.sessions.isEmpty)
+        controller.send(.sceneActive)
+        await controller.settle()
+        #expect(controller.state == .listening)
+        #expect(engine.sessions.count == 1)
+    }
+
+    @Test func grantWhileInactiveThenBackgroundNeverOpensTheMic() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        engine.duringPrepare = { controller.send(.sceneInactive) }
+        controller.toggle()
+        await controller.settle()
+        controller.send(.sceneBackground)
+        controller.send(.sceneActive)
+        await controller.settle()
+        #expect(controller.state == .off)
+        #expect(engine.sessions.isEmpty)
+    }
+
+    @Test func leavingTheFrontWhileTheMicOpensClosesItUntilReturn() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        engine.duringStart = { controller.send(.sceneInactive) }
+        controller.toggle()
+        await controller.settle()
+        #expect(controller.state == .requestingPermission)
+        #expect(engine.sessions.map(\.stopped) == [1])
+        engine.duringStart = {}
+        controller.send(.sceneActive)
+        await controller.settle()
+        #expect(controller.state == .listening)
+        #expect(engine.sessions.map(\.stopped) == [1, 0])
+    }
+
+    @Test func becomingActiveWithNothingPendingChangesNothing() async {
+        let engine = FakeVoiceEngine()
+        let controller = CookVoiceController(engine: engine)
+        controller.send(.sceneActive)
+        await controller.settle()
+        #expect(controller.state == .off)
+        #expect(engine.sessions.isEmpty)
     }
 
     @Test func stoppingDuringPermissionOpensNothing() async {
