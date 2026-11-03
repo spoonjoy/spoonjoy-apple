@@ -19,8 +19,9 @@ public struct CookSessionRegistry<Entry> {
         let registeredAt: TimeInterval
         /// Higher was used more recently; the highest owns the session.
         var rank: Double
-        var isActive = true
-        /// The screen this one appeared to replace, before that one left (new screen first).
+        var isActive: Bool
+        /// The screen this one appeared to replace, before that one left (new screen first). Only for
+        /// `rebuildWindow` after it appeared; after that it is a window of its own.
         var replaces: UUID?
     }
 
@@ -65,16 +66,19 @@ public struct CookSessionRegistry<Entry> {
     }
 
     /// Adds `token`'s screen, or updates it in place for a recipe change. A new screen takes the place of the screen
-    /// it replaces, and otherwise owns the session.
-    public mutating func register(_ token: UUID, recipeID: String, entry: Entry, at now: TimeInterval) -> Registered {
+    /// it replaces, and otherwise owns the session. `isActive` is its window's scene phase as it appears.
+    public mutating func register(_ token: UUID, recipeID: String, entry: Entry, at now: TimeInterval, isActive: Bool = true) -> Registered {
         let previousOwner = owner
         vacancies.removeAll { now - $0.at > Self.rebuildWindow }
+        for index in screens.indices where now - screens[index].registeredAt > Self.rebuildWindow {
+            screens[index].replaces = nil
+        }
         if let index = screens.firstIndex(where: { $0.token == token }) {
             screens[index].recipeID = recipeID
             screens[index].entry = entry
             return Registered(ownerChanged: false, resumesVoice: false)
         }
-        var screen = Screen(token: token, recipeID: recipeID, entry: entry, registeredAt: now, rank: 0)
+        var screen = Screen(token: token, recipeID: recipeID, entry: entry, registeredAt: now, rank: 0, isActive: isActive)
         var resumes = false
         if let vacancy = vacancies.lastIndex(where: { $0.recipeID == recipeID }) {
             screen.rank = vacancies[vacancy].rank

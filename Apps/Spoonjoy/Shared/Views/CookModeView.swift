@@ -1144,6 +1144,7 @@ struct CookModeView: View {
     private func registerCookModeSession() {
         CookModeSessionCenter.shared.register(
             token: sessionToken,
+            isActive: scenePhase == .active,
             CookModeSessionCenter.Registration(
                 viewModel: { viewModel },
                 apply: { updateProgress($0) },

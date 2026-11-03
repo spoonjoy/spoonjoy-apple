@@ -93,9 +93,9 @@ final class CookModeSessionCenter {
     }
 
     /// `token` names the cook-mode screen. Registering makes it the screen the session follows.
-    func register(token: UUID, _ registration: Registration) {
+    func register(token: UUID, isActive: Bool, _ registration: Registration) {
         let recipeID = registration.viewModel().recipe.id
-        let registered = screens.register(token, recipeID: recipeID, entry: registration, at: Date().timeIntervalSinceReferenceDate)
+        let registered = screens.register(token, recipeID: recipeID, entry: registration, at: Date().timeIntervalSinceReferenceDate, isActive: isActive)
         publishSession()
         if registered.resumesVoice {
             registration.resumeVoice()

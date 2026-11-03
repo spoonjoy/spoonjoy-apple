@@ -219,6 +219,41 @@ struct CookSessionRegistryTests {
         #expect(moved)
     }
 
+    /// #201 re-review 1: a second window on the same recipe, opened long ago, pairs with the first only for a
+    /// second. Rotating the owner later, new screen first, keeps the session and the mic in the owner's window.
+    @Test func rebuildingAWindowWhosePairingWentStaleKeepsTheOwnerAndTheMic() {
+        for bothRotate in [false, true] {
+            var registry = Registry()
+            let p = UUID(), p2 = UUID()
+            _ = registry.register(a, recipeID: "pasta", entry: "A", at: 0)
+            _ = registry.register(p, recipeID: "pasta", entry: "P", at: 5)
+            #expect(registry.owner == a)
+            _ = registry.register(a2, recipeID: "pasta", entry: "A'", at: 30)
+            if bothRotate {
+                _ = registry.register(p2, recipeID: "pasta", entry: "P'", at: 30)
+            }
+            let left = registry.unregister(a, voiceOn: true, at: 30.1)
+            #expect(left.resumeVoiceIn == "A'")
+            #expect(registry.owner == a2)
+            if bothRotate {
+                let leftP = registry.unregister(p, voiceOn: false, at: 30.1)
+                #expect(leftP.resumeVoiceIn == nil)
+                #expect(registry.owner == a2)
+                #expect(registry.count == 2)
+            }
+        }
+    }
+
+    /// #201 re-review Low 3: a screen that appears while its window is in the background doesn't count as active.
+    @Test func aScreenRegisteredInTheBackgroundIsNotActive() {
+        var registry = Registry()
+        _ = registry.register(a, recipeID: "pasta", entry: "A", at: 0)
+        _ = registry.register(b, recipeID: "soup", entry: "B", at: 10, isActive: false)
+        _ = registry.use(b)
+        let claimed = registry.claimIfOnlyActive(a)
+        #expect(claimed)
+    }
+
     // Coming to the front (#201 review Important 2).
 
     @Test func comingToTheFrontAloneTakesTheSession() {
