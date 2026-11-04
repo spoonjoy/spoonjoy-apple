@@ -15,7 +15,6 @@ Use this when the person wants to cook a recipe from Spoonjoy, or is already coo
    if they say yes.
 5. If a tool says no recipe is open in cook mode, use the "Continue Cooking" tool for the recipe they named, then try
    again.
-6. After the last step, ask whether they'd like to log the cook. If they do, use the "Log Cook" tool with the recipe
-   and anything they said about how it went or what to change next time.
+6. After the last step, tell them they can log how it went in Spoonjoy.
 
 If they're missing an ingredient partway through, offer to add it with the "Add Shopping Item" tool.

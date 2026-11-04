@@ -373,6 +373,8 @@ fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (wi
   skills_ref = target.resources_build_phase.files.map(&:file_ref).compact.find { |ref| ref.real_path.to_s == SKILLS_BUNDLE.to_s }
   fail_check("#{relative(SKILLS_BUNDLE)} must be a folder reference, so Xcode copies the whole bundle") unless skills_ref&.last_known_file_type == "folder"
 end
+widget_resources = widget_target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
+fail_check("#{WIDGET_TARGET} must not copy #{relative(SKILLS_BUNDLE)}; app skills belong to the apps") if widget_resources.include?(SKILLS_BUNDLE.to_s)
 privacy_manifest = plist_json(PRIVACY_MANIFEST)
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare NSPrivacyTracking false") unless privacy_manifest["NSPrivacyTracking"] == false
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare an empty NSPrivacyTrackingDomains") unless privacy_manifest["NSPrivacyTrackingDomains"] == []

@@ -22,13 +22,16 @@ struct SiriToolIntentTests {
         "OpenRecipeIntent",
         "AddRecipeIngredientsToShoppingListIntent",
         "AddShoppingListItemIntent",
-        "SetShoppingListItemCheckedIntent",
-        "SaveRecipeToCookbookIntent",
-        "LogCookIntent"
+        "SetShoppingListItemCheckedIntent"
     ]
 
     /// Destructive and account actions stay out of Siri AI's reach, whatever the tool list says.
-    static let neverTool = ["Delete", "Clear", "Remove", "Discard", "Logout", "Revoke", "Disconnect", "Token", "Passkey", "Password", "LinkProvider"]
+    static let neverTool = [
+        "Delete", "Clear", "Remove", "Discard", "Logout", "Revoke", "Disconnect", "Token", "Passkey", "Password",
+        "LinkProvider", "Profile", "Notification", "Account", "Session", "Settings", "Share", "Rename", "Edit",
+        // Publish without asking the person to confirm.
+        "LogCook", "SaveRecipeToCookbook"
+    ]
 
     static var root: URL {
         URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -69,7 +72,7 @@ struct SiriToolIntentTests {
         let fenceLine = try #require(lines.firstIndex(of: Self.fence), "\(Self.toolFile) must open \(Self.fence)")
         let endifs = lines.indices.filter { lines[$0] == "#endif" }
         let closing = try #require(endifs.first(where: { $0 > fenceLine }))
-        for (index, line) in lines.enumerated() where line.hasPrefix("extension ") {
+        for (index, line) in lines.enumerated() where line.contains("ToolIntent") && !line.trimmingCharacters(in: .whitespaces).hasPrefix("//") {
             #expect(index > fenceLine && index < closing, "\(line) is outside the 27.3 fence")
             #expect(index > 0 && lines[index - 1] == Self.availability, "\(line) needs \(Self.availability) above it")
         }

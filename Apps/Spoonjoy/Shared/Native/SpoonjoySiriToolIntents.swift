@@ -12,7 +12,10 @@ import AppIntents
 // `OuroAXToolIntent = OuroAXOutcomeIntent & ToolIntent`.
 //
 // The tools are the cooking and shopping actions people ask Siri for. Destructive and account actions (delete, clear,
-// remove, discard, log out, revoke, disconnect, access keys, passkeys, password, linking a provider) are never tools.
+// remove, discard, log out, revoke, disconnect, access keys, passkeys, password, linking a provider, profile,
+// notifications, settings, sharing, renaming, editing) are never tools. Neither are actions that publish without asking
+// (logging a cook, saving to a cookbook): Siri can call a tool outside the cook-along skill, and those intents don't
+// ask the person to confirm.
 // No tool adopts an App Intents schema (Ouro AX's intent.tool-not-on-schema). SiriToolIntentTests holds all of this.
 #if OURO_SIRI_AI_SDK || canImport(AppIntents, _version: 301.2)
 @available(iOS 27.3, macOS 27.3, *)
@@ -48,10 +51,5 @@ extension AddShoppingListItemIntent: ToolIntent {}
 @available(iOS 27.3, macOS 27.3, *)
 extension SetShoppingListItemCheckedIntent: ToolIntent {}
 
-@available(iOS 27.3, macOS 27.3, *)
-extension SaveRecipeToCookbookIntent: ToolIntent {}
-
-@available(iOS 27.3, macOS 27.3, *)
-extension LogCookIntent: ToolIntent {}
 #endif
 #endif
