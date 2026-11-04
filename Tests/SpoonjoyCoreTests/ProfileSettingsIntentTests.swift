@@ -1233,7 +1233,7 @@ private func profileSettingsIntentBodyContractFailures(
 
 private func profileSettingsIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func profileSettingsIntentDeclarationBody(in content: String, pattern: String) -> String? {

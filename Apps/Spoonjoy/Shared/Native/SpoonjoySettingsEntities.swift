@@ -44,33 +44,39 @@ struct SpoonjoyAPITokenEntity: AppEntity {
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoyAPITokenEntityQuery: EntityQuery, EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [SpoonjoyAPITokenEntity] {
-        let descriptors = try await SpoonjoySettingsEntitySource().apiTokenDescriptors()
-        let descriptorsByID = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0) })
-        return identifiers.compactMap { descriptorsByID[$0].map(SpoonjoyAPITokenEntity.init) }
+        try await IntentEntityQueryAccess.results {
+            let descriptors = try await SpoonjoySettingsEntitySource().apiTokenDescriptors()
+            let descriptorsByID = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0) })
+            return identifiers.compactMap { descriptorsByID[$0].map(SpoonjoyAPITokenEntity.init) }
+        }
     }
 
     func entities(matching string: String) async throws -> [SpoonjoyAPITokenEntity] {
-        let descriptors = try await SpoonjoySettingsEntitySource().apiTokenDescriptors()
-        let query = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else {
-            return descriptors.map(SpoonjoyAPITokenEntity.init)
-        }
-        return descriptors
-            .filter { descriptor in
-                [
-                    descriptor.name,
-                    descriptor.tokenPrefix,
-                    descriptor.subtitle,
-                    descriptor.scopes.joined(separator: " ")
-                ].contains { $0.lowercased().contains(query) }
+        try await IntentEntityQueryAccess.results {
+            let descriptors = try await SpoonjoySettingsEntitySource().apiTokenDescriptors()
+            let query = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !query.isEmpty else {
+                return descriptors.map(SpoonjoyAPITokenEntity.init)
             }
-            .map(SpoonjoyAPITokenEntity.init)
+            return descriptors
+                .filter { descriptor in
+                    [
+                        descriptor.name,
+                        descriptor.tokenPrefix,
+                        descriptor.subtitle,
+                        descriptor.scopes.joined(separator: " ")
+                    ].contains { $0.lowercased().contains(query) }
+                }
+                .map(SpoonjoyAPITokenEntity.init)
+        }
     }
 
     func suggestedEntities() async throws -> [SpoonjoyAPITokenEntity] {
-        try await SpoonjoySettingsEntitySource()
-            .apiTokenDescriptors()
-            .map(SpoonjoyAPITokenEntity.init)
+        try await IntentEntityQueryAccess.results {
+            try await SpoonjoySettingsEntitySource()
+                .apiTokenDescriptors()
+                .map(SpoonjoyAPITokenEntity.init)
+        }
     }
 }
 
@@ -111,33 +117,39 @@ struct SpoonjoyAccountConnectionEntity: AppEntity {
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoyAccountConnectionEntityQuery: EntityQuery, EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [SpoonjoyAccountConnectionEntity] {
-        let descriptors = try await SpoonjoySettingsEntitySource().accountConnectionDescriptors()
-        let descriptorsByID = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0) })
-        return identifiers.compactMap { descriptorsByID[$0].map(SpoonjoyAccountConnectionEntity.init) }
+        try await IntentEntityQueryAccess.results {
+            let descriptors = try await SpoonjoySettingsEntitySource().accountConnectionDescriptors()
+            let descriptorsByID = Dictionary(uniqueKeysWithValues: descriptors.map { ($0.id, $0) })
+            return identifiers.compactMap { descriptorsByID[$0].map(SpoonjoyAccountConnectionEntity.init) }
+        }
     }
 
     func entities(matching string: String) async throws -> [SpoonjoyAccountConnectionEntity] {
-        let descriptors = try await SpoonjoySettingsEntitySource().accountConnectionDescriptors()
-        let query = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !query.isEmpty else {
-            return descriptors.map(SpoonjoyAccountConnectionEntity.init)
-        }
-        return descriptors
-            .filter { descriptor in
-                [
-                    descriptor.clientName,
-                    descriptor.resource ?? "",
-                    descriptor.subtitle,
-                    descriptor.scopes.joined(separator: " ")
-                ].contains { $0.lowercased().contains(query) }
+        try await IntentEntityQueryAccess.results {
+            let descriptors = try await SpoonjoySettingsEntitySource().accountConnectionDescriptors()
+            let query = string.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !query.isEmpty else {
+                return descriptors.map(SpoonjoyAccountConnectionEntity.init)
             }
-            .map(SpoonjoyAccountConnectionEntity.init)
+            return descriptors
+                .filter { descriptor in
+                    [
+                        descriptor.clientName,
+                        descriptor.resource ?? "",
+                        descriptor.subtitle,
+                        descriptor.scopes.joined(separator: " ")
+                    ].contains { $0.lowercased().contains(query) }
+                }
+                .map(SpoonjoyAccountConnectionEntity.init)
+        }
     }
 
     func suggestedEntities() async throws -> [SpoonjoyAccountConnectionEntity] {
-        try await SpoonjoySettingsEntitySource()
-            .accountConnectionDescriptors()
-            .map(SpoonjoyAccountConnectionEntity.init)
+        try await IntentEntityQueryAccess.results {
+            try await SpoonjoySettingsEntitySource()
+                .accountConnectionDescriptors()
+                .map(SpoonjoyAccountConnectionEntity.init)
+        }
     }
 }
 

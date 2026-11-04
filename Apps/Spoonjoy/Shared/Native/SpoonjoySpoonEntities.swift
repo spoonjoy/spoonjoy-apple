@@ -63,27 +63,33 @@ struct SpoonjoySpoonEntity: AppEntity, IndexedEntity, Transferable {
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoySpoonEntityQuery: EntityQuery, EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [SpoonjoySpoonEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await SpoonEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.spoonEntities(for: identifiers)
-        return descriptors.map(SpoonjoySpoonEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await SpoonEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.spoonEntities(for: identifiers)
+            return descriptors.map(SpoonjoySpoonEntity.init)
+        }
     }
 
     func entities(matching string: String) async throws -> [SpoonjoySpoonEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await SpoonEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.spoonEntities(matching: string)
-        return descriptors.map(SpoonjoySpoonEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await SpoonEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.spoonEntities(matching: string)
+            return descriptors.map(SpoonjoySpoonEntity.init)
+        }
     }
 
     func suggestedEntities() async throws -> [SpoonjoySpoonEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await SpoonEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.suggestedSpoonEntities()
-        return descriptors.map(SpoonjoySpoonEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await SpoonEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.suggestedSpoonEntities()
+            return descriptors.map(SpoonjoySpoonEntity.init)
+        }
     }
 
     private func syncStore(fileURL: URL = NativeAppStateLocation.defaultFileURL()) throws -> any NativeSyncStore {

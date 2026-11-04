@@ -335,7 +335,7 @@ private func shoppingIntentBodyContractFailures(
 
 private func shoppingIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func shoppingIntentDeclarationBody(in content: String, pattern: String) -> String? {

@@ -1015,7 +1015,7 @@ private func chefProfileSourceContractFailures(
             continue
         }
 
-        let content = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        let content = SourceContractText.withoutParameterDescriptions((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "")
         let uncommented = chefProfileUncommentedSwift(content)
         for token in requiredTokens[relativePath, default: []] where !uncommented.contains(token) {
             failures.append("\(relativePath) missing \(token)")
