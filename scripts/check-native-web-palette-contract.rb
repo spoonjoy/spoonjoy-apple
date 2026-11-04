@@ -83,9 +83,16 @@ missing_web_tokens = required_mapping.keys.reject { |token| web_tokens.key?(toke
 fail_check("#{display_path(web_css)} missing web tokens: #{missing_web_tokens.join(", ")}") unless missing_web_tokens.empty?
 
 native_content = native_theme.read
+
+# A native colour is Spoonjoy's own, `webColor(0x<hex>)`, or an OuroHX cookbook token written with the web hex it
+# equals, `cookbookDay(\.token, 0x<hex>)`. Either way the hex must be the web token's; Swift tests
+# (KitchenPaletteOuroTests) hold each OuroHX token to that hex.
+def native_color_source(mode, hex)
+  "(?:webColor\\(0x#{hex}\\)|cookbook#{mode}\\(\\\\\\.[a-zA-Z]+,\\s*0x#{hex}\\))"
+end
 required_mapping.each do |web_token, native_name|
   expected_hex = web_tokens.fetch(web_token)
-  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*webColor\(0x#{expected_hex}\)\s*\/\/\s*--#{Regexp.escape(web_token)}\b/
+  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*#{native_color_source("Day", expected_hex)}\s*\/\/\s*--#{Regexp.escape(web_token)}\b/
   next if native_content.match?(pattern)
 
   fail_check("#{display_path(native_theme)} must map #{native_name} to --#{web_token} ##{expected_hex}")
@@ -101,7 +108,7 @@ fail_check("#{display_path(web_css)} .dark block missing web tokens: #{missing_n
 
 required_night_mapping.each do |web_token, native_name|
   expected_hex = web_night_tokens.fetch(web_token)
-  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*webColor\(0x#{expected_hex}\)\s*\/\/\s*\.dark\s+--#{Regexp.escape(web_token)}\b/
+  pattern = /static\s+let\s+#{Regexp.escape(native_name)}\s*=\s*#{native_color_source("Night", expected_hex)}\s*\/\/\s*\.dark\s+--#{Regexp.escape(web_token)}\b/
   next if native_content.match?(pattern)
 
   fail_check("#{display_path(native_theme)} must map #{native_name} to .dark --#{web_token} ##{expected_hex}")

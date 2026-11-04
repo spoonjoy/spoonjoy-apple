@@ -1,4 +1,5 @@
 import Foundation
+import OuroHX
 
 /// A spring in the design system's vocabulary, in the iOS `response` / `dampingFraction` terms SwiftUI uses.
 public struct KitchenSpring: Equatable, Sendable {
@@ -29,17 +30,12 @@ public enum KitchenMotionStep: Equatable, Sendable {
 }
 
 public enum KitchenMotion {
-    /// The crossfade length every spring falls back to under Reduce Motion.
-    public static let reducedMotionCrossfadeDuration = 0.2
+    /// The crossfade length every spring falls back to under Reduce Motion: OuroHX's (`ouro.duration.base`, 0.2 s).
+    public static let reducedMotionCrossfadeDuration = OuroMotion.reducedMotionCrossfade
 
     /// The one Reduce Motion rule: springs, zooms, page turns and slides become a short crossfade. Callers animate with
-    /// the resolved step and, when it is a crossfade, swap any spatial transition for opacity.
+    /// the resolved step and swap any spatial transition for opacity with `OuroMotion.transition(_:reduceMotion:)`.
     public static func step(_ spring: KitchenSpring, reduceMotion: Bool) -> KitchenMotionStep {
         reduceMotion ? .crossfade(duration: reducedMotionCrossfadeDuration) : .spring(spring)
-    }
-
-    /// Whether movement must be replaced by a crossfade.
-    public static func crossfades(reduceMotion: Bool) -> Bool {
-        reduceMotion
     }
 }

@@ -298,6 +298,23 @@ end
 
 [ios_target, mac_target, target_by_name[JOURNEYS_TARGET], target_by_name[WIDE_JOURNEYS_TARGET], target_by_name[DUO_JOURNEYS_TARGET]].each { |target| assert_package_product(target, PACKAGE_PRODUCT) }
 
+# OuroHX (ourostack/ouro-ui-apple) gives the apps and the widget their motion, haptics and cookbook colours. The
+# project pins the exact version Package.swift pins, so the app and `swift test` build against the same tokens.
+OURO_HX_URL = "https://github.com/ourostack/ouro-ui-apple.git"
+ouro_hx_pin = ROOT.join("Package.swift").read[/\.package\(url: "#{Regexp.escape(OURO_HX_URL)}", exact: "([0-9.]+)"\)/, 1]
+fail_check("Package.swift must pin #{OURO_HX_URL} with exact:") unless ouro_hx_pin
+ouro_hx_references = project.root_object.package_references.select do |reference|
+  reference.isa == "XCRemoteSwiftPackageReference" && reference.repositoryURL == OURO_HX_URL
+end
+fail_check("project must reference #{OURO_HX_URL} once") unless ouro_hx_references.length == 1
+ouro_hx_requirement = ouro_hx_references.first.requirement
+fail_check("project must pin #{OURO_HX_URL} at exactly #{ouro_hx_pin}, got #{ouro_hx_requirement.inspect}") unless ouro_hx_requirement == { "kind" => "exactVersion", "version" => ouro_hx_pin }
+[ios_target, mac_target, widget_target].each do |target|
+  assert_package_product(target, "OuroHX")
+  dependency = target.package_product_dependencies.find { |candidate| candidate.product_name == "OuroHX" }
+  fail_check("#{target.name} must take OuroHX from #{OURO_HX_URL}") unless dependency.package == ouro_hx_references.first
+end
+
 mac_bootstrap = Gem::Version.new(
   mac_target.build_configuration_list["BootstrapDebug"].build_settings.fetch("MACOSX_DEPLOYMENT_TARGET")
 )
@@ -349,7 +366,8 @@ end
 
 theme_source = APP_ROOT.join("Shared/Design/KitchenTableTheme.swift").to_s
 fail_check("#{WIDGET_TARGET} must reuse KitchenTableTheme.swift so the Live Activity matches the app palette") unless widget_sources.include?(theme_source)
-# The widget links no package, so it compiles exactly these plain-Foundation SpoonjoyCore files for the cook session.
+# The widget links only OuroHX (for the theme), so it compiles exactly these plain-Foundation SpoonjoyCore files for
+# the cook session.
 widget_core_sources = %w[
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift

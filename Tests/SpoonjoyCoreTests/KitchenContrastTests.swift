@@ -72,7 +72,8 @@ struct KitchenContrastTests {
     private func themeTokens() throws -> [String: UInt32] {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         let theme = try String(contentsOf: root.appendingPathComponent("Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"), encoding: .utf8)
-        let pattern = try NSRegularExpression(pattern: #"static let (\w+) = webColor\(0x([0-9A-Fa-f]{6})\)"#)
+        // A colour is either Spoonjoy's own (`webColor(0x...)`) or an OuroHX token written with its hex (`cookbookDay(\.token, 0x...)`).
+        let pattern = try NSRegularExpression(pattern: #"static let (\w+) = (?:webColor\(|cookbook(?:Day|Night)\(\\\.\w+, )0x([0-9A-Fa-f]{6})\)"#)
         var tokens: [String: UInt32] = [:]
         for match in pattern.matches(in: theme, range: NSRange(theme.startIndex..., in: theme)) {
             let name = String(theme[Range(match.range(at: 1), in: theme)!])
