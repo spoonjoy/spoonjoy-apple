@@ -35,6 +35,9 @@ MAC_ENTITLEMENTS = "Apps/Spoonjoy/macOS/SpoonjoyMac.entitlements"
 ASSET_CATALOG = "Apps/Spoonjoy/Shared/Assets.xcassets"
 # App Store privacy manifest: required-reason API declarations and collected data types for both apps.
 PRIVACY_MANIFEST = "Apps/Spoonjoy/Shared/PrivacyInfo.xcprivacy"
+# Siri AI app skills (Xcode 27.3 SDK). Siri reads Skills.skillsbundle from the app, so both apps copy it whole, as a
+# folder reference: Xcode 27.2 has no file type for .skillsbundle.
+SKILLS_BUNDLE = "Apps/Spoonjoy/Shared/Skills.skillsbundle"
 
 def swift_sources_under(relative_dir)
   root = ROOT.join(relative_dir)
@@ -199,6 +202,7 @@ end
 
 def add_resources(project, target, paths)
   file_references = paths.map { |path| file_reference(project, path) }
+  file_references.each { |reference| reference.last_known_file_type = "folder" if reference.path.end_with?(".skillsbundle") }
   target.add_resources(file_references)
 end
 
@@ -312,8 +316,8 @@ end
 [INFO_PLIST, ENTITLEMENTS, MAC_ENTITLEMENTS].each { |path| file_reference(project, path) }
 add_sources(project, ios_target, SHARED_SWIFT + IOS_SWIFT + LIVE_ACTIVITY_SHARED_SWIFT)
 add_sources(project, mac_target, SHARED_SWIFT + MAC_SWIFT)
-add_resources(project, ios_target, [ASSET_CATALOG, PRIVACY_MANIFEST])
-add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST])
+add_resources(project, ios_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE])
+add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE])
 add_package_product(project, ios_target, "SpoonjoyCore")
 add_package_product(project, mac_target, "SpoonjoyCore")
 [ios_target, mac_target, widget_target].each do |target|

@@ -38,6 +38,8 @@ WIDGET_TARGET = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = APP_ROOT.join("LiveActivity/Widget/Info.plist")
 PRIVACY_MANIFEST = APP_ROOT.join("Shared/PrivacyInfo.xcprivacy")
+# Siri AI app skills (Xcode 27.3 SDK): Siri reads Skills.skillsbundle, copied whole into each app.
+SKILLS_BUNDLE = APP_ROOT.join("Shared/Skills.skillsbundle")
 
 EXPECTED_FILES = [
   APP_ROOT.join("Shared/SpoonjoyApp.swift"),
@@ -52,7 +54,8 @@ EXPECTED_FILES = [
   INFO_PLIST,
   ENTITLEMENTS,
   MAC_ENTITLEMENTS,
-  PRIVACY_MANIFEST
+  PRIVACY_MANIFEST,
+  SKILLS_BUNDLE
 ].freeze
 
 DEPLOYMENT_TARGETS = {
@@ -384,7 +387,12 @@ fail_check("#{WIDGET_TARGET} must not compile other Shared app code") unless (wi
 [ios_target, mac_target].each do |target|
   resource_paths = target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
   fail_check("#{target.name} must copy #{relative(PRIVACY_MANIFEST)} as a resource") unless resource_paths.include?(PRIVACY_MANIFEST.to_s)
+  fail_check("#{target.name} must copy #{relative(SKILLS_BUNDLE)} as a resource") unless resource_paths.include?(SKILLS_BUNDLE.to_s)
+  skills_ref = target.resources_build_phase.files.map(&:file_ref).compact.find { |ref| ref.real_path.to_s == SKILLS_BUNDLE.to_s }
+  fail_check("#{relative(SKILLS_BUNDLE)} must be a folder reference, so Xcode copies the whole bundle") unless skills_ref&.last_known_file_type == "folder"
 end
+widget_resources = widget_target.resources_build_phase.files.map { |build_file| build_file.file_ref&.real_path&.to_s }.compact
+fail_check("#{WIDGET_TARGET} must not copy #{relative(SKILLS_BUNDLE)}; app skills belong to the apps") if widget_resources.include?(SKILLS_BUNDLE.to_s)
 privacy_manifest = plist_json(PRIVACY_MANIFEST)
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare NSPrivacyTracking false") unless privacy_manifest["NSPrivacyTracking"] == false
 fail_check("#{relative(PRIVACY_MANIFEST)} must declare an empty NSPrivacyTrackingDomains") unless privacy_manifest["NSPrivacyTrackingDomains"] == []

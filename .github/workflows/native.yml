@@ -232,11 +232,15 @@ jobs:
         with:
           name: app-intents-metadata-${{ github.sha }}
           path: ${{ runner.temp }}/xray-input
-      - name: Build ouro-ax-xray at the pinned version
+      - name: Build ouro-ax-xray and ouro-ax-skills at the pinned version
         run: |
           set -euo pipefail
           swift package resolve
           swift build -c release --package-path .build/checkouts/ouro-ui-apple --product ouro-ax-xray
+          swift build -c release --package-path .build/checkouts/ouro-ui-apple --product ouro-ax-skills
+      # The source bundle, strict, so a warning (a tool named by its type) fails here before it reaches the app.
+      - name: Lint the Siri AI app skills
+        run: .build/checkouts/ouro-ui-apple/.build/release/ouro-ax-skills lint Apps/Spoonjoy/Shared/Skills.skillsbundle --strict
       - name: X-ray the iOS app's App Intents
         run: |
           set -euo pipefail

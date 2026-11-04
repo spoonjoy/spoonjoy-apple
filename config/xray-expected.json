@@ -8,14 +8,18 @@
     "intent.tool-not-on-schema",
     "intent.shortcuts",
     "entity.type-name",
-    "entity.findable"
+    "entity.findable",
+    "skill.bundle-shape",
+    "skill.names",
+    "skill.frontmatter",
+    "skill.body"
   ],
   "failing": {
     "entity.properties": "no entity exposes @Property values yet; adding them (with descriptions behind the 27.3 SDK fence) is the Siri AI pull request's work",
     "entity.transferable": "7 of 10: access keys and account connections are deliberately not Transferable (they would carry credentials out of the app), and the cooking step, which lives only while cook mode is open, isn't yet"
   },
   "open": {
-    "intent.tool": "needs the Xcode 27.3 SDK: earlier metadata cannot mark tool intents",
+    "intent.tool": "needs the Xcode 27.3 SDK: earlier metadata cannot mark tool intents. The tools are marked behind the 27.3 fence in Apps/Spoonjoy/Shared/Native/SpoonjoySiriToolIntents.swift, which no CI image can compile yet",
     "intent.error-names-fix": "behaviour stage, refusal runs: only against a disposable device and backend (--disposable), and BootstrapDebug talks to production",
     "intent.confirms-what-others-see": "a person: run the delete, remove, revoke and disconnect intents in Shortcuts and Siri and check each asks first",
     "intent.reads-in-shortcuts": "a person: read each intent's summary in the Shortcuts action library",
@@ -30,10 +34,6 @@
     "entity.siri-finds": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
     "annotation.onscreen": "behaviour stage: the main-only App Intents behaviour job",
     "annotation.siri-onscreen": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
-    "skill.bundle-shape": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
-    "skill.names": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
-    "skill.frontmatter": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
-    "skill.body": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
     "skill.loads": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device"
   }
 }

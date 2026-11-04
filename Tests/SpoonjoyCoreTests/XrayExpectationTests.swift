@@ -47,8 +47,16 @@ struct XrayExpectationTests {
     @Test("the fixes this repository made hold, and stay holding")
     func fixedClaimsAreHeld() throws {
         let held = Set(try Self.expected().hold)
-        for claim in ["intent.title", "intent.description", "intent.parameter-title", "intent.parameter-description", "entity.findable"] {
+        for claim in ["intent.title", "intent.description", "intent.parameter-title", "intent.parameter-description", "entity.findable",
+                      "skill.bundle-shape", "skill.names", "skill.frontmatter", "skill.body"] {
             #expect(held.contains(claim), "\(claim) must be under hold")
         }
+    }
+
+    @Test("intent.tool stays open until an SDK can mark tools, and says the marks wait behind the 27.3 fence")
+    func toolClaimWaitsForTheSDK() throws {
+        let reason = try #require(Self.expected().open["intent.tool"])
+        #expect(reason.contains("27.3"), "the reason should name the 27.3 SDK")
+        #expect(reason.contains("SpoonjoySiriToolIntents.swift"), "the reason should say where the tools are marked")
     }
 }
