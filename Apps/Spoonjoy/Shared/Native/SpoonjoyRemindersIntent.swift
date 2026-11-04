@@ -28,10 +28,10 @@ struct AddRecipeIngredientsToRemindersIntent: AppIntent {
     static let title: LocalizedStringResource = "Add recipe ingredients to Reminders"
     static let description = IntentDescription("Add a Spoonjoy recipe's ingredients to your Reminders list without duplicating items already on it.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe whose ingredients to add, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Scale Factor")
+    @Parameter(title: "Scale Factor", description: "How many times the recipe to shop for: 1 for as written, 2 to double it, 0.5 to halve it.")
     var scaleFactor: Double
 
     init() {

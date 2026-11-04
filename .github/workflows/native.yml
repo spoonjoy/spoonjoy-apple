@@ -84,6 +84,7 @@ jobs:
           ruby scripts/test/app_store_submission_diagnostics_test.rb
           ruby scripts/test/app_review_watch_test.rb
           ruby scripts/test/layout_audit_gate_test.rb
+          ruby scripts/test/xray_expectations_test.rb
           ruby scripts/stage-app-store-listing.rb --validate-only
           ruby scripts/stage-app-store-listing.rb --validate-only --platform MAC_OS
           ruby scripts/seed-review-demo-account.rb --validate-only
@@ -168,6 +169,24 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$ios_build_log"
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration BootstrapDebug -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_build_log"
           ruby scripts/fail-on-warning.rb --log "$macos_build_log"
+      # The App Intents X-ray job reads the iOS app's App Intents metadata, Info.plist and any skills bundles; only
+      # this runner has the iOS 27 SDK to build them, so they travel as a small artifact.
+      - name: Collect the iOS app's App Intents metadata for the X-ray
+        run: |
+          set -euo pipefail
+          app="$(xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' -showBuildSettings -json 2>/dev/null | ruby -rjson -e 'settings = JSON.parse(STDIN.read).find { |entry| entry["target"] == "Spoonjoy iOS" }.fetch("buildSettings"); puts File.join(settings.fetch("BUILT_PRODUCTS_DIR"), settings.fetch("WRAPPER_NAME"))')"
+          out="$RUNNER_TEMP/xray-input/Spoonjoy.app"
+          mkdir -p "$out"
+          cp "$app/Info.plist" "$out/"
+          cp -R "$app/Metadata.appintents" "$out/"
+          (cd "$app" && find . -name '*.skillsbundle' -type d -prune -exec rsync -R -a {} "$out/" \;)
+          ls -R "$out" | head -40
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: app-intents-metadata-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/xray-input
+          retention-days: 7
+          if-no-files-found: error
       # App Store review rejects an upload whose bundle has no privacy manifest (ITMS-91053).
       - name: Check both app bundles ship the privacy manifest
         run: |
@@ -192,6 +211,79 @@ jobs:
           ruby scripts/fail-on-warning.rb --log "$ios_release_log"
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy macOS" -configuration Release -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=NO GCC_TREAT_WARNINGS_AS_ERRORS=YES build 2>&1 | tee "$macos_release_log"
           ruby scripts/fail-on-warning.rb --log "$macos_release_log"
+
+  app-intents-xray:
+    # Ouro AX's X-ray (ourostack/ouro-ui-apple, the version Package.swift pins) checks the App Intents metadata the
+    # App bundle job built, on the free macos-26 image, and holds it to config/xray-expected.json.
+    name: App Intents X-ray
+    needs: app-bundle
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-swift-toolchain
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          name: app-intents-metadata-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/xray-input
+      - name: Build ouro-ax-xray at the pinned version
+        run: |
+          set -euo pipefail
+          swift package resolve
+          swift build -c release --package-path .build/checkouts/ouro-ui-apple --product ouro-ax-xray
+      - name: X-ray the iOS app's App Intents
+        run: |
+          set -euo pipefail
+          .build/checkouts/ouro-ui-apple/.build/release/ouro-ax-xray --app "$RUNNER_TEMP/xray-input/Spoonjoy.app" \
+            --name Spoonjoy --commit "${GITHUB_SHA::7}" --out "$RUNNER_TEMP/xray-report" --format text
+      - name: Hold the report to config/xray-expected.json
+        run: ruby scripts/check-xray.rb "$RUNNER_TEMP/xray-report/report.json"
+      - name: Upload the X-ray report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: app-intents-xray-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/xray-report
+          if-no-files-found: ignore
+
+  app-intents-xray-behaviour:
+    # The X-ray's behaviour stage runs the app's intents and queries in an iOS 27.1 simulator with AppIntentsTesting.
+    # It needs the billed xcode-27 runner, so it runs only on main. Signed out and read-only: BootstrapDebug talks to
+    # production, so no refusal runs (no --disposable). Its report is evidence; it does not gate.
+    name: App Intents X-ray (behaviour, main)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: app-intents-xray
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-xcode
+      - name: Build the iOS app and ouro-ax-xray at the pinned version
+        run: |
+          set -euo pipefail
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/dd" CODE_SIGNING_ALLOWED=NO build 2>&1 | tail -20
+          swift package resolve
+          swift build -c release --package-path .build/checkouts/ouro-ui-apple --product ouro-ax-xray
+      - name: X-ray behaviour stage (signed out)
+        run: |
+          set -euo pipefail
+          cd .build/checkouts/ouro-ui-apple
+          XRAY="$PWD/.build/release/ouro-ax-xray" sh scripts/xray-probe.sh \
+            --app "$RUNNER_TEMP/dd/Build/Products/BootstrapDebug-iphonesimulator/Spoonjoy.app" \
+            --out "$RUNNER_TEMP/xray-behaviour" --platform ios --runtime 27.1 --name Spoonjoy --commit "${GITHUB_SHA::7}"
+      - name: Upload the behaviour report
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: app-intents-xray-behaviour-${{ github.sha }}
+          path: ${{ runner.temp }}/xray-behaviour
+          if-no-files-found: ignore
 
   testflight-release-note:
     name: TestFlight release note

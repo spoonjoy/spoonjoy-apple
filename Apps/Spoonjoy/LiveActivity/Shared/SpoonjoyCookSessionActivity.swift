@@ -43,10 +43,11 @@ enum SpoonjoyCookSessionBridge {
 /// Checks off everything the current step uses, without opening the app when cook mode is still open.
 struct CheckCurrentStepIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Check Off Step"
+    static let description = IntentDescription("From the Live Activity, check off every ingredient the current cook-mode step uses, without opening Spoonjoy.")
     static let isDiscoverable = false
     static var supportedModes: IntentModes { [.background, .foreground(.dynamic)] }
 
-    @Parameter(title: "Recipe")
+    @Parameter(title: "Recipe", description: "The identifier of the recipe being cooked.")
     var recipeID: String
 
     init() {
@@ -67,10 +68,11 @@ struct CheckCurrentStepIntent: LiveActivityIntent {
 /// Moves cook mode to the next step without opening the app when it can; otherwise it opens the app.
 struct NextCookSessionStepIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Next Step"
+    static let description = IntentDescription("From the cook-session Live Activity, move cook mode to the next step without opening Spoonjoy when it can.")
     static let isDiscoverable = false
     static var supportedModes: IntentModes { [.background, .foreground(.dynamic)] }
 
-    @Parameter(title: "Recipe")
+    @Parameter(title: "Recipe", description: "The identifier of the recipe being cooked.")
     var recipeID: String
 
     init() {

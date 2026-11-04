@@ -53,7 +53,7 @@ struct OpenRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Recipe"
     static let description = IntentDescription("Open a Spoonjoy recipe.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to open, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
     init() {
@@ -77,7 +77,7 @@ struct OpenCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Cookbook"
     static let description = IntentDescription("Open a Spoonjoy cookbook.")
 
-    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    @Parameter(title: "Cookbook", description: "The cookbook to open, by its name.", requestValueDialog: "Which Spoonjoy cookbook?")
     var cookbook: SpoonjoyCookbookEntity
 
     init() {
@@ -100,7 +100,7 @@ struct OpenProfileIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Profile"
     static let description = IntentDescription("Open a Spoonjoy chef profile.")
 
-    @Parameter(title: "Profile", requestValueDialog: "Which Spoonjoy profile?")
+    @Parameter(title: "Profile", description: "The chef whose profile to open, by name or username.", requestValueDialog: "Which Spoonjoy profile?")
     var profile: SpoonjoyChefProfileEntity
 
     init() {
@@ -154,16 +154,16 @@ struct UpdateNotificationPreferencesIntent: AppIntent {
     static let title: LocalizedStringResource = "Update Notification Preferences"
     static let description = IntentDescription("Update your Spoonjoy notification preferences.")
 
-    @Parameter(title: "Spoons")
+    @Parameter(title: "Spoons", description: "On to be notified when someone logs a cook of one of your recipes; off to stop. Leave empty to keep it as it is.")
     var spoons: Bool?
 
-    @Parameter(title: "Forks")
+    @Parameter(title: "Forks", description: "On to be notified when someone makes a variation of one of your recipes; off to stop. Leave empty to keep it as it is.")
     var forks: Bool?
 
-    @Parameter(title: "Cookbook Saves")
+    @Parameter(title: "Cookbook Saves", description: "On to be notified when someone saves your recipe to a cookbook; off to stop. Leave empty to keep it as it is.")
     var cookbookSaves: Bool?
 
-    @Parameter(title: "Fellow-Chef Cooks")
+    @Parameter(title: "Fellow-Chef Cooks", description: "On to be notified when a fellow chef cooks a new recipe of their own; off to stop. Leave empty to keep it as it is.")
     var fellowChefCooks: Bool?
 
     init() {
@@ -237,10 +237,10 @@ struct UpdateProfileDisplayIntent: AppIntent {
     static let title: LocalizedStringResource = "Update Profile Display"
     static let description = IntentDescription("Update your Spoonjoy profile display.")
 
-    @Parameter(title: "Email")
+    @Parameter(title: "Email", description: "The email address to show on your Spoonjoy profile.")
     var email: String
 
-    @Parameter(title: "Username")
+    @Parameter(title: "Username", description: "The username to show on your Spoonjoy profile, without the @.")
     var username: String
 
     init() {
@@ -276,7 +276,7 @@ struct UpdateProfilePhotoIntent: AppIntent {
     static let title: LocalizedStringResource = "Update Profile Photo"
     static let description = IntentDescription("Update your Spoonjoy profile photo.")
 
-    @Parameter(title: "Photo")
+    @Parameter(title: "Photo", description: "The image file to use as your profile photo.")
     var photo: IntentFile
 
     init() {
@@ -351,10 +351,10 @@ struct CreateAPITokenIntent: AppIntent {
     static let title: LocalizedStringResource = "Create Agent Access Key"
     static let description = IntentDescription("Create a Spoonjoy access key for agents and tools.")
 
-    @Parameter(title: "Name")
+    @Parameter(title: "Name", description: "A name for the new access key, so you can tell later which agent or tool uses it.")
     var name: String
 
-    @Parameter(title: "Scopes")
+    @Parameter(title: "Scopes", description: "What the key may do, as a list of Spoonjoy scope names.")
     var scopes: [String]
 
     init() {
@@ -385,7 +385,7 @@ struct RevokeAPITokenIntent: AppIntent {
     static let title: LocalizedStringResource = "Revoke Agent Access Key"
     static let description = IntentDescription("Revoke a Spoonjoy access key for agents and tools.")
 
-    @Parameter(title: "Access Key", requestValueDialog: "Which access key should be revoked?")
+    @Parameter(title: "Access Key", description: "The agent access key to revoke, by its name.", requestValueDialog: "Which access key should be revoked?")
     var token: SpoonjoyAPITokenEntity
 
     init() {
@@ -428,7 +428,7 @@ struct DisconnectAccountConnectionIntent: AppIntent {
     static let title: LocalizedStringResource = "Disconnect Account Connection"
     static let description = IntentDescription("Disconnect a Spoonjoy account connection.")
 
-    @Parameter(title: "Connection", requestValueDialog: "Which connection should be disconnected?")
+    @Parameter(title: "Connection", description: "The connected app or agent to disconnect, by its name.", requestValueDialog: "Which connection should be disconnected?")
     var connection: SpoonjoyAccountConnectionEntity
 
     init() {
@@ -489,7 +489,7 @@ struct LinkProviderIntent: AppIntent {
     static let title: LocalizedStringResource = "Link Provider"
     static let description = IntentDescription("Link a sign-in provider to Spoonjoy.")
 
-    @Parameter(title: "Provider")
+    @Parameter(title: "Provider", description: "The sign-in provider to link to your Spoonjoy account, such as Google or Apple.")
     var provider: SpoonjoySettingsAuthProviderOption
 
     init() {
@@ -557,10 +557,10 @@ struct SearchSpoonjoyIntent: AppIntent {
     static let title: LocalizedStringResource = "Search Spoonjoy"
     static let description = IntentDescription("Search recipes, cookbooks, chefs, and shopping-list items in Spoonjoy.")
 
-    @Parameter(title: "Query")
+    @Parameter(title: "Query", description: "The words to search for, such as a dish, an ingredient, a cookbook or a chef.")
     var query: String
 
-    @Parameter(title: "Scope")
+    @Parameter(title: "Scope", description: "Where to search: everything, recipes, cookbooks, chefs or your shopping list.")
     var scope: SpoonjoySearchScopeOption
 
     init() {
@@ -586,7 +586,7 @@ struct ShareRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Share Recipe"
     static let description = IntentDescription("Share a public Spoonjoy recipe URL.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to share a link to, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
     init() {
@@ -612,7 +612,7 @@ struct ShareCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Share Cookbook"
     static let description = IntentDescription("Share a public Spoonjoy cookbook URL.")
 
-    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    @Parameter(title: "Cookbook", description: "The cookbook to share a link to, by its name.", requestValueDialog: "Which Spoonjoy cookbook?")
     var cookbook: SpoonjoyCookbookEntity
 
     init() {
@@ -638,7 +638,7 @@ struct ShareShoppingListIntent: AppIntent {
     static let title: LocalizedStringResource = "Share Shopping List"
     static let description = IntentDescription("Share a private Spoonjoy shopping-list transfer value.")
 
-    @Parameter(title: "Shopping List", requestValueDialog: "Which Spoonjoy shopping list?")
+    @Parameter(title: "Shopping List", description: "The shopping list to share.", requestValueDialog: "Which Spoonjoy shopping list?")
     var shoppingList: SpoonjoyShoppingListEntity
 
     init() {
@@ -667,7 +667,7 @@ struct StartCookModeIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Cooking"
     static let description = IntentDescription("Open a Spoonjoy recipe directly in cook mode.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to cook, by its name. Cook mode opens at its first step.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
     init() {
@@ -690,7 +690,7 @@ struct ContinueCookModeIntent: AppIntent {
     static let title: LocalizedStringResource = "Continue Cooking"
     static let description = IntentDescription("Continue cooking a Spoonjoy recipe.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe you were cooking, by its name. Cook mode opens where you left off.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
     init() {
@@ -744,7 +744,7 @@ struct StartCookStepTimerIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Step Timer"
     static let description = IntentDescription("Start the timer for the step on screen in Spoonjoy cook mode.")
 
-    @Parameter(title: "Step")
+    @Parameter(title: "Step", description: "The cooking step whose timer to start. Leave empty for the step on screen.")
     var step: SpoonjoyCookStepEntity?
 
     init() {}
@@ -780,10 +780,10 @@ struct ForkRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Fork Recipe"
     static let description = IntentDescription("Create a Spoonjoy variation of a recipe.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to make your own variation of, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Title")
+    @Parameter(title: "Title", description: "The title for your variation. Leave empty to keep the original title.")
     var titleOverride: String
 
     init() {
@@ -815,10 +815,10 @@ struct SaveRecipeToCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Save Recipe to Cookbook"
     static let description = IntentDescription("Save a Spoonjoy recipe to a cookbook.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to save, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    @Parameter(title: "Cookbook", description: "The cookbook to save it to, by its name.", requestValueDialog: "Which Spoonjoy cookbook?")
     var cookbook: SpoonjoyCookbookEntity
 
     init() {
@@ -851,7 +851,7 @@ struct CreateCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Create Cookbook"
     static let description = IntentDescription("Create a Spoonjoy cookbook.")
 
-    @Parameter(title: "Title")
+    @Parameter(title: "Title", description: "The new cookbook's title.")
     var title: String
 
     init() {
@@ -882,10 +882,10 @@ struct RenameCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Rename Cookbook"
     static let description = IntentDescription("Rename one of your Spoonjoy cookbooks.")
 
-    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    @Parameter(title: "Cookbook", description: "Your cookbook to rename, by its current name.", requestValueDialog: "Which Spoonjoy cookbook?")
     var cookbook: SpoonjoyCookbookEntity
 
-    @Parameter(title: "Title")
+    @Parameter(title: "Title", description: "The cookbook's new title.")
     var title: String
 
     init() {
@@ -918,7 +918,7 @@ struct DeleteCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Delete Cookbook"
     static let description = IntentDescription("Delete one of your Spoonjoy cookbooks.")
 
-    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    @Parameter(title: "Cookbook", description: "Your cookbook to delete, by its name.", requestValueDialog: "Which Spoonjoy cookbook?")
     var cookbook: SpoonjoyCookbookEntity
 
     init() {
@@ -950,10 +950,10 @@ struct AddRecipeToCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Recipe to Cookbook"
     static let description = IntentDescription("Add a Spoonjoy recipe to one of your cookbooks.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to add, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    @Parameter(title: "Cookbook", description: "Your cookbook to add it to, by its name.", requestValueDialog: "Which Spoonjoy cookbook?")
     var cookbook: SpoonjoyCookbookEntity
 
     init() {
@@ -986,10 +986,10 @@ struct RemoveRecipeFromCookbookIntent: AppIntent {
     static let title: LocalizedStringResource = "Remove Recipe from Cookbook"
     static let description = IntentDescription("Remove a Spoonjoy recipe from a cookbook.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to take out of the cookbook, by its name. The recipe itself is kept.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Cookbook", requestValueDialog: "Which Spoonjoy cookbook?")
+    @Parameter(title: "Cookbook", description: "The cookbook to take it out of, by its name.", requestValueDialog: "Which Spoonjoy cookbook?")
     var cookbook: SpoonjoyCookbookEntity
 
     init() {
@@ -1023,7 +1023,7 @@ struct DeleteRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Delete Recipe"
     static let description = IntentDescription("Delete one of your Spoonjoy recipes.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "Your recipe to delete, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
     init() {
@@ -1055,13 +1055,13 @@ struct AddShoppingListItemIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Shopping Item"
     static let description = IntentDescription("Add an item to the Spoonjoy shopping list.")
 
-    @Parameter(title: "Name")
+    @Parameter(title: "Name", description: "What to buy, such as eggs or flour.")
     var name: String
 
-    @Parameter(title: "Quantity")
+    @Parameter(title: "Quantity", description: "How many or how much, as a number. Leave empty if it doesn't matter.")
     var quantity: Double?
 
-    @Parameter(title: "Unit")
+    @Parameter(title: "Unit", description: "The unit for the quantity, such as grams, cups or cans. Leave empty for a plain count.")
     var unit: String?
 
     init() {
@@ -1100,10 +1100,10 @@ struct SetShoppingListItemCheckedIntent: AppIntent {
     static let title: LocalizedStringResource = "Set Shopping Item Checked"
     static let description = IntentDescription("Check or uncheck a Spoonjoy shopping-list item.")
 
-    @Parameter(title: "Shopping Item", requestValueDialog: "Which Spoonjoy shopping item?")
+    @Parameter(title: "Shopping Item", description: "The shopping-list item to check or uncheck, by its name.", requestValueDialog: "Which Spoonjoy shopping item?")
     var item: SpoonjoyShoppingItemEntity
 
-    @Parameter(title: "Checked")
+    @Parameter(title: "Checked", description: "On to check the item off as bought; off to put it back on the list.")
     var checked: Bool
 
     init() {
@@ -1140,7 +1140,7 @@ struct RemoveShoppingListItemIntent: AppIntent {
     static let title: LocalizedStringResource = "Remove Shopping Item"
     static let description = IntentDescription("Remove an item from the Spoonjoy shopping list.")
 
-    @Parameter(title: "Shopping Item", requestValueDialog: "Which Spoonjoy shopping item?")
+    @Parameter(title: "Shopping Item", description: "The shopping-list item to remove, by its name.", requestValueDialog: "Which Spoonjoy shopping item?")
     var item: SpoonjoyShoppingItemEntity
 
     init() {
@@ -1175,10 +1175,10 @@ struct AddRecipeIngredientsToShoppingListIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Recipe Ingredients"
     static let description = IntentDescription("Add a Spoonjoy recipe's ingredients to the shopping list.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe whose ingredients to add, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Scale Factor")
+    @Parameter(title: "Scale Factor", description: "How many times the recipe to shop for: 1 for as written, 2 to double it, 0.5 to halve it.")
     var scaleFactor: Double
 
     init() {
@@ -1255,16 +1255,16 @@ struct LogCookIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Cook"
     static let description = IntentDescription("Log a cook on a Spoonjoy recipe.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe did you cook?")
+    @Parameter(title: "Recipe", description: "The recipe you cooked, by its name.", requestValueDialog: "Which Spoonjoy recipe did you cook?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Note")
+    @Parameter(title: "Note", description: "How it went, in your words. Optional.")
     var note: String?
 
-    @Parameter(title: "Next Time")
+    @Parameter(title: "Next Time", description: "What to change next time you cook it. Optional.")
     var nextTime: String?
 
-    @Parameter(title: "Cooked At")
+    @Parameter(title: "Cooked At", description: "When you cooked it, as a date. Leave empty for now.")
     var cookedAt: String?
 
     init() {
@@ -1300,16 +1300,16 @@ struct EditCookLogIntent: AppIntent {
     static let title: LocalizedStringResource = "Edit Cook Log"
     static let description = IntentDescription("Edit one of your Spoonjoy cook logs.")
 
-    @Parameter(title: "Cook Log", requestValueDialog: "Which Spoonjoy cook log?")
+    @Parameter(title: "Cook Log", description: "Your cook log to edit, by its recipe and date.", requestValueDialog: "Which Spoonjoy cook log?")
     var spoon: SpoonjoySpoonEntity
 
-    @Parameter(title: "Note")
+    @Parameter(title: "Note", description: "The new note on how it went. Leave empty to keep the current one.")
     var note: String?
 
-    @Parameter(title: "Next Time")
+    @Parameter(title: "Next Time", description: "The new note on what to change next time. Leave empty to keep the current one.")
     var nextTime: String?
 
-    @Parameter(title: "Cooked At")
+    @Parameter(title: "Cooked At", description: "The new date you cooked it. Leave empty to keep the current one.")
     var cookedAt: String?
 
     init() {
@@ -1347,7 +1347,7 @@ struct DeleteCookLogIntent: AppIntent {
     static let title: LocalizedStringResource = "Delete Cook Log"
     static let description = IntentDescription("Delete one of your Spoonjoy cook logs.")
 
-    @Parameter(title: "Cook Log", requestValueDialog: "Which Spoonjoy cook log?")
+    @Parameter(title: "Cook Log", description: "Your cook log to delete, by its recipe and date.", requestValueDialog: "Which Spoonjoy cook log?")
     var spoon: SpoonjoySpoonEntity
 
     init() {
@@ -1379,16 +1379,16 @@ struct CreateCoverFromSpoonIntent: AppIntent {
     static let title: LocalizedStringResource = "Create Cover from Cook Log"
     static let description = IntentDescription("Use a Spoonjoy cook-log photo as a recipe cover.")
 
-    @Parameter(title: "Recipe", requestValueDialog: "Which Spoonjoy recipe gets the cover?")
+    @Parameter(title: "Recipe", description: "The recipe that gets the new cover, by its name.", requestValueDialog: "Which Spoonjoy recipe gets the cover?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Cook Log", requestValueDialog: "Which Spoonjoy cook log has the photo?")
+    @Parameter(title: "Cook Log", description: "The cook log whose photo becomes the cover.", requestValueDialog: "Which Spoonjoy cook log has the photo?")
     var spoon: SpoonjoySpoonEntity
 
-    @Parameter(title: "Activate")
+    @Parameter(title: "Activate", description: "On to show the new cover on the recipe straight away; off to keep it as a spare.")
     var activate: Bool
 
-    @Parameter(title: "Generate Editorial")
+    @Parameter(title: "Generate Editorial", description: "On to have an AI service restyle the photo as an editorial cover, which sends it to that service; off to use the photo as it is.")
     var generateEditorial: Bool
 
     init() {
@@ -1429,7 +1429,7 @@ struct CaptureRecipeIntent: AppIntent {
     static let title: LocalizedStringResource = "Capture Recipe"
     static let description = IntentDescription("Save a recipe URL or note into Spoonjoy capture drafts.")
 
-    @Parameter(title: "Source", requestValueDialog: "What recipe URL or text should Spoonjoy capture?")
+    @Parameter(title: "Source", description: "A recipe's web address, or its text, to save as a draft for importing.", requestValueDialog: "What recipe URL or text should Spoonjoy capture?")
     var source: String
 
     init() {
@@ -1462,7 +1462,7 @@ struct SubmitCaptureImportIntent: AppIntent {
     static let title: LocalizedStringResource = "Submit Capture Import"
     static let description = IntentDescription("Queue a Spoonjoy capture draft for recipe import.")
 
-    @Parameter(title: "Capture Draft", requestValueDialog: "Which Spoonjoy capture draft should be imported?")
+    @Parameter(title: "Capture Draft", description: "The capture draft to import as a recipe.", requestValueDialog: "Which Spoonjoy capture draft should be imported?")
     var draft: SpoonjoyCaptureDraftEntity
 
     init() {
@@ -1496,7 +1496,7 @@ struct OpenCaptureDraftIntent: AppIntent {
     static let title: LocalizedStringResource = "Open Capture Draft"
     static let description = IntentDescription("Open a Spoonjoy capture draft.")
 
-    @Parameter(title: "Capture Draft", requestValueDialog: "Which Spoonjoy capture draft should open?")
+    @Parameter(title: "Capture Draft", description: "The capture draft to open.", requestValueDialog: "Which Spoonjoy capture draft should open?")
     var draft: SpoonjoyCaptureDraftEntity
 
     init() {
@@ -1520,7 +1520,7 @@ struct DiscardCaptureDraftIntent: AppIntent {
     static let title: LocalizedStringResource = "Discard Capture Draft"
     static let description = IntentDescription("Discard a Spoonjoy capture draft and cancel its pending import.")
 
-    @Parameter(title: "Capture Draft", requestValueDialog: "Which Spoonjoy capture draft should be discarded?")
+    @Parameter(title: "Capture Draft", description: "The capture draft to throw away.", requestValueDialog: "Which Spoonjoy capture draft should be discarded?")
     var draft: SpoonjoyCaptureDraftEntity
 
     init() {

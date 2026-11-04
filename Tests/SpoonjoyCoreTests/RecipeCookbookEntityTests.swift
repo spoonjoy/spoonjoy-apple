@@ -94,7 +94,7 @@ struct RecipeCookbookEntityTests {
                     "scope.environment"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift": [
-                    "@Parameter(title: \"Recipe\", requestValueDialog:",
+                    "requestValueDialog:",
                     "var recipe: SpoonjoyRecipeEntity",
                     "try recipe.resolvedRecipeID()"
                 ],

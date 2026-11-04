@@ -124,7 +124,6 @@ struct CookbookIntentTests {
                     label: "CreateCookbookIntent",
                     pattern: #"struct\s+CreateCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Title\")",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
                         "NativeIntentActionResolver().createCookbook(title: title",
@@ -140,9 +139,8 @@ struct CookbookIntentTests {
                     label: "RenameCookbookIntent",
                     pattern: #"struct\s+RenameCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+                        "requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
-                        "@Parameter(title: \"Title\")",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
                         "NativeIntentActionResolver().renameCookbook(cookbook: cookbook.descriptor",
@@ -158,7 +156,7 @@ struct CookbookIntentTests {
                     label: "DeleteCookbookIntent",
                     pattern: #"struct\s+DeleteCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+                        "requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -176,9 +174,9 @@ struct CookbookIntentTests {
                     label: "AddRecipeToCookbookIntent",
                     pattern: #"struct\s+AddRecipeToCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Recipe\", requestValueDialog:",
+                        "requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
-                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+                        "requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
@@ -195,9 +193,9 @@ struct CookbookIntentTests {
                     label: "RemoveRecipeFromCookbookIntent",
                     pattern: #"struct\s+RemoveRecipeFromCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "@Parameter(title: \"Recipe\", requestValueDialog:",
+                        "requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
-                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
+                        "requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",

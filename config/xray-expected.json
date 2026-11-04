@@ -1,0 +1,39 @@
+{
+  "about": "What the Ouro AX X-ray (ouro-ui-apple, pinned in Package.swift) proves about Spoonjoy's App Intents on every pull request: the metadata of the iOS app the App bundle job builds. scripts/check-xray.rb holds the report to this file. Claims under hold must hold; failing claims are known gaps with an owner; open claims can't be settled in this lane, and each says why.",
+  "hold": [
+    "intent.title",
+    "intent.description",
+    "intent.parameter-title",
+    "intent.parameter-description",
+    "intent.tool-not-on-schema",
+    "intent.shortcuts",
+    "entity.type-name",
+    "entity.findable"
+  ],
+  "failing": {
+    "entity.properties": "no entity exposes @Property values yet; adding them (with descriptions behind the 27.3 SDK fence) is the Siri AI pull request's work",
+    "entity.transferable": "7 of 10: access keys and account connections are deliberately not Transferable (they would carry credentials out of the app), and the cooking step, which lives only while cook mode is open, isn't yet"
+  },
+  "open": {
+    "intent.tool": "needs the Xcode 27.3 SDK: earlier metadata cannot mark tool intents",
+    "intent.error-names-fix": "behaviour stage, refusal runs: only against a disposable device and backend (--disposable), and BootstrapDebug talks to production",
+    "intent.confirms-what-others-see": "a person: run the delete, remove, revoke and disconnect intents in Shortcuts and Siri and check each asks first",
+    "intent.reads-in-shortcuts": "a person: read each intent's summary in the Shortcuts action library",
+    "intent.siri-calls": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
+    "intent.siri-says-what-happened": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
+    "entity.property-description": "needs entity properties first (see entity.properties), then the Xcode 27.3 SDK",
+    "entity.private-properties": "a person: review each property once entities expose them",
+    "entity.indexed": "behaviour stage: the main-only App Intents behaviour job (iOS 27.1 simulator, signed out, so there is nothing to index)",
+    "entity.ids-resolve": "behaviour stage: the main-only App Intents behaviour job; signed out, there is nothing to look up",
+    "entity.transfer-round-trip": "behaviour stage: the main-only App Intents behaviour job",
+    "entity.display-representation": "a person: find each entity in Spotlight and Shortcuts and check its title, subtitle and image",
+    "entity.siri-finds": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
+    "annotation.onscreen": "behaviour stage: the main-only App Intents behaviour job",
+    "annotation.siri-onscreen": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device",
+    "skill.bundle-shape": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
+    "skill.names": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
+    "skill.frontmatter": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
+    "skill.body": "the app ships no Skills.skillsbundle yet (the Siri AI pull request adds the cook-along skill)",
+    "skill.loads": "SiriEvaluations: needs a 27.3 OS on an Apple Intelligence device"
+  }
+}

@@ -103,7 +103,7 @@ struct ShoppingEntityTests {
                     "scope.environment"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift": [
-                    "@Parameter(title: \"Shopping Item\", requestValueDialog:",
+                    "requestValueDialog:",
                     "var item: SpoonjoyShoppingItemEntity",
                     "try item.resolvedShoppingItemID()"
                 ],

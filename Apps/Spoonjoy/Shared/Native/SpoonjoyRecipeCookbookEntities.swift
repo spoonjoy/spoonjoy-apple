@@ -116,27 +116,33 @@ struct SpoonjoyCookbookEntity: AppEntity, IndexedEntity, Transferable {
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoyRecipeEntityQuery: EntityQuery, EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [SpoonjoyRecipeEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.recipeEntities(for: identifiers)
-        return descriptors.map(SpoonjoyRecipeEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.recipeEntities(for: identifiers)
+            return descriptors.map(SpoonjoyRecipeEntity.init)
+        }
     }
 
     func entities(matching string: String) async throws -> [SpoonjoyRecipeEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.recipeEntities(matching: string)
-        return descriptors.map(SpoonjoyRecipeEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.recipeEntities(matching: string)
+            return descriptors.map(SpoonjoyRecipeEntity.init)
+        }
     }
 
     func suggestedEntities() async throws -> [SpoonjoyRecipeEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.suggestedRecipeEntities()
-        return descriptors.map(SpoonjoyRecipeEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.suggestedRecipeEntities()
+            return descriptors.map(SpoonjoyRecipeEntity.init)
+        }
     }
 
     private func syncStore() throws -> any NativeSyncStore {
@@ -152,27 +158,33 @@ struct SpoonjoyRecipeEntityQuery: EntityQuery, EntityStringQuery {
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoyCookbookEntityQuery: EntityQuery, EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [SpoonjoyCookbookEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.cookbookEntities(for: identifiers)
-        return descriptors.map(SpoonjoyCookbookEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.cookbookEntities(for: identifiers)
+            return descriptors.map(SpoonjoyCookbookEntity.init)
+        }
     }
 
     func entities(matching string: String) async throws -> [SpoonjoyCookbookEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.cookbookEntities(matching: string)
-        return descriptors.map(SpoonjoyCookbookEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.cookbookEntities(matching: string)
+            return descriptors.map(SpoonjoyCookbookEntity.init)
+        }
     }
 
     func suggestedEntities() async throws -> [SpoonjoyCookbookEntity] {
-        let syncStore = try syncStore()
-        let scope = try await scope(syncStore: syncStore)
-        let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
-        let descriptors = try await catalog.suggestedCookbookEntities()
-        return descriptors.map(SpoonjoyCookbookEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let syncStore = try syncStore()
+            let scope = try await scope(syncStore: syncStore)
+            let catalog = try await RecipeCookbookEntityCatalog.loading(syncStore: syncStore, currentAccountID: scope.accountID, environment: scope.environment)
+            let descriptors = try await catalog.suggestedCookbookEntities()
+            return descriptors.map(SpoonjoyCookbookEntity.init)
+        }
     }
 
     private func syncStore() throws -> any NativeSyncStore {

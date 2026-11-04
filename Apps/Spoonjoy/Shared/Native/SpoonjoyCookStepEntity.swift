@@ -37,8 +37,10 @@ struct SpoonjoyCookStepEntity: AppEntity {
     }
 }
 
+/// Steps exist only while cook mode is open, so they are never indexed in Spotlight. The query lists the one on screen,
+/// which is every step Siri can act on.
 @available(iOS 27.0, macOS 27.0, *)
-struct SpoonjoyCookStepEntityQuery: EntityQuery {
+struct SpoonjoyCookStepEntityQuery: EnumerableEntityQuery {
     @MainActor
     func entities(for identifiers: [String]) async throws -> [SpoonjoyCookStepEntity] {
         guard let step = CookModeSessionCenter.shared.onScreenStep(), identifiers.contains(step.entityID) else {
@@ -49,6 +51,11 @@ struct SpoonjoyCookStepEntityQuery: EntityQuery {
 
     @MainActor
     func suggestedEntities() async throws -> [SpoonjoyCookStepEntity] {
+        try await allEntities()
+    }
+
+    @MainActor
+    func allEntities() async throws -> [SpoonjoyCookStepEntity] {
         CookModeSessionCenter.shared.onScreenStep().map { [SpoonjoyCookStepEntity(step: $0)] } ?? []
     }
 }

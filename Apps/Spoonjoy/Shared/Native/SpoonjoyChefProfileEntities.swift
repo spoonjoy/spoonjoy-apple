@@ -64,39 +64,45 @@ struct SpoonjoyChefProfileEntity: AppEntity, IndexedEntity, Transferable {
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoyChefProfileEntityQuery: EntityQuery, EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [SpoonjoyChefProfileEntity] {
-        let inputs = try await catalogInputs()
-        let catalog = try await ChefProfileEntityCatalog.loading(
-            syncStore: inputs.syncStore,
-            cacheStore: inputs.cacheStore,
-            currentAccountID: inputs.scope.accountID,
-            environment: inputs.scope.environment
-        )
-        let descriptors = try await catalog.chefProfileEntities(for: identifiers)
-        return descriptors.map(SpoonjoyChefProfileEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let inputs = try await catalogInputs()
+            let catalog = try await ChefProfileEntityCatalog.loading(
+                syncStore: inputs.syncStore,
+                cacheStore: inputs.cacheStore,
+                currentAccountID: inputs.scope.accountID,
+                environment: inputs.scope.environment
+            )
+            let descriptors = try await catalog.chefProfileEntities(for: identifiers)
+            return descriptors.map(SpoonjoyChefProfileEntity.init)
+        }
     }
 
     func entities(matching string: String) async throws -> [SpoonjoyChefProfileEntity] {
-        let inputs = try await catalogInputs()
-        let catalog = try await ChefProfileEntityCatalog.loading(
-            syncStore: inputs.syncStore,
-            cacheStore: inputs.cacheStore,
-            currentAccountID: inputs.scope.accountID,
-            environment: inputs.scope.environment
-        )
-        let descriptors = try await catalog.chefProfileEntities(matching: string)
-        return descriptors.map(SpoonjoyChefProfileEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let inputs = try await catalogInputs()
+            let catalog = try await ChefProfileEntityCatalog.loading(
+                syncStore: inputs.syncStore,
+                cacheStore: inputs.cacheStore,
+                currentAccountID: inputs.scope.accountID,
+                environment: inputs.scope.environment
+            )
+            let descriptors = try await catalog.chefProfileEntities(matching: string)
+            return descriptors.map(SpoonjoyChefProfileEntity.init)
+        }
     }
 
     func suggestedEntities() async throws -> [SpoonjoyChefProfileEntity] {
-        let inputs = try await catalogInputs()
-        let catalog = try await ChefProfileEntityCatalog.loading(
-            syncStore: inputs.syncStore,
-            cacheStore: inputs.cacheStore,
-            currentAccountID: inputs.scope.accountID,
-            environment: inputs.scope.environment
-        )
-        let descriptors = try await catalog.suggestedChefProfileEntities()
-        return descriptors.map(SpoonjoyChefProfileEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let inputs = try await catalogInputs()
+            let catalog = try await ChefProfileEntityCatalog.loading(
+                syncStore: inputs.syncStore,
+                cacheStore: inputs.cacheStore,
+                currentAccountID: inputs.scope.accountID,
+                environment: inputs.scope.environment
+            )
+            let descriptors = try await catalog.suggestedChefProfileEntities()
+            return descriptors.map(SpoonjoyChefProfileEntity.init)
+        }
     }
 
     private func catalogInputs(
