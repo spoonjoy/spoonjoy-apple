@@ -160,6 +160,11 @@ Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
   fail_check("#{File.basename(path)} must select Xcode 27.1 explicitly") if text.include?("runs-on: xcode-27") && !text.include?("sudo xcode-select -s /Applications/Xcode_27.1.app") && !text.include?("uses: ./.github/actions/select-xcode")
   fail_check("#{File.basename(path)} still requires an Xcode 26 minimum") if text.include?('minimum_xcode_version="26')
 end
+# Siri AI app skills: the X-ray job lints the bundle both apps copy, strictly, at the pinned ouro-ui-apple.
+xray_job = YAML.safe_load(workflow).fetch("jobs").fetch("app-intents-xray")
+xray_steps = xray_job.fetch("steps").map { |step| step["run"].to_s }.join("\n")
+fail_check("native.yml app-intents-xray must build ouro-ax-skills") unless xray_steps.include?("--package-path .build/checkouts/ouro-ui-apple --product ouro-ax-skills")
+fail_check("native.yml app-intents-xray must lint Apps/Spoonjoy/Shared/Skills.skillsbundle with --strict") unless xray_steps.include?("ouro-ax-skills lint Apps/Spoonjoy/Shared/Skills.skillsbundle --strict")
 fail_check("native workflow must not pipe xcodebuild -version into grep -q") if workflow.include?("xcodebuild -version | grep") || select_xcode.include?("xcodebuild -version | grep")
 fail_check("local matrix must not pipe xcodebuild -version into grep -q") if matrix.include?("xcodebuild -version | grep")
 fail_check("local matrix missing captured xcodebuild version check") unless matrix.include?('xcode_version="$(xcodebuild -version)"') &&
@@ -205,6 +210,7 @@ Dir.mktmpdir("spoonjoy-generator-contract") do |dir|
   project_content = project_text.read
   fail_check("generated project missing AppIcon compiler setting") unless project_content.include?("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;")
   fail_check("generated project must copy PrivacyInfo.xcprivacy into both apps") unless project_content.scan(%r{/\* PrivacyInfo\.xcprivacy in Resources \*/ = \{isa = PBXBuildFile;}).length == 2
+  fail_check("generated project must copy Skills.skillsbundle into both apps") unless project_content.scan(%r{/\* Skills\.skillsbundle in Resources \*/ = \{isa = PBXBuildFile;}).length == 2
   scheme_dir = one.join("Spoonjoy.xcodeproj/xcshareddata/xcschemes")
   scheme_files = scheme_dir.children.select { |path| path.extname == ".xcscheme" }.map(&:basename).map(&:to_s).sort
   expected_scheme_files = ["Spoonjoy iOS.xcscheme", "Spoonjoy macOS.xcscheme"]
