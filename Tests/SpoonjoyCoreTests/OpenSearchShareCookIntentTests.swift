@@ -617,7 +617,7 @@ private func openSearchShareCookBodyContractFailures(
 
 private func openSearchShareCookReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func openSearchShareCookUncommentedSwift(_ content: String) -> String {

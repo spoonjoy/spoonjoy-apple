@@ -63,39 +63,45 @@ struct SpoonjoyCaptureDraftEntity: AppEntity, IndexedEntity, Transferable {
 @available(iOS 27.0, macOS 27.0, *)
 struct SpoonjoyCaptureDraftEntityQuery: EntityQuery, EntityStringQuery {
     func entities(for identifiers: [String]) async throws -> [SpoonjoyCaptureDraftEntity] {
-        let inputs = try await catalogInputs()
-        let catalog = try await CaptureDraftEntityCatalog.loading(
-            appStateStore: inputs.appStateStore,
-            cacheStore: inputs.cacheStore,
-            currentAccountID: inputs.scope.accountID,
-            environment: inputs.scope.environment
-        )
-        let descriptors = try await catalog.captureDraftEntities(for: identifiers)
-        return descriptors.map(SpoonjoyCaptureDraftEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let inputs = try await catalogInputs()
+            let catalog = try await CaptureDraftEntityCatalog.loading(
+                appStateStore: inputs.appStateStore,
+                cacheStore: inputs.cacheStore,
+                currentAccountID: inputs.scope.accountID,
+                environment: inputs.scope.environment
+            )
+            let descriptors = try await catalog.captureDraftEntities(for: identifiers)
+            return descriptors.map(SpoonjoyCaptureDraftEntity.init)
+        }
     }
 
     func entities(matching string: String) async throws -> [SpoonjoyCaptureDraftEntity] {
-        let inputs = try await catalogInputs()
-        let catalog = try await CaptureDraftEntityCatalog.loading(
-            appStateStore: inputs.appStateStore,
-            cacheStore: inputs.cacheStore,
-            currentAccountID: inputs.scope.accountID,
-            environment: inputs.scope.environment
-        )
-        let descriptors = try await catalog.captureDraftEntities(matching: string)
-        return descriptors.map(SpoonjoyCaptureDraftEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let inputs = try await catalogInputs()
+            let catalog = try await CaptureDraftEntityCatalog.loading(
+                appStateStore: inputs.appStateStore,
+                cacheStore: inputs.cacheStore,
+                currentAccountID: inputs.scope.accountID,
+                environment: inputs.scope.environment
+            )
+            let descriptors = try await catalog.captureDraftEntities(matching: string)
+            return descriptors.map(SpoonjoyCaptureDraftEntity.init)
+        }
     }
 
     func suggestedEntities() async throws -> [SpoonjoyCaptureDraftEntity] {
-        let inputs = try await catalogInputs()
-        let catalog = try await CaptureDraftEntityCatalog.loading(
-            appStateStore: inputs.appStateStore,
-            cacheStore: inputs.cacheStore,
-            currentAccountID: inputs.scope.accountID,
-            environment: inputs.scope.environment
-        )
-        let descriptors = try await catalog.suggestedCaptureDraftEntities()
-        return descriptors.map(SpoonjoyCaptureDraftEntity.init)
+        try await IntentEntityQueryAccess.results {
+            let inputs = try await catalogInputs()
+            let catalog = try await CaptureDraftEntityCatalog.loading(
+                appStateStore: inputs.appStateStore,
+                cacheStore: inputs.cacheStore,
+                currentAccountID: inputs.scope.accountID,
+                environment: inputs.scope.environment
+            )
+            let descriptors = try await catalog.suggestedCaptureDraftEntities()
+            return descriptors.map(SpoonjoyCaptureDraftEntity.init)
+        }
     }
 
     private func catalogInputs(

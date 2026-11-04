@@ -33,9 +33,10 @@ enum SpoonjoyCookActivityBridge {
 @available(iOS 26.0, *)
 struct PauseCookTimerIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Pause Timer"
+    static let description = IntentDescription("Pause a running cook-mode timer from its Live Activity.")
     static let isDiscoverable = false
 
-    @Parameter(title: "Timer")
+    @Parameter(title: "Timer", description: "The cook-mode timer to pause, by its identifier.")
     var alarmID: String
 
     init() {
@@ -58,9 +59,10 @@ struct PauseCookTimerIntent: LiveActivityIntent {
 @available(iOS 26.0, *)
 struct ResumeCookTimerIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Resume Timer"
+    static let description = IntentDescription("Resume a paused cook-mode timer from its Live Activity.")
     static let isDiscoverable = false
 
-    @Parameter(title: "Timer")
+    @Parameter(title: "Timer", description: "The paused cook-mode timer to resume, by its identifier.")
     var alarmID: String
 
     init() {
@@ -83,9 +85,10 @@ struct ResumeCookTimerIntent: LiveActivityIntent {
 @available(iOS 26.0, *)
 struct StopCookTimerIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Stop Timer"
+    static let description = IntentDescription("Stop a cook-mode timer from its Live Activity and dismiss its alarm.")
     static let isDiscoverable = false
 
-    @Parameter(title: "Timer")
+    @Parameter(title: "Timer", description: "The cook-mode timer to stop, by its identifier.")
     var alarmID: String
 
     init() {
@@ -111,8 +114,9 @@ struct NextCookActivityStepIntent: LiveActivityIntent {
     static let title: LocalizedStringResource = "Next Step"
     static let isDiscoverable = false
     static let openAppWhenRun = true
+    static let description = IntentDescription("From the timer Live Activity, open Spoonjoy and move cook mode to the next step.")
 
-    @Parameter(title: "Recipe")
+    @Parameter(title: "Recipe", description: "The identifier of the recipe being cooked.")
     var recipeID: String
 
     init() {

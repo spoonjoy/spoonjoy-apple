@@ -703,7 +703,7 @@ private func cookbookIntentBodyContractFailures(
 
 private func cookbookIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func cookbookIntentDeclarationBody(in content: String, pattern: String) -> String? {

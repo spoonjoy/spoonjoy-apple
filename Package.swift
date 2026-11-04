@@ -13,9 +13,10 @@ let package = Package(
         .executable(name: "SpoonjoyScenarioVerifier", targets: ["SpoonjoyScenarioVerifier"]),
         .executable(name: "SpoonjoyJourneyRules", targets: ["SpoonjoyJourneyRules"])
     ],
+    // ouro-ui-apple, pinned exactly: Ouro HX (the shared Reduce Motion crossfade, haptic moments and cookbook colour
+    // tokens), which the Xcode project pins at the same version for the app targets, and, for tests only, the X-ray's
+    // claim set and checker (OuroAXTesting, ouro-ax-xray). Bump the version and config/xray-expected.json together.
     dependencies: [
-        // Ouro HX: the shared Reduce Motion crossfade, haptic moments and cookbook colour tokens. Pinned exactly; the
-        // Xcode project pins the same version for the app targets.
         .package(url: "https://github.com/ourostack/ouro-ui-apple.git", exact: "0.2.1")
     ],
     targets: [
@@ -29,7 +30,11 @@ let package = Package(
         .executableTarget(name: "SpoonjoyJourneyRules", dependencies: ["SpoonjoyCore"]),
         .testTarget(
             name: "SpoonjoyCoreTests",
-            dependencies: ["SpoonjoyCore", .product(name: "OuroHX", package: "ouro-ui-apple")]
+            dependencies: [
+                "SpoonjoyCore",
+                .product(name: "OuroHX", package: "ouro-ui-apple"),
+                .product(name: "OuroAXTesting", package: "ouro-ui-apple")
+            ]
         )
     ]
 )

@@ -19,7 +19,16 @@ def fail_check(message)
   exit 1
 end
 
+# The App Intents X-ray checks that every parameter has a description (config/xray-expected.json), so this script
+# reads @Parameter declarations as if their description were absent and keeps checking titles and prompts as written.
+PARAMETER_DESCRIPTION = /(@Parameter\([^\n]*?), description: "(?:[^"\\]|\\.)*"/
+
+def without_parameter_descriptions(content)
+  content.gsub(PARAMETER_DESCRIPTION, '\\1')
+end
+
 def uncommented_swift(content)
+  content = without_parameter_descriptions(content)
   output = +""
   chars = content.each_char.to_a
   index = 0

@@ -13,6 +13,7 @@ enum KitchenTableTheme {
     /// match OuroHX's cookbook theme comes from OuroHX, written with the hex it equals (`KitchenPaletteOuroTests`
     /// holds each one to that hex); the rest are Spoonjoy's own.
     enum Day {
+        // Also the day value of `onInk` and `onPhoto` (text on a fill); same value, so it stays one constant.
         static let bone = cookbookDay(\.background, 0xFBFAF4) // --sj-bone
         static let paper = cookbookDay(\.card, 0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
         static let vellum = cookbookDay(\.muted, 0xE8E9DF) // --sj-vellum / --sj-flour
