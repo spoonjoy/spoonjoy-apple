@@ -136,8 +136,11 @@ struct SpoonIntentTests {
                     label: "LogCookIntent",
                     pattern: #"struct\s+LogCookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
+                        "@Parameter(title: \"Note\")",
+                        "@Parameter(title: \"Next Time\")",
+                        "@Parameter(title: \"Cooked At\")",
                         "NativeIntentActionResolver().logCook(recipe: recipe.descriptor",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "return .result(dialog:"
@@ -152,8 +155,11 @@ struct SpoonIntentTests {
                     label: "EditCookLogIntent",
                     pattern: #"struct\s+EditCookLogIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cook Log\", requestValueDialog:",
                         "var spoon: SpoonjoySpoonEntity",
+                        "@Parameter(title: \"Note\")",
+                        "@Parameter(title: \"Next Time\")",
+                        "@Parameter(title: \"Cooked At\")",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "NativeIntentActionResolver().editCookLog(spoon: spoon.descriptor",
@@ -170,7 +176,7 @@ struct SpoonIntentTests {
                     label: "DeleteCookLogIntent",
                     pattern: #"struct\s+DeleteCookLogIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cook Log\", requestValueDialog:",
                         "var spoon: SpoonjoySpoonEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -188,10 +194,12 @@ struct SpoonIntentTests {
                     label: "CreateCoverFromSpoonIntent",
                     pattern: #"struct\s+CreateCoverFromSpoonIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cook Log\", requestValueDialog:",
                         "var spoon: SpoonjoySpoonEntity",
+                        "@Parameter(title: \"Activate\")",
+                        "@Parameter(title: \"Generate Editorial\")",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "NativeIntentActionResolver().createCoverFromSpoon(recipe: recipe.descriptor, spoon: spoon.descriptor",
@@ -708,7 +716,7 @@ private func spoonIntentBodyContractFailures(
 
 private func spoonIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func spoonIntentDeclarationBody(in content: String, pattern: String) -> String? {

@@ -14,15 +14,21 @@ end
 
 ROOT = Pathname.new(__dir__).join("..").expand_path
 
-# Parameter titles and descriptions are not spelled out here: the App Intents X-ray checks every intent's and
-# parameter's title and description in the built app (the App Intents X-ray job, config/xray-expected.json).
-
 def fail_check(message)
   warn "FAIL: #{message}"
   exit 1
 end
 
+# The App Intents X-ray checks that every parameter has a description (config/xray-expected.json), so this script
+# reads @Parameter declarations as if their description were absent and keeps checking titles and prompts as written.
+PARAMETER_DESCRIPTION = /(@Parameter\([^\n]*?), description: "(?:[^"\\]|\\.)*"/
+
+def without_parameter_descriptions(content)
+  content.gsub(PARAMETER_DESCRIPTION, '\\1')
+end
+
 def uncommented_swift(content)
+  content = without_parameter_descriptions(content)
   output = +""
   chars = content.each_char.to_a
   index = 0
@@ -357,16 +363,16 @@ if domain == "recipe-cookbook"
   require_tokens(
     app_intents,
     [
-      "requestValueDialog:",
+      "@Parameter(title: \"Recipe\", requestValueDialog:",
       "var recipe: SpoonjoyRecipeEntity",
       "try recipe.resolvedRecipeID()"
     ],
     failures
   )
   {
-    "OpenRecipeIntent" => ["requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)"],
-    "StartCookModeIntent" => ["requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)"],
-    "AddRecipeIngredientsToShoppingListIntent" => ["requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"]
+    "OpenRecipeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)"],
+    "StartCookModeIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)"],
+    "AddRecipeIngredientsToShoppingListIntent" => ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "try recipe.resolvedRecipeID()"]
   }.each do |intent_name, tokens|
     pattern = /\bstruct\s+#{Regexp.escape(intent_name)}\s*:\s*AppIntent\b/
     require_body_tokens(app_intents, intent_name, pattern, tokens, failures)
@@ -656,7 +662,7 @@ if domain == "shopping"
   require_tokens(
     app_intents,
     [
-      "requestValueDialog:",
+      "@Parameter(title: \"Shopping Item\", requestValueDialog:",
       "var item: SpoonjoyShoppingItemEntity",
       "try item.resolvedShoppingItemID()"
     ],
@@ -667,7 +673,7 @@ if domain == "shopping"
     "SetShoppingListItemCheckedIntent",
     /\bstruct\s+SetShoppingListItemCheckedIntent\s*:\s*AppIntent\b/,
     [
-      "requestValueDialog:",
+      "@Parameter(title: \"Shopping Item\", requestValueDialog:",
       "var item: SpoonjoyShoppingItemEntity",
       "try item.resolvedShoppingItemID()"
     ],
@@ -1821,6 +1827,9 @@ if domain == "shopping-intents"
   {
     "AddShoppingListItemIntent" => {
       required: [
+        "@Parameter(title: \"Name\")",
+        "@Parameter(title: \"Quantity\")",
+        "@Parameter(title: \"Unit\")",
         "NativeIntentActionResolver().addShoppingListItem(",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "return .result(dialog:"
@@ -1829,8 +1838,9 @@ if domain == "shopping-intents"
     },
     "SetShoppingListItemCheckedIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Shopping Item\", requestValueDialog:",
         "var item: SpoonjoyShoppingItemEntity",
+        "@Parameter(title: \"Checked\")",
         "try item.resolvedShoppingItemID()",
         "NativeIntentActionResolver().setShoppingListItemChecked(",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
@@ -1839,7 +1849,7 @@ if domain == "shopping-intents"
     },
     "RemoveShoppingListItemIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Shopping Item\", requestValueDialog:",
         "var item: SpoonjoyShoppingItemEntity",
         "try item.resolvedShoppingItemID()",
         "try await requestConfirmation(",
@@ -1866,8 +1876,9 @@ if domain == "shopping-intents"
     },
     "AddRecipeIngredientsToShoppingListIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Scale Factor\")",
         "try recipe.resolvedRecipeID()",
         "NativeIntentActionResolver().addRecipeIngredientsToShoppingList(",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
@@ -2026,8 +2037,9 @@ if domain == "recipe-action"
   {
     "ForkRecipeIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Title\")",
         "NativeIntentActionResolver().forkRecipe(recipe: recipe.descriptor",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "return .result(dialog:"
@@ -2036,9 +2048,9 @@ if domain == "recipe-action"
     },
     "SaveRecipeToCookbookIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
-        "requestValueDialog:",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
@@ -2049,9 +2061,9 @@ if domain == "recipe-action"
     },
     "RemoveRecipeFromCookbookIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
-        "requestValueDialog:",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -2063,8 +2075,9 @@ if domain == "recipe-action"
     },
     "AddRecipeIngredientsToShoppingListIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Scale Factor\")",
         "try recipe.resolvedRecipeID()",
         "NativeIntentActionResolver().addRecipeIngredientsToShoppingList(",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
@@ -2073,7 +2086,7 @@ if domain == "recipe-action"
     },
     "DeleteRecipeIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -2278,8 +2291,11 @@ if domain == "spoon-intents"
   {
     "LogCookIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
+        "@Parameter(title: \"Note\")",
+        "@Parameter(title: \"Next Time\")",
+        "@Parameter(title: \"Cooked At\")",
         "NativeIntentActionResolver().logCook(recipe: recipe.descriptor",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
         "return .result(dialog:"
@@ -2288,8 +2304,11 @@ if domain == "spoon-intents"
     },
     "EditCookLogIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Cook Log\", requestValueDialog:",
         "var spoon: SpoonjoySpoonEntity",
+        "@Parameter(title: \"Note\")",
+        "@Parameter(title: \"Next Time\")",
+        "@Parameter(title: \"Cooked At\")",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "NativeIntentActionResolver().editCookLog(spoon: spoon.descriptor",
@@ -2300,7 +2319,7 @@ if domain == "spoon-intents"
     },
     "DeleteCookLogIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Cook Log\", requestValueDialog:",
         "var spoon: SpoonjoySpoonEntity",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -2312,10 +2331,12 @@ if domain == "spoon-intents"
     },
     "CreateCoverFromSpoonIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
-        "requestValueDialog:",
+        "@Parameter(title: \"Cook Log\", requestValueDialog:",
         "var spoon: SpoonjoySpoonEntity",
+        "@Parameter(title: \"Activate\")",
+        "@Parameter(title: \"Generate Editorial\")",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "NativeIntentActionResolver().createCoverFromSpoon(recipe: recipe.descriptor, spoon: spoon.descriptor",
@@ -2604,39 +2625,39 @@ if domain == "open-search-share-cook"
 
   {
     "OpenRecipeIntent" => {
-      required: ["requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
       forbidden: ["try recipe.resolvedRecipeID()", "openRecipe(recipeID:"]
     },
     "OpenCookbookIntent" => {
-      required: ["requestValueDialog:", "var cookbook: SpoonjoyCookbookEntity", "NativeIntentActionResolver().openCookbook(cookbook: cookbook.descriptor)", "OpenURLIntent(action.url)"],
+      required: ["@Parameter(title: \"Cookbook\", requestValueDialog:", "var cookbook: SpoonjoyCookbookEntity", "NativeIntentActionResolver().openCookbook(cookbook: cookbook.descriptor)", "OpenURLIntent(action.url)"],
       forbidden: ["var cookbookID: String", "openCookbook(cookbookID:"]
     },
     "OpenProfileIntent" => {
-      required: ["requestValueDialog:", "var profile: SpoonjoyChefProfileEntity", "NativeIntentActionResolver().openProfile(profile: profile.descriptor)", "OpenURLIntent(action.url)"],
+      required: ["@Parameter(title: \"Profile\", requestValueDialog:", "var profile: SpoonjoyChefProfileEntity", "NativeIntentActionResolver().openProfile(profile: profile.descriptor)", "OpenURLIntent(action.url)"],
       forbidden: ["var profileID: String", "var chefID: String", "openProfile(profileID:", "openProfile(chefID:"]
     },
     "SearchSpoonjoyIntent" => {
-      required: ["var scope: SpoonjoySearchScopeOption", "NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)", "OpenURLIntent(action.url)"],
+      required: ["@Parameter(title: \"Query\")", "var scope: SpoonjoySearchScopeOption", "NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)", "OpenURLIntent(action.url)"],
       forbidden: ["var scope: String", "String-only search intent"]
     },
     "ShareRecipeIntent" => {
-      required: ["requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().shareRecipe(recipe: recipe.descriptor)", "share.publicURL"],
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().shareRecipe(recipe: recipe.descriptor)", "share.publicURL"],
       forbidden: ["var recipeID: String", "shareRecipe(recipeID:"]
     },
     "ShareCookbookIntent" => {
-      required: ["requestValueDialog:", "var cookbook: SpoonjoyCookbookEntity", "NativeIntentActionResolver().shareCookbook(cookbook: cookbook.descriptor)", "share.publicURL"],
+      required: ["@Parameter(title: \"Cookbook\", requestValueDialog:", "var cookbook: SpoonjoyCookbookEntity", "NativeIntentActionResolver().shareCookbook(cookbook: cookbook.descriptor)", "share.publicURL"],
       forbidden: ["var cookbookID: String", "shareCookbook(cookbookID:"]
     },
     "ShareShoppingListIntent" => {
-      required: ["requestValueDialog:", "var shoppingList: SpoonjoyShoppingListEntity", "NativeIntentActionResolver().shareShoppingList(shoppingList: shoppingList.descriptor)", "some IntentResult & ReturnsValue<String>", "share.privateTransferValue", "share.publicURL == nil", ".result(value: privateTransferValue"],
+      required: ["@Parameter(title: \"Shopping List\", requestValueDialog:", "var shoppingList: SpoonjoyShoppingListEntity", "NativeIntentActionResolver().shareShoppingList(shoppingList: shoppingList.descriptor)", "some IntentResult & ReturnsValue<String>", "share.privateTransferValue", "share.publicURL == nil", ".result(value: privateTransferValue"],
       forbidden: ["OpenURLIntent", "_ = privateTransferValue", "https://spoonjoy.app/shopping-list", "NativeSharePayload.publicRoute(.shoppingList"]
     },
     "StartCookModeIntent" => {
-      required: ["requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
       forbidden: ["try recipe.resolvedRecipeID()", "startCookMode(recipeID:"]
     },
     "ContinueCookModeIntent" => {
-      required: ["requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().continueCookMode(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
+      required: ["@Parameter(title: \"Recipe\", requestValueDialog:", "var recipe: SpoonjoyRecipeEntity", "NativeIntentActionResolver().continueCookMode(recipe: recipe.descriptor)", "OpenURLIntent(action.url)"],
       forbidden: ["var recipeID: String", "continueCookMode(recipeID:"]
     }
   }.each do |intent_name, contract|
@@ -2872,6 +2893,7 @@ if domain == "cookbook-intents"
   {
     "CreateCookbookIntent" => {
       required: [
+        "@Parameter(title: \"Title\")",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "let createdAt = SpoonjoyIntentClock.timestamp()",
         "NativeIntentActionResolver().createCookbook(title: title",
@@ -2884,8 +2906,9 @@ if domain == "cookbook-intents"
     },
     "RenameCookbookIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
+        "@Parameter(title: \"Title\")",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "let createdAt = SpoonjoyIntentClock.timestamp()",
         "NativeIntentActionResolver().renameCookbook(cookbook: cookbook.descriptor",
@@ -2898,7 +2921,7 @@ if domain == "cookbook-intents"
     },
     "DeleteCookbookIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -2913,9 +2936,9 @@ if domain == "cookbook-intents"
     },
     "AddRecipeToCookbookIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
-        "requestValueDialog:",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
         "let createdAt = SpoonjoyIntentClock.timestamp()",
@@ -2929,9 +2952,9 @@ if domain == "cookbook-intents"
     },
     "RemoveRecipeFromCookbookIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Recipe\", requestValueDialog:",
         "var recipe: SpoonjoyRecipeEntity",
-        "requestValueDialog:",
+        "@Parameter(title: \"Cookbook\", requestValueDialog:",
         "var cookbook: SpoonjoyCookbookEntity",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -3140,7 +3163,7 @@ if domain == "capture-import-intents"
       "struct SubmitCaptureImportIntent: AppIntent",
       "struct OpenCaptureDraftIntent: AppIntent",
       "struct DiscardCaptureDraftIntent: AppIntent",
-      "requestValueDialog:",
+      "@Parameter(title: \"Source\", requestValueDialog:",
       "var draft: SpoonjoyCaptureDraftEntity",
       "NativeIntentActionResolver().captureRecipe(",
       "NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor",
@@ -3191,7 +3214,7 @@ if domain == "capture-import-intents"
   {
     "CaptureRecipeIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Source\", requestValueDialog:",
         "var source: String",
         "NativeIntentActionResolver().captureRecipe(",
         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
@@ -3202,7 +3225,7 @@ if domain == "capture-import-intents"
     },
     "SubmitCaptureImportIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Capture Draft\", requestValueDialog:",
         "var draft: SpoonjoyCaptureDraftEntity",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -3217,7 +3240,7 @@ if domain == "capture-import-intents"
     },
     "OpenCaptureDraftIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Capture Draft\", requestValueDialog:",
         "var draft: SpoonjoyCaptureDraftEntity",
         "NativeIntentActionResolver().openCaptureDraft(draft: draft.descriptor",
         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
@@ -3227,7 +3250,7 @@ if domain == "capture-import-intents"
     },
     "DiscardCaptureDraftIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Capture Draft\", requestValueDialog:",
         "var draft: SpoonjoyCaptureDraftEntity",
         "try await requestConfirmation(",
         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -3729,6 +3752,8 @@ if domain == "profile-settings-intents"
     },
     "UpdateProfileDisplayIntent" => {
       required: [
+        "@Parameter(title: \"Email\")",
+        "@Parameter(title: \"Username\")",
         "let createdAt = SpoonjoyIntentClock.timestamp()",
         "NativeIntentActionResolver().updateProfileDisplay(",
         "performSettingsActionStatus(action, savedAt: createdAt)",
@@ -3741,6 +3766,7 @@ if domain == "profile-settings-intents"
     },
     "UpdateProfilePhotoIntent" => {
       required: [
+        "@Parameter(title: \"Photo\")",
         "var photo: IntentFile",
         "NativeIntentActionResolver().updateProfilePhoto(",
         "performSettingsActionStatus(action, savedAt: createdAt)",
@@ -3764,6 +3790,8 @@ if domain == "profile-settings-intents"
     },
     "CreateAPITokenIntent" => {
       required: [
+        "@Parameter(title: \"Name\")",
+        "@Parameter(title: \"Scopes\")",
         "NativeIntentActionResolver().createAPIToken(",
         "SpoonjoyIntentStateWriter().settingsConnectivity()",
         "SettingsOnlineOnlyReason.apiTokenCreate.message",
@@ -3775,7 +3803,7 @@ if domain == "profile-settings-intents"
     },
     "RevokeAPITokenIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Access Key\", requestValueDialog:",
         "var token: SpoonjoyAPITokenEntity",
         "try await requestConfirmation(",
         "NativeIntentActionResolver().revokeAPIToken(token: token.descriptor",
@@ -3787,7 +3815,7 @@ if domain == "profile-settings-intents"
     },
     "DisconnectAccountConnectionIntent" => {
       required: [
-        "requestValueDialog:",
+        "@Parameter(title: \"Connection\", requestValueDialog:",
         "var connection: SpoonjoyAccountConnectionEntity",
         "try await requestConfirmation(",
         "NativeIntentActionResolver().disconnectAccountConnection(connection: connection.descriptor",
@@ -3817,6 +3845,7 @@ if domain == "profile-settings-intents"
     },
     "LinkProviderIntent" => {
       required: [
+        "@Parameter(title: \"Provider\")",
         "var provider: SpoonjoySettingsAuthProviderOption",
         "NativeIntentActionResolver().linkProvider(",
         "SettingsOnlineOnlyReason.credentialHandoff.message",
@@ -4239,6 +4268,10 @@ if domain == "notification-intents"
       "struct ReadNotificationPreferencesIntent: AppIntent",
       "struct UpdateNotificationPreferencesIntent: AppIntent",
       "struct OpenNotificationAPNsStatusIntent: AppIntent",
+      "@Parameter(title: \"Spoons\")",
+      "@Parameter(title: \"Forks\")",
+      "@Parameter(title: \"Cookbook Saves\")",
+      "@Parameter(title: \"Fellow-Chef Cooks\")",
       "SettingsNotificationPreferences(",
       "NativeIntentActionResolver().readNotificationPreferences(",
       "NativeIntentActionResolver().updateNotificationPreferences(",
@@ -4390,6 +4423,10 @@ if domain == "notification-intents"
     "UpdateNotificationPreferencesIntent" => {
       pattern: /\bstruct\s+UpdateNotificationPreferencesIntent\s*:\s*AppIntent\b/,
       required: [
+        "@Parameter(title: \"Spoons\")",
+        "@Parameter(title: \"Forks\")",
+        "@Parameter(title: \"Cookbook Saves\")",
+        "@Parameter(title: \"Fellow-Chef Cooks\")",
         "var spoons: Bool?",
         "var forks: Bool?",
         "var cookbookSaves: Bool?",

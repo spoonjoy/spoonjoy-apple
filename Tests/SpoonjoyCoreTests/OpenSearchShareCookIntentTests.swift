@@ -159,7 +159,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "OpenRecipeIntent",
                     pattern: #"struct\s+OpenRecipeIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
                         "NativeIntentActionResolver().openRecipe(recipe: recipe.descriptor)",
                         "OpenURLIntent(action.url)"
@@ -174,7 +174,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "OpenCookbookIntent",
                     pattern: #"struct\s+OpenCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "NativeIntentActionResolver().openCookbook(cookbook: cookbook.descriptor)",
                         "OpenURLIntent(action.url)"
@@ -189,7 +189,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "OpenProfileIntent",
                     pattern: #"struct\s+OpenProfileIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Profile\", requestValueDialog:",
                         "var profile: SpoonjoyChefProfileEntity",
                         "NativeIntentActionResolver().openProfile(profile: profile.descriptor)",
                         "OpenURLIntent(action.url)"
@@ -206,6 +206,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "SearchSpoonjoyIntent",
                     pattern: #"struct\s+SearchSpoonjoyIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Query\")",
                         "var scope: SpoonjoySearchScopeOption",
                         "NativeIntentActionResolver().searchSpoonjoy(query: query, scope: scope.searchScope)",
                         "OpenURLIntent(action.url)"
@@ -220,7 +221,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "ShareRecipeIntent",
                     pattern: #"struct\s+ShareRecipeIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
                         "NativeIntentActionResolver().shareRecipe(recipe: recipe.descriptor)",
                         "share.publicURL"
@@ -235,7 +236,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "ShareCookbookIntent",
                     pattern: #"struct\s+ShareCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "NativeIntentActionResolver().shareCookbook(cookbook: cookbook.descriptor)",
                         "share.publicURL"
@@ -250,7 +251,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "ShareShoppingListIntent",
                     pattern: #"struct\s+ShareShoppingListIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Shopping List\", requestValueDialog:",
                         "var shoppingList: SpoonjoyShoppingListEntity",
                         "NativeIntentActionResolver().shareShoppingList(shoppingList: shoppingList.descriptor)",
                         "some IntentResult & ReturnsValue<String>",
@@ -270,7 +271,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "StartCookModeIntent",
                     pattern: #"struct\s+StartCookModeIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
                         "NativeIntentActionResolver().startCookMode(recipe: recipe.descriptor)",
                         "OpenURLIntent(action.url)"
@@ -285,7 +286,7 @@ struct OpenSearchShareCookIntentTests {
                     label: "ContinueCookModeIntent",
                     pattern: #"struct\s+ContinueCookModeIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
                         "NativeIntentActionResolver().continueCookMode(recipe: recipe.descriptor)",
                         "OpenURLIntent(action.url)"
@@ -616,7 +617,7 @@ private func openSearchShareCookBodyContractFailures(
 
 private func openSearchShareCookReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func openSearchShareCookUncommentedSwift(_ content: String) -> String {

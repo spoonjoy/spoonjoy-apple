@@ -94,7 +94,7 @@ struct RecipeCookbookEntityTests {
                     "scope.environment"
                 ],
                 "Apps/Spoonjoy/Shared/Native/SpoonjoyAppIntents.swift": [
-                    "requestValueDialog:",
+                    "@Parameter(title: \"Recipe\", requestValueDialog:",
                     "var recipe: SpoonjoyRecipeEntity",
                     "try recipe.resolvedRecipeID()"
                 ],
@@ -735,7 +735,7 @@ private func sourceContractFailures(
             continue
         }
 
-        let content = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        let content = SourceContractText.withoutParameterDescriptions((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "")
         let uncommented = uncommentedSwift(content)
         for token in requiredTokens[relativePath, default: []] where !uncommented.contains(token) {
             failures.append("\(relativePath) missing \(token)")

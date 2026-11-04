@@ -99,8 +99,9 @@ struct RecipeActionIntentTests {
                     label: "ForkRecipeIntent",
                     pattern: #"struct\s+ForkRecipeIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
+                        "@Parameter(title: \"Title\")",
                         "NativeIntentActionResolver().forkRecipe(recipe: recipe.descriptor",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "return .result(dialog:"
@@ -115,9 +116,9 @@ struct RecipeActionIntentTests {
                     label: "SaveRecipeToCookbookIntent",
                     pattern: #"struct\s+SaveRecipeToCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "NativeIntentActionResolver().saveRecipeToCookbook(recipe: recipe.descriptor, cookbook: cookbook.descriptor",
@@ -135,9 +136,9 @@ struct RecipeActionIntentTests {
                     label: "RemoveRecipeFromCookbookIntent",
                     pattern: #"struct\s+RemoveRecipeFromCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -157,8 +158,9 @@ struct RecipeActionIntentTests {
                     label: "AddRecipeIngredientsToShoppingListIntent",
                     pattern: #"struct\s+AddRecipeIngredientsToShoppingListIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
+                        "@Parameter(title: \"Scale Factor\")",
                         "try recipe.resolvedRecipeID()",
                         "NativeIntentActionResolver().addRecipeIngredientsToShoppingList(",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
@@ -173,7 +175,7 @@ struct RecipeActionIntentTests {
                     label: "DeleteRecipeIntent",
                     pattern: #"struct\s+DeleteRecipeIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -549,7 +551,7 @@ private func recipeActionIntentBodyContractFailures(
 
 private func recipeActionIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func recipeActionIntentDeclarationBody(in content: String, pattern: String) -> String? {

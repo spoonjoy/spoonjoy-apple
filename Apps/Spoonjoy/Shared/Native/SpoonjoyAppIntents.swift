@@ -237,7 +237,7 @@ struct UpdateProfileDisplayIntent: AppIntent {
     static let title: LocalizedStringResource = "Update Profile Display"
     static let description = IntentDescription("Update your Spoonjoy profile display.")
 
-    @Parameter(title: "Email", description: "The email address to show on your Spoonjoy profile.")
+    @Parameter(title: "Email", description: "Your account's current email address, as shown in Settings. Change it on the Spoonjoy website.")
     var email: String
 
     @Parameter(title: "Username", description: "The username to show on your Spoonjoy profile, without the @.")
@@ -489,7 +489,7 @@ struct LinkProviderIntent: AppIntent {
     static let title: LocalizedStringResource = "Link Provider"
     static let description = IntentDescription("Link a sign-in provider to Spoonjoy.")
 
-    @Parameter(title: "Provider", description: "The sign-in provider to link to your Spoonjoy account, such as Google or Apple.")
+    @Parameter(title: "Provider", description: "The sign-in provider to link to your Spoonjoy account, such as Google or GitHub.")
     var provider: SpoonjoySettingsAuthProviderOption
 
     init() {
@@ -667,7 +667,7 @@ struct StartCookModeIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Cooking"
     static let description = IntentDescription("Open a Spoonjoy recipe directly in cook mode.")
 
-    @Parameter(title: "Recipe", description: "The recipe to cook, by its name. Cook mode opens at its first step.", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe to cook, by its name. Cook mode picks up any progress you saved.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
     init() {
@@ -690,7 +690,7 @@ struct ContinueCookModeIntent: AppIntent {
     static let title: LocalizedStringResource = "Continue Cooking"
     static let description = IntentDescription("Continue cooking a Spoonjoy recipe.")
 
-    @Parameter(title: "Recipe", description: "The recipe you were cooking, by its name. Cook mode opens where you left off.", requestValueDialog: "Which Spoonjoy recipe?")
+    @Parameter(title: "Recipe", description: "The recipe you were cooking, by its name. Cook mode picks up where you left off.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
     init() {
@@ -744,7 +744,7 @@ struct StartCookStepTimerIntent: AppIntent {
     static let title: LocalizedStringResource = "Start Step Timer"
     static let description = IntentDescription("Start the timer for the step on screen in Spoonjoy cook mode.")
 
-    @Parameter(title: "Step", description: "The cooking step whose timer to start. Leave empty for the step on screen.")
+    @Parameter(title: "Step", description: "The cooking step on screen, whose timer to start. Leave empty for it.")
     var step: SpoonjoyCookStepEntity?
 
     init() {}
@@ -783,7 +783,7 @@ struct ForkRecipeIntent: AppIntent {
     @Parameter(title: "Recipe", description: "The recipe to make your own variation of, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Title", description: "The title for your variation. Leave empty to keep the original title.")
+    @Parameter(title: "Title", description: "The title for your variation. Leave empty to call it the original title followed by \"my version\".")
     var titleOverride: String
 
     init() {
@@ -1258,10 +1258,10 @@ struct LogCookIntent: AppIntent {
     @Parameter(title: "Recipe", description: "The recipe you cooked, by its name.", requestValueDialog: "Which Spoonjoy recipe did you cook?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Note", description: "How it went, in your words. Optional.")
+    @Parameter(title: "Note", description: "How it went, in your words. Give this, Next Time, or both.")
     var note: String?
 
-    @Parameter(title: "Next Time", description: "What to change next time you cook it. Optional.")
+    @Parameter(title: "Next Time", description: "What to change next time you cook it. Give this, Note, or both.")
     var nextTime: String?
 
     @Parameter(title: "Cooked At", description: "When you cooked it, as a date. Leave empty for now.")

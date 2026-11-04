@@ -92,6 +92,9 @@ struct ShoppingIntentTests {
                     label: "AddShoppingListItemIntent",
                     pattern: #"struct\s+AddShoppingListItemIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Name\")",
+                        "@Parameter(title: \"Quantity\")",
+                        "@Parameter(title: \"Unit\")",
                         "NativeIntentActionResolver().addShoppingListItem(",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
                         "return .result(dialog:"
@@ -106,8 +109,9 @@ struct ShoppingIntentTests {
                     label: "SetShoppingListItemCheckedIntent",
                     pattern: #"struct\s+SetShoppingListItemCheckedIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Shopping Item\", requestValueDialog:",
                         "var item: SpoonjoyShoppingItemEntity",
+                        "@Parameter(title: \"Checked\")",
                         "try item.resolvedShoppingItemID()",
                         "NativeIntentActionResolver().setShoppingListItemChecked(",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
@@ -122,7 +126,7 @@ struct ShoppingIntentTests {
                     label: "RemoveShoppingListItemIntent",
                     pattern: #"struct\s+RemoveShoppingListItemIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Shopping Item\", requestValueDialog:",
                         "var item: SpoonjoyShoppingItemEntity",
                         "try item.resolvedShoppingItemID()",
                         "try await requestConfirmation(",
@@ -161,8 +165,9 @@ struct ShoppingIntentTests {
                     label: "AddRecipeIngredientsToShoppingListIntent",
                     pattern: #"struct\s+AddRecipeIngredientsToShoppingListIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
+                        "@Parameter(title: \"Scale Factor\")",
                         "try recipe.resolvedRecipeID()",
                         "NativeIntentActionResolver().addRecipeIngredientsToShoppingList(",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)"
@@ -330,7 +335,7 @@ private func shoppingIntentBodyContractFailures(
 
 private func shoppingIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func shoppingIntentDeclarationBody(in content: String, pattern: String) -> String? {

@@ -714,7 +714,7 @@ private func spoonSourceContractFailures(
             continue
         }
 
-        let content = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        let content = SourceContractText.withoutParameterDescriptions((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "")
         let uncommented = spoonUncommentedSwift(content)
         for token in requiredTokens[relativePath, default: []] where !uncommented.contains(token) {
             failures.append("\(relativePath) missing \(token)")
@@ -746,7 +746,7 @@ private func spoonSourceBodyContractFailures(
             continue
         }
 
-        let content = (try? String(contentsOf: fileURL, encoding: .utf8)) ?? ""
+        let content = SourceContractText.withoutParameterDescriptions((try? String(contentsOf: fileURL, encoding: .utf8)) ?? "")
         let uncommented = spoonUncommentedSwift(content)
         guard let body = spoonDeclarationBody(in: uncommented, pattern: contract.pattern) else {
             failures.append("\(contract.relativePath) missing body for \(contract.label)")

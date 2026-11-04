@@ -124,6 +124,7 @@ struct CookbookIntentTests {
                     label: "CreateCookbookIntent",
                     pattern: #"struct\s+CreateCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Title\")",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
                         "NativeIntentActionResolver().createCookbook(title: title",
@@ -139,8 +140,9 @@ struct CookbookIntentTests {
                     label: "RenameCookbookIntent",
                     pattern: #"struct\s+RenameCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
+                        "@Parameter(title: \"Title\")",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
                         "NativeIntentActionResolver().renameCookbook(cookbook: cookbook.descriptor",
@@ -156,7 +158,7 @@ struct CookbookIntentTests {
                     label: "DeleteCookbookIntent",
                     pattern: #"struct\s+DeleteCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -174,9 +176,9 @@ struct CookbookIntentTests {
                     label: "AddRecipeToCookbookIntent",
                     pattern: #"struct\s+AddRecipeToCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
@@ -193,9 +195,9 @@ struct CookbookIntentTests {
                     label: "RemoveRecipeFromCookbookIntent",
                     pattern: #"struct\s+RemoveRecipeFromCookbookIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Recipe\", requestValueDialog:",
                         "var recipe: SpoonjoyRecipeEntity",
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Cookbook\", requestValueDialog:",
                         "var cookbook: SpoonjoyCookbookEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -701,7 +703,7 @@ private func cookbookIntentBodyContractFailures(
 
 private func cookbookIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func cookbookIntentDeclarationBody(in content: String, pattern: String) -> String? {

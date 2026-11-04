@@ -29,6 +29,10 @@ struct NotificationIntentTests {
                     "struct ReadNotificationPreferencesIntent: AppIntent",
                     "struct UpdateNotificationPreferencesIntent: AppIntent",
                     "struct OpenNotificationAPNsStatusIntent: AppIntent",
+                    "@Parameter(title: \"Spoons\")",
+                    "@Parameter(title: \"Forks\")",
+                    "@Parameter(title: \"Cookbook Saves\")",
+                    "@Parameter(title: \"Fellow-Chef Cooks\")",
                     "SettingsNotificationPreferences(",
                     "NativeIntentActionResolver().readNotificationPreferences(",
                     "NativeIntentActionResolver().updateNotificationPreferences(",
@@ -192,6 +196,10 @@ struct NotificationIntentTests {
                     label: "UpdateNotificationPreferencesIntent",
                     pattern: #"struct\s+UpdateNotificationPreferencesIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Spoons\")",
+                        "@Parameter(title: \"Forks\")",
+                        "@Parameter(title: \"Cookbook Saves\")",
+                        "@Parameter(title: \"Fellow-Chef Cooks\")",
                         "var spoons: Bool?",
                         "var forks: Bool?",
                         "var cookbookSaves: Bool?",
@@ -733,7 +741,7 @@ private func notificationIntentBodyContractFailures(
 
 private func notificationIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func notificationIntentDeclarationBody(in content: String, pattern: String) -> String? {

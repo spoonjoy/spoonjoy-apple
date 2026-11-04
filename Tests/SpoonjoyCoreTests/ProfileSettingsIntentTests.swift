@@ -258,6 +258,8 @@ struct ProfileSettingsIntentTests {
                     label: "UpdateProfileDisplayIntent",
                     pattern: #"struct\s+UpdateProfileDisplayIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Email\")",
+                        "@Parameter(title: \"Username\")",
                         "let createdAt = SpoonjoyIntentClock.timestamp()",
                         "NativeIntentActionResolver().updateProfileDisplay(",
                         "performSettingsActionStatus(action, savedAt: createdAt)",
@@ -273,6 +275,7 @@ struct ProfileSettingsIntentTests {
                     label: "UpdateProfilePhotoIntent",
                     pattern: #"struct\s+UpdateProfilePhotoIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Photo\")",
                         "var photo: IntentFile",
                         "NativeIntentActionResolver().updateProfilePhoto(",
                         "performSettingsActionStatus(action, savedAt: createdAt)",
@@ -302,6 +305,8 @@ struct ProfileSettingsIntentTests {
                     label: "CreateAPITokenIntent",
                     pattern: #"struct\s+CreateAPITokenIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Name\")",
+                        "@Parameter(title: \"Scopes\")",
                         "NativeIntentActionResolver().createAPIToken(",
                         "SpoonjoyIntentStateWriter().settingsConnectivity()",
                         "SettingsOnlineOnlyReason.apiTokenCreate.message",
@@ -316,7 +321,7 @@ struct ProfileSettingsIntentTests {
                     label: "RevokeAPITokenIntent",
                     pattern: #"struct\s+RevokeAPITokenIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Access Key\", requestValueDialog:",
                         "var token: SpoonjoyAPITokenEntity",
                         "try await requestConfirmation(",
                         "NativeIntentActionResolver().revokeAPIToken(token: token.descriptor",
@@ -331,7 +336,7 @@ struct ProfileSettingsIntentTests {
                     label: "DisconnectAccountConnectionIntent",
                     pattern: #"struct\s+DisconnectAccountConnectionIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Connection\", requestValueDialog:",
                         "var connection: SpoonjoyAccountConnectionEntity",
                         "try await requestConfirmation(",
                         "NativeIntentActionResolver().disconnectAccountConnection(connection: connection.descriptor",
@@ -370,6 +375,7 @@ struct ProfileSettingsIntentTests {
                     label: "LinkProviderIntent",
                     pattern: #"struct\s+LinkProviderIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
+                        "@Parameter(title: \"Provider\")",
                         "var provider: SpoonjoySettingsAuthProviderOption",
                         "NativeIntentActionResolver().linkProvider(",
                         "SettingsOnlineOnlyReason.credentialHandoff.message",
@@ -1227,7 +1233,7 @@ private func profileSettingsIntentBodyContractFailures(
 
 private func profileSettingsIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func profileSettingsIntentDeclarationBody(in content: String, pattern: String) -> String? {

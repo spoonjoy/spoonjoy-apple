@@ -22,7 +22,7 @@ struct CaptureImportIntentTests {
                     "struct SubmitCaptureImportIntent: AppIntent",
                     "struct OpenCaptureDraftIntent: AppIntent",
                     "struct DiscardCaptureDraftIntent: AppIntent",
-                    "requestValueDialog:",
+                    "@Parameter(title: \"Source\", requestValueDialog:",
                     "var draft: SpoonjoyCaptureDraftEntity",
                     "NativeIntentActionResolver().captureRecipe(",
                     "NativeIntentActionResolver().submitCaptureImport(draft: draft.descriptor",
@@ -141,7 +141,7 @@ struct CaptureImportIntentTests {
                     label: "CaptureRecipeIntent",
                     pattern: #"struct\s+CaptureRecipeIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Source\", requestValueDialog:",
                         "var source: String",
                         "NativeIntentActionResolver().captureRecipe(",
                         "try await SpoonjoyIntentStateWriter().apply(action, savedAt: createdAt)",
@@ -155,7 +155,7 @@ struct CaptureImportIntentTests {
                     label: "SubmitCaptureImportIntent",
                     pattern: #"struct\s+SubmitCaptureImportIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Capture Draft\", requestValueDialog:",
                         "var draft: SpoonjoyCaptureDraftEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -176,7 +176,7 @@ struct CaptureImportIntentTests {
                     label: "OpenCaptureDraftIntent",
                     pattern: #"struct\s+OpenCaptureDraftIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Capture Draft\", requestValueDialog:",
                         "var draft: SpoonjoyCaptureDraftEntity",
                         "NativeIntentActionResolver().openCaptureDraft(draft: draft.descriptor",
                         "await SpoonjoyInteractionDonor().donateBestEffort(self)",
@@ -192,7 +192,7 @@ struct CaptureImportIntentTests {
                     label: "DiscardCaptureDraftIntent",
                     pattern: #"struct\s+DiscardCaptureDraftIntent\s*:\s*AppIntent"#,
                     requiredTokens: [
-                        "requestValueDialog:",
+                        "@Parameter(title: \"Capture Draft\", requestValueDialog:",
                         "var draft: SpoonjoyCaptureDraftEntity",
                         "try await requestConfirmation(",
                         "let currentChefID = try await SpoonjoyIntentStateWriter().currentAccountID()",
@@ -701,7 +701,7 @@ private func captureImportIntentBodyContractFailures(
 
 private func captureImportIntentReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
-    return try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: rootURL.appendingPathComponent(relativePath), encoding: .utf8))
 }
 
 private func captureImportIntentDeclarationBody(in content: String, pattern: String) -> String? {
