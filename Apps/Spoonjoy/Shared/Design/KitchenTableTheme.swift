@@ -1,3 +1,4 @@
+import OuroHX
 import SwiftUI
 
 #if os(macOS)
@@ -8,33 +9,37 @@ import UIKit
 
 enum KitchenTableTheme {
     /// The web's light palette, verbatim from spoonjoy-v2 `:root`. Surfaces never use these directly; they use the
-    /// roles below, which pick the light or night value for the current appearance.
+    /// roles below, which pick the light or night value for the current appearance. A colour whose meaning and value
+    /// match OuroHX's cookbook theme comes from OuroHX, written with the hex it equals (`KitchenPaletteOuroTests`
+    /// holds each one to that hex); the rest are Spoonjoy's own.
     enum Day {
-        static let bone = webColor(0xFBFAF4) // --sj-bone
-        static let paper = webColor(0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
-        static let vellum = webColor(0xE8E9DF) // --sj-vellum / --sj-flour
-        static let charcoal = webColor(0x28231D) // --sj-charcoal / --sj-action
-        static let inkMuted = webColor(0x635D54) // --sj-charcoal-soft / --sj-ink-soft
-        static let brass = webColor(0x9B6834) // --sj-brass
+        static let bone = cookbookDay(\.background, 0xFBFAF4) // --sj-bone
+        static let paper = cookbookDay(\.card, 0xFFFEFA) // --sj-bone-lift / --sj-panel-solid
+        static let vellum = cookbookDay(\.muted, 0xE8E9DF) // --sj-vellum / --sj-flour
+        static let charcoal = cookbookDay(\.foreground, 0x28231D) // --sj-charcoal / --sj-action
+        static let inkMuted = cookbookDay(\.mutedForeground, 0x635D54) // --sj-charcoal-soft / --sj-ink-soft
+        static let brass = cookbookDay(\.primary, 0x9B6834) // --sj-brass
         static let action = webColor(0x28231D) // --sj-action
         static let actionDeep = webColor(0x1F1B17) // --sj-action-deep
-        static let tomato = webColor(0xA24A38) // --sj-tomato
-        static let herb = webColor(0x596A4F) // --sj-herb
+        static let tomato = cookbookDay(\.destructive, 0xA24A38) // --sj-tomato
+        static let herb = cookbookDay(\.success, 0x596A4F) // --sj-herb
         static let photoCharcoal = webColor(0x211F1B) // --sj-photo-charcoal
     }
 
-    /// The web's designed `.dark` palette, verbatim from spoonjoy-v2 `.dark`: the night kitchen.
+    /// The web's designed `.dark` palette, verbatim from spoonjoy-v2 `.dark`: the night kitchen. `charcoalNight` has
+    /// OuroHX's dark `background` value but is ink on a fill here, and `pageNight` (#1E1C19) differs from that
+    /// background, so both stay Spoonjoy's own.
     enum Night {
-        static let boneNight = webColor(0xF2EEE6) // .dark --sj-bone
-        static let paperNight = webColor(0x282522) // .dark --sj-bone-lift
-        static let vellumNight = webColor(0x34302B) // .dark --sj-vellum
+        static let boneNight = cookbookNight(\.foreground, 0xF2EEE6) // .dark --sj-bone
+        static let paperNight = cookbookNight(\.card, 0x282522) // .dark --sj-bone-lift
+        static let vellumNight = cookbookNight(\.muted, 0x34302B) // .dark --sj-vellum
         static let charcoalNight = webColor(0x1F1D1A) // .dark --sj-charcoal
-        static let inkMutedNight = webColor(0xC8C0B4) // .dark --sj-charcoal-soft
-        static let brassNight = webColor(0xC4945C) // .dark --sj-brass
+        static let inkMutedNight = cookbookNight(\.mutedForeground, 0xC8C0B4) // .dark --sj-charcoal-soft
+        static let brassNight = cookbookNight(\.primary, 0xC4945C) // .dark --sj-brass
         static let actionNight = webColor(0xB9854B) // .dark --sj-action
         static let actionDeepNight = webColor(0x95683A) // .dark --sj-action-deep
-        static let tomatoNight = webColor(0xE58263) // .dark --sj-tomato
-        static let herbNight = webColor(0xA4B578) // .dark --sj-herb
+        static let tomatoNight = cookbookNight(\.destructive, 0xE58263) // .dark --sj-tomato
+        static let herbNight = cookbookNight(\.success, 0xA4B578) // .dark --sj-herb
         static let photoCharcoalNight = webColor(0x1D1915) // .dark --sj-photo-charcoal
         static let pageNight = webColor(0x1E1C19) // .dark --sj-page
         static let onPhotoNight = webColor(0xF1E6D3) // .dark --sj-on-photo
@@ -158,6 +163,16 @@ enum KitchenTableTheme {
             traits.userInterfaceStyle == .dark ? UIColor(night) : UIColor(light)
         })
         #endif
+    }
+
+    /// An OuroHX cookbook light colour. `hex` is the web value it equals; it documents the line and the tests check it.
+    private static func cookbookDay(_ token: KeyPath<OuroColors, Color>, _ hex: UInt32) -> Color {
+        OuroTokens.cookbook.light[keyPath: token]
+    }
+
+    /// An OuroHX cookbook dark colour. `hex` is the web value it equals; it documents the line and the tests check it.
+    private static func cookbookNight(_ token: KeyPath<OuroColors, Color>, _ hex: UInt32) -> Color {
+        OuroTokens.cookbook.dark[keyPath: token]
     }
 
     private static func webColor(_ hex: UInt32) -> Color {
