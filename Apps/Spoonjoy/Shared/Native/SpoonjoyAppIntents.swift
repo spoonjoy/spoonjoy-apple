@@ -783,7 +783,7 @@ struct ForkRecipeIntent: AppIntent {
     @Parameter(title: "Recipe", description: "The recipe to make your own variation of, by its name.", requestValueDialog: "Which Spoonjoy recipe?")
     var recipe: SpoonjoyRecipeEntity
 
-    @Parameter(title: "Title", description: "The title for your variation. Leave empty to call it the original title followed by \"my version\".")
+    @Parameter(title: "Title", description: "The title for your variation. Without one, it's the original title followed by \"my version\".")
     var titleOverride: String
 
     init() {
@@ -1264,7 +1264,7 @@ struct LogCookIntent: AppIntent {
     @Parameter(title: "Next Time", description: "What to change next time you cook it. Give this, Note, or both.")
     var nextTime: String?
 
-    @Parameter(title: "Cooked At", description: "When you cooked it, as a date. Leave empty for now.")
+    @Parameter(title: "Cooked At", description: "When you cooked it, as an ISO 8601 date and time such as 2026-11-04T18:30:00Z. Leave empty for now.")
     var cookedAt: String?
 
     init() {
@@ -1309,7 +1309,7 @@ struct EditCookLogIntent: AppIntent {
     @Parameter(title: "Next Time", description: "The new note on what to change next time. Leave empty to keep the current one.")
     var nextTime: String?
 
-    @Parameter(title: "Cooked At", description: "The new date you cooked it. Leave empty to keep the current one.")
+    @Parameter(title: "Cooked At", description: "When you cooked it, as an ISO 8601 date and time such as 2026-11-04T18:30:00Z. Leave empty to keep the current one.")
     var cookedAt: String?
 
     init() {

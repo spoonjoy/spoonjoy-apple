@@ -661,7 +661,7 @@ private func spotlightShortcutDeclarationBody(in content: String, pattern: Strin
 private func spotlightShortcutReadRepoFile(_ relativePath: String) throws -> String {
     let rootURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     let fileURL = rootURL.appendingPathComponent(relativePath)
-    return try String(contentsOf: fileURL, encoding: .utf8)
+    return SourceContractText.withoutParameterDescriptions(try String(contentsOf: fileURL, encoding: .utf8))
 }
 
 private func spotlightShortcutUncommentedSwift(_ content: String) -> String {

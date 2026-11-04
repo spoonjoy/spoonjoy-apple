@@ -823,7 +823,7 @@ struct NativeScenarioTests {
         let spotlightPath = "Apps/Spoonjoy/Shared/Native/SpoonjoySpotlightIndexer.swift"
         let rootViewPath = "Apps/Spoonjoy/Shared/AppShell/SpoonjoyRootView.swift"
         let platformNavigationPath = "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"
-        let appIntentsSource = try readRepoFile(appIntentsPath)
+        let appIntentsSource = SourceContractText.withoutParameterDescriptions(try readRepoFile(appIntentsPath))
         let appEntitiesSource = try readRepoFile(appEntitiesPath)
         let shoppingEntitiesSource = try readRepoFile(shoppingEntitiesPath)
         let spoonEntitiesSource = try readRepoFile(spoonEntitiesPath)
