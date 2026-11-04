@@ -1,3 +1,4 @@
+import OuroHX
 import SpoonjoyCore
 import SwiftUI
 
@@ -12,7 +13,8 @@ extension KitchenMotionStep {
     var animation: Animation {
         switch self {
         case .spring(let spring): spring.animation
-        case .crossfade(let duration): .easeInOut(duration: duration)
+        // OuroHX's crossfade always animates (only its `.none` step does not), so the fallback never runs.
+        case .crossfade(let duration): OuroMotion.Step.crossfade(duration: duration).animation ?? .easeInOut(duration: duration)
         }
     }
 }
@@ -26,26 +28,14 @@ extension KitchenMotion {
     /// The transition for content that enters or leaves. Under Reduce Motion any movement (slide, zoom, page turn)
     /// becomes a plain opacity crossfade.
     static func transition(_ motion: AnyTransition, reduceMotion: Bool) -> AnyTransition {
-        crossfades(reduceMotion: reduceMotion) ? .opacity : motion
-    }
-}
-
-extension KitchenHapticKind {
-    /// The SwiftUI `sensoryFeedback` value for this haptic.
-    var sensoryFeedback: SensoryFeedback {
-        switch self {
-        case .selection: .selection
-        case .impactLight: .impact(weight: .light)
-        case .impactMedium: .impact(weight: .medium)
-        case .success: .success
-        case .warning: .warning
-        }
+        OuroMotion.transition(motion, reduceMotion: reduceMotion)
     }
 }
 
 extension KitchenHapticMoment {
+    /// The SwiftUI `sensoryFeedback` value for this moment, from its OuroHX moment.
     var sensoryFeedback: SensoryFeedback {
-        feedback.sensoryFeedback
+        ouroMoment.sensoryFeedback
     }
 }
 
