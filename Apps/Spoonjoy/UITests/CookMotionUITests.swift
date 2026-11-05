@@ -327,13 +327,21 @@ final class CookMotionUITests: XCTestCase {
 
         // Turn around: catch it a third of the way into opening and flick it down. It never fills the screen, and
         // lands back on the recipe.
+        // The card's bottom edge runs down from the button's as it opens, so a spot a little below the button is on
+        // the card from early in the open until it lands. It is worked out before the tap: asking where an element is
+        // while the app animates can wait for it to settle, which would land the grab after the open has finished.
+        // At full speed the open is over before a synthesized press can land, so there it is caught by its top instead.
         let close = element("cook.close")
+        let grabY = slowMotion == 1 ? 90 : cook.frame.maxY + 40
         let turning = sample(seconds: 1.6 * slowMotion) {
             cook.tap()
             Thread.sleep(forTimeInterval: 0.12 * slowMotion)
-            let card = close.frame
-            let grab = point(screen.midX, card.minY + 4)
-            grab.press(forDuration: 0.05, thenDragTo: point(screen.midX, card.minY + 4 + screen.height * 0.3), withVelocity: 2000, thenHoldForDuration: 0)
+            point(screen.midX, grabY).press(
+                forDuration: 0.05,
+                thenDragTo: point(screen.midX, grabY + screen.height * 0.3),
+                withVelocity: 2000,
+                thenHoldForDuration: 0
+            )
         }
         XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe's Cook button did not come back.")
         Thread.sleep(forTimeInterval: 2)

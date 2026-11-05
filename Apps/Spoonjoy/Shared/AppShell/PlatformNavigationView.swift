@@ -1034,12 +1034,12 @@ struct PlatformNavigationView: View {
             cookLaunchSources.hiddenRecipeID = nil
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(120))
-                guard token == cookLaunchSources.closeToken,
-                      compactTabs.fullScreenRoute?.stateIdentifier == sheet.route.stateIdentifier else {
-                    return
-                }
+                guard token == cookLaunchSources.closeToken else { return }
+                // A tab or link that left cook mode meanwhile has already chosen where to go; only the card is left.
+                let stillCooking = compactTabs.fullScreenRoute?.stateIdentifier == sheet.route.stateIdentifier
+                guard stillCooking || compactTabs.fullScreenRoute == nil else { return }
                 finishCookSheetClose()
-                openRecipe(id)
+                if stillCooking { openRecipe(id) }
             }
         }
     }
@@ -3460,8 +3460,9 @@ struct CookSheetMorph: ViewModifier, Animatable {
 
     /// Matches the display's own corners closely enough that the card meets them as it lands.
     private static let screenCornerRadius: CGFloat = 55
-    /// Drags that start this far from the top shrink cook mode; lower down they belong to the page.
-    private static let dragBand: CGFloat = 140
+    /// Drags that start this far from the top, about the bottom of cook mode's own bar, shrink it; lower down they
+    /// belong to the page.
+    private static let dragBand: CGFloat = 104
 
     func body(content: Content) -> some View {
         GeometryReader { proxy in
@@ -3469,10 +3470,15 @@ struct CookSheetMorph: ViewModifier, Animatable {
             let origin = proxy.frame(in: .global).origin
             let _ = onScreen.value = min(max(progress, 0), 1)
             ZStack(alignment: .topLeading) {
+                // While cook mode is on screen, coming or going, the page under it takes no taps.
+                Color.clear
+                    .contentShape(Rectangle())
+                    .accessibilityHidden(true)
                 if reduceMotion {
                     content
                         .frame(width: screen.width, height: screen.height)
                         .opacity(Double(min(max(progress, 0), 1)))
+                        .allowsHitTesting(progress >= 0.999)
                 } else {
                     morph(content, in: screen, origin: origin)
                 }
@@ -3491,16 +3497,17 @@ struct CookSheetMorph: ViewModifier, Animatable {
         // rather than switched so the edge never changes in a single frame.
         let radius = min(start.height / 2 + (Self.screenCornerRadius - start.height / 2) * p, card.height / 2)
             * (1 - Self.ease(p, from: 0.9, to: 1))
-        // The button's ink and label give way to the page while the card is moving, not while it idles at button size.
-        let label = 1 - Self.ease(p, from: 0.02, to: 0.12)
-        let ink = 1 - Self.ease(p, from: 0.06, to: 0.3)
-        let page = Self.ease(p, from: 0.04, to: 0.26)
+        // The button's ink, label and all, gives way to the page only while the card is still about button-sized, and
+        // quickly, so it is the button or the page and never a grey card between them.
+        let label = 1 - Self.ease(p, from: 0.03, to: 0.09)
+        let ink = 1 - Self.ease(p, from: 0.04, to: 0.12)
+        let page = Self.ease(p, from: 0.04, to: 0.12)
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
 
         ZStack(alignment: .topLeading) {
             // The page underneath recedes as cook mode rises over it.
             Color.black
-                .opacity(0.16 * Double(p))
+                .opacity(0.3 * Double(p))
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             ZStack(alignment: .top) {
@@ -3557,12 +3564,14 @@ struct CookSheetMorph: ViewModifier, Animatable {
     /// SwiftUI gesture here.
     private func dismissDrag(in screen: CGRect, origin: CGPoint) -> some View {
         CookSheetPan(
-            shouldBegin: { point in
+            shouldBegin: { point, scrolledDown in
                 // Settled, only its top catches a pull, so the page below keeps its own scrolling; on the move, it
                 // can be caught anywhere, as Music's player can.
                 let shown = onScreen.value
                 let card = cardRect(in: screen, origin: origin, at: shown)
                 let y = point.y - origin.y
+                // Settled, a pull on a list that is scrolled down scrolls it back up instead, as in Music.
+                if shown >= 0.999, scrolledDown { return false }
                 let band = shown < 0.999 ? card.height : max(Self.dragBand * card.width / screen.width, 44)
                 return y >= card.minY - 8 && y <= card.minY + band
             },
@@ -3604,7 +3613,8 @@ private final class OnScreenProgress {
 
 /// A downward pan anywhere on the window that `shouldBegin` accepts, reported in points along the screen's height.
 private struct CookSheetPan: UIViewRepresentable {
-    let shouldBegin: (CGPoint) -> Bool
+    /// Where the finger came down, and whether it came down on a scroll view that is scrolled away from its top.
+    let shouldBegin: (CGPoint, Bool) -> Bool
     let began: () -> Void
     let changed: (CGFloat) -> Void
     let ended: (CGFloat, CGFloat) -> Void
@@ -3656,7 +3666,8 @@ private struct CookSheetPan: UIViewRepresentable {
             // Where the finger came down, not where it has got to by the time the pan is recognised.
             let location = pan.location(in: view), moved = pan.translation(in: view)
             let start = CGPoint(x: location.x - moved.x, y: location.y - moved.y)
-            return velocity.y > abs(velocity.x) && handlers.shouldBegin(start)
+            guard velocity.y > abs(velocity.x) else { return false }
+            return handlers.shouldBegin(start, Self.scrolledDown(view.hitTest(start, with: nil)))
         }
 
         /// The page's own scrolling and bars wait for this pan to fail, which it does at once unless the finger starts
@@ -3667,6 +3678,17 @@ private struct CookSheetPan: UIViewRepresentable {
         ) -> Bool {
             guard let window = recognizer.view, let view = other.view else { return false }
             return other is UIPanGestureRecognizer && view.isDescendant(of: window)
+        }
+
+        private static func scrolledDown(_ view: UIView?) -> Bool {
+            var view = view
+            while let current = view {
+                if let scroll = current as? UIScrollView, scroll.contentSize.height > scroll.bounds.height {
+                    return scroll.contentOffset.y > -scroll.adjustedContentInset.top + 1
+                }
+                view = current.superview
+            }
+            return false
         }
 
         @objc func handle(_ recognizer: UIPanGestureRecognizer) {
@@ -3689,4 +3711,5 @@ private struct CookSheetPan: UIViewRepresentable {
     }
 }
 #endif
+
 
