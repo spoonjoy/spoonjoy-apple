@@ -176,6 +176,8 @@ final class CookMotionUITests: XCTestCase {
             Thread.sleep(forTimeInterval: 0.5)
         }
         if cooking.exists {
+            // Left open by an earlier run; it answers once it has settled.
+            XCTAssertTrue(element("cook.close").waitForHittable(timeout: 60), "Cook mode never settled.")
             element("cook.close").tap()
         } else if !cook.exists {
             element("kitchen.recipe.open").tap()
@@ -192,16 +194,17 @@ final class CookMotionUITests: XCTestCase {
         let falling = sample(seconds: openSeconds) {
             close.tap()
         }
-        if ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" {
+        // Filming, or at full speed, there are too few frames to judge.
+        if ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" || slowMotion == 1 {
             return
         }
 
         // Rising: once the page fills the screen, the step stays where it is.
         var settled: [(time: Double, y: Double)] = []
-        var risingPhoto: [(time: Double, photo: Double)] = []
+        var risingLook: [(time: Double, look: [Double])] = []
         for frame in rising {
             let pixels = try MotionPixels(frame.screenshot, screen: app.frame)
-            risingPhoto.append((frame.time, Self.photoShowing(pixels)))
+            risingLook.append((frame.time, Self.look(pixels)))
             guard Self.pageFillsTop(pixels) else { continue }
             let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame)
             if let heading = lines.first(where: { $0.text.hasPrefix(Self.firstStepTextStart) }) {
@@ -229,10 +232,10 @@ final class CookMotionUITests: XCTestCase {
         var overlap: [String] = []
         var neither: [String] = []
         var readout: [String] = []
-        var fallingPhoto: [(time: Double, photo: Double)] = []
+        var fallingLook: [(time: Double, look: [Double])] = []
         for frame in falling {
             let pixels = try MotionPixels(frame.screenshot, screen: app.frame)
-            fallingPhoto.append((frame.time, Self.photoShowing(pixels)))
+            fallingLook.append((frame.time, Self.look(pixels)))
             let fills = Self.pageFillsTop(pixels)
             let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame).map(\.text)
             let cookShowing = lines.contains { $0.hasPrefix(Self.firstStepTextStart) || $0.hasPrefix("Lemon Pantry Pasta · Step") }
@@ -259,47 +262,115 @@ final class CookMotionUITests: XCTestCase {
         XCTAssertTrue(overlap.isEmpty, "The tab bar drew over cook mode while it filled the screen:\n" + falls)
         XCTAssertTrue(neither.isEmpty, "Frames with neither cook mode nor the tab bar:\n" + falls)
 
-        // Symmetry: closing takes as long as opening. Each is timed by how long the recipe photo takes to go from
-        // 90% to 10% covered (opening), or from 10% to 90% uncovered (closing).
-        let openTime = Self.sweepSeconds(risingPhoto, covering: true)
-        let closeTime = Self.sweepSeconds(fallingPhoto, covering: false)
-        let curves = "open: " + risingPhoto.map { String(format: "%.2f", $0.photo) }.joined(separator: " ")
-            + "\nclose: " + fallingPhoto.map { String(format: "%.2f", $0.photo) }.joined(separator: " ")
-        let open = try XCTUnwrap(openTime, "Opening never covered the photo.\n" + curves)
-        let shut = try XCTUnwrap(closeTime, "Closing never uncovered the photo.\n" + curves)
+        // Symmetry: closing takes as long as opening, timed from the first frame that differs from where the move
+        // began to the last frame that differs from where it ended. It is one spring each way, so the two match.
+        let open = try XCTUnwrap(Self.movingSeconds(risingLook), "Opening never moved.")
+        let shut = try XCTUnwrap(Self.movingSeconds(fallingLook), "Closing never moved.")
         XCTAssertLessThan(
             max(open, shut) / max(min(open, shut), 0.001), 1.5,
-            String(format: "Opening took %.2f s and closing %.2f s.\n", open, shut) + curves
+            String(format: "Opening moved for %.2f s and closing for %.2f s.", open, shut)
         )
     }
 
-    /// How much of the recipe photo shows in the top of the screen: the share of sampled points with the pasta's
-    /// saturated colour, which neither the cook page nor its ink and brass have.
-    @MainActor static func photoShowing(_ pixels: MotionPixels) -> Double {
-        var photo = 0, total = 0
-        for y in stride(from: 80.0, through: 300.0, by: 8.0) {
-            for x in stride(from: 8.0, through: 394.0, by: 8.0) {
+    /// The screen's brightness on a coarse grid, to tell whether two frames look alike.
+    @MainActor static func look(_ pixels: MotionPixels) -> [Double] {
+        var values: [Double] = []
+        let width = Double(pixels.width) / pixels.scale, height = Double(pixels.height) / pixels.scale
+        for y in stride(from: 8.0, to: height, by: 16.0) {
+            for x in stride(from: 8.0, to: width, by: 16.0) {
                 let (red, green, blue) = pixels.rgb(x: Int(x * pixels.scale), y: Int(y * pixels.scale))
-                let high = max(red, green, blue), low = min(red, green, blue)
-                total += 1
-                if high > 90, Double(high - low) / Double(high) > 0.35 {
-                    photo += 1
-                }
+                values.append((0.3 * Double(red) + 0.59 * Double(green) + 0.11 * Double(blue)) / 255)
             }
         }
-        return Double(photo) / Double(max(total, 1))
+        return values
     }
 
-    /// Seconds between the photo share crossing 90% and 10% of its range: falling when `covering`, rising otherwise.
-    static func sweepSeconds(_ curve: [(time: Double, photo: Double)], covering: Bool) -> Double? {
-        guard let high = curve.map(\.photo).max(), let low = curve.map(\.photo).min(), high - low > 0.2 else {
+    /// Seconds from the first frame that differs from the first to the last frame that differs from the last.
+    static func movingSeconds(_ curve: [(time: Double, look: [Double])]) -> Double? {
+        guard let first = curve.first?.look, let last = curve.last?.look else { return nil }
+        func differs(_ a: [Double], _ b: [Double]) -> Bool {
+            zip(a, b).map { abs($0 - $1) }.reduce(0, +) / Double(max(a.count, 1)) > 0.01
+        }
+        guard let start = curve.first(where: { differs($0.look, first) })?.time,
+              let end = curve.last(where: { differs($0.look, last) })?.time else {
             return nil
         }
-        let upper = low + 0.9 * (high - low), lower = low + 0.1 * (high - low)
-        let start = curve.first { covering ? $0.photo < upper : $0.photo > lower }
-        let end = curve.first { covering ? $0.photo < lower : $0.photo > upper }
-        guard let start, let end, end.time >= start.time else { return nil }
-        return end.time - start.time
+        return end - start
+    }
+
+    /// Cook mode follows a finger and turns around mid-flight, like Music's player: a short pull down from the top
+    /// shrinks it under the finger and springs back, a long one closes it, and closing while it is still opening
+    /// reverses it from wherever it is rather than finishing the open first. Played at the Kitchen springs' slowed speed.
+    func testCookCoverFollowsAFingerAndTurnsMidFlight() throws {
+        let slowMotion = Self.slowMotion
+        launch(slowMotion: slowMotion)
+        let kitchen = element("kitchen.root"), cooking = element("cook.page"), cook = element("recipeDetail.cook")
+        let opened = Date()
+        while !kitchen.exists, !cooking.exists, !cook.exists, Date().timeIntervalSince(opened) < 60 {
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        if cooking.exists {
+            // Left open by an earlier run; it answers once it has settled.
+            XCTAssertTrue(element("cook.close").waitForHittable(timeout: 60), "Cook mode never settled.")
+            element("cook.close").tap()
+        } else if !cook.exists {
+            element("kitchen.recipe.open").tap()
+        }
+        XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe did not open.")
+        Thread.sleep(forTimeInterval: 3)
+        // Filming, or at full speed, there are too few frames to judge, so only where it ends up is checked.
+        let filmOnly = ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" || slowMotion == 1
+        let screen = app.frame
+        let point = { (x: Double, y: Double) in
+            self.app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+        }
+
+        // Turn around: catch it a third of the way into opening and flick it down. It never fills the screen, and
+        // lands back on the recipe.
+        let close = element("cook.close")
+        let turning = sample(seconds: 1.6 * slowMotion) {
+            cook.tap()
+            Thread.sleep(forTimeInterval: 0.12 * slowMotion)
+            let card = close.frame
+            let grab = point(screen.midX, card.minY + 4)
+            grab.press(forDuration: 0.05, thenDragTo: point(screen.midX, card.minY + 4 + screen.height * 0.3), withVelocity: 2000, thenHoldForDuration: 0)
+        }
+        XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe's Cook button did not come back.")
+        Thread.sleep(forTimeInterval: 2)
+        XCTAssertFalse(close.isHittable, "Cook mode finished opening after it was caught mid-flight.")
+        if !filmOnly {
+            let filled = try turning.filter { try Self.pageFillsTop(MotionPixels($0.screenshot, screen: screen)) }
+            XCTAssertTrue(filled.isEmpty, "Cook mode filled the screen at \(filled.map { Int($0.time * 1000) }) ms after it was caught mid-flight.")
+        }
+
+        // Follow the finger: a short pull shrinks it under the finger with the recipe and tab bar showing, and it
+        // springs back open on release.
+        cook.tap()
+        XCTAssertTrue(close.waitForHittable(timeout: 60), "Cook mode did not open.")
+        Thread.sleep(forTimeInterval: 1.2 * slowMotion)
+        var held: [Frame] = []
+        let top = point(screen.midX, 90)
+        let shortPull = point(screen.midX, 90 + screen.height * 0.3)
+        held = sample(seconds: 0.6 * slowMotion) {
+            top.press(forDuration: 0.2, thenDragTo: shortPull, withVelocity: 300, thenHoldForDuration: 0.4 * slowMotion)
+        }
+        XCTAssertTrue(close.waitForHittable(timeout: 60), "Cook mode closed after a short pull; it should spring back.")
+        if !filmOnly {
+            let shrunk = try held.filter { frame in
+                let pixels = try MotionPixels(frame.screenshot, screen: screen)
+                let lines = try MotionFrameText.read(frame.screenshot, screen: screen).map(\.text)
+                return !Self.pageFillsTop(pixels) && lines.contains("Shopping")
+                    && lines.contains { $0.hasPrefix(Self.firstStepTextStart) || $0.hasPrefix("Lemon Pantry Pasta · Step") }
+            }
+            XCTAssertFalse(shrunk.isEmpty, "Cook mode did not shrink under the finger in \(held.count) frames.")
+        }
+
+        // A long pull closes it.
+        let longPull = point(screen.midX, 90 + screen.height * 0.65)
+        top.press(forDuration: 0.2, thenDragTo: longPull, withVelocity: 1200, thenHoldForDuration: 0)
+        XCTAssertTrue(cook.waitForExistence(timeout: 30), "A long pull did not close cook mode.")
+        Thread.sleep(forTimeInterval: 1.6 * slowMotion)
+        XCTAssertFalse(close.isHittable, "Cook mode stayed open after a long pull.")
     }
 
     /// The first step's text in the fixture recipe.
@@ -558,5 +629,19 @@ enum MotionFrameArc {
             }
         }
         return track == 0 ? 0 : Double(brass) / Double(track)
+    }
+}
+
+extension XCUIElement {
+    /// Waits until the element can be tapped.
+    func waitForHittable(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if exists, isHittable {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return false
     }
 }
