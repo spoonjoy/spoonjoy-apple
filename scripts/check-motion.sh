@@ -4,13 +4,24 @@
 #
 #   scripts/check-motion.sh <simulator udid> <derived data path> [test name]
 #
+# MOTION_RESULT_BUNDLE=<path> keeps the result bundle; MOTION_NO_SCREEN_RECORDING=1 turns off XCTest's own screen
+# recording, which holds the simulator's recorder, so `simctl io recordVideo` can film the run instead.
+#
 # Build first: xcodebuild build-for-testing -scheme "Spoonjoy iOS" -configuration BootstrapDebug
 #   -destination "platform=iOS Simulator,id=<udid>" -derivedDataPath <derived data path>
 set -euo pipefail
+if [[ $# -lt 2 ]]; then
+  echo "usage: scripts/check-motion.sh <simulator udid> <derived data path> [test name]" >&2
+  exit 2
+fi
 udid="$1"; derived="$2"; only="${3:-}"
 cd "$(dirname "$0")/.."
 products="$derived/Build/Products"
-xctestrun="$(ls "$products"/*.xctestrun | grep 'Spoonjoy iOS' | head -1)"
+xctestrun="$(ls -t "$products"/*.xctestrun 2>/dev/null | grep 'Spoonjoy iOS' | head -1 || true)"
+if [[ -z "$xctestrun" ]]; then
+  echo "error: no Spoonjoy iOS .xctestrun in $products; run build-for-testing first" >&2
+  exit 1
+fi
 xcrun simctl terminate "$udid" app.spoonjoy 2>/dev/null || true
 xcrun simctl install "$udid" "$products/BootstrapDebug-iphonesimulator/Spoonjoy.app"
 
@@ -32,4 +43,5 @@ TEST_RUNNER_SPOONJOY_SCREENSHOT_AUTH=1 \
 TEST_RUNNER_SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY=1 \
 TEST_RUNNER_SPOONJOY_SCREENSHOT_ACCOUNT_ID=chef_kitchen_capture \
   xcodebuild test-without-building -xctestrun "$xctestrun" -destination "platform=iOS Simulator,id=$udid" \
-    -only-testing:"$target" ${MOTION_RESULT_BUNDLE:+-resultBundlePath "$MOTION_RESULT_BUNDLE"}
+    -only-testing:"$target" ${MOTION_RESULT_BUNDLE:+-resultBundlePath "$MOTION_RESULT_BUNDLE"} \
+    ${MOTION_NO_SCREEN_RECORDING:+-collect-test-diagnostics never}

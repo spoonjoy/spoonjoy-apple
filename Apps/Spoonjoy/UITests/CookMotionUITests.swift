@@ -10,6 +10,8 @@ import XCTest
 final class CookMotionUITests: XCTestCase {
     static let fixtureVariable = "SPOONJOY_MOTION_CHECK"
     static let slowMotion = 10.0
+    /// The second step's heading in the fixture recipe (Sources/SpoonjoyCore/Fixtures/recipes-fixture.json), tracked across the turn.
+    static let nextStepHeading = "Build Sauce"
 
     private var app: XCUIApplication!
 
@@ -39,7 +41,7 @@ final class CookMotionUITests: XCTestCase {
         }
         let reads = try frames.map { try MotionFrameText.read($0.screenshot, screen: app.frame) }
 
-        let headingX = reads.compactMap { read in read.first { $0.text == "Build Sauce" }?.frame.minX }
+        let headingX = reads.compactMap { read in read.first { $0.text == Self.nextStepHeading }?.frame.minX }
         XCTAssertGreaterThan(
             (headingX.max() ?? 0) - (headingX.min() ?? 0), 40,
             "The samples never caught the turn in motion, so they prove nothing. Heading x: \(headingX)"
@@ -47,7 +49,7 @@ final class CookMotionUITests: XCTestCase {
         // Keep a few frames from mid-turn as evidence either way.
         let (left, right) = (headingX.min() ?? 0, headingX.max() ?? 0)
         let moving = reads.indices.filter { index in
-            guard let x = reads[index].first(where: { $0.text == "Build Sauce" })?.frame.minX else { return false }
+            guard let x = reads[index].first(where: { $0.text == Self.nextStepHeading })?.frame.minX else { return false }
             return x > left + 10 && x < right - 10
         }
         for index in moving.enumerated().filter({ $0.offset % max(moving.count / 4, 1) == 0 }).map(\.element).prefix(4) {
@@ -139,8 +141,8 @@ final class MotionCapture: @unchecked Sendable {
         Thread { [self] in
             let start = Date()
             while Date().timeIntervalSince(start) < seconds {
-                let time = Date().timeIntervalSince(start)
-                frames.append(CookMotionUITests.Frame(time: time, screenshot: XCUIScreen.main.screenshot()))
+                let screenshot = XCUIScreen.main.screenshot()
+                frames.append(CookMotionUITests.Frame(time: Date().timeIntervalSince(start), screenshot: screenshot))
             }
             done.signal()
         }.start()
@@ -189,6 +191,7 @@ enum MotionFrameText {
 
     /// The same words drawn twice in one column, a few points apart: one row ghosting over itself. Rows on the
     /// neighbouring page sit a page width away, and the rows of one step are a row height (60 pt) apart and differ.
+    /// Two copies within 2 pt, or overlapping so closely that Vision reads them as one line, go unreported.
     static func doubled(_ lines: [Line]) -> [String] {
         var found: [String] = []
         let words = lines.filter { $0.text.count >= 3 && $0.text.contains(where: \.isLetter) }
