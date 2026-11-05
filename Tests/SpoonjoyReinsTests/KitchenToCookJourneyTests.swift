@@ -23,7 +23,7 @@ struct KitchenToCookJourneyTests {
     /// The journey, as an agent or a behavior test drives it.
     private func journey(_ session: ReinsSession) async throws {
         let journey = ReinsJourney(session)
-        try await journey.expect("kitchen", until: { $0.state["lead"]?["id"] == .string(Self.pasta) }, "the lead recipe is the pasta")
+        try await journey.expect("kitchen", describing: "the lead recipe is the pasta") { $0.state["lead"]?["id"] == .string(Self.pasta) }
         try await journey.do("openRecipe", ["id": .string(Self.pasta)], until: { $0.focus == "recipe" && $0.state["title"] == "Lemon Pantry Pasta" })
         try await journey.do("startCooking", until: { $0.focus == "cook" && $0.state["step"] == "Step 1 of 3" })
         try await journey.do("nextStep", until: { $0.state["step"] == "Step 2 of 3" && $0.actionNames.contains("previousStep") })
@@ -69,7 +69,7 @@ struct KitchenToCookJourneyTests {
 
     @Test("the guard catches Spoonjoy's real network path: a live-first launch tries to sync")
     func guardSeesLiveTraffic() async throws {
-        let guardrail = ReinsNetworkGuard.begin()
+        let guardrail = await ReinsNetworkGuard.begin()
         defer { guardrail.end() }
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-reins-\(UUID().uuidString)")
         try SpoonjoyFixtureKitchen.copy(to: directory)
