@@ -248,6 +248,27 @@ struct JourneyQAClient: Sendable {
         try await LiveShoppingSurfaceRepository(configuration: configuration).fetchShoppingList()
     }
 
+    /// Network failures that say nothing about QA's answer: the runner's connection dropped or timed out before a
+    /// response arrived. A journey checks the app against QA, not the CI runner's network, so these are tried again.
+    private static let droppedConnectionCodes: Set<URLError.Code> = [
+        .networkConnectionLost, .timedOut, .notConnectedToInternet, .cannotConnectToHost, .dnsLookupFailed,
+    ]
+
+    /// Sends the identical request up to three times when the connection drops. Resending is safe: sign-in only issues
+    /// a token, reads change nothing, and every write carries its clientMutationId, which QA treats as an idempotency
+    /// key for exactly this retry.
+    private static func dataSurvivingDroppedConnections(
+        for request: URLRequest,
+        attempts: Int = 3
+    ) async throws -> (Data, URLResponse) {
+        do {
+            return try await URLSession.shared.data(for: request)
+        } catch let error as URLError where attempts > 1 && droppedConnectionCodes.contains(error.code) {
+            try await Task.sleep(for: .seconds(2))
+            return try await dataSurvivingDroppedConnections(for: request, attempts: attempts - 1)
+        }
+    }
+
     private static func send(_ builder: APIRequestBuilder, configuration: APIClientConfiguration) async throws -> Data {
         let request = try builder.urlRequest(
             configuration: configuration,
@@ -265,7 +286,7 @@ struct JourneyQAClient: Sendable {
         urlRequest.httpBody = request.body
         request.headers.forEach { urlRequest.setValue($0.value, forHTTPHeaderField: $0.key) }
 
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+        let (data, response) = try await dataSurvivingDroppedConnections(for: urlRequest)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else {
             throw JourneyQAClientError.unexpectedStatus(status, path: request.url.path, detail: errorDetail(data) + QAResponseTrace.describe(response as? HTTPURLResponse))
