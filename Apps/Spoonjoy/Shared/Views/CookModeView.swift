@@ -2084,6 +2084,19 @@ private struct CookModeSystemTimer: View {
         }
     }
 
+    /// Words that change in place hand over in turn, never on top of each other: the old words lift and go in 70 ms,
+    /// then the new settle in. `delay` lets a third line wait its turn. The same under Reduce Motion, which keeps the
+    /// fades and drops only the 3 pt drift.
+    private func handOver(after delay: Double = 0.07) -> AnyTransition {
+        let drift: CGFloat = reduceMotion ? 0 : 3
+        return .asymmetric(
+            insertion: .opacity.combined(with: .offset(y: drift))
+                .animation(KitchenMotion.slowedForMotionChecks(.easeOut(duration: 0.14).delay(delay))),
+            removal: .opacity.combined(with: .offset(y: -drift))
+                .animation(KitchenMotion.slowedForMotionChecks(.easeIn(duration: 0.07)))
+        )
+    }
+
     @ViewBuilder private var timerAction: some View {
 #if os(iOS)
         if #available(iOS 26.1, *) {
@@ -2171,19 +2184,6 @@ private struct CookModeSystemTimer: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("cook.timer.ring")
-    }
-
-    /// Words that change in place hand over in turn, never on top of each other: the old words lift and go in 70 ms,
-    /// then the new settle in. `delay` lets a third line wait its turn. The same under Reduce Motion, which keeps the
-    /// fades and drops only the 3 pt drift.
-    private func handOver(after delay: Double = 0.07) -> AnyTransition {
-        let drift: CGFloat = reduceMotion ? 0 : 3
-        return .asymmetric(
-            insertion: .opacity.combined(with: .offset(y: drift))
-                .animation(KitchenMotion.slowedForMotionChecks(.easeOut(duration: 0.14).delay(delay))),
-            removal: .opacity.combined(with: .offset(y: -drift))
-                .animation(KitchenMotion.slowedForMotionChecks(.easeIn(duration: 0.07)))
-        )
     }
 
     /// The ring as the eye sees it, over both faces: the arc, the digits and the label under them.
