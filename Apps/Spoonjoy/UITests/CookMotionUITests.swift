@@ -8,7 +8,7 @@ import XCTest
 /// runs them; anywhere else they skip.
 @MainActor
 final class CookMotionUITests: XCTestCase {
-    static let fixtureVariable = "SPOONJOY_MOTION_CHECK"
+    nonisolated static let fixtureVariable = "SPOONJOY_MOTION_CHECK"
     static let slowMotion = 10.0
     /// The second step's heading in the fixture recipe (Sources/SpoonjoyCore/Fixtures/recipes-fixture.json), tracked across the turn.
     static let nextStepHeading = "Build Sauce"
@@ -137,12 +137,21 @@ final class MotionCapture: @unchecked Sendable {
         self.seconds = seconds
     }
 
-    func start() {
+    /// XCTest marks `XCUIScreen` main-actor isolated, but the capture has to run while the main thread is blocked in
+    /// the swipe, so it calls `screenshot` through the Objective-C runtime.
+    private static let screenshotSelector = NSSelectorFromString("screenshot")
+
+    @MainActor func start() {
+        nonisolated(unsafe) let screen: NSObject = XCUIScreen.main
         Thread { [self] in
             let start = Date()
             while Date().timeIntervalSince(start) < seconds {
-                let screenshot = XCUIScreen.main.screenshot()
-                frames.append(CookMotionUITests.Frame(time: Date().timeIntervalSince(start), screenshot: screenshot))
+                let screenshot = autoreleasepool {
+                    screen.perform(Self.screenshotSelector)?.takeUnretainedValue() as? XCUIScreenshot
+                }
+                if let screenshot {
+                    frames.append(CookMotionUITests.Frame(time: Date().timeIntervalSince(start), screenshot: screenshot))
+                }
             }
             done.signal()
         }.start()
@@ -165,8 +174,9 @@ enum MotionFrameText {
         }
     }
 
-    static func read(_ screenshot: XCUIScreenshot, screen: CGRect) throws -> [Line] {
-        let image = try XCTUnwrap(screenshot.image.cgImage, "The screenshot has no bitmap.")
+    @MainActor static func read(_ screenshot: XCUIScreenshot, screen: CGRect) throws -> [Line] {
+        let bitmap = screenshot.image.cgImage
+        let image = try XCTUnwrap(bitmap, "The screenshot has no bitmap.")
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
