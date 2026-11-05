@@ -862,6 +862,8 @@ struct CookModeView: View {
     // MARK: Step card
 
     /// "For this step": the step's checks, where the thumb reaches. Checking every ingredient starts the step's timer.
+    /// A neighbouring page draws the same rows as the page on screen, inert, so a page that turns into view keeps its
+    /// rows: swapping in a second set of rows mid-turn drew both sets at once, a few points apart.
     @ViewBuilder private func stepCard(_ model: CookModeViewModel, isCurrent: Bool) -> some View {
         let rows = model.stepOutputChecklistRows + model.ingredientChecklistRows
         if !rows.isEmpty {
@@ -873,17 +875,8 @@ struct CookModeView: View {
                     .kitchenAnimation(.snappy, value: rows.filter(\.isChecked).count)
                     .padding(.bottom, 4)
                     .accessibilityIdentifier(isCurrent ? "cook.step.card.count" : "")
-                if isCurrent {
-                    dependencyChecklist
-                    ingredientChecklist
-                } else {
-                    ForEach(rows, id: \.id) { row in
-                        Toggle(isOn: .constant(row.isChecked)) {
-                            CookModeIngredientChecklistLabel(row: row)
-                        }
-                        .toggleStyle(.cookIngredient)
-                    }
-                }
+                dependencyChecklist(model, isCurrent: isCurrent)
+                ingredientChecklist(model, isCurrent: isCurrent)
             }
             .padding(16)
             .background(KitchenTableTheme.page, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2))
@@ -892,11 +885,11 @@ struct CookModeView: View {
         }
     }
 
-    @ViewBuilder private var dependencyChecklist: some View {
-        if !viewModel.stepOutputChecklistRows.isEmpty {
+    @ViewBuilder private func dependencyChecklist(_ model: CookModeViewModel, isCurrent: Bool) -> some View {
+        if !model.stepOutputChecklistRows.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(viewModel.stepOutputChecklistRows, id: \.id) { row in
-                    Toggle(isOn: stepOutputBinding(for: row)) {
+                ForEach(model.stepOutputChecklistRows, id: \.id) { row in
+                    Toggle(isOn: isCurrent ? stepOutputBinding(for: row) : .constant(row.isChecked)) {
                         HStack(spacing: 12) {
                             Image(systemName: "arrow.triangle.branch")
                                 .foregroundStyle(KitchenTableTheme.brass)
@@ -910,23 +903,23 @@ struct CookModeView: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
-            .animation(ingredientChecklistAnimation, value: viewModel.stepOutputChecklistRows)
+            .animation(ingredientChecklistAnimation, value: model.stepOutputChecklistRows)
         }
     }
 
-    @ViewBuilder private var ingredientChecklist: some View {
-        if !viewModel.ingredientChecklistRows.isEmpty {
+    @ViewBuilder private func ingredientChecklist(_ model: CookModeViewModel, isCurrent: Bool) -> some View {
+        if !model.ingredientChecklistRows.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(viewModel.ingredientChecklistRows, id: \.id) { row in
-                    Toggle(isOn: ingredientBinding(for: row)) {
+                ForEach(model.ingredientChecklistRows, id: \.id) { row in
+                    Toggle(isOn: isCurrent ? ingredientBinding(for: row) : .constant(row.isChecked)) {
                         CookModeIngredientChecklistLabel(row: row)
                     }
                     .toggleStyle(.cookIngredient)
-                    .accessibilityIdentifier("cookMode.ingredient")
+                    .accessibilityIdentifier(isCurrent ? "cookMode.ingredient" : "")
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
-            .animation(ingredientChecklistAnimation, value: viewModel.ingredientChecklistRows)
+            .animation(ingredientChecklistAnimation, value: model.ingredientChecklistRows)
         }
     }
 

@@ -5,7 +5,7 @@ import SwiftUI
 extension KitchenSpring {
     /// The SwiftUI spring for this motion token.
     var animation: Animation {
-        .spring(response: response, dampingFraction: dampingFraction)
+        KitchenMotion.slowedForMotionChecks(.spring(response: response, dampingFraction: dampingFraction))
     }
 }
 
@@ -14,12 +14,27 @@ extension KitchenMotionStep {
         switch self {
         case .spring(let spring): spring.animation
         // OuroHX's crossfade always animates (only its `.none` step does not), so the fallback never runs.
-        case .crossfade(let duration): OuroMotion.Step.crossfade(duration: duration).animation ?? .easeInOut(duration: duration)
+        case .crossfade(let duration):
+            KitchenMotion.slowedForMotionChecks(OuroMotion.Step.crossfade(duration: duration).animation ?? .easeInOut(duration: duration))
         }
     }
 }
 
 extension KitchenMotion {
+    /// `-SpoonjoySlowMotion <factor>` (DEBUG): every Kitchen spring and crossfade plays that many times slower, so a
+    /// motion check sampling screenshots a few times a second sees each frame of a transition, however busy the machine.
+    static let slowMotionFactor: Double = {
+#if DEBUG
+        max(UserDefaults.standard.double(forKey: "SpoonjoySlowMotion"), 1)
+#else
+        1
+#endif
+    }()
+
+    static func slowedForMotionChecks(_ animation: Animation) -> Animation {
+        slowMotionFactor > 1 ? animation.speed(1 / slowMotionFactor) : animation
+    }
+
     /// The animation for a change: the spring, or the short crossfade under Reduce Motion.
     static func animation(_ spring: KitchenSpring, reduceMotion: Bool) -> Animation {
         step(spring, reduceMotion: reduceMotion).animation
