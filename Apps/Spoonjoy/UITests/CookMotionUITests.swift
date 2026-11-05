@@ -12,6 +12,10 @@ final class CookMotionUITests: XCTestCase {
     static let slowMotion = 10.0
     /// The second step's heading in the fixture recipe (Sources/SpoonjoyCore/Fixtures/recipes-fixture.json), tracked across the turn.
     static let nextStepHeading = "Build Sauce"
+    /// That step's timer hint, from `CookModeView.startHint(ingredientCount:)`.
+    static let nextStepHint = "Tap to start or check all"
+    /// The start of that step's instruction.
+    static let nextStepTextStart = "Warm the"
 
     private var app: XCUIApplication!
 
@@ -63,6 +67,31 @@ final class CookMotionUITests: XCTestCase {
             }
         }
         XCTAssertTrue(ghosts.isEmpty, "Rows drawn twice during the turn:\n" + ghosts.joined(separator: "\n"))
+
+        // The incoming page is whole before it lands: its timer hint dims and brightens with the rest of the page, not
+        // fading in on its own as the page becomes current. Measured as the hint's ink against the step text's ink on
+        // the same page, which stays put whatever the page's own opacity.
+        var ratios: [(index: Int, ratio: Double)] = []
+        for (index, read) in reads.enumerated() {
+            guard let hint = read.first(where: { $0.text.hasPrefix(Self.nextStepHint) }),
+                  let text = read.first(where: { $0.text.hasPrefix(Self.nextStepTextStart) }),
+                  hint.frame.minX > 8, hint.frame.maxX < app.frame.width - 8 else { continue }
+            let pixels = try MotionPixels(frames[index].screenshot, screen: app.frame)
+            let textInk = pixels.contrast(in: text.frame)
+            guard textInk > 20 else { continue }
+            ratios.append((index, pixels.contrast(in: hint.frame) / textInk))
+        }
+        let settled = ratios.last?.ratio ?? 0
+        XCTAssertGreaterThan(ratios.count, 3, "Too few frames showed the incoming hint to judge it.")
+        let faint = ratios.filter { $0.ratio < settled * 0.75 }
+        for entry in faint.prefix(3) {
+            attach(frames[entry.index].screenshot, named: "faint-hint-\(entry.index)")
+        }
+        let report = ratios.map { "\(Int(frames[$0.index].time * 1000)) ms \(String(format: "%.2f", $0.ratio))" }.joined(separator: ", ")
+        XCTAssertTrue(
+            faint.isEmpty,
+            "The incoming page's timer hint faded in after the page did. Hint ink against the step text's, per frame: \(report)"
+        )
     }
 
     // MARK: Driving
@@ -215,5 +244,56 @@ enum MotionFrameText {
             }
         }
         return found
+    }
+}
+
+/// A frame's pixels, addressed in screen points.
+struct MotionPixels {
+    let width: Int, height: Int, scale: Double, origin: CGPoint
+    let bytes: [UInt8]
+
+    @MainActor init(_ screenshot: XCUIScreenshot, screen: CGRect) throws {
+        let bitmap = screenshot.image.cgImage
+        let image = try XCTUnwrap(bitmap, "The screenshot has no bitmap.")
+        let (w, h) = (image.width, image.height)
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else {
+                return false
+            }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        XCTAssertTrue(drawn, "Could not read the screenshot's pixels.")
+        width = w
+        height = h
+        scale = Double(w) / screen.width
+        origin = screen.origin
+        bytes = pixels
+    }
+
+    func rgb(x: Int, y: Int) -> (Int, Int, Int) {
+        let offset = (y * width + x) * 4
+        return (Int(bytes[offset]), Int(bytes[offset + 1]), Int(bytes[offset + 2]))
+    }
+
+    /// Paper less ink inside `rect`: its lightest luminance minus its darkest.
+    func contrast(in rect: CGRect) -> Double {
+        let left = max(0, Int((rect.minX - origin.x) * scale)), right = min(width - 1, Int((rect.maxX - origin.x) * scale))
+        let top = max(0, Int((rect.minY - origin.y) * scale)), bottom = min(height - 1, Int((rect.maxY - origin.y) * scale))
+        guard left < right, top < bottom else { return 0 }
+        var lightest = 0.0, darkest = 255.0
+        for y in top...bottom {
+            for x in left...right {
+                let (red, green, blue) = rgb(x: x, y: y)
+                let luminance = 0.299 * Double(red) + 0.587 * Double(green) + 0.114 * Double(blue)
+                lightest = max(lightest, luminance)
+                darkest = min(darkest, luminance)
+            }
+        }
+        return lightest - darkest
     }
 }

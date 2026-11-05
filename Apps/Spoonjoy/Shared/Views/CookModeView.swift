@@ -449,8 +449,13 @@ struct CookModeView: View {
 
     /// The other steps' running timers, for the stack above the step card.
     private var otherRunningTimers: [CookTimerEntry] {
-        let currentKey = currentStep.map(stepTimerKey)
-        return timerBoard.ordered.filter { $0.id != currentKey }
+        currentStep.map(runningTimers(besides:)) ?? timerBoard.ordered
+    }
+
+    /// The running timers other than `step`'s own, which that step's ring already shows.
+    private func runningTimers(besides step: RecipeStep) -> [CookTimerEntry] {
+        let key = stepTimerKey(step)
+        return timerBoard.ordered.filter { $0.id != key }
     }
 
     private func pageViewModel(for step: RecipeStep) -> CookModeViewModel {
@@ -739,13 +744,13 @@ struct CookModeView: View {
     /// ring, then the step's checks in the thumb zone. A neighbouring page is a dimmed, inert preview.
     private func cookPage(_ step: RecipeStep, isCurrent: Bool, height: CGFloat) -> some View {
         let model = pageViewModel(for: step)
+        // A neighbouring page is laid out exactly as it will be once current, only dimmed and inert, so nothing is
+        // inserted, recoloured or moved on it while it turns into view, as a page in Books is whole before it turns.
         return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 10) {
                     taskHeader(model)
-                    if isCurrent {
-                        shoppingStatus
-                    }
+                    shoppingStatus
                     stepHeading(step)
                     Text(step.description)
                         .font(KitchenTableTheme.cookStep)
@@ -761,11 +766,9 @@ struct CookModeView: View {
 
                 Spacer(minLength: 8)
 
-                if isCurrent {
-                    CookTimerStack(timers: otherRunningTimers)
-                }
+                CookTimerStack(timers: runningTimers(besides: step))
                 stepCard(model, isCurrent: isCurrent)
-                if isCurrent && isLastStep {
+                if step.id == recipe.steps.last?.id {
                     finishControl
                 }
             }
@@ -2015,7 +2018,8 @@ private struct CookModeSystemTimer: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .disabled(!isInteractive)
+        // Inert, not disabled: a neighbouring page's ring keeps its colours, so nothing changes on it as it turns in.
+        .allowsHitTesting(isInteractive)
     }
 
     private var stepTimerIsSet: Bool {
@@ -2179,7 +2183,7 @@ private struct CookModeSystemTimer: View {
             .accessibilityLabel(timer.startButtonTitle)
             .accessibilityIdentifier("cook.timer.ring")
 
-            if isInteractive && showsHint {
+            if showsHint {
                 Text(hint)
                     .font(KitchenTableTheme.meta)
                     .foregroundStyle(KitchenTableTheme.ink2)
