@@ -141,11 +141,16 @@ final class CookMotionUITests: XCTestCase {
         // The digits read as one clock in every frame, never as two faces fading through each other (which read as
         // "190500" or as two clocks). The label under them may crossfade, so only digits are judged.
         var muddled: [String] = []
+        var oneClock = 0, early = 0
         for frame in frames where frame.time < 4 {
+            early += 1
             let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame)
             let inRing = lines.filter { face.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY)) }
             let clocks = inRing.filter { $0.text.range(of: #"\d:\d\d"#, options: .regularExpression) != nil }
             let runs = inRing.filter { $0.text.range(of: #"\d{3,}"#, options: .regularExpression) != nil }
+            if clocks.count == 1 {
+                oneClock += 1
+            }
             if clocks.count > 1 || !runs.isEmpty {
                 muddled.append("\(Int(frame.time * 1000)) ms: \(inRing.map(\.text))")
                 if muddled.count <= 3 {
@@ -153,6 +158,7 @@ final class CookMotionUITests: XCTestCase {
                 }
             }
         }
+        XCTAssertGreaterThanOrEqual(oneClock * 2, early, "The ring's digits were unreadable in most frames.")
         XCTAssertTrue(muddled.isEmpty, "Starting the timer drew two faces at once:\n" + muddled.joined(separator: "\n"))
     }
 
@@ -195,7 +201,7 @@ final class CookMotionUITests: XCTestCase {
         XCTAssertTrue(element("cook.page").waitForExistence(timeout: 60), "Cook mode did not open.")
         // A timer an earlier run left going would leave nothing to start.
         let leftover = element("cookMode.timer.cancel")
-        if leftover.waitForExistence(timeout: 3) {
+        if leftover.waitForExistence(timeout: 1) {
             leftover.tap()
         }
         // Let the cover finish rising (a system transition, not slowed) before the clock starts.

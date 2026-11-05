@@ -2034,8 +2034,8 @@ private struct CookModeSystemTimer: View {
                     .transition(handOver())
             }
         }
-        .animation(.default, value: statusMessage)
-        .animation(.default, value: errorMessage)
+        .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: statusMessage)
+        .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: errorMessage)
         .frame(maxWidth: .infinity)
         // Inert, not disabled: a neighbouring page's ring keeps its colours, so nothing changes on it as it turns in.
         .allowsHitTesting(isInteractive)
@@ -2109,6 +2109,10 @@ private struct CookModeSystemTimer: View {
                 .scaleEffect(ringPressed && !reduceMotion ? 0.95 : 1)
                 .opacity(ringPressed && reduceMotion ? 0.7 : 1)
                 .animation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), value: ringPressed)
+                // A face that goes while a finger is on it (the timer set from elsewhere) never reports the lift.
+                .onChange(of: stepTimerIsSet) { _, _ in
+                    ringPressed = false
+                }
 
                 ZStack(alignment: .top) {
                     if stepTimerIsSet {
@@ -2125,7 +2129,7 @@ private struct CookModeSystemTimer: View {
                             .transition(handOver(after: 0.14))
                     }
                 }
-                .animation(.default, value: stepTimerIsSet)
+                .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: stepTimerIsSet)
             }
         } else {
             unavailableCue
@@ -2187,22 +2191,23 @@ private struct CookModeSystemTimer: View {
         let running = stepTimerIsSet ? entry() : nil
         // Ticks fall on the alarm's whole seconds, so the digits change when the system countdown does. An idle ring
         // has nothing to count.
-        let ticks = running.map { $0.endsAt.addingTimeInterval(-86_400) } ?? .now
+        let ticks = running.map { $0.endsAt.addingTimeInterval(-(max(0, ceil($0.endsAt.timeIntervalSinceNow)) + 1)) } ?? .now
         return TimelineView(.periodic(from: ticks, by: stepTimerIsSet ? 1 : 3_600)) { context in
             CookTimerRingFace(fraction: runningFraction(at: context.date), drawsTrack: false) {
                 VStack(spacing: 4) {
-                    // Two clocks, handed over whole when the timer starts or stops (Clock resets in one step, it does
-                    // not roll back). While it runs, each second rolls in with the system's own numeric transition.
+                    // Two clocks. Starting changes nothing the eye can read (the countdown begins at the step's
+                    // length), so they swap in place and the first second rolls in with the system's own numeric
+                    // transition. Stopping hands the clock over whole, as Clock resets: it never rolls back.
                     ZStack {
                         if stepTimerIsSet {
                             let clock = ringClock(running, at: context.date)
                             ringDigits(clock)
                                 .contentTransition(.numericText(countsDown: true))
                                 .animation(reduceMotion ? nil : .default, value: clock)
-                                .transition(handOver())
+                                .transition(.asymmetric(insertion: .identity, removal: handOver()))
                         } else {
                             ringDigits(durationClock)
-                                .transition(handOver())
+                                .transition(.asymmetric(insertion: handOver(after: 0.04), removal: .identity))
                         }
                     }
 
@@ -2226,7 +2231,7 @@ private struct CookModeSystemTimer: View {
                     }
                     .animation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), value: isScheduling)
                 }
-                .animation(.default, value: stepTimerIsSet)
+                .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: stepTimerIsSet)
             }
         }
     }
