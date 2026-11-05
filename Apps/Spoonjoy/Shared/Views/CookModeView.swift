@@ -449,8 +449,13 @@ struct CookModeView: View {
 
     /// The other steps' running timers, for the stack above the step card.
     private var otherRunningTimers: [CookTimerEntry] {
-        let currentKey = currentStep.map(stepTimerKey)
-        return timerBoard.ordered.filter { $0.id != currentKey }
+        currentStep.map(runningTimers(besides:)) ?? timerBoard.ordered
+    }
+
+    /// The running timers other than `step`'s own, which that step's ring already shows.
+    private func runningTimers(besides step: RecipeStep) -> [CookTimerEntry] {
+        let key = stepTimerKey(step)
+        return timerBoard.ordered.filter { $0.id != key }
     }
 
     private func pageViewModel(for step: RecipeStep) -> CookModeViewModel {
@@ -739,13 +744,13 @@ struct CookModeView: View {
     /// ring, then the step's checks in the thumb zone. A neighbouring page is a dimmed, inert preview.
     private func cookPage(_ step: RecipeStep, isCurrent: Bool, height: CGFloat) -> some View {
         let model = pageViewModel(for: step)
+        // A neighbouring page is laid out exactly as it will be once current, only dimmed and inert, so nothing is
+        // inserted, recoloured or moved on it while it turns into view, as a page in Books is whole before it turns.
         return ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 10) {
                     taskHeader(model)
-                    if isCurrent {
-                        shoppingStatus
-                    }
+                    shoppingStatus
                     stepHeading(step)
                     Text(step.description)
                         .font(KitchenTableTheme.cookStep)
@@ -761,11 +766,9 @@ struct CookModeView: View {
 
                 Spacer(minLength: 8)
 
-                if isCurrent {
-                    CookTimerStack(timers: otherRunningTimers)
-                }
+                CookTimerStack(timers: runningTimers(besides: step))
                 stepCard(model, isCurrent: isCurrent)
-                if isCurrent && isLastStep {
+                if step.id == recipe.steps.last?.id {
                     finishControl
                 }
             }
@@ -862,6 +865,8 @@ struct CookModeView: View {
     // MARK: Step card
 
     /// "For this step": the step's checks, where the thumb reaches. Checking every ingredient starts the step's timer.
+    /// A neighbouring page draws the same rows as the page on screen, inert, so a page that turns into view keeps its
+    /// rows: swapping in a second set of rows mid-turn drew both sets at once, a few points apart.
     @ViewBuilder private func stepCard(_ model: CookModeViewModel, isCurrent: Bool) -> some View {
         let rows = model.stepOutputChecklistRows + model.ingredientChecklistRows
         if !rows.isEmpty {
@@ -873,17 +878,8 @@ struct CookModeView: View {
                     .kitchenAnimation(.snappy, value: rows.filter(\.isChecked).count)
                     .padding(.bottom, 4)
                     .accessibilityIdentifier(isCurrent ? "cook.step.card.count" : "")
-                if isCurrent {
-                    dependencyChecklist
-                    ingredientChecklist
-                } else {
-                    ForEach(rows, id: \.id) { row in
-                        Toggle(isOn: .constant(row.isChecked)) {
-                            CookModeIngredientChecklistLabel(row: row)
-                        }
-                        .toggleStyle(.cookIngredient)
-                    }
-                }
+                dependencyChecklist(model, isCurrent: isCurrent)
+                ingredientChecklist(model, isCurrent: isCurrent)
             }
             .padding(16)
             .background(KitchenTableTheme.page, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2))
@@ -892,11 +888,11 @@ struct CookModeView: View {
         }
     }
 
-    @ViewBuilder private var dependencyChecklist: some View {
-        if !viewModel.stepOutputChecklistRows.isEmpty {
+    @ViewBuilder private func dependencyChecklist(_ model: CookModeViewModel, isCurrent: Bool) -> some View {
+        if !model.stepOutputChecklistRows.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(viewModel.stepOutputChecklistRows, id: \.id) { row in
-                    Toggle(isOn: stepOutputBinding(for: row)) {
+                ForEach(model.stepOutputChecklistRows, id: \.id) { row in
+                    Toggle(isOn: isCurrent ? stepOutputBinding(for: row) : .constant(row.isChecked)) {
                         HStack(spacing: 12) {
                             Image(systemName: "arrow.triangle.branch")
                                 .foregroundStyle(KitchenTableTheme.brass)
@@ -910,23 +906,23 @@ struct CookModeView: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
-            .animation(ingredientChecklistAnimation, value: viewModel.stepOutputChecklistRows)
+            .animation(ingredientChecklistAnimation, value: model.stepOutputChecklistRows)
         }
     }
 
-    @ViewBuilder private var ingredientChecklist: some View {
-        if !viewModel.ingredientChecklistRows.isEmpty {
+    @ViewBuilder private func ingredientChecklist(_ model: CookModeViewModel, isCurrent: Bool) -> some View {
+        if !model.ingredientChecklistRows.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(viewModel.ingredientChecklistRows, id: \.id) { row in
-                    Toggle(isOn: ingredientBinding(for: row)) {
+                ForEach(model.ingredientChecklistRows, id: \.id) { row in
+                    Toggle(isOn: isCurrent ? ingredientBinding(for: row) : .constant(row.isChecked)) {
                         CookModeIngredientChecklistLabel(row: row)
                     }
                     .toggleStyle(.cookIngredient)
-                    .accessibilityIdentifier("cookMode.ingredient")
+                    .accessibilityIdentifier(isCurrent ? "cookMode.ingredient" : "")
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
-            .animation(ingredientChecklistAnimation, value: viewModel.ingredientChecklistRows)
+            .animation(ingredientChecklistAnimation, value: model.ingredientChecklistRows)
         }
     }
 
@@ -2022,7 +2018,8 @@ private struct CookModeSystemTimer: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .disabled(!isInteractive)
+        // Inert, not disabled: a neighbouring page's ring keeps its colours, so nothing changes on it as it turns in.
+        .allowsHitTesting(isInteractive)
     }
 
     private var stepTimerIsSet: Bool {
@@ -2186,7 +2183,7 @@ private struct CookModeSystemTimer: View {
             .accessibilityLabel(timer.startButtonTitle)
             .accessibilityIdentifier("cook.timer.ring")
 
-            if isInteractive && showsHint {
+            if showsHint {
                 Text(hint)
                     .font(KitchenTableTheme.meta)
                     .foregroundStyle(KitchenTableTheme.ink2)
