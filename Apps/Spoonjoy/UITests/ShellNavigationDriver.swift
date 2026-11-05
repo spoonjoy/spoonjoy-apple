@@ -15,13 +15,14 @@ struct ShellNavigationDriver {
 
     /// A place the shell can go: its tab on the phone, its sidebar row on the iPad.
     enum Place: String {
-        case kitchen, recipes, cookbooks, chefs
+        case kitchen, recipes, cookbooks, chefs, shopping
 
         var tabIdentifier: String {
             switch self {
             case .kitchen, .chefs: "dock.kitchen"
             case .recipes: "dock.recipes"
             case .cookbooks: "dock.cookbooks"
+            case .shopping: "dock.shopping"
             }
         }
 
@@ -31,6 +32,7 @@ struct ShellNavigationDriver {
             case .recipes: "My Recipes"
             case .cookbooks: "Cookbooks"
             case .chefs: "Chefs"
+            case .shopping: "Shopping List"
             }
         }
     }
@@ -200,5 +202,21 @@ struct ShellNavigationDriver {
         sidebarRow(title).tap()
         XCTAssertTrue(lands().waitForExistence(timeout: 15), "Choosing \(title) did not open it.", file: file, line: line)
         XCTAssertTrue(waitUntil(10) { !sidebarShows }, "The sidebar stayed over the page after choosing \(title).", file: file, line: line)
+    }
+
+    // MARK: Checks (to switch to Ouro Feel's doubled-content check)
+
+    /// A title shows once on screen: in the bar or in the page, not both. Rows of a sidebar that has stepped aside
+    /// sit off the window, so only text inside the window and outside the sidebar counts.
+    func assertShowsOnce(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        // Let a large title settle before counting.
+        RunLoop.current.run(until: Date().addingTimeInterval(1))
+        let window = app.windows.firstMatch.frame
+        let sidebarEdge: CGFloat = sidebarShows ? 400 : 0
+        let shown = app.staticTexts.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex.filter {
+            let frame = $0.frame
+            return !frame.isEmpty && window.intersects(frame) && frame.minX >= sidebarEdge
+        }
+        XCTAssertEqual(shown.count, 1, "\(title) shows \(shown.count) times: \(shown.map { $0.frame })", file: file, line: line)
     }
 }

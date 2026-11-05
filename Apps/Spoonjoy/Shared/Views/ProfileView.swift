@@ -10,6 +10,7 @@ struct ProfileRouteView: View {
     @State private var profile: ProfileViewModel?
     @State private var errorMessage: String?
     @Environment(\.moderation) private var moderation
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         Group {
@@ -32,11 +33,15 @@ struct ProfileRouteView: View {
     @MainActor private func loadProfile() async {
         do {
             try await viewModel.loadProfile(identifier: identifier)
-            profile = viewModel.profile
-            errorMessage = nil
+            arriveFromLoading(profile == nil && errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                profile = viewModel.profile
+                errorMessage = nil
+            }
         } catch {
             if profile == nil {
-                errorMessage = "We couldn't load this profile."
+                arriveFromLoading(errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                    errorMessage = "We couldn't load this profile."
+                }
             }
         }
     }
@@ -398,6 +403,7 @@ struct ProfileGraphRouteView: View {
 
     @State private var graph: ProfileGraphViewModel?
     @State private var errorMessage: String?
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
         Group {
@@ -417,11 +423,15 @@ struct ProfileGraphRouteView: View {
     @MainActor private func loadGraph() async {
         do {
             try await viewModel.loadGraph(identifier: identifier, direction: direction, page: page)
-            graph = viewModel.graph
-            errorMessage = nil
+            arriveFromLoading(graph == nil && errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                graph = viewModel.graph
+                errorMessage = nil
+            }
         } catch {
             if graph == nil {
-                errorMessage = "We couldn't load these chefs."
+                arriveFromLoading(errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                    errorMessage = "We couldn't load these chefs."
+                }
             }
         }
     }

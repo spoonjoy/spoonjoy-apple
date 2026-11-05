@@ -466,7 +466,8 @@ struct PlatformNavigationView: View {
         }
         .navigationTitle(regularBarTitle(for: route))
 #if os(iOS)
-        .navigationBarTitleDisplayMode(routeLeadsWithPhoto(route) ? .inline : .large)
+        .navigationBarTitleDisplayMode(routeLeadsWithPhoto(route) || routeOpensWithMasthead(route) ? .inline : .large)
+        .environment(\.spoonjoyBarShowsPageTitle, true)
 #endif
     }
 
@@ -752,11 +753,22 @@ struct PlatformNavigationView: View {
     /// names the page. The Mac keeps it as the window title.
     private func regularBarTitle(for route: AppRoute) -> String {
 #if os(iOS)
-        if routeIsCookMode(route) {
+        if routeIsCookMode(route) || routeOpensWithMasthead(route) {
             return ""
         }
 #endif
         return title(for: route)
+    }
+
+    /// Pages that open with their own masthead (a recipe's photo, a cookbook's or chef's name), so the bar stays
+    /// quiet rather than repeat it, as `compactPushedTitle` does on the phone.
+    private func routeOpensWithMasthead(_ route: AppRoute) -> Bool {
+        switch route {
+        case .recipeDetail, .cookbookDetail, .profile, .chefs, .capture, .settings:
+            true
+        default:
+            false
+        }
     }
 
     private func routeLeadsWithPhoto(_ route: AppRoute) -> Bool {

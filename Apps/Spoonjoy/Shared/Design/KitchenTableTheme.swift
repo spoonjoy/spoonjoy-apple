@@ -265,6 +265,7 @@ private struct PaperTopEdge: ViewModifier {
 
 struct KitchenTableHeader<Trailing: View>: View {
     @Environment(\.spoonjoyCompactNavigation) private var usesCompactNavigation
+    @Environment(\.spoonjoyBarShowsPageTitle) private var barShowsPageTitle
 
     let eyebrow: String
     let title: String
@@ -314,7 +315,8 @@ struct KitchenTableHeader<Trailing: View>: View {
                     .tracking(1.4)
                     .foregroundStyle(KitchenTableTheme.brass)
             }
-            if !usesCompactNavigation || !hidesTitleInCompactNavigation {
+            // A page whose title the bar already shows leaves it out, so it never reads twice.
+            if !(usesCompactNavigation || barShowsPageTitle) || !hidesTitleInCompactNavigation {
                 Text(title)
                     .font(titleFont)
                     .foregroundStyle(KitchenTableTheme.ink)
@@ -356,10 +358,21 @@ private struct SpoonjoyCompactNavigationEnvironmentKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct SpoonjoyBarShowsPageTitleEnvironmentKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
 extension EnvironmentValues {
     var spoonjoyCompactNavigation: Bool {
         get { self[SpoonjoyCompactNavigationEnvironmentKey.self] }
         set { self[SpoonjoyCompactNavigationEnvironmentKey.self] = newValue }
+    }
+
+    /// Whether the navigation bar shows the page's title (the iPad's large titles), so the page's own heading steps
+    /// aside, as it does under the phone's tab bar.
+    var spoonjoyBarShowsPageTitle: Bool {
+        get { self[SpoonjoyBarShowsPageTitleEnvironmentKey.self] }
+        set { self[SpoonjoyBarShowsPageTitleEnvironmentKey.self] = newValue }
     }
 }
 

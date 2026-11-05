@@ -63,6 +63,16 @@ struct KitchenTableLoadingStateView: View {
     }
 }
 
+/// Moves a page off its loading state. A page that was showing the loading state crossfades to what it loaded rather
+/// than snapping; with Reduce Motion, or when the page was already showing content, it changes at once.
+@MainActor func arriveFromLoading(_ wasLoading: Bool, reduceMotion: Bool, _ update: () -> Void) {
+    if wasLoading && !reduceMotion {
+        withAnimation(.smooth(duration: 0.28), update)
+    } else {
+        update()
+    }
+}
+
 private struct SpoonjoyBackToRecipesKey: EnvironmentKey {
     static let defaultValue: (@MainActor @Sendable () -> Void)? = nil
 }

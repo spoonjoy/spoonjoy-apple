@@ -472,6 +472,7 @@ struct CookbookDetailRouteView: View {
 
     @State private var detail: CookbookDetailViewModel?
     @State private var errorMessage: String?
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
         cookbookID: String,
@@ -511,11 +512,15 @@ struct CookbookDetailRouteView: View {
     @MainActor private func loadDetail() async {
         do {
             try await viewModel.loadDetail(id: cookbookID)
-            detail = viewModel.detail
-            errorMessage = nil
+            arriveFromLoading(detail == nil && errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                detail = viewModel.detail
+                errorMessage = nil
+            }
         } catch {
             if detail == nil {
-                errorMessage = "We couldn't load this cookbook."
+                arriveFromLoading(errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                    errorMessage = "We couldn't load this cookbook."
+                }
             }
         }
     }
