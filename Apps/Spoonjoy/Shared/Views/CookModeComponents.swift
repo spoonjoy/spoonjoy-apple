@@ -215,10 +215,12 @@ struct CookTimerRingFace<Center: View>: View {
                 .opacity(arcVisible ? 1 : 0)
                 .kitchenAnimation(.glide, value: fraction)
                 .onAppear {
-                    show(running: fraction != nil)
+                    // A ring built with its timer already running (a page turned back to, cook mode reopened) shows
+                    // the arc where it is; only a timer starting or stopping on screen sweeps.
+                    show(running: fraction != nil, animated: false)
                 }
                 .onChange(of: fraction != nil) { _, running in
-                    show(running: running)
+                    show(running: running, animated: true)
                 }
                 .onChange(of: fraction) { _, value in
                     if let value {
@@ -234,11 +236,20 @@ struct CookTimerRingFace<Center: View>: View {
 
     /// Sweeps the arc in when the ring starts running and unwinds it when it stops. Under Reduce Motion the arc simply
     /// appears or fades.
-    private func show(running: Bool) {
+    private func show(running: Bool, animated: Bool) {
         if let fraction {
             lastFraction = fraction
         }
-        guard running != arcDrawn else { return }
+        guard running != (arcDrawn && arcVisible) else { return }
+        guard animated else {
+            var still = Transaction(animation: nil)
+            still.disablesAnimations = true
+            withTransaction(still) {
+                arcDrawn = running
+                arcVisible = running
+            }
+            return
+        }
         if running {
             arcVisible = true
             withAnimation(reduceMotion ? nil : KitchenSpring.zoom.animation) {
@@ -248,14 +259,16 @@ struct CookTimerRingFace<Center: View>: View {
             withAnimation(KitchenMotion.slowedForMotionChecks(.easeOut(duration: 0.25))) {
                 arcVisible = false
             } completion: {
-                arcDrawn = false
+                if !arcVisible {
+                    arcDrawn = false
+                }
             }
         } else {
-            withAnimation(KitchenSpring.glide.animation) {
+            // A firm unwind for a "never mind", solid until it nears twelve, where it fades rather than leaving a dot.
+            withAnimation(KitchenSpring.snappy.animation) {
                 arcDrawn = false
             }
-            // Solid while it unwinds, fading only as it reaches twelve o'clock.
-            withAnimation(KitchenMotion.slowedForMotionChecks(.easeIn(duration: 0.15).delay(0.2))) {
+            withAnimation(KitchenMotion.slowedForMotionChecks(.easeIn(duration: 0.1).delay(0.1))) {
                 arcVisible = false
             }
         }
