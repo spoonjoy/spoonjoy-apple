@@ -1979,6 +1979,34 @@ private extension Recipe {
 
 /// The step's one timer, as a ring. Tapping the ring sets the step's system alarm; checking every ingredient sets it
 /// too. While it runs the digits count down and roll, the arc shrinks, and Cancel ends the alarm.
+/// The label under a timer's digits fades in when its face swaps in, so starting or cancelling changes it softly while
+/// the track and digits hold still. Under Reduce Motion it is a crossfade too, which stays.
+struct CookTimerLabelFadeIn: ViewModifier {
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .onAppear {
+                withAnimation(KitchenMotion.slowedForMotionChecks(.easeOut(duration: 0.25))) {
+                    shown = true
+                }
+            }
+    }
+}
+
+/// The timer ring gives under the finger, a little, and springs back, as Clock's Start button does.
+private struct CookTimerRingPressStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.95 : 1)
+            .opacity(configuration.isPressed && reduceMotion ? 0.7 : 1)
+            .animation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), value: configuration.isPressed)
+    }
+}
+
 private struct CookModeSystemTimer: View {
     let timer: CookModeSystemTimerViewModel
     @ObservedObject var stepTimers: CookStepTimerRegistry
@@ -1995,6 +2023,7 @@ private struct CookModeSystemTimer: View {
 
     /// False on a page with room only for the compact ring.
     @Environment(\.cookTimerShowsHint) private var showsHint
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isScheduling = false
     @State private var statusMessage: String?
     @State private var errorMessage: String?
@@ -2067,11 +2096,47 @@ private struct CookModeSystemTimer: View {
     @ViewBuilder private var timerAction: some View {
 #if os(iOS)
         if #available(iOS 26.1, *) {
-            if stepTimers.alarmID(forStep: stepKey) != nil {
-                runningRing
-            } else {
-                startButton
+            // The two faces draw the same track and the same digits, so they swap in place rather than fading through
+            // each other: only the arc sweeps and the label under the digits fades. Below the ring, Cancel takes the
+            // hint's place without the two ever overlapping.
+            VStack(spacing: 10) {
+                // A ZStack, not a Group: a Group would hand the arc overlay to each face, and it would leave with it.
+                ZStack {
+                    if stepTimers.alarmID(forStep: stepKey) != nil {
+                        runningRing
+                            .transition(.identity)
+                    } else {
+                        startButton
+                            .transition(.identity)
+                    }
+                }
+                .overlay {
+                    // One arc across both faces, so it sweeps in when the timer starts and unwinds when it is cancelled.
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        CookTimerRingFace(fraction: runningFraction(at: context.date), drawsTrack: false) {
+                            Color.clear
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+
+                ZStack(alignment: .top) {
+                    if stepTimerIsSet {
+                        cancelButton
+                            .transition(Self.belowRingSwap)
+                    } else if showsHint {
+                        Text(hint)
+                            .font(KitchenTableTheme.meta)
+                            .foregroundStyle(KitchenTableTheme.ink2)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .accessibilityIdentifier("cook.timer.hint")
+                            .transition(Self.belowRingSwap)
+                    }
+                }
             }
+            .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: stepTimerIsSet)
         } else {
             unavailableCue
         }
@@ -2083,38 +2148,44 @@ private struct CookModeSystemTimer: View {
 #if os(iOS)
     /// The step already has a system alarm, so the ring counts it down and offers Cancel; a second alarm cannot be set.
     private var runningRing: some View {
-        VStack(spacing: 10) {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let running = entry()
-                CookTimerRingFace(fraction: running.map { Self.remainingFraction($0, now: context.date) } ?? 1) {
-                    VStack(spacing: 4) {
-                        Group {
-                            if let running {
-                                CookTimerDigits(timer: running, font: KitchenTableTheme.timer)
-                            } else {
-                                Text(durationClock)
-                                    .font(KitchenTableTheme.timer)
-                            }
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let running = entry()
+            CookTimerRingFace(fraction: nil) {
+                VStack(spacing: 4) {
+                    Group {
+                        if let running {
+                            CookTimerDigits(timer: running, font: KitchenTableTheme.timer)
+                        } else {
+                            Text(durationClock)
+                                .font(KitchenTableTheme.timer)
                         }
-                        .foregroundStyle(KitchenTableTheme.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.5)
-                        .accessibilityIdentifier("cook.timer.running")
-
-                        Text(running?.isPaused == true ? "Paused" : "\(timer.durationLabel) timer")
-                            .font(KitchenTableTheme.meta)
-                            .foregroundStyle(KitchenTableTheme.ink2)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.center)
-                            .minimumScaleFactor(0.7)
                     }
+                    .foregroundStyle(KitchenTableTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .accessibilityIdentifier("cook.timer.running")
+
+                    Text(running?.isPaused == true ? "Paused" : "\(timer.durationLabel) timer")
+                        .font(KitchenTableTheme.meta)
+                        .foregroundStyle(KitchenTableTheme.ink2)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                        .minimumScaleFactor(0.7)
+                        .modifier(CookTimerLabelFadeIn())
                 }
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("cook.timer.ring")
-
-            cancelButton
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("cook.timer.ring")
+    }
+
+    /// Cancel and the hint arrive by fading in and leave at once, so the two are never on screen together.
+    private static let belowRingSwap = AnyTransition.asymmetric(insertion: .opacity, removal: .identity)
+
+    /// The share of the step's alarm still to run, or nil while it is not set.
+    private func runningFraction(at date: Date) -> Double? {
+        guard stepTimerIsSet else { return nil }
+        return entry().map { Self.remainingFraction($0, now: date) } ?? 1
     }
 
     private static func remainingFraction(_ entry: CookTimerEntry, now: Date) -> Double {
@@ -2155,43 +2226,33 @@ private struct CookModeSystemTimer: View {
 
     /// The ring before the timer runs: the step's length in a faint track. The whole ring is the button.
     private var startButton: some View {
-        VStack(spacing: 10) {
-            Button {
-                scheduleTimer()
-            } label: {
-                CookTimerRingFace(fraction: nil) {
-                    VStack(spacing: 4) {
-                        if isScheduling {
-                            ProgressView()
-                                .accessibilityLabel("Setting system timer")
-                        } else {
-                            Text(durationClock)
-                                .font(KitchenTableTheme.timer)
-                                .foregroundStyle(KitchenTableTheme.ink)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.5)
-                            Label("Start", systemImage: "play.fill")
-                                .font(KitchenTableTheme.meta.weight(.semibold))
-                                .foregroundStyle(KitchenTableTheme.brass)
-                        }
-                    }
+        Button {
+            scheduleTimer()
+        } label: {
+            CookTimerRingFace(fraction: nil) {
+                VStack(spacing: 4) {
+                    Text(durationClock)
+                        .font(KitchenTableTheme.timer)
+                        .foregroundStyle(KitchenTableTheme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.5)
+                    // While the alarm is being set, Start dims rather than changing its words, so nothing is swapped in
+                    // the moment before the countdown takes over.
+                    Label("Start", systemImage: "play.fill")
+                        .font(KitchenTableTheme.meta.weight(.semibold))
+                        .foregroundStyle(KitchenTableTheme.brass)
+                        .opacity(isScheduling ? 0.4 : 1)
+                        .animation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), value: isScheduling)
+                        .modifier(CookTimerLabelFadeIn())
                 }
-                .contentShape(Circle())
             }
-            .buttonStyle(.plain)
-            .disabled(isScheduling)
-            .accessibilityLabel(timer.startButtonTitle)
-            .accessibilityIdentifier("cook.timer.ring")
-
-            if showsHint {
-                Text(hint)
-                    .font(KitchenTableTheme.meta)
-                    .foregroundStyle(KitchenTableTheme.ink2)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .accessibilityIdentifier("cook.timer.hint")
-            }
+            .contentShape(Circle())
         }
+        .buttonStyle(CookTimerRingPressStyle())
+        .allowsHitTesting(!isScheduling)
+        .accessibilityLabel(timer.startButtonTitle)
+        .accessibilityValue(isScheduling ? "Setting system timer" : "")
+        .accessibilityIdentifier("cook.timer.ring")
     }
 #endif
 

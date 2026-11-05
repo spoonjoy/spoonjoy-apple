@@ -14,6 +14,8 @@ final class CookMotionUITests: XCTestCase {
     static let nextStepHeading = "Build Sauce"
     /// That step's timer hint, from `CookModeView.startHint(ingredientCount:)`.
     static let nextStepHint = "Tap to start or check all"
+    /// What a timer ring may say: its clock, Start, Paused or "10 min timer" (or the start of it, while it fades in).
+    nonisolated static let ringLabel = #"^(\d{1,2}:\d{2}|\W*Start|Paused|\d+ min( t(i(m(er?)?)?)?)?)\W?$"#
     /// The start of that step's instruction.
     static let nextStepTextStart = "Warm the"
 
@@ -92,6 +94,68 @@ final class CookMotionUITests: XCTestCase {
             faint.isEmpty,
             "The incoming page's timer hint faded in after the page did. Hint ink against the step text's, per frame: \(report)"
         )
+    }
+
+    /// Starting a step's timer sweeps the brass arc in around the ring, as Clock's timer does. It used to appear whole
+    /// in one frame, with Start swapped for the countdown and Cancel all at once (W10 jank audit, finding 6).
+    func testTimerStartSweepsItsArcIn() throws {
+        openCookMode()
+        let ring = element("cook.timer.ring")
+        XCTAssertTrue(ring.waitForExistence(timeout: 30), "The step has no timer ring.")
+        let face = ring.frame
+        let frames = sample(seconds: 8) {
+            ring.tap()
+        }
+        let coverage = try frames.map { try MotionFrameArc.brassCoverage($0.screenshot, ring: face, screen: app.frame) }
+        let cancel = element("cookMode.timer.cancel")
+        XCTAssertTrue(cancel.waitForExistence(timeout: 10), "The running timer offers no Cancel.")
+        let cancelling = sample(seconds: 4) {
+            cancel.tap()
+        }
+        let unwinding = try cancelling.map { try MotionFrameArc.brassCoverage($0.screenshot, ring: face, screen: app.frame) }
+
+        let full = coverage.max() ?? 0
+        let readout = coverage.map { String(format: "%.2f", $0) }.joined(separator: " ")
+        XCTAssertGreaterThan(full, 0.3, "The arc never drew. Brass coverage per frame: \(readout)")
+        let sweeping = coverage.indices.filter { coverage[$0] > 0.1 * full && coverage[$0] < 0.85 * full }
+        for index in sweeping.prefix(3) {
+            attach(frames[index].screenshot, named: "sweep-\(Int(frames[index].time * 1000))ms")
+        }
+        XCTAssertGreaterThanOrEqual(
+            sweeping.count, 3,
+            "The arc appeared whole instead of sweeping in. Brass coverage per frame: \(readout)"
+        )
+
+        // Cancelling unwinds the arc back to twelve o'clock rather than dropping it in one frame.
+        let unwound = unwinding.indices.filter { unwinding[$0] > 0.1 * full && unwinding[$0] < 0.85 * full }
+        for index in unwound.prefix(2) {
+            attach(cancelling[index].screenshot, named: "unwind-\(Int(cancelling[index].time * 1000))ms")
+        }
+        XCTAssertGreaterThanOrEqual(
+            unwound.count, 2,
+            "The arc vanished at once on Cancel. Brass coverage per frame: \(unwinding.map { String(format: "%.2f", $0) }.joined(separator: " "))"
+        )
+
+        // Only the arc and the label under the digits change: the digits read as one clock in every frame, never as
+        // two faces fading through each other, and the hint gives way to Cancel without the two showing together.
+        var muddled: [String] = []
+        for frame in frames where frame.time < 4 {
+            let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame)
+            let inRing = lines.filter { face.contains(CGPoint(x: $0.frame.midX, y: $0.frame.midY)) }
+            let clocks = inRing.filter { $0.text.range(of: #"^\d{1,2}:\d{2}$"#, options: .regularExpression) != nil }
+            // Anything else in the ring is one of the face's own labels, or the two faces read as one.
+            let strays = inRing.filter { line in
+                line.text.range(of: Self.ringLabel, options: .regularExpression) == nil
+            }
+            let hintAndCancel = lines.contains { $0.text.hasPrefix("Tap to start") } && lines.contains { $0.text.contains("Cancel") }
+            if clocks.count != 1 || !strays.isEmpty || hintAndCancel {
+                muddled.append("\(Int(frame.time * 1000)) ms: \(inRing.map(\.text)) hint and Cancel together: \(hintAndCancel)")
+                if muddled.count <= 3 {
+                    attach(frame.screenshot, named: "muddled-\(Int(frame.time * 1000))ms")
+                }
+            }
+        }
+        XCTAssertTrue(muddled.isEmpty, "Starting the timer drew two faces at once:\n" + muddled.joined(separator: "\n"))
     }
 
     // MARK: Driving
@@ -295,5 +359,33 @@ struct MotionPixels {
             }
         }
         return lightest - darkest
+    }
+}
+
+/// How much of a timer ring's track is brass in a frame.
+enum MotionFrameArc {
+    /// The share of the ring's track (an annulus just inside its frame) drawn in the brass of a running arc.
+    @MainActor static func brassCoverage(_ screenshot: XCUIScreenshot, ring: CGRect, screen: CGRect) throws -> Double {
+        let pixels = try MotionPixels(screenshot, screen: screen)
+        let scale = pixels.scale
+        let centerX = (ring.midX - screen.minX) * scale, centerY = (ring.midY - screen.minY) * scale
+        let outer = min(ring.width, ring.height) / 2 * scale
+        let inner = outer * 0.86
+        var track = 0, brass = 0
+        let lowest = max(0, Int(centerY - outer)), highest = min(pixels.height - 1, Int(centerY + outer))
+        let leftmost = max(0, Int(centerX - outer)), rightmost = min(pixels.width - 1, Int(centerX + outer))
+        for y in stride(from: lowest, through: highest, by: 2) {
+            for x in stride(from: leftmost, through: rightmost, by: 2) {
+                let distance = hypot(Double(x) - centerX, Double(y) - centerY)
+                guard distance >= inner, distance <= outer else { continue }
+                track += 1
+                // Kitchen brass, #9B6834, against the cream track; the night brass is lighter, #C4945C.
+                let (red, green, blue) = pixels.rgb(x: x, y: y)
+                if red - blue > 70, red - green > 30, red < 225 {
+                    brass += 1
+                }
+            }
+        }
+        return track == 0 ? 0 : Double(brass) / Double(track)
     }
 }
