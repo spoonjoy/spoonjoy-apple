@@ -984,6 +984,8 @@ struct PlatformNavigationView: View {
             // Another recipe's cook mode while one is open swaps in place; only a closed one grows from its button.
             if cookSheet == nil {
                 cookLaunchSources.progress = 0
+                cookLaunchSources.paper = 0
+                cookLaunchSources.words = 0
             }
             cookSheet = CookSheet(route: route, recipeID: recipeID, fallbackSource: cookSheetFallbackSource)
         }
@@ -992,6 +994,8 @@ struct PlatformNavigationView: View {
         }
         guard animated else {
             cookLaunchSources.progress = 1
+            cookLaunchSources.paper = 1
+            cookLaunchSources.words = 1
             return
         }
         guard cookLaunchSources.progress == 0 else {
@@ -1007,6 +1011,14 @@ struct PlatformNavigationView: View {
             guard token == cookLaunchSources.closeToken, cookSheet != nil else { return }
             withAnimation(cookSheetAnimation) {
                 cookLaunchSources.progress = 1
+            }
+            // The ink turns to paper, then the words come in on it, so no half-lit words sit on a grey card.
+            let slow = KitchenMotion.slowMotionFactor
+            withAnimation(.easeInOut(duration: 0.1 * slow)) {
+                cookLaunchSources.paper = 1
+            }
+            withAnimation(.easeOut(duration: 0.12 * slow).delay(0.04 * slow)) {
+                cookLaunchSources.words = 1
             }
             // As the cover did: VoiceOver moves into cook mode.
             AccessibilityNotification.ScreenChanged().post()
@@ -1066,9 +1078,11 @@ struct PlatformNavigationView: View {
             if compactTabs.fullScreenRoute != nil, let id = sheet.recipeID {
                 openRecipe(id)
             }
-        } else if cookLaunchSources.progress < 1 {
+        } else if cookLaunchSources.progress < 1 || cookLaunchSources.words < 1 {
             withTransaction(instant) {
                 cookLaunchSources.progress = 1
+                cookLaunchSources.paper = 1
+                cookLaunchSources.words = 1
             }
         }
     }
@@ -3366,6 +3380,10 @@ final class CookLaunchSources {
     var hiddenRecipeID: String?
     /// How far cook mode is open: 0 is its button, 1 the whole screen.
     var progress: CGFloat = 0
+    /// How far, in time, the button's ink has turned to the page's paper, and the page's words come in on it, on an
+    /// open; 1 otherwise. A spring leaves the button so fast that a turn tied to progress alone would be over in a frame.
+    var paper: CGFloat = 1
+    var words: CGFloat = 1
     /// True from the start of a close until the card has gone; a second close meanwhile does nothing, and a drag that
     /// catches the card calls the close off.
     var closing = false
@@ -3430,6 +3448,8 @@ private struct CookSheetLayer<Content: View>: View {
         content()
             .modifier(CookSheetMorph(
                 progress: sources.progress,
+                paper: sources.paper,
+                words: sources.words,
                 source: sheet.recipeID.flatMap { sources.frames[$0] } ?? sheet.fallbackSource,
                 reduceMotion: reduceMotion,
                 onDrag: onDrag,
@@ -3443,6 +3463,9 @@ private struct CookSheetLayer<Content: View>: View {
 /// and the page rides the card's top edge at the card's scale. Under Reduce Motion it only crossfades.
 struct CookSheetMorph: ViewModifier, Animatable {
     nonisolated var progress: CGFloat
+    /// Not animated with the card: SwiftUI fades the paper and the words to these on their own clock.
+    let paper: CGFloat
+    let words: CGFloat
     let source: CGRect?
     let reduceMotion: Bool
     let onDrag: (CGFloat) -> Void
@@ -3497,11 +3520,12 @@ struct CookSheetMorph: ViewModifier, Animatable {
         // rather than switched so the edge never changes in a single frame.
         let radius = min(start.height / 2 + (Self.screenCornerRadius - start.height / 2) * p, card.height / 2)
             * (1 - Self.ease(p, from: 0.9, to: 1))
-        // The button's ink, label and all, gives way to the page only while the card is still about button-sized, and
-        // quickly, so it is the button or the page and never a grey card between them.
-        let label = 1 - Self.ease(p, from: 0.03, to: 0.09)
-        let ink = 1 - Self.ease(p, from: 0.04, to: 0.12)
-        let page = Self.ease(p, from: 0.04, to: 0.12)
+        // The button, ink and label, lies under the page's paper, and the page's words lie on the paper. While the
+        // card is about button-sized the ink turns to paper and then the words come in, or go and then the paper
+        // turns back to ink, so no words ever sit half-lit on a grey card. Opening, each also takes its own short
+        // time, as the spring is through that size in a frame.
+        let sheet = Self.ease(p, from: 0.03, to: 0.09)
+        let lettering = Self.ease(p, from: 0.07, to: 0.14)
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
 
         ZStack(alignment: .topLeading) {
@@ -3511,24 +3535,26 @@ struct CookSheetMorph: ViewModifier, Animatable {
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
             ZStack(alignment: .top) {
-                KitchenTableTheme.page
-                content
-                    .frame(width: screen.width, height: screen.height)
-                    .scaleEffect(scale, anchor: .topLeading)
-                    .frame(width: card.width, height: card.height, alignment: .topLeading)
-                    .opacity(page)
-                    // Its controls answer only once it has landed: UIKit's hit areas do not follow the scaling.
-                    .allowsHitTesting(p >= 0.999)
                 KitchenTableTheme.ink
-                    .opacity(ink)
                     .allowsHitTesting(false)
                 Label("Cook", systemImage: "play.fill")
                     .font(.headline)
                     .foregroundStyle(KitchenTableTheme.onInk)
                     .frame(width: start.width, height: start.height)
-                    .opacity(label)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
+                KitchenTableTheme.page
+                    .opacity(sheet)
+                    .opacity(paper)
+                    .allowsHitTesting(false)
+                content
+                    .frame(width: screen.width, height: screen.height)
+                    .scaleEffect(scale, anchor: .topLeading)
+                    .frame(width: card.width, height: card.height, alignment: .topLeading)
+                    .opacity(lettering)
+                    .opacity(words)
+                    // Its controls answer only once it has landed: UIKit's hit areas do not follow the scaling.
+                    .allowsHitTesting(p >= 0.999)
             }
             .frame(width: card.width, height: card.height, alignment: .top)
             .clipShape(shape)
@@ -3711,3 +3737,4 @@ private struct CookSheetPan: UIViewRepresentable {
     }
 }
 #endif
+
