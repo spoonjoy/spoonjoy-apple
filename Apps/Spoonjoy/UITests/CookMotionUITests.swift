@@ -170,19 +170,8 @@ final class CookMotionUITests: XCTestCase {
         // Slower than the other checks, so even a busy machine's screenshots catch each sweep several times over.
         let slowMotion = Self.slowMotion > 1 ? 25 : 1.0
         launch(slowMotion: slowMotion)
-        let kitchen = element("kitchen.root"), cooking = element("cook.page"), cook = element("recipeDetail.cook")
-        let opened = Date()
-        while !kitchen.exists, !cooking.exists, !cook.exists, Date().timeIntervalSince(opened) < 60 {
-            Thread.sleep(forTimeInterval: 0.5)
-        }
-        if cooking.exists {
-            // Left open by an earlier run; it answers once it has settled.
-            XCTAssertTrue(element("cook.close").waitForHittable(timeout: 60), "Cook mode never settled.")
-            element("cook.close").tap()
-        } else if !cook.exists {
-            element("kitchen.recipe.open").tap()
-        }
-        XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe did not open.")
+        let cook = element("recipeDetail.cook")
+        openTheRecipe()
         Thread.sleep(forTimeInterval: 3)
         let openSeconds = 1.2 * slowMotion
         let rising = sample(seconds: openSeconds) {
@@ -298,15 +287,13 @@ final class CookMotionUITests: XCTestCase {
         return end - start
     }
 
-    /// Cook mode follows a finger and turns around mid-flight, like Music's player: a short pull down from the top
-    /// shrinks it under the finger and springs back, a long one closes it, and closing while it is still opening
-    /// reverses it from wherever it is rather than finishing the open first. Played at the Kitchen springs' slowed speed.
-    func testCookCoverFollowsAFingerAndTurnsMidFlight() throws {
-        let slowMotion = Self.slowMotion
-        launch(slowMotion: slowMotion)
+    /// Opens the fixture recipe from wherever the app reopened: cook mode left open, the recipe, the Kitchen, or
+    /// another page another check left it on.
+    private func openTheRecipe() {
         let kitchen = element("kitchen.root"), cooking = element("cook.page"), cook = element("recipeDetail.cook")
+        let tabBar = app.tabBars.firstMatch
         let opened = Date()
-        while !kitchen.exists, !cooking.exists, !cook.exists, Date().timeIntervalSince(opened) < 60 {
+        while !kitchen.exists, !cooking.exists, !cook.exists, !tabBar.exists, Date().timeIntervalSince(opened) < 60 {
             Thread.sleep(forTimeInterval: 0.5)
         }
         if cooking.exists {
@@ -314,9 +301,26 @@ final class CookMotionUITests: XCTestCase {
             XCTAssertTrue(element("cook.close").waitForHittable(timeout: 60), "Cook mode never settled.")
             element("cook.close").tap()
         } else if !cook.exists {
+            if !kitchen.exists {
+                // Another page: the Kitchen tab, tapped twice, pops its stack back to the Kitchen.
+                let kitchenTab = tabBar.buttons["Kitchen"]
+                kitchenTab.tap()
+                kitchenTab.tap()
+            }
+            XCTAssertTrue(element("kitchen.recipe.open").waitForExistence(timeout: 30), "The Kitchen has no recipe to open.")
             element("kitchen.recipe.open").tap()
         }
         XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe did not open.")
+    }
+
+    /// Cook mode follows a finger and turns around mid-flight, like Music's player: a short pull down from the top
+    /// shrinks it under the finger and springs back, a long one closes it, and closing while it is still opening
+    /// reverses it from wherever it is rather than finishing the open first. Played at the Kitchen springs' slowed speed.
+    func testCookCoverFollowsAFingerAndTurnsMidFlight() throws {
+        let slowMotion = Self.slowMotion
+        launch(slowMotion: slowMotion)
+        let cook = element("recipeDetail.cook")
+        openTheRecipe()
         Thread.sleep(forTimeInterval: 3)
         // Filming, or at full speed, there are too few frames to judge, so only where it ends up is checked.
         let filmOnly = ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" || slowMotion == 1
@@ -419,19 +423,9 @@ final class CookMotionUITests: XCTestCase {
 
     private func openCookMode() {
         launch()
-        let kitchen = element("kitchen.root"), cooking = element("cook.page"), recipe = element("recipeDetail.cook")
-        let opened = Date()
-        while !kitchen.exists, !cooking.exists, !recipe.exists, Date().timeIntervalSince(opened) < 60 {
-            Thread.sleep(forTimeInterval: 0.5)
-        }
-        if cooking.exists {
-            // A cook session from an earlier run restores into cook mode; close it so the run starts on step 1.
-            element("cook.close").tap()
-        } else if !recipe.exists {
-            XCTAssertTrue(kitchen.exists, "The fixture kitchen did not open.")
-            element("kitchen.recipe.open").tap()
-        }
-        XCTAssertTrue(recipe.waitForExistence(timeout: 60), "The recipe did not open.")
+        // A cook session from an earlier run restores into cook mode; this closes it so the run starts on step 1.
+        openTheRecipe()
+        let recipe = element("recipeDetail.cook")
         recipe.tap()
         XCTAssertTrue(element("cook.page").waitForExistence(timeout: 60), "Cook mode did not open.")
         // A timer an earlier run left going would leave nothing to start.
