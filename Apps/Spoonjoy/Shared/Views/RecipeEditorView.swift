@@ -87,8 +87,9 @@ struct RecipeEditorView: View {
         .navigationTitle(draft.recipeID == nil ? "New Recipe" : "Edit Recipe")
 #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
 #endif
+        // Cancel and Save are the ways out, so a draft is never dropped by the back button (on the Mac too).
+        .navigationBarBackButtonHidden(true)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") {

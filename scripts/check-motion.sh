@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Runs the cook-mode motion checks (Apps/Spoonjoy/UITests/CookMotionUITests.swift) on a booted iPhone simulator.
+# Runs the cook-mode motion checks (Apps/Spoonjoy/UITests/CookMotionUITests.swift), or another fixture check, on a
+# booted simulator.
 # Each check plays a transition in slow motion over the screenshot fixture kitchen and reads every sampled frame.
 #
 #   scripts/check-motion.sh <simulator udid> <derived data path> [test name]
@@ -38,7 +39,13 @@ write_app_state "$state/native-app-state.json" kitchen
 write_cache_state "$state/native-durable-cache.json" kitchen
 write_sync_store "$state/native-sync-store.json" kitchen
 
-target="SpoonjoyShoppingUITests/CookMotionUITests${only:+/$only}"
+# A bare test name is a cook motion check; Class or Class/test names another fixture check, such as the navigation
+# genre checks (BackNavigationUITests, OverlayDismissalUITests).
+if [[ "$only" == *UITests* ]]; then
+  target="SpoonjoyShoppingUITests/$only"
+else
+  target="SpoonjoyShoppingUITests/CookMotionUITests${only:+/$only}"
+fi
 TEST_RUNNER_SPOONJOY_MOTION_CHECK=1 \
 TEST_RUNNER_SPOONJOY_MOTION_REAL_SPEED="${MOTION_REAL_SPEED:-0}" \
 TEST_RUNNER_SPOONJOY_SCREENSHOT_AUTH=1 \

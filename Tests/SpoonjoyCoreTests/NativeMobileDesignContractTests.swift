@@ -1866,7 +1866,7 @@ struct NativeMobileDesignContractTests {
             in: navigationPath,
             contains: [
                 "showsSearchChrome",
-                "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)",
+                "routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true, pushes: true)",
                 "searchableRouteNavigationStack",
                 ".searchable(text: searchText, prompt: \"Search Spoonjoy\")",
                 "routeKeepsSearchFocus",

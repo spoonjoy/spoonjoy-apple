@@ -27,6 +27,9 @@ struct SpoonjoyiOSApp: App {
                 .debugReduceMotion()
                 .journeyQuietMode()
         }
+        .commands {
+            SpoonjoyGoBackCommands()
+        }
     }
 }
 

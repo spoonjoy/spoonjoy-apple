@@ -25,6 +25,7 @@ struct SpoonjoyMacApp: App {
         .windowResizability(.contentMinSize)
         .commands {
             SpoonjoyAddRecipeCommands()
+            SpoonjoyGoBackCommands()
             CommandGroup(after: .newItem) {
                 Button("New Window") {
                     appDelegate.showMainWindow()

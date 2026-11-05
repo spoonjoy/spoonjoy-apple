@@ -28,6 +28,7 @@
 		121D5CCCB6765E470C5BBB9B062A811E /* JourneyTestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FFEA9B585D0E4DBA6AA61E433A9269 /* JourneyTestCase.swift */; };
 		126552763B687FE506AA7AEF257E60E8 /* ModerationJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8127BC209D1EEECF87978C0131D84BAE /* ModerationJourney.swift */; };
 		12C883478C0D00AADEE09E7BC24AA6DD /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6C38DAC4CA9880FE5F98EDB772C782A /* PlatformNavigationView.swift */; };
+		1B5472E1DE8C444EF642F907 /* SpoonjoyGoBackCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523297F319372F9A334EBABC /* SpoonjoyGoBackCommands.swift */; };
 		132C60FEE24B3D6FFEEAD26374F61C99 /* RecipeIndexRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0206CFA80C2C1151F52A08405CA83776 /* RecipeIndexRow.swift */; };
 		135C1B3EC9509F3B2C9B91671F07D268 /* SceneWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = F953F517BEBDC4F6850E0B272AE1D8B3 /* SceneWindows.swift */; };
 		13C4C852C2B86D893B683527C2CE27BD /* JourneyQuietMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C9E6608F386ECDA2DCD53C7802A97DF /* JourneyQuietMode.swift */; };
@@ -62,6 +63,7 @@
 		3270C9C75601C6448772F4AC6689B1D7 /* SpoonjoySiriToolIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD30496CE542569DB66B991174BF5DE /* SpoonjoySiriToolIntents.swift */; };
 		32FEC68FA1D2B6F7137A58333A865B7F /* JourneyAccounts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB065E4126210D1AAD228BE9878D6589 /* JourneyAccounts.swift */; };
 		3325D1A7EFAE26AEB1901DBAE1D7E54E /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6C38DAC4CA9880FE5F98EDB772C782A /* PlatformNavigationView.swift */; };
+		EFA3CA569C54E8C5F7B6B18B /* SpoonjoyGoBackCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523297F319372F9A334EBABC /* SpoonjoyGoBackCommands.swift */; };
 		367AF1B4E6FCA2963095D52850044D62 /* SpoonjoyShoppingEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CF8F7B15DAB6F2E7C75E4E51C4FE6FA /* SpoonjoyShoppingEntities.swift */; };
 		3845CB62E73360731AAA6CB54AFFDA24 /* EditorJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D3EAE51A28FE0A5BD9F8322A81B3106 /* EditorJourney.swift */; };
 		3AB666823E83EAC861AF3A529A397449 /* SpoonjoySpotlightIndexer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DE1C641FD0B6B6056344EB38E1513BD /* SpoonjoySpotlightIndexer.swift */; };
@@ -185,6 +187,9 @@
 		D94F24D29472D38EE5939A1D54683908 /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 13834E80823E980451C9837118126E75 /* ModerationViews.swift */; };
 		DCB8E4E11E82DFD51F85FF996CF5C136 /* CookbooksJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82027AF71F1CE35C70A5E37CCD19E034 /* CookbooksJourney.swift */; };
 		DCCF427D8AA7EAA9D8B5C7F2AEC89726 /* CookMotionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */; };
+		9A20C8093C7075F5A97FE712 /* OverlayDismissalUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */; };
+		96DA073160D28A94D099AD5F /* BackNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */; };
+		4F62D55499F1F6B1D15F1639 /* ShellNavigationDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */; };
 		DD6D491565AA0F63781843926F265DE7 /* SpoonjoySiriToolIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD30496CE542569DB66B991174BF5DE /* SpoonjoySiriToolIntents.swift */; };
 		DF8BB773810C27245A09865F5FA93759 /* SpoonjoyCookTimerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3C9F2DD36997BBE826C93657B765198F /* SpoonjoyCookTimerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E0550A18D277A20C3A6A13B7908608EA /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD4DA654A923F3B407880DF343906EA4 /* RecipesView.swift */; };
@@ -308,6 +313,9 @@
 		2FC259911E9BE0352654168645E4D857 /* SpoonjoyShoppingUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyShoppingUITests.swift; sourceTree = "<group>"; };
 		33E405A6C46847C62B824C71BFC50B0D /* RemindersJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RemindersJourney.swift; sourceTree = "<group>"; };
 		3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookMotionUITests.swift; sourceTree = "<group>"; };
+		25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverlayDismissalUITests.swift; sourceTree = "<group>"; };
+		EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackNavigationUITests.swift; sourceTree = "<group>"; };
+		573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShellNavigationDriver.swift; sourceTree = "<group>"; };
 		3893A51FC97950C7FDA57EE8B972676A /* KitchenTableTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableTheme.swift; sourceTree = "<group>"; };
 		3C9F2DD36997BBE826C93657B765198F /* SpoonjoyCookTimerWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpoonjoyCookTimerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		419A7A8E2BAFC9DA9E8A693F1892B2C8 /* CookSessionSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookSessionSnapshot.swift; sourceTree = "<group>"; };
@@ -361,6 +369,7 @@
 		C1BAB5791B88A4602E25F61CCF187646 /* SpoonjoyCaptureDraftEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCaptureDraftEntities.swift; sourceTree = "<group>"; };
 		C34B4F33B03AD18F815AD4BBC6E16B69 /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C6C38DAC4CA9880FE5F98EDB772C782A /* PlatformNavigationView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlatformNavigationView.swift; sourceTree = "<group>"; };
+		523297F319372F9A334EBABC /* SpoonjoyGoBackCommands.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyGoBackCommands.swift; sourceTree = "<group>"; };
 		C752AD9B7545DAE07A5757D94B3AA94B /* SpoonjoyShoppingUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpoonjoyShoppingUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CB3E2868DC41252F479BB6828C19B011 /* SpoonjoyToolbar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyToolbar.swift; sourceTree = "<group>"; };
 		CCB2F6411D4441BFC6C144EB0E7C02E0 /* ShoppingListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShoppingListView.swift; sourceTree = "<group>"; };
@@ -460,6 +469,7 @@
 			children = (
 				CFA058E9ADE945CCB7E786BE7FC2DEF1 /* NativeAppleSignInTelemetry.swift */,
 				C6C38DAC4CA9880FE5F98EDB772C782A /* PlatformNavigationView.swift */,
+				523297F319372F9A334EBABC /* SpoonjoyGoBackCommands.swift */,
 				F953F517BEBDC4F6850E0B272AE1D8B3 /* SceneWindows.swift */,
 				CE8F54404FA4A22D352C91BB53CC2021 /* ShareActions.swift */,
 				7D1590A31C7827BFAB1ACEFC00A49F7E /* SignedOutSetupView.swift */,
@@ -629,6 +639,9 @@
 			isa = PBXGroup;
 			children = (
 				3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */,
+				25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */,
+				EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */,
+				573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */,
 				1D1549BBEB1B21EC2CB7D6C6DE4430AB /* LayoutAuditCollector.swift */,
 				28418A8661911E56B9C63EB8A85B2ED6 /* LayoutAuditUITests.swift */,
 				E04E9531A44BE0FC0A9543C8B1F60C88 /* ReviewDemoLaunchUITests.swift */,
@@ -1109,6 +1122,7 @@
 				9C48359119C57B9B14C07FFF1DAEA6A7 /* OfflineStatusView.swift in Sources */,
 				C9095A42C17943DFF25BB96B1E77F617 /* PendingCoverUploadBanner.swift in Sources */,
 				3325D1A7EFAE26AEB1901DBAE1D7E54E /* PlatformNavigationView.swift in Sources */,
+				EFA3CA569C54E8C5F7B6B18B /* SpoonjoyGoBackCommands.swift in Sources */,
 				057898E4FCD3F51B91989725A8D033F4 /* ProfileView.swift in Sources */,
 				C4EEC6893CEBB6473A02717879CF5F38 /* PullToRefresh.swift in Sources */,
 				C567FE5D1178C70440AC0305F216F6FE /* ReceiptListView.swift in Sources */,
@@ -1203,6 +1217,7 @@
 				256D4A9DD9044113A526786D4BB06C86 /* OfflineStatusView.swift in Sources */,
 				643C730AB17A33497D8A1B38A380C680 /* PendingCoverUploadBanner.swift in Sources */,
 				12C883478C0D00AADEE09E7BC24AA6DD /* PlatformNavigationView.swift in Sources */,
+				1B5472E1DE8C444EF642F907 /* SpoonjoyGoBackCommands.swift in Sources */,
 				2D962AA49D96DB28A95F5817F4F4821F /* ProfileView.swift in Sources */,
 				21C803ACDEF000C55A54626067A59EBD /* PullToRefresh.swift in Sources */,
 				72E4267F7DBA981CA25624C1994B77EA /* ReceiptListView.swift in Sources */,
@@ -1251,6 +1266,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				DCCF427D8AA7EAA9D8B5C7F2AEC89726 /* CookMotionUITests.swift in Sources */,
+				9A20C8093C7075F5A97FE712 /* OverlayDismissalUITests.swift in Sources */,
+				96DA073160D28A94D099AD5F /* BackNavigationUITests.swift in Sources */,
+				4F62D55499F1F6B1D15F1639 /* ShellNavigationDriver.swift in Sources */,
 				0013585B6B26C5CF5FA60CBAE328C5DE /* LayoutAuditCollector.swift in Sources */,
 				6F8148010AEFF37158EDF60F4DBB560C /* LayoutAuditUITests.swift in Sources */,
 				8D7C23BEB3FCAFC920204E4F3F925FF6 /* ReviewDemoLaunchUITests.swift in Sources */,
