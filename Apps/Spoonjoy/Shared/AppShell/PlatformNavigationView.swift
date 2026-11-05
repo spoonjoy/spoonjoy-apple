@@ -3522,9 +3522,12 @@ struct CookSheetMorph: ViewModifier, Animatable {
         let origin = proxy.frame(in: .global).origin
         let _ = onScreen.value = min(max(progress, 0), 1)
         ZStack(alignment: .topLeading) {
-            // While cook mode is on screen, coming or going, the page under it takes no taps.
+            // While cook mode is on screen, coming or going, the page under it takes no taps. Within a point of its
+            // button it lets them through, so a close does not hold the tab bar and the button through the spring's last
+            // invisible settling.
             Color.clear
                 .contentShape(Rectangle())
+                .allowsHitTesting(progress >= 0.005)
                 .accessibilityHidden(true)
             if reduceMotion {
                 content
@@ -3592,7 +3595,7 @@ struct CookSheetMorph: ViewModifier, Animatable {
                 // Ink while the card is the button and paper once it is the page, so no other colour shows at its edge.
                 shape
                     .fill(KitchenTableTheme.ink)
-                    .overlay(shape.fill(KitchenTableTheme.page).opacity(sheet * paper))
+                    .overlay(shape.fill(KitchenTableTheme.page).opacity(sheet).opacity(paper))
                     .shadow(color: .black.opacity(0.22 * Double(4 * p * (1 - p))), radius: 24, y: 8)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
