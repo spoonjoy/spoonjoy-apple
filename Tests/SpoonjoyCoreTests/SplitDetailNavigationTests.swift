@@ -91,6 +91,9 @@ struct SplitDetailNavigationTests {
         detail.apply(pasta)
         #expect(detail.path == [pasta])
         #expect(detail.sidebarRoute == .cookbookDetail(id: "weeknights"))
+        // Opening that cookbook again (a link to it, say) pops back to it.
+        detail.apply(.cookbookDetail(id: "weeknights"))
+        #expect(detail.path.isEmpty)
     }
 
     @Test("an editor on top takes no back gesture or ⌘[, so its draft is never dropped")
