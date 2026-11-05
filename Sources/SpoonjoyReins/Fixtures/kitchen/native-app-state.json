@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "accountID": "chef_kitchen_capture",
+  "environment": "production",
+  "hasCompletedFirstRun": true,
+  "cookProgressByRecipeID": {
+  },
+  "spoonCookLogDraftsByRecipeID": {
+  },
+  "shoppingList": null,
+  "captureDraft": null,
+  "pendingCaptureImport": null,
+  "captureImportProviderBlocker": null,
+  "pendingMutations": {
+    "mutations": [
+
+    ]
+  },
+  "lastOpenedRoute": "kitchen",
+  "savedAt": "2026-06-16T12:09:00.000Z"
+}

@@ -189,6 +189,7 @@
 		DCCF427D8AA7EAA9D8B5C7F2AEC89726 /* CookMotionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */; };
 		9A20C8093C7075F5A97FE712 /* OverlayDismissalUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */; };
 		96DA073160D28A94D099AD5F /* BackNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */; };
+		5E1A5A13C0DE0000000000B1 /* ReinsComparisonUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A5A13C0DE0000000000F1 /* ReinsComparisonUITests.swift */; };
 		D0B1ED0C0A7E4E11A1C0DB01 /* DoubledContentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B1ED0C0A7E4E11A1C0DF01 /* DoubledContentUITests.swift */; };
 		4F62D55499F1F6B1D15F1639 /* ShellNavigationDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */; };
 		DD6D491565AA0F63781843926F265DE7 /* SpoonjoySiriToolIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD30496CE542569DB66B991174BF5DE /* SpoonjoySiriToolIntents.swift */; };
@@ -316,6 +317,7 @@
 		3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookMotionUITests.swift; sourceTree = "<group>"; };
 		25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverlayDismissalUITests.swift; sourceTree = "<group>"; };
 		EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackNavigationUITests.swift; sourceTree = "<group>"; };
+		5E1A5A13C0DE0000000000F1 /* ReinsComparisonUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReinsComparisonUITests.swift; sourceTree = "<group>"; };
 		D0B1ED0C0A7E4E11A1C0DF01 /* DoubledContentUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DoubledContentUITests.swift; sourceTree = "<group>"; };
 		573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShellNavigationDriver.swift; sourceTree = "<group>"; };
 		3893A51FC97950C7FDA57EE8B972676A /* KitchenTableTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableTheme.swift; sourceTree = "<group>"; };
@@ -643,6 +645,7 @@
 				3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */,
 				25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */,
 				EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */,
+				5E1A5A13C0DE0000000000F1 /* ReinsComparisonUITests.swift */,
 				D0B1ED0C0A7E4E11A1C0DF01 /* DoubledContentUITests.swift */,
 				573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */,
 				1D1549BBEB1B21EC2CB7D6C6DE4430AB /* LayoutAuditCollector.swift */,
@@ -1271,6 +1274,7 @@
 				DCCF427D8AA7EAA9D8B5C7F2AEC89726 /* CookMotionUITests.swift in Sources */,
 				9A20C8093C7075F5A97FE712 /* OverlayDismissalUITests.swift in Sources */,
 				96DA073160D28A94D099AD5F /* BackNavigationUITests.swift in Sources */,
+				5E1A5A13C0DE0000000000B1 /* ReinsComparisonUITests.swift in Sources */,
 				D0B1ED0C0A7E4E11A1C0DB01 /* DoubledContentUITests.swift in Sources */,
 				4F62D55499F1F6B1D15F1639 /* ShellNavigationDriver.swift in Sources */,
 				0013585B6B26C5CF5FA60CBAE328C5DE /* LayoutAuditCollector.swift in Sources */,
