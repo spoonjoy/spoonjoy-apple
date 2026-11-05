@@ -369,7 +369,8 @@ private struct ImportStatusPanel: View {
             return "Import ready"
         }
         if isOffline {
-            return "Offline import queue"
+            // The section is already headed "Import queue", so the status says only what is different.
+            return "Waiting until you're online"
         }
         return "Waiting for import"
     }

@@ -5,9 +5,6 @@ struct SpoonjoyToolbar: ViewModifier {
     @Binding var navigation: AppNavigationState
     @Binding var search: SearchState
     let addRecipe: () -> Void
-#if os(iOS)
-    @Environment(\.editMode) private var editMode: Binding<EditMode>?
-#endif
 
     func body(content: Content) -> some View {
         content
@@ -27,8 +24,8 @@ struct SpoonjoyToolbar: ViewModifier {
                             } label: {
                                 Label(search.hasQuery ? "Open Search" : "Search All", systemImage: "magnifyingglass")
                             }
+                            // No Edit here: the one list that edits, the shopping list, carries its own in the bar.
                             ShareActions(route: navigation.route)
-                            editControl
                         } label: {
                             Label("Actions", systemImage: "ellipsis.circle")
                         }
@@ -53,24 +50,6 @@ struct SpoonjoyToolbar: ViewModifier {
         default:
             false
         }
-    }
-
-#if os(iOS)
-    private var editButtonTitle: String {
-        editMode?.wrappedValue == .active ? "Done" : "Edit"
-    }
-
-    private func toggleEditMode() {
-        editMode?.wrappedValue = editMode?.wrappedValue == .active ? .inactive : .active
-    }
-#endif
-
-    @ViewBuilder private var editControl: some View {
-#if os(iOS)
-        Button(editButtonTitle) {
-            toggleEditMode()
-        }
-#endif
     }
 }
 

@@ -135,6 +135,16 @@ public struct CookbookSurfaceDetailResult: Equatable, Sendable {
 public protocol CookbookSurfaceRepository: Sendable {
     func listCookbooks(request: CookbookSurfaceListRequest) async throws -> CookbookSurfacePage
     func cookbookDetail(id: String) async throws -> CookbookSurfaceDetailResult
+    /// The saved copy of a cookbook, if this repository keeps one, so the page can open on it at once while
+    /// `cookbookDetail(id:)` fetches the live copy. Opening a cookbook used to wait on the network behind a spinner
+    /// even with the cookbook already saved.
+    func cachedCookbookDetail(id: String) -> CookbookSurfaceDetailResult?
+}
+
+public extension CookbookSurfaceRepository {
+    func cachedCookbookDetail(id _: String) -> CookbookSurfaceDetailResult? {
+        nil
+    }
 }
 
 public struct LiveCookbookSurfaceRepository: CookbookSurfaceRepository {
@@ -218,6 +228,10 @@ public struct SnapshotCookbookSurfaceRepository: CookbookSurfaceRepository {
         throw CookbookSurfaceRepositoryError.cookbookNotFound(id)
     }
 
+    public func cachedCookbookDetail(id: String) -> CookbookSurfaceDetailResult? {
+        detailsByID[id]
+    }
+
     private func filteredRows(for request: CookbookSurfaceListRequest) -> [CookbookSummary] {
         guard let query = request.query?.lowercased(), !query.isEmpty else {
             return page.rows
@@ -254,6 +268,10 @@ public struct FallbackCookbookSurfaceRepository: CookbookSurfaceRepository {
             return try await fallback.cookbookDetail(id: id)
         }
     }
+
+    public func cachedCookbookDetail(id: String) -> CookbookSurfaceDetailResult? {
+        fallback.cachedCookbookDetail(id: id)
+    }
 }
 
 /// The signed-in chef's Cookbooks shelf. The list comes only from the chef's own cookbooks, which the
@@ -276,6 +294,10 @@ public struct OwnCookbookSurfaceRepository: CookbookSurfaceRepository {
 
     public func cookbookDetail(id: String) async throws -> CookbookSurfaceDetailResult {
         try await detail.cookbookDetail(id: id)
+    }
+
+    public func cachedCookbookDetail(id: String) -> CookbookSurfaceDetailResult? {
+        detail.cachedCookbookDetail(id: id)
     }
 }
 

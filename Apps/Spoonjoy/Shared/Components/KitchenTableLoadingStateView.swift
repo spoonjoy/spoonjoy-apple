@@ -63,6 +63,31 @@ struct KitchenTableLoadingStateView: View {
     }
 }
 
+/// Moves a page off its loading state. A page that was showing the loading state fades into what it loaded rather
+/// than snapping (a short crossfade under Reduce Motion); a page already showing content changes at once, so nothing
+/// else on it is swept into the animation. The route view stacks the two in a `ZStack` (`ArrivingFromLoading`), so
+/// the outgoing and incoming pages never share the height and the page does not grow into place.
+@MainActor func arriveFromLoading(_ wasLoading: Bool, reduceMotion: Bool, _ update: () -> Void) {
+    if wasLoading {
+        withAnimation(KitchenMotion.animation(.snappy, reduceMotion: reduceMotion), update)
+    } else {
+        update()
+    }
+}
+
+/// Holds a route view's loading, error and loaded states in one place, so a crossfade between them overlaps them.
+struct ArrivingFromLoading<Content: View>: View {
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        // Each state enters and leaves with SwiftUI's default opacity transition.
+        ZStack {
+            content()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 private struct SpoonjoyBackToRecipesKey: EnvironmentKey {
     static let defaultValue: (@MainActor @Sendable () -> Void)? = nil
 }
