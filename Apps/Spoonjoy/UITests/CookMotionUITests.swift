@@ -9,7 +9,11 @@ import XCTest
 @MainActor
 final class CookMotionUITests: XCTestCase {
     nonisolated static let fixtureVariable = "SPOONJOY_MOTION_CHECK"
-    static let slowMotion = 10.0
+    /// How much the app slows its motion for the check. MOTION_REAL_SPEED=1 on scripts/check-motion.sh plays it at
+    /// full speed instead, to film what people see; the frame-count checks then have too few frames to judge.
+    static var slowMotion: Double {
+        ProcessInfo.processInfo.environment["SPOONJOY_MOTION_REAL_SPEED"] == "1" ? 1 : 10
+    }
     /// The second step's heading in the fixture recipe (Sources/SpoonjoyCore/Fixtures/recipes-fixture.json), tracked across the turn.
     static let nextStepHeading = "Build Sauce"
     /// That step's timer hint, from `CookModeView.startHint(ingredientCount:)`.
