@@ -39,7 +39,7 @@ final class OverlayDismissalUITests: XCTestCase {
         openApp()
         try XCTSkipUnless(shell.usesSidebar, "The phone layout has no sidebar.")
         shell.assertSidebarStepsAsideAfterChoosing("My Recipes", lands: { self.app.navigationBars["My Recipes"] })
-        shell.assertSidebarStepsAsideAfterChoosing("Chefs", lands: { self.app.navigationBars["Chefs"] })
+        shell.assertSidebarStepsAsideAfterChoosing("Chefs", lands: { self.shell.element("chefs.chef.row") })
         // Cookbooks heads a disclosure group; its label used to take no part in the selection, so it opened nothing.
         shell.assertSidebarStepsAsideAfterChoosing("Cookbooks", lands: { self.shell.element("cookbookShelf") })
         // The fixture kitchen's own books are not listed under Cookbooks in the sidebar, so a book row is not walked here.
@@ -57,7 +57,7 @@ final class OverlayDismissalUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["My Recipes"].waitForExistence(timeout: 15), "Choosing My Recipes did not open it.")
         shell.showSidebar()
         shell.sidebarRow("Chefs").tap()
-        XCTAssertTrue(app.navigationBars["Chefs"].waitForExistence(timeout: 15), "Choosing Chefs did not open it.")
+        XCTAssertTrue(shell.element("chefs.chef.row").waitForExistence(timeout: 15), "Choosing Chefs did not open it.")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         XCTAssertTrue(shell.sidebarShows, "The sidebar beside the page closed after a choice.")
     }

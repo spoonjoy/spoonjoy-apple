@@ -872,6 +872,52 @@ struct CookbookSurfaceParityTests {
         #expect(!detail(currentChefID: "chef_visitor").canRemoveRecipes)
     }
 
+    @Test("a saved cookbook opens at once from the cache while its live copy loads")
+    @MainActor
+    func savedCookbookOpensAtOnceFromTheCache() throws {
+        let cookbook = try Self.cookbook()
+        let cached = CookbookSurfaceDetailResult(
+            cookbook: cookbook,
+            source: .cache(serverRevision: nil, lastValidatedAt: Self.staleValidatedAt),
+            availableRecipes: []
+        )
+        let snapshot = SnapshotCookbookSurfaceRepository(
+            page: CookbookSurfacePage(
+                query: nil,
+                limit: 20,
+                cursor: nil,
+                nextCursor: nil,
+                hasMore: false,
+                rows: [CookbookSummary(cookbook: cookbook)],
+                source: .live(requestID: "native-shell", validatedAt: Self.now)
+            ),
+            details: [cached]
+        )
+        let repository = OwnCookbookSurfaceRepository(
+            ownCookbooks: snapshot,
+            detail: FallbackCookbookSurfaceRepository(primary: FailingCookbookSurfaceRepository(), fallback: snapshot)
+        )
+        #expect(snapshot.cachedCookbookDetail(id: cookbook.id) == cached)
+        #expect(repository.cachedCookbookDetail(id: cookbook.id) == cached)
+        #expect(repository.cachedCookbookDetail(id: "cookbook_missing") == nil)
+        // A repository with no cache of its own (the live one) has nothing to show early.
+        #expect(FailingCookbookSurfaceRepository().cachedCookbookDetail(id: cookbook.id) == nil)
+
+        let viewModel = CookbookSurfaceViewModel(
+            repository: repository,
+            context: CookbookSurfaceContext(currentChefID: "chef_ari"),
+            queuedMutations: [],
+            conflicts: [],
+            connectivity: .online,
+            now: { Self.now },
+            timestamp: { Self.createdAt }
+        )
+        #expect(!viewModel.showCachedDetail(id: "cookbook_missing"))
+        #expect(viewModel.detail == nil)
+        #expect(viewModel.showCachedDetail(id: cookbook.id))
+        #expect(viewModel.detail?.id == cookbook.id)
+    }
+
     private static func cookbook() throws -> Cookbook {
         try CookbookFixtureCatalog.decodeFromBundle().cookbooks[0]
     }

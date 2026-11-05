@@ -189,6 +189,7 @@
 		DCCF427D8AA7EAA9D8B5C7F2AEC89726 /* CookMotionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */; };
 		9A20C8093C7075F5A97FE712 /* OverlayDismissalUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */; };
 		96DA073160D28A94D099AD5F /* BackNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */; };
+		D0B1ED0C0A7E4E11A1C0DB01 /* DoubledContentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0B1ED0C0A7E4E11A1C0DF01 /* DoubledContentUITests.swift */; };
 		4F62D55499F1F6B1D15F1639 /* ShellNavigationDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */; };
 		DD6D491565AA0F63781843926F265DE7 /* SpoonjoySiriToolIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CD30496CE542569DB66B991174BF5DE /* SpoonjoySiriToolIntents.swift */; };
 		DF8BB773810C27245A09865F5FA93759 /* SpoonjoyCookTimerWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3C9F2DD36997BBE826C93657B765198F /* SpoonjoyCookTimerWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -315,6 +316,7 @@
 		3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CookMotionUITests.swift; sourceTree = "<group>"; };
 		25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = OverlayDismissalUITests.swift; sourceTree = "<group>"; };
 		EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BackNavigationUITests.swift; sourceTree = "<group>"; };
+		D0B1ED0C0A7E4E11A1C0DF01 /* DoubledContentUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DoubledContentUITests.swift; sourceTree = "<group>"; };
 		573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShellNavigationDriver.swift; sourceTree = "<group>"; };
 		3893A51FC97950C7FDA57EE8B972676A /* KitchenTableTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = KitchenTableTheme.swift; sourceTree = "<group>"; };
 		3C9F2DD36997BBE826C93657B765198F /* SpoonjoyCookTimerWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpoonjoyCookTimerWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -641,6 +643,7 @@
 				3478E78FFC3E2D31DFA5ED29B5E50A0F /* CookMotionUITests.swift */,
 				25EEB097397E567C3ED38388 /* OverlayDismissalUITests.swift */,
 				EE54179D29D62C3BEA3AEF14 /* BackNavigationUITests.swift */,
+				D0B1ED0C0A7E4E11A1C0DF01 /* DoubledContentUITests.swift */,
 				573092A84B305522E0CAE907 /* ShellNavigationDriver.swift */,
 				1D1549BBEB1B21EC2CB7D6C6DE4430AB /* LayoutAuditCollector.swift */,
 				28418A8661911E56B9C63EB8A85B2ED6 /* LayoutAuditUITests.swift */,
@@ -1268,6 +1271,7 @@
 				DCCF427D8AA7EAA9D8B5C7F2AEC89726 /* CookMotionUITests.swift in Sources */,
 				9A20C8093C7075F5A97FE712 /* OverlayDismissalUITests.swift in Sources */,
 				96DA073160D28A94D099AD5F /* BackNavigationUITests.swift in Sources */,
+				D0B1ED0C0A7E4E11A1C0DB01 /* DoubledContentUITests.swift in Sources */,
 				4F62D55499F1F6B1D15F1639 /* ShellNavigationDriver.swift in Sources */,
 				0013585B6B26C5CF5FA60CBAE328C5DE /* LayoutAuditCollector.swift in Sources */,
 				6F8148010AEFF37158EDF60F4DBB560C /* LayoutAuditUITests.swift in Sources */,

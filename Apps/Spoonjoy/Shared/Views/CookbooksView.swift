@@ -472,6 +472,7 @@ struct CookbookDetailRouteView: View {
 
     @State private var detail: CookbookDetailViewModel?
     @State private var errorMessage: String?
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     init(
         cookbookID: String,
@@ -485,11 +486,15 @@ struct CookbookDetailRouteView: View {
         self.openRoute = openRoute
         self.performCookbookAction = performCookbookAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
-        _detail = State(initialValue: viewModel.detail)
+        // A cookbook already loaded or saved opens on that copy at once; the live copy replaces it when it arrives.
+        if viewModel.detail?.id != cookbookID {
+            viewModel.showCachedDetail(id: cookbookID)
+        }
+        _detail = State(initialValue: viewModel.detail?.id == cookbookID ? viewModel.detail : nil)
     }
 
     var body: some View {
-        Group {
+        ArrivingFromLoading {
             if let detail {
                 CookbookDetailView(
                     viewModel: detail,
@@ -511,11 +516,15 @@ struct CookbookDetailRouteView: View {
     @MainActor private func loadDetail() async {
         do {
             try await viewModel.loadDetail(id: cookbookID)
-            detail = viewModel.detail
-            errorMessage = nil
+            arriveFromLoading(detail == nil && errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                detail = viewModel.detail
+                errorMessage = nil
+            }
         } catch {
             if detail == nil {
-                errorMessage = "We couldn't load this cookbook."
+                arriveFromLoading(errorMessage == nil, reduceMotion: accessibilityReduceMotion) {
+                    errorMessage = "We couldn't load this cookbook."
+                }
             }
         }
     }

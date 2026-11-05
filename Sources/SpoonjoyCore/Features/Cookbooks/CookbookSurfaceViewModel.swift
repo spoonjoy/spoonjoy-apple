@@ -755,8 +755,22 @@ public struct CookbookSurfaceListViewModel: Equatable, Sendable {
         list = CookbookSurfaceListState.from(page: page, now: now())
     }
 
+    /// Opens the saved copy of a cookbook, if there is one, so the page shows it while `loadDetail(id:)` fetches the
+    /// live copy. Returns whether it did.
+    @discardableResult
+    public func showCachedDetail(id: String) -> Bool {
+        guard let result = repository.cachedCookbookDetail(id: id) else {
+            return false
+        }
+        showDetail(result)
+        return true
+    }
+
     public func loadDetail(id: String) async throws {
-        let result = try await repository.cookbookDetail(id: id)
+        showDetail(try await repository.cookbookDetail(id: id))
+    }
+
+    private func showDetail(_ result: CookbookSurfaceDetailResult) {
         detail = CookbookDetailViewModel(
             result: result,
             context: context,
