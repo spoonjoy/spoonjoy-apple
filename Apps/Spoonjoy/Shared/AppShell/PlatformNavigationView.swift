@@ -3491,9 +3491,11 @@ struct CookSheetMorph: ViewModifier, Animatable {
     /// How far open it is on screen this frame, for the pan to read when a finger comes down.
     @State private var onScreen = OnScreenProgress()
 
+    /// Animated in hundredths: a spring stops once it is within a small fixed distance of its target, and measured in
+    /// whole screens that distance left the card a few points short of full size, so it covered them in one frame.
     nonisolated var animatableData: CGFloat {
-        get { progress }
-        set { progress = newValue }
+        get { progress * 100 }
+        set { progress = newValue / 100 }
     }
 
     /// Matches the display's own corners closely enough that the card meets them as it lands.
@@ -3583,8 +3585,18 @@ struct CookSheetMorph: ViewModifier, Animatable {
             }
             .frame(width: card.width, height: card.height, alignment: .top)
             .clipShape(shape)
-            // A soft lift while it travels, gone once it rests as the button or the screen.
-            .shadow(color: .black.opacity(0.22 * Double(4 * p * (1 - p))), radius: 24, y: 8)
+            // A soft lift while it travels, gone once it rests as the button or the screen. It is cast by a plain
+            // shape behind the card: a shadow on the card itself would render the whole cook page off screen on every
+            // frame of the flight.
+            .background {
+                // Ink while the card is the button and paper once it is the page, so no other colour shows at its edge.
+                shape
+                    .fill(KitchenTableTheme.ink)
+                    .overlay(shape.fill(KitchenTableTheme.page).opacity(sheet * paper))
+                    .shadow(color: .black.opacity(0.22 * Double(4 * p * (1 - p))), radius: 24, y: 8)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
             .offset(x: card.minX, y: card.minY)
         }
     }
