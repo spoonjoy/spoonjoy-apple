@@ -14,6 +14,10 @@ final class BackNavigationUITests: XCTestCase {
             ProcessInfo.processInfo.environment[ShellNavigationDriver.fixtureVariable] == "1",
             "Needs the seeded fixture kitchen; run scripts/check-motion.sh."
         )
+    }
+
+    /// Opens the app upright. Each check calls it first: setUp is not on the main actor, and the app is.
+    private func openApp() {
         XCUIDevice.shared.orientation = .portrait
         app = ShellNavigationDriver.launch()
         // The app reopens on the page the last check left it on, so the checks wait for the shell, not the Kitchen.
@@ -31,6 +35,7 @@ final class BackNavigationUITests: XCTestCase {
     /// Walks every kind of pushed page the fixture kitchen has: a recipe from a Kitchen row and from the counter, a
     /// cookbook from the shelf, a recipe from a cookbook, and a chef from Chefs.
     func testEveryPushedPageGoesBackByButtonAndEdgeSwipe() {
+        openApp()
         let recipePage = { self.shell.element("recipeDetail.cook") }
 
         shell.assertGoesBack(
@@ -72,6 +77,7 @@ final class BackNavigationUITests: XCTestCase {
 
     /// Every sheet the fixture kitchen can open has a close control, and a swipe down closes it too.
     func testEverySheetClosesByButtonAndSwipeDown() {
+        openApp()
         for way in ["its close button", "a swipe down"] {
             // Add a recipe, from the bar's plus.
             shell.go(to: .kitchen)

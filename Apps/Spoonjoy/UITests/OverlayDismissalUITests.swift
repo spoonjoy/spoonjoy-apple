@@ -14,6 +14,10 @@ final class OverlayDismissalUITests: XCTestCase {
             ProcessInfo.processInfo.environment[ShellNavigationDriver.fixtureVariable] == "1",
             "Needs the seeded fixture kitchen; run scripts/check-motion.sh."
         )
+    }
+
+    /// Opens the app upright. Each check calls it first: setUp is not on the main actor, and the app is.
+    private func openApp() {
         XCUIDevice.shared.orientation = .portrait
         app = ShellNavigationDriver.launch()
         // The app reopens on the page the last check left it on, so the checks wait for the shell, not the Kitchen.
@@ -32,6 +36,7 @@ final class OverlayDismissalUITests: XCTestCase {
     /// Upright, the sidebar squeezes the page into a narrow column beside it, so each row chosen in it puts it away
     /// and the page gets the whole window back.
     func testSidebarSqueezingThePageStepsAsideAfterAChoice() throws {
+        openApp()
         try XCTSkipUnless(shell.usesSidebar, "The phone layout has no sidebar.")
         shell.assertSidebarStepsAsideAfterChoosing("My Recipes", lands: { self.app.navigationBars["My Recipes"] })
         shell.assertSidebarStepsAsideAfterChoosing("Chefs", lands: { self.app.navigationBars["Chefs"] })
@@ -43,6 +48,7 @@ final class OverlayDismissalUITests: XCTestCase {
 
     /// Sideways, the sidebar sits beside the page, so choosing in it leaves it where it is.
     func testSidebarBesideThePageStays() throws {
+        openApp()
         try XCTSkipUnless(shell.usesSidebar, "The phone layout has no sidebar.")
         XCUIDevice.shared.orientation = .landscapeLeft
         // Start somewhere else, so the app reopening on Chefs cannot pass the check without a choice.

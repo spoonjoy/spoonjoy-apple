@@ -9,7 +9,7 @@ import XCTest
 /// `scripts/check-motion.sh` runs them; anywhere else they skip.
 @MainActor
 struct ShellNavigationDriver {
-    static let fixtureVariable = "SPOONJOY_MOTION_CHECK"
+    nonisolated static let fixtureVariable = "SPOONJOY_MOTION_CHECK"
 
     let app: XCUIApplication
 
