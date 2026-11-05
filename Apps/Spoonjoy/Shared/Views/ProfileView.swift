@@ -13,7 +13,7 @@ struct ProfileRouteView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
-        Group {
+        ArrivingFromLoading {
             if let profile {
                 ProfileView(viewModel: profile, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let chef = moderation.ledger.blockedChefs.first(where: { $0.id == identifier || $0.username == identifier }) {
@@ -406,7 +406,7 @@ struct ProfileGraphRouteView: View {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
 
     var body: some View {
-        Group {
+        ArrivingFromLoading {
             if let graph {
                 ProfileGraphList(viewModel: graph, openRoute: openRoute, onDismissOfflineIndicator: onDismissOfflineIndicator)
             } else if let errorMessage {

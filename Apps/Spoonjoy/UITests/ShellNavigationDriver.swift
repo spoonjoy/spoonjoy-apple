@@ -26,6 +26,16 @@ struct ShellNavigationDriver {
             }
         }
 
+        /// The tab's title, for a dock whose identifiers have not been attached yet.
+        var tabTitle: String {
+            switch self {
+            case .kitchen, .chefs: "Kitchen"
+            case .recipes: "Recipes"
+            case .cookbooks: "Cookbooks"
+            case .shopping: "Shopping"
+            }
+        }
+
         var sidebarTitle: String {
             switch self {
             case .kitchen: "Kitchen"
@@ -60,14 +70,13 @@ struct ShellNavigationDriver {
 
     /// Whether the shell has come up, in either layout.
     var shellIsUp: Bool {
-        element("dock.kitchen").exists || sidebarToggle.exists || sidebarRow.exists
+        app.tabBars.firstMatch.exists || sidebarToggle.exists || sidebarRow.exists
     }
 
     /// Whether the shell is the split view with a sidebar, rather than the tab bar.
     var usesSidebar: Bool {
-        // The dock's identifiers arrive a moment after the tab bar, so wait for one layout or the other first.
-        _ = waitUntil(10) { element("dock.kitchen").exists || sidebarToggle.exists || sidebarRow.exists }
-        return !element("dock.kitchen").exists && (sidebarToggle.exists || sidebarRow.exists)
+        _ = waitUntil(10) { shellIsUp }
+        return !app.tabBars.firstMatch.exists && (sidebarToggle.exists || sidebarRow.exists)
     }
 
     var sidebarToggle: XCUIElement {
@@ -114,7 +123,9 @@ struct ShellNavigationDriver {
             // The page then widens to the whole window; let it settle so the next tap lands where it aims.
             RunLoop.current.run(until: Date().addingTimeInterval(1))
         } else {
-            let tab = element(place.tabIdentifier)
+            // The dock's identifiers are attached through UIKit and sometimes arrive late; its titles are always there.
+            let identified = element(place.tabIdentifier)
+            let tab = identified.waitForExistence(timeout: 3) ? identified : app.tabBars.buttons[place.tabTitle]
             XCTAssertTrue(tab.waitForExistence(timeout: 10), "The tab bar has no \(place.rawValue) tab.", file: file, line: line)
             tab.tap()
             // Tapping the selected tab again pops it to its root.
@@ -207,15 +218,18 @@ struct ShellNavigationDriver {
     // MARK: Checks (to switch to Ouro Feel's doubled-content check)
 
     /// A title shows once on screen: in the bar or in the page, not both. Rows of a sidebar that has stepped aside
-    /// sit off the window, so only text inside the window and outside the sidebar counts.
+    /// sit off the window, so only text inside the window, outside the sidebar and above the tab bar counts.
     func assertShowsOnce(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
         // Let a large title settle before counting.
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         let window = app.windows.firstMatch.frame
         let sidebarEdge: CGFloat = sidebarShows ? 400 : 0
+        // The phone's tab bar names the tab too; that is navigation, not the page's title.
+        let tabBar = app.tabBars.firstMatch
+        let pageBottom = tabBar.exists ? tabBar.frame.minY : window.maxY
         let shown = app.staticTexts.matching(NSPredicate(format: "label == %@", title)).allElementsBoundByIndex.filter {
             let frame = $0.frame
-            return !frame.isEmpty && window.intersects(frame) && frame.minX >= sidebarEdge
+            return !frame.isEmpty && window.intersects(frame) && frame.minX >= sidebarEdge && frame.maxY <= pageBottom
         }
         XCTAssertEqual(shown.count, 1, "\(title) shows \(shown.count) times: \(shown.map { $0.frame })", file: file, line: line)
     }

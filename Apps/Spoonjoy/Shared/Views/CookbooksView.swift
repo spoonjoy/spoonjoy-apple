@@ -486,11 +486,15 @@ struct CookbookDetailRouteView: View {
         self.openRoute = openRoute
         self.performCookbookAction = performCookbookAction
         self.onDismissOfflineIndicator = onDismissOfflineIndicator
-        _detail = State(initialValue: viewModel.detail)
+        // A cookbook already loaded or saved opens on that copy at once; the live copy replaces it when it arrives.
+        if viewModel.detail?.id != cookbookID {
+            viewModel.showCachedDetail(id: cookbookID)
+        }
+        _detail = State(initialValue: viewModel.detail?.id == cookbookID ? viewModel.detail : nil)
     }
 
     var body: some View {
-        Group {
+        ArrivingFromLoading {
             if let detail {
                 CookbookDetailView(
                     viewModel: detail,

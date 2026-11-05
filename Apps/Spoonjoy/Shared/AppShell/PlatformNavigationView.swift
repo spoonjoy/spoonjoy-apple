@@ -466,8 +466,10 @@ struct PlatformNavigationView: View {
         }
         .navigationTitle(regularBarTitle(for: route))
 #if os(iOS)
-        .navigationBarTitleDisplayMode(routeLeadsWithPhoto(route) || routeOpensWithMasthead(route) ? .inline : .large)
-        .environment(\.spoonjoyBarShowsPageTitle, true)
+        .navigationBarTitleDisplayMode(barShowsLargeTitle(for: route) ? .large : .inline)
+        // Only where the bar shows the title large does the page's own heading step aside; the Kitchen's inline
+        // "Kitchen" and a masthead page's quiet bar leave the heading in place.
+        .environment(\.spoonjoyBarShowsPageTitle, barShowsLargeTitle(for: route))
 #endif
     }
 
@@ -753,23 +755,23 @@ struct PlatformNavigationView: View {
     /// names the page. The Mac keeps it as the window title.
     private func regularBarTitle(for route: AppRoute) -> String {
 #if os(iOS)
-        if routeIsCookMode(route) || routeOpensWithMasthead(route) {
+        if routeIsCookMode(route) {
             return ""
         }
-#endif
+        // The same titles as the phone: pages that open with their own masthead or heading (a recipe, a cookbook, a
+        // chef, Chefs, Imports, Settings) keep the bar quiet rather than repeat it, and editors say what they edit.
+        return compactPushedTitle(for: route)
+#else
         return title(for: route)
+#endif
     }
 
-    /// Pages that open with their own masthead (a recipe's photo, a cookbook's or chef's name), so the bar stays
-    /// quiet rather than repeat it, as `compactPushedTitle` does on the phone.
-    private func routeOpensWithMasthead(_ route: AppRoute) -> Bool {
-        switch route {
-        case .recipeDetail, .cookbookDetail, .profile, .chefs, .capture, .settings:
-            true
-        default:
-            false
-        }
+#if os(iOS)
+    /// Whether the iPad's bar shows the page's title large, which then stands in for the page's own heading.
+    private func barShowsLargeTitle(for route: AppRoute) -> Bool {
+        !routeLeadsWithPhoto(route) && !routeIsCookMode(route) && !regularBarTitle(for: route).isEmpty
     }
+#endif
 
     private func routeLeadsWithPhoto(_ route: AppRoute) -> Bool {
         switch route {

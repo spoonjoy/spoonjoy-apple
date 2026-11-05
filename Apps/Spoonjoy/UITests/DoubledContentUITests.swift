@@ -33,8 +33,10 @@ final class DoubledContentUITests: XCTestCase {
 
     func testEveryPageTitleShowsOnce() {
         openApp()
+        // The phone's tab says "Recipes" where the iPad's sidebar says "My Recipes".
+        let sidebar = shell.usesSidebar
         let pages: [(ShellNavigationDriver.Place, String, () -> XCUIElement)] = [
-            (.recipes, "My Recipes", { self.shell.text("Add a recipe") }),
+            (.recipes, sidebar ? "My Recipes" : "Recipes", { self.shell.text("Add a recipe") }),
             (.cookbooks, "Cookbooks", { self.shell.element("cookbookShelf") }),
             (.chefs, "Chefs", { self.shell.element("chefs.chef.row") }),
         ]
