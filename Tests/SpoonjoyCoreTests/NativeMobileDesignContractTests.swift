@@ -1149,7 +1149,7 @@ struct NativeMobileDesignContractTests {
                 "private var ingredientChecklistTransaction: Transaction",
                 "transaction.disablesAnimations = true",
                 "withTransaction(ingredientChecklistTransaction)",
-                ".animation(ingredientChecklistAnimation, value: viewModel.ingredientChecklistRows)",
+                ".animation(ingredientChecklistAnimation, value: model.ingredientChecklistRows)",
                 "CookModeIngredientChecklistLabel(row: row)",
                 "HStack(alignment: .firstTextBaseline, spacing: 10)",
                 ".fixedSize(horizontal: false, vertical: true)",
