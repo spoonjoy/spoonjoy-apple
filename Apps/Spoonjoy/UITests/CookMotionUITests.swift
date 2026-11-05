@@ -296,6 +296,8 @@ final class CookMotionUITests: XCTestCase {
         while !kitchen.exists, !cooking.exists, !cook.exists, !tabBar.exists, Date().timeIntervalSince(opened) < 60 {
             Thread.sleep(forTimeInterval: 0.5)
         }
+        // A cook session is restored a moment after the shell shows; give it that moment before going elsewhere.
+        _ = cooking.waitForExistence(timeout: 3)
         if cooking.exists {
             // Left open by an earlier run; it answers once it has settled.
             XCTAssertTrue(element("cook.close").waitForHittable(timeout: 60), "Cook mode never settled.")
@@ -337,17 +339,30 @@ final class CookMotionUITests: XCTestCase {
         // At full speed the open is over before a synthesized press can land, so there it is caught by its top instead.
         let close = element("cook.close")
         let grabY = slowMotion == 1 ? 90 : cook.frame.maxY + 40
-        let turning = sample(seconds: 1.6 * slowMotion) {
-            cook.tap()
-            Thread.sleep(forTimeInterval: 0.12 * slowMotion)
-            point(screen.midX, grabY).press(
-                forDuration: 0.05,
-                thenDragTo: point(screen.midX, grabY + screen.height * 0.3),
-                withVelocity: 2000,
-                thenHoldForDuration: 0
-            )
+        // XCUITest sends a press only once the app looks idle, and now and then that wait outlasts the whole open, so
+        // the press lands low on a card that has already landed, where it rightly belongs to the page. Cook mode is
+        // then still open; that try caught nothing, so it is closed and tried again.
+        var turning: [Frame] = []
+        var caught = false
+        for _ in 1...3 where !caught {
+            turning = sample(seconds: 1.6 * slowMotion) {
+                cook.tap()
+                Thread.sleep(forTimeInterval: 0.12 * slowMotion)
+                point(screen.midX, grabY).press(
+                    forDuration: 0.05,
+                    thenDragTo: point(screen.midX, grabY + screen.height * 0.3),
+                    withVelocity: 2000,
+                    thenHoldForDuration: 0
+                )
+            }
+            caught = cook.waitForExistence(timeout: 20)
+            if !caught, close.waitForHittable(timeout: 10) {
+                close.tap()
+                XCTAssertTrue(cook.waitForExistence(timeout: 60), "Cook mode did not close.")
+                Thread.sleep(forTimeInterval: 2)
+            }
         }
-        XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe's Cook button did not come back.")
+        XCTAssertTrue(caught, "Cook mode was never caught mid-flight in three tries.")
         Thread.sleep(forTimeInterval: 2)
         XCTAssertFalse(close.isHittable, "Cook mode finished opening after it was caught mid-flight.")
         if !filmOnly {
@@ -360,10 +375,9 @@ final class CookMotionUITests: XCTestCase {
         cook.tap()
         XCTAssertTrue(close.waitForHittable(timeout: 60), "Cook mode did not open.")
         Thread.sleep(forTimeInterval: 1.2 * slowMotion)
-        var held: [Frame] = []
         let top = point(screen.midX, 90)
         let shortPull = point(screen.midX, 90 + screen.height * 0.3)
-        held = sample(seconds: 0.6 * slowMotion) {
+        let held = sample(seconds: 0.6 * slowMotion) {
             top.press(forDuration: 0.2, thenDragTo: shortPull, withVelocity: 300, thenHoldForDuration: 0.4 * slowMotion)
         }
         XCTAssertTrue(close.waitForHittable(timeout: 60), "Cook mode closed after a short pull; it should spring back.")
