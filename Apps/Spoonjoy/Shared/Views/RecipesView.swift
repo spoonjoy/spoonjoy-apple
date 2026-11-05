@@ -307,6 +307,7 @@ struct ChefsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens chef profile")
+        .accessibilityIdentifier("chefs.chef.row")
     }
 
 }

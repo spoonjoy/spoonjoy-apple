@@ -30,6 +30,8 @@ struct PlatformNavigationView: View {
     @State private var activeSearch: ActiveSearchSurfaceState?
     @State private var liveSearchRequestMarker: LiveSearchRequestMarker?
     @State private var splitColumnVisibility: NavigationSplitViewVisibility = .automatic
+    /// The split view's detail stack: the sidebar destination at the root and the pages opened from it pushed on top.
+    @State private var splitDetail = SplitDetailNavigation()
     @State private var isSidebarCookbookContentsExpanded = true
     /// Photos chosen on create whose upload failed, by recipe ID. The recipe page shows a retry for each.
     @Environment(\.scenePhase) private var scenePhase
@@ -311,8 +313,26 @@ struct PlatformNavigationView: View {
             sidebar.navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 380)
                 .navigationTitle("Spoonjoy")
         } detail: {
-            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true)
+            routeNavigationStack(spotlightPayload: spotlightPayload, showsToolbar: true, showsSearchChrome: true, pushes: true)
         }
+        .onChange(of: navigation.route, initial: true) { previous, route in
+            // The shell turns a blank editor route into the Add a recipe sheet, so the column never pushes a form.
+            guard route != .recipeEditor(id: nil) else {
+                return
+            }
+            if previous == route {
+                // The split view has just appeared (at launch, or back from a compact window): start from the route
+                // rather than from wherever the column was last left, so back never leads to pages the person did
+                // not come from. One handler, so the order against a separate onAppear cannot matter.
+                splitDetail = splitDetail.resumed(at: route)
+            } else {
+                splitDetail.apply(route)
+            }
+            // A new page, from the sidebar or anywhere else, puts away a sidebar squeezing the old one.
+            dismissSidebarIfCovering()
+        }
+        // ⌘[ goes back a page, as the toolbar's back button does.
+        .focusedSceneValue(\.spoonjoyGoBack, splitGoBackAction)
 #if os(iOS)
         // An open recipe on a wide landscape screen becomes a two-page spread. The library sidebar steps aside so
         // the spread gets the whole screen and its gutter lands on the middle, where the iPhone Duo folds. The
@@ -320,7 +340,12 @@ struct PlatformNavigationView: View {
         .onGeometryChange(for: CGSize.self) { proxy in
             proxy.size
         } action: { size in
+            // A sidebar put away in a narrow window comes back beside the page when the window grows wide.
+            let growsWide = shellWindowSize.width < Self.sidebarBesidePageMinimumWidth && size.width >= Self.sidebarBesidePageMinimumWidth
             shellWindowSize = size
+            if growsWide && splitColumnVisibility == .detailOnly && !hidesLibrarySidebarForSpread {
+                splitColumnVisibility = .automatic
+            }
         }
         .readingHingeDivision($shellHingeDivision)
         .onChange(of: hidesLibrarySidebarForSpread, initial: true) { _, hides in
@@ -361,22 +386,28 @@ struct PlatformNavigationView: View {
         )
     }
 
-    @ViewBuilder private func routeNavigationStack(spotlightPayload: SpotlightIndexPayload, showsToolbar: Bool, showsSearchChrome: Bool) -> some View {
+    @ViewBuilder private func routeNavigationStack(
+        spotlightPayload: SpotlightIndexPayload,
+        showsToolbar: Bool,
+        showsSearchChrome: Bool,
+        pushes: Bool = false
+    ) -> some View {
         if showsToolbar {
-            searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome, hidesNavigationBar: false)
+            searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome, hidesNavigationBar: false, pushes: pushes)
                 .spoonjoyToolbar(navigation: $navigation, search: $search, addRecipe: createRecipe)
         } else {
-            searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome, hidesNavigationBar: usesCompactMobileShell)
+            searchableRouteNavigationStack(spotlightPayload: spotlightPayload, showsSearchChrome: showsSearchChrome, hidesNavigationBar: usesCompactMobileShell, pushes: pushes)
         }
     }
 
     @ViewBuilder private func searchableRouteNavigationStack(
         spotlightPayload: SpotlightIndexPayload,
         showsSearchChrome: Bool,
-        hidesNavigationBar: Bool
+        hidesNavigationBar: Bool,
+        pushes: Bool
     ) -> some View {
         if showsSearchChrome {
-            baseRouteNavigationStack(spotlightPayload: spotlightPayload, hidesNavigationBar: hidesNavigationBar)
+            baseRouteNavigationStack(spotlightPayload: spotlightPayload, hidesNavigationBar: hidesNavigationBar, pushes: pushes)
                 .searchable(text: searchText, prompt: "Search Spoonjoy")
                 .searchFocused($isSearchFieldFocused)
                 .searchScopes(searchScope) {
@@ -390,11 +421,116 @@ struct PlatformNavigationView: View {
                     }
                 }
         } else {
-            baseRouteNavigationStack(spotlightPayload: spotlightPayload, hidesNavigationBar: hidesNavigationBar)
+            baseRouteNavigationStack(spotlightPayload: spotlightPayload, hidesNavigationBar: hidesNavigationBar, pushes: pushes)
         }
     }
 
-    private func baseRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, hidesNavigationBar: Bool) -> some View {
+    @ViewBuilder private func baseRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, hidesNavigationBar: Bool, pushes: Bool) -> some View {
+        if pushes {
+            splitDetailNavigationStack(spotlightPayload: spotlightPayload)
+        } else {
+            swappingRouteNavigationStack(spotlightPayload: spotlightPayload, hidesNavigationBar: hidesNavigationBar)
+        }
+    }
+
+    /// The split view's detail column. A page opened from another is pushed, so it has the back button, the edge
+    /// swipe and the Mac's toolbar back button; the column used to swap pages and left no way back.
+    private func splitDetailNavigationStack(spotlightPayload: SpotlightIndexPayload) -> some View {
+        shellLifecycle(
+            NavigationStack(path: splitDetailPath) {
+                splitDetailPage(for: splitDetail.root)
+                    // Must stay inside this NavigationStack's closure (see swappingRouteNavigationStack).
+                    .navigationDestination(for: AppRoute.self) { route in
+                        splitDetailPage(for: route)
+                    }
+            },
+            spotlightPayload: spotlightPayload
+        )
+        .onChange(of: navigation.route) { _, route in
+            if !routeKeepsSearchFocus(route) {
+                isSearchFieldFocused = false
+            }
+            if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
+                liveSearchRequestMarker = nil
+            }
+        }
+    }
+
+    private func splitDetailPage(for route: AppRoute) -> some View {
+        VStack(spacing: 0) {
+            destinationContent(for: route)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if shouldShowShellOfflineStatus && route == navigation.route {
+                shellOfflineStatusBar
+            }
+        }
+        .navigationTitle(regularBarTitle(for: route))
+#if os(iOS)
+        .navigationBarTitleDisplayMode(routeLeadsWithPhoto(route) ? .inline : .large)
+#endif
+    }
+
+    private var splitDetailPath: Binding<[AppRoute]> {
+        Binding(
+            get: { splitDetail.path },
+            set: { path in
+                let route = splitDetail.setPath(path)
+                if route != navigation.route {
+                    navigation.navigate(to: route, restoring: true)
+                }
+            }
+        )
+    }
+
+    private var splitGoBackAction: (() -> Void)? {
+        // An editor leaves only through its Cancel or Save, which ask before dropping a draft.
+        guard splitDetail.canGoBack, !splitDetail.showsEditor, !navigation.route.isCookModeActive else {
+            return nil
+        }
+        return goBackInSplitDetail
+    }
+
+    private func goBackInSplitDetail() {
+        let route = splitDetail.goBack()
+        if route != navigation.route {
+            navigation.navigate(to: route, restoring: true)
+        }
+    }
+
+#if os(iOS)
+    private var sidebarSqueezesPage: Bool {
+        // Before the first layout reports a size, the window scene's width stands in, so a restored or linked page
+        // that lands first still puts away a sidebar squeezing it.
+        let width = shellWindowSize.width > 0 ? shellWindowSize.width : Self.windowSceneWidth
+        return width > 0 && width < Self.sidebarBesidePageMinimumWidth
+    }
+
+    @MainActor private static var windowSceneWidth: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive }?
+            .effectiveGeometry.coordinateSpace.bounds.width ?? 0
+    }
+
+    /// Below this window width, a sidebar beside the page squeezes it into a narrow column, so it steps aside once
+    /// something is chosen; a wider window keeps it beside the page.
+    private static var sidebarBesidePageMinimumWidth: CGFloat { 1000 }
+#endif
+
+    /// A sidebar that squeezes the page (an upright iPad, the open Duo, a split-screen half) steps aside once
+    /// something is chosen, so the page gets the window back. In a wide window it stays beside the page.
+    private func dismissSidebarIfCovering() {
+#if os(iOS)
+        // The split view writes a shown sidebar into the binding, so hiding it is one write. Only a shown sidebar is
+        // touched: rewriting a hidden one resets the page stack mid-push.
+        if sidebarSqueezesPage && (splitColumnVisibility == .all || splitColumnVisibility == .doubleColumn) {
+            splitColumnVisibility = .detailOnly
+        }
+#endif
+    }
+
+    /// Cook mode on iPad, the open Duo and the Mac fills the window with one page, swapped in place.
+    private func swappingRouteNavigationStack(spotlightPayload: SpotlightIndexPayload, hidesNavigationBar: Bool) -> some View {
         shellLifecycle(
             NavigationStack {
                 regularDetailPage
@@ -465,6 +601,23 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         .background(DockAccessibilityIdentifiers(selection: compactTabs.selectedTab, depth: compactTabs.path(for: compactTabs.selectedTab).count))
 #endif
+        // ⌘[ goes back a page in a narrow window with a keyboard too.
+        .focusedSceneValue(\.spoonjoyGoBack, compactGoBackAction)
+    }
+
+    private var compactGoBackAction: (() -> Void)? {
+        let tab = compactTabs.selectedTab
+        let path = compactTabs.path(for: tab)
+        guard let top = path.last, !navigation.route.isCookModeActive else {
+            return nil
+        }
+        switch top {
+        case .recipeEditor, .recipeCoverControls:
+            // An editor leaves only through its Cancel or Save, which ask before dropping a draft.
+            return nil
+        default:
+            return { compactPath(for: tab).wrappedValue = Array(path.dropLast()) }
+        }
     }
 
     /// The tab bar carries Cooking now on every page but the Kitchen's own, where the strip does the same job.
@@ -488,7 +641,7 @@ struct PlatformNavigationView: View {
         let zoom = recipeZoomNamespace(for: tab)
         let stack = NavigationStack(path: compactPath(for: tab)) {
             compactTabRoot(for: tab)
-                // Must stay inside this NavigationStack's closure (see baseRouteNavigationStack).
+                // Must stay inside this NavigationStack's closure (see swappingRouteNavigationStack).
                 .navigationDestination(for: AppRoute.self) { route in
                     compactPushedPage(for: route, recipeZoom: zoom)
                 }
@@ -920,7 +1073,18 @@ struct PlatformNavigationView: View {
                         sidebarCookbookLink(entry)
                     }
                 } label: {
-                    sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
+                    // A disclosure group's label takes no part in the list's selection, so a tap on Cookbooks only
+                    // showed or hid the books. The label chooses Cookbooks itself, and opens the books beneath it
+                    // as the tap used to.
+                    Button {
+                        librarySidebarSelection.wrappedValue = .section(.cookbooks)
+                        isSidebarCookbookContentsExpanded = true
+                    } label: {
+                        sidebarLink(section: .cookbooks, title: "Cookbooks", systemImage: "books.vertical")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
                 sidebarLink(section: .shoppingList, title: "Shopping List", systemImage: "checklist")
                 sidebarLink(section: .search, title: "Kitchen Search", systemImage: "magnifyingglass")
@@ -1265,9 +1429,11 @@ struct PlatformNavigationView: View {
     private var librarySidebarSelection: Binding<LibrarySidebarDestination?> {
         Binding(
             get: {
+                // The column's root, not the page on top: a selection that followed each pushed page made the split
+                // view reset the column, popping the page as it landed.
                 LibrarySidebar.selection(
-                    route: navigation.route,
-                    sidebarSection: navigation.sidebarSelection,
+                    route: splitDetail.sidebarRoute,
+                    sidebarSection: splitDetail.sidebarRoute.section ?? navigation.sidebarSelection,
                     cookbookEntries: sidebarCookbookEntries
                 )
             },
@@ -1277,10 +1443,15 @@ struct PlatformNavigationView: View {
                     navigateToSidebar(section)
                 case .cookbook(let id):
                     isSearchFieldFocused = false
+                    // A book chosen in the sidebar is a sidebar destination like the sections, so it is the root.
+                    splitDetail.showRoot(.cookbookDetail(id: id))
                     navigation.navigate(to: .cookbookDetail(id: id))
                 case nil:
                     break
                 }
+                // Choosing the page already showing changes no route, and still puts the sidebar away.
+                dismissSidebarIfCovering()
+
             }
         )
     }
