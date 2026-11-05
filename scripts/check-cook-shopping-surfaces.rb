@@ -73,7 +73,7 @@ REQUIRED_TOKENS = {
     "shoppingViewModel",
     "CookModeProgress",
     "currentStep",
-    "ProgressView",
+    "Setting system timer",
     "addRecipeIngredients",
     "scaleFactor",
     "accessibilityLabel",

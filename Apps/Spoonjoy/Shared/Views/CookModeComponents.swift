@@ -178,12 +178,22 @@ struct CookTimerRingFace<Center: View>: View {
     static var compactDiameter: CGFloat { 88 }
 
     let fraction: Double?
+    /// False for an arc laid over another face, which already draws the track.
+    var drawsTrack = true
     @ViewBuilder let center: () -> Center
 
     @ScaledMetric(relativeTo: .largeTitle) private var diameter: CGFloat = 184
     @ScaledMetric(relativeTo: .largeTitle) private var lineWidth: CGFloat = 8
     /// The most room a page can give the ring, set where the ring would otherwise fall off a short page.
     @Environment(\.cookTimerRingLimit) private var ringLimit
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// How far round the arc is drawn: it sweeps in from twelve o'clock when the ring starts running, as Clock's timer
+    /// does, and unwinds back to twelve when it stops, rather than appearing or vanishing whole.
+    @State private var arcDrawn = false
+    /// The arc fades as it finishes unwinding, so it never ends as a dot at twelve o'clock.
+    @State private var arcVisible = false
+    /// The last time left while running, which the arc unwinds from once the ring stops.
+    @State private var lastFraction: Double = 0
 
     /// The usual smallest size, or the compact size where a page asks for less.
     private var smallest: CGFloat {
@@ -197,19 +207,71 @@ struct CookTimerRingFace<Center: View>: View {
         ZStack {
             Circle()
                 .stroke(KitchenTableTheme.vellum, lineWidth: lineWidth)
-            if let fraction {
-                Circle()
-                    .trim(from: 0, to: max(0, min(1, fraction)))
-                    .stroke(KitchenTableTheme.brass, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .kitchenAnimation(.glide, value: fraction)
-                    .kitchenTransition(.scale(scale: 0.7).combined(with: .opacity))
-            }
+                .opacity(drawsTrack ? 1 : 0)
+            Circle()
+                .trim(from: 0, to: arcDrawn ? max(0, min(1, fraction ?? lastFraction)) : 0)
+                .stroke(KitchenTableTheme.brass, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .opacity(arcVisible ? 1 : 0)
+                .kitchenAnimation(.glide, value: fraction)
+                .onAppear {
+                    // A ring built with its timer already running (a page turned back to, cook mode reopened) shows
+                    // the arc where it is; only a timer starting or stopping on screen sweeps.
+                    show(running: fraction != nil, animated: false)
+                }
+                .onChange(of: fraction != nil) { _, running in
+                    show(running: running, animated: true)
+                }
+                .onChange(of: fraction) { _, value in
+                    if let value {
+                        lastFraction = value
+                    }
+                }
             center()
                 .padding(lineWidth * 2)
         }
         .frame(minWidth: smallest, maxWidth: max(min(diameter, ringLimit ?? diameter), smallest))
         .aspectRatio(1, contentMode: .fit)
+    }
+
+    /// Sweeps the arc in when the ring starts running and unwinds it when it stops. Under Reduce Motion the arc simply
+    /// appears or fades.
+    private func show(running: Bool, animated: Bool) {
+        if let fraction {
+            lastFraction = fraction
+        }
+        guard running != (arcDrawn && arcVisible) else { return }
+        guard animated else {
+            var still = Transaction(animation: nil)
+            still.disablesAnimations = true
+            withTransaction(still) {
+                arcDrawn = running
+                arcVisible = running
+            }
+            return
+        }
+        if running {
+            arcVisible = true
+            withAnimation(reduceMotion ? nil : KitchenSpring.zoom.animation) {
+                arcDrawn = true
+            }
+        } else if reduceMotion {
+            withAnimation(KitchenMotion.slowedForMotionChecks(.easeOut(duration: 0.25))) {
+                arcVisible = false
+            } completion: {
+                if !arcVisible {
+                    arcDrawn = false
+                }
+            }
+        } else {
+            // A firm unwind for a "never mind", solid until it nears twelve, where it fades rather than leaving a dot.
+            withAnimation(KitchenSpring.snappy.animation) {
+                arcDrawn = false
+            }
+            withAnimation(KitchenMotion.slowedForMotionChecks(.easeIn(duration: 0.1).delay(0.1))) {
+                arcVisible = false
+            }
+        }
     }
 }
 
