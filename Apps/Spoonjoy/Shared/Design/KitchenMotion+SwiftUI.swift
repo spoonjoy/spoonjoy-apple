@@ -5,7 +5,9 @@ import SwiftUI
 extension KitchenSpring {
     /// The SwiftUI spring for this motion token.
     var animation: Animation {
-        KitchenMotion.slowedForMotionChecks(.spring(response: response, dampingFraction: dampingFraction))
+        // Slowed by stretching the spring itself rather than with `speed`, which `withAnimation`'s completion
+        // criteria ignore (a close that waited for its spring to come to rest played at full speed in motion checks).
+        .spring(response: response * KitchenMotion.slowMotionFactor, dampingFraction: dampingFraction)
     }
 }
 

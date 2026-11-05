@@ -40,6 +40,10 @@ struct PlatformNavigationView: View {
 #if os(iOS)
     /// Where the tab bar's Cooking now accessory sits on screen, while it shows.
     @State private var cookingNowAccessoryFrame: CGRect?
+    /// Cook mode on the phone, kept while it closes, and where its Cook buttons are and how far open it is.
+    @State private var cookSheet: CookSheet?
+    @State private var cookLaunchSources = CookLaunchSources()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 #endif
     @State private var pendingCoverUploads: [String: PendingRecipeCoverUpload] = [:]
     @State private var isRetryingCoverUpload = false
@@ -242,8 +246,28 @@ struct PlatformNavigationView: View {
     private func compactMobileShell(spotlightPayload: SpotlightIndexPayload) -> some View {
         shellLifecycle(compactTabShellContent, spotlightPayload: spotlightPayload)
 #if os(iOS)
-            .fullScreenCover(item: compactFullScreenRoute) { presented in
-                compactFullScreenContent(for: presented.route)
+            .environment(\.cookLaunchSources, cookLaunchSources)
+            // Cook mode grows out of the Cook button it was opened from and shrinks back into it, as Music's player
+            // does from its mini player. It lies over the tabs rather than replacing them, so the page and its tab bar
+            // stay put underneath and are there the moment it starts to close.
+            .accessibilityHidden(cookSheet != nil)
+            .overlay {
+                if let cookSheet {
+                    CookSheetLayer(
+                        sheet: cookSheet,
+                        sources: cookLaunchSources,
+                        reduceMotion: reduceMotion,
+                        onDrag: dragCookSheet,
+                        onDragEnd: endCookSheetDrag
+                    ) {
+                        compactFullScreenContent(for: cookSheet.route)
+                    }
+                    .accessibilityAddTraits(.isModal)
+                    .accessibilityAction(.escape) { closeCookSheet() }
+                }
+            }
+            .onChange(of: compactTabs.fullScreenRoute, initial: true) { old, route in
+                presentCookSheet(route, animated: old != route)
             }
 #endif
             // Every route change, from a tap, a deep link, Spotlight or an App Intent, moves the tabs. Changes the
@@ -890,7 +914,7 @@ struct PlatformNavigationView: View {
                     if case .recipeDetail(let id, .cook) = route {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Close", systemImage: "xmark") {
-                                openRecipe(id)
+                                closeCookMode(id)
                             }
                             .accessibilityLabel("Close cook mode")
                             .accessibilityHint("Returns to the recipe.")
@@ -903,17 +927,127 @@ struct PlatformNavigationView: View {
     }
 #endif
 
-    private var compactFullScreenRoute: Binding<CompactFullScreenRoute?> {
-        Binding(
-            get: { compactTabs.fullScreenRoute.map(CompactFullScreenRoute.init(route:)) },
-            set: { presented in
-                guard presented == nil, compactTabs.fullScreenRoute != nil else {
+    /// Cook mode's own Close: on the phone it shrinks back into its button; elsewhere it goes straight to the recipe.
+    private func closeCookMode(_ id: String) {
+#if os(iOS)
+        if cookSheet != nil {
+            closeCookSheet()
+            return
+        }
+#endif
+        openRecipe(id)
+    }
+
+#if os(iOS)
+    private var cookSheetAnimation: Animation {
+        KitchenMotion.animation(.zoom, reduceMotion: reduceMotion)
+    }
+
+    /// Opens, swaps or closes cook mode to match the route. Closing keeps the page on screen until it has shrunk away.
+    /// How far open it is lives on `cookLaunchSources`, not here, so the shell's body is not re-evaluated as it moves.
+    private func presentCookSheet(_ route: AppRoute?, animated: Bool) {
+        guard let route else {
+            // Closed from elsewhere (a link, Spotlight, a shortcut): shrink away from wherever it is.
+            guard cookSheet != nil else { return }
+            shrinkCookSheet { _ in
+                guard compactTabs.fullScreenRoute == nil else { return }
+                cookSheet = nil
+                cookLaunchSources.hiddenRecipeID = nil
+            }
+            return
+        }
+        cookLaunchSources.closeToken += 1
+        let recipeID: String? = if case .recipeDetail(let id, _) = route { id } else { nil }
+        if cookSheet?.route.stateIdentifier != route.stateIdentifier || cookLaunchSources.progress == 0 {
+            cookSheet = CookSheet(route: route, recipeID: recipeID, fallbackSource: cookSheetFallbackSource)
+            cookLaunchSources.progress = 0
+        }
+        if let recipeID, cookLaunchSources.frames[recipeID] != nil {
+            cookLaunchSources.hiddenRecipeID = recipeID
+        }
+        guard animated else {
+            cookLaunchSources.progress = 1
+            return
+        }
+        guard cookLaunchSources.progress == 0 else {
+            withAnimation(cookSheetAnimation) {
+                cookLaunchSources.progress = 1
+            }
+            return
+        }
+        // A layer that has just been added has no earlier frame to animate from, so it is put on screen at its button
+        // first and grows on the next turn of the run loop.
+        let token = cookLaunchSources.closeToken
+        Task { @MainActor in
+            guard token == cookLaunchSources.closeToken, cookSheet != nil else { return }
+            withAnimation(cookSheetAnimation) {
+                cookLaunchSources.progress = 1
+            }
+        }
+    }
+
+    /// Where cook mode grows from when its recipe has no Cook button on screen: the tab bar's Cooking now switcher,
+    /// else (nil) a pill just above the tab bar.
+    private var cookSheetFallbackSource: CGRect? {
+        guard showsCookingNowAccessory, let accessory = cookingNowAccessoryFrame, accessory.width > 0 else {
+            return nil
+        }
+        return accessory
+    }
+
+    /// Closes cook mode by shrinking it back into its button first and only then going back to the recipe. Leaving the
+    /// cook route rebuilds the page under it, which holds the main thread for about a third of a second; done first,
+    /// that froze the card mid-flight, done after, it happens while the card already looks exactly like the button.
+    private func closeCookSheet() {
+        guard let sheet = cookSheet, let id = sheet.recipeID else { return }
+        shrinkCookSheet { token in
+            guard token == cookLaunchSources.closeToken else { return }
+            // The button takes over from the card that now looks exactly like it; the heavy part waits a beat so the
+            // card's last frames reach the screen first.
+            cookLaunchSources.hiddenRecipeID = nil
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(120))
+                guard token == cookLaunchSources.closeToken,
+                      compactTabs.fullScreenRoute?.stateIdentifier == sheet.route.stateIdentifier else {
                     return
                 }
-                navigation.navigate(to: compactTabs.dismissFullScreen())
+                cookSheet = nil
+                openRecipe(id)
             }
-        )
+        }
     }
+
+    /// Animates cook mode down to its button. The completion waits for the spring to come fully to rest, so the card is
+    /// never swapped for the button a few points short of it.
+    private func shrinkCookSheet(then finish: @escaping (Int) -> Void) {
+        cookLaunchSources.closeToken += 1
+        let token = cookLaunchSources.closeToken
+        withAnimation(cookSheetAnimation, completionCriteria: .removed) {
+            cookLaunchSources.progress = 0
+        } completion: {
+            finish(token)
+        }
+    }
+
+    /// A drag down from the top of cook mode shrinks it towards its button under the finger.
+    private func dragCookSheet(_ fraction: CGFloat) {
+        var instant = Transaction()
+        instant.disablesAnimations = true
+        withTransaction(instant) {
+            cookLaunchSources.progress = max(0, 1 - fraction)
+        }
+    }
+
+    private func endCookSheetDrag(_ fraction: CGFloat, _ predictedFraction: CGFloat) {
+        if predictedFraction > 0.35 || fraction > 0.5 {
+            closeCookSheet()
+        } else {
+            withAnimation(cookSheetAnimation) {
+                cookLaunchSources.progress = 1
+            }
+        }
+    }
+#endif
 
     private var compactTabSelection: Binding<CompactTab> {
         Binding(
@@ -1245,7 +1379,7 @@ struct PlatformNavigationView: View {
                 shoppingViewModel: shoppingViewModel,
                 performShoppingAction: performShoppingAction,
                 close: {
-                    openRecipe(id)
+                    closeCookMode(id)
                 }
             )
         case .recipeEditor(let id):
@@ -2865,14 +2999,6 @@ private extension View {
 }
 #endif
 
-private struct CompactFullScreenRoute: Identifiable, Equatable {
-    let route: AppRoute
-
-    var id: String {
-        route.stateIdentifier
-    }
-}
-
 private struct ActiveSearchSurfaceState: Equatable {
     let identity: String
     let viewModel: SearchSurfaceViewModel
@@ -3164,3 +3290,190 @@ private struct CookingNowTabAccessory<Accessory: View>: ViewModifier {
     }
 }
 #endif
+
+#if os(iOS)
+/// Where each recipe's Cook button sits on screen, so cook mode can grow out of it, and which button to hide while
+/// cook mode stands in for it.
+@Observable
+final class CookLaunchSources {
+    var frames: [String: CGRect] = [:]
+    var hiddenRecipeID: String?
+    /// How far cook mode is open: 0 is its button, 1 the whole screen.
+    var progress: CGFloat = 0
+    /// Counts closes, so a close that finishes after cook mode was reopened or replaced changes nothing.
+    @ObservationIgnored var closeToken = 0
+}
+
+extension EnvironmentValues {
+    @Entry var cookLaunchSources: CookLaunchSources?
+}
+
+extension View {
+    /// Marks this control as where the recipe's cook mode grows from and shrinks back into.
+    func cookLaunchSource(recipeID: String) -> some View {
+        modifier(CookLaunchSourceMarker(recipeID: recipeID))
+    }
+}
+
+private struct CookLaunchSourceMarker: ViewModifier {
+    @Environment(\.cookLaunchSources) private var sources
+    let recipeID: String
+
+    func body(content: Content) -> some View {
+        content
+            // Cook mode is the button for as long as it is open: one object, never the button and its page at once.
+            .opacity(sources?.hiddenRecipeID == recipeID ? 0 : 1)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+                sources?.frames[recipeID] = frame
+            }
+            .onDisappear {
+                sources?.frames[recipeID] = nil
+            }
+    }
+}
+
+/// Cook mode on the phone, while it is open or closing.
+struct CookSheet {
+    let route: AppRoute
+    let recipeID: String?
+    /// Where it grows from when the recipe's Cook button is not on screen, in global coordinates; nil for a pill just
+    /// above the tab bar.
+    let fallbackSource: CGRect?
+}
+
+/// Cook mode laid over the tabs. It reads how far open it is and where its button is from `sources`, so only this
+/// layer, not the whole shell, updates as it moves; the button's frame is read live, so it lands wherever the button
+/// is now.
+private struct CookSheetLayer<Content: View>: View {
+    let sheet: CookSheet
+    let sources: CookLaunchSources
+    let reduceMotion: Bool
+    let onDrag: (CGFloat) -> Void
+    let onDragEnd: (CGFloat, CGFloat) -> Void
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        content()
+            .modifier(CookSheetMorph(
+                progress: sources.progress,
+                source: sheet.recipeID.flatMap { sources.frames[$0] } ?? sheet.fallbackSource,
+                reduceMotion: reduceMotion,
+                onDrag: onDrag,
+                onDragEnd: onDragEnd
+            ))
+    }
+}
+
+/// Grows cook mode out of its source and back. At 0 it is the Cook button (an ink capsule with its label); at 1 it is
+/// the whole screen. In between it is one card: the capsule's ink and label give way to the cook page as it grows,
+/// and the page rides the card's top edge at the card's scale. Under Reduce Motion it only crossfades.
+struct CookSheetMorph: ViewModifier, Animatable {
+    nonisolated var progress: CGFloat
+    let source: CGRect?
+    let reduceMotion: Bool
+    let onDrag: (CGFloat) -> Void
+    let onDragEnd: (CGFloat, CGFloat) -> Void
+
+    nonisolated var animatableData: CGFloat {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    /// Matches the display's own corners closely enough that the card meets them as it lands.
+    private static let screenCornerRadius: CGFloat = 55
+    /// Drags that start this far from the top shrink cook mode; lower down they belong to the page.
+    private static let dragBand: CGFloat = 140
+
+    func body(content: Content) -> some View {
+        GeometryReader { proxy in
+            let screen = CGRect(origin: .zero, size: proxy.size)
+            let origin = proxy.frame(in: .global).origin
+            ZStack(alignment: .topLeading) {
+                if reduceMotion {
+                    content
+                        .frame(width: screen.width, height: screen.height)
+                        .opacity(Double(min(max(progress, 0), 1)))
+                } else {
+                    morph(content, in: screen, origin: origin)
+                }
+            }
+            .gesture(dismissDrag(height: screen.height))
+        }
+        .ignoresSafeArea()
+    }
+
+    @ViewBuilder private func morph(_ content: Content, in screen: CGRect, origin: CGPoint) -> some View {
+        let p = min(max(progress, 0), 1)
+        let start = startRect(in: screen, origin: origin)
+        let card = CGRect(
+            x: start.minX + (screen.minX - start.minX) * p,
+            y: start.minY + (screen.minY - start.minY) * p,
+            width: start.width + (screen.width - start.width) * p,
+            height: start.height + (screen.height - start.height) * p
+        )
+        let scale = card.width / screen.width
+        let radius = progress >= 1 ? 0 : start.height / 2 + (Self.screenCornerRadius - start.height / 2) * p
+        // The capsule's ink and label hand over to the page while the card is still small, so it is never both for
+        // long and never a grey card.
+        let capsule = 1 - Self.ease(p, from: 0.01, to: 0.16)
+        let page = Self.ease(p, from: 0.05, to: 0.2)
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+
+        ZStack(alignment: .top) {
+            KitchenTableTheme.page
+            content
+                .frame(width: screen.width, height: screen.height)
+                .scaleEffect(scale, anchor: .topLeading)
+                .frame(width: card.width, height: card.height, alignment: .topLeading)
+                .opacity(page)
+            KitchenTableTheme.ink
+                .opacity(capsule)
+                .allowsHitTesting(false)
+            Label("Cook", systemImage: "play.fill")
+                .font(.headline)
+                .foregroundStyle(KitchenTableTheme.onInk)
+                .frame(width: start.width, height: start.height)
+                .scaleEffect(scale * screen.width / max(start.width, 1), anchor: .top)
+                .opacity(capsule)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+        .frame(width: card.width, height: card.height, alignment: .top)
+        .clipShape(shape)
+        // A soft lift while it travels, gone once it rests as the button or the screen.
+        .shadow(color: .black.opacity(0.22 * Double(4 * p * (1 - p))), radius: 24, y: 8)
+        .offset(x: card.minX, y: card.minY)
+    }
+
+    /// The source in this view's coordinates, or a pill just above the tab bar when there is none.
+    private func startRect(in screen: CGRect, origin: CGPoint) -> CGRect {
+        if let source, source.width > 0, source.height > 0 {
+            return source.offsetBy(dx: -origin.x, dy: -origin.y)
+        }
+        let width = min(screen.width - 64, 280)
+        return CGRect(x: (screen.width - width) / 2, y: screen.height - 140, width: width, height: 46)
+    }
+
+    private func dismissDrag(height: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 12)
+            .onChanged { drag in
+                guard drag.startLocation.y < Self.dragBand, drag.translation.height > abs(drag.translation.width) else {
+                    return
+                }
+                onDrag(drag.translation.height / height)
+            }
+            .onEnded { drag in
+                guard drag.startLocation.y < Self.dragBand else { return }
+                // Always settles: closes on a long or quick pull down, otherwise springs back open.
+                onDragEnd(max(drag.translation.height, 0) / height, max(drag.predictedEndTranslation.height, 0) / height)
+            }
+    }
+
+    /// 0 before `from`, 1 after `to`, eased between.
+    static func ease(_ value: CGFloat, from: CGFloat, to: CGFloat) -> Double {
+        let t = min(max((value - from) / (to - from), 0), 1)
+        return Double(t * t * (3 - 2 * t))
+    }
+}
+#endif
+

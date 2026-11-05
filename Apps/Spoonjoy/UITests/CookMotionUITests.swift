@@ -162,13 +162,169 @@ final class CookMotionUITests: XCTestCase {
         XCTAssertTrue(muddled.isEmpty, "Starting the timer drew two faces at once:\n" + muddled.joined(separator: "\n"))
     }
 
+    /// Cook mode grows out of its Cook button and shrinks back into it, one object, the same way in as out (W10 jank
+    /// audit, findings 2 and 3). It used to slide up as a sheet whose spring tail read as the step landing late, and
+    /// slide down onto a recipe page with no tab bar, which rose in only once the sheet had gone. Played 25 times slower,
+    /// so the screenshots see the whole move.
+    func testCookCoverRisesAndFallsWhole() throws {
+        // Slower than the other checks, so even a busy machine's screenshots catch each sweep several times over.
+        let slowMotion = Self.slowMotion > 1 ? 25 : 1.0
+        launch(slowMotion: slowMotion)
+        let kitchen = element("kitchen.root"), cooking = element("cook.page"), cook = element("recipeDetail.cook")
+        let opened = Date()
+        while !kitchen.exists, !cooking.exists, !cook.exists, Date().timeIntervalSince(opened) < 60 {
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        if cooking.exists {
+            element("cook.close").tap()
+        } else if !cook.exists {
+            element("kitchen.recipe.open").tap()
+        }
+        XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe did not open.")
+        Thread.sleep(forTimeInterval: 3)
+        let openSeconds = 1.2 * slowMotion
+        let rising = sample(seconds: openSeconds) {
+            cook.tap()
+        }
+        let close = element("cook.close")
+        XCTAssertTrue(close.waitForExistence(timeout: 30), "Cook mode did not open.")
+        Thread.sleep(forTimeInterval: 2)
+        let falling = sample(seconds: openSeconds) {
+            close.tap()
+        }
+        if ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" {
+            return
+        }
+
+        // Rising: once the page fills the screen, the step stays where it is.
+        var settled: [(time: Double, y: Double)] = []
+        var risingPhoto: [(time: Double, photo: Double)] = []
+        for frame in rising {
+            let pixels = try MotionPixels(frame.screenshot, screen: app.frame)
+            risingPhoto.append((frame.time, Self.photoShowing(pixels)))
+            guard Self.pageFillsTop(pixels) else { continue }
+            let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame)
+            if let heading = lines.first(where: { $0.text.hasPrefix(Self.firstStepTextStart) }) {
+                settled.append((frame.time, heading.frame.minY))
+            }
+        }
+        if settled.count < 2 {
+            for frame in rising.prefix(30) {
+                attach(frame.screenshot, named: "rise-\(Int(frame.time * 1000))ms")
+            }
+        }
+        XCTAssertGreaterThanOrEqual(settled.count, 2, "Cook mode never filled the screen in \(rising.count) frames.")
+        let ys = settled.map(\.y)
+        let climb = (ys.max() ?? 0) - (ys.min() ?? 0)
+        XCTAssertLessThanOrEqual(
+            climb, 4,
+            "The step moved \(Int(climb)) pt after cook mode filled the screen: "
+                + settled.map { "\(Int($0.time * 1000)) ms y=\(Int($0.y))" }.joined(separator: ", ")
+        )
+
+        // Falling: one object handing over to the page and its tab bar. The tab bar never draws over cook mode while
+        // cook mode still fills the screen, it is back before cook mode has gone (no gap it fills late), and no frame
+        // shows neither.
+        var both = 0
+        var overlap: [String] = []
+        var neither: [String] = []
+        var readout: [String] = []
+        var fallingPhoto: [(time: Double, photo: Double)] = []
+        for frame in falling {
+            let pixels = try MotionPixels(frame.screenshot, screen: app.frame)
+            fallingPhoto.append((frame.time, Self.photoShowing(pixels)))
+            let fills = Self.pageFillsTop(pixels)
+            let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame).map(\.text)
+            let cookShowing = lines.contains { $0.hasPrefix(Self.firstStepTextStart) || $0.hasPrefix("Lemon Pantry Pasta · Step") }
+            let tabsShowing = lines.contains("Cookbooks") && lines.contains("Shopping")
+            let stamp = "\(Int(frame.time * 1000)) ms"
+            if cookShowing, tabsShowing {
+                both += 1
+            }
+            if fills, cookShowing, tabsShowing {
+                overlap.append(stamp)
+            }
+            if !cookShowing, !tabsShowing {
+                neither.append(stamp)
+            }
+            readout.append("\(stamp) cook=\(cookShowing) fills=\(fills) tabs=\(tabsShowing)")
+        }
+        if both == 0 || !neither.isEmpty || !overlap.isEmpty {
+            for frame in falling.prefix(30) {
+                attach(frame.screenshot, named: "fall-\(Int(frame.time * 1000))ms")
+            }
+        }
+        let falls = readout.joined(separator: "\n")
+        XCTAssertGreaterThan(both, 0, "The tab bar only came back after cook mode had gone:\n" + falls)
+        XCTAssertTrue(overlap.isEmpty, "The tab bar drew over cook mode while it filled the screen:\n" + falls)
+        XCTAssertTrue(neither.isEmpty, "Frames with neither cook mode nor the tab bar:\n" + falls)
+
+        // Symmetry: closing takes as long as opening. Each is timed by how long the recipe photo takes to go from
+        // 90% to 10% covered (opening), or from 10% to 90% uncovered (closing).
+        let openTime = Self.sweepSeconds(risingPhoto, covering: true)
+        let closeTime = Self.sweepSeconds(fallingPhoto, covering: false)
+        let curves = "open: " + risingPhoto.map { String(format: "%.2f", $0.photo) }.joined(separator: " ")
+            + "\nclose: " + fallingPhoto.map { String(format: "%.2f", $0.photo) }.joined(separator: " ")
+        let open = try XCTUnwrap(openTime, "Opening never covered the photo.\n" + curves)
+        let shut = try XCTUnwrap(closeTime, "Closing never uncovered the photo.\n" + curves)
+        XCTAssertLessThan(
+            max(open, shut) / max(min(open, shut), 0.001), 1.5,
+            String(format: "Opening took %.2f s and closing %.2f s.\n", open, shut) + curves
+        )
+    }
+
+    /// How much of the recipe photo shows in the top of the screen: the share of sampled points with the pasta's
+    /// saturated colour, which neither the cook page nor its ink and brass have.
+    @MainActor static func photoShowing(_ pixels: MotionPixels) -> Double {
+        var photo = 0, total = 0
+        for y in stride(from: 80.0, through: 300.0, by: 8.0) {
+            for x in stride(from: 8.0, through: 394.0, by: 8.0) {
+                let (red, green, blue) = pixels.rgb(x: Int(x * pixels.scale), y: Int(y * pixels.scale))
+                let high = max(red, green, blue), low = min(red, green, blue)
+                total += 1
+                if high > 90, Double(high - low) / Double(high) > 0.35 {
+                    photo += 1
+                }
+            }
+        }
+        return Double(photo) / Double(max(total, 1))
+    }
+
+    /// Seconds between the photo share crossing 90% and 10% of its range: falling when `covering`, rising otherwise.
+    static func sweepSeconds(_ curve: [(time: Double, photo: Double)], covering: Bool) -> Double? {
+        guard let high = curve.map(\.photo).max(), let low = curve.map(\.photo).min(), high - low > 0.2 else {
+            return nil
+        }
+        let upper = low + 0.9 * (high - low), lower = low + 0.1 * (high - low)
+        let start = curve.first { covering ? $0.photo < upper : $0.photo > lower }
+        let end = curve.first { covering ? $0.photo < lower : $0.photo > upper }
+        guard let start, let end, end.time >= start.time else { return nil }
+        return end.time - start.time
+    }
+
+    /// The first step's text in the fixture recipe.
+    static let firstStepTextStart = "Boil the pasta"
+
+    /// Whether the cook page reaches the very top of the screen: page colour beside the status bar, where the recipe
+    /// photo shows until the cover has fully arrived.
+    @MainActor static func pageFillsTop(_ pixels: MotionPixels) -> Bool {
+        let y = Int(3 * pixels.scale)
+        for point in stride(from: 6.0, through: 30.0, by: 4.0) {
+            for x in [Int(point * pixels.scale), pixels.width - 1 - Int(point * pixels.scale)] {
+                let (red, green, blue) = pixels.rgb(x: x, y: y)
+                guard red > 235, green > 230, blue > 210, red - blue < 35 else { return false }
+            }
+        }
+        return true
+    }
+
     // MARK: Driving
 
     private func element(_ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    private func launch(arguments: [String] = []) {
+    private func launch(arguments: [String] = [], slowMotion: Double = CookMotionUITests.slowMotion) {
         app = XCUIApplication()
         let environment = ProcessInfo.processInfo.environment
         for key in ["SPOONJOY_SCREENSHOT_AUTH", "SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY", "SPOONJOY_SCREENSHOT_ACCOUNT_ID"] {
@@ -177,7 +333,7 @@ final class CookMotionUITests: XCTestCase {
             }
         }
         app.launchEnvironment["SPOONJOY_JOURNEY_ALARM_FIXTURE"] = "1"
-        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-SpoonjoySlowMotion", "\(Self.slowMotion)"]
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-SpoonjoySlowMotion", "\(slowMotion)"]
         app.launchArguments += arguments
         app.launch()
     }
@@ -215,6 +371,12 @@ final class CookMotionUITests: XCTestCase {
 
     /// Screenshots on a background thread, as fast as XCTest returns them, while `action` runs and until `seconds` pass.
     private func sample(seconds: Double, action: () -> Void) -> [Frame] {
+        // SPOONJOY_MOTION_FILM_ONLY=1: take no screenshots, which starve the simulator's own recorder of frames.
+        if ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" {
+            action()
+            Thread.sleep(forTimeInterval: seconds)
+            return []
+        }
         let capture = MotionCapture(seconds: seconds)
         capture.start()
         action()
