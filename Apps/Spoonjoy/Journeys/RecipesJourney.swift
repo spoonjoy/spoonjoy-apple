@@ -1,20 +1,15 @@
 import SpoonjoyCore
 import XCTest
 
-/// Journey 2: a new account edits a two-step recipe made elsewhere, pasting and typing ingredients in the
-/// native editor, and the recipe then shows up in My Recipes, the Kitchen, its detail page, a title search
-/// and an ingredient search, and again after a relaunch.
+/// The recipe lists at the largest accessibility text size: the Kitchen's lead keeps both actions reachable and
+/// My Recipes' index row wraps inside the screen. Editing, search and scaling are proved headless in
+/// SpoonjoyReinsTests.
 @MainActor
 final class RecipesJourney: JourneyTestCase {
     func testRecipesJourney() async throws {
         let account = try JourneyAccounts.account(1)
         let token = try JourneyAccounts.runToken()
         let title = "Journey \(token) Lemon Pasta J2"
-        let basil = "Journey\(token)basil"
-        let spaghetti = "spaghetti"
-        // Matches neither the title nor any ingredient, so its search has no results.
-        let unmatchedQuery = "Journey\(token)nothing"
-        // There is no in-app recipe form, so the recipe is made on QA, the way the connector or a share would.
         let qa = try await JourneyQAClient.signIn(account)
         // An older second recipe, so My Recipes has an index row under the lead. Its long title must wrap at the
         // largest text size.
@@ -41,15 +36,7 @@ final class RecipesJourney: JourneyTestCase {
                     stepTitle: "Tear the basil",
                     description: "Tear the basil leaves into a bowl.",
                     duration: nil,
-                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: basil)],
-                    outputStepNums: []
-                ),
-                RecipeStepDraft(
-                    stepNum: 2,
-                    stepTitle: "Cook the spaghetti",
-                    description: "Boil the spaghetti until tender.",
-                    duration: nil,
-                    ingredients: [RecipeIngredientDraft(quantity: 200, unit: "g", name: spaghetti)],
+                    ingredients: [RecipeIngredientDraft(quantity: 1, unit: "cup", name: "Journey\(token)basil")],
                     outputStepNums: []
                 )
             ]
@@ -62,134 +49,9 @@ final class RecipesJourney: JourneyTestCase {
             "Signing in did not open the kitchen."
         )
 
-        journey.openTab(JourneyCopy.recipesTab)
-        journey.openRecipe(titled: title, from: JourneyID.recipesRow)
-        journey.tap(JourneyID.recipeDetailActions)
-        journey.tap(JourneyID.recipeDetailEdit)
-        journey.assertFieldValue(JourneyID.editorTitle, equals: title)
-
-        // Paste two ingredient lines into step 2: the preview parses them, the rows are added to the step.
-        journey.tap(JourneyID.editorStepPasteIngredients(2))
-        journey.enterText("2 large eggs\n1 tbsp soy sauce", into: JourneyID.editorPasteText)
-        journey.assertFieldValue(JourneyID.editorPasteRowName(1), equals: "eggs")
-        journey.assertFieldValue(JourneyID.editorPasteRowQuantity(1), equals: "2")
-        journey.assertFieldValue(JourneyID.editorPasteRowUnit(1), equals: "large")
-        journey.assertFieldValue(JourneyID.editorPasteRowName(2), equals: "soy sauce")
-        journey.assertFieldValue(JourneyID.editorPasteRowQuantity(2), equals: "1")
-        journey.assertFieldValue(JourneyID.editorPasteRowUnit(2), equals: "tbsp")
-        journey.attachScreenshot(named: "01-paste-preview", to: self)
-        journey.tap(JourneyID.editorPasteAdd)
-        journey.assertFieldValue(JourneyID.editorIngredientName(step: 2, ingredient: 2), equals: "eggs")
-        journey.assertFieldValue(JourneyID.editorIngredientQuantity(step: 2, ingredient: 2), equals: "2")
-        journey.assertFieldValue(JourneyID.editorIngredientUnit(step: 2, ingredient: 2), equals: "large")
-        journey.assertFieldValue(JourneyID.editorIngredientName(step: 2, ingredient: 3), equals: "soy sauce")
-        journey.attachScreenshot(named: "02-pasted-rows", to: self)
-
-        // A single typed line fills the quantity and unit when Return is pressed.
-        journey.tap(JourneyID.editorStepAddIngredient(2))
-        journey.enterText("2 cups rice", into: JourneyID.editorIngredientName(step: 2, ingredient: 4))
-        journey.pressReturn()
-        journey.assertFieldValue(JourneyID.editorIngredientName(step: 2, ingredient: 4), equals: "rice")
-        journey.assertFieldValue(JourneyID.editorIngredientQuantity(step: 2, ingredient: 4), equals: "2")
-        journey.assertFieldValue(JourneyID.editorIngredientUnit(step: 2, ingredient: 4), equals: "cup")
-        journey.attachScreenshot(named: "03-typed-line-parsed", to: self)
-
-        // The step title, a single-line field, is the last one edited, so Return closes the keyboard before Save.
-        // Saving returns to the recipe page.
-        journey.replaceText(in: JourneyID.editorStepTitle(2), with: "Cook the spaghetti and rice")
-        journey.saveRecipeEditor()
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "rice").waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The recipe page does not list the typed rice after saving. Screen: \(journey.screen)"
-        )
-
-        journey.openTab(JourneyCopy.kitchenTab)
-        XCTAssertTrue(
-            journey.element(JourneyID.kitchenRecipe, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The Kitchen does not show the new recipe."
-        )
-        journey.attachScreenshot(named: "03a-kitchen-with-recipe", to: self)
-        // The account's only recipe is the Kitchen's lead recipe.
-        journey.tap(JourneyID.kitchenRecipeOpen)
-        let detailTitle = journey.element(JourneyID.recipeDetailTitle)
-        XCTAssertTrue(detailTitle.waitForExistence(timeout: JourneyApp.networkTimeout), "The recipe detail page did not open from the Kitchen.")
-        XCTAssertEqual(detailTitle.label, title, "The detail page shows another recipe's title.")
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: basil).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Step 1 on the detail page does not list the basil. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
-            "Step 2 on the detail page does not list the spaghetti. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "eggs").exists,
-            "Step 2 on the detail page does not list the eggs. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "soy sauce").exists,
-            "Step 2 on the detail page does not list the soy sauce. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: "rice").exists,
-            "Step 2 on the detail page does not list the rice. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "04-saved-recipe", to: self)
-
-        // "Serves 4" in the meta row is the recipe's one scale control: two more servings scale every amount.
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailIngredient, labelContaining: "1 cup").exists,
-            "The basil does not start at 1 cup. Screen: \(journey.screen)"
-        )
-        journey.tap(JourneyID.recipeServes)
-        let servesStepper = journey.element(JourneyID.recipeServesStepper)
-        XCTAssertTrue(servesStepper.waitForExistence(timeout: JourneyApp.interactionTimeout), "Serves 4 did not open its stepper. Screen: \(journey.screen)")
-        journey.increment(JourneyID.recipeServesStepper)
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeServesStepper, labelContaining: "Serves 5").waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "One increment did not reach Serves 5, or the stepper closed. Screen: \(journey.screen)"
-        )
-        journey.increment(JourneyID.recipeServesStepper)
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeServesStepper, labelContaining: "Serves 6").waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Two increments did not reach Serves 6. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "04a-serves-popover", to: self)
-        journey.dismissPopover()
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeServes, labelContaining: "Serves 6").waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "The meta row does not read Serves 6 after scaling. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailIngredient, labelContaining: "1 ½ cup").exists,
-            "Serving 6 instead of 4 did not scale the basil to 1 ½ cups. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "04b-scaled-ingredients", to: self)
-
-        journey.openSearch()
-        journey.search(for: title)
-        XCTAssertTrue(
-            journey.element(JourneyID.searchResult, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "Searching for the title did not find the recipe."
-        )
-        journey.attachScreenshot(named: "05-search-results", to: self)
-        // A query with no results clears the list, so the next result can only come from the ingredient search.
-        journey.search(for: unmatchedQuery)
-        XCTAssertTrue(
-            journey.element(JourneyID.searchResult, labelContaining: title).waitForNonExistence(timeout: JourneyApp.networkTimeout),
-            "A search that matches nothing still lists the recipe."
-        )
-        journey.attachScreenshot(named: "06-search-no-results", to: self)
-        journey.search(for: basil)
-        XCTAssertTrue(
-            journey.element(JourneyID.searchResult, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
-            "Searching for an ingredient did not find the recipe."
-        )
-
-        // The relaunch also takes the largest accessibility text size, to capture the recipe page's ingredients at it.
         journey.useLargestAccessibilityTextOnNextLaunch()
         verifyAfterRelaunch(journey) {
-            // At the largest text size the Kitchen's lead still names the recipe and keeps both actions reachable.
+            // UI: at the largest text size the Kitchen's lead still names the recipe and keeps both actions reachable.
             journey.openTab(JourneyCopy.kitchenTab)
             XCTAssertTrue(
                 journey.element(JourneyID.kitchenRecipe, labelContaining: title).waitForExistence(timeout: JourneyApp.networkTimeout),
@@ -205,36 +67,9 @@ final class RecipesJourney: JourneyTestCase {
             XCTAssertTrue(journey.element(JourneyID.kitchenRecipeOpen).exists, "The Recipe button is missing at the largest text size.")
             journey.attachScreenshot(named: "06a-kitchen-accessibility-text-size", to: self)
 
+            // UI: on My Recipes the shared index row stacks and wraps at this size instead of running off the screen.
+            // The lead fills the first screen, so the index row sits further down.
             journey.openTab(JourneyCopy.recipesTab)
-            journey.openRecipe(titled: title, from: JourneyID.recipesRow)
-            XCTAssertEqual(journey.element(JourneyID.recipeDetailTitle).label, title, "My Recipes opened another recipe after a relaunch.")
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailStep(1), descendantLabelContaining: basil).waitForExistence(timeout: JourneyApp.interactionTimeout),
-                "Step 1 lost its basil after a relaunch. Screen: \(journey.screen)"
-            )
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailStep(2), descendantLabelContaining: spaghetti).exists,
-                "Step 2 lost its spaghetti after a relaunch. Screen: \(journey.screen)"
-            )
-            // The page's scale is saved per recipe, so it comes back at six servings.
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeServes, labelContaining: "Serves 6").exists,
-                "The recipe forgot it serves 6 after a relaunch. Screen: \(journey.screen)"
-            )
-            XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailIngredient, labelContaining: "1 ½ cup").exists,
-                "The basil lost its scaled amount after a relaunch. Screen: \(journey.screen)"
-            )
-            // Rice is step 2's last ingredient, so checking it keeps the list's order; the tap scrolls the list
-            // into view for the capture.
-            let rice = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: "rice")
-            rice.tap()
-            XCTAssertEqual(rice.value as? String, "used", "Tapping the rice at the largest text size did not check it.")
-            journey.attachScreenshot(named: "07-ingredients-accessibility-text-size", to: self)
-
-            // Back on My Recipes, the shared index row stacks and wraps at this size instead of running off the
-            // screen. The lead fills the first screen, so the index row sits further down.
-            journey.goBack()
             let row = journey.element(JourneyID.recipesRow, labelContaining: indexTitle)
             XCTAssertTrue(row.waitForExistence(timeout: JourneyApp.networkTimeout), "My Recipes has no index row for the older recipe at the largest text size.")
             journey.swipeUpUntilHittable(row)

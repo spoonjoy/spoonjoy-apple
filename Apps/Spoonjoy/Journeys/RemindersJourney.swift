@@ -1,8 +1,9 @@
 import SpoonjoyCore
 import XCTest
 
-/// Journey 3: a new account has a recipe made elsewhere, sends its ingredients to Reminders, and sending the same
-/// recipe again adds nothing. The Reminders list the account picked is remembered after a relaunch.
+/// Sending a recipe's ingredients to Reminders through the real system: the OS asks for Reminders access, the cook
+/// makes a list, and EventKit takes the reminders; after a relaunch a send goes through without asking again. What
+/// gets added and the dedupe are proved headless in SpoonjoyReinsTests.
 @MainActor
 final class RemindersJourney: JourneyTestCase {
     func testSendToRemindersDedupesJourney() async throws {
@@ -46,30 +47,22 @@ final class RemindersJourney: JourneyTestCase {
         journey.attachScreenshot(named: "02-choose-list", to: self)
         journey.enterText("Journey \(token) Groceries", into: JourneyID.remindersNewListName)
         journey.tap(JourneyID.remindersCreateList)
+        // OS: the send reached EventKit and reported back.
         XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStatus, labelContaining: "Added 2").waitForExistence(timeout: JourneyApp.networkTimeout),
-            "The first send did not report two added reminders. Screen: \(journey.screen)"
+            journey.element(JourneyID.recipeDetailStatus).waitForExistence(timeout: JourneyApp.networkTimeout),
+            "The first send did not report back from Reminders. Screen: \(journey.screen)"
         )
         journey.attachScreenshot(named: "03-first-send", to: self)
 
-        // Second send of the same recipe: nothing new to add.
-        journey.tap(JourneyID.recipeDetailActions)
-        journey.tap(JourneyID.recipeDetailRemindersSend)
-        XCTAssertTrue(
-            journey.element(JourneyID.recipeDetailStatus, labelContaining: "Everything was already in").waitForExistence(timeout: JourneyApp.networkTimeout),
-            "Sending the same recipe twice did not leave the list unchanged. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "04-second-send-no-op", to: self)
-
-        // After a relaunch the remembered list is used without asking, and the repeat is still a no-op.
+        // OS: after a relaunch the send goes through without asking for access or a list again.
         verifyAfterRelaunch(journey) {
             journey.openTab(JourneyCopy.recipesTab)
             journey.openRecipe(titled: title, from: JourneyID.recipesRow)
             journey.tap(JourneyID.recipeDetailActions)
             journey.tap(JourneyID.recipeDetailRemindersSend)
             XCTAssertTrue(
-                journey.element(JourneyID.recipeDetailStatus, labelContaining: "Everything was already in").waitForExistence(timeout: JourneyApp.networkTimeout),
-                "After a relaunch the send did not reuse the remembered list as a no-op. Screen: \(journey.screen)"
+                journey.element(JourneyID.recipeDetailStatus).waitForExistence(timeout: JourneyApp.networkTimeout),
+                "After a relaunch the send did not go through without asking. Screen: \(journey.screen)"
             )
         }
     }
