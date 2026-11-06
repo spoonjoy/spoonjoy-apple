@@ -1,37 +1,7 @@
 import SpoonjoyCore
 import SwiftUI
 
-/// A report or block the person asked for from a menu, waiting for the sheet or confirmation that finishes it.
-struct ModerationPrompt: Identifiable, Equatable {
-    enum Kind: Equatable {
-        case report(ContentReportTarget, subject: String)
-        case block(BlockedChef, from: ContentReportTarget)
-    }
-
-    let kind: Kind
-
-    var id: String {
-        switch kind {
-        case .report(let target, _): "report-\(target.type.rawValue)-\(target.id)"
-        case .block(let chef, _): "block-\(chef.id)"
-        }
-    }
-
-    var reportTarget: (target: ContentReportTarget, subject: String)? {
-        if case .report(let target, let subject) = kind { return (target, subject) }
-        return nil
-    }
-
-    var blockedChef: BlockedChef? {
-        if case .block(let chef, _) = kind { return chef }
-        return nil
-    }
-
-    var blockedFrom: ContentReportTarget? {
-        if case .block(_, let target) = kind { return target }
-        return nil
-    }
-}
+// `ModerationPrompt` lives in SpoonjoyCore.
 
 /// "Report…" and "Block <chef>" for a menu on someone else's recipe or kitchen.
 struct ModerationMenuItems: View {
@@ -118,7 +88,7 @@ private struct ModerationPromptsModifier: ViewModifier {
     }
 
     private var blockTitle: String {
-        prompt?.blockedChef.map { "Block \($0.name)?" } ?? "Block chef?"
+        ModerationPrompt.blockTitle(prompt?.blockedChef)
     }
 
     @MainActor private func block(_ chef: BlockedChef, from target: ContentReportTarget?) async {
@@ -151,7 +121,7 @@ struct ReportContentSheet: View {
             Form {
                 if sent {
                     Section {
-                        Label("Thanks — we review reports within 24 hours.", systemImage: "checkmark.seal")
+                        Label(ModerationPrompt.reportThanks, systemImage: "checkmark.seal")
                             .font(KitchenTableTheme.bodyNote)
                             .foregroundStyle(KitchenTableTheme.herb)
                             .accessibilityIdentifier("moderation.reportThanks")

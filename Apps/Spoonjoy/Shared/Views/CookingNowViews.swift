@@ -84,10 +84,7 @@ final class CookingNowCenter {
     }
 
     private func publish() {
-        let merged = CookingNowBoard.showingKitchenCovers(
-            CookingNowBoard.merge(server: server, serverFetchedAt: serverFetchedAt, local: local, now: Date()),
-            recipes: recipes
-        )
+        let merged = CookingNowBoard.board(server: server, serverFetchedAt: serverFetchedAt, local: local, recipes: recipes, now: Date())
         if merged != entries {
             entries = merged
         }
@@ -270,7 +267,7 @@ struct CookingNowAccessory: View {
     @Environment(\.tabViewBottomAccessoryPlacement) private var placement
 
     var body: some View {
-        if let lead = entries.first {
+        if let lead = CookingNowBoard.switcherLead(entries) {
             HStack(spacing: 10) {
                 Button {
                     resume(lead.recipeID)

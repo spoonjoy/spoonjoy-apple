@@ -199,12 +199,7 @@ struct SettingsView: View {
     }
 
     private func accountDeletionFormForCurrentAccount() -> AccountDeletionForm? {
-        guard let surface = settingsSurfaceViewModel,
-              let username = surface.data.account?.username,
-              let reauthentication = surface.accountDeletionReauthentication else {
-            return nil
-        }
-        return AccountDeletionForm(username: username, reauthentication: reauthentication)
+        settingsSurfaceViewModel?.accountDeletionForm()
     }
 
     private var screenshotAccessibilityRuntimeContext: ScreenshotAccessibilityRuntimeContext {
@@ -965,7 +960,7 @@ struct SettingsView: View {
             return false
         }
 #endif
-        return surface.connectivity == .offline
+        return surface.onlineOnlyActionsDisabled
     }
 
 #if DEBUG

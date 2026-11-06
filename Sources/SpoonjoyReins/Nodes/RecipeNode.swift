@@ -33,6 +33,10 @@ extension SpoonjoyReinsShell {
     }
 
     func recipeNode(_ recipe: Recipe) -> ReinsNode {
+        // RecipeDetailView shows ModerationHiddenView in place of a reported recipe or a blocked chef's.
+        if let hidden = moderation.ledger.hiddenNotice(recipeID: recipe.id, chefID: recipe.chef.id, chefUsername: recipe.chef.username) {
+            return moderationHiddenNode(hidden)
+        }
         let model = RecipeDetailViewModel(recipe: recipe)
         let screen = recipeDetailScreenViewModel(for: recipe)
         let progress = recipePageProgress(for: screen)
@@ -64,6 +68,7 @@ extension SpoonjoyReinsShell {
                     ]
                 }
             }),
+            "status": remindersStatus(for: recipe),
             "canEdit": .bool(screen.ownerTools.editRoute != nil),
             "heldChange": held.map { held in
                 [
@@ -123,7 +128,8 @@ extension SpoonjoyReinsShell {
                 try await self.store.resolveRecipeEditConflict(clientMutationID: held.localClientMutationID, keeping: input.choice == "mine" ? .mine : .theirs)
             }.narrowed(.object(properties: ["choice": .oneOf(["mine", "theirs"])], required: ["choice"])))
         }
-        return ReinsNode("recipe", state: .object(state), actions: actions)
+        actions += remindersActions(for: recipe) + moderationActions(for: recipe)
+        return ReinsNode("recipe", state: .object(state), actions: actions, child: remindersListPicker(for: recipe.id))
     }
 
     /// `PlatformNavigationView.recipeDetailScreenViewModel(for:)`.

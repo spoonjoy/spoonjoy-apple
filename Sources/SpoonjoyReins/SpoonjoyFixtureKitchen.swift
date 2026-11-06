@@ -34,15 +34,7 @@ public enum SpoonjoyFixtureKitchen {
     ) throws -> NativeLiveAppStore {
         let now = fixtures.now
         let configuration = APIClientConfiguration.spoonjoyProduction
-        let vault = FixtureTokenVault(session: try AuthSession(
-            clientID: "cm_screenshot_validation",
-            accessToken: "screenshot_access_token",
-            refreshToken: "screenshot_refresh_token",
-            tokenType: "Bearer",
-            expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
-            scope: NativeAuthSession.defaultScope,
-            accountID: accountID
-        ))
+        let vault = try fixtures.vault ?? FixtureTokenVault.signedIn()
         let auth = NativeAuthSessionRepository(
             vault: vault,
             clientName: "Spoonjoy Reins",
@@ -83,16 +75,30 @@ public enum FixtureKitchenError: Error, CustomStringConvertible {
 }
 
 /// The signed-in session the screenshot builds use (SpoonjoyRootView's SpoonjoyScreenshotValidationTokenVault).
-actor FixtureTokenVault: TokenVault {
+public actor FixtureTokenVault: TokenVault {
     private var clientID: String? = "cm_screenshot_validation"
     private var session: AuthSession?
 
     init(session: AuthSession) { self.session = session }
 
-    func loadClientID() async throws -> String? { clientID }
-    func saveClientID(_ clientID: String) async throws { self.clientID = clientID }
-    func clearClientID() async throws { clientID = nil }
-    func loadSession() async throws -> AuthSession? { session }
-    func saveSession(_ session: AuthSession) async throws { self.session = session }
-    func clearSession() async throws { session = nil }
+    /// The fixture kitchen's account, signed in. Pass one in `SpoonjoyReinsFixtures.vault` to keep a sign-out across
+    /// relaunches, as the keychain does.
+    public static func signedIn() throws -> FixtureTokenVault {
+        FixtureTokenVault(session: try AuthSession(
+            clientID: "cm_screenshot_validation",
+            accessToken: "screenshot_access_token",
+            refreshToken: "screenshot_refresh_token",
+            tokenType: "Bearer",
+            expiresAt: Date(timeIntervalSince1970: 2_000_000_000),
+            scope: NativeAuthSession.defaultScope,
+            accountID: SpoonjoyFixtureKitchen.accountID
+        ))
+    }
+
+    public func loadClientID() async throws -> String? { clientID }
+    public func saveClientID(_ clientID: String) async throws { self.clientID = clientID }
+    public func clearClientID() async throws { clientID = nil }
+    public func loadSession() async throws -> AuthSession? { session }
+    public func saveSession(_ session: AuthSession) async throws { self.session = session }
+    public func clearSession() async throws { session = nil }
 }

@@ -711,7 +711,8 @@ struct NativeMobileDesignContractTests {
                 "KitchenTableLoadingStateView(",
                 "title: loadingTitle ?? \"Loading recipe\"",
                 "KitchenTableRouteErrorView(message: errorMessage",
-                "errorMessage = \"We couldn't load this recipe.\"",
+                "errorMessage = failure.message",
+                "RecipePageFailure.message(for: error)",
                 "ownerToolsMenu"
             ],
             forbids: [
@@ -721,6 +722,14 @@ struct NativeMobileDesignContractTests {
                 "note: dependencyIsChecked(dependency.id) ? \"used\" : \"step output\"",
                 "KitchenTableSection(title: \"Recipe maintenance\")"
             ]
+        )
+        // The page's failure copy lives in Core, where Ouro Reins' not-found page reads it too.
+        let failurePath = "Sources/SpoonjoyCore/Features/RecipeCatalog/RecipePageFailure.swift"
+        expectContent(
+            try readRepoFile(failurePath),
+            in: failurePath,
+            contains: ["\"We couldn't load this recipe.\"", "\"We couldn't find this recipe.\""],
+            forbids: ["\"Recipe unavailable.\""]
         )
         expectContent(
             spoonLog,
@@ -894,7 +903,7 @@ struct NativeMobileDesignContractTests {
                 "Text(\"Ingredients\")",
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
-                "RecipePageProgressStore().progress(for: viewModel)",
+                "RecipePageProgressStore().checks(for: viewModel)",
                 "RecipePageProgressStore().save(",
                 "Label(\"Cook\", systemImage: \"play.fill\")",
                 "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",

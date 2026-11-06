@@ -13,25 +13,44 @@ public struct SpoonjoyReinsFixtures: Sendable {
     public var settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
     /// Cook mode: how step alarms are set, what the mic hears, and the screen it runs on (`SpoonjoyReinsCookFixtures`).
     public var cook = SpoonjoyReinsCookFixtures()
-    /// How the store starts: from the cache only (the UI tests' default, offline), or live-first against `syncTransport`.
-    public var bootstrapMode: NativeLiveAppBootstrapMode = .restoreCacheOnly
-    /// The sync engine's transport (`NativeSyncEngine(transport:)`); nil is the production URLSession one.
-    public var syncTransport: (any NativeSyncTransport)?
     /// Cook sessions (`NativeLiveAppStoreDependencies.cookSessionClient`); nil is the production URLSession one.
     public var cookSessionClient: (@Sendable (APIClientConfiguration) -> any CookSessionClient)?
     /// Everyone's Recipes' transport (`LiveRecipeCatalogRepository(transport:)`); nil is the production URLSession one.
     public var catalogTransport: (any SpoonjoyAPITransport)?
     /// Where the recipe page keeps its scale and checks (`RecipePageProgressStore`); nil is the app's standard defaults.
     public var recipePageProgress: RecipePageProgressStore?
+    /// The sync engine's transport. With one, a `.liveFirst` launch syncs against it instead of the server.
+    public var syncTransport: (any NativeSyncTransport)?
+    /// How the store bootstraps: from cache only (the UI tests' default), or live first over `syncTransport`.
+    public var bootstrapMode: NativeLiveAppBootstrapMode
+    /// The token vault, shared by every launch made with these fixtures, as the keychain outlives a relaunch. Nil gives
+    /// each launch a fresh signed-in vault.
+    public var vault: FixtureTokenVault?
+    /// The device's Reminders, shared by every launch made with these fixtures.
+    public var reminders: SpoonjoyReinsReminders?
+    /// Whether the shell saves the page it is on as the app's last page and reopens on it at launch, as the app does
+    /// (SpoonjoyRootView's `rememberWindowPage` and `applyRestoredRouteIfNeeded`). Off by default so a journey that
+    /// relaunches without it starts on the Kitchen.
+    public var restoresPages: Bool
 
     public init(
         now: @escaping @Sendable () -> Date = { Date(timeIntervalSince1970: 1_793_000_000) },
         apiTransport: (@Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport)? = nil,
-        settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil
+        settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
+        syncTransport: (any NativeSyncTransport)? = nil,
+        bootstrapMode: NativeLiveAppBootstrapMode = .restoreCacheOnly,
+        vault: FixtureTokenVault? = nil,
+        reminders: SpoonjoyReinsReminders? = nil,
+        restoresPages: Bool = false
     ) {
         self.now = now
         self.apiTransport = apiTransport
         self.settingsSurfaceFetch = settingsSurfaceFetch
+        self.syncTransport = syncTransport
+        self.bootstrapMode = bootstrapMode
+        self.vault = vault
+        self.reminders = reminders
+        self.restoresPages = restoresPages
     }
 
     var timestamp: () -> String {
@@ -47,8 +66,8 @@ public enum SpoonjoyReinsLaunch {
     public static func launch(in directory: URL, fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures()) async throws -> SpoonjoyReinsShell {
         let store = try SpoonjoyFixtureKitchen.store(in: directory, fixtures: fixtures)
         await store.bootstrap()
-        let shell = SpoonjoyReinsShell(store: store, fixtures: fixtures)
-        shell.kitchenDirectory = directory
+        let shell = SpoonjoyReinsShell(store: store, fixtures: fixtures, directory: directory)
+        shell.applyRestoredRoute()
         return shell
     }
 
