@@ -1331,24 +1331,25 @@ struct RecipeDetailView: View {
     /// A checked ingredient moves to the bottom of its step with the web's spring, or at once with Reduce Motion.
     private func toggleIngredient(id: String) {
         withAnimation(KitchenTableTheme.Checklist.reorder(reduceMotion: accessibilityReduceMotion)) {
-            if checkedRecipeIngredientIDs.contains(id) {
-                checkedRecipeIngredientIDs.remove(id)
-            } else {
-                checkedRecipeIngredientIDs.insert(id)
-            }
+            var checks = recipePageChecks
+            checks.toggleIngredient(id)
+            checkedRecipeIngredientIDs = checks.checkedIngredientIDs
         }
     }
 
     private func toggleDependency(id: String) {
-        if checkedRecipeStepDependencyIDs.contains(id) {
-            checkedRecipeStepDependencyIDs.remove(id)
-        } else {
-            checkedRecipeStepDependencyIDs.insert(id)
-        }
+        var checks = recipePageChecks
+        checks.toggleDependency(id)
+        checkedRecipeStepDependencyIDs = checks.checkedStepDependencyIDs
+    }
+
+    /// The page's checks and scale as Core reads them (`RecipePageChecks`), so Reins and the page share one rule.
+    private var recipePageChecks: RecipePageChecks {
+        RecipePageChecks(scaleFactor: shoppingScaleFactor, checkedIngredientIDs: checkedRecipeIngredientIDs, checkedStepDependencyIDs: checkedRecipeStepDependencyIDs)
     }
 
     private var hasRecipeProgress: Bool {
-        shoppingScaleFactor != 1 || !checkedRecipeIngredientIDs.isEmpty || !checkedRecipeStepDependencyIDs.isEmpty
+        recipePageChecks.hasProgress
     }
 
     private func clearRecipeProgress() {
@@ -1369,16 +1370,14 @@ struct RecipeDetailView: View {
         let validDependencyIDs = Set(viewModel.stepSections.flatMap { section in
             section.dependencies.map(\.id)
         })
-        guard let snapshot = RecipePageProgressStore().snapshot(recipeID: viewModel.id) else {
-            shoppingScaleFactor = 1
-            checkedRecipeIngredientIDs = []
-            checkedRecipeStepDependencyIDs = []
-            return
-        }
-
-        shoppingScaleFactor = snapshot.scaleFactor
-        checkedRecipeIngredientIDs = Set(snapshot.checkedIngredientIDs).intersection(validIngredientIDs)
-        checkedRecipeStepDependencyIDs = Set(snapshot.checkedStepDependencyIDs).intersection(validDependencyIDs)
+        let restored = RecipePageChecks(
+            restoring: RecipePageProgressStore().snapshot(recipeID: viewModel.id),
+            validIngredientIDs: validIngredientIDs,
+            validDependencyIDs: validDependencyIDs
+        )
+        shoppingScaleFactor = restored.scaleFactor
+        checkedRecipeIngredientIDs = restored.checkedIngredientIDs
+        checkedRecipeStepDependencyIDs = restored.checkedStepDependencyIDs
     }
 
     private func persistRecipeProgress() {
@@ -1395,12 +1394,8 @@ struct RecipeDetailView: View {
         checkedStepDependencyIDs: Set<String>
     ) {
         RecipePageProgressStore().save(
-            RecipePageProgressSnapshot(
-                scaleFactor: scaleFactor,
-                checkedIngredientIDs: Array(checkedIngredientIDs).sorted(),
-                checkedStepDependencyIDs: Array(checkedStepDependencyIDs).sorted(),
-                updatedAt: timestamp()
-            ),
+            RecipePageChecks(scaleFactor: scaleFactor, checkedIngredientIDs: checkedIngredientIDs, checkedStepDependencyIDs: checkedStepDependencyIDs)
+                .snapshot(updatedAt: timestamp()),
             recipeID: viewModel.id
         )
     }

@@ -186,7 +186,7 @@ final class CookModeSessionCenter {
     }
 
     /// A pause between the last check and the timer starting, so the ring sweeps in after the tick lands.
-    static let autoStartDelay: Duration = .milliseconds(250)
+    static let autoStartDelay = CookStepTimers.autoStartDelay
 
     /// Called on every change to the open session's checks. When a check completes a step's ingredients and the step
     /// has a duration and no running timer (`CookAutoTimerPolicy`), the step's timer starts through the same path the
@@ -211,14 +211,13 @@ final class CookModeSessionCenter {
             guard let current = self?.screens.entry(for: token) else {
                 return
             }
-            let stillChecked = Set(current.viewModel().progress.checkedIngredientIDs)
-            for timer in CookAutoTimerPolicy.timersStillToStart(timers, steps: recipe.steps, stillChecked: stillChecked) {
-                do {
-                    _ = try await current.startTimer(timer)
-                } catch {
-                    current.timerStartFailed(timer.stepID, CookAutoTimerPolicy.startFailureMessage(for: error, timer: timer))
-                }
-            }
+            await CookStepTimers.autoStart(
+                timers,
+                steps: recipe.steps,
+                stillChecked: Set(current.viewModel().progress.checkedIngredientIDs),
+                start: { try await current.startTimer($0) },
+                failed: { current.timerStartFailed($0, $1) }
+            )
         }
     }
 
@@ -246,15 +245,16 @@ final class CookModeSessionCenter {
     }
 
     private func perform(_ command: CookModeSessionCommand, on registration: Registration, updatedAt: String) async throws -> String {
-        let outcome = CookModeSessionResolver.resolve(command, viewModel: registration.viewModel(), updatedAt: updatedAt)
-        if outcome.progress != registration.viewModel().progress {
-            registration.apply(outcome.progress)
-            publishSession(progress: outcome.progress)
-        }
-        if let timer = outcome.timerToStart {
-            return try await registration.startTimer(timer).message(startedMessage: outcome.message)
-        }
-        return outcome.message
+        try await CookModeSessionResolver.perform(
+            command,
+            viewModel: registration.viewModel(),
+            updatedAt: updatedAt,
+            apply: { progress in
+                registration.apply(progress)
+                publishSession(progress: progress)
+            },
+            startTimer: { try await registration.startTimer($0) }
+        )
     }
 }
 
