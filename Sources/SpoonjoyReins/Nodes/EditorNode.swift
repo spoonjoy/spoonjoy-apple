@@ -2,9 +2,13 @@ import Foundation
 import OuroReins
 import SpoonjoyCore
 
-/// The recipe editors open, by visit. The draft and the version it is based on are `RecipeEditorVisits`, the Core rule
-/// the app's editor keeps by the same visit (`.id(navigation.editorIdentity(for:))`); the rest is what the editor view
-/// keeps in `@State` over it: the paste sheet, the discard question, a refusal and a conflict the server answered.
+/// The recipe editors open, by visit. What the two share is the rule for which visit a draft belongs to and how long it
+/// lives: `AppNavigationState.editorIdentity(for:)` and `SpoonjoyShell.openEditorIdentities`, both in Core. The app
+/// keeps each draft in the editor view's `@State` under `.id(navigation.editorIdentity(for:))`, so SwiftUI holds it
+/// while that identity stays on a stack; here `RecipeEditorVisits` stands in for that `@State` and is pruned to the
+/// same identities. That SwiftUI keeps the state for a live identity is SwiftUI's guarantee, not tested here. The rest
+/// is what the editor view keeps in `@State` over it: the paste sheet, the discard question, a refusal and a conflict
+/// the server answered.
 public struct SpoonjoyReinsEditorPages {
     public internal(set) var visits = RecipeEditorVisits()
     var scratch: [String: SpoonjoyReinsEditorScratch] = [:]

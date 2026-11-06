@@ -15,21 +15,19 @@ public struct SpoonjoyReinsCookFixtures: Sendable {
     }
 
     public var alarms: Alarms
-    /// What the mic hears once it listens, as `SPOONJOY_JOURNEY_VOICE_FIXTURE` gives the app (nil: a mic that hears nothing).
+    /// What the mic hears once it listens, as `SPOONJOY_JOURNEY_VOICE_FIXTURE` gives the app (nil: a mic that hears
+    /// nothing). The app's stand-in hears a phrase every five seconds; headless, each is heard when the journey calls
+    /// `SpoonjoyReinsShell.hearNextPhrase()`, as a cook speaking.
     public var voice: NativeJourneyVoiceFixture?
-    /// The pause before each transcript is heard. The app's journey stand-in waits five seconds; headless waits less.
-    public var voiceSpacing: Duration
     public var display: SpoonjoyReinsDisplay
 
     public init(
         alarms: Alarms = .recording,
         voice: NativeJourneyVoiceFixture? = nil,
-        voiceSpacing: Duration = .milliseconds(150),
         display: SpoonjoyReinsDisplay = .phone
     ) {
         self.alarms = alarms
         self.voice = voice
-        self.voiceSpacing = voiceSpacing
         self.display = display
     }
 
@@ -94,5 +92,51 @@ public final class SpoonjoyReinsClock: @unchecked Sendable {
 
     public func advance(by seconds: TimeInterval) {
         lock.withLock { current = current.addingTimeInterval(seconds) }
+    }
+}
+
+/// When the headless mic hears its next phrase: once per `release()`, whichever comes first, the release or the wait.
+/// A wait whose listening session stops gives up, so a release always reaches a mic that is still listening.
+final class SpoonjoyReinsVoicePacer: @unchecked Sendable {
+    private let lock = NSLock()
+    private var released = 0
+    private var waiters: [(id: UUID, resume: CheckedContinuation<Void, Never>)] = []
+
+    func release() {
+        lock.lock()
+        guard !waiters.isEmpty else {
+            released += 1
+            lock.unlock()
+            return
+        }
+        let waiter = waiters.removeFirst()
+        lock.unlock()
+        waiter.resume.resume()
+    }
+
+    func next() async {
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (waiter: CheckedContinuation<Void, Never>) in
+                lock.lock()
+                if Task.isCancelled {
+                    lock.unlock()
+                    waiter.resume()
+                } else if released > 0 {
+                    released -= 1
+                    lock.unlock()
+                    waiter.resume()
+                } else {
+                    waiters.append((id, waiter))
+                    lock.unlock()
+                }
+            }
+        } onCancel: {
+            lock.lock()
+            let index = waiters.firstIndex { $0.id == id }
+            let waiter = index.map { waiters.remove(at: $0) }
+            lock.unlock()
+            waiter?.resume.resume()
+        }
     }
 }

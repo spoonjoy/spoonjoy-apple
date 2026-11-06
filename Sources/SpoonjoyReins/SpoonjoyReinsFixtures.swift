@@ -17,7 +17,7 @@ public struct SpoonjoyReinsFixtures: Sendable {
     public var cookSessionClient: (@Sendable (APIClientConfiguration) -> any CookSessionClient)?
     /// Everyone's Recipes' transport (`LiveRecipeCatalogRepository(transport:)`); nil is the production URLSession one.
     public var catalogTransport: (any SpoonjoyAPITransport)?
-    /// Where the recipe page keeps its scale and checks (`RecipePageProgressStore`); nil is the app's standard defaults.
+    /// Where the recipe page keeps its scale and checks (`RecipePageProgressStore`); nil keeps them in the kitchen folder, so they survive a relaunch.
     public var recipePageProgress: RecipePageProgressStore?
     /// The sync engine's transport. With one, a `.liveFirst` launch syncs against it instead of the server.
     public var syncTransport: (any NativeSyncTransport)?

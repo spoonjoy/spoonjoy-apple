@@ -211,3 +211,11 @@ extension SpoonjoyReinsShell: ReinsDrivable {
         ReinsNode(name, state: ["route": .string(navigation.route.stateIdentifier), "x-unmodelled": "no journey drives this screen headless yet"])
     }
 }
+
+extension SpoonjoyReinsShell {
+    /// The cook says the mic fixture's next phrase. It is the outside world speaking, so it is not a screen action, as
+    /// `openLink` is the system handing the app a URL.
+    public func hearNextPhrase() {
+        cook.voicePacer.release()
+    }
+}

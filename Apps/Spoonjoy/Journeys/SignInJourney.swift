@@ -58,6 +58,12 @@ final class SignInJourney: JourneyTestCase {
             "The block confirmation did not close. Screen: \(journey.screen)"
         )
 
+        // Live: QA itself holds the block, read as the viewer. The Blocked chefs check below could pass from the
+        // device's own ledger, which survives sign-out, so this is the proof the server has it.
+        let viewerQA = try await JourneyQAClient.signIn(account)
+        let blocked = try await viewerQA.blockedChefUsernames(waitingFor: chef.username)
+        XCTAssertTrue(blocked.contains(chef.username), "QA does not list @\(chef.username) among the viewer's blocks.")
+
         // Guard: the build talks to the QA mirror.
         journey.openTab(JourneyCopy.kitchenTab)
         journey.openSettings()
@@ -88,7 +94,7 @@ final class SignInJourney: JourneyTestCase {
             "Signing in by email did not open the kitchen."
         )
 
-        // Live: after the fresh sign-in, Blocked chefs lists the chef from QA.
+        // After the fresh sign-in, Blocked chefs lists the chef (QA's copy is checked above).
         journey.openSettings()
         journey.tap(JourneyID.settingsBlockedChefs)
         XCTAssertTrue(

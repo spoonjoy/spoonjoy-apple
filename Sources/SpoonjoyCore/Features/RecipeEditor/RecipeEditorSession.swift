@@ -7,6 +7,8 @@ import Foundation
 /// The editors the cook has open, by visit (`AppNavigationState.editorIdentity(for:)`): the view model as the editor
 /// opened, which holds the recipe version the edit starts from, and the cook's unsaved draft. An editor left open on
 /// another tab, or under Add a recipe, keeps its draft until the cook saves, cancels or opens a new visit.
+/// The app keeps the same thing in the editor view's `@State` under that identity; Ouro Reins keeps it here, pruned to
+/// `SpoonjoyShell.openEditorIdentities`, the visits whose editor is still on a stack.
 public struct RecipeEditorVisits {
     public struct Visit {
         /// The editor as it opened, whose recipe the edit is based on.

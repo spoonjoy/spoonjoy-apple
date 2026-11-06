@@ -238,9 +238,9 @@ struct RecipeEditorSessionTests {
         #expect(SearchSurfaceRun.limit == 20)
 
         let content = Self.content()
-        #expect(content.searchSurfaceViewModel(after: .cancelled, state: state) == nil)
-        #expect(content.searchSurfaceViewModel(after: found, state: state)?.state.query == "basil")
-        #expect(content.searchSurfaceViewModel(after: .failed(.offline), state: state)?.errorState != nil)
+        #expect(content.searchSurfaceViewModel(after: .cancelled, state: state, cachedPage: nil) == nil)
+        #expect(content.searchSurfaceViewModel(after: found, state: state, cachedPage: nil)?.state.query == "basil")
+        #expect(content.searchSurfaceViewModel(after: .failed(.offline), state: state, cachedPage: nil)?.errorState != nil)
     }
 
     // MARK: Catalogs

@@ -1855,6 +1855,7 @@ struct PlatformNavigationView: View {
             clearLiveSearchRequestMarker(requestMarker)
         }
 
+        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
         let context = contentState.searchSurfaceContext
         let repository = searchSurfaceRepositoryHandler(context)
         let run = await SearchSurfaceRun.run(nextSearch, in: repository)
@@ -1865,7 +1866,7 @@ struct PlatformNavigationView: View {
         if case .page(let page) = run {
             try? await recordSearchSurfacePageHandler(page, identity)
         }
-        if let viewModel = contentState.searchSurfaceViewModel(after: run, state: nextSearch) {
+        if let viewModel = contentState.searchSurfaceViewModel(after: run, state: nextSearch, cachedPage: cachedPage) {
             activeSearch = ActiveSearchSurfaceState(identity: identity, viewModel: viewModel)
         }
     }

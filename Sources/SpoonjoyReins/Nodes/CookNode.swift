@@ -33,6 +33,8 @@ final class SpoonjoyReinsCook {
     private(set) var scheduledAlarms: [String] = []
 
     private(set) var voice: CookVoiceController?
+    /// When the mic hears its next phrase (`SpoonjoyReinsShell.hearNextPhrase()`).
+    let voicePacer = SpoonjoyReinsVoicePacer()
     private var voiceSubscription: AnyCancellable?
     private(set) var voiceNotice: (text: String, offersSettings: Bool)?
     /// The URLs cook mode asked the system to open (the mic's Settings button).
@@ -103,7 +105,8 @@ final class SpoonjoyReinsCook {
     /// shut shows the cover glance.
     func opened(_ recipeID: String) {
         voice?.send(.cookModeClosed)
-        let engine = CookVoiceFixtureEngine(fixture: shell.fixtures.cook.voice ?? .transcripts([]), spacing: shell.fixtures.cook.voiceSpacing)
+        let pacer = voicePacer
+        let engine = CookVoiceFixtureEngine(fixture: shell.fixtures.cook.voice ?? .transcripts([]), pace: { await pacer.next() })
         let voice = CookVoiceController(engine: engine)
         voice.onCommand = { [unowned self] command in perform(voiceCommand: command, recipeID: recipeID) }
         voiceSubscription = voice.$state.dropFirst().removeDuplicates().sink { [unowned self] state in

@@ -48,13 +48,18 @@ struct VoiceJourneyTests {
                 $0.state["voiceNotice"]?["text"]?.stringValue?.contains("Say next, back, repeat or timer when you're ready") == true
             }
 
-            // 57-60: "okay next step" turns to step 2.
+            // 57-60: "okay next step" turns to step 2. Each phrase is heard when the journey says it, never on a timer.
+            app.shell.hearNextPhrase()
             try await app.journey.expect("cook", describing: "\"okay next step\" turned to step 2") { $0.state["step"] == "Step 2 of 3" }
             // 63-66: the sentence with "next" in it does nothing, so "go back" lands on step 1, not step 2.
+            app.shell.hearNextPhrase()
+            app.shell.hearNextPhrase()
             try await app.journey.expect("cook", describing: "\"go back\" returned to step 1") { $0.state["step"] == "Step 1 of 3" }
             // 67-70: "start the timer" starts step 1's timer.
+            app.shell.hearNextPhrase()
             try await app.journey.expect("cook", describing: "\"start the timer\" started step 1's timer") { $0.state["ring"]?["running"] == true }
             // 72-81: "check all" checks the garlic and sets no second timer.
+            app.shell.hearNextPhrase()
             try await app.journey.expect("cook", describing: "\"check all\" checked the garlic") { $0.state["ingredients"]?[0]?["checked"] == true }
             await app.shell.cook.settle()
             #expect(app.screen.state["runningTimers"] == 1)

@@ -154,6 +154,20 @@ struct CookModeMovedRulesTests {
         try await Task.sleep(for: .milliseconds(100))
     }
 
+    @Test func aPacedVoiceFixtureHearsEachTranscriptWhenTold() async throws {
+        let gate = CookVoiceMuteGate()
+        let pace = PaceTurns()
+        let engine = CookVoiceFixtureEngine(fixture: .transcripts(["next", "back"]), pace: { await pace.next() })
+        let heardOne = AsyncStream<String>.makeStream()
+        let session = try await engine.start(gate: gate, heard: { heardOne.continuation.yield($0) }, failed: { _ in })
+        var heard = heardOne.stream.makeAsyncIterator()
+        pace.give()
+        #expect(await heard.next() == "next")
+        pace.give()
+        #expect(await heard.next() == "back")
+        session.stop()
+    }
+
     // MARK: Controls on a foldable
 
     @Test func controlsKeepToTheirPages() {
@@ -198,5 +212,38 @@ struct CookModeMovedRulesTests {
         store.save(RecipePageChecks(checkedIngredientIDs: ["i1"]).snapshot(updatedAt: "t"), recipeID: "r1")
         #expect(store.snapshot(recipeID: "r1")?.checkedIngredientIDs == ["i1"])
         #expect(storage.keys.contains(RecipePageProgressStore.key(recipeID: "r1")))
+    }
+}
+
+/// Hands out one turn per `give()`, to whichever `next()` waits first.
+private final class PaceTurns: @unchecked Sendable {
+    private let lock = NSLock()
+    private var given = 0
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func give() {
+        lock.lock()
+        if waiters.isEmpty {
+            given += 1
+            lock.unlock()
+        } else {
+            let waiter = waiters.removeFirst()
+            lock.unlock()
+            waiter.resume()
+        }
+    }
+
+    func next() async {
+        await withCheckedContinuation { (waiter: CheckedContinuation<Void, Never>) in
+            lock.lock()
+            if given > 0 {
+                given -= 1
+                lock.unlock()
+                waiter.resume()
+            } else {
+                waiters.append(waiter)
+                lock.unlock()
+            }
+        }
     }
 }

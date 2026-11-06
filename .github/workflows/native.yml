@@ -133,6 +133,9 @@ jobs:
           swift test --disable-xctest --filter SpoonjoyReinsTests -Xswiftc -warnings-as-errors 2>&1 | tee "$RUNNER_TEMP/reins.log"
           echo "Headless journeys took $(( $(date +%s) - started ))s (including the build)." >> "$GITHUB_STEP_SUMMARY"
           grep -E '^. Test run with' "$RUNNER_TEMP/reins.log" >> "$GITHUB_STEP_SUMMARY" || true
+          # A filter that matches nothing passes with no tests run, so the job counts them: at least one per journey file.
+          ran=$(grep -Eo 'Test run with [0-9]+ tests' "$RUNNER_TEMP/reins.log" | grep -Eo '[0-9]+' | tail -1)
+          test "${ran:-0}" -ge 23 || { echo "::error::Reins journeys ran ${ran:-0} tests, expected at least 23"; exit 1; }
       - name: Drive spoonjoy-reins from the command line
         run: |
           set -euo pipefail

@@ -45,6 +45,7 @@ extension SpoonjoyReinsShell {
             page.search = content.performSearch(state)
             return
         }
+        let cachedPage = content.searchSurfacePage(for: state)
         let run = await SearchSurfaceRun.run(state, in: store.searchSurfaceRepository(context: content.searchSurfaceContext))
         guard run != .cancelled, content.searchSurfaceIdentity == identity, navigation.route == state.route else {
             return
@@ -52,6 +53,6 @@ extension SpoonjoyReinsShell {
         if case .page(let page) = run {
             try? store.recordSearchSurfacePage(page, expectedIdentity: identity)
         }
-        page.search = content.searchSurfaceViewModel(after: run, state: state)
+        page.search = content.searchSurfaceViewModel(after: run, state: state, cachedPage: cachedPage)
     }
 }
