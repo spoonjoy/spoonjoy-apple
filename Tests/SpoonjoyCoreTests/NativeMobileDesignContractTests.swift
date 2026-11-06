@@ -1519,7 +1519,8 @@ struct NativeMobileDesignContractTests {
             contains: [
                 "@State private var compactTabs: CompactTabNavigation",
                 "compactTabs.apply(route)",
-                ".fullScreenCover(item: compactFullScreenRoute)",
+                "CookSheetLayer(",
+                "compactFullScreenContent(for: cookSheet.route)",
                 "compactImmersiveRouteContent(for: route)",
                 "private var compactTabSelection: Binding<CompactTab>",
                 "compactTabStack(for: .kitchen)",
@@ -1533,6 +1534,7 @@ struct NativeMobileDesignContractTests {
             ],
             forbids: [
                 "compactTabContent(for:",
+                ".fullScreenCover(item: compactFullScreenRoute)",
                 ".toolbar(navigation.route.isCookModeActive ? .hidden : .automatic, for: .tabBar)",
                 "SpoonDockContext.recipes(",
                 "SpoonDockContext.search(",
