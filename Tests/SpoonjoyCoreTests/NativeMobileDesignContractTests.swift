@@ -894,7 +894,7 @@ struct NativeMobileDesignContractTests {
                 "Text(\"Ingredients\")",
                 "RecipeStepDurationCue",
                 "RecipeStepChecklistRow",
-                "RecipePageProgressStore().snapshot(recipeID: viewModel.id)",
+                "RecipePageProgressStore().progress(for: viewModel)",
                 "RecipePageProgressStore().save(",
                 "Label(\"Cook\", systemImage: \"play.fill\")",
                 "hasIngredientsInShoppingList ? \"In list\" : \"Add to list\"",

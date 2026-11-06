@@ -872,12 +872,7 @@ struct PlatformNavigationView: View {
 
     /// A pasted link becomes a capture draft, the same draft Siri's Capture Recipe makes, and Imports opens on it.
     private func importPastedLink(_ url: URL) {
-        let createdAt = ISO8601DateFormatter().string(from: Date())
-        guard let draft = try? CaptureDraft.importURL(
-            id: "paste-\(UUID().uuidString.lowercased())",
-            url: url,
-            createdAt: createdAt
-        ) else {
+        guard let draft = CaptureDraft.pastedLink(url, createdAt: Date()) else {
             return
         }
         recordCaptureDraft(draft)
@@ -1860,54 +1855,18 @@ struct PlatformNavigationView: View {
             clearLiveSearchRequestMarker(requestMarker)
         }
 
-        let cachedPage = contentState.searchSurfacePage(for: nextSearch)
         let context = contentState.searchSurfaceContext
         let repository = searchSurfaceRepositoryHandler(context)
-        do {
-            let page = try await repository.search(
-                request: SearchSurfaceRequest(query: nextSearch.query, scope: nextSearch.scope, limit: 20)
-            )
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
-                clearLiveSearchRequestMarker(requestMarker)
-                return
-            }
-            try? await recordSearchSurfacePageHandler(page, identity)
-            activeSearch = ActiveSearchSurfaceState(
-                identity: identity,
-                viewModel: contentState.performSearch(
-                    page: page,
-                    state: nextSearch
-                )
-            )
-        } catch SearchSurfaceRepositoryError.cancelled {
+        let run = await SearchSurfaceRun.run(nextSearch, in: repository)
+        guard run != .cancelled, canApplySearchResult(identity: identity, state: nextSearch) else {
             clearLiveSearchRequestMarker(requestMarker)
             return
-        } catch let error as SearchSurfaceRepositoryError {
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
-                clearLiveSearchRequestMarker(requestMarker)
-                return
-            }
-            activeSearch = ActiveSearchSurfaceState(
-                identity: identity,
-                viewModel: contentState.performSearch(
-                    error: error,
-                    state: nextSearch,
-                    cachedPage: cachedPage
-                )
-            )
-        } catch {
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
-                clearLiveSearchRequestMarker(requestMarker)
-                return
-            }
-            activeSearch = ActiveSearchSurfaceState(
-                identity: identity,
-                viewModel: contentState.performSearch(
-                    error: .searchFailed(message: String(describing: error)),
-                    state: nextSearch,
-                    cachedPage: cachedPage
-                )
-            )
+        }
+        if case .page(let page) = run {
+            try? await recordSearchSurfacePageHandler(page, identity)
+        }
+        if let viewModel = contentState.searchSurfaceViewModel(after: run, state: nextSearch) {
+            activeSearch = ActiveSearchSurfaceState(identity: identity, viewModel: viewModel)
         }
     }
 
@@ -2003,15 +1962,7 @@ struct PlatformNavigationView: View {
     }
 
     private var recipeCatalogRepository: any RecipeCatalogRepository {
-        let catalog = contentState.recipeCatalog
-        let snapshotRepository = SnapshotRecipeCatalogRepository(
-            page: catalog,
-            details: contentState.recipes.map { entry in
-                RecipeCatalogDetailResult(recipe: entry, source: catalog.source)
-            }
-        )
-        let liveRepository = LiveRecipeCatalogRepository(configuration: contentState.configuration)
-        return FallbackRecipeCatalogRepository(primary: liveRepository, fallback: snapshotRepository)
+        contentState.everyoneRecipeCatalogRepository(live: LiveRecipeCatalogRepository(configuration: contentState.configuration))
     }
 
     private var spoonCookLogRepository: any SpoonCookLogRepository {
@@ -2060,13 +2011,7 @@ struct PlatformNavigationView: View {
     }
 
     private func personalRecipeCatalogRepository(page: RecipeCatalogPage) -> any RecipeCatalogRepository {
-        let savedRecipeIDs = Set(page.rows.map(\.id))
-        return SnapshotRecipeCatalogRepository(
-            page: page,
-            details: contentState.recipes
-                .filter { savedRecipeIDs.contains($0.id) }
-                .map { RecipeCatalogDetailResult(recipe: $0, source: page.source) }
-        )
+        contentState.personalRecipeCatalogRepository(page: page)
     }
 
     private var chefProfiles: [NativeCachedProfile] {
@@ -2269,12 +2214,7 @@ struct PlatformNavigationView: View {
     }
 
     private var currentChefID: String? {
-        switch contentState.authSessionState {
-        case .signedOut:
-            nil
-        case .authenticated(let session), .refreshRequired(let session):
-            session.accountID
-        }
+        contentState.sessionAccountID
     }
 
     private var currentChefSummary: ChefSummary? {
@@ -2284,36 +2224,11 @@ struct PlatformNavigationView: View {
     }
 
     private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
-        let chefID = currentChefID ?? "signed-out"
-        switch id {
-        case .some(let recipeID):
-            guard let recipe = recipe(id: recipeID) else {
-                return nil
-            }
-            return RecipeEditorViewModel(
-                mode: .edit(recipe: recipe, currentChefID: chefID),
-                connectivity: recipeEditorConnectivity,
-                conflict: recipeEditorConflict(for: recipeID),
-                queuedRecipeMutations: contentState.queuedMutations,
-                now: timestamp
-            )
-        case nil:
-            return RecipeEditorViewModel(
-                mode: .create(currentChefID: chefID, draft: .blank(currentChefID: chefID)),
-                connectivity: recipeEditorConnectivity,
-                conflict: nil,
-                queuedRecipeMutations: contentState.queuedMutations,
-                now: timestamp
-            )
-        }
+        contentState.recipeEditorViewModel(id: id, connectivity: recipeEditorConnectivity, now: timestamp)
     }
 
     private var recipeEditorConnectivity: RecipeEditorConnectivity {
-        if offlineIndicatorState.display == .offline {
-            return .offline
-        }
-
-        return .online
+        RecipeEditorConnectivity(display: offlineIndicatorState.display)
     }
 
     private var recipeActionConnectivity: RecipeActionConnectivity {
@@ -2393,16 +2308,7 @@ struct PlatformNavigationView: View {
     }
 
     private func recipeEditorConflict(for recipeID: String) -> RecipeEditorConflict? {
-        for conflict in contentState.syncConflicts {
-            guard let mutation = contentState.queuedMutations.first(where: { $0.clientMutationID == conflict.clientMutationID }),
-                  mutation.optimisticRecipeID == recipeID else {
-                continue
-            }
-
-            return RecipeEditorConflict(resourceID: recipeID, syncConflict: conflict)
-        }
-
-        return nil
+        contentState.recipeEditorConflict(for: recipeID)
     }
 
     private func createRecipeWithPhoto(_ plan: RecipeEditorMutationPlan, photo: NativeStagedMediaUpload) async throws -> AppRoute {
@@ -2473,37 +2379,13 @@ struct PlatformNavigationView: View {
     }
 
     private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) async throws {
-        if let queuedMutation = plan.queuedMutation {
-            try await queueMutation(queuedMutation)
-            return
-        }
-
-        if let offlineFallbackMutation = plan.offlineFallbackMutation,
-           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
-            _ = try await queueMutations([offlineFallbackMutation], true)
-            return
-        }
-
-        if let requestBuilder = plan.remoteRequestBuilder {
-            do {
-                try await executeRecipeEditorRequest(requestBuilder)
-            } catch let error as APITransportError where error.isOffline {
-                if let offlineFallbackMutation = plan.offlineFallbackMutation {
-                    try await queueMutation(offlineFallbackMutation)
-                    return
-                }
-                throw error
-            } catch let error as APITransportError where error.isRecipeEditConflict {
-                // The recipe changed after the editor opened. The queue compares the edit with the current
-                // recipe: it sends it if nobody else changed the same fields, and otherwise holds it on the
-                // recipe page with both versions, for the cook to choose.
-                if let offlineFallbackMutation = plan.offlineFallbackMutation {
-                    _ = try await queueMutations([offlineFallbackMutation], true)
-                    return
-                }
-                throw error
-            }
-        }
+        try await RecipeEditorPlanRunner.perform(
+            plan,
+            queuedMutations: contentState.queuedMutations,
+            queueMutation: queueMutation,
+            queueMutations: queueMutations,
+            execute: executeRecipeEditorRequest
+        )
     }
 
     private func performRecipeAction(_ plan: RecipeActionPlan) async throws {

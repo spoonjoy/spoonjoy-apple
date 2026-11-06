@@ -463,7 +463,7 @@ struct RecipeEditorView: View {
     }
 
     private var exitRoute: AppRoute {
-        draft.recipeID.map { .recipeDetail(id: $0, presentation: .detail) } ?? .recipes
+        draft.exitRoute
     }
 
     /// Leaves the editor, asking first when there is work that would be lost.
@@ -778,56 +778,43 @@ struct RecipeEditorView: View {
 
         do {
             let editor = activeViewModel.updatingDraft(draft)
-            var plannedActions: [(action: RecipeEditorAction, plan: RecipeEditorMutationPlan)] = []
-
-            for action in actions {
-                let plan = try editor.plan(action)
-                if let blockedReason = plan.blockedReason {
-                    blockedMessage = blockedReason
-                    return
-                }
-                plannedActions.append((action, plan))
-            }
-
-            // A save that changed nothing on the recipe itself still checks the draft, but sends nothing.
-            let sendingActions = plannedActions.filter { $0.plan.sendsChange }
-            if sendingActions.count > 1 {
-                let mutations = try sendingActions.map { plannedAction in
-                    guard let mutation = plannedAction.plan.queuedMutation ?? plannedAction.plan.offlineFallbackMutation else {
-                        throw RecipeEditorPlanningError.missingQueuedMutation
-                    }
-                    return mutation
-                }
-                let batchResult = try await mutationsDidQueue(mutations, editor.connectivity == .online)
-                if editor.connectivity == .online,
+            let submission = try editor.submission(for: actions)
+            switch submission.kind {
+            case .blocked(let blockedReason):
+                blockedMessage = blockedReason
+                return
+            case .nothing:
+                break
+            case .batch(let mutations, let drainImmediately):
+                let batchResult = try await mutationsDidQueue(mutations, drainImmediately)
+                if drainImmediately,
                    submittedBatchNeedsAttention(batchResult, mutations: mutations) {
                     return
                 }
-            } else if let plannedAction = sendingActions.first,
-                      let stagedPhoto,
-                      draft.recipeID == nil,
-                      plannedAction.plan.remoteRequestBuilder != nil || plannedAction.plan.queuedMutation?.queueableKind == .recipeCreate {
-                do {
-                    let route = try await createRecipeWithPhoto(plannedAction.plan, stagedPhoto)
-                    blockedMessage = nil
-                    offlineDisplayOverride = nil
-                    close(route)
-                    return
-                } catch {
-                    throw RecipeEditorActionExecutionError(action: plannedAction.action, underlyingError: error)
+            case .single(let action, let plan):
+                if let stagedPhoto,
+                   draft.recipeID == nil,
+                   plan.remoteRequestBuilder != nil || plan.queuedMutation?.queueableKind == .recipeCreate {
+                    do {
+                        let route = try await createRecipeWithPhoto(plan, stagedPhoto)
+                        blockedMessage = nil
+                        offlineDisplayOverride = nil
+                        close(route)
+                        return
+                    } catch {
+                        throw RecipeEditorActionExecutionError(action: action, underlyingError: error)
+                    }
                 }
-            } else if let plannedAction = sendingActions.first {
                 do {
-                    try await mutationDidPlan(plannedAction.plan)
+                    try await mutationDidPlan(plan)
                 } catch {
-                    throw RecipeEditorActionExecutionError(action: plannedAction.action, underlyingError: error)
+                    throw RecipeEditorActionExecutionError(action: action, underlyingError: error)
                 }
             }
 
             blockedMessage = nil
             offlineDisplayOverride = nil
-            let successRoute = plannedActions.compactMap(\.plan.successRoute).last
-            if let successRoute {
+            if let successRoute = submission.successRoute {
                 close(successRoute)
             }
         } catch let error as RecipeEditorActionExecutionError {
@@ -892,61 +879,27 @@ struct RecipeEditorView: View {
         _ result: NativeQueuedMutationBatchResult,
         mutations: [NativeQueuedMutation]
     ) -> Bool {
-        // A recipe edit that conflicts with a change made elsewhere is held on the recipe page, where the
-        // banner shows both versions; the editor closes as for a saved edit.
-        if result.holdsRecipeEditChoice {
+        let attention = RecipeEditorBatchAttention(after: result, mutations: mutations, recipeID: draft.recipeID)
+        switch attention {
+        case .none:
             return false
+        case .conflict(let conflict):
+            runtimeConflict = conflict
+            offlineDisplayOverride = .conflict(recordID: conflict.resourceID, mutationID: conflict.localClientMutationID)
+        case .stillQueued(let count, let oldestClientMutationID):
+            offlineDisplayOverride = .queuedWork(count: count, oldestClientMutationID: oldestClientMutationID)
         }
-        if let conflict = result.submittedConflicts.first {
-            let mutation = mutations.first { $0.clientMutationID == conflict.clientMutationID }
-            let resourceID = mutation?.recipeID ?? draft.recipeID ?? conflict.clientMutationID
-            runtimeConflict = RecipeEditorConflict(
-                resourceID: resourceID,
-                serverRevision: conflict.serverRevision,
-                localClientMutationID: conflict.clientMutationID,
-                message: conflict.message
-            )
-            offlineDisplayOverride = .conflict(recordID: resourceID, mutationID: conflict.clientMutationID)
-            blockedMessage = conflict.message
-            return true
-        }
-
-        guard !result.drainedClientMutationIDs.isEmpty,
-              !result.remainingSubmittedClientMutationIDs.isEmpty else {
-            return false
-        }
-
-        let remainingCount = result.remainingSubmittedClientMutationIDs.count
-        blockedMessage = remainingCount == 1
-            ? "One recipe edit is still queued. Review the offline status before leaving the editor."
-            : "\(remainingCount) recipe edits are still queued. Review the offline status before leaving the editor."
-        offlineDisplayOverride = .queuedWork(
-            count: remainingCount,
-            oldestClientMutationID: result.remainingSubmittedClientMutationIDs.first
-        )
+        blockedMessage = attention.message
         return true
     }
 
     private func addIngredients(_ ingredients: [RecipeEditorIngredientDraft], to stepID: String) {
         pasteStepID = nil
-        guard let stepIndex = draft.steps.firstIndex(where: { $0.id == stepID }) else {
-            return
-        }
-
-        draft.steps[stepIndex].ingredients.append(contentsOf: ingredients)
+        draft.addIngredients(ingredients, toStep: stepID)
     }
 
     private func addIngredient(to stepID: String) {
-        guard let stepIndex = draft.steps.firstIndex(where: { $0.id == stepID }) else {
-            return
-        }
-
-        draft.steps[stepIndex].ingredients.append(RecipeEditorIngredientDraft(
-            id: localID("local_ingredient"),
-            name: "",
-            quantity: 1,
-            unit: nil
-        ))
+        draft.addIngredient(id: localID("local_ingredient"), toStep: stepID)
     }
 
     /// The ingredient's 1-based position in its step, for accessibility identifiers.
@@ -1119,9 +1072,7 @@ private struct IngredientNameField: View {
                 guard newValue.contains("\n") else {
                     return
                 }
-                ingredient.name = newValue.replacingOccurrences(of: "\n", with: " ")
-                    .trimmingCharacters(in: .whitespaces)
-                ingredient.applyTypedLine()
+                ingredient.typeName(newValue)
                 isFocused = false
             }
     }

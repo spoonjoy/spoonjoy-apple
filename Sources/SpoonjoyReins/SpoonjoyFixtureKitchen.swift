@@ -29,7 +29,7 @@ public enum SpoonjoyFixtureKitchen {
     @MainActor
     public static func store(
         in directory: URL,
-        bootstrapMode: NativeLiveAppBootstrapMode = .restoreCacheOnly,
+        bootstrapMode: NativeLiveAppBootstrapMode? = nil,
         fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures()
     ) throws -> NativeLiveAppStore {
         let now = fixtures.now
@@ -53,7 +53,7 @@ public enum SpoonjoyFixtureKitchen {
             now: now
         )
         let syncStore = try FileBackedNativeSyncStore(fileURL: directory.appendingPathComponent("native-sync-store.json"))
-        let engine = NativeSyncEngine(store: syncStore, transport: URLSessionNativeSyncTransport(), clock: now)
+        let engine = NativeSyncEngine(store: syncStore, transport: fixtures.syncTransport ?? URLSessionNativeSyncTransport(), clock: now)
         let appState = NativeAppStateStore(fileURL: directory.appendingPathComponent("native-app-state.json"))
         return NativeLiveAppStore(dependencies: NativeLiveAppStoreDependencies(
             authSessionRepository: auth,
@@ -66,7 +66,8 @@ public enum SpoonjoyFixtureKitchen {
             cacheEnvironment: .production,
             recipeEditorAPITransport: fixtures.apiTransport ?? { URLSessionAPITransport(authenticationRefresher: $0) },
             settingsSurfaceFetch: fixtures.settingsSurfaceFetch,
-            bootstrapMode: bootstrapMode,
+            bootstrapMode: bootstrapMode ?? fixtures.bootstrapMode,
+            cookSessionClient: fixtures.cookSessionClient ?? { URLSessionCookSessionClient(configuration: $0) },
             now: now
         ))
     }

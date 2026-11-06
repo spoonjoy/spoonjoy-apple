@@ -41,3 +41,11 @@ public struct RecipeListAddNotice: Equatable, Sendable {
         RecipeListAddNotice(message: "Couldn't add \(recipeTitle) to your list. Try again.", isFailure: true)
     }
 }
+
+extension CaptureDraft {
+    /// The capture draft a link pasted into Add a recipe becomes: the same draft Siri's Capture Recipe makes, which
+    /// Imports then opens on. Nil for a link a capture draft can't hold.
+    public static func pastedLink(_ url: URL, createdAt: Date, id: String = "paste-\(UUID().uuidString.lowercased())") -> CaptureDraft? {
+        try? importURL(id: id, url: url, createdAt: ISO8601DateFormatter().string(from: createdAt))
+    }
+}

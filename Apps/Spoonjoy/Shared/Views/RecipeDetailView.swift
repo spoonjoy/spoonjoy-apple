@@ -1363,22 +1363,10 @@ struct RecipeDetailView: View {
     }
 
     private func loadRecipeProgress() {
-        let validIngredientIDs = Set(viewModel.stepSections.flatMap { section in
-            section.ingredients.map(\.id)
-        })
-        let validDependencyIDs = Set(viewModel.stepSections.flatMap { section in
-            section.dependencies.map(\.id)
-        })
-        guard let snapshot = RecipePageProgressStore().snapshot(recipeID: viewModel.id) else {
-            shoppingScaleFactor = 1
-            checkedRecipeIngredientIDs = []
-            checkedRecipeStepDependencyIDs = []
-            return
-        }
-
-        shoppingScaleFactor = snapshot.scaleFactor
-        checkedRecipeIngredientIDs = Set(snapshot.checkedIngredientIDs).intersection(validIngredientIDs)
-        checkedRecipeStepDependencyIDs = Set(snapshot.checkedStepDependencyIDs).intersection(validDependencyIDs)
+        let progress = RecipePageProgressStore().progress(for: viewModel)
+        shoppingScaleFactor = progress.scaleFactor
+        checkedRecipeIngredientIDs = progress.checkedIngredientIDs
+        checkedRecipeStepDependencyIDs = progress.checkedStepDependencyIDs
     }
 
     private func persistRecipeProgress() {
@@ -1395,13 +1383,13 @@ struct RecipeDetailView: View {
         checkedStepDependencyIDs: Set<String>
     ) {
         RecipePageProgressStore().save(
-            RecipePageProgressSnapshot(
+            RecipePageProgress(
                 scaleFactor: scaleFactor,
-                checkedIngredientIDs: Array(checkedIngredientIDs).sorted(),
-                checkedStepDependencyIDs: Array(checkedStepDependencyIDs).sorted(),
-                updatedAt: timestamp()
+                checkedIngredientIDs: checkedIngredientIDs,
+                checkedStepDependencyIDs: checkedStepDependencyIDs
             ),
-            recipeID: viewModel.id
+            recipeID: viewModel.id,
+            updatedAt: timestamp()
         )
     }
 
@@ -1956,13 +1944,11 @@ private struct RecipeServesPopover: View {
 
     // At the ends of the range the stepper's button does nothing; the label already shows the limit.
     private func increment() {
-        guard serves.canIncrement(scaleFactor) else { return }
-        scaleFactor = serves.incremented(scaleFactor)
+        scaleFactor = serves.steppedUp(scaleFactor)
     }
 
     private func decrement() {
-        guard serves.canDecrement(scaleFactor) else { return }
-        scaleFactor = serves.decremented(scaleFactor)
+        scaleFactor = serves.steppedDown(scaleFactor)
     }
 }
 

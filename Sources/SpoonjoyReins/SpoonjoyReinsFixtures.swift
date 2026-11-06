@@ -11,6 +11,16 @@ public struct SpoonjoyReinsFixtures: Sendable {
     public var apiTransport: (@Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport)?
     /// Settings' surface fetch (`NativeLiveAppStoreDependencies.settingsSurfaceFetch`).
     public var settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
+    /// How the store starts: from the cache only (the UI tests' default, offline), or live-first against `syncTransport`.
+    public var bootstrapMode: NativeLiveAppBootstrapMode = .restoreCacheOnly
+    /// The sync engine's transport (`NativeSyncEngine(transport:)`); nil is the production URLSession one.
+    public var syncTransport: (any NativeSyncTransport)?
+    /// Cook sessions (`NativeLiveAppStoreDependencies.cookSessionClient`); nil is the production URLSession one.
+    public var cookSessionClient: (@Sendable (APIClientConfiguration) -> any CookSessionClient)?
+    /// Everyone's Recipes' transport (`LiveRecipeCatalogRepository(transport:)`); nil is the production URLSession one.
+    public var catalogTransport: (any SpoonjoyAPITransport)?
+    /// Where the recipe page keeps its scale and checks (`RecipePageProgressStore`); nil is the app's standard defaults.
+    public var recipePageProgress: RecipePageProgressStore?
 
     public init(
         now: @escaping @Sendable () -> Date = { Date(timeIntervalSince1970: 1_793_000_000) },

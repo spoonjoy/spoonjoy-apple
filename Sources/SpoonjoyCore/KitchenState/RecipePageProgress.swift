@@ -87,3 +87,56 @@ extension CookModeProgress {
         return settingScaleFactor(pageScale, updatedAt: updatedAt)
     }
 }
+
+/// What the recipe page shows of a cook's progress: the scale every amount is multiplied by, and the ingredients and
+/// step dependencies checked off. `RecipeDetailView` keeps it while the page is open and saves it on every change.
+public struct RecipePageProgress: Equatable, Sendable {
+    public var scaleFactor: Double
+    public var checkedIngredientIDs: Set<String>
+    public var checkedStepDependencyIDs: Set<String>
+
+    public static let fresh = RecipePageProgress(scaleFactor: 1, checkedIngredientIDs: [], checkedStepDependencyIDs: [])
+
+    public init(scaleFactor: Double, checkedIngredientIDs: Set<String>, checkedStepDependencyIDs: Set<String>) {
+        self.scaleFactor = scaleFactor
+        self.checkedIngredientIDs = checkedIngredientIDs
+        self.checkedStepDependencyIDs = checkedStepDependencyIDs
+    }
+
+    /// A tap on an ingredient checks it, or unchecks it.
+    public mutating func toggleIngredient(_ id: String) {
+        if checkedIngredientIDs.remove(id) == nil {
+            checkedIngredientIDs.insert(id)
+        }
+    }
+
+    public func snapshot(updatedAt: String) -> RecipePageProgressSnapshot {
+        RecipePageProgressSnapshot(
+            scaleFactor: scaleFactor,
+            checkedIngredientIDs: checkedIngredientIDs.sorted(),
+            checkedStepDependencyIDs: checkedStepDependencyIDs.sorted(),
+            updatedAt: updatedAt
+        )
+    }
+}
+
+extension RecipePageProgressStore {
+    /// The progress saved for the recipe, keeping only checks on ingredients and dependencies it still has. A recipe
+    /// with nothing saved starts fresh.
+    public func progress(for recipe: RecipeDetailScreenViewModel) -> RecipePageProgress {
+        guard let snapshot = snapshot(recipeID: recipe.id) else {
+            return .fresh
+        }
+        let ingredientIDs = Set(recipe.stepSections.flatMap { $0.ingredients.map(\.id) })
+        let dependencyIDs = Set(recipe.stepSections.flatMap { $0.dependencies.map(\.id) })
+        return RecipePageProgress(
+            scaleFactor: snapshot.scaleFactor,
+            checkedIngredientIDs: Set(snapshot.checkedIngredientIDs).intersection(ingredientIDs),
+            checkedStepDependencyIDs: Set(snapshot.checkedStepDependencyIDs).intersection(dependencyIDs)
+        )
+    }
+
+    public func save(_ progress: RecipePageProgress, recipeID: String, updatedAt: String) {
+        save(progress.snapshot(updatedAt: updatedAt), recipeID: recipeID)
+    }
+}
