@@ -329,6 +329,7 @@ struct NativeSessionExpiryStoreTests {
             appStateStoreProvider: { appStateStore },
             configuration: configuration,
             cacheEnvironment: .production,
+            cookSessionClient: { _ in OffCookSessionClient() },
             now: clock
         ))
         return (store, syncStore)

@@ -55,6 +55,19 @@ struct ModerationControllerTests {
         #expect(recorder.sent.allSatisfy { $0.1 == .refreshInBackground })
     }
 
+    @Test("signing out empties the ledger on screen and keeps the account's ledger on disk")
+    func signOutEmptiesLedger() async throws {
+        let directory = Self.directory()
+        let moderation = Self.controller(directory, recorder: Recorder())
+        moderation.useAccount("chef_me")
+        try await moderation.block(Self.chef, from: nil)
+        moderation.useAccount(nil)
+        #expect(moderation.accountID == nil)
+        #expect(!moderation.ledger.isBlocked(chefID: "chef_sam"))
+        moderation.useAccount("chef_me")
+        #expect(moderation.ledger.isBlocked(chefID: "chef_sam"))
+    }
+
     @Test("refreshing blocks replaces the ledger's list, and with no account nothing is saved")
     func refreshAndSignedOut() async throws {
         let directory = Self.directory()
