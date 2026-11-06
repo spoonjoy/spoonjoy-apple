@@ -298,7 +298,7 @@ struct PlatformNavigationView: View {
                 guard route != .recipeEditor(id: nil) else {
                     return
                 }
-                compactTabs.apply(route)
+                updateShell { $0.followRoute() }
                 if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
                     liveSearchRequestMarker = nil
                 }
@@ -654,26 +654,16 @@ struct PlatformNavigationView: View {
     }
 
     private var compactGoBackAction: (() -> Void)? {
-        let tab = compactTabs.selectedTab
-        let path = compactTabs.path(for: tab)
-        guard let top = path.last, !navigation.route.isCookModeActive else {
+        // An editor leaves only through its Cancel or Save, which ask before dropping a draft (SpoonjoyShell.canGoBack).
+        guard currentShell.canGoBack else {
             return nil
         }
-        switch top {
-        case .recipeEditor, .recipeCoverControls:
-            // An editor leaves only through its Cancel or Save, which ask before dropping a draft.
-            return nil
-        default:
-            return { compactPath(for: tab).wrappedValue = Array(path.dropLast()) }
-        }
+        return { updateShell { $0.goBack() } }
     }
 
     /// The tab bar carries Cooking now on every page but the Kitchen's own, where the strip does the same job.
     private var showsCookingNowAccessory: Bool {
-        guard !(cookingNow?.entries.isEmpty ?? true) else {
-            return false
-        }
-        return compactTabs.selectedTab != .kitchen || !compactTabs.path(for: .kitchen).isEmpty
+        currentShell.showsCookingNowSwitcher(hasCooks: !(cookingNow?.entries.isEmpty ?? true))
     }
 
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
@@ -956,7 +946,8 @@ struct PlatformNavigationView: View {
             return
         }
 #endif
-        openRecipe(id)
+        isSearchFieldFocused = false
+        updateShell { $0.closeCook(id) }
     }
 
 #if os(iOS)
@@ -1054,7 +1045,10 @@ struct PlatformNavigationView: View {
                 let stillCooking = compactTabs.fullScreenRoute?.stateIdentifier == sheet.route.stateIdentifier
                 guard stillCooking || compactTabs.fullScreenRoute == nil else { return }
                 finishCookSheetClose()
-                if stillCooking { openRecipe(id) }
+                if stillCooking {
+                    isSearchFieldFocused = false
+                    updateShell { $0.closeCook(id) }
+                }
             }
         }
     }
@@ -1146,11 +1140,9 @@ struct PlatformNavigationView: View {
     }
 
     private func selectCompactTab(_ tab: CompactTab) {
-        let route = compactTabs.select(tab)
-        if route != navigation.route {
-            navigation.navigate(to: route, restoring: true)
-        }
-        if tab == .search, compactTabs.path(for: .search).isEmpty {
+        var runsSearch = false
+        updateShell { runsSearch = $0.select(tab) }
+        if runsSearch {
             Task {
                 await performSearch(search)
             }
@@ -1162,12 +1154,27 @@ struct PlatformNavigationView: View {
         Binding(
             get: { compactTabs.path(for: tab) },
             set: { path in
-                let route = compactTabs.setPath(path, for: tab)
-                if route != navigation.route {
-                    navigation.navigate(to: route, restoring: true)
-                }
+                updateShell { $0.setPath(path, for: tab) }
             }
         )
+    }
+
+    /// The route and the tab stacks as SpoonjoyShell, the model Ouro Reins drives too.
+    private var currentShell: SpoonjoyShell {
+        SpoonjoyShell(navigation: navigation, compactTabs: compactTabs)
+    }
+
+    /// Runs one SpoonjoyShell move and stores what changed. The tabs are stored first, so the route's onChange finds
+    /// them already following it.
+    private func updateShell(_ change: (inout SpoonjoyShell) -> Void) {
+        var shell = currentShell
+        change(&shell)
+        if shell.compactTabs != compactTabs {
+            compactTabs = shell.compactTabs
+        }
+        if shell.navigation != navigation {
+            navigation = shell.navigation
+        }
     }
 
     private func compactTabTitle(for tab: CompactTab) -> String {
@@ -1809,12 +1816,12 @@ struct PlatformNavigationView: View {
     }
 
     private func cookProgress(for recipe: Recipe) -> CookModeProgress {
-        contentState.cookProgress(for: recipe.id) ?? CookModeProgress.starting(recipe: recipe, startedAt: timestamp())
+        SpoonjoyShell.cookProgress(for: recipe, saved: contentState.cookProgress(for: recipe.id), startedAt: timestamp())
     }
 
     private func openRecipe(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
+        updateShell { $0.openRecipe(id) }
     }
 
     private func openRoute(_ route: AppRoute) {
@@ -1977,12 +1984,12 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         cookOpenRequestedAt = .now
 #endif
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
+        updateShell { $0.startCooking(id) }
     }
 
     private func openCookbook(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .cookbookDetail(id: id))
+        updateShell { $0.openCookbook(id) }
     }
 
     private var shoppingViewModel: ShoppingSurfaceViewModel {

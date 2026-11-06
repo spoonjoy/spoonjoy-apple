@@ -2118,8 +2118,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ourostack/ouro-ui-apple.git";
 			requirement = {
-				kind = exactVersion;
-				version = 0.2.1;
+				kind = revision;
+				revision = 3f448500423e9f05acf31c9f52902776b56b7c6e;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

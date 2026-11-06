@@ -303,15 +303,16 @@ end
 
 # OuroHX (ourostack/ouro-ui-apple) gives the apps and the widget their motion, haptics and cookbook colours. The
 # project pins the exact version Package.swift pins, so the app and `swift test` build against the same tokens.
-OURO_HX_URL = "https://github.com/ourostack/ouro-ui-apple.git"
-ouro_hx_pin = ROOT.join("Package.swift").read[/\.package\(url: "#{Regexp.escape(OURO_HX_URL)}", exact: "([0-9.]+)"\)/, 1]
-fail_check("Package.swift must pin #{OURO_HX_URL} with exact:") unless ouro_hx_pin
+require_relative "lib/ouro_ui_pin"
+OURO_HX_URL = OuroUIPin::URL
+ouro_hx_pin = OuroUIPin.requirement(ROOT.join("Package.swift").read)
+fail_check("Package.swift must pin #{OURO_HX_URL} exactly, with exact: \"<version>\" or revision: \"<40-hex commit>\"") unless ouro_hx_pin
 ouro_hx_references = project.root_object.package_references.select do |reference|
   reference.isa == "XCRemoteSwiftPackageReference" && reference.repositoryURL == OURO_HX_URL
 end
 fail_check("project must reference #{OURO_HX_URL} once") unless ouro_hx_references.length == 1
 ouro_hx_requirement = ouro_hx_references.first.requirement
-fail_check("project must pin #{OURO_HX_URL} at exactly #{ouro_hx_pin}, got #{ouro_hx_requirement.inspect}") unless ouro_hx_requirement == { "kind" => "exactVersion", "version" => ouro_hx_pin }
+fail_check("project must pin #{OURO_HX_URL} at exactly #{ouro_hx_pin.inspect}, got #{ouro_hx_requirement.inspect}") unless ouro_hx_requirement == ouro_hx_pin
 [ios_target, mac_target, widget_target].each do |target|
   assert_package_product(target, "OuroHX")
   dependency = target.package_product_dependencies.find { |candidate| candidate.product_name == "OuroHX" }

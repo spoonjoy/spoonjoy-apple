@@ -982,13 +982,13 @@ struct CookModeView: View {
 
     private func advance() {
         withAnimation(KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)) {
-            updateProgress(viewModel.progressAfterSelectingNext(updatedAt: timestamp()))
+            updateProgress(SpoonjoyShell.turnCookPage(viewModel, forward: true, updatedAt: timestamp()))
         }
     }
 
     private func previous() {
         withAnimation(KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)) {
-            updateProgress(viewModel.progressAfterSelectingPrevious(updatedAt: timestamp()))
+            updateProgress(SpoonjoyShell.turnCookPage(viewModel, forward: false, updatedAt: timestamp()))
         }
     }
 
@@ -1023,11 +1023,7 @@ struct CookModeView: View {
     }
 
     private func progressAfterTogglingIngredient(id: String, checked: Bool) {
-        guard let nextProgress = try? viewModel.progressAfterTogglingIngredient(
-            id: id,
-            checked: checked,
-            updatedAt: timestamp()
-        ) else {
+        guard let nextProgress = try? SpoonjoyShell.checkIngredient(viewModel, id: id, checked: checked, updatedAt: timestamp()) else {
             return
         }
 

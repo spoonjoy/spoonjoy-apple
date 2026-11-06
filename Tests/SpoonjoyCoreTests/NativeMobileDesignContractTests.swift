@@ -1518,7 +1518,7 @@ struct NativeMobileDesignContractTests {
             in: navigationPath,
             contains: [
                 "@State private var compactTabs: CompactTabNavigation",
-                "compactTabs.apply(route)",
+                "updateShell { $0.followRoute() }",
                 "CookSheetLayer(",
                 "compactFullScreenContent(for: cookSheet.route)",
                 "compactImmersiveRouteContent(for: route)",

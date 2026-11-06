@@ -196,23 +196,12 @@ final class CookModeSessionCenter {
             return
         }
         let recipe = registration.viewModel().recipe
-        let checked = Set(next.checkedIngredientIDs)
-        let previouslyChecked = Set(previous.checkedIngredientIDs)
-        let running = stepTimers.runningStepIDs(forRecipe: recipe.id)
-        let timers = recipe.steps.compactMap { step -> CookModeSystemTimerViewModel? in
-            guard CookAutoTimerPolicy.shouldAutoStart(
-                step: step,
-                checkedIngredientIDs: checked,
-                previouslyChecked: previouslyChecked,
-                runningStepIDs: running
-            ) else {
-                return nil
-            }
-            return CookModeViewModel(
-                recipe: recipe,
-                progress: (try? next.selectingStep(id: step.id, updatedAt: next.updatedAt)) ?? next
-            ).systemTimer
-        }
+        let timers = SpoonjoyShell.timersToAutoStart(
+            recipe: recipe,
+            from: previous,
+            to: next,
+            runningStepIDs: stepTimers.runningStepIDs(forRecipe: recipe.id)
+        )
         guard !timers.isEmpty else {
             return
         }
