@@ -849,6 +849,9 @@ struct RecipeDetailView: View {
         .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
         .accessibilityHint("Opens cook mode at this recipe's servings.")
         .accessibilityIdentifier("recipeDetail.cook")
+#if os(iOS)
+        .cookLaunchSource(recipeID: viewModel.id)
+#endif
     }
 
     /// Back, Share and More, as glass in the bar over the photo.

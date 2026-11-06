@@ -162,13 +162,266 @@ final class CookMotionUITests: XCTestCase {
         XCTAssertTrue(muddled.isEmpty, "Starting the timer drew two faces at once:\n" + muddled.joined(separator: "\n"))
     }
 
+    /// Cook mode grows out of its Cook button and shrinks back into it, one object, the same way in as out (W10 jank
+    /// audit, findings 2 and 3). It used to slide up as a sheet whose spring tail read as the step landing late, and
+    /// slide down onto a recipe page with no tab bar, which rose in only once the sheet had gone. Played 25 times slower,
+    /// so the screenshots see the whole move.
+    func testCookCoverRisesAndFallsWhole() throws {
+        // Slower than the other checks, so even a busy machine's screenshots catch each sweep several times over.
+        let slowMotion = Self.slowMotion > 1 ? 25 : 1.0
+        launch(slowMotion: slowMotion)
+        let cook = element("recipeDetail.cook")
+        openTheRecipe()
+        Thread.sleep(forTimeInterval: 3)
+        let openSeconds = 1.2 * slowMotion
+        let rising = sample(seconds: openSeconds) {
+            cook.tap()
+        }
+        let close = element("cook.close")
+        XCTAssertTrue(close.waitForExistence(timeout: 30), "Cook mode did not open.")
+        Thread.sleep(forTimeInterval: 2)
+        let falling = sample(seconds: openSeconds) {
+            close.tap()
+        }
+        // Filming, or at full speed, there are too few frames to judge.
+        if ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" || slowMotion == 1 {
+            return
+        }
+
+        // Rising: once the page fills the screen, the step stays where it is.
+        var settled: [(time: Double, y: Double)] = []
+        var risingLook: [(time: Double, look: [Double])] = []
+        for frame in rising {
+            let pixels = try MotionPixels(frame.screenshot, screen: app.frame)
+            risingLook.append((frame.time, Self.look(pixels)))
+            guard Self.pageFillsTop(pixels) else { continue }
+            let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame)
+            if let heading = lines.first(where: { $0.text.hasPrefix(Self.firstStepTextStart) }) {
+                settled.append((frame.time, heading.frame.minY))
+            }
+        }
+        if settled.count < 2 {
+            for frame in rising.prefix(30) {
+                attach(frame.screenshot, named: "rise-\(Int(frame.time * 1000))ms")
+            }
+        }
+        XCTAssertGreaterThanOrEqual(settled.count, 2, "Cook mode never filled the screen in \(rising.count) frames.")
+        let ys = settled.map(\.y)
+        let climb = (ys.max() ?? 0) - (ys.min() ?? 0)
+        XCTAssertLessThanOrEqual(
+            climb, 4,
+            "The step moved \(Int(climb)) pt after cook mode filled the screen: "
+                + settled.map { "\(Int($0.time * 1000)) ms y=\(Int($0.y))" }.joined(separator: ", ")
+        )
+
+        // Falling: one object handing over to the page and its tab bar. The tab bar never draws over cook mode while
+        // cook mode still fills the screen, it is back before cook mode has gone (no gap it fills late), and no frame
+        // shows neither.
+        var both = 0
+        var overlap: [String] = []
+        var neither: [String] = []
+        var readout: [String] = []
+        var fallingLook: [(time: Double, look: [Double])] = []
+        for frame in falling {
+            let pixels = try MotionPixels(frame.screenshot, screen: app.frame)
+            fallingLook.append((frame.time, Self.look(pixels)))
+            let fills = Self.pageFillsTop(pixels)
+            let lines = try MotionFrameText.read(frame.screenshot, screen: app.frame).map(\.text)
+            let cookShowing = lines.contains { $0.hasPrefix(Self.firstStepTextStart) || $0.hasPrefix("Lemon Pantry Pasta · Step") }
+            let tabsShowing = lines.contains("Cookbooks") && lines.contains("Shopping")
+            let stamp = "\(Int(frame.time * 1000)) ms"
+            if cookShowing, tabsShowing {
+                both += 1
+            }
+            if fills, cookShowing, tabsShowing {
+                overlap.append(stamp)
+            }
+            if !cookShowing, !tabsShowing {
+                neither.append(stamp)
+            }
+            readout.append("\(stamp) cook=\(cookShowing) fills=\(fills) tabs=\(tabsShowing)")
+        }
+        if both == 0 || !neither.isEmpty || !overlap.isEmpty {
+            for frame in falling.prefix(30) {
+                attach(frame.screenshot, named: "fall-\(Int(frame.time * 1000))ms")
+            }
+        }
+        let falls = readout.joined(separator: "\n")
+        XCTAssertGreaterThan(both, 0, "The tab bar only came back after cook mode had gone:\n" + falls)
+        XCTAssertTrue(overlap.isEmpty, "The tab bar drew over cook mode while it filled the screen:\n" + falls)
+        XCTAssertTrue(neither.isEmpty, "Frames with neither cook mode nor the tab bar:\n" + falls)
+
+        // Symmetry: closing takes as long as opening, timed from the first frame that differs from where the move
+        // began to the last frame that differs from where it ended. It is one spring each way, so the two match.
+        let open = try XCTUnwrap(Self.movingSeconds(risingLook), "Opening never moved.")
+        let shut = try XCTUnwrap(Self.movingSeconds(fallingLook), "Closing never moved.")
+        XCTAssertLessThan(
+            max(open, shut) / max(min(open, shut), 0.001), 1.5,
+            String(format: "Opening moved for %.2f s and closing for %.2f s.", open, shut)
+        )
+    }
+
+    /// The screen's brightness on a coarse grid, to tell whether two frames look alike.
+    @MainActor static func look(_ pixels: MotionPixels) -> [Double] {
+        var values: [Double] = []
+        let width = Double(pixels.width) / pixels.scale, height = Double(pixels.height) / pixels.scale
+        for y in stride(from: 8.0, to: height, by: 16.0) {
+            for x in stride(from: 8.0, to: width, by: 16.0) {
+                let (red, green, blue) = pixels.rgb(x: Int(x * pixels.scale), y: Int(y * pixels.scale))
+                values.append((0.3 * Double(red) + 0.59 * Double(green) + 0.11 * Double(blue)) / 255)
+            }
+        }
+        return values
+    }
+
+    /// Seconds from the first frame that differs from the first to the last frame that differs from the last.
+    static func movingSeconds(_ curve: [(time: Double, look: [Double])]) -> Double? {
+        guard let first = curve.first?.look, let last = curve.last?.look else { return nil }
+        func differs(_ a: [Double], _ b: [Double]) -> Bool {
+            zip(a, b).map { abs($0 - $1) }.reduce(0, +) / Double(max(a.count, 1)) > 0.01
+        }
+        guard let start = curve.first(where: { differs($0.look, first) })?.time,
+              let end = curve.last(where: { differs($0.look, last) })?.time else {
+            return nil
+        }
+        return end - start
+    }
+
+    /// Opens the fixture recipe from wherever the app reopened: cook mode left open, the recipe, the Kitchen, or
+    /// another page another check left it on.
+    private func openTheRecipe() {
+        let kitchen = element("kitchen.root"), cooking = element("cook.page"), cook = element("recipeDetail.cook")
+        let tabBar = app.tabBars.firstMatch
+        let opened = Date()
+        while !kitchen.exists, !cooking.exists, !cook.exists, !tabBar.exists, Date().timeIntervalSince(opened) < 60 {
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        // A cook session is restored a moment after the shell shows; give it that moment before going elsewhere.
+        _ = cooking.waitForExistence(timeout: 3)
+        if cooking.exists {
+            // Left open by an earlier run; it answers once it has settled.
+            XCTAssertTrue(element("cook.close").waitForHittable(timeout: 60), "Cook mode never settled.")
+            element("cook.close").tap()
+        } else if !cook.exists {
+            if !kitchen.exists {
+                // Another page: the Kitchen tab, tapped twice, pops its stack back to the Kitchen.
+                let kitchenTab = tabBar.buttons["Kitchen"]
+                kitchenTab.tap()
+                kitchenTab.tap()
+            }
+            XCTAssertTrue(element("kitchen.recipe.open").waitForExistence(timeout: 30), "The Kitchen has no recipe to open.")
+            element("kitchen.recipe.open").tap()
+        }
+        XCTAssertTrue(cook.waitForExistence(timeout: 60), "The recipe did not open.")
+    }
+
+    /// Cook mode follows a finger and turns around mid-flight, like Music's player: a short pull down from the top
+    /// shrinks it under the finger and springs back, a long one closes it, and closing while it is still opening
+    /// reverses it from wherever it is rather than finishing the open first. Played at the Kitchen springs' slowed speed.
+    func testCookCoverFollowsAFingerAndTurnsMidFlight() throws {
+        let slowMotion = Self.slowMotion
+        launch(slowMotion: slowMotion)
+        let cook = element("recipeDetail.cook")
+        openTheRecipe()
+        Thread.sleep(forTimeInterval: 3)
+        // Filming, or at full speed, there are too few frames to judge, so only where it ends up is checked.
+        let filmOnly = ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" || slowMotion == 1
+        let screen = app.frame
+        let point = { (x: Double, y: Double) in
+            self.app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+        }
+
+        // Turn around: catch it a third of the way into opening and flick it down. It never fills the screen, and
+        // lands back on the recipe.
+        // The card's bottom edge runs down from the button's as it opens, so a spot a little below the button is on
+        // the card from early in the open until it lands. It is worked out before the tap: asking where an element is
+        // while the app animates can wait for it to settle, which would land the grab after the open has finished.
+        // At full speed the open is over before a synthesized press can land, so there it is caught by its top instead.
+        let close = element("cook.close")
+        let grabY = slowMotion == 1 ? 90 : cook.frame.maxY + 40
+        // XCUITest sends a press only once the app looks idle, and now and then that wait outlasts the whole open, so
+        // the press lands low on a card that has already landed, where it rightly belongs to the page. Cook mode is
+        // then still open; that try caught nothing, so it is closed and tried again.
+        var turning: [Frame] = []
+        var caught = false
+        for _ in 1...3 where !caught {
+            turning = sample(seconds: 1.6 * slowMotion) {
+                cook.tap()
+                Thread.sleep(forTimeInterval: 0.12 * slowMotion)
+                point(screen.midX, grabY).press(
+                    forDuration: 0.05,
+                    thenDragTo: point(screen.midX, grabY + screen.height * 0.3),
+                    withVelocity: 2000,
+                    thenHoldForDuration: 0
+                )
+            }
+            caught = cook.waitForExistence(timeout: 20)
+            if !caught, close.waitForHittable(timeout: 10) {
+                close.tap()
+                XCTAssertTrue(cook.waitForExistence(timeout: 60), "Cook mode did not close.")
+                Thread.sleep(forTimeInterval: 2)
+            }
+        }
+        XCTAssertTrue(caught, "Cook mode was never caught mid-flight in three tries.")
+        Thread.sleep(forTimeInterval: 2)
+        XCTAssertFalse(close.isHittable, "Cook mode finished opening after it was caught mid-flight.")
+        if !filmOnly {
+            let filled = try turning.filter { try Self.pageFillsTop(MotionPixels($0.screenshot, screen: screen)) }
+            XCTAssertTrue(filled.isEmpty, "Cook mode filled the screen at \(filled.map { Int($0.time * 1000) }) ms after it was caught mid-flight.")
+        }
+
+        // Follow the finger: a short pull shrinks it under the finger with the recipe and tab bar showing, and it
+        // springs back open on release.
+        cook.tap()
+        XCTAssertTrue(close.waitForHittable(timeout: 60), "Cook mode did not open.")
+        Thread.sleep(forTimeInterval: 1.2 * slowMotion)
+        let top = point(screen.midX, 90)
+        let shortPull = point(screen.midX, 90 + screen.height * 0.3)
+        let held = sample(seconds: 0.6 * slowMotion) {
+            top.press(forDuration: 0.2, thenDragTo: shortPull, withVelocity: 300, thenHoldForDuration: 0.4 * slowMotion)
+        }
+        XCTAssertTrue(close.waitForHittable(timeout: 60), "Cook mode closed after a short pull; it should spring back.")
+        if !filmOnly {
+            let shrunk = try held.filter { frame in
+                let pixels = try MotionPixels(frame.screenshot, screen: screen)
+                let lines = try MotionFrameText.read(frame.screenshot, screen: screen).map(\.text)
+                return !Self.pageFillsTop(pixels) && lines.contains("Shopping")
+                    && lines.contains { $0.hasPrefix(Self.firstStepTextStart) || $0.hasPrefix("Lemon Pantry Pasta · Step") }
+            }
+            XCTAssertFalse(shrunk.isEmpty, "Cook mode did not shrink under the finger in \(held.count) frames.")
+        }
+
+        // A long pull closes it.
+        let longPull = point(screen.midX, 90 + screen.height * 0.65)
+        top.press(forDuration: 0.2, thenDragTo: longPull, withVelocity: 1200, thenHoldForDuration: 0)
+        XCTAssertTrue(cook.waitForExistence(timeout: 30), "A long pull did not close cook mode.")
+        Thread.sleep(forTimeInterval: 1.6 * slowMotion)
+        XCTAssertFalse(close.isHittable, "Cook mode stayed open after a long pull.")
+    }
+
+    /// The first step's text in the fixture recipe.
+    static let firstStepTextStart = "Boil the pasta"
+
+    /// Whether the cook page reaches the very top of the screen: page colour beside the status bar, where the recipe
+    /// photo shows until the cover has fully arrived.
+    @MainActor static func pageFillsTop(_ pixels: MotionPixels) -> Bool {
+        let y = Int(3 * pixels.scale)
+        for point in stride(from: 6.0, through: 30.0, by: 4.0) {
+            for x in [Int(point * pixels.scale), pixels.width - 1 - Int(point * pixels.scale)] {
+                let (red, green, blue) = pixels.rgb(x: x, y: y)
+                guard red > 235, green > 230, blue > 210, red - blue < 35 else { return false }
+            }
+        }
+        return true
+    }
+
     // MARK: Driving
 
     private func element(_ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }
 
-    private func launch(arguments: [String] = []) {
+    private func launch(arguments: [String] = [], slowMotion: Double = CookMotionUITests.slowMotion) {
         app = XCUIApplication()
         let environment = ProcessInfo.processInfo.environment
         for key in ["SPOONJOY_SCREENSHOT_AUTH", "SPOONJOY_SCREENSHOT_RESTORE_CACHE_ONLY", "SPOONJOY_SCREENSHOT_ACCOUNT_ID"] {
@@ -177,26 +430,16 @@ final class CookMotionUITests: XCTestCase {
             }
         }
         app.launchEnvironment["SPOONJOY_JOURNEY_ALARM_FIXTURE"] = "1"
-        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-SpoonjoySlowMotion", "\(Self.slowMotion)"]
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US", "-SpoonjoySlowMotion", "\(slowMotion)"]
         app.launchArguments += arguments
         app.launch()
     }
 
     private func openCookMode() {
         launch()
-        let kitchen = element("kitchen.root"), cooking = element("cook.page"), recipe = element("recipeDetail.cook")
-        let opened = Date()
-        while !kitchen.exists, !cooking.exists, !recipe.exists, Date().timeIntervalSince(opened) < 60 {
-            Thread.sleep(forTimeInterval: 0.5)
-        }
-        if cooking.exists {
-            // A cook session from an earlier run restores into cook mode; close it so the run starts on step 1.
-            element("cook.close").tap()
-        } else if !recipe.exists {
-            XCTAssertTrue(kitchen.exists, "The fixture kitchen did not open.")
-            element("kitchen.recipe.open").tap()
-        }
-        XCTAssertTrue(recipe.waitForExistence(timeout: 60), "The recipe did not open.")
+        // A cook session from an earlier run restores into cook mode; this closes it so the run starts on step 1.
+        openTheRecipe()
+        let recipe = element("recipeDetail.cook")
         recipe.tap()
         XCTAssertTrue(element("cook.page").waitForExistence(timeout: 60), "Cook mode did not open.")
         // A timer an earlier run left going would leave nothing to start.
@@ -215,6 +458,12 @@ final class CookMotionUITests: XCTestCase {
 
     /// Screenshots on a background thread, as fast as XCTest returns them, while `action` runs and until `seconds` pass.
     private func sample(seconds: Double, action: () -> Void) -> [Frame] {
+        // SPOONJOY_MOTION_FILM_ONLY=1: take no screenshots, which starve the simulator's own recorder of frames.
+        if ProcessInfo.processInfo.environment["SPOONJOY_MOTION_FILM_ONLY"] == "1" {
+            action()
+            Thread.sleep(forTimeInterval: seconds)
+            return []
+        }
         let capture = MotionCapture(seconds: seconds)
         capture.start()
         action()
@@ -396,5 +645,19 @@ enum MotionFrameArc {
             }
         }
         return track == 0 ? 0 : Double(brass) / Double(track)
+    }
+}
+
+extension XCUIElement {
+    /// Waits until the element can be tapped.
+    func waitForHittable(timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if exists, isHittable {
+                return true
+            }
+            Thread.sleep(forTimeInterval: 0.5)
+        }
+        return false
     }
 }
