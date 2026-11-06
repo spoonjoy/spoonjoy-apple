@@ -600,6 +600,12 @@ struct RecipeCatalogDetailTests {
         }
 
         let navigation = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift"))
+        // Everyone's live catalog falls back to the one this device saw; the shell builds it through Core.
+        expectContent(
+            uncommentedSwift(try readRepoFile("Sources/SpoonjoyCore/Features/RecipeCatalog/ShellRecipeCatalogs.swift")),
+            in: "Sources/SpoonjoyCore/Features/RecipeCatalog/ShellRecipeCatalogs.swift",
+            contains: ["FallbackRecipeCatalogRepository(primary: live, fallback: snapshotRepository)"]
+        )
         let recipesView = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipesView.swift"))
         let detailView = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/RecipeDetailView.swift"))
         let cookModeView = uncommentedSwift(try readRepoFile("Apps/Spoonjoy/Shared/Views/CookModeView.swift"))
@@ -612,7 +618,7 @@ struct RecipeCatalogDetailTests {
                 "RecipeDetailScreenViewModel",
                 "RecipeCatalogRepository",
                 "LiveRecipeCatalogRepository",
-                "FallbackRecipeCatalogRepository",
+                "everyoneRecipeCatalogRepository(live:",
                 "RecipeDetailRouteView",
                 "CookModeRouteView",
                 "contentState.recipeCatalog"

@@ -66,6 +66,17 @@ public final class SpoonjoyReinsShell {
 
 /// What the views keep in `@State`, for the screens Reins models.
 public struct SpoonjoyReinsPageState {
+    /// The recipe editors open, by visit, and what each shows over its draft (Nodes/EditorNode.swift).
+    public internal(set) var editors = SpoonjoyReinsEditorPages()
+    /// Each Recipes list as it last loaded, by route (Nodes/RecipesNode.swift).
+    public internal(set) var recipeCatalogs: [String: RecipeCatalogState] = [:]
+    /// The Search tab's last run (Nodes/SearchNode.swift).
+    public internal(set) var search: SearchSurfaceViewModel?
+    /// The recipe page's scale and checks, by recipe, and whether its Serves stepper is open (Nodes/RecipeNode.swift).
+    public internal(set) var recipePages = SpoonjoyReinsRecipePages()
+    /// The link typed into Add a recipe (Nodes/AddRecipeNode.swift).
+    public internal(set) var addRecipeLink = ""
+
     public init() {}
 }
 
@@ -127,7 +138,7 @@ extension SpoonjoyReinsShell: ReinsDrivable {
 
     func sheetNode(_ sheet: SpoonjoyReinsSheet) -> ReinsNode {
         switch sheet {
-        case .addRecipe: unmodelled("addRecipe")
+        case .addRecipe: addRecipeNode
         }
     }
 

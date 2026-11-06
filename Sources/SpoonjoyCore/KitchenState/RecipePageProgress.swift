@@ -153,3 +153,19 @@ public struct RecipePageChecks: Equatable, Sendable {
         )
     }
 }
+
+extension RecipePageProgressStore {
+    /// The checks saved for the recipe, keeping only those on ingredients and dependencies it still has. A recipe with
+    /// nothing saved starts fresh.
+    public func checks(for recipe: RecipeDetailScreenViewModel) -> RecipePageChecks {
+        RecipePageChecks(
+            restoring: snapshot(recipeID: recipe.id),
+            validIngredientIDs: Set(recipe.stepSections.flatMap { $0.ingredients.map(\.id) }),
+            validDependencyIDs: Set(recipe.stepSections.flatMap { $0.dependencies.map(\.id) })
+        )
+    }
+
+    public func save(_ checks: RecipePageChecks, recipeID: String, updatedAt: String) {
+        save(checks.snapshot(updatedAt: updatedAt), recipeID: recipeID)
+    }
+}

@@ -203,4 +203,17 @@ struct SpoonjoyShellTests {
         )
         #expect(SpoonjoyShell.timersToAutoStart(recipe: untimed, from: untimedStart, to: all, runningStepIDs: []).isEmpty, "a step with no duration has no timer")
     }
+
+    @Test("progress saved before the recipe changed still auto-starts from the progress it has")
+    func autoTimersFromStaleProgress() throws {
+        let recipe = Self.recipe()
+        func stale(_ checked: [String]) throws -> CookModeProgress {
+            var json = try #require(try JSONSerialization.jsonObject(with: JSONEncoder().encode(CookModeProgress.starting(recipe: recipe, startedAt: Self.stamp))) as? [String: Any])
+            json["stepIDs"] = ["step_2"]
+            json["checkedIngredientIDs"] = checked
+            return try JSONDecoder().decode(CookModeProgress.self, from: JSONSerialization.data(withJSONObject: json))
+        }
+        let timers = SpoonjoyShell.timersToAutoStart(recipe: recipe, from: try stale([]), to: try stale(["lemon", "salt"]), runningStepIDs: [])
+        #expect(timers.count <= 1, "a step the saved progress doesn't know never starts two timers")
+    }
 }

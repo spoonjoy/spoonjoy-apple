@@ -31,16 +31,11 @@ struct HeldChangeBanner: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(
-                editConflict == nil ? "A change to this recipe was not saved" : "This recipe changed somewhere else",
-                systemImage: "exclamationmark.triangle"
-            )
+            Label(NativeRecipeEditConflict.heldChangeTitle(editConflict), systemImage: "exclamationmark.triangle")
             .font(KitchenTableTheme.uiLabel)
             .foregroundStyle(KitchenTableTheme.tomato)
             .accessibilityIdentifier("recipe.heldChange.title")
-            // A conflict's heading already says the recipe changed somewhere else, so the body only asks for
-            // the choice instead of repeating it.
-            Text(editConflict == nil ? message : NativeRecipeEditConflict.choicePrompt)
+            Text(NativeRecipeEditConflict.heldChangeMessage(editConflict, serverMessage: message))
                 .font(KitchenTableTheme.bodyNote)
                 .accessibilityIdentifier("recipe.heldChange.message")
             if let editConflict {

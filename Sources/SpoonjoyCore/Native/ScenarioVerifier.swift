@@ -388,7 +388,7 @@ public enum ScenarioVerifier {
                     detail: "Platform navigation routes kitchen, live/fallback recipe catalog, async recipe detail, async cook mode, shopping, and cookbooks.",
                     rootURL: rootURL,
                     relativePath: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
-                    tokens: ["KitchenView(", "RecipesView(", "RecipeDetailRouteView(", "CookModeRouteView(", "LiveRecipeCatalogRepository", "FallbackRecipeCatalogRepository", "ShoppingListView(", "CookbooksView("]
+                    tokens: ["KitchenView(", "RecipesView(", "RecipeDetailRouteView(", "CookModeRouteView(", "LiveRecipeCatalogRepository", "everyoneRecipeCatalogRepository(live:", "ShoppingListView(", "CookbooksView("]
                 ),
                 sourceCheck(
                     name: "profile surface source",

@@ -45,7 +45,7 @@ struct ReinsHarnessTests {
             let (session, shell) = try await freshSession()
             let back = await session.perform("goBack")
             #expect(back.error?.code == "action-unavailable")
-            #expect(back.error?.fix == "use one of: openRecipe, startCooking, selectTab")
+            #expect(back.error?.fix == "use one of: openRecipe, startCooking, addRecipe, openImports, selectTab")
             let stranger = await session.perform("openRecipe", input: ["id": "recipe_nope"])
             #expect(stranger.error?.code == "input-invalid", "only recipes in the kitchen can be opened")
             _ = await session.perform("startCooking", input: ["id": .string(Self.pasta)])

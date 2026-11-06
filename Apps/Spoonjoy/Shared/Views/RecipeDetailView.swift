@@ -1364,20 +1364,10 @@ struct RecipeDetailView: View {
     }
 
     private func loadRecipeProgress() {
-        let validIngredientIDs = Set(viewModel.stepSections.flatMap { section in
-            section.ingredients.map(\.id)
-        })
-        let validDependencyIDs = Set(viewModel.stepSections.flatMap { section in
-            section.dependencies.map(\.id)
-        })
-        let restored = RecipePageChecks(
-            restoring: RecipePageProgressStore().snapshot(recipeID: viewModel.id),
-            validIngredientIDs: validIngredientIDs,
-            validDependencyIDs: validDependencyIDs
-        )
-        shoppingScaleFactor = restored.scaleFactor
-        checkedRecipeIngredientIDs = restored.checkedIngredientIDs
-        checkedRecipeStepDependencyIDs = restored.checkedStepDependencyIDs
+        let progress = RecipePageProgressStore().checks(for: viewModel)
+        shoppingScaleFactor = progress.scaleFactor
+        checkedRecipeIngredientIDs = progress.checkedIngredientIDs
+        checkedRecipeStepDependencyIDs = progress.checkedStepDependencyIDs
     }
 
     private func persistRecipeProgress() {
@@ -1394,9 +1384,13 @@ struct RecipeDetailView: View {
         checkedStepDependencyIDs: Set<String>
     ) {
         RecipePageProgressStore().save(
-            RecipePageChecks(scaleFactor: scaleFactor, checkedIngredientIDs: checkedIngredientIDs, checkedStepDependencyIDs: checkedStepDependencyIDs)
-                .snapshot(updatedAt: timestamp()),
-            recipeID: viewModel.id
+            RecipePageChecks(
+                scaleFactor: scaleFactor,
+                checkedIngredientIDs: checkedIngredientIDs,
+                checkedStepDependencyIDs: checkedStepDependencyIDs
+            ),
+            recipeID: viewModel.id,
+            updatedAt: timestamp()
         )
     }
 
@@ -1951,13 +1945,11 @@ private struct RecipeServesPopover: View {
 
     // At the ends of the range the stepper's button does nothing; the label already shows the limit.
     private func increment() {
-        guard serves.canIncrement(scaleFactor) else { return }
-        scaleFactor = serves.incremented(scaleFactor)
+        scaleFactor = serves.steppedUp(scaleFactor)
     }
 
     private func decrement() {
-        guard serves.canDecrement(scaleFactor) else { return }
-        scaleFactor = serves.decremented(scaleFactor)
+        scaleFactor = serves.steppedDown(scaleFactor)
     }
 }
 

@@ -6544,7 +6544,7 @@ struct NativeLiveStoreTests {
             in: "Apps/Spoonjoy/Shared/Views/RecipeEditorView.swift",
             contains: [
                 "mutationsDidQueue: @escaping @MainActor @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult",
-                "let batchResult = try await mutationsDidQueue(mutations, editor.connectivity == .online)",
+                "let batchResult = try await mutationsDidQueue(mutations, drainImmediately)",
                 "submittedBatchNeedsAttention(batchResult, mutations: mutations)",
                 "Button(conflictBanner.discardActionTitle)",
                 "conflictDidDiscardLocalChange"
@@ -6560,8 +6560,18 @@ struct NativeLiveStoreTests {
             in: "Apps/Spoonjoy/Shared/AppShell/PlatformNavigationView.swift",
             contains: [
                 "queueMutations: @escaping @Sendable ([NativeQueuedMutation], Bool) async throws -> NativeQueuedMutationBatchResult",
-                "mutation.optimisticRecipeID == recipeID",
+                "contentState.recipeEditorConflict(for: recipeID)",
                 "conflictDidDiscardLocalChange: discardRecipeEditorLocalChange"
+            ]
+        )
+        // A save drains at once only when the editor is online, and a recipe's held change is the conflict whose
+        // queued mutation edits it; both rules are Core's, which the editor and the shell call.
+        expectContent(
+            uncommentedSwift(try readRepoFile("Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorSession.swift")),
+            in: "Sources/SpoonjoyCore/Features/RecipeEditor/RecipeEditorSession.swift",
+            contains: [
+                "drainImmediately: connectivity == .online",
+                "mutation.optimisticRecipeID == recipeID"
             ]
         )
         expectContent(
