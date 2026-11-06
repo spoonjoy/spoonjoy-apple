@@ -145,15 +145,12 @@ struct RecipeDetailRouteView: View {
             let detailResult = await detailResultByLoadingFullSpoonList(result)
             routeState = .loaded(RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe)))
             errorMessage = nil
-        } catch RecipeCatalogRepositoryError.recipeNotFound {
-            if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't find this recipe."
-                routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
-            }
         } catch {
+            // `RecipePageFailure` (SpoonjoyCore) names the failure, as Ouro Reins' not-found page does.
             if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't load this recipe."
-                routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
+                let failure = RecipePageFailure.message(for: error)
+                errorMessage = failure.message
+                routeState = failure.isMissing ? .missing(message: failure.message) : .failed(message: failure.message)
             }
         }
     }
@@ -269,13 +266,8 @@ struct RecipeDetailView: View {
 
     var body: some View {
         Group {
-            if isHiddenByModeration {
-                ModerationHiddenView(
-                    message: moderation.ledger.isBlocked(chefID: viewModel.recipe.chef.id)
-                        ? "You blocked @\(viewModel.recipe.chef.username), so their recipes are hidden."
-                        : "You reported this recipe, so it's hidden for you.",
-                    unblockChef: moderation.ledger.blockedChefs.first { $0.id == viewModel.recipe.chef.id }
-                )
+            if let hidden = moderationHiddenNotice {
+                ModerationHiddenView(message: hidden.message, unblockChef: hidden.unblockChef)
             } else {
                 recipeLayout
                     .toolbar { recipeToolbar }
@@ -912,12 +904,11 @@ struct RecipeDetailView: View {
 
     /// Report and block appear on other chefs' recipes once someone is signed in (App Review guideline 1.2).
     private var canModerate: Bool {
-        guard let accountID = moderation.accountID else { return false }
-        return !viewModel.ownerTools.isVisible && viewModel.recipe.chef.id != accountID
+        moderation.canModerate(chefID: viewModel.recipe.chef.id, isOwner: viewModel.ownerTools.isVisible)
     }
 
-    private var isHiddenByModeration: Bool {
-        moderation.ledger.hidesRecipe(id: viewModel.recipe.id, chefID: viewModel.recipe.chef.id)
+    private var moderationHiddenNotice: ModerationHiddenNotice? {
+        moderation.ledger.hiddenNotice(recipeID: viewModel.recipe.id, chefID: viewModel.recipe.chef.id, chefUsername: viewModel.recipe.chef.username)
     }
 
     @ViewBuilder private var remindersMenuItems: some View {
@@ -1331,24 +1322,25 @@ struct RecipeDetailView: View {
     /// A checked ingredient moves to the bottom of its step with the web's spring, or at once with Reduce Motion.
     private func toggleIngredient(id: String) {
         withAnimation(KitchenTableTheme.Checklist.reorder(reduceMotion: accessibilityReduceMotion)) {
-            if checkedRecipeIngredientIDs.contains(id) {
-                checkedRecipeIngredientIDs.remove(id)
-            } else {
-                checkedRecipeIngredientIDs.insert(id)
-            }
+            var checks = recipePageChecks
+            checks.toggleIngredient(id)
+            checkedRecipeIngredientIDs = checks.checkedIngredientIDs
         }
     }
 
     private func toggleDependency(id: String) {
-        if checkedRecipeStepDependencyIDs.contains(id) {
-            checkedRecipeStepDependencyIDs.remove(id)
-        } else {
-            checkedRecipeStepDependencyIDs.insert(id)
-        }
+        var checks = recipePageChecks
+        checks.toggleDependency(id)
+        checkedRecipeStepDependencyIDs = checks.checkedStepDependencyIDs
+    }
+
+    /// The page's checks and scale as Core reads them (`RecipePageChecks`), so Reins and the page share one rule.
+    private var recipePageChecks: RecipePageChecks {
+        RecipePageChecks(scaleFactor: shoppingScaleFactor, checkedIngredientIDs: checkedRecipeIngredientIDs, checkedStepDependencyIDs: checkedRecipeStepDependencyIDs)
     }
 
     private var hasRecipeProgress: Bool {
-        shoppingScaleFactor != 1 || !checkedRecipeIngredientIDs.isEmpty || !checkedRecipeStepDependencyIDs.isEmpty
+        recipePageChecks.hasProgress
     }
 
     private func clearRecipeProgress() {
@@ -1363,22 +1355,10 @@ struct RecipeDetailView: View {
     }
 
     private func loadRecipeProgress() {
-        let validIngredientIDs = Set(viewModel.stepSections.flatMap { section in
-            section.ingredients.map(\.id)
-        })
-        let validDependencyIDs = Set(viewModel.stepSections.flatMap { section in
-            section.dependencies.map(\.id)
-        })
-        guard let snapshot = RecipePageProgressStore().snapshot(recipeID: viewModel.id) else {
-            shoppingScaleFactor = 1
-            checkedRecipeIngredientIDs = []
-            checkedRecipeStepDependencyIDs = []
-            return
-        }
-
-        shoppingScaleFactor = snapshot.scaleFactor
-        checkedRecipeIngredientIDs = Set(snapshot.checkedIngredientIDs).intersection(validIngredientIDs)
-        checkedRecipeStepDependencyIDs = Set(snapshot.checkedStepDependencyIDs).intersection(validDependencyIDs)
+        let progress = RecipePageProgressStore().checks(for: viewModel)
+        shoppingScaleFactor = progress.scaleFactor
+        checkedRecipeIngredientIDs = progress.checkedIngredientIDs
+        checkedRecipeStepDependencyIDs = progress.checkedStepDependencyIDs
     }
 
     private func persistRecipeProgress() {
@@ -1395,13 +1375,13 @@ struct RecipeDetailView: View {
         checkedStepDependencyIDs: Set<String>
     ) {
         RecipePageProgressStore().save(
-            RecipePageProgressSnapshot(
+            RecipePageChecks(
                 scaleFactor: scaleFactor,
-                checkedIngredientIDs: Array(checkedIngredientIDs).sorted(),
-                checkedStepDependencyIDs: Array(checkedStepDependencyIDs).sorted(),
-                updatedAt: timestamp()
+                checkedIngredientIDs: checkedIngredientIDs,
+                checkedStepDependencyIDs: checkedStepDependencyIDs
             ),
-            recipeID: viewModel.id
+            recipeID: viewModel.id,
+            updatedAt: timestamp()
         )
     }
 
@@ -1956,13 +1936,11 @@ private struct RecipeServesPopover: View {
 
     // At the ends of the range the stepper's button does nothing; the label already shows the limit.
     private func increment() {
-        guard serves.canIncrement(scaleFactor) else { return }
-        scaleFactor = serves.incremented(scaleFactor)
+        scaleFactor = serves.steppedUp(scaleFactor)
     }
 
     private func decrement() {
-        guard serves.canDecrement(scaleFactor) else { return }
-        scaleFactor = serves.decremented(scaleFactor)
+        scaleFactor = serves.steppedDown(scaleFactor)
     }
 }
 

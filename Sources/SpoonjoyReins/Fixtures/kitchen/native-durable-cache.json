@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "accountID": "chef_kitchen_capture",
+  "environment": "production",
+  "createdAt": 803304540.0,
+  "records": [
+    {
+      "id": "recipe-catalog",
+      "metadata": {
+        "accountID": "chef_kitchen_capture",
+        "environment": "production",
+        "schemaVersion": 2,
+        "domain": {
+          "recipeCatalog": {
+          }
+        },
+        "fetchedAt": 803304540.0,
+        "lastValidatedAt": 803304540.0,
+        "sourceEndpoint": "/api/v1/recipes",
+        "serverRevision": {
+          "cursor": {
+            "_0": "screenshot-kitchen"
+          }
+        }
+      },
+      "payload": {
+        "recipeCatalog": {
+          "recipeIDs": [
+            "recipe_lemon_pantry_pasta"
+          ]
+        }
+      }
+    },
+    {
+      "id": "recipe-detail:recipe_lemon_pantry_pasta",
+      "metadata": {
+        "accountID": "chef_kitchen_capture",
+        "environment": "production",
+        "schemaVersion": 2,
+        "domain": {
+          "recipeDetail": {
+            "id": "recipe_lemon_pantry_pasta"
+          }
+        },
+        "fetchedAt": 803304540.0,
+        "lastValidatedAt": 803304540.0,
+        "sourceEndpoint": "/api/v1/recipes/recipe_lemon_pantry_pasta",
+        "serverRevision": {
+          "etag": {
+            "_0": "\"recipe-screenshot-v1\""
+          }
+        }
+      },
+      "payload": {
+        "recipeDetail": {
+          "id": "recipe_lemon_pantry_pasta",
+          "title": "Lemon Pantry Pasta"
+        }
+      }
+    },
+    {
+      "id": "cookbook-list",
+      "metadata": {
+        "accountID": "chef_kitchen_capture",
+        "environment": "production",
+        "schemaVersion": 2,
+        "domain": {
+          "cookbookList": {
+          }
+        },
+        "fetchedAt": 803304540.0,
+        "lastValidatedAt": 803304540.0,
+        "sourceEndpoint": "/api/v1/cookbooks",
+        "serverRevision": {
+          "cursor": {
+            "_0": "screenshot-cookbooks"
+          }
+        }
+      },
+      "payload": {
+        "cookbookList": {
+          "cookbookIDs": [
+            "cookbook_weeknights"
+          ]
+        }
+      }
+    },
+    {
+      "id": "cookbook-detail:cookbook_weeknights",
+      "metadata": {
+        "accountID": "chef_kitchen_capture",
+        "environment": "production",
+        "schemaVersion": 2,
+        "domain": {
+          "cookbookDetail": {
+            "id": "cookbook_weeknights"
+          }
+        },
+        "fetchedAt": 803304540.0,
+        "lastValidatedAt": 803304540.0,
+        "sourceEndpoint": "/api/v1/cookbooks/cookbook_weeknights",
+        "serverRevision": {
+          "etag": {
+            "_0": "\"cookbook-screenshot-v1\""
+          }
+        }
+      },
+      "payload": {
+        "cookbookDetail": {
+          "id": "cookbook_weeknights",
+          "title": "Weeknights"
+        }
+      }
+    }
+  ],
+  "dismissedIndicators": [
+
+  ],
+  "pendingMutationQueue": {
+    "mutations": [
+
+    ]
+  }
+}

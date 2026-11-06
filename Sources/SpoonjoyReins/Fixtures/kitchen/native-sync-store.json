@@ -1,0 +1,340 @@
+{
+  "accountID": "chef_kitchen_capture",
+  "cachedRecords": [
+    {
+      "kind": "recipe",
+      "payload": {
+        "attribution": {
+          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+          "creditText": "Lemon Pantry Pasta by ari on Spoonjoy",
+          "sourceHost": "example.com",
+          "sourceRecipe": null,
+          "sourceUrl": "https://example.com/lemon-pantry-pasta"
+        },
+        "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+        "chef": {
+          "id": "chef_ari",
+          "username": "ari"
+        },
+        "cookbooks": [
+          {
+            "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+            "href": "/cookbooks/cookbook_weeknights",
+            "id": "cookbook_weeknights",
+            "title": "Weeknights"
+          }
+        ],
+        "coverImageUrl": null,
+        "coverProvenanceLabel": null,
+        "coverSourceType": "chef-upload",
+        "coverVariant": "image",
+        "createdAt": "2026-06-01T00:00:00.000Z",
+        "description": "Bright pantry pasta with lemon, garlic, and parmesan.",
+        "href": "/recipes/recipe_lemon_pantry_pasta",
+        "id": "recipe_lemon_pantry_pasta",
+        "servings": "4",
+        "steps": [
+          {
+            "description": "Boil the pasta until just shy of al dente.",
+            "duration": 10,
+            "id": "step_lemon_pasta_1",
+            "ingredients": [
+              {
+                "id": "ingredient_lemon_pasta_salt",
+                "name": "kosher salt",
+                "quantity": 1,
+                "unit": "tbsp"
+              },
+              {
+                "id": "ingredient_lemon_pasta_spaghetti",
+                "name": "spaghetti",
+                "quantity": 12,
+                "unit": "oz"
+              }
+            ],
+            "stepNum": 1,
+            "stepTitle": "Boil Pasta"
+          },
+          {
+            "description": "Warm the aromatics and lemon until glossy.",
+            "duration": 5,
+            "id": "step_lemon_pasta_2",
+            "ingredients": [
+              {
+                "id": "ingredient_lemon_pasta_garlic",
+                "name": "garlic",
+                "quantity": 2,
+                "unit": "clove"
+              },
+              {
+                "id": "ingredient_lemon_pasta_lemon",
+                "name": "lemon",
+                "quantity": 1,
+                "unit": "each"
+              },
+              {
+                "id": "ingredient_lemon_pasta_oil",
+                "name": "olive oil",
+                "quantity": 2,
+                "unit": "tbsp"
+              }
+            ],
+            "stepNum": 2,
+            "stepTitle": "Build Sauce"
+          },
+          {
+            "description": "Toss pasta with sauce, parmesan, and pasta water.",
+            "duration": 3,
+            "id": "step_lemon_pasta_3",
+            "ingredients": [
+              {
+                "id": "ingredient_lemon_pasta_parmesan",
+                "name": "parmesan",
+                "quantity": 0.5,
+                "unit": "cup"
+              }
+            ],
+            "stepNum": 3,
+            "stepTitle": "Finish"
+          }
+        ],
+        "title": "Lemon Pantry Pasta",
+        "updatedAt": "2026-06-01T00:00:00.000Z"
+      },
+      "resourceID": "recipe_lemon_pantry_pasta",
+      "serverRevision": null
+    },
+    {
+      "kind": "recipe",
+      "payload": {
+        "attribution": {
+          "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+          "creditText": "Tomato Toast by ari on Spoonjoy",
+          "sourceHost": null,
+          "sourceRecipe": null,
+          "sourceUrl": null
+        },
+        "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+        "chef": {
+          "id": "chef_ari",
+          "username": "ari"
+        },
+        "cookbooks": [
+          {
+            "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+            "href": "/cookbooks/cookbook_weeknights",
+            "id": "cookbook_weeknights",
+            "title": "Weeknights"
+          }
+        ],
+        "coverImageUrl": null,
+        "coverProvenanceLabel": null,
+        "coverSourceType": null,
+        "coverVariant": null,
+        "createdAt": "2026-06-01T00:10:00.000Z",
+        "description": "A quick summer toast with salted tomato and herbs.",
+        "href": "/recipes/recipe_tomato_toast",
+        "id": "recipe_tomato_toast",
+        "servings": "2",
+        "steps": [
+          {
+            "description": "Toast bread, rub with garlic, and pile on salted tomato.",
+            "duration": 7,
+            "id": "step_tomato_toast_1",
+            "ingredients": [
+              {
+                "id": "ingredient_tomato_toast_tomato",
+                "name": "tomato",
+                "quantity": 1,
+                "unit": "each"
+              }
+            ],
+            "stepNum": 1,
+            "stepTitle": "Assemble"
+          }
+        ],
+        "title": "Tomato Toast",
+        "updatedAt": "2026-06-01T00:10:00.000Z"
+      },
+      "resourceID": "recipe_tomato_toast",
+      "serverRevision": null
+    },
+    {
+      "kind": "shoppingItem",
+      "payload": {
+        "categoryKey": "produce",
+        "checked": false,
+        "checkedAt": null,
+        "deletedAt": null,
+        "iconKey": "lemon",
+        "id": "item_lemons",
+        "name": "lemons",
+        "quantity": 2,
+        "sortIndex": 0,
+        "unit": "each",
+        "updatedAt": "2026-06-01T00:00:00.000Z"
+      },
+      "resourceID": "item_lemons",
+      "serverRevision": null
+    },
+    {
+      "kind": "shoppingItem",
+      "payload": {
+        "categoryKey": "pantry",
+        "checked": false,
+        "checkedAt": null,
+        "deletedAt": null,
+        "iconKey": "pasta",
+        "id": "item_spaghetti",
+        "name": "spaghetti",
+        "quantity": 12,
+        "sortIndex": 1,
+        "unit": "oz",
+        "updatedAt": "2026-06-01T00:01:00.000Z"
+      },
+      "resourceID": "item_spaghetti",
+      "serverRevision": null
+    },
+    {
+      "kind": "shoppingItem",
+      "payload": {
+        "categoryKey": "dairy",
+        "checked": false,
+        "checkedAt": null,
+        "deletedAt": null,
+        "iconKey": "cheese",
+        "id": "item_parmesan",
+        "name": "parmesan",
+        "quantity": 0.5,
+        "sortIndex": 2,
+        "unit": "cup",
+        "updatedAt": "2026-06-01T00:02:00.000Z"
+      },
+      "resourceID": "item_parmesan",
+      "serverRevision": null
+    },
+    {
+      "kind": "shoppingItem",
+      "payload": {
+        "categoryKey": "produce",
+        "checked": false,
+        "checkedAt": null,
+        "deletedAt": "2026-06-01T00:05:00.000Z",
+        "iconKey": "herb",
+        "id": "item_removed_basil",
+        "name": "basil",
+        "quantity": 1,
+        "sortIndex": 3,
+        "unit": "bunch",
+        "updatedAt": "2026-06-01T00:05:00.000Z"
+      },
+      "resourceID": "item_removed_basil",
+      "serverRevision": null
+    },
+    {
+      "kind": "cookbook",
+      "payload": {
+        "attribution": {
+          "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+          "creditText": "Weeknights by ari on Spoonjoy"
+        },
+        "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_weeknights",
+        "chef": {
+          "id": "chef_ari",
+          "username": "ari"
+        },
+        "coverImageUrls": [],
+        "createdAt": "2026-06-01T00:00:00.000Z",
+        "href": "/cookbooks/cookbook_weeknights",
+        "id": "cookbook_weeknights",
+        "recipeCount": 2,
+        "recipes": [
+          {
+            "attribution": {
+              "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+              "creditText": "Lemon Pantry Pasta by ari on Spoonjoy",
+              "sourceHost": "example.com",
+              "sourceRecipe": null,
+              "sourceUrl": "https://example.com/lemon-pantry-pasta"
+            },
+            "canonicalUrl": "https://spoonjoy.app/recipes/recipe_lemon_pantry_pasta",
+            "chef": {
+              "id": "chef_ari",
+              "username": "ari"
+            },
+            "coverImageUrl": null,
+            "coverProvenanceLabel": "Chef photo",
+            "coverSourceType": "chef-upload",
+            "coverVariant": "image",
+            "createdAt": "2026-06-01T00:00:00.000Z",
+            "description": "Bright pantry pasta with lemon, garlic, and parmesan.",
+            "href": "/recipes/recipe_lemon_pantry_pasta",
+            "id": "recipe_lemon_pantry_pasta",
+            "servings": "4",
+            "title": "Lemon Pantry Pasta",
+            "updatedAt": "2026-06-01T00:00:00.000Z"
+          },
+          {
+            "attribution": {
+              "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+              "creditText": "Tomato Toast by ari on Spoonjoy",
+              "sourceHost": null,
+              "sourceRecipe": null,
+              "sourceUrl": null
+            },
+            "canonicalUrl": "https://spoonjoy.app/recipes/recipe_tomato_toast",
+            "chef": {
+              "id": "chef_ari",
+              "username": "ari"
+            },
+            "coverImageUrl": null,
+            "coverProvenanceLabel": null,
+            "coverSourceType": null,
+            "coverVariant": null,
+            "createdAt": "2026-06-01T00:10:00.000Z",
+            "description": "A quick summer toast with salted tomato and herbs.",
+            "href": "/recipes/recipe_tomato_toast",
+            "id": "recipe_tomato_toast",
+            "servings": "2",
+            "title": "Tomato Toast",
+            "updatedAt": "2026-06-01T00:10:00.000Z"
+          }
+        ],
+        "title": "Weeknights",
+        "updatedAt": "2026-06-01T00:10:00.000Z"
+      },
+      "resourceID": "cookbook_weeknights",
+      "serverRevision": null
+    },
+    {
+      "kind": "cookbook",
+      "payload": {
+        "attribution": {
+          "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_no_covers",
+          "creditText": "Inbox by ari on Spoonjoy"
+        },
+        "canonicalUrl": "https://spoonjoy.app/cookbooks/cookbook_no_covers",
+        "chef": {
+          "id": "chef_ari",
+          "username": "ari"
+        },
+        "coverImageUrls": [],
+        "createdAt": "2026-06-01T00:00:00.000Z",
+        "href": "/cookbooks/cookbook_no_covers",
+        "id": "cookbook_no_covers",
+        "recipeCount": 0,
+        "recipes": [],
+        "title": "Inbox",
+        "updatedAt": "2026-06-01T00:00:00.000Z"
+      },
+      "resourceID": "cookbook_no_covers",
+      "serverRevision": null
+    }
+  ],
+  "checkpoint": null,
+  "environment": "production",
+  "queue": {
+    "mutations": []
+  },
+  "tombstones": []
+}

@@ -67,6 +67,16 @@ public struct RecipeServes: Equatable, Sendable {
         return Self.normalizedScale(previous)
     }
 
+    /// The Serves stepper's +: one serving more, or the same scale at the top of the range.
+    public func steppedUp(_ scale: Double) -> Double {
+        canIncrement(scale) ? incremented(scale) : scale
+    }
+
+    /// The Serves stepper's −: one serving fewer, or the same scale at the bottom of the range.
+    public func steppedDown(_ scale: Double) -> Double {
+        canDecrement(scale) ? decremented(scale) : scale
+    }
+
     public func canIncrement(_ scale: Double) -> Bool {
         incremented(scale) > scale
     }

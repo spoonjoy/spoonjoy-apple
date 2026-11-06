@@ -148,11 +148,12 @@ end
 
 # OuroHX (ourostack/ouro-ui-apple): motion, haptics and cookbook colours. The pin is Package.swift's, so the apps and
 # `swift test` build against the same tokens.
-OURO_HX_URL = "https://github.com/ourostack/ouro-ui-apple.git"
-OURO_HX_VERSION = ROOT.join("Package.swift").read[/\.package\(url: "#{Regexp.escape(OURO_HX_URL)}", exact: "([0-9.]+)"\)/, 1] ||
-  abort("Package.swift must pin #{OURO_HX_URL} with exact:")
+require_relative "lib/ouro_ui_pin"
+OURO_HX_URL = OuroUIPin::URL
+OURO_HX_REQUIREMENT = OuroUIPin.requirement(ROOT.join("Package.swift").read) ||
+  abort("Package.swift must pin #{OURO_HX_URL} exactly, with exact: \"<version>\" or revision: \"<40-hex commit>\"")
 
-def add_remote_package_product(project, target, url, version, product_name)
+def add_remote_package_product(project, target, url, requirement, product_name)
   package = project.root_object.package_references.find do |reference|
     reference.isa == "XCRemoteSwiftPackageReference" && reference.repositoryURL == url
   end
@@ -160,7 +161,7 @@ def add_remote_package_product(project, target, url, version, product_name)
   unless package
     package = project.new(Xcodeproj::Project::Object::XCRemoteSwiftPackageReference)
     package.repositoryURL = url
-    package.requirement = { "kind" => "exactVersion", "version" => version }
+    package.requirement = requirement
     project.root_object.package_references << package
   end
 
@@ -321,7 +322,7 @@ add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUND
 add_package_product(project, ios_target, "SpoonjoyCore")
 add_package_product(project, mac_target, "SpoonjoyCore")
 [ios_target, mac_target, widget_target].each do |target|
-  add_remote_package_product(project, target, OURO_HX_URL, OURO_HX_VERSION, "OuroHX")
+  add_remote_package_product(project, target, OURO_HX_URL, OURO_HX_REQUIREMENT, "OuroHX")
 end
 file_reference(project, WIDGET_INFO_PLIST)
 add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE] + WIDGET_CORE_SWIFT)

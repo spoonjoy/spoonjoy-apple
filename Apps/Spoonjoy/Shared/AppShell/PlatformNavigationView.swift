@@ -298,7 +298,7 @@ struct PlatformNavigationView: View {
                 guard route != .recipeEditor(id: nil) else {
                     return
                 }
-                compactTabs.apply(route)
+                updateShell { $0.followRoute() }
                 if liveSearchRequestMarker?.routeIdentifier != route.stateIdentifier {
                     liveSearchRequestMarker = nil
                 }
@@ -654,26 +654,16 @@ struct PlatformNavigationView: View {
     }
 
     private var compactGoBackAction: (() -> Void)? {
-        let tab = compactTabs.selectedTab
-        let path = compactTabs.path(for: tab)
-        guard let top = path.last, !navigation.route.isCookModeActive else {
+        // An editor leaves only through its Cancel or Save, which ask before dropping a draft (SpoonjoyShell.canGoBack).
+        guard currentShell.canGoBack else {
             return nil
         }
-        switch top {
-        case .recipeEditor, .recipeCoverControls:
-            // An editor leaves only through its Cancel or Save, which ask before dropping a draft.
-            return nil
-        default:
-            return { compactPath(for: tab).wrappedValue = Array(path.dropLast()) }
-        }
+        return { updateShell { $0.goBack() } }
     }
 
     /// The tab bar carries Cooking now on every page but the Kitchen's own, where the strip does the same job.
     private var showsCookingNowAccessory: Bool {
-        guard !(cookingNow?.entries.isEmpty ?? true) else {
-            return false
-        }
-        return compactTabs.selectedTab != .kitchen || !compactTabs.path(for: .kitchen).isEmpty
+        currentShell.showsCookingNowSwitcher(hasCooks: !(cookingNow?.entries.isEmpty ?? true))
     }
 
     /// Each tab owns its stack, so switching tabs keeps every tab where the user left it.
@@ -882,12 +872,7 @@ struct PlatformNavigationView: View {
 
     /// A pasted link becomes a capture draft, the same draft Siri's Capture Recipe makes, and Imports opens on it.
     private func importPastedLink(_ url: URL) {
-        let createdAt = ISO8601DateFormatter().string(from: Date())
-        guard let draft = try? CaptureDraft.importURL(
-            id: "paste-\(UUID().uuidString.lowercased())",
-            url: url,
-            createdAt: createdAt
-        ) else {
+        guard let draft = CaptureDraft.pastedLink(url, createdAt: Date()) else {
             return
         }
         recordCaptureDraft(draft)
@@ -956,7 +941,8 @@ struct PlatformNavigationView: View {
             return
         }
 #endif
-        openRecipe(id)
+        isSearchFieldFocused = false
+        updateShell { $0.closeCook(id) }
     }
 
 #if os(iOS)
@@ -1054,7 +1040,10 @@ struct PlatformNavigationView: View {
                 let stillCooking = compactTabs.fullScreenRoute?.stateIdentifier == sheet.route.stateIdentifier
                 guard stillCooking || compactTabs.fullScreenRoute == nil else { return }
                 finishCookSheetClose()
-                if stillCooking { openRecipe(id) }
+                if stillCooking {
+                    isSearchFieldFocused = false
+                    updateShell { $0.closeCook(id) }
+                }
             }
         }
     }
@@ -1146,11 +1135,9 @@ struct PlatformNavigationView: View {
     }
 
     private func selectCompactTab(_ tab: CompactTab) {
-        let route = compactTabs.select(tab)
-        if route != navigation.route {
-            navigation.navigate(to: route, restoring: true)
-        }
-        if tab == .search, compactTabs.path(for: .search).isEmpty {
+        var runsSearch = false
+        updateShell { runsSearch = $0.select(tab) }
+        if runsSearch {
             Task {
                 await performSearch(search)
             }
@@ -1162,12 +1149,27 @@ struct PlatformNavigationView: View {
         Binding(
             get: { compactTabs.path(for: tab) },
             set: { path in
-                let route = compactTabs.setPath(path, for: tab)
-                if route != navigation.route {
-                    navigation.navigate(to: route, restoring: true)
-                }
+                updateShell { $0.setPath(path, for: tab) }
             }
         )
+    }
+
+    /// The route and the tab stacks as SpoonjoyShell, the model Ouro Reins drives too.
+    private var currentShell: SpoonjoyShell {
+        SpoonjoyShell(navigation: navigation, compactTabs: compactTabs)
+    }
+
+    /// Runs one SpoonjoyShell move and stores what changed. The tabs are stored first, so the route's onChange finds
+    /// them already following it.
+    private func updateShell(_ change: (inout SpoonjoyShell) -> Void) {
+        var shell = currentShell
+        change(&shell)
+        if shell.compactTabs != compactTabs {
+            compactTabs = shell.compactTabs
+        }
+        if shell.navigation != navigation {
+            navigation = shell.navigation
+        }
     }
 
     private func compactTabTitle(for tab: CompactTab) -> String {
@@ -1809,12 +1811,12 @@ struct PlatformNavigationView: View {
     }
 
     private func cookProgress(for recipe: Recipe) -> CookModeProgress {
-        contentState.cookProgress(for: recipe.id) ?? CookModeProgress.starting(recipe: recipe, startedAt: timestamp())
+        SpoonjoyShell.cookProgress(for: recipe, saved: contentState.cookProgress(for: recipe.id), startedAt: timestamp())
     }
 
     private func openRecipe(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .detail))
+        updateShell { $0.openRecipe(id) }
     }
 
     private func openRoute(_ route: AppRoute) {
@@ -1856,51 +1858,16 @@ struct PlatformNavigationView: View {
         let cachedPage = contentState.searchSurfacePage(for: nextSearch)
         let context = contentState.searchSurfaceContext
         let repository = searchSurfaceRepositoryHandler(context)
-        do {
-            let page = try await repository.search(
-                request: SearchSurfaceRequest(query: nextSearch.query, scope: nextSearch.scope, limit: 20)
-            )
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
-                clearLiveSearchRequestMarker(requestMarker)
-                return
-            }
-            try? await recordSearchSurfacePageHandler(page, identity)
-            activeSearch = ActiveSearchSurfaceState(
-                identity: identity,
-                viewModel: contentState.performSearch(
-                    page: page,
-                    state: nextSearch
-                )
-            )
-        } catch SearchSurfaceRepositoryError.cancelled {
+        let run = await SearchSurfaceRun.run(nextSearch, in: repository)
+        guard run != .cancelled, canApplySearchResult(identity: identity, state: nextSearch) else {
             clearLiveSearchRequestMarker(requestMarker)
             return
-        } catch let error as SearchSurfaceRepositoryError {
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
-                clearLiveSearchRequestMarker(requestMarker)
-                return
-            }
-            activeSearch = ActiveSearchSurfaceState(
-                identity: identity,
-                viewModel: contentState.performSearch(
-                    error: error,
-                    state: nextSearch,
-                    cachedPage: cachedPage
-                )
-            )
-        } catch {
-            guard canApplySearchResult(identity: identity, state: nextSearch) else {
-                clearLiveSearchRequestMarker(requestMarker)
-                return
-            }
-            activeSearch = ActiveSearchSurfaceState(
-                identity: identity,
-                viewModel: contentState.performSearch(
-                    error: .searchFailed(message: String(describing: error)),
-                    state: nextSearch,
-                    cachedPage: cachedPage
-                )
-            )
+        }
+        if case .page(let page) = run {
+            try? await recordSearchSurfacePageHandler(page, identity)
+        }
+        if let viewModel = contentState.searchSurfaceViewModel(after: run, state: nextSearch, cachedPage: cachedPage) {
+            activeSearch = ActiveSearchSurfaceState(identity: identity, viewModel: viewModel)
         }
     }
 
@@ -1977,12 +1944,12 @@ struct PlatformNavigationView: View {
 #if os(iOS)
         cookOpenRequestedAt = .now
 #endif
-        navigation.navigate(to: .recipeDetail(id: id, presentation: .cook))
+        updateShell { $0.startCooking(id) }
     }
 
     private func openCookbook(_ id: String) {
         isSearchFieldFocused = false
-        navigation.navigate(to: .cookbookDetail(id: id))
+        updateShell { $0.openCookbook(id) }
     }
 
     private var shoppingViewModel: ShoppingSurfaceViewModel {
@@ -1996,15 +1963,7 @@ struct PlatformNavigationView: View {
     }
 
     private var recipeCatalogRepository: any RecipeCatalogRepository {
-        let catalog = contentState.recipeCatalog
-        let snapshotRepository = SnapshotRecipeCatalogRepository(
-            page: catalog,
-            details: contentState.recipes.map { entry in
-                RecipeCatalogDetailResult(recipe: entry, source: catalog.source)
-            }
-        )
-        let liveRepository = LiveRecipeCatalogRepository(configuration: contentState.configuration)
-        return FallbackRecipeCatalogRepository(primary: liveRepository, fallback: snapshotRepository)
+        contentState.everyoneRecipeCatalogRepository(live: LiveRecipeCatalogRepository(configuration: contentState.configuration))
     }
 
     private var spoonCookLogRepository: any SpoonCookLogRepository {
@@ -2053,13 +2012,7 @@ struct PlatformNavigationView: View {
     }
 
     private func personalRecipeCatalogRepository(page: RecipeCatalogPage) -> any RecipeCatalogRepository {
-        let savedRecipeIDs = Set(page.rows.map(\.id))
-        return SnapshotRecipeCatalogRepository(
-            page: page,
-            details: contentState.recipes
-                .filter { savedRecipeIDs.contains($0.id) }
-                .map { RecipeCatalogDetailResult(recipe: $0, source: page.source) }
-        )
+        contentState.personalRecipeCatalogRepository(page: page)
     }
 
     private var chefProfiles: [NativeCachedProfile] {
@@ -2103,16 +2056,10 @@ struct PlatformNavigationView: View {
     }
 
     private var cookbookSurfaceRepository: any CookbookSurfaceRepository {
-        let page = cookbookSurfacePage(source: cookbookSurfaceDataSource)
-        let snapshotRepository = SnapshotCookbookSurfaceRepository(
-            page: page,
-            details: contentState.cookbooks.map { cookbook in
-                CookbookSurfaceDetailResult(
-                    cookbook: cookbook,
-                    source: cookbookSurfaceDataSource,
-                    availableRecipes: availableCookbookRecipes(for: cookbook)
-                )
-            }
+        let snapshotRepository = CookbookShelfSnapshot.repository(
+            cookbooks: contentState.cookbooks,
+            recipes: contentState.recipes,
+            source: cookbookSurfaceDataSource
         )
         let liveRepository = LiveCookbookSurfaceRepository(
             configuration: contentState.configuration,
@@ -2136,7 +2083,7 @@ struct PlatformNavigationView: View {
             now: Date.init,
             timestamp: { ISO8601DateFormatter().string(from: Date()) }
         )
-        viewModel.apply(page: cookbookSurfacePage(source: cookbookSurfaceDataSource))
+        viewModel.apply(page: CookbookShelfSnapshot.page(cookbooks: contentState.cookbooks, source: cookbookSurfaceDataSource))
         return viewModel
     }
 
@@ -2166,25 +2113,8 @@ struct PlatformNavigationView: View {
         )
     }
 
-    private func cookbookSurfacePage(source: CookbookSurfaceDataSource) -> CookbookSurfacePage {
-        CookbookSurfacePage(
-            query: nil,
-            limit: max(20, contentState.cookbooks.count),
-            cursor: nil,
-            nextCursor: nil,
-            hasMore: false,
-            rows: contentState.cookbooks.map(CookbookSummary.init(cookbook:)),
-            source: source
-        )
-    }
-
     private var cookbookSurfaceDataSource: CookbookSurfaceDataSource {
-        switch offlineIndicatorState.display {
-        case .synced:
-            .live(requestID: "native-shell", validatedAt: Date())
-        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
-            .cache(serverRevision: latestCookbookRevision, lastValidatedAt: .distantPast)
-        }
+        CookbookShelfSnapshot.source(display: offlineIndicatorState.display, cookbooks: contentState.cookbooks, now: Date())
     }
 
     private var latestRecipeRevision: NativeCacheServerRevision? {
@@ -2192,20 +2122,6 @@ struct PlatformNavigationView: View {
             .map(\.updatedAt)
             .max()
             .map(NativeCacheServerRevision.updatedAt)
-    }
-
-    private var latestCookbookRevision: NativeCacheServerRevision? {
-        contentState.cookbooks
-            .map(\.updatedAt)
-            .max()
-            .map(NativeCacheServerRevision.updatedAt)
-    }
-
-    private func availableCookbookRecipes(for cookbook: Cookbook) -> [RecipeSummary] {
-        let savedRecipeIDs = Set(cookbook.recipes.map(\.id))
-        return contentState.recipes
-            .filter { !savedRecipeIDs.contains($0.id) }
-            .map(RecipeSummary.init(recipe:))
     }
 
     private func recipeDetailScreenViewModel(for recipe: Recipe) -> RecipeDetailScreenViewModel {
@@ -2262,12 +2178,7 @@ struct PlatformNavigationView: View {
     }
 
     private var currentChefID: String? {
-        switch contentState.authSessionState {
-        case .signedOut:
-            nil
-        case .authenticated(let session), .refreshRequired(let session):
-            session.accountID
-        }
+        contentState.sessionAccountID
     }
 
     private var currentChefSummary: ChefSummary? {
@@ -2277,36 +2188,11 @@ struct PlatformNavigationView: View {
     }
 
     private func recipeEditorViewModel(id: String?) -> RecipeEditorViewModel? {
-        let chefID = currentChefID ?? "signed-out"
-        switch id {
-        case .some(let recipeID):
-            guard let recipe = recipe(id: recipeID) else {
-                return nil
-            }
-            return RecipeEditorViewModel(
-                mode: .edit(recipe: recipe, currentChefID: chefID),
-                connectivity: recipeEditorConnectivity,
-                conflict: recipeEditorConflict(for: recipeID),
-                queuedRecipeMutations: contentState.queuedMutations,
-                now: timestamp
-            )
-        case nil:
-            return RecipeEditorViewModel(
-                mode: .create(currentChefID: chefID, draft: .blank(currentChefID: chefID)),
-                connectivity: recipeEditorConnectivity,
-                conflict: nil,
-                queuedRecipeMutations: contentState.queuedMutations,
-                now: timestamp
-            )
-        }
+        contentState.recipeEditorViewModel(id: id, connectivity: recipeEditorConnectivity, now: timestamp)
     }
 
     private var recipeEditorConnectivity: RecipeEditorConnectivity {
-        if offlineIndicatorState.display == .offline {
-            return .offline
-        }
-
-        return .online
+        RecipeEditorConnectivity(display: offlineIndicatorState.display)
     }
 
     private var recipeActionConnectivity: RecipeActionConnectivity {
@@ -2386,16 +2272,7 @@ struct PlatformNavigationView: View {
     }
 
     private func recipeEditorConflict(for recipeID: String) -> RecipeEditorConflict? {
-        for conflict in contentState.syncConflicts {
-            guard let mutation = contentState.queuedMutations.first(where: { $0.clientMutationID == conflict.clientMutationID }),
-                  mutation.optimisticRecipeID == recipeID else {
-                continue
-            }
-
-            return RecipeEditorConflict(resourceID: recipeID, syncConflict: conflict)
-        }
-
-        return nil
+        contentState.recipeEditorConflict(for: recipeID)
     }
 
     private func createRecipeWithPhoto(_ plan: RecipeEditorMutationPlan, photo: NativeStagedMediaUpload) async throws -> AppRoute {
@@ -2466,37 +2343,13 @@ struct PlatformNavigationView: View {
     }
 
     private func handleRecipeEditorPlan(_ plan: RecipeEditorMutationPlan) async throws {
-        if let queuedMutation = plan.queuedMutation {
-            try await queueMutation(queuedMutation)
-            return
-        }
-
-        if let offlineFallbackMutation = plan.offlineFallbackMutation,
-           hasQueuedMutation(withDependencyKey: offlineFallbackMutation.dependencyKey) {
-            _ = try await queueMutations([offlineFallbackMutation], true)
-            return
-        }
-
-        if let requestBuilder = plan.remoteRequestBuilder {
-            do {
-                try await executeRecipeEditorRequest(requestBuilder)
-            } catch let error as APITransportError where error.isOffline {
-                if let offlineFallbackMutation = plan.offlineFallbackMutation {
-                    try await queueMutation(offlineFallbackMutation)
-                    return
-                }
-                throw error
-            } catch let error as APITransportError where error.isRecipeEditConflict {
-                // The recipe changed after the editor opened. The queue compares the edit with the current
-                // recipe: it sends it if nobody else changed the same fields, and otherwise holds it on the
-                // recipe page with both versions, for the cook to choose.
-                if let offlineFallbackMutation = plan.offlineFallbackMutation {
-                    _ = try await queueMutations([offlineFallbackMutation], true)
-                    return
-                }
-                throw error
-            }
-        }
+        try await RecipeEditorPlanRunner.perform(
+            plan,
+            queuedMutations: contentState.queuedMutations,
+            queueMutation: queueMutation,
+            queueMutations: queueMutations,
+            execute: executeRecipeEditorRequest
+        )
     }
 
     private func performRecipeAction(_ plan: RecipeActionPlan) async throws {
@@ -2600,39 +2453,16 @@ struct PlatformNavigationView: View {
         }
     }
 
+    /// Runs a settings plan through `SettingsActionPlan.perform` (SpoonjoyCore), the path Ouro Reins drives too.
     private func performSettingsAction(_ plan: SettingsActionPlan) async throws -> SettingsActionOutcome? {
-        if let preflight = plan.queuePreflightDecision(queuedMutations: contentState.queuedMutations) {
-            switch preflight {
-            case .queueMutation(let mutation, drainImmediately: false):
-                try await queueSettingsMutationIfNeeded(mutation)
-            case .queueMutation(let mutation, drainImmediately: true):
-                _ = try await queueMutations([mutation], true)
-            }
-            return nil
-        }
-
-        var outcome: SettingsActionOutcome?
-        if let requestBuilder = plan.remoteRequestBuilder {
-            do {
-                outcome = try await executeSettingsActionRequest(requestBuilder, plan.responseHandling)
-            } catch let error as APITransportError where error.isOffline {
-                if let offlineFallbackMutation = plan.offlineFallbackMutation {
-                    try await queueSettingsMutationIfNeeded(offlineFallbackMutation)
-                    return nil
-                }
-                throw error
-            }
-        }
-
-        if let sessionOperation = plan.sessionOperation {
-            try await performSettingsSessionOperation(sessionOperation)
-        }
-
-        if let handoff = plan.secureHandoff {
-            openURL(handoff.url)
-        }
-
-        return outcome
+        try await plan.perform(
+            queuedMutations: contentState.queuedMutations,
+            queueMutation: queueSettingsMutationIfNeeded,
+            queueMutations: { _ = try await queueMutations($0, $1) },
+            execute: executeSettingsActionRequest,
+            sessionOperation: performSettingsSessionOperation,
+            openURL: { openURL($0) }
+        )
     }
 
     private func queueSettingsMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws {

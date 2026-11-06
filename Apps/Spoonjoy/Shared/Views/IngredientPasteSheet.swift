@@ -20,9 +20,7 @@ struct IngredientPasteSheet: View {
                         .frame(minHeight: 110)
                         .accessibilityIdentifier("editor.paste.text")
                         .onChange(of: text) { _, newValue in
-                            rows = IngredientTextParser.parse(newValue).map {
-                                RecipeEditorIngredientDraft(id: makeLocalID(), parsed: $0)
-                            }
+                            rows = RecipeEditorIngredientDraft.pasted(newValue, makeID: makeLocalID)
                         }
                     Text("One ingredient per line, like 2 cups rice.")
                         .font(.footnote)
@@ -67,7 +65,7 @@ struct IngredientPasteSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(rows.count == 1 ? "Add 1 Ingredient" : "Add \(rows.count) Ingredients") {
-                        onAdd(rows.filter { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty })
+                        onAdd(RecipeEditorIngredientDraft.addable(rows))
                     }
                     .disabled(rows.isEmpty)
                     .accessibilityIdentifier("editor.paste.add")

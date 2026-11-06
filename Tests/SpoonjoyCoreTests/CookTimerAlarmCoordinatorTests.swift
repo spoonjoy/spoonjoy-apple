@@ -170,10 +170,17 @@ struct CookTimerLiveActivityWiringTests {
     func startsGoThroughTheRegistry() throws {
         let view = try source("Apps/Spoonjoy/Shared/Views/CookModeView.swift")
         let center = try source("Apps/Spoonjoy/Shared/Native/CookModeSessionCenter.swift")
+        let core = try source("Sources/SpoonjoyCore/Features/CookMode/CookStepTimers.swift")
+        let resolver = try source("Sources/SpoonjoyCore/Features/CookMode/CookVoiceActions.swift")
 
-        #expect(view.contains("try await CookModeSessionCenter.shared.stepTimers.start(step: stepTimerKey(step))"))
+        // The view starts through Core's CookStepTimers over the shared registry, which sets at most one alarm a step.
+        #expect(view.contains("try await CookStepTimers.start("))
+        #expect(view.contains("registry: CookModeSessionCenter.shared.stepTimers,"))
+        #expect(core.contains("try await registry.start(step: CookStepTimerRegistry.stepKey(recipeID: recipe.id, stepID: step.id))"))
         #expect(view.contains("return try await scheduleSystemTimer(timer, step: step)"))
-        #expect(center.contains("return try await registration.startTimer(timer).message(startedMessage: outcome.message)"))
+        // Siri, Shortcuts and voice start through the screen's own start, the same path.
+        #expect(center.contains("startTimer: { try await registration.startTimer($0) }"))
+        #expect(resolver.contains("return try await startTimer(timer).message(startedMessage: outcome.message)"))
         #expect(center.contains("let stepTimers = CookStepTimerRegistry("))
     }
 

@@ -5,8 +5,10 @@ import XCTest
 /// above the fold, facing the cook, and the ingredient checklist sits on the half below it, flat on the counter;
 /// nothing sits on the fold. The Journeys job's simulator hinge cannot stand half-open, so the app is launched reporting
 /// a half-open hinge (`-SpoonjoyForcePosture tabletop`); the split itself is the shipping layout. The Duo tour workflow
-/// runs this journey on an iPhone Duo stood half-open, where the app reads the real hinge. Checking the step's flour
-/// starts its timer, a swipe on the step half turns the step, and the step survives a relaunch.
+/// runs this journey on an iPhone Duo stood half-open, where the app reads the real hinge. The running timer sits above
+/// the fold, a swipe on the step half keeps the split, and the split comes back after a relaunch. Cook-mode logic
+/// (timers starting from checks, step turns, saved progress, end times across poses) is proved headless in
+/// SpoonjoyReinsTests.
 ///
 /// `testTimerRunsOnForTheDuoTourJourney` leaves a timer running for the Duo tour, which then folds the phone through
 /// every posture and fails if the timer's end date moves.
@@ -94,11 +96,6 @@ final class TabletopJourney: JourneyTestCase {
         journey.attachScreenshot(named: "00-tabletop-cook-mode", to: self)
 
         ingredient.tap()
-        // The checkbox reads "1" as a switch and "checked" as a button, depending on how the platform exposes it.
-        XCTAssertTrue(
-            ["1", "checked"].contains(ingredient.value as? String ?? ""),
-            "Tapping the flour did not check it in tabletop cook mode. Value: \(String(describing: ingredient.value))"
-        )
         // The flour is the step's only ingredient, so checking it starts the step's timer, above the fold with the step.
         let running = journey.element(JourneyID.cookTimerRunning)
         XCTAssertTrue(
@@ -107,11 +104,6 @@ final class TabletopJourney: JourneyTestCase {
         )
         XCTAssertLessThanOrEqual(running.frame.maxY, controlsHalf.frame.minY, "The running timer is not above the fold.")
         journey.attachScreenshot(named: "01-tabletop-flour-checked-timer-running", to: self)
-        journey.tap(JourneyID.cookTimerCancel)
-        XCTAssertTrue(
-            running.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
-            "Cancelling the timer did not stop it. Screen: \(journey.screen)"
-        )
 
         // A swipe on the step half turns to the second step; cook mode stays split.
         stepHalf.swipeLeft()
@@ -124,8 +116,7 @@ final class TabletopJourney: JourneyTestCase {
         XCTAssertGreaterThanOrEqual(jamIngredient.frame.minY, stepHalf.frame.maxY, "The second step's checklist is not below the fold.")
         journey.attachScreenshot(named: "02-tabletop-second-step", to: self)
 
-        // The relaunch keeps the forced posture and this device's cook progress: cook mode opens split again, on the
-        // second step it was left on.
+        // The relaunch keeps the forced posture: cook mode opens split again.
         verifyAfterRelaunch(journey) {
             XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
         }
@@ -141,8 +132,8 @@ final class TabletopJourney: JourneyTestCase {
         journey.attachScreenshot(named: "03-tabletop-after-relaunch", to: self)
     }
 
-    /// The CI simulator refuses system timers without asking. With the stand-in alarm off, checking a timed step's only
-    /// ingredient must not pretend a timer is running: the ring says why it could not set one.
+    /// The CI simulator refuses system timers (AlarmKit) without asking, or asks and is answered no. With the stand-in
+    /// alarm off, the real refusal reaches cook mode and the ring says why it could not set a timer.
     func testAutoStartFailureShowsOnTheRingJourney() async throws {
         let account = try JourneyAccounts.account(4)
         let token = try JourneyAccounts.runToken()
@@ -188,33 +179,17 @@ final class TabletopJourney: JourneyTestCase {
             error.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "Checking the flour with timers refused did not say why no timer started. Screen: \(journey.screen)"
         )
-        XCTAssertFalse(journey.element(JourneyID.cookTimerRunning).exists, "A refused timer still shows as running.")
-        XCTAssertTrue(
-            ["1", "checked"].contains(ingredient.value as? String ?? ""),
-            "A refused timer undid the flour's check. Value: \(String(describing: ingredient.value))"
-        )
         journey.attachScreenshot(named: "04-refused-timer-on-the-ring", to: self)
 
-        // After a relaunch the check is kept and still no timer pretends to run.
         verifyAfterRelaunch(journey) {
             XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
         }
-        journey.openLink(cookLink)
-        let ingredientAfterRelaunch = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: flour)
-        XCTAssertTrue(
-            ingredientAfterRelaunch.waitForExistence(timeout: JourneyApp.networkTimeout),
-            "Cook mode did not reopen on the flour after a relaunch. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(
-            ["1", "checked"].contains(ingredientAfterRelaunch.value as? String ?? ""),
-            "The flour's check was lost on relaunch. Value: \(String(describing: ingredientAfterRelaunch.value))"
-        )
-        XCTAssertFalse(journey.element(JourneyID.cookTimerRunning).exists, "A refused timer shows as running after a relaunch.")
     }
 
-    /// A timer started with the phone open keeps its end time when the phone is folded shut, where the cover shows the
-    /// kitchen-timer glance, and when it is stood half-open, where cook mode splits at the fold. The Journeys job's
-    /// simulator cannot fold, so each pose is a relaunch with a forced posture; the Duo tour photographs the real folds.
+    /// With a timer running, folding the phone shut shows the kitchen-timer glance, whose controls fit the cover at the
+    /// largest text size, and standing it half-open splits cook mode with its controls stacked whole below the fold.
+    /// The Journeys job's simulator cannot fold, so each pose is a relaunch with a forced posture; the Duo tour
+    /// photographs the real folds.
     func testFoldingMidTimerKeepsTheTimerJourney() async throws {
         let account = try JourneyAccounts.account(4)
         let token = try JourneyAccounts.runToken()
@@ -260,7 +235,6 @@ final class TabletopJourney: JourneyTestCase {
             running.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "Checking the butter did not start the step's timer. Screen: \(journey.screen)"
         )
-        let endsAt = try XCTUnwrap(Self.endTime(of: running), "The running timer's label has no time left: \(running.label)")
         journey.attachScreenshot(named: "10-fold-timer-started", to: self)
 
         // The cover is narrow, so it is checked at the largest text size: its controls must sit whole on screen.
@@ -275,7 +249,6 @@ final class TabletopJourney: JourneyTestCase {
             glance.waitForExistence(timeout: JourneyApp.networkTimeout),
             "Folded shut mid-cook, cook mode did not show the cover glance. Screen: \(journey.screen)"
         )
-        try assertSameEnd(endsAt, running, "the cover glance")
         let window = journey.app.windows.firstMatch.frame
         let glanceNext = journey.element(JourneyID.cookCoverGlanceNext)
         let glanceShowStep = journey.element(JourneyID.cookCoverGlanceShowStep)
@@ -302,7 +275,6 @@ final class TabletopJourney: JourneyTestCase {
             "Stood half-open mid-cook, cook mode did not split at the fold. Screen: \(journey.screen)"
         )
         XCTAssertFalse(glance.exists, "The cover glance stayed after the phone was opened. Screen: \(journey.screen)")
-        try assertSameEnd(endsAt, running, "tabletop cook mode")
         // Still at the largest text size: the dock would cut its labels short, so the controls stack whole on the half
         // below the fold, inside the screen, one clear of the next.
         let stepHalf = journey.element(JourneyID.cookTabletopStep)
@@ -320,16 +292,10 @@ final class TabletopJourney: JourneyTestCase {
         XCTAssertLessThanOrEqual(markDone.frame.maxY, back.frame.minY, "Tabletop Mark done and Back step overlap.")
         XCTAssertGreaterThanOrEqual(next.frame.height, 44, "Tabletop Next is not thumb-sized.")
         journey.attachScreenshot(named: "12-fold-tabletop-largest-text", to: self)
-        journey.tap(JourneyID.cookTimerCancel)
-        XCTAssertTrue(
-            running.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
-            "Cancelling the timer did not stop it. Screen: \(journey.screen)"
-        )
     }
 
     /// Starts a timer for the Duo tour and leaves it running. The tour opens this cook mode, folds the phone through
-    /// tabletop, open flat and shut without relaunching, and compares the end date the app logs at each posture. Here,
-    /// on any simulator, the timer survives a relaunch with its end time.
+    /// tabletop, open flat and shut without relaunching, and compares the end date the app logs at each posture.
     func testTimerRunsOnForTheDuoTourJourney() async throws {
         // The tour's fold step opens this journey's cook mode with its timer still running.
         keepsAppStateAfterTest = true
@@ -387,38 +353,11 @@ final class TabletopJourney: JourneyTestCase {
             running.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "Checking the stock did not start the step's timer. Screen: \(journey.screen)"
         )
-        let endsAt = try XCTUnwrap(Self.endTime(of: running), "The running timer's label has no time left: \(running.label)")
         journey.attachScreenshot(named: "20-duo-tour-timer-started", to: self)
 
         verifyAfterRelaunch(journey) {
             XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
         }
         journey.openLink(cookLink)
-        try assertSameEnd(endsAt, running, "cook mode after a relaunch")
-    }
-}
-
-extension TabletopJourney {
-    /// The end time a running timer implies: now plus the time its digits show, read as "m:ss" or "h:mm:ss", or as
-    /// VoiceOver's "4 minutes, 59 seconds".
-    fileprivate static func endTime(of running: XCUIElement) -> Date? {
-        let label = running.label.lowercased()
-        let seconds: Int
-        if let clock = label.firstMatch(of: /(?:(\d+):)?(\d+):(\d{2})/) {
-            seconds = (Int(clock.1 ?? "0") ?? 0) * 3600 + (Int(clock.2) ?? 0) * 60 + (Int(clock.3) ?? 0)
-        } else {
-            let hours = label.firstMatch(of: /(\d+) hour/).flatMap { Int($0.1) } ?? 0
-            let minutes = label.firstMatch(of: /(\d+) minute/).flatMap { Int($0.1) } ?? 0
-            let secs = label.firstMatch(of: /(\d+) second/).flatMap { Int($0.1) } ?? 0
-            guard hours + minutes + secs > 0 else { return nil }
-            seconds = hours * 3600 + minutes * 60 + secs
-        }
-        return Date().addingTimeInterval(TimeInterval(seconds))
-    }
-
-    fileprivate func assertSameEnd(_ endsAt: Date, _ running: XCUIElement, _ pose: String, file: StaticString = #filePath, line: UInt = #line) throws {
-        XCTAssertTrue(running.waitForExistence(timeout: JourneyApp.interactionTimeout), "The timer is gone in \(pose).", file: file, line: line)
-        let now = try XCTUnwrap(Self.endTime(of: running), "The timer in \(pose) shows no time left: \(running.label)", file: file, line: line)
-        XCTAssertEqual(now.timeIntervalSince1970, endsAt.timeIntervalSince1970, accuracy: 2, "The timer's end moved in \(pose).", file: file, line: line)
     }
 }

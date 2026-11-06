@@ -10,6 +10,7 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
     case missingRecipeTitle(String)
     case recipeTitleNotSynced(expected: String, last: String)
     case cookSessionNotSynced(String)
+    case blockNotStored(username: String)
 
     var description: String {
         switch self {
@@ -23,6 +24,8 @@ enum JourneyQAClientError: Error, CustomStringConvertible {
             "QA created a cookbook but the response had no cookbook id."
         case .missingRecipeTitle(let id):
             "QA returned recipe \(id) without data.recipe.title."
+        case .blockNotStored(let username):
+            "QA never listed @\(username) among this account's blocks."
         case .recipeTitleNotSynced(let expected, let last):
             "QA's recipe title never became \"\(expected)\". Last reading: \"\(last)\"."
         case .missingIngredient(let name):
@@ -148,6 +151,26 @@ struct JourneyQAClient: Sendable {
         }
         try await Task.sleep(for: .seconds(1))
         return try await recipeTitle(recipeID, waitingFor: expected, attempts: attempts - 1)
+    }
+
+    /// The chefs QA holds as blocked by this account (GET /api/v1/blocks).
+    func blockedChefUsernames() async throws -> [String] {
+        let data = try await Self.send(ModerationRequests.blocks(), configuration: configuration)
+        return try APIEnvelope<ChefBlockListResponse>.decode(data).data.blocks.map(\.chef.username)
+    }
+
+    /// Waits for the app's block to reach QA: reads this account's blocks once a second, up to `attempts` times.
+    /// Recursion instead of a loop keeps the journey rules simple.
+    func blockedChefUsernames(waitingFor username: String, attempts: Int = 30) async throws -> [String] {
+        let blocked = try await blockedChefUsernames()
+        if blocked.contains(username) {
+            return blocked
+        }
+        guard attempts > 1 else {
+            throw JourneyQAClientError.blockNotStored(username: username)
+        }
+        try await Task.sleep(for: .seconds(1))
+        return try await blockedChefUsernames(waitingFor: username, attempts: attempts - 1)
     }
 
     /// Creates a cookbook as this account and returns its id.

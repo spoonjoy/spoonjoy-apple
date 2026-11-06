@@ -284,6 +284,9 @@ struct NativeSessionExpiryStoreTests {
             configuration: configuration,
             cacheEnvironment: .production,
             bootstrapMode: bootstrapMode,
+            // Cook sessions stay off: these tests are about the session expiring, and a real client would call the
+            // production server from a unit test.
+            cookSessionClient: { _ in OffCookSessionClient() },
             now: clock
         ))
         return Fixture(
@@ -326,6 +329,7 @@ struct NativeSessionExpiryStoreTests {
             appStateStoreProvider: { appStateStore },
             configuration: configuration,
             cacheEnvironment: .production,
+            cookSessionClient: { _ in OffCookSessionClient() },
             now: clock
         ))
         return (store, syncStore)

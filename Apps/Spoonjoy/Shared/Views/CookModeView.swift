@@ -811,7 +811,7 @@ struct CookModeView: View {
             autoStartError: autoStartErrors[step.id]
         ) {
             autoStartErrors[step.id] = nil
-            return try await scheduleSystemTimer(timer, step: step).message(startedMessage: "\(timer.durationLabel) timer started.")
+            return try await scheduleSystemTimer(timer, step: step).message(startedMessage: CookTimerRingText.started(timer))
         } cancel: {
             try cancelSystemTimer(step: step)
         }
@@ -982,13 +982,13 @@ struct CookModeView: View {
 
     private func advance() {
         withAnimation(KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)) {
-            updateProgress(viewModel.progressAfterSelectingNext(updatedAt: timestamp()))
+            updateProgress(SpoonjoyShell.turnCookPage(viewModel, forward: true, updatedAt: timestamp()))
         }
     }
 
     private func previous() {
         withAnimation(KitchenMotion.animation(.pageTurn, reduceMotion: accessibilityReduceMotion)) {
-            updateProgress(viewModel.progressAfterSelectingPrevious(updatedAt: timestamp()))
+            updateProgress(SpoonjoyShell.turnCookPage(viewModel, forward: false, updatedAt: timestamp()))
         }
     }
 
@@ -1023,11 +1023,7 @@ struct CookModeView: View {
     }
 
     private func progressAfterTogglingIngredient(id: String, checked: Bool) {
-        guard let nextProgress = try? viewModel.progressAfterTogglingIngredient(
-            id: id,
-            checked: checked,
-            updatedAt: timestamp()
-        ) else {
+        guard let nextProgress = try? SpoonjoyShell.checkIngredient(viewModel, id: id, checked: checked, updatedAt: timestamp()) else {
             return
         }
 
@@ -1116,24 +1112,19 @@ struct CookModeView: View {
 
     /// Sets the step's system alarm unless one already runs for it, so a second tap or a Siri request never sets a second alarm.
     @MainActor private func scheduleSystemTimer(_ timer: CookModeSystemTimerViewModel, step: RecipeStep) async throws -> CookStepTimerStartOutcome {
-        try await CookModeSessionCenter.shared.stepTimers.start(step: stepTimerKey(step)) {
-            let alarmID = CookModeSessionCenter.usesJourneyAlarmFixture
-                ? UUID()
-                : try await CookModeAlarmKitTimerScheduler.schedule(timer: timer, recipe: recipe, step: step)
-            CookModeSessionCenter.shared.updateTimerClock {
-                $0.start(alarmID: alarmID, duration: TimeInterval(timer.durationSeconds), now: Date())
-            }
-            return alarmID
-        }
+        try await CookStepTimers.start(
+            timer,
+            recipe: recipe,
+            step: step,
+            registry: CookModeSessionCenter.shared.stepTimers,
+            alarms: CookModeSessionCenter.alarms,
+            now: Date.init,
+            updateClock: CookModeSessionCenter.shared.updateTimerClock
+        )
     }
 
     @MainActor private func cancelSystemTimer(step: RecipeStep) throws {
-        try CookModeSessionCenter.shared.stepTimers.cancel(step: stepTimerKey(step)) { alarmID in
-            if CookModeSessionCenter.usesJourneyAlarmFixture {
-                return
-            }
-            try CookModeAlarmKitTimerScheduler.cancel(alarmID: alarmID)
-        }
+        try CookStepTimers.cancel(recipe: recipe, step: step, registry: CookModeSessionCenter.shared.stepTimers, alarms: CookModeSessionCenter.alarms)
     }
 
     /// Lets Siri, Shortcuts and the Live Activity drive this screen while it is open.
@@ -1381,13 +1372,14 @@ extension CookModeView {
     /// last step), Mark done, then Back.
     private var tabletopStackedControls: some View {
         VStack(spacing: 10) {
-            if isLastStep {
-                finishControl
-            } else {
-                nextStepButton(identifier: "cookMode.tabletop.next")
+            ForEach(CookModeControlPlan.tabletop(isLastStep: isLastStep, accessibilityText: true).stacked, id: \.self) { control in
+                switch control {
+                case .finish: finishControl
+                case .next: nextStepButton(identifier: "cookMode.tabletop.next")
+                case .markDone: markDoneButton(identifier: "cookMode.tabletop.markDone")
+                case .back, .close: backStepButton(identifier: "cookMode.tabletop.back")
+                }
             }
-            markDoneButton(identifier: "cookMode.tabletop.markDone")
-            backStepButton(identifier: "cookMode.tabletop.back")
         }
         .controlSize(.large)
     }
@@ -1590,7 +1582,7 @@ extension CookModeView {
                         autoStartError: autoStartErrors[currentStep.id]
                     ) {
                         autoStartErrors[currentStep.id] = nil
-                        return try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: "\(timer.durationLabel) timer started.")
+                        return try await scheduleSystemTimer(timer, step: currentStep).message(startedMessage: CookTimerRingText.started(timer))
                     } cancel: {
                         try cancelSystemTimer(step: currentStep)
                     }
@@ -1661,7 +1653,7 @@ extension CookModeView {
     }
 
     @ViewBuilder private var cookSpreadForwardControl: some View {
-        if isLastStep {
+        if CookModeControlPlan.forward(isLastStep: isLastStep) == .finish {
             finishControl
         } else {
             nextStepButton(identifier: "cookSpread.next")
@@ -1781,18 +1773,17 @@ extension CookModeView {
     }
 
     func voiceStateChanged(_ state: CookVoiceListenerState) {
-        switch state {
-        case .off:
-            voiceNotice = nil
-        case .requestingPermission:
-            break
-        case .listening:
+        if state == .listening {
             // One live mic: in Split View both windows hear the cook, so only one may act on what it hears.
             CookModeSessionCenter.shared.voiceTurnedOn(token: sessionToken)
-            showVoiceNotice(CookVoiceNoticeText.listening)
-        case .unavailable(let reason):
-            let offersSettings = CookVoiceNoticeText.offersSettings(reason: reason)
-            showVoiceNotice(CookVoiceNoticeText.unavailable(reason: reason), persists: offersSettings, offersSettings: offersSettings)
+        }
+        switch CookVoiceNoticeChange.on(state) {
+        case .clear:
+            voiceNotice = nil
+        case .keep:
+            break
+        case .show(let text, let persists, let offersSettings):
+            showVoiceNotice(text, persists: persists, offersSettings: offersSettings)
         }
     }
 
@@ -1833,31 +1824,17 @@ extension CookModeView {
     /// A heard command runs the same action as its button, so the page turns (or crossfades under Reduce Motion)
     /// exactly as a tap would.
     func perform(voiceCommand command: CookVoiceCommand) {
-        let total = recipe.steps.count
-        switch command {
-        case .next:
-            guard canAdvance else {
-                showVoiceNotice(CookVoiceNoticeText.lastStep)
-                return
-            }
-            let target = currentIndex + 2
-            advance()
-            showVoiceNotice(CookVoiceNoticeText.turnedForward(to: target, of: total))
-        case .back:
-            guard canGoBack else {
-                showVoiceNotice(CookVoiceNoticeText.firstStep)
-                return
-            }
-            let target = currentIndex
-            previous()
-            showVoiceNotice(CookVoiceNoticeText.turnedBack(to: target, of: total))
-        case .repeatStep:
-            voice.read(CookModeSessionResolver.readout(for: viewModel))
-            showVoiceNotice(CookVoiceNoticeText.reading(step: currentIndex + 1, of: total))
-        case .startTimer:
-            runVoiceSessionCommand(.startTimer)
-        case .checkAll:
-            runVoiceSessionCommand(.checkStep)
+        switch CookVoiceAction.resolve(command, viewModel: viewModel) {
+        case .turn(let forward, let notice):
+            forward ? advance() : previous()
+            showVoiceNotice(notice)
+        case .notice(let notice):
+            showVoiceNotice(notice)
+        case .read(let text, let notice):
+            voice.read(text)
+            showVoiceNotice(notice)
+        case .session(let sessionCommand):
+            runVoiceSessionCommand(sessionCommand)
         }
     }
 
@@ -1868,7 +1845,7 @@ extension CookModeView {
             do {
                 showVoiceNotice(try await CookModeSessionCenter.shared.perform(command, token: sessionToken))
             } catch {
-                showVoiceNotice(CookModeSystemTimerScheduler.message(for: error, fallback: CookVoiceNoticeText.actionFailed))
+                showVoiceNotice(CookVoiceAction.failureNotice(for: error))
             }
         }
     }
@@ -2020,18 +1997,21 @@ private struct CookModeSystemTimer: View {
                 .frame(maxWidth: .infinity)
 
             // While the step's alarm runs, the ring is the status, so the message from setting it is not repeated.
-            if let statusMessage, !stepTimerIsSet {
+            switch CookTimerRingLine.resolve(status: statusMessage, error: errorMessage, autoStartError: autoStartError, alarmIsSet: stepTimerIsSet) {
+            case .status(let statusMessage):
                 Label(statusMessage, systemImage: "checkmark.circle")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.herb)
                     .accessibilityIdentifier("cookMode.timer.status")
                     .transition(handOver())
-            } else if let errorMessage = errorMessage ?? (stepTimerIsSet ? nil : autoStartError) {
+            case .error(let errorMessage):
                 Label(errorMessage, systemImage: "exclamationmark.triangle")
                     .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.tomato)
                     .accessibilityIdentifier("cookMode.timer.error")
                     .transition(handOver())
+            case nil:
+                EmptyView()
             }
         }
         .animation(KitchenMotion.animation(.glide, reduceMotion: reduceMotion), value: statusMessage)
@@ -2064,7 +2044,7 @@ private struct CookModeSystemTimer: View {
                 }
             } catch {
                 await MainActor.run {
-                    errorMessage = CookModeSystemTimerScheduler.message(for: error, fallback: timer.systemUnavailableMessage)
+                    errorMessage = CookTimerRingText.startFailed(error, timer: timer)
                     isScheduling = false
                 }
             }
@@ -2078,9 +2058,9 @@ private struct CookModeSystemTimer: View {
         errorMessage = nil
         do {
             try cancel()
-            statusMessage = "\(timer.durationLabel) timer cancelled."
+            statusMessage = CookTimerRingText.cancelled(timer)
         } catch {
-            errorMessage = "Could not cancel the system timer."
+            errorMessage = CookTimerRingText.cancelFailed
         }
     }
 
@@ -2342,7 +2322,18 @@ private struct CookModeSystemTimer: View {
     }
 }
 
-private enum CookModeAlarmKitTimerScheduler {
+extension CookModeSessionCenter {
+    /// How step alarms are set: AlarmKit, or the journeys' stand-in.
+    static var alarms: CookStepAlarms {
+        usesJourneyAlarmFixture ? .journeyStandIn : CookModeAlarmKitTimerScheduler.alarms
+    }
+}
+
+enum CookModeAlarmKitTimerScheduler {
+    @MainActor static var alarms: CookStepAlarms {
+        CookStepAlarms(schedule: { timer, recipe, step in try await schedule(timer: timer, recipe: recipe, step: step) }, cancel: { try cancel(alarmID: $0) })
+    }
+
     @MainActor static func schedule(timer: CookModeSystemTimerViewModel, recipe: Recipe, step: RecipeStep) async throws -> UUID {
 #if os(iOS) && canImport(AlarmKit)
         if #available(iOS 26.1, *) {
