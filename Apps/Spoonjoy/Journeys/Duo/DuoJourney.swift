@@ -1,13 +1,13 @@
 import SpoonjoyCore
 import XCTest
 
-/// The iPhone Duo journey: two real recipes on the go, cooked through every posture of the device. Closed, the Kitchen
-/// shows "Cooking now", the other tabs carry the tab bar's switcher, and the app reopens in cook mode on the saved
-/// step after it is killed. Opened flat, the Kitchen fills the inner screen held sideways and held tall. Half-open (forced with
-/// `-SpoonjoyForcePosture`, as the simulator's hinge cannot stand half-open), cook mode splits at the fold on the
-/// counter and lies open held like a book. Last, a recipe opens in a window of its own beside the first, and after a
-/// kill whichever window comes back in front is on its own recipe. Every screen is saved twice: by XCUITest, and by the
-/// Mac for both Duo displays.
+/// The iPhone Duo journey: two real recipes on the go, cooked through every posture of the device. Closed, the tab
+/// bar's Cooking now switcher covers no button. Opened flat, the Kitchen keeps Cooking now held sideways and held tall.
+/// Half-open (forced with `-SpoonjoyForcePosture`, as the simulator's hinge cannot stand half-open), cook mode splits
+/// at the fold on the counter and lies open held like a book. Last, a recipe opens in a window of its own beside the
+/// first, and after a kill every window that comes back is on its own page. Every screen is saved twice: by XCUITest,
+/// and by the Mac for both Duo displays. What Cooking now lists and the saved cook step are proved headless in
+/// SpoonjoyReinsTests.
 ///
 /// It is its own target, SpoonjoyDuoJourneys, which only the Duo journeys job runs: it needs the posture driver beside
 /// the simulator (`DuoHinge`), and fails without it.
@@ -58,8 +58,8 @@ final class DuoJourney: JourneyTestCase {
         try cookToStepTwo(journey, link: pastaLink, stepLabel: pastaStepTwo)
         try capture("01-closed-cook-step-2", journey)
 
-        // The Kitchen leads with the pasta, the cook on the counter, and lists the chickpeas under Cooking now; the
-        // tab bar carries the pasta.
+        // Precondition: the Kitchen lists the chickpeas under Cooking now. Which plates Cooking now and the switcher
+        // show is proved headless in SpoonjoyReinsTests.
         journey.tap(JourneyID.cookClose)
         journey.openLink(kitchenLink)
         let chickpeasRow = journey.element(JourneyID.kitchenCookingNowCard, labelContaining: JourneyRecipes.chickpeasTitle)
@@ -67,26 +67,15 @@ final class DuoJourney: JourneyTestCase {
             chickpeasRow.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The Kitchen has no Cooking now row for the chickpeas. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(chickpeasRow.label.contains(chickpeasStepTwo), "The chickpeas row does not say step 2: \(chickpeasRow.label)")
-        XCTAssertFalse(
-            journey.element(JourneyID.kitchenCookingNowCard, labelContaining: JourneyRecipes.pastaTitle).exists,
-            "Cooking now names the pasta the hero already leads with. Screen: \(journey.screen)"
-        )
-        // On the Kitchen the strip is the switcher, so the tab bar leaves its accessory off and covers no plate.
-        let accessory = journey.element(JourneyID.cookingNowAccessoryResume)
-        XCTAssertTrue(
-            accessory.waitForNonExistence(timeout: JourneyApp.interactionTimeout),
-            "The tab bar's Cooking now switcher is on the Kitchen, over its own strip. Screen: \(journey.screen)"
-        )
         try capture("02-closed-kitchen-cooking-now", journey)
 
-        // Every other tab carries the switcher, leading with the pasta; scrolled to the foot, the last row clears it.
+        // UI: on another tab, scrolled to the foot, the tab bar's Cooking now switcher covers no button.
+        let accessory = journey.element(JourneyID.cookingNowAccessoryResume)
         journey.openTab(JourneyCopy.recipesTab)
         XCTAssertTrue(
             accessory.waitForExistence(timeout: JourneyApp.interactionTimeout),
             "The Recipes tab has no Cooking now switcher. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(accessory.label.contains(JourneyRecipes.pastaTitle), "The switcher does not lead with the pasta: \(accessory.label)")
         journey.app.swipeUp()
         journey.app.swipeUp()
         try capture("03-closed-recipes-foot-with-switcher", journey)
@@ -95,24 +84,7 @@ final class DuoJourney: JourneyTestCase {
             "The Cooking now switcher covers buttons at the foot of Recipes. Screen: \(journey.screen)"
         )
 
-        // The switcher goes back to the pasta's step; killed there, the app reopens in cook mode on that step.
-        accessory.tap()
-        let pastaCookStep = cookOnStepTwo(journey, stepLabel: pastaStepTwo)
-        XCTAssertTrue(
-            pastaCookStep.waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "The switcher did not go back to cooking the pasta on step 2. Screen: \(journey.screen)"
-        )
-        verifyAfterRelaunch(journey) {
-            XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
-            XCTAssertTrue(
-                pastaCookStep.waitForExistence(timeout: JourneyApp.networkTimeout),
-                "The app did not reopen in cook mode on step 2 after it was killed. Screen: \(journey.screen)"
-            )
-        }
-        try capture("04-closed-restored-cook-step-2", journey)
-
         // Open flat, held sideways: the inner screen.
-        journey.tap(JourneyID.cookClose)
         journey.openLink(kitchenLink)
         try DuoHinge.set(.open)
         XCTAssertTrue(
@@ -192,16 +164,17 @@ final class DuoJourney: JourneyTestCase {
         let beforeKill = journey.windowProbes
         attachText("12-windows-before-kill", beforeKill.joined(separator: "\n"))
 
-        // Killed with two windows open, every window that comes back, the front one first, is on the page it held.
-        journey.relaunch()
-        let afterKill = journey.waitForWindowsRestored(to: beforeKill)
-        try captureScreen("13-windows-after-relaunch", journey)
-        attachText("13-windows-after-relaunch-probes", afterKill.joined(separator: "\n"))
-        XCTAssertFalse(afterKill.isEmpty, "No window came back after the app was killed. Screen: \(journey.screen)")
-        XCTAssertTrue(
-            afterKill.allSatisfy { beforeKill.contains($0) },
-            "A window came back on a page it did not hold: \(afterKill), before the kill \(beforeKill). Screen: \(journey.screen)"
-        )
+        // UI: killed with two windows open, every window that comes back, the front one first, is on the page it held.
+        try verifyAfterRelaunch(journey) {
+            let afterKill = journey.waitForWindowsRestored(to: beforeKill)
+            try captureScreen("13-windows-after-relaunch", journey)
+            attachText("13-windows-after-relaunch-probes", afterKill.joined(separator: "\n"))
+            XCTAssertFalse(afterKill.isEmpty, "No window came back after the app was killed. Screen: \(journey.screen)")
+            XCTAssertTrue(
+                afterKill.allSatisfy { beforeKill.contains($0) },
+                "A window came back on a page it did not hold: \(afterKill), before the kill \(beforeKill). Screen: \(journey.screen)"
+            )
+        }
     }
 
     /// Opens a recipe by link, starts cooking and turns to its second step. On the closed Duo cook mode opens as the

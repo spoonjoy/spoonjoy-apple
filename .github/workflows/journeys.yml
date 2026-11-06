@@ -20,9 +20,13 @@ env:
 
 jobs:
   journeys:
-    name: Journeys
+    # The live layer: the journeys that need the QA mirror or the real UI and OS. Headless Journeys in
+    # SpoonjoyReinsTests carry the rest. Not a required check. scripts/live-journeys.rb classifies a failure as
+    # network, launch or assertion (scripts/lib/live_journey_failure.rb); network and launch are infrastructure and
+    # get one more attempt, on fresh accounts and a rebooted simulator. An assertion failure is never retried.
+    name: Live journeys
     runs-on: xcode-27
-    timeout-minutes: 70
+    timeout-minutes: 125
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -79,27 +83,66 @@ jobs:
           destination="${{ steps.sim.outputs.destination }}"
           python3 .github/scripts/wait-for-simulator-settle.py "${destination##*,id=}" --booted-at "${{ steps.boot.outputs.booted-at }}"
       - name: Create disposable QA accounts
-        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 5 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
-      - name: Run journeys
+        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/accounts.json"
+      - name: Run live journeys
+        id: attempt1
         timeout-minutes: 40
         run: |
           set -euo pipefail
           # xcodebuild hands TEST_RUNNER_<NAME> to the test runner as <NAME>. The runner gets only the path
           # of the 0600 accounts file (deleted after the run); xcodebuild records the test environment in the
           # result bundle, so no credential value may travel through it.
+          # The wrapper stops the attempt before the step's time limit, so the bundle and log can still be classified
+          # and scanned. It exits 0 when this attempt failed on infrastructure; the retry steps below then run.
           export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/journeys-secrets/accounts.json"
           export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
-          xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+          ruby scripts/live-journeys.rb --attempt 1 --timeout-minutes 37 \
+            --result-bundle "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult" --log "$RUNNER_TEMP/journeys/test.log" -- \
+            xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
             -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
             -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" \
             -parallel-testing-enabled NO -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
             -collect-test-diagnostics never \
-            -resultBundlePath "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult" 2>&1 | tee "$RUNNER_TEMP/journeys/test.log"
+            -resultBundlePath "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult"
+      - name: Create fresh QA accounts for the retry
+        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        run: scripts/journey-qa-accounts.sh create --base-url "$SPOONJOY_QA_BASE_URL" --count 4 --out "$RUNNER_TEMP/journeys-secrets/retry-accounts.json"
+      - name: Reboot the simulator for the retry
+        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        timeout-minutes: 12
+        run: |
+          set -euo pipefail
+          destination="${{ steps.sim.outputs.destination }}"
+          udid="${destination##*,id=}"
+          # A launch failure can leave the simulator already shut down.
+          xcrun simctl shutdown "$udid" || true
+          xcrun simctl boot "$udid"
+          booted_at="$(date +%s)"
+          xcrun simctl bootstatus "$udid" -b
+          python3 .github/scripts/wait-for-simulator-settle.py "$udid" --booted-at "$booted_at"
+      - name: Retry live journeys after an infrastructure failure
+        id: attempt2
+        if: contains(fromJSON('["network","launch"]'), steps.attempt1.outputs.class)
+        timeout-minutes: 40
+        run: |
+          set -euo pipefail
+          # Fresh accounts, so nothing attempt 1 left on QA is reused. Any failure here fails the job.
+          export TEST_RUNNER_SPOONJOY_JOURNEY_ACCOUNTS_FILE="$RUNNER_TEMP/journeys-secrets/retry-accounts.json"
+          export TEST_RUNNER_SPOONJOY_JOURNEY_SUMMARY_FILE="$GITHUB_STEP_SUMMARY"
+          ruby scripts/live-journeys.rb --attempt 2 --timeout-minutes 37 \
+            --result-bundle "$RUNNER_TEMP/journeys/SpoonjoyJourneys-retry.xcresult" --log "$RUNNER_TEMP/journeys/test-retry.log" -- \
+            xcodebuild test-without-building -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration BootstrapDebug \
+            -destination "${{ steps.sim.outputs.destination }}" -only-testing:SpoonjoyJourneys \
+            -derivedDataPath "$RUNNER_TEMP/journeys/DerivedData" \
+            -parallel-testing-enabled NO -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 600 -maximum-test-execution-time-allowance 900 \
+            -collect-test-diagnostics never \
+            -resultBundlePath "$RUNNER_TEMP/journeys/SpoonjoyJourneys-retry.xcresult"
       - name: Print app crash reports
         # When the app dies mid-journey XCTest reports only "Lost connection to the application"; this puts
         # the crash report's exception and crashing thread in the job log.
-        if: failure()
+        if: failure() || steps.attempt1.outputs.class == 'launch'
         run: python3 .github/scripts/print-crash-reports.py "$HOME/Library/Logs/DiagnosticReports"
       - name: Rotate journey account passwords
         id: rotate
@@ -112,19 +155,37 @@ jobs:
           scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/journeys-secrets/accounts.json" \
             "$RUNNER_TEMP/journeys/build.log" \
             "$RUNNER_TEMP/journeys/test.log" \
-            "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult"
+            "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult" \
+            "$RUNNER_TEMP/journeys/test-retry.log" \
+            "$RUNNER_TEMP/journeys/SpoonjoyJourneys-retry.xcresult"
+      - name: Rotate retry account passwords
+        id: rotate-attempt2
+        if: always()
+        run: scripts/journey-qa-accounts.sh rotate --base-url "$SPOONJOY_QA_BASE_URL" --accounts "$RUNNER_TEMP/journeys-secrets/retry-accounts.json"
+      - name: Scan journey artifacts for retry passwords
+        id: scan-attempt2
+        if: always()
+        run: |
+          scripts/journey-qa-accounts.sh scan --accounts "$RUNNER_TEMP/journeys-secrets/retry-accounts.json" \
+            "$RUNNER_TEMP/journeys/build.log" \
+            "$RUNNER_TEMP/journeys/test.log" \
+            "$RUNNER_TEMP/journeys/SpoonjoyJourneys.xcresult" \
+            "$RUNNER_TEMP/journeys/test-retry.log" \
+            "$RUNNER_TEMP/journeys/SpoonjoyJourneys-retry.xcresult"
       - name: Remove credentials
         if: always()
         run: rm -rf "$RUNNER_TEMP/journeys-secrets"
       - name: Upload journeys result bundle
         # Only after every old password is proven dead and no password was found in these files.
-        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.rotate.outcome == 'success' && steps.scan.outcome == 'success' && steps.rotate-attempt2.outcome == 'success' && steps.scan-attempt2.outcome == 'success' }}
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: journeys-xcresult-${{ github.event.pull_request.head.sha || github.sha }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/journeys/SpoonjoyJourneys.xcresult
             ${{ runner.temp }}/journeys/test.log
+            ${{ runner.temp }}/journeys/SpoonjoyJourneys-retry.xcresult
+            ${{ runner.temp }}/journeys/test-retry.log
             ${{ runner.temp }}/journeys/build.log
           if-no-files-found: warn
           retention-days: 30

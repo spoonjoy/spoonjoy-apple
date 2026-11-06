@@ -1,18 +1,12 @@
 import SpoonjoyCore
 import XCTest
 
-/// Journey 4: checking an ingredient in cook mode reaches QA's cook-session store. The test process reads
-/// the session straight from QA with the account's own bearer token, so a pass proves the server holds the
-/// check and not only this device. The step has a duration, so checking all its ingredients starts its timer, and
-/// the journey cancels it. The CI simulator refuses AlarmKit, so the app records a stand-in alarm
-/// (`NativeJourneyAlarmFixture`); cook mode's per-step registry, ring and Cancel control are the real ones. A swipe
-/// that starts on the ring turns to step 2 without starting the timer, and after a relaunch at the largest text size
-/// cook mode reopens there with step 1's checks kept. A second swipe from the ring at that size turns the page again,
-/// starts no timer and leaves step 1's checks alone.
-///
-/// Before cook mode, the recipe page checks the step's first ingredient: as on the web it sinks to the bottom of
-/// the step's list, nothing above the step moves (Clear progress has room kept for it in the Steps heading), and
-/// Clear progress puts it back.
+/// Live journey: checking an ingredient in cook mode reaches QA's cook-session store. The test process reads the
+/// session straight from QA with the account's own bearer token, so a pass proves the server holds the check and not
+/// only this device, and a relaunch never moves QA's revision backwards. The cook-mode logic itself (ordering, timers,
+/// page turns, saved progress) is proved headless in SpoonjoyReinsTests; this journey keeps only what needs QA or the
+/// real UI and OS: the recipe page's step stays put when a check shows Clear progress, the cook session's Live Activity
+/// on SpringBoard, and cook mode's layout at the largest accessibility text size.
 @MainActor
 final class CookSyncJourney: JourneyTestCase {
     func testCookModeCheckReachesTheServerJourney() async throws {
@@ -20,8 +14,6 @@ final class CookSyncJourney: JourneyTestCase {
         let token = try JourneyAccounts.runToken()
         let title = "Journey \(token) Cook Sync J4"
         let lemon = "Journey\(token)lemon"
-        let salt = "Journey\(token)salt"
-        let oil = "Journey\(token)oil"
         let qa = try await JourneyQAClient.signIn(account)
         let recipeID = try await qa.createRecipe(
             title: title,
@@ -33,12 +25,10 @@ final class CookSyncJourney: JourneyTestCase {
                     duration: 10,
                     ingredients: [
                         RecipeIngredientDraft(quantity: 1, unit: "whole", name: lemon),
-                        RecipeIngredientDraft(quantity: 1, unit: "tsp", name: salt),
-                        RecipeIngredientDraft(quantity: 2, unit: "tbsp", name: oil)
+                        RecipeIngredientDraft(quantity: 1, unit: "tsp", name: "Journey\(token)salt")
                     ],
                     outputStepNums: []
                 ),
-                // A second step to turn to: by a swipe on compact width, by the dock's Next on regular width.
                 RecipeStepDraft(
                     stepNum: 2,
                     stepTitle: "Serve",
@@ -60,33 +50,21 @@ final class CookSyncJourney: JourneyTestCase {
         journey.openTab(JourneyCopy.recipesTab)
         journey.openRecipe(titled: title, from: JourneyID.recipesRow)
 
-        // The recipe page lists lemon, salt and oil with nothing to clear yet. The API orders a step's ingredients
-        // by ID (orderBy id in app/lib/api-v1.server.ts), so the journey reads the step's order from the page.
+        // UI: Clear progress has room kept for it in the Steps heading, so a check that shows it moves nothing above the
+        // step, and clearing moves nothing back.
         let pageLemon = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: lemon)
-        let pageSalt = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: salt)
-        let pageOil = journey.element(JourneyID.recipeDetailIngredient, labelContainingIgnoringCase: oil)
         let recipeTitle = journey.element(JourneyID.recipeDetailTitle)
         let stepOne = journey.element(JourneyID.recipeDetailStep(1))
         XCTAssertTrue(
             pageLemon.waitForExistence(timeout: JourneyApp.networkTimeout),
             "The recipe page does not list the lemon. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(pageSalt.exists, "The recipe page does not list the salt. Screen: \(journey.screen)")
-        XCTAssertTrue(pageOil.exists, "The recipe page does not list the oil. Screen: \(journey.screen)")
-        let stepOrder = [pageLemon, pageSalt, pageOil].sorted { $0.frame.minY < $1.frame.minY }
-        let firstIngredient = stepOrder[0]
-        let secondIngredient = stepOrder[1]
-        let lastIngredient = stepOrder[2]
-        XCTAssertFalse(journey.element(JourneyID.recipeDetailClearProgress).exists, "Clear progress shows with nothing to clear.")
         let stepOffsetBeforeCheck = stepOne.frame.minY - recipeTitle.frame.minY
         journey.attachScreenshot(named: "00-recipe-before-check", to: self)
-
-        // Checking the first ingredient sinks it below the others, and the page above the step does not move.
-        firstIngredient.tap()
-        XCTAssertEqual(firstIngredient.value as? String, "used", "Tapping the first ingredient on the recipe page did not check it.")
+        pageLemon.tap()
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailClearProgress).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Clear progress did not appear after the first check. Screen: \(journey.screen)"
+            "Clear progress did not appear after a check. Screen: \(journey.screen)"
         )
         XCTAssertEqual(
             stepOne.frame.minY - recipeTitle.frame.minY,
@@ -94,14 +72,8 @@ final class CookSyncJourney: JourneyTestCase {
             accuracy: 0.5,
             "Checking an ingredient moved the step down the page."
         )
-        XCTAssertLessThan(secondIngredient.frame.minY, lastIngredient.frame.minY, "The unchecked ingredients lost their order.")
-        XCTAssertGreaterThan(firstIngredient.frame.minY, lastIngredient.frame.minY, "The checked ingredient did not move to the bottom.")
-        journey.attachScreenshot(named: "00a-recipe-first-ingredient-checked", to: self)
-
-        // Clear progress unchecks it, and it returns to the top of the step.
+        journey.attachScreenshot(named: "00a-recipe-ingredient-checked", to: self)
         journey.tap(JourneyID.recipeDetailClearProgress)
-        XCTAssertEqual(firstIngredient.value as? String, "not used", "Clear progress did not uncheck the ingredient.")
-        XCTAssertLessThan(firstIngredient.frame.minY, secondIngredient.frame.minY, "The unchecked ingredient did not return to the top.")
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailClearProgress).waitForNonExistence(timeout: JourneyApp.interactionTimeout),
             "Clear progress stayed after there was nothing left to clear."
@@ -114,36 +86,15 @@ final class CookSyncJourney: JourneyTestCase {
         )
 
         journey.tap(JourneyID.recipeDetailCook)
-
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: lemon)
         XCTAssertTrue(
             ingredient.waitForExistence(timeout: JourneyApp.networkTimeout),
             "Cook mode does not list the lemon. Screen: \(journey.screen)"
         )
-        XCTAssertTrue(
-            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 1 of 2").exists,
-            "Cook mode does not say Step 1 of 2. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(journey.element(JourneyID.cookMore).exists, "Cook mode has no More menu for Scale. Screen: \(journey.screen)")
-        XCTAssertTrue(journey.element(JourneyID.cookTimerRing).exists, "The timed step has no timer ring. Screen: \(journey.screen)")
-        // A swipe that starts on a check row turns the page and never checks the row. Regular width turns with the
-        // dock's Next instead, which must not check it either.
-        turnToTheNextStep(journey, from: ingredient)
-        XCTAssertTrue(
-            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 2 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "A swipe that started on the lemon did not reach Step 2 of 2. Screen: \(journey.screen)"
-        )
-        turnToThePreviousStep(journey)
-        XCTAssertTrue(
-            ingredient.waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Turning back did not show the lemon again. Screen: \(journey.screen)"
-        )
-        XCTAssertFalse(isChecked(ingredient), "The swipe that started on the lemon also checked it.")
         ingredient.tap()
-        XCTAssertTrue(isChecked(ingredient), "Tapping the lemon did not check it in cook mode. Value: \(String(describing: ingredient.value))")
         journey.attachScreenshot(named: "01-checked-in-cook-mode", to: self)
 
-        // The app sends after a short pause; the test process reads QA until the check arrives.
+        // Live: the app sends after a short pause; the test process reads QA until the check arrives.
         let reading = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
         XCTAssertGreaterThan(reading.revision, 0, "QA's cook session has not moved past revision 0.")
         XCTAssertTrue(reading.checkedIngredientIDs.contains(ingredientID), "QA's cook session does not hold the checked ingredient.")
@@ -152,135 +103,25 @@ final class CookSyncJourney: JourneyTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // Checking the rest of the step's ingredients starts its timer by itself: the ring counts down and offers Cancel.
-        XCTAssertFalse(journey.element(JourneyID.cookTimerRunning).exists, "The timer started before every ingredient was checked.")
-        let saltRow = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: salt)
-        saltRow.tap()
-        XCTAssertTrue(isChecked(saltRow), "Tapping the salt did not check it in cook mode.")
-        let oilRow = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: oil)
-        oilRow.tap()
-        XCTAssertTrue(isChecked(oilRow), "Tapping the oil did not check it in cook mode.")
-        XCTAssertTrue(
-            journey.element(JourneyID.cookTimerRunning).waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Checking every ingredient did not start the step's timer. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(journey.element(JourneyID.cookTimerCancel).exists, "The running timer does not offer Cancel. Screen: \(journey.screen)")
-        // While the timer runs the ring is its status, with no second message under it.
-        XCTAssertFalse(journey.element(JourneyID.cookTimerStatus).exists, "The running timer repeats its status in a second line.")
-        journey.attachScreenshot(named: "02-timer-running", to: self)
-
-        journey.tap(JourneyID.cookTimerCancel)
-        XCTAssertTrue(
-            journey.element(JourneyID.cookTimerRunning).waitForNonExistence(timeout: JourneyApp.interactionTimeout),
-            "Cancelling the step timer did not stop the ring. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(journey.element(JourneyID.cookTimerRing).exists, "Cancelling the timer did not bring the ring back to start.")
-        XCTAssertFalse(journey.element(JourneyID.cookTimerCancel).exists, "Cancel stayed after the timer was cancelled.")
-        XCTAssertTrue(journey.element(JourneyID.cookTimerStatus).exists, "Cancelling the timer did not say so.")
-        journey.attachScreenshot(named: "03-timer-cancelled", to: self)
-
+        // OS: the cook session's Live Activity on SpringBoard.
         verifyCookSessionLiveActivity(journey, returnTo: ingredient)
 
-        turnToTheNextStep(journey, from: journey.element(JourneyID.cookTimerRing))
-        XCTAssertTrue(
-            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 2 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Turning the page did not reach Step 2 of 2. Screen: \(journey.screen)"
-        )
-        XCTAssertFalse(
-            journey.element(JourneyID.cookTimerRunning).waitForExistence(timeout: 1),
-            "The swipe that started on the timer ring also started the timer. Screen: \(journey.screen)"
-        )
-        journey.attachScreenshot(named: "05-second-step", to: self)
-
-        // The relaunch keeps this device's own state, so the proof that the server holds the check is the reading above.
-        // It takes the largest accessibility text size too: cook mode reopens on step 2, and step 1 still has its checks.
+        // UI: after a relaunch at the largest accessibility text size, cook mode's step text, ring and card fit.
         let cookLink = try XCTUnwrap(URL(string: "spoonjoy://recipes/\(recipeID)/cook"))
         journey.useLargestAccessibilityTextOnNextLaunch()
         verifyAfterRelaunch(journey) {
-            XCTAssertFalse(journey.element(JourneyID.passwordSignIn).exists, "The app signed out on relaunch.")
+            journey.openLink(cookLink)
+            verifyLargestTextLayout(journey)
+            journey.attachScreenshot(named: "06-after-relaunch-largest-text", to: self)
         }
-        journey.openLink(cookLink)
-        XCTAssertTrue(
-            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 2 of 2").waitForExistence(timeout: JourneyApp.networkTimeout),
-            "Cook mode did not reopen on step 2 after a relaunch. Screen: \(journey.screen)"
-        )
-        turnToThePreviousStep(journey)
-        let lemonAfterRelaunch = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: lemon)
-        XCTAssertTrue(
-            lemonAfterRelaunch.waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Turning back did not show step 1's lemon after a relaunch. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(isChecked(lemonAfterRelaunch), "The lemon lost its check after a relaunch.")
-        verifyLargestTextLayout(journey)
-        journey.attachScreenshot(named: "06-after-relaunch-largest-text", to: self)
 
-        // At the largest text size the rows can sit below the fold, so the swipe starts on the ring, which the layout
-        // check above found on screen. It turns the page without starting a timer, and step 1 keeps every check.
-        turnToTheNextStep(journey, from: journey.element(JourneyID.cookTimerRing))
-        XCTAssertTrue(
-            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 2 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "A swipe at the largest text size did not reach Step 2 of 2. Screen: \(journey.screen)"
-        )
-        XCTAssertFalse(
-            journey.element(JourneyID.cookTimerRunning).waitForExistence(timeout: 1),
-            "The swipe at the largest text size started a timer. Screen: \(journey.screen)"
-        )
-        turnToThePreviousStep(journey)
-        XCTAssertTrue(
-            journey.element(JourneyID.cookStepMeta, labelContaining: "Step 1 of 2").waitForExistence(timeout: JourneyApp.interactionTimeout),
-            "Turning back at the largest text size did not reach Step 1 of 2. Screen: \(journey.screen)"
-        )
-        XCTAssertTrue(isChecked(lemonAfterRelaunch), "A swipe unchecked the lemon.")
-        XCTAssertTrue(
-            isChecked(journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: salt)),
-            "A swipe unchecked the salt."
-        )
-        XCTAssertTrue(
-            isChecked(journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: oil)),
-            "A swipe unchecked the oil."
-        )
-
+        // Live: the relaunch's own sync never moves QA's cook session backwards.
         let afterRelaunch = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
         XCTAssertGreaterThanOrEqual(afterRelaunch.revision, reading.revision, "A relaunch moved QA's cook session backwards.")
     }
 }
 
 extension CookSyncJourney {
-    /// The checkbox reads "1" as a switch and "checked" as a button, depending on how the platform exposes it.
-    private func isChecked(_ element: XCUIElement) -> Bool {
-        ["1", "checked"].contains(element.value as? String ?? "")
-    }
-
-    /// Compact width has no dock: a swipe turns the page. Regular width keeps the dock, so Next turns it there, and
-    /// Back joins the dock once there is a step to go back to.
-    private func usesDock(_ journey: JourneyApp) -> Bool {
-        journey.app.windows.firstMatch.frame.width >= 700
-    }
-
-    /// On compact width the swipe starts on `start`, a control on the page, which must not also take the touch as a tap.
-    private func turnToTheNextStep(_ journey: JourneyApp, from start: XCUIElement) {
-        guard usesDock(journey) else {
-            start.swipeLeft()
-            return
-        }
-        let dockNext = journey.element(JourneyID.cookDockNext)
-        XCTAssertTrue(dockNext.waitForExistence(timeout: JourneyApp.interactionTimeout), "The dock has no Next. Screen: \(journey.screen)")
-        XCTAssertTrue(journey.element(JourneyID.cookDockDone).exists, "The dock has no Mark step. Screen: \(journey.screen)")
-        XCTAssertFalse(journey.element(JourneyID.cookDockPrevious).exists, "Step 1 shows a Back with nowhere to go. Screen: \(journey.screen)")
-        dockNext.tap()
-        let dockPrevious = journey.element(JourneyID.cookDockPrevious)
-        XCTAssertTrue(dockPrevious.waitForExistence(timeout: JourneyApp.interactionTimeout), "Back did not join the dock after Next. Screen: \(journey.screen)")
-        XCTAssertTrue(dockPrevious.isHittable, "Back is in the dock but can't be tapped. Screen: \(journey.screen)")
-    }
-
-    private func turnToThePreviousStep(_ journey: JourneyApp) {
-        guard usesDock(journey) else {
-            journey.element(JourneyID.cookPage).swipeRight()
-            return
-        }
-        journey.tap(JourneyID.cookDockPrevious)
-    }
-
     /// At the largest accessibility text size the step text wraps inside the window, the ring stays at least 120 pt,
     /// and the step text, ring and step card do not overlap.
     private func verifyLargestTextLayout(_ journey: JourneyApp) {
