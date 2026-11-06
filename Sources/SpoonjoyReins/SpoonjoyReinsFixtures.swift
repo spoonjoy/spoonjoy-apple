@@ -11,6 +11,8 @@ public struct SpoonjoyReinsFixtures: Sendable {
     public var apiTransport: (@Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport)?
     /// Settings' surface fetch (`NativeLiveAppStoreDependencies.settingsSurfaceFetch`).
     public var settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
+    /// Cook mode: how step alarms are set, what the mic hears, and the screen it runs on (`SpoonjoyReinsCookFixtures`).
+    public var cook = SpoonjoyReinsCookFixtures()
 
     public init(
         now: @escaping @Sendable () -> Date = { Date(timeIntervalSince1970: 1_793_000_000) },
@@ -35,7 +37,9 @@ public enum SpoonjoyReinsLaunch {
     public static func launch(in directory: URL, fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures()) async throws -> SpoonjoyReinsShell {
         let store = try SpoonjoyFixtureKitchen.store(in: directory, fixtures: fixtures)
         await store.bootstrap()
-        return SpoonjoyReinsShell(store: store, fixtures: fixtures)
+        let shell = SpoonjoyReinsShell(store: store, fixtures: fixtures)
+        shell.kitchenDirectory = directory
+        return shell
     }
 
     /// A fresh folder with `kitchen` written into it (or the bundled fixture kitchen when nil).

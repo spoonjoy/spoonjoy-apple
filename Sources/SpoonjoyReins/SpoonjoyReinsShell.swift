@@ -18,6 +18,11 @@ public final class SpoonjoyReinsShell {
     /// Page state the SwiftUI views keep in `@State`.
     public internal(set) var page = SpoonjoyReinsPageState()
     let timestamp: () -> String
+    /// The folder the kitchen lives in, so what the app keeps outside the store (step timers, the recipe page's
+    /// checks) survives a relaunch too.
+    public internal(set) var kitchenDirectory: URL?
+    /// Cook mode's own state outside the store: the step timers, the mic and the lines it shows (`Nodes/CookNode.swift`).
+    lazy var cook = SpoonjoyReinsCook(shell: self)
 
     public init(store: NativeLiveAppStore, fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures(), route: AppRoute = .kitchen) {
         self.store = store
@@ -46,9 +51,13 @@ public final class SpoonjoyReinsShell {
     func startCooking(_ id: String) {
         move { $0.startCooking(id) }
         store.cookModeOpened(recipeID: id)
+        cook.opened(id)
     }
 
-    func closeCook(_ id: String) { move { $0.closeCook(id) } }
+    func closeCook(_ id: String) {
+        cook.closed(id)
+        move { $0.closeCook(id) }
+    }
 
     func cookProgress(for recipe: Recipe) -> CookModeProgress {
         SpoonjoyShell.cookProgress(for: recipe, saved: content.cookProgress(for: recipe.id), startedAt: timestamp())

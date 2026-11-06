@@ -27,10 +27,18 @@ public struct RecipePageProgressSnapshot: Codable, Equatable, Sendable {
 
 /// Reads and writes `RecipePageProgressSnapshot` in the app's defaults, under the key the recipe page has always used.
 public struct RecipePageProgressStore: @unchecked Sendable {
-    private let defaults: UserDefaults
+    private let read: (String) -> Data?
+    private let write: (Data, String) -> Void
 
     public init(defaults: UserDefaults = .standard) {
-        self.defaults = defaults
+        read = { defaults.data(forKey: $0) }
+        write = { defaults.set($0, forKey: $1) }
+    }
+
+    /// A store over other storage, keyed the same way: a headless journey keeps it in its kitchen folder.
+    public init(read: @escaping (String) -> Data?, write: @escaping (Data, String) -> Void) {
+        self.read = read
+        self.write = write
     }
 
     /// Posted after cook mode sets a recipe's scale, with the recipe ID as the object. On iPhone cook mode covers the
@@ -43,7 +51,7 @@ public struct RecipePageProgressStore: @unchecked Sendable {
 
     public func snapshot(recipeID: String) -> RecipePageProgressSnapshot? {
         guard
-            let data = defaults.data(forKey: Self.key(recipeID: recipeID)),
+            let data = read(Self.key(recipeID: recipeID)),
             let snapshot = try? JSONDecoder().decode(RecipePageProgressSnapshot.self, from: data),
             snapshot.version == RecipePageProgressSnapshot.currentVersion
         else {
@@ -58,7 +66,7 @@ public struct RecipePageProgressStore: @unchecked Sendable {
 
     public func save(_ snapshot: RecipePageProgressSnapshot, recipeID: String) {
         // Encoding a struct of strings and numbers cannot fail.
-        defaults.set(try! JSONEncoder().encode(snapshot), forKey: Self.key(recipeID: recipeID))
+        write(try! JSONEncoder().encode(snapshot), Self.key(recipeID: recipeID))
     }
 
     /// A scale chosen in cook mode. The page's checks stay as they are.
@@ -85,5 +93,63 @@ extension CookModeProgress {
             return self
         }
         return settingScaleFactor(pageScale, updatedAt: updatedAt)
+    }
+}
+
+/// The recipe page's checks and scale while it is on screen: what a tap on an ingredient, Clear progress and a
+/// relaunch do to them. The page draws each step's ingredients in `CheckedIngredientOrder`, so a checked one sinks to
+/// the bottom of its step and an unchecked one goes back where it was.
+public struct RecipePageChecks: Equatable, Sendable {
+    public var scaleFactor: Double
+    public var checkedIngredientIDs: Set<String>
+    public var checkedStepDependencyIDs: Set<String>
+
+    public init(scaleFactor: Double = 1, checkedIngredientIDs: Set<String> = [], checkedStepDependencyIDs: Set<String> = []) {
+        self.scaleFactor = scaleFactor
+        self.checkedIngredientIDs = checkedIngredientIDs
+        self.checkedStepDependencyIDs = checkedStepDependencyIDs
+    }
+
+    /// What the page opens with: the saved checks that still name an ingredient or dependency of the recipe, at the
+    /// saved scale; with nothing saved, a fresh page.
+    public init(restoring snapshot: RecipePageProgressSnapshot?, validIngredientIDs: Set<String>, validDependencyIDs: Set<String>) {
+        guard let snapshot else {
+            self.init()
+            return
+        }
+        self.init(
+            scaleFactor: snapshot.scaleFactor,
+            checkedIngredientIDs: Set(snapshot.checkedIngredientIDs).intersection(validIngredientIDs),
+            checkedStepDependencyIDs: Set(snapshot.checkedStepDependencyIDs).intersection(validDependencyIDs)
+        )
+    }
+
+    /// Clear progress shows only when there is something to clear.
+    public var hasProgress: Bool {
+        scaleFactor != 1 || !checkedIngredientIDs.isEmpty || !checkedStepDependencyIDs.isEmpty
+    }
+
+    public mutating func toggleIngredient(_ id: String) {
+        if checkedIngredientIDs.remove(id) == nil {
+            checkedIngredientIDs.insert(id)
+        }
+    }
+
+    public mutating func toggleDependency(_ id: String) {
+        if checkedStepDependencyIDs.remove(id) == nil {
+            checkedStepDependencyIDs.insert(id)
+        }
+    }
+
+    /// Clear progress: every check off and the scale back to 1.
+    public static let cleared = RecipePageChecks()
+
+    public func snapshot(updatedAt: String) -> RecipePageProgressSnapshot {
+        RecipePageProgressSnapshot(
+            scaleFactor: scaleFactor,
+            checkedIngredientIDs: checkedIngredientIDs.sorted(),
+            checkedStepDependencyIDs: checkedStepDependencyIDs.sorted(),
+            updatedAt: updatedAt
+        )
     }
 }
