@@ -68,7 +68,7 @@ REQUIRED_TOKENS = {
     "KitchenCounterCook",
     "KitchenHeroStretch",
     "indexedRecipes",
-    "recipe.id != leadRecipe.id",
+    "layout.indexedRecipes",
     "RecipeIndexRow(recipe:",
     "recipe.servings",
     "KitchenTablePage",
@@ -155,6 +155,10 @@ REQUIRED_TOKENS = {
     "Button",
     "RecipeCoverImage(",
     "KitchenTableTheme"
+  ],
+  # The index leaves out the lead recipe; the rule lives in Core, where Ouro Reins reads it too.
+  "Sources/SpoonjoyCore/KitchenState/KitchenPageLayout.swift" => [
+    "recipes.filter { $0.id != lead.id }"
   ],
   "Sources/SpoonjoyCore/Features/Cookbooks/CookbookSurfaceRepository.swift" => [
     "CookbookSurfaceRepository",
@@ -355,13 +359,16 @@ fail_check("PlatformNavigationView.swift contains forbidden recipe surface token
   "RecipeDetailScreenViewModel",
   "RecipeCatalogRepository",
   "LiveRecipeCatalogRepository",
-  "FallbackRecipeCatalogRepository",
+  # The live-or-snapshot fallback is built in Core (ShellRecipeCatalogs), where Ouro Reins builds it too.
+  "everyoneRecipeCatalogRepository(live: LiveRecipeCatalogRepository",
   "RecipeDetailRouteView",
   "CookModeRouteView",
   "contentState.recipeCatalog"
 ].each do |token|
   fail_check("PlatformNavigationView.swift missing #{token}") unless root_shell.include?(token)
 end
+shell_catalogs = uncommented_swift(ROOT.join("Sources/SpoonjoyCore/Features/RecipeCatalog/ShellRecipeCatalogs.swift").read)
+fail_check("ShellRecipeCatalogs.swift missing FallbackRecipeCatalogRepository") unless shell_catalogs.include?("FallbackRecipeCatalogRepository(primary: live")
 
 web_contract = WEB_REPO.join("app/lib/api-v1-contract.server.ts")
 if web_contract.file?

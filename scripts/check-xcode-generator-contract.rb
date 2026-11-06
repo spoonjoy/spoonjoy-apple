@@ -146,7 +146,7 @@ Dir[ROOT.join(".github/workflows/*.yml").to_s].sort.each do |path|
     fail_check("#{File.basename(path)} must not run on macos-26 (Xcode 26 default)") unless File.basename(path) == "native.yml"
     YAML.safe_load(text).fetch("jobs").each do |job_id, job|
       next unless job["runs-on"] == "macos-26"
-      fail_check("native.yml job #{job_id} may not run on macos-26") unless %w[swift-tests native-scenario-verifier app-intents-xray].include?(job_id)
+      fail_check("native.yml job #{job_id} may not run on macos-26") unless %w[swift-tests reins-journeys native-scenario-verifier app-intents-xray].include?(job_id)
       job_text = job.fetch("steps").map { |step| "#{step["uses"]} #{step["run"]}" }.join("\n")
       fail_check("native.yml job #{job_id} on macos-26 must not call xcodebuild") if job_text.include?("xcodebuild")
       fail_check("native.yml job #{job_id} on macos-26 must use ./.github/actions/select-swift-toolchain") unless job_text.include?("./.github/actions/select-swift-toolchain")
