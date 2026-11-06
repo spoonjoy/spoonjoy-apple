@@ -18,12 +18,22 @@ public final class SpoonjoyReinsShell {
     /// Page state the SwiftUI views keep in `@State`.
     public internal(set) var page = SpoonjoyReinsPageState()
     let timestamp: () -> String
+    /// The kitchen folder this launch reads, where the app keeps its state files.
+    public let directory: URL?
+    /// Report and block, as the root view hands it to every screen (`\.moderation`), with its ledger beside the
+    /// app state so it survives a relaunch.
+    public let moderation: ModerationController
 
-    public init(store: NativeLiveAppStore, fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures(), route: AppRoute = .kitchen) {
+    public init(store: NativeLiveAppStore, fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures(), route: AppRoute = .kitchen, directory: URL? = nil) {
         self.store = store
         self.fixtures = fixtures
         self.shell = SpoonjoyShell(route: route)
         self.timestamp = fixtures.timestamp
+        self.directory = directory
+        self.moderation = ModerationController(
+            store: ChefModerationLedgerStore(directoryURL: directory ?? FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-reins-moderation")),
+            send: { [store] request, handling in try await store.executeSettingsActionRequest(request, responseHandling: handling) }
+        )
     }
 
     public var navigation: AppNavigationState { shell.navigation }
@@ -34,6 +44,7 @@ public final class SpoonjoyReinsShell {
 
     func move(_ change: (inout SpoonjoyShell) -> Void) {
         change(&shell)
+        rememberPage()
     }
 
     func navigate(to route: AppRoute) { move { $0.navigate(to: route) } }
@@ -57,16 +68,40 @@ public final class SpoonjoyReinsShell {
 
 /// What the views keep in `@State`, for the screens Reins models.
 public struct SpoonjoyReinsPageState {
+    /// Each recipe page's Send to Reminders flow (RecipeDetailView's `@State remindersSender`).
+    var remindersSenders: [String: SpoonjoyRemindersSender] = [:]
+    /// Settings' status line after an action (SettingsView's `settingsActionMessage`).
+    var settingsMessage: String?
+    /// The search typed into a cookbook page's "Search this cookbook" field.
+    var cookbookQuery = ""
+    /// Web pages the app handed to Safari (a secure sign-out, a hand-off), in order.
+    public internal(set) var openedURLs: [URL] = []
+
     public init() {}
 }
 
 /// A sheet the shell presents over the page.
 public enum SpoonjoyReinsSheet: Equatable {
     case addRecipe
+    /// The report sheet (ReportContentSheet): the reason picked so far, and whether the report was sent.
+    case report(ContentReportTarget, subject: String, reason: ContentReportReason?, sent: Bool)
+    /// The Block <chef> confirmation.
+    case blockChef(BlockedChef, from: ContentReportTarget)
+    /// Settings > Blocked chefs.
+    case blockedChefs
+    /// Settings > Delete account….
+    case deleteAccount(AccountDeletionForm)
+    /// Settings' "Sign out?" confirmation.
+    case confirmSignOut
 
     var name: String {
         switch self {
         case .addRecipe: "addRecipe"
+        case .report: "report"
+        case .blockChef: "blockChef"
+        case .blockedChefs: "blockedChefs"
+        case .deleteAccount: "deleteAccount"
+        case .confirmSignOut: "confirmSignOut"
         }
     }
 }
@@ -79,12 +114,19 @@ struct RecipeID: ReinsInput {
 
 extension SpoonjoyReinsShell: ReinsDrivable {
     public var reinsNode: ReinsNode {
-        let tabbed = ReinsNode.tabs(selected: compactTabs.selectedTab.rawValue, tabs: CompactTab.allCases.map(\.rawValue), select: { [unowned self] in
+        // The root view's `.onChange(of: trustedAccountID, initial: true) { moderation.useAccount($0) }`.
+        moderation.useAccount(content.trustedAccountID)
+        var tabbed = ReinsNode.tabs(selected: compactTabs.selectedTab.rawValue, tabs: CompactTab.allCases.map(\.rawValue), select: { [unowned self] in
             if let tab = CompactTab(rawValue: $0) { self.select(tab) }
         }, child: tabStack)
+        carryCookingNowSwitcher(on: &tabbed)
         // A sheet is modal: the page and tab bar under it aren't reachable until it closes.
         if let sheet {
             return ReinsNode("spoonjoy", state: shellState, child: ReinsNode("sheet", state: ["sheet": .string(sheet.name)], child: sheetNode(sheet)))
+        }
+        // Signed out, every page but Settings is the sign-in screen (SpoonjoyRootView.signedOutContent).
+        if store.bootstrapState.shellPresentation(isShowingSettings: navigation.route == .settings) == .signedOut {
+            return ReinsNode("spoonjoy", state: shellState, child: navigation.route == .settings ? standaloneSettingsNode : signedOutNode)
         }
         guard let cover = compactTabs.fullScreenRoute, case .recipeDetail(let id, .cook) = cover, let recipe = content.recipe(id: id) else {
             return ReinsNode("spoonjoy", state: shellState, child: tabbed)
@@ -119,6 +161,11 @@ extension SpoonjoyReinsShell: ReinsDrivable {
     func sheetNode(_ sheet: SpoonjoyReinsSheet) -> ReinsNode {
         switch sheet {
         case .addRecipe: unmodelled("addRecipe")
+        case .report(let target, let subject, let reason, let sent): reportSheetNode(target, subject: subject, reason: reason, sent: sent)
+        case .blockChef(let chef, let target): blockChefSheetNode(chef, from: target)
+        case .blockedChefs: blockedChefsSheetNode
+        case .deleteAccount(let form): deleteAccountSheetNode(form)
+        case .confirmSignOut: confirmSignOutSheetNode
         }
     }
 

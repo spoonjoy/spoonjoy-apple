@@ -2110,16 +2110,10 @@ struct PlatformNavigationView: View {
     }
 
     private var cookbookSurfaceRepository: any CookbookSurfaceRepository {
-        let page = cookbookSurfacePage(source: cookbookSurfaceDataSource)
-        let snapshotRepository = SnapshotCookbookSurfaceRepository(
-            page: page,
-            details: contentState.cookbooks.map { cookbook in
-                CookbookSurfaceDetailResult(
-                    cookbook: cookbook,
-                    source: cookbookSurfaceDataSource,
-                    availableRecipes: availableCookbookRecipes(for: cookbook)
-                )
-            }
+        let snapshotRepository = CookbookShelfSnapshot.repository(
+            cookbooks: contentState.cookbooks,
+            recipes: contentState.recipes,
+            source: cookbookSurfaceDataSource
         )
         let liveRepository = LiveCookbookSurfaceRepository(
             configuration: contentState.configuration,
@@ -2143,7 +2137,7 @@ struct PlatformNavigationView: View {
             now: Date.init,
             timestamp: { ISO8601DateFormatter().string(from: Date()) }
         )
-        viewModel.apply(page: cookbookSurfacePage(source: cookbookSurfaceDataSource))
+        viewModel.apply(page: CookbookShelfSnapshot.page(cookbooks: contentState.cookbooks, source: cookbookSurfaceDataSource))
         return viewModel
     }
 
@@ -2173,25 +2167,8 @@ struct PlatformNavigationView: View {
         )
     }
 
-    private func cookbookSurfacePage(source: CookbookSurfaceDataSource) -> CookbookSurfacePage {
-        CookbookSurfacePage(
-            query: nil,
-            limit: max(20, contentState.cookbooks.count),
-            cursor: nil,
-            nextCursor: nil,
-            hasMore: false,
-            rows: contentState.cookbooks.map(CookbookSummary.init(cookbook:)),
-            source: source
-        )
-    }
-
     private var cookbookSurfaceDataSource: CookbookSurfaceDataSource {
-        switch offlineIndicatorState.display {
-        case .synced:
-            .live(requestID: "native-shell", validatedAt: Date())
-        case .offline, .stale, .dismissed, .queuedWork, .syncFailure, .conflict, .blocker, .destructiveConfirmation:
-            .cache(serverRevision: latestCookbookRevision, lastValidatedAt: .distantPast)
-        }
+        CookbookShelfSnapshot.source(display: offlineIndicatorState.display, cookbooks: contentState.cookbooks, now: Date())
     }
 
     private var latestRecipeRevision: NativeCacheServerRevision? {
@@ -2199,20 +2176,6 @@ struct PlatformNavigationView: View {
             .map(\.updatedAt)
             .max()
             .map(NativeCacheServerRevision.updatedAt)
-    }
-
-    private var latestCookbookRevision: NativeCacheServerRevision? {
-        contentState.cookbooks
-            .map(\.updatedAt)
-            .max()
-            .map(NativeCacheServerRevision.updatedAt)
-    }
-
-    private func availableCookbookRecipes(for cookbook: Cookbook) -> [RecipeSummary] {
-        let savedRecipeIDs = Set(cookbook.recipes.map(\.id))
-        return contentState.recipes
-            .filter { !savedRecipeIDs.contains($0.id) }
-            .map(RecipeSummary.init(recipe:))
     }
 
     private func recipeDetailScreenViewModel(for recipe: Recipe) -> RecipeDetailScreenViewModel {
@@ -2607,39 +2570,16 @@ struct PlatformNavigationView: View {
         }
     }
 
+    /// Runs a settings plan through `SettingsActionPlan.perform` (SpoonjoyCore), the path Ouro Reins drives too.
     private func performSettingsAction(_ plan: SettingsActionPlan) async throws -> SettingsActionOutcome? {
-        if let preflight = plan.queuePreflightDecision(queuedMutations: contentState.queuedMutations) {
-            switch preflight {
-            case .queueMutation(let mutation, drainImmediately: false):
-                try await queueSettingsMutationIfNeeded(mutation)
-            case .queueMutation(let mutation, drainImmediately: true):
-                _ = try await queueMutations([mutation], true)
-            }
-            return nil
-        }
-
-        var outcome: SettingsActionOutcome?
-        if let requestBuilder = plan.remoteRequestBuilder {
-            do {
-                outcome = try await executeSettingsActionRequest(requestBuilder, plan.responseHandling)
-            } catch let error as APITransportError where error.isOffline {
-                if let offlineFallbackMutation = plan.offlineFallbackMutation {
-                    try await queueSettingsMutationIfNeeded(offlineFallbackMutation)
-                    return nil
-                }
-                throw error
-            }
-        }
-
-        if let sessionOperation = plan.sessionOperation {
-            try await performSettingsSessionOperation(sessionOperation)
-        }
-
-        if let handoff = plan.secureHandoff {
-            openURL(handoff.url)
-        }
-
-        return outcome
+        try await plan.perform(
+            queuedMutations: contentState.queuedMutations,
+            queueMutation: queueSettingsMutationIfNeeded,
+            queueMutations: { _ = try await queueMutations($0, $1) },
+            execute: executeSettingsActionRequest,
+            sessionOperation: performSettingsSessionOperation,
+            openURL: { openURL($0) }
+        )
     }
 
     private func queueSettingsMutationIfNeeded(_ mutation: NativeQueuedMutation) async throws {

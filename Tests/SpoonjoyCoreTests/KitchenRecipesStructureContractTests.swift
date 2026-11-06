@@ -19,7 +19,7 @@ struct KitchenRecipesStructureContractTests {
                 "KitchenCounterCook.idleLabel",
                 "counterCook?.label",
                 "private var indexedRecipes",
-                "recipe.id != leadRecipe.id",
+                "layout.indexedRecipes",
                 "recipes: indexedRecipes",
                 "CookbookShelf(cookbooks: cookbooks",
                 "KitchenMasthead.countSummary(recipes: kitchen.counts.recipes, cookbooks: kitchen.counts.cookbooks)",
@@ -33,6 +33,13 @@ struct KitchenRecipesStructureContractTests {
                 "RecipeIndex(recipes: recipes",
                 ".frame(maxWidth: .infinity, minHeight: 210"
             ]
+        )
+        // The index leaves out the lead recipe; the rule lives in Core, where Ouro Reins reads it too.
+        let layoutPath = "Sources/SpoonjoyCore/KitchenState/KitchenPageLayout.swift"
+        expectContent(
+            uncommentedSwift(try readRepoFile(layoutPath)),
+            in: layoutPath,
+            contains: ["recipes.filter { $0.id != lead.id }"]
         )
     }
 

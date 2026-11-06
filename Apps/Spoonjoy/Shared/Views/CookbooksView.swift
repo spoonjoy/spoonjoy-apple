@@ -760,7 +760,7 @@ private struct CookbookDetailView: View {
                     }
                 }
             } else {
-                if viewModel.recipes.count > 1 {
+                if CookbookRecipeSearch.offersSearchField(recipeCount: viewModel.recipes.count) {
                     recipeSearchField
                         .id(Self.recipeSearchAnchor)
                 }
@@ -768,7 +768,7 @@ private struct CookbookDetailView: View {
                 let firstVisibleID = visibleRecipeIDs.firstID(in: viewModel.recipes)
                 if visibleRecipeIDs.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("No recipes match \u{201C}\(recipeQuery.trimmingCharacters(in: .whitespacesAndNewlines))\u{201D}")
+                        Text(CookbookRecipeSearch.noMatchTitle(query: recipeQuery))
                             .font(KitchenTableTheme.bodyNote)
                             .foregroundStyle(KitchenTableTheme.ink)
                         Text(SearchSurfaceEmptyState.noMatchHelp)

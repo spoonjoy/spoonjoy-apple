@@ -11,15 +11,38 @@ public struct SpoonjoyReinsFixtures: Sendable {
     public var apiTransport: (@Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport)?
     /// Settings' surface fetch (`NativeLiveAppStoreDependencies.settingsSurfaceFetch`).
     public var settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation?
+    /// The sync engine's transport. With one, a `.liveFirst` launch syncs against it instead of the server.
+    public var syncTransport: (any NativeSyncTransport)?
+    /// How the store bootstraps: from cache only (the UI tests' default), or live first over `syncTransport`.
+    public var bootstrapMode: NativeLiveAppBootstrapMode
+    /// The token vault, shared by every launch made with these fixtures, as the keychain outlives a relaunch. Nil gives
+    /// each launch a fresh signed-in vault.
+    public var vault: FixtureTokenVault?
+    /// The device's Reminders, shared by every launch made with these fixtures.
+    public var reminders: SpoonjoyReinsReminders?
+    /// Whether the shell saves the page it is on as the app's last page and reopens on it at launch, as the app does
+    /// (SpoonjoyRootView's `rememberWindowPage` and `applyRestoredRouteIfNeeded`). Off by default so a journey that
+    /// relaunches without it starts on the Kitchen.
+    public var restoresPages: Bool
 
     public init(
         now: @escaping @Sendable () -> Date = { Date(timeIntervalSince1970: 1_793_000_000) },
         apiTransport: (@Sendable (any APIAuthenticationRefresher) -> any SpoonjoyAPITransport)? = nil,
-        settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil
+        settingsSurfaceFetch: NativeSettingsSurfaceFetchOperation? = nil,
+        syncTransport: (any NativeSyncTransport)? = nil,
+        bootstrapMode: NativeLiveAppBootstrapMode = .restoreCacheOnly,
+        vault: FixtureTokenVault? = nil,
+        reminders: SpoonjoyReinsReminders? = nil,
+        restoresPages: Bool = false
     ) {
         self.now = now
         self.apiTransport = apiTransport
         self.settingsSurfaceFetch = settingsSurfaceFetch
+        self.syncTransport = syncTransport
+        self.bootstrapMode = bootstrapMode
+        self.vault = vault
+        self.reminders = reminders
+        self.restoresPages = restoresPages
     }
 
     var timestamp: () -> String {
@@ -35,7 +58,9 @@ public enum SpoonjoyReinsLaunch {
     public static func launch(in directory: URL, fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures()) async throws -> SpoonjoyReinsShell {
         let store = try SpoonjoyFixtureKitchen.store(in: directory, fixtures: fixtures)
         await store.bootstrap()
-        return SpoonjoyReinsShell(store: store, fixtures: fixtures)
+        let shell = SpoonjoyReinsShell(store: store, fixtures: fixtures, directory: directory)
+        shell.applyRestoredRoute()
+        return shell
     }
 
     /// A fresh folder with `kitchen` written into it (or the bundled fixture kitchen when nil).

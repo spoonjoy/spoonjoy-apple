@@ -4,15 +4,9 @@ import SpoonjoyCore
 #if canImport(EventKit)
 import EventKit
 
-enum SpoonjoyRemindersError: Error, Equatable {
-    case accessDenied
-    case noListChosen
-    case listMissing
-    case saveFailed
-}
-
-/// Thin EventKit adapter. All matching and merging rules live in `ReminderSyncPlanner` in SpoonjoyCore.
-final class SpoonjoyRemindersStore: @unchecked Sendable {
+/// Thin EventKit adapter. All matching and merging rules, the remembered list and the send live in SpoonjoyCore
+/// (`ReminderSyncPlanner` and `SpoonjoyRemindersStoring`).
+final class SpoonjoyRemindersStore: SpoonjoyRemindersStoring, @unchecked Sendable {
     static let chosenListDefaultsKey = "spoonjoy.reminders.chosenListIdentifier"
 
     /// One store for the whole process, created on first use. Creating an EKEventStore connects to the
@@ -66,19 +60,6 @@ final class SpoonjoyRemindersStore: @unchecked Sendable {
         set { defaults.set(newValue, forKey: Self.chosenListDefaultsKey) }
     }
 
-    /// The remembered list when it still exists, otherwise an existing Groceries list (remembered from now on), otherwise nil.
-    func resolvedList() -> ReminderListSummary? {
-        let available = lists()
-        if let id = chosenListID, let chosen = available.first(where: { $0.id == id }) {
-            return chosen
-        }
-        guard let fallback = ReminderListSummary.preferredDefault(in: available) else {
-            return nil
-        }
-        chosenListID = fallback.id
-        return fallback
-    }
-
     func createList(title: String) throws -> ReminderListSummary {
         let calendar = EKCalendar(for: .reminder, eventStore: eventStore)
         calendar.title = title
@@ -90,20 +71,18 @@ final class SpoonjoyRemindersStore: @unchecked Sendable {
         return ReminderListSummary(id: calendar.calendarIdentifier, title: calendar.title)
     }
 
-    /// Reads incomplete and completed reminders, plans, then writes only what the plan says.
-    func send(
-        _ incoming: [ReminderIncomingIngredient],
-        source: ReminderSource,
-        listID: String
-    ) async throws -> ReminderSyncSummary {
-        try await requestAccess()
+    func existingReminders(listID: String) async throws -> [ReminderExisting] {
         guard let calendar = eventStore.calendar(withIdentifier: listID) else {
             throw SpoonjoyRemindersError.listMissing
         }
-        let existing = await existingReminders(in: calendar)
-        let plan = ReminderSyncPlanner.plan(incoming: incoming, existing: existing, source: source)
+        return await existingReminders(in: calendar)
+    }
+
+    func apply(_ plan: ReminderSyncPlan, listID: String) throws {
+        guard let calendar = eventStore.calendar(withIdentifier: listID) else {
+            throw SpoonjoyRemindersError.listMissing
+        }
         try apply(plan, to: calendar)
-        return plan.summary
     }
 
     private func existingReminders(in calendar: EKCalendar) async -> [ReminderExisting] {

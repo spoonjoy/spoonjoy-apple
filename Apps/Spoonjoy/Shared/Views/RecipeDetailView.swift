@@ -145,15 +145,12 @@ struct RecipeDetailRouteView: View {
             let detailResult = await detailResultByLoadingFullSpoonList(result)
             routeState = .loaded(RecipeDetailScreenViewModel(result: detailResult, context: context(detailResult.recipe)))
             errorMessage = nil
-        } catch RecipeCatalogRepositoryError.recipeNotFound {
-            if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't find this recipe."
-                routeState = .missing(message: errorMessage ?? "We couldn't find this recipe.")
-            }
         } catch {
+            // `RecipePageFailure` (SpoonjoyCore) names the failure, as Ouro Reins' not-found page does.
             if !hasVisibleCurrentRecipe {
-                errorMessage = "We couldn't load this recipe."
-                routeState = .failed(message: errorMessage ?? "We couldn't load this recipe.")
+                let failure = RecipePageFailure.message(for: error)
+                errorMessage = failure.message
+                routeState = failure.isMissing ? .missing(message: failure.message) : .failed(message: failure.message)
             }
         }
     }
@@ -269,13 +266,8 @@ struct RecipeDetailView: View {
 
     var body: some View {
         Group {
-            if isHiddenByModeration {
-                ModerationHiddenView(
-                    message: moderation.ledger.isBlocked(chefID: viewModel.recipe.chef.id)
-                        ? "You blocked @\(viewModel.recipe.chef.username), so their recipes are hidden."
-                        : "You reported this recipe, so it's hidden for you.",
-                    unblockChef: moderation.ledger.blockedChefs.first { $0.id == viewModel.recipe.chef.id }
-                )
+            if let hidden = moderationHiddenNotice {
+                ModerationHiddenView(message: hidden.message, unblockChef: hidden.unblockChef)
             } else {
                 recipeLayout
                     .toolbar { recipeToolbar }
@@ -912,12 +904,11 @@ struct RecipeDetailView: View {
 
     /// Report and block appear on other chefs' recipes once someone is signed in (App Review guideline 1.2).
     private var canModerate: Bool {
-        guard let accountID = moderation.accountID else { return false }
-        return !viewModel.ownerTools.isVisible && viewModel.recipe.chef.id != accountID
+        moderation.canModerate(chefID: viewModel.recipe.chef.id, isOwner: viewModel.ownerTools.isVisible)
     }
 
-    private var isHiddenByModeration: Bool {
-        moderation.ledger.hidesRecipe(id: viewModel.recipe.id, chefID: viewModel.recipe.chef.id)
+    private var moderationHiddenNotice: ModerationHiddenNotice? {
+        moderation.ledger.hiddenNotice(recipeID: viewModel.recipe.id, chefID: viewModel.recipe.chef.id, chefUsername: viewModel.recipe.chef.username)
     }
 
     @ViewBuilder private var remindersMenuItems: some View {

@@ -170,20 +170,18 @@ struct KitchenView: View {
         kitchen.leadObject
     }
 
+    /// Where the page puts each recipe: the hero, Cooking now and the index (`KitchenPageLayout`, in SpoonjoyCore).
+    private var layout: KitchenPageLayout {
+        KitchenPageLayout(recipes: recipes, leadObject: leadObject, cookProgress: cookProgress, cookingNow: cookingNow?.entries ?? [])
+    }
+
     /// The cook to resume, if one is unfinished; its recipe leads the page.
     private var counterCook: KitchenCounterCook? {
-        KitchenCounterCook.resolve(recipeIDs: recipes.map(\.id), progress: cookProgress)
+        layout.counterCook
     }
 
     private var leadRecipe: Recipe? {
-        if let counterCook, let cooking = recipes.first(where: { $0.id == counterCook.recipeID }) {
-            return cooking
-        }
-        guard case .recipe(let id, _) = leadObject else {
-            return nil
-        }
-
-        return recipes.first { $0.id == id }
+        layout.leadRecipe
     }
 
     @ViewBuilder private var kitchenIndexStack: some View {
@@ -201,7 +199,7 @@ struct KitchenView: View {
     /// The recipes on the stove, on this device and others, less the one the hero already leads with: the page never
     /// names the same cook twice.
     @ViewBuilder private var cookingNowSection: some View {
-        let entries = (cookingNow?.entries ?? []).filter { $0.recipeID != counterCook?.recipeID }
+        let entries = layout.cookingNow
         if !entries.isEmpty {
             CookingNowSection(entries: entries, isWide: usesWideKitchenSpread, resume: startCooking)
         }
@@ -228,13 +226,7 @@ struct KitchenView: View {
     }
 
     private var indexedRecipes: [Recipe] {
-        guard let leadRecipe else {
-            return recipes
-        }
-
-        return recipes.filter { recipe in
-            recipe.id != leadRecipe.id
-        }
+        layout.indexedRecipes
     }
 
     /// "9 recipes · 3 cookbooks", counting every saved recipe, the one leading the page included.
