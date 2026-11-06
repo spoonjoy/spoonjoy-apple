@@ -30,8 +30,9 @@ public enum SpoonjoyFixtureKitchen {
     public static func store(
         in directory: URL,
         bootstrapMode: NativeLiveAppBootstrapMode = .restoreCacheOnly,
-        now: @escaping @Sendable () -> Date = { Date(timeIntervalSince1970: 1_793_000_000) }
+        fixtures: SpoonjoyReinsFixtures = SpoonjoyReinsFixtures()
     ) throws -> NativeLiveAppStore {
+        let now = fixtures.now
         let configuration = APIClientConfiguration.spoonjoyProduction
         let vault = FixtureTokenVault(session: try AuthSession(
             clientID: "cm_screenshot_validation",
@@ -63,6 +64,8 @@ public enum SpoonjoyFixtureKitchen {
             appStateStoreProvider: { appState },
             configuration: configuration,
             cacheEnvironment: .production,
+            recipeEditorAPITransport: fixtures.apiTransport ?? { URLSessionAPITransport(authenticationRefresher: $0) },
+            settingsSurfaceFetch: fixtures.settingsSurfaceFetch,
             bootstrapMode: bootstrapMode,
             now: now
         ))

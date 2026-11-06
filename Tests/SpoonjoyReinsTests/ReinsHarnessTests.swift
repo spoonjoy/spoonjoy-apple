@@ -4,20 +4,16 @@ import SpoonjoyCore
 @testable import SpoonjoyReins
 import Testing
 
-/// SPIKE (W13, Ouro Reins). Kitchen → recipe → cook → next step → previous step → back → back, headless over the fixture kitchen, with
-/// the network blocked. Its XCUITest twin is `Apps/Spoonjoy/UITests/ReinsComparisonUITests.swift`.
+/// The harness itself: Kitchen → recipe → cook → next step → previous step → back → back over the fixture kitchen the
+/// motion UI tests use, refusals, the guard's negative control, and timing.
 @MainActor
-@Suite("Ouro Reins spike: Kitchen to cook and back", .serialized)
-struct KitchenToCookJourneyTests {
+@Suite("Ouro Reins harness", .serialized)
+struct ReinsHarnessTests {
     static let pasta = "recipe_lemon_pantry_pasta"
 
     private func freshSession() async throws -> (ReinsSession, SpoonjoyReinsShell) {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-reins-\(UUID().uuidString)")
-        try SpoonjoyFixtureKitchen.copy(to: directory)
-        let store = try SpoonjoyFixtureKitchen.store(in: directory)
-        await store.bootstrap()
-        let shell = SpoonjoyReinsShell(store: store)
-        return (ReinsSession(shell), shell)
+        let app = try await HeadlessApp.launch()
+        return (app.session, app.shell)
     }
 
     /// The journey, as an agent or a behavior test drives it.
@@ -67,6 +63,23 @@ struct KitchenToCookJourneyTests {
         }
     }
 
+    @Test("a journey writes its own kitchen, and a relaunch reads back what the app saved")
+    func journeyKitchenAndRelaunch() async throws {
+        try await headless {
+            let kitchen = SpoonjoyJourneyKitchen(recipes: [
+                .init("recipe_toast", "Toast", steps: [.init("step_toast_1", title: "Toast", "Toast the bread.", minutes: 3, ingredients: [.init("ing_bread", "bread", 2, "slice")])]),
+                .init("recipe_soup", "Soup", steps: [.init("step_soup_1", "Heat."), .init("step_soup_2", "Serve.")]),
+            ], cookbooks: [.init("cookbook_lunch", "Lunch", recipeIDs: ["recipe_toast", "recipe_soup"])])
+            let app = try await HeadlessApp.launch(kitchen)
+            try await app.journey.expect("kitchen", describing: "both recipes are in the kitchen") { $0.state["recipes"]?.arrayValue?.count == 2 }
+            try await app.journey.do("startCooking", ["id": "recipe_soup"], until: { $0.focus == "cook" && $0.state["step"] == "Step 1 of 2" })
+            try await app.journey.do("nextStep", until: { $0.state["step"] == "Step 2 of 2" })
+            try await app.relaunch()
+            #expect(app.shell.content.cookProgress(for: "recipe_soup")?.activeStepIndex == 1, "the turned page was saved to disk")
+            #expect(app.shell.content.cookbooks.map(\.id) == ["cookbook_lunch"])
+        }
+    }
+
     @Test("the guard catches Spoonjoy's real network path: a live-first launch tries to sync")
     func guardSeesLiveTraffic() async throws {
         let guardrail = await ReinsNetworkGuard.begin()
@@ -78,7 +91,7 @@ struct KitchenToCookJourneyTests {
         let attempts = guardrail.attempts
         #expect(!attempts.isEmpty)
         #expect(attempts.allSatisfy { $0.url.hasPrefix(APIClientConfiguration.spoonjoyProduction.baseURL.absoluteString) })
-        print("[reins-spike] live-first attempts blocked: \(attempts.map(\.description))")
+        print("[reins] live-first attempts blocked: \(attempts.map(\.description))")
         #expect(throws: (any Error).self) { try guardrail.check() }
     }
 
@@ -102,7 +115,7 @@ struct KitchenToCookJourneyTests {
         let sorted = times.sorted()
         let median = sorted[sorted.count / 2]
         let p90 = sorted[min(sorted.count - 1, Int(Double(sorted.count) * 0.9))]
-        let summary = String(format: "[reins-spike] %d journeys: first %.1f ms, median %.1f ms, p90 %.1f ms, max %.1f ms", runs, times[0], median, p90, sorted.last!)
+        let summary = String(format: "[reins] %d journeys: first %.1f ms, median %.1f ms, p90 %.1f ms, max %.1f ms", runs, times[0], median, p90, sorted.last!)
         print(summary)
         if let out = ProcessInfo.processInfo.environment["REINS_TIMING_OUT"] {
             let report: [String: Any] = ["runs": runs, "ms": times, "firstMs": times[0], "medianMs": median, "p90Ms": p90, "maxMs": sorted.last!,
