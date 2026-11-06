@@ -114,6 +114,42 @@ jobs:
           coverage_json="$(swift test --show-codecov-path)"
           ruby scripts/enforce-swift-coverage.rb --coverage-json "$coverage_json" --minimum 100 --include 'Sources/SpoonjoyCore'
 
+  reins-journeys:
+    # The Journeys suite's behaviour, headless: Ouro Reins drives the shell over journey kitchens with every request
+    # refused (ReinsNetworkGuard), so no simulator, QA server or account is involved. It is the required "Reins journeys" check.
+    name: Reins journeys
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/select-swift-toolchain
+      - name: Run the headless journeys
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          swift test --disable-xctest --filter SpoonjoyReinsTests -Xswiftc -warnings-as-errors 2>&1 | tee "$RUNNER_TEMP/reins.log"
+          echo "Headless journeys took $(( $(date +%s) - started ))s (including the build)." >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^. Test run with' "$RUNNER_TEMP/reins.log" >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Drive spoonjoy-reins from the command line
+        run: |
+          set -euo pipefail
+          swift build -Xswiftc -warnings-as-errors --product spoonjoy-reins
+          reins="$(swift build --show-bin-path)/spoonjoy-reins"
+          # A journey that runs exits 0.
+          "$reins" ls 'do openRecipe {"id":"recipe_lemon_pantry_pasta"}' 'do startCooking' 'do nextStep' 'do goBack'
+          # A step the screen doesn't offer is refused: exit 2, with the valid steps named.
+          set +e
+          "$reins" 'do goBack' > "$RUNNER_TEMP/refused.txt"
+          status=$?
+          "$reins" 'do openRecipe {"id":"recipe_nope"}' >> "$RUNNER_TEMP/refused.txt"
+          invalid=$?
+          set -e
+          cat "$RUNNER_TEMP/refused.txt"
+          test "$status" -eq 2 || { echo "::error::goBack on the Kitchen exited $status, expected 2"; exit 1; }
+          test "$invalid" -eq 2 || { echo "::error::opening a recipe that isn't in the kitchen exited $invalid, expected 2"; exit 1; }
+
   native-scenario-verifier:
     name: Native scenario verifier
     # Plutil/sips checks and SwiftPM executables only, no xcodebuild, so it runs on macos-26.
