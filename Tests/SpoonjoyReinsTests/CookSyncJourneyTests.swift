@@ -84,7 +84,7 @@ struct CookSyncJourneyTests {
 
             // 184-192: a swipe that starts on the ring turns the page and starts no timer.
             try await app.journey.do("swipe", ["direction": "next", "from": "ring"], until: { $0.state["step"] == "Step 2 of 2" })
-            try await Task.sleep(for: .milliseconds(400))
+            await app.shell.cook.settle()
             #expect(app.shell.cook.registry.runningStepIDs(forRecipe: Self.recipe).isEmpty, "the swipe on the ring started the timer")
             #expect(app.shell.cook.scheduledAlarms.count == 1, "only the automatic start set an alarm")
 
@@ -107,7 +107,7 @@ struct CookSyncJourneyTests {
 
             // 219-241: at the largest text size a swipe from the ring turns the page, starts no timer and keeps the checks.
             try await app.journey.do("swipe", ["direction": "next", "from": "ring"], until: { $0.state["step"] == "Step 2 of 2" })
-            try await Task.sleep(for: .milliseconds(400))
+            await app.shell.cook.settle()
             #expect(app.shell.cook.registry.runningStepIDs(forRecipe: Self.recipe).isEmpty, "the swipe at the largest text size started a timer")
             try await app.journey.do("swipe", ["direction": "previous"], until: { $0.state["step"] == "Step 1 of 2" })
             #expect(checked(app.screen, Self.lemon) && checked(app.screen, Self.salt) && checked(app.screen, Self.oil), "a swipe unchecked a row")

@@ -56,7 +56,7 @@ struct VoiceJourneyTests {
             try await app.journey.expect("cook", describing: "\"start the timer\" started step 1's timer") { $0.state["ring"]?["running"] == true }
             // 72-81: "check all" checks the garlic and sets no second timer.
             try await app.journey.expect("cook", describing: "\"check all\" checked the garlic") { $0.state["ingredients"]?[0]?["checked"] == true }
-            try await Task.sleep(for: .milliseconds(400))
+            await app.shell.cook.settle()
             #expect(app.screen.state["runningTimers"] == 1)
             #expect(app.shell.cook.scheduledAlarms.count == 1, "checking the step after \"start the timer\" set a second timer")
 

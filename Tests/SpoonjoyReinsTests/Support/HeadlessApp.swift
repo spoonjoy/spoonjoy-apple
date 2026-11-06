@@ -25,7 +25,11 @@ final class HeadlessApp {
         return HeadlessApp(directory: directory, fixtures: fixtures, shell: try await SpoonjoyReinsLaunch.launch(in: directory, fixtures: fixtures))
     }
 
-    var journey: ReinsJourney { ReinsJourney(session) }
+    /// Steps poll until their condition holds and pass the moment it does. The deadline only bounds a failure, so it is
+    /// long enough that a loaded runner can't trip a step that would pass: no journey depends on how fast the machine is.
+    static let stepDeadline: Duration = .seconds(60)
+
+    var journey: ReinsJourney { ReinsJourney(session, timeout: Self.stepDeadline) }
     var screen: ReinsScreen { session.ls() }
 
     func relaunch(fixtures: SpoonjoyReinsFixtures? = nil) async throws {

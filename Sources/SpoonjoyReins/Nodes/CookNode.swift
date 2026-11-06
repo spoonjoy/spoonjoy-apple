@@ -41,6 +41,18 @@ final class SpoonjoyReinsCook {
     private(set) var inBackground = false
     /// An automatic start that failed, by step, as the ring shows it.
     private(set) var autoStartErrors: [String: String] = [:]
+    /// Work cook mode started and hasn't finished: an auto-start's pause, a voice command's timer. `settle()` waits for it,
+    /// so a journey checks what happened after it, not after a guess at how long it takes.
+    private var pending: [Task<Void, Never>] = []
+
+    /// Waits until every auto-start and voice command started so far has finished, however loaded the machine is.
+    func settle() async {
+        while !pending.isEmpty {
+            let running = pending
+            pending.removeAll()
+            for task in running { await task.value }
+        }
+    }
     /// Each ring's own line, by step: the message from a tap on it or from Cancel.
     private(set) var ringStatus: [String: String] = [:]
     private(set) var ringError: [String: String] = [:]
@@ -134,7 +146,7 @@ final class SpoonjoyReinsCook {
         guard !timers.isEmpty else {
             return
         }
-        Task { @MainActor [weak self] in
+        pending.append(Task { @MainActor [weak self] in
             try? await Task.sleep(for: CookStepTimers.autoStartDelay)
             guard let self, self.voice != nil else {
                 return
@@ -146,7 +158,7 @@ final class SpoonjoyReinsCook {
                 start: { try await self.start($0, recipe: recipe) },
                 failed: { self.autoStartErrors[$0] = $1 }
             )
-        }
+        })
     }
 
     func update(_ recipe: Recipe, _ change: (CookModeViewModel) throws -> CookModeProgress) rethrows {
@@ -204,8 +216,8 @@ final class SpoonjoyReinsCook {
     /// A tap is a new touch that never moves, at a spot of its own.
     private func tap() -> Bool {
         touch.moved(startX: 1, startY: 1, dx: 0, dy: 0)
-        let allowed = touch.allowsTap(at: Date())
-        touch.ended(at: Date())
+        let allowed = touch.allowsTap(at: now)
+        touch.ended(at: now)
         return allowed
     }
 
@@ -222,9 +234,9 @@ final class SpoonjoyReinsCook {
         if target != index {
             update(recipe, from: model.progress, to: (try? model.progress.selectingStep(id: recipe.steps[target].id, updatedAt: shell.timestamp())) ?? model.progress)
         }
-        if let control, touch.allowsTap(at: Date()) {
+        if let control, touch.allowsTap(at: now) {
             if control == "ring", let timer = model.systemTimer {
-                touch.ended(at: Date())
+                touch.ended(at: now)
                 await tapRing(timer, recipe: recipe)
                 return
             }
@@ -232,7 +244,7 @@ final class SpoonjoyReinsCook {
                 try update(recipe) { try SpoonjoyShell.checkIngredient($0, id: row.id, checked: !row.isChecked, updatedAt: shell.timestamp()) }
             }
         }
-        touch.ended(at: Date())
+        touch.ended(at: now)
     }
 
     // MARK: Voice (CookModeView's voice extension)
@@ -268,7 +280,7 @@ final class SpoonjoyReinsCook {
             voice?.read(text)
             showVoiceNotice(notice)
         case .session(let sessionCommand):
-            Task { @MainActor in
+            pending.append(Task { @MainActor in
                 do {
                     showVoiceNotice(try await CookModeSessionResolver.perform(
                         sessionCommand,
@@ -280,7 +292,7 @@ final class SpoonjoyReinsCook {
                 } catch {
                     showVoiceNotice(CookVoiceAction.failureNotice(for: error))
                 }
-            }
+            })
         }
     }
 
