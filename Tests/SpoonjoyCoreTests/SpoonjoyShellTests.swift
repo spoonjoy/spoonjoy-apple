@@ -36,6 +36,49 @@ struct SpoonjoyShellTests {
         #expect(shell.compactTabs.fullScreenRoute == nil)
     }
 
+    @Test("cook mode started from the Kitchen closes back to the Kitchen, not to a recipe it never showed (#215)")
+    func cookFromTheKitchenClosesToTheKitchen() {
+        var shell = SpoonjoyShell()
+        shell.startCooking("pasta")
+        #expect(shell.compactTabs.fullScreenRoute == pastaCook)
+        shell.closeCook("pasta")
+        #expect(shell.route == .kitchen)
+        #expect(shell.compactTabs.path(for: .kitchen).isEmpty, "nothing was pushed under cook mode")
+        #expect(shell.compactTabs.fullScreenRoute == nil)
+    }
+
+    @Test("a close for a cook mode that is not showing opens its recipe")
+    func closeWithNoCookModeShowingOpensTheRecipe() {
+        var shell = SpoonjoyShell()
+        shell.closeCook("pasta")
+        #expect(shell.route == pasta)
+        #expect(shell.compactTabs.fullScreenRoute == nil)
+    }
+
+    @Test("cook mode started from another tab closes back to that tab with its stack intact (#215)")
+    func cookFromAnotherTabClosesToThatTab() {
+        var shell = SpoonjoyShell()
+        _ = shell.select(.recipes)
+        shell.openRecipe("pasta")
+        let stack = shell.compactTabs.path(for: .recipes)
+        shell.startCooking("pasta")
+        shell.closeCook("pasta")
+        #expect(shell.compactTabs.path(for: .recipes) == stack)
+        #expect(shell.route == pasta)
+        #expect(shell.compactTabs.fullScreenRoute == nil)
+    }
+
+    @Test("cook mode swapped for another recipe closes to the page under it, with no cover left (#215)")
+    func cookSwappedClosesToThePageUnderIt() {
+        var shell = SpoonjoyShell()
+        shell.startCooking("pasta")
+        shell.startCooking("soup")
+        shell.closeCook("soup")
+        #expect(shell.route == .kitchen)
+        #expect(shell.compactTabs.path(for: .kitchen).isEmpty)
+        #expect(shell.compactTabs.fullScreenRoute == nil)
+    }
+
     @Test("each tab keeps its own stack, and a tab tap restores what it showed")
     func tabsKeepTheirStacks() {
         var shell = SpoonjoyShell()
