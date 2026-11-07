@@ -328,6 +328,8 @@ file_reference(project, WIDGET_INFO_PLIST)
 add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE] + WIDGET_CORE_SWIFT)
 add_sources(project, ui_test_target, UI_TEST_SWIFT)
 add_package_product(project, ui_test_target, "SpoonjoyCore")
+# Ouro Feel (same ouro-ui-apple pin): the UI tests' feel checks by genre of jank (FeelUITests, scripts/check-feel.sh).
+add_remote_package_product(project, ui_test_target, OURO_HX_URL, OURO_HX_REQUIREMENT, "OuroFeel")
 ui_test_target.add_dependency(ios_target)
 ui_test_dependency = ui_test_target.dependencies[0]
 ui_test_dependency_proxy = ui_test_dependency.target_proxy

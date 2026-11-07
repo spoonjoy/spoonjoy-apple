@@ -55,6 +55,14 @@ struct SceneRouteBookTests {
         #expect(SceneRestoration.route(scenePage: nil, windowValue: nil, appLastRoute: last, isOnlyWindow: false) == nil)
     }
 
+    @Test("a launch asked to open on the kitchen reopens no page; any other launch restores as usual")
+    func launchOnKitchen() {
+        #expect(SceneRestoration.isSkipped(environment: ["SPOONJOY_LAUNCH_ON_KITCHEN": "1"]))
+        #expect(SceneRestoration.isSkipped(environment: ["SPOONJOY_LAUNCH_ON_KITCHEN": " True "]))
+        #expect(!SceneRestoration.isSkipped(environment: ["SPOONJOY_LAUNCH_ON_KITCHEN": "0"]))
+        #expect(!SceneRestoration.isSkipped(environment: [:]))
+    }
+
     @Test("pages to read or cook are remembered; searches, editors, capture and settings are not")
     func remembered() {
         let remembered: [AppRoute] = [
