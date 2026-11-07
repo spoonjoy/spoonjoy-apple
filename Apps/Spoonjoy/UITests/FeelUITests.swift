@@ -32,8 +32,10 @@ final class FeelUITests: XCTestCase {
         // Spoonjoy reopens on the last page; the walk relaunches to replay paths, so every launch opens on the kitchen.
         app.launchEnvironment["SPOONJOY_LAUNCH_ON_KITCHEN"] = "1"
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
-        // Ouro Feel's recorder in the app (DEBUG builds), for films of a push or a sheet frame by frame.
-        app.launchEnvironment.merge(OuroFeel.recorderEnvironment) { _, new in new }
+        // Ouro Feel's recorder, loaded into the app from this test bundle, for films of a push or a sheet frame by frame.
+        let recorder = OuroFeel.injectedRecorderEnvironment
+        XCTAssertNotNil(recorder, "the UI test bundle carries OuroFeelRecorderInjectable")
+        app.launchEnvironment.merge(recorder ?? [:]) { _, new in new }
         app.launch()
         XCTAssertTrue(app.descendants(matching: .any)["kitchen.root"].waitForExistence(timeout: 60), "the kitchen opened")
     }
@@ -154,7 +156,9 @@ final class FeelUITests: XCTestCase {
             if stamps.count > 2 {
                 feel.record(FeelHitches.analyze(timestamps: stamps, refresh: 1.0 / 60).result(), name: "\(slug)-hitches")
             }
-            let after = feel.film(seen, for: 1.5)
+            // Every copy of each text, on every frame the app draws once it is at rest: a ghost is counted by frame, not by
+            // a snapshot a busy machine spaces out.
+            let after = feel.recordedFilm(seen, copies: true) {}
             Self.judge(feel.record(after.doubleDraws(of: seen), name: "\(slug)-double-draws", film: after))
             app.terminate()
         }
