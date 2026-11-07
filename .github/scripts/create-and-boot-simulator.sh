@@ -1,6 +1,7 @@
 #!/bin/bash
 # Creates a simulator of one device family on the newest iOS runtime that supports it, boots it, and writes its UDID
-# to OUT. Messages, including the retry warning, go to standard output so the runner sees them.
+# to OUT, and to OUT.booted-at the time (epoch seconds) just before the successful `simctl boot`, for scripts that
+# measure from the boot. Messages, including the retry warning, go to standard output so the runner sees them.
 #
 # Usage: create-and-boot-simulator.sh FAMILY NAME OUT
 #
@@ -26,8 +27,9 @@ attempt() {
   local suffix="$1" udid
   udid="$(limit 120 python3 "$here/create-newest-simulator.py" "$family" "$name$suffix")" || { echo "creating the $family failed or hung (exit $?)" >&2; return 1; }
   echo "$udid" > "$out"
+  date +%s > "$out.booted-at"
   limit 120 xcrun simctl boot "$udid" || { echo "booting $udid failed or hung (exit $?)" >&2; return 1; }
-  limit 150 xcrun simctl bootstatus "$udid" -b >/dev/null || { echo "waiting for $udid to boot failed or hung (exit $?)" >&2; return 1; }
+  limit 150 xcrun simctl bootstatus "$udid" -b || { echo "waiting for $udid to boot failed or hung (exit $?)" >&2; return 1; }
 }
 
 : > "$out"

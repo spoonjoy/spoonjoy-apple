@@ -41,7 +41,7 @@ jobs:
           set -euo pipefail
           .github/scripts/create-and-boot-simulator.sh "$FAMILY" "review-demo-${FAMILY// /-}" "$RUNNER_TEMP/sim.udid"
           echo "udid=$(cat "$RUNNER_TEMP/sim.udid")" >> "$GITHUB_OUTPUT"
-          echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
+          echo "booted-at=$(cat "$RUNNER_TEMP/sim.udid.booted-at")" >> "$GITHUB_OUTPUT"
       - name: Build for testing
         timeout-minutes: 30
         env:

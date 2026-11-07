@@ -576,6 +576,11 @@ final class JourneyApp {
     /// a query over every element type timed out evaluating on a slow runner (run 37952511182, "Failed to get
     /// matching snapshot" on `editor.step.2.ingredient.4.quantity`). The paste box is a text view; every other
     /// input a journey types into, the multi-line descriptions (vertical text fields) included, is a text field.
+    /// The text field (or the paste text view) with this identifier while it holds keyboard focus; it exists only then.
+    func focusedField(_ id: String) -> XCUIElement {
+        fieldQuery(id).matching(NSPredicate(format: "hasKeyboardFocus == true")).firstMatch
+    }
+
     private func fieldQuery(_ id: String) -> XCUIElementQuery {
         let named = NSPredicate(format: "identifier == %@", id)
         let isTextView = id == JourneyID.editorPasteText

@@ -87,9 +87,9 @@ final class CookbooksJourney: JourneyTestCase {
     /// hardware keyboard connected raises none, and the match is then simply in view (#217).
     private func assertAboveKeyboard(_ element: XCUIElement, in journey: JourneyApp, _ message: @autoclosure () -> String, file: StaticString = #filePath, line: UInt = #line) {
         let keyboard = journey.app.keyboards.firstMatch
-        let field = journey.element(JourneyID.cookbookSearchField)
+        let field = journey.focusedField(JourneyID.cookbookSearchField)
         let isClear = NSPredicate { _, _ in
-            guard element.exists, element.isHittable, (field.value(forKey: "hasKeyboardFocus") as? Bool) == true else { return false }
+            guard element.exists, element.isHittable, field.exists else { return false }
             return !keyboard.exists || element.frame.maxY <= keyboard.frame.minY
         }
         let wait = { XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: isClear, object: nil)], timeout: JourneyApp.interactionTimeout) }
