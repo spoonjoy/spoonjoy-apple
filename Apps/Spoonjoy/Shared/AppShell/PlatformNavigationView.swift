@@ -923,7 +923,7 @@ struct PlatformNavigationView: View {
                                 closeCookMode(id)
                             }
                             .accessibilityLabel("Close cook mode")
-                            .accessibilityHint("Returns to the recipe.")
+                            .accessibilityHint("Returns to where you started cooking.")
                             .accessibilityIdentifier("cook.close")
                         }
                     }
@@ -933,7 +933,8 @@ struct PlatformNavigationView: View {
     }
 #endif
 
-    /// Cook mode's own Close: on the phone it shrinks back into its button; elsewhere it goes straight to the recipe.
+    /// Cook mode's own Close: on the phone it shrinks back into its button; elsewhere it returns to the page under cook
+    /// mode (the recipe when nothing was under it).
     private func closeCookMode(_ id: String) {
 #if os(iOS)
         if cookSheet != nil, usesCompactMobileShell {
@@ -1067,8 +1068,9 @@ struct PlatformNavigationView: View {
                 cookLaunchSources.progress = 0
                 finishCookSheetClose()
             }
+            // The same close as Close itself: back to the page under cook mode (#215).
             if compactTabs.fullScreenRoute != nil, let id = sheet.recipeID {
-                openRecipe(id)
+                updateShell { $0.closeCook(id) }
             }
         } else if cookLaunchSources.progress < 1 || cookLaunchSources.words < 1 {
             withTransaction(instant) {
@@ -3330,9 +3332,10 @@ struct CookSheetMorph: ViewModifier, Animatable {
 
     /// Matches the display's own corners closely enough that the card meets them as it lands.
     private static let screenCornerRadius: CGFloat = 55
-    /// Drags that start this far from the top, about the bottom of cook mode's own bar, shrink it; lower down they
-    /// belong to the page.
-    private static let dragBand: CGFloat = 104
+    /// Drags that start this far from the top, the bottom of cook mode's own bar with a little room, shrink it; lower
+    /// down they belong to the page. The bar ends at 116 pt on a 6.3-inch iPhone; at 104 a pull on its lower edge did
+    /// nothing (Ouro Feel's walk, 2026-11-07).
+    private static let dragBand: CGFloat = 120
 
     func body(content: Content) -> some View {
         GeometryReader { window in

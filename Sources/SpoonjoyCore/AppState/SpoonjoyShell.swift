@@ -85,9 +85,15 @@ public struct SpoonjoyShell: Equatable {
         navigate(to: .recipeDetail(id: id, presentation: .cook))
     }
 
-    /// Cook mode's Close goes back to the recipe it cooked.
+    /// Cook mode's Close goes back to the page under it: the recipe when cooking started there, the Kitchen when it
+    /// started from the counter, the tab and page that showed when a link opened it (#215). Only a cook mode that is
+    /// not showing (no full-screen route) opens its recipe.
     public mutating func closeCook(_ id: String) {
-        openRecipe(id)
+        guard compactTabs.fullScreenRoute != nil else {
+            openRecipe(id)
+            return
+        }
+        restore(compactTabs.dismissFullScreen())
     }
 
     public mutating func openCookbook(_ id: String) {
