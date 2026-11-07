@@ -13,6 +13,7 @@
 		035F1AF1D60CC9C86C1C4B2637D42397 /* CookTimerLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEEC2E34F5CAC9DB755E8C1B65C56E23 /* CookTimerLiveActivityController.swift */; };
 		0614D3D9A0290E500AEDED1C2C3F2FD2 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = FAAB207C9B2A47790ED6793339B11951 /* SpoonjoyCore */; };
 		0680E025CCFBD2FBB88D7B8257F57502 /* ShoppingRecipeSourcesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B513A3B6CB7336F26626DA895F43567 /* ShoppingRecipeSourcesPane.swift */; };
+		077CBA42F27497018D7DECF5 /* OuroFeelRecorder in Frameworks */ = {isa = PBXBuildFile; productRef = 18A5CD30BABC5FAC647823AE /* OuroFeelRecorder */; };
 		085BD85699500CD6F4325B0767A01250 /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160057277B45B1DB989BA53640F88A76 /* NotificationAPNsSettingsView.swift */; };
 		0ADBD5AAAE9ED100C962D9E8C3F992D8 /* RecipesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C22DC29B96DCD4D11DB96475B9263E60 /* RecipesView.swift */; };
 		0AE112E07F1AF32BB4F3BD7AB34314F0 /* JourneyAccounts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB14058DAD0AA487C4898C269E71994 /* JourneyAccounts.swift */; };
@@ -446,6 +447,7 @@
 			files = (
 				ACDEC31E74F20DBC3D7000C916462689 /* OuroHX in Frameworks */,
 				18168DF6713122259A9917E48484ED38 /* SpoonjoyCore in Frameworks */,
+				077CBA42F27497018D7DECF5 /* OuroFeelRecorder in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -866,6 +868,7 @@
 			packageProductDependencies = (
 				E9D7212483D658F5B114DF01F48C4913 /* OuroHX */,
 				D0C9AB70D83EB4CD724C74E1554A2487 /* SpoonjoyCore */,
+				18A5CD30BABC5FAC647823AE /* OuroFeelRecorder */,
 			);
 			productName = "Spoonjoy iOS";
 			productReference = 1B62743301511D2FA3EF77181AB1DE5B /* Spoonjoy iOS.app */;
@@ -2122,12 +2125,17 @@
 			repositoryURL = "https://github.com/ourostack/ouro-ui-apple.git";
 			requirement = {
 				kind = exactVersion;
-				version = 0.3.3;
+				version = 0.3.4;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		18A5CD30BABC5FAC647823AE /* OuroFeelRecorder */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B6D228251C80092A788AE7627C8C473E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroFeelRecorder;
+		};
 		8ACE603FB924AB91E66828B4 /* OuroFeel */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = B6D228251C80092A788AE7627C8C473E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;

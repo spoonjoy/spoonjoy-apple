@@ -330,6 +330,9 @@ add_sources(project, ui_test_target, UI_TEST_SWIFT)
 add_package_product(project, ui_test_target, "SpoonjoyCore")
 # Ouro Feel (same ouro-ui-apple pin): the UI tests' feel checks by genre of jank (FeelUITests, scripts/check-feel.sh).
 add_remote_package_product(project, ui_test_target, OURO_HX_URL, OURO_HX_REQUIREMENT, "OuroFeel")
+# Its recorder films a push or a sheet inside the iOS app, frame by frame. The app installs it only in DEBUG builds, and
+# it listens only when a UI test launches the app with OuroFeel.recorderEnvironment.
+add_remote_package_product(project, ios_target, OURO_HX_URL, OURO_HX_REQUIREMENT, "OuroFeelRecorder")
 ui_test_target.add_dependency(ios_target)
 ui_test_dependency = ui_test_target.dependencies[0]
 ui_test_dependency_proxy = ui_test_dependency.target_proxy

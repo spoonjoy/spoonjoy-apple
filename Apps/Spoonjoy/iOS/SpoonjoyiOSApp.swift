@@ -1,3 +1,6 @@
+#if DEBUG
+import OuroFeelRecorder
+#endif
 import SpoonjoyCore
 import SwiftUI
 import UIKit
@@ -12,6 +15,8 @@ struct SpoonjoyiOSApp: App {
 
     init() {
         #if DEBUG
+        // Ouro Feel's recorder (FeelUITests): it listens only when a UI test launched the app asking for it.
+        OuroFeelRecorder.installIfRequested()
         if NativeJourneyAnimations.isRequested(arguments: ProcessInfo.processInfo.arguments) {
             UIView.setAnimationsEnabled(false)
         }

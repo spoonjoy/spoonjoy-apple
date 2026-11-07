@@ -318,6 +318,8 @@ fail_check("project must pin #{OURO_HX_URL} at exactly #{ouro_hx_pin.inspect}, g
   dependency = target.package_product_dependencies.find { |candidate| candidate.product_name == "OuroHX" }
   fail_check("#{target.name} must take OuroHX from #{OURO_HX_URL}") unless dependency.package == ouro_hx_references.first
 end
+# The iOS app takes Ouro Feel's recorder from the same pin, so FeelUITests can film a push inside the app.
+assert_package_product(ios_target, "OuroFeelRecorder")
 
 mac_bootstrap = Gem::Version.new(
   mac_target.build_configuration_list["BootstrapDebug"].build_settings.fetch("MACOSX_DEPLOYMENT_TARGET")
