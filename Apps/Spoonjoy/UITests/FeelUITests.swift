@@ -18,6 +18,10 @@ final class FeelUITests: XCTestCase {
             ProcessInfo.processInfo.environment[Self.fixtureVariable] == "1",
             "Needs the seeded fixture kitchen; run scripts/check-feel.sh."
         )
+    }
+
+    /// Opens the app upright on the kitchen. Each check calls it first: setUp is not on the main actor, and the app is.
+    private func openApp() {
         XCUIDevice.shared.orientation = .portrait
         app = XCUIApplication()
         let environment = ProcessInfo.processInfo.environment
@@ -42,6 +46,7 @@ final class FeelUITests: XCTestCase {
     /// Every screen one tap from Chefs (each chef's page, and the rest) has a visible way back and a gesture back
     /// (jank item 7: a chef page had neither).
     func testTheWayBackFromChefs() {
+        openApp()
         let chefs = FeelEntry("Chefs") { app in
             let button = app.buttons["kitchen.chefs"].firstMatch
             if button.waitForExistence(timeout: 10) { button.tap() }
@@ -54,6 +59,7 @@ final class FeelUITests: XCTestCase {
     /// it (jank item 8: it stayed open).
     func testTheSidebarClosesOncePicked() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "The sidebar is an overlay only on iPad.")
+        openApp()
         let feel = OuroFeel(app)
         let open = FeelOverlay("library sidebar", overlay: "sidebar.addRecipe", pick: "Saved Recipes") { app in
             let toggle = app.buttons.matching(NSPredicate(format: "label == 'Show Sidebar' OR identifier == 'ToggleSidebar'")).firstMatch
