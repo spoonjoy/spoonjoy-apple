@@ -33,16 +33,15 @@ jobs:
       - uses: ./.github/actions/select-xcode
       - name: Create a ${{ matrix.family }} on the newest iOS runtime
         id: sim
-        timeout-minutes: 6
+        # Each try has its own limits inside the script, with one retry on a fresh device for a runner fault (#218).
+        timeout-minutes: 16
         env:
           FAMILY: ${{ matrix.family }}
         run: |
           set -euo pipefail
-          udid="$(python3 .github/scripts/create-newest-simulator.py "$FAMILY" "review-demo-${FAMILY// /-}")"
-          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          .github/scripts/create-and-boot-simulator.sh "$FAMILY" "review-demo-${FAMILY// /-}" "$RUNNER_TEMP/sim.udid"
+          echo "udid=$(cat "$RUNNER_TEMP/sim.udid")" >> "$GITHUB_OUTPUT"
           echo "booted-at=$(date +%s)" >> "$GITHUB_OUTPUT"
-          xcrun simctl boot "$udid"
-          xcrun simctl bootstatus "$udid" -b
       - name: Build for testing
         timeout-minutes: 30
         env:

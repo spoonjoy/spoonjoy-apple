@@ -82,14 +82,22 @@ final class CookbooksJourney: JourneyTestCase {
         try await qa.addRecipe(recipeID, toCookbook: cookbookID)
     }
 
-    /// Waits until the element sits fully above the keyboard, which is up while the search field has focus.
+    /// Waits until the element is on screen and tappable while the search field still has focus, and, when a software
+    /// keyboard is up, sits fully above it. It reads what the app shows, not the keyboard alone: a simulator with a
+    /// hardware keyboard connected raises none, and the match is then simply in view (#217).
     private func assertAboveKeyboard(_ element: XCUIElement, in journey: JourneyApp, _ message: @autoclosure () -> String, file: StaticString = #filePath, line: UInt = #line) {
         let keyboard = journey.app.keyboards.firstMatch
+        let field = journey.element(JourneyID.cookbookSearchField)
         let isClear = NSPredicate { _, _ in
-            element.exists && keyboard.exists && element.frame.maxY <= keyboard.frame.minY
+            guard element.exists, element.isHittable, (field.value(forKey: "hasKeyboardFocus") as? Bool) == true else { return false }
+            return !keyboard.exists || element.frame.maxY <= keyboard.frame.minY
         }
-        let result = XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: isClear, object: nil)], timeout: JourneyApp.interactionTimeout)
-        XCTAssertEqual(result, .completed, message(), file: file, line: line)
+        let wait = { XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: isClear, object: nil)], timeout: JourneyApp.interactionTimeout) }
+        XCTAssertEqual(wait(), .completed, message(), file: file, line: line)
+        // A keyboard still on its way up could cover the element after the first look; once it is up, look again.
+        if keyboard.waitForExistence(timeout: 1) {
+            XCTAssertEqual(wait(), .completed, message(), file: file, line: line)
+        }
     }
 
     private func cookbookRow(_ journey: JourneyApp, _ recipeTitle: String) -> XCUIElement {
