@@ -14,6 +14,8 @@ on:
       - "scripts/check-feel.sh"
       - "scripts/capture-native-screenshots.sh"
       - ".github/workflows/feel.yml"
+      - ".github/scripts/create-and-boot-simulator.sh"
+      - ".github/actions/select-xcode/**"
   push:
     branches:
       - main
@@ -30,7 +32,7 @@ jobs:
   feel:
     name: Feel (every screen lands still; the way back)
     runs-on: xcode-27
-    timeout-minutes: 100
+    timeout-minutes: 115
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:

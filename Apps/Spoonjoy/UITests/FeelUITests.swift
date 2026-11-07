@@ -98,6 +98,8 @@ final class FeelUITests: XCTestCase {
     func testEveryScreenLandsStill() {
         // FEEL_LANDING_ONLY (comma-separated screen names) narrows the run to those screens, to look again at one.
         let only = Set((ProcessInfo.processInfo.environment["FEEL_LANDING_ONLY"] ?? "").split(separator: ",").map(String.init))
+        let unknown = only.subtracting(Self.everyLanding.map(\.name))
+        XCTAssertTrue(unknown.isEmpty, "FEEL_LANDING_ONLY names no such screen: \(unknown.sorted())")
         for screen in Self.everyLanding where only.isEmpty || only.contains(screen.name) {
             openApp()
             let feel = OuroFeel(app)
