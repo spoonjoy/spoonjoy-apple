@@ -95,9 +95,8 @@ final class CookbooksJourney: JourneyTestCase {
         let wait = { XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: isClear, object: nil)], timeout: JourneyApp.interactionTimeout) }
         XCTAssertEqual(wait(), .completed, message(), file: file, line: line)
         // A keyboard still on its way up could cover the element after the first look; once it is up, look again.
-        if keyboard.waitForExistence(timeout: 1) {
-            XCTAssertEqual(wait(), .completed, message(), file: file, line: line)
-        }
+        let again: XCTWaiter.Result = keyboard.waitForExistence(timeout: 1) ? wait() : .completed
+        XCTAssertEqual(again, .completed, message(), file: file, line: line)
     }
 
     private func cookbookRow(_ journey: JourneyApp, _ recipeTitle: String) -> XCUIElement {
