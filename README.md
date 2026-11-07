@@ -2,7 +2,7 @@
 <p align="center">
   <a href="https://spoonjoy.app"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/spoonjoy/.github/main/brand/headers/spoonjoy-apple-dark.webp">
-    <img src="https://raw.githubusercontent.com/spoonjoy/.github/main/brand/headers/spoonjoy-apple-light.webp" alt="Spoonjoy on a Mac showing the kitchen, with two iPhones in front: one on the Lemon Pantry Pasta recipe, one in cook mode with a ten-minute timer" width="100%">
+    <img src="https://raw.githubusercontent.com/spoonjoy/.github/main/brand/headers/spoonjoy-apple-light.webp" alt="Spoonjoy on a Mac showing the kitchen, beside two iPhones: one in cook mode with a ten-minute timer, one on the Lemon Pantry Pasta recipe" width="100%">
   </picture></a>
 </p>
 <!-- spoonjoy:brand:end -->
