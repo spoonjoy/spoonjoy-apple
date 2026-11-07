@@ -497,7 +497,7 @@ struct CookModeView: View {
         .buttonStyle(.bordered)
         .controlSize(.large)
         .accessibilityLabel("Close cook mode")
-        .accessibilityHint("Returns to the recipe.")
+        .accessibilityHint("Returns to where you started cooking.")
     }
 #endif
 
@@ -933,7 +933,7 @@ struct CookModeView: View {
                 Label("Done", systemImage: "checkmark")
             }
             .buttonStyle(KitchenTableActionButtonStyle(prominence: .primary))
-            .accessibilityHint("Returns to the recipe.")
+            .accessibilityHint("Returns to where you started cooking.")
             .accessibilityIdentifier("cook.finish.done")
         } else {
             Button(action: markCurrentStepComplete) {

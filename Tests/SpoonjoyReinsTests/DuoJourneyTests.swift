@@ -39,16 +39,14 @@ struct DuoJourney {
         try await headless {
             let app = try await HeadlessApp.launch(Self.kitchen, fixtures: fixtures)
 
-            // Two pans on the go: the chickpeas left on their second step, then the pasta. Closing cook mode lands on
-            // the recipe page, as the cover closes over the page it opened from.
+            // Two pans on the go: the chickpeas left on their second step, then the pasta. Cooking starts from the
+            // Kitchen, so closing cook mode lands back on the Kitchen, the page the cover closes over (#215).
             try await app.journey.do("startCooking", ["id": .string(Self.chickpeas)], until: { $0.focus == "cook" && $0.state["step"] == "Step 1 of 3" })
             try await app.journey.do("nextStep", until: { $0.state["step"] == "Step 2 of 3" })
-            try await app.journey.do("goBack", until: { $0.focus == "recipe" })
-            try await app.journey.do("goBack", until: { $0.focus == "kitchen" })
+            try await app.journey.do("goBack", until: { $0.focus == "kitchen" && $0.context["stack"]?["depth"] == 0 })
             try await app.journey.do("startCooking", ["id": .string(Self.pasta)], until: { $0.focus == "cook" && $0.state["step"] == "Step 1 of 4" })
             try await app.journey.do("nextStep", until: { $0.state["step"] == "Step 2 of 4" })
-            try await app.journey.do("goBack", until: { $0.focus == "recipe" })
-            try await app.journey.do("goBack", until: { $0.focus == "kitchen" })
+            try await app.journey.do("goBack", until: { $0.focus == "kitchen" && $0.context["stack"]?["depth"] == 0 })
 
             // The Kitchen leads with the pasta, the cook on the counter, and lists the chickpeas under Cooking now.
             let kitchen = app.screen

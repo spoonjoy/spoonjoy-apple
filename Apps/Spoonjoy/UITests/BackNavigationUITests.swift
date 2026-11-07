@@ -75,6 +75,34 @@ final class BackNavigationUITests: XCTestCase {
         )
     }
 
+    /// Cook mode started from the Kitchen's counter closes back to the Kitchen, by its Close and by a pull on the lower
+    /// edge of its own bar (#215: Close pushed the recipe, and a pull there did nothing).
+    func testCookModeFromTheKitchenClosesBackToTheKitchen() {
+        openApp()
+        for way in ["its close button", "a pull on its bar"] {
+            shell.go(to: .kitchen)
+            let cook = shell.element("kitchen.recipe.cook")
+            XCTAssertTrue(cook.waitForExistence(timeout: 30), "The Kitchen has no recipe to cook.")
+            cook.tap()
+            let close = shell.element("cook.close")
+            XCTAssertTrue(close.waitForHittable(timeout: 30), "Cook mode did not open.")
+            if way == "its close button" {
+                close.tap()
+            } else {
+                // Just above the bar's lower edge, where a pull used to belong to the page.
+                let bar = app.navigationBars.firstMatch.frame
+                let origin = app.coordinate(withNormalizedOffset: .zero)
+                let start = origin.withOffset(CGVector(dx: app.frame.midX, dy: bar.maxY - 8))
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: app.frame.height * 0.6)),
+                            withVelocity: .fast, thenHoldForDuration: 0)
+            }
+            XCTAssertTrue(shell.waitUntil(10) { !close.exists }, "Cook mode did not close with \(way).")
+            XCTAssertTrue(shell.waitUntil(10) { shell.element("kitchen.root").isHittable },
+                          "Closing cook mode with \(way) did not land back on the Kitchen. Back: \(shell.backButton.exists ? shell.backButton.label : "none")")
+            XCTAssertFalse(shell.backButton.exists, "Closing cook mode with \(way) pushed a page onto the Kitchen.")
+        }
+    }
+
     /// Every sheet the fixture kitchen can open has a close control, and a swipe down closes it too.
     func testEverySheetClosesByButtonAndSwipeDown() {
         openApp()
