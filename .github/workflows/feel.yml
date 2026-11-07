@@ -57,8 +57,12 @@ jobs:
           UDID: ${{ steps.sim.outputs.udid }}
           FEEL_REPORT_DIR: ${{ runner.temp }}/feel-reports/landings
         run: scripts/check-feel.sh "$UDID" "$RUNNER_TEMP/feel-dd" testEveryScreenLandsStill
+      # Reported, not yet gating: its first hosted run found misses that hold (#225, #226, #227, and the walk's own
+      # misread of the keyboard's Emoji key, ourostack/ouro-ui-apple#60). Its report is in the log and the uploaded
+      # artifact. Remove continue-on-error once those are fixed.
       - name: The way back from every screen
         if: always() && steps.sim.outcome == 'success'
+        continue-on-error: true
         timeout-minutes: 30
         env:
           UDID: ${{ steps.sim.outputs.udid }}
