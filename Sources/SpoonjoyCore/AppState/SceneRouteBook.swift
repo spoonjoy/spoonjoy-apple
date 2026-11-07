@@ -76,6 +76,20 @@ public enum SceneRestoration {
         scenePage ?? windowValue ?? (isOnlyWindow ? appLastRoute : nil)
     }
 
+    /// The launch environment that opens on the kitchen, reopening no page. UI checks that relaunch the app to replay a
+    /// path (Ouro Feel's walk) set it, so every launch starts from the same place.
+    public static let skipEnvironmentKey = "SPOONJOY_LAUNCH_ON_KITCHEN"
+
+    /// Whether this launch skips restoring a page.
+    public static func isSkipped(environment: [String: String]) -> Bool {
+        switch environment[skipEnvironmentKey]?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "1", "true", "yes":
+            true
+        default:
+            false
+        }
+    }
+
     /// The pages worth reopening on: places to read or cook. A search, an editor, capture or settings is a task the
     /// chef finishes in one sitting, so a relaunch goes back to the page they came from instead.
     public static func remembers(_ route: AppRoute) -> Bool {

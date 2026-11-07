@@ -41,11 +41,9 @@ struct KitchenHapticsTests {
         }
     }
 
-    @Test("a step turn keeps Spoonjoy's full-strength light impact, because OuroHX's turn is softer")
+    @Test("a step turn keeps Spoonjoy's full-strength light impact, whatever OuroHX's turn becomes")
     func stepTurnKeepsSpoonjoysOwn() {
         #expect(KitchenHapticMoment.stepTurned.ouroMoment == .spoonjoyStepTurned)
         #expect(OuroHapticMoment.spoonjoyStepTurned.feedback == .impact(weight: .light, intensity: 1))
-        // OuroHX's `.turned` is a light impact at 0.7: playing it would be a felt change.
-        #expect(OuroHapticMoment.turned.sensoryFeedback != SensoryFeedback.impact(weight: .light))
     }
 }

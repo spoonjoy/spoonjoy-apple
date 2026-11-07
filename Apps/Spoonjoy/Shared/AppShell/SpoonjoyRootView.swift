@@ -780,6 +780,7 @@ struct SpoonjoyRootView: View {
     /// which the recipe's cook progress keeps. It waits for the saved kitchen, so the page's recipe is known.
     private func applyRestoredRouteIfNeeded() {
         guard !hasAppliedRestoredRoute,
+              !SceneRestoration.isSkipped(environment: ProcessInfo.processInfo.environment),
               navigation.route == .kitchen,
               liveStore.bootstrapState.shellPresentation(isShowingSettings: false) == .kitchen else {
             return

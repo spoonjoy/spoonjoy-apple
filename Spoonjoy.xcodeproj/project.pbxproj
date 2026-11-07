@@ -22,10 +22,12 @@
 		104573363B2DB0758C0B3F603ADC4593 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D3BB4128CE99544166532C21E609302 /* SignedOutSetupView.swift */; };
 		121D5CCCB6765E470C5BBB9B062A811E /* JourneyTestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB33078C9F7B5C1E845E93C4D0D699E4 /* JourneyTestCase.swift */; };
 		132B6759AF84185C35D9CC6D1B53485A /* SpoonjoySettingsEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFC4222F62F8A0949DF961BEF404E102 /* SpoonjoySettingsEntities.swift */; };
+		1453351A1DE66052991CF5F0 /* FeelUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE5775D260503EAB7E09A0FF /* FeelUITests.swift */; };
 		15210B1AACB100FFCDC2A4B87EA900DC /* SpoonjoyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F5C56C0C02CE2C5AB47B56CBBCB525B /* SpoonjoyApp.swift */; };
 		156CAEEE1E8B8998394B159A39DCBED1 /* SpoonjoyRemindersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B687DD6A718B480C7921A4F25901D3B /* SpoonjoyRemindersStore.swift */; };
 		15A21519411E523DC19027D1D3E467BA /* JourneyWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65F6840A7464D5EFD4C9F2202EBB3DF9 /* JourneyWindows.swift */; };
 		18168DF6713122259A9917E48484ED38 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = D0C9AB70D83EB4CD724C74E1554A2487 /* SpoonjoyCore */; };
+		19A97E070DEA69329960C8F8 /* OuroFeel in Frameworks */ = {isa = PBXBuildFile; productRef = 8ACE603FB924AB91E66828B4 /* OuroFeel */; };
 		1A23FC0454DE62A0565B975938B9D5B7 /* SpoonjoyShoppingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0A515D34C917A4CC6CCA90D4C1C499 /* SpoonjoyShoppingUITests.swift */; };
 		1A27D6BE5A852FC9AE75B1440F8C6A73 /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412A295797F79C54FD393756FAFB81A1 /* SpoonjoyAppIntents.swift */; };
 		1AD612BC5E50F6B93E1D108E5520B6E4 /* SpoonjoyRemindersSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320796E51BBB94EE230D6F05AD2BD9C5 /* SpoonjoyRemindersSender.swift */; };
@@ -381,6 +383,7 @@
 		CFC4222F62F8A0949DF961BEF404E102 /* SpoonjoySettingsEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySettingsEntities.swift; sourceTree = "<group>"; };
 		D5F11FE623AE06612499C19DA8703BAD /* SpoonjoyCaptureDraftEntities.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoyCaptureDraftEntities.swift; sourceTree = "<group>"; };
 		DD6EE18768402BE74B823A3F895978A2 /* VoiceJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoiceJourney.swift; sourceTree = "<group>"; };
+		DE5775D260503EAB7E09A0FF /* FeelUITests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FeelUITests.swift; sourceTree = "<group>"; };
 		DE6398A640D3F8AEA566E7E1B6BAD893 /* RemindersJourney.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RemindersJourney.swift; sourceTree = "<group>"; };
 		E2E60C924342B9EB293238F087E47502 /* SpoonjoySpotlightIndexer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpoonjoySpotlightIndexer.swift; sourceTree = "<group>"; };
 		E356B7AD9587300852A778AB9082F0DA /* CachedAsyncImage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CachedAsyncImage.swift; sourceTree = "<group>"; };
@@ -424,6 +427,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				0614D3D9A0290E500AEDED1C2C3F2FD2 /* SpoonjoyCore in Frameworks */,
+				19A97E070DEA69329960C8F8 /* OuroFeel in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -645,6 +649,7 @@
 				30A430901C312E53B20F37AC11C96187 /* ReviewDemoLaunchUITests.swift */,
 				CD13B8490AA70D0637E31815364547DD /* ShellNavigationDriver.swift */,
 				1A0A515D34C917A4CC6CCA90D4C1C499 /* SpoonjoyShoppingUITests.swift */,
+				DE5775D260503EAB7E09A0FF /* FeelUITests.swift */,
 			);
 			name = UITests;
 			path = UITests;
@@ -965,6 +970,7 @@
 			name = SpoonjoyShoppingUITests;
 			packageProductDependencies = (
 				FAAB207C9B2A47790ED6793339B11951 /* SpoonjoyCore */,
+				8ACE603FB924AB91E66828B4 /* OuroFeel */,
 			);
 			productName = SpoonjoyShoppingUITests;
 			productReference = C752AD9B7545DAE07A5757D94B3AA94B /* SpoonjoyShoppingUITests.xctest */;
@@ -1206,6 +1212,7 @@
 				F5C787170F8FCE1A5DB833C14D05DC91 /* ReviewDemoLaunchUITests.swift in Sources */,
 				DE216B849122F9CB917E105CBD54315C /* ShellNavigationDriver.swift in Sources */,
 				1A23FC0454DE62A0565B975938B9D5B7 /* SpoonjoyShoppingUITests.swift in Sources */,
+				1453351A1DE66052991CF5F0 /* FeelUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2114,13 +2121,18 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ourostack/ouro-ui-apple.git";
 			requirement = {
-				kind = revision;
-				revision = 3f448500423e9f05acf31c9f52902776b56b7c6e;
+				kind = exactVersion;
+				version = 0.3.3;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		8ACE603FB924AB91E66828B4 /* OuroFeel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = B6D228251C80092A788AE7627C8C473E /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroFeel;
+		};
 		91209B8A89A3C6B76F4EB759AC211C3E /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 511D6115DD7457AACCA4BB177D7D745F /* XCLocalSwiftPackageReference "." */;
