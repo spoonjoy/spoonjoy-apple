@@ -47,6 +47,14 @@ struct SpoonjoyShellTests {
         #expect(shell.compactTabs.fullScreenRoute == nil)
     }
 
+    @Test("a close for a cook mode that is not showing opens its recipe")
+    func closeWithNoCookModeShowingOpensTheRecipe() {
+        var shell = SpoonjoyShell()
+        shell.closeCook("pasta")
+        #expect(shell.route == pasta)
+        #expect(shell.compactTabs.fullScreenRoute == nil)
+    }
+
     @Test("cook mode started from another tab closes back to that tab with its stack intact (#215)")
     func cookFromAnotherTabClosesToThatTab() {
         var shell = SpoonjoyShell()
