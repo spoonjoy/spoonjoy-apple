@@ -32,7 +32,7 @@ jobs:
   feel:
     name: Feel (every screen lands still; the way back)
     runs-on: xcode-27
-    timeout-minutes: 115
+    timeout-minutes: 125
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -40,7 +40,7 @@ jobs:
       - uses: ./.github/actions/select-xcode
       - name: Create an iPhone on the newest iOS runtime
         id: sim
-        timeout-minutes: 16
+        timeout-minutes: 26
         run: |
           set -euo pipefail
           .github/scripts/create-and-boot-simulator.sh "iPhone" "feel" "$RUNNER_TEMP/sim.udid"

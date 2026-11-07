@@ -22,7 +22,7 @@ jobs:
   launch-smoke:
     name: Launch smoke (${{ matrix.family }})
     runs-on: xcode-27
-    timeout-minutes: 55
+    timeout-minutes: 65
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +35,7 @@ jobs:
       - name: Create a ${{ matrix.family }} on the newest iOS runtime
         id: sim
         # Each try has its own limits inside the script, with one retry on a fresh device for a runner fault (#218).
-        timeout-minutes: 16
+        timeout-minutes: 26
         env:
           FAMILY: ${{ matrix.family }}
         run: |
