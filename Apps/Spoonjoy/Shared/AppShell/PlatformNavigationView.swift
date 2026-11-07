@@ -933,7 +933,8 @@ struct PlatformNavigationView: View {
     }
 #endif
 
-    /// Cook mode's own Close: on the phone it shrinks back into its button; elsewhere it goes straight to the recipe.
+    /// Cook mode's own Close: on the phone it shrinks back into its button; elsewhere it returns to the page under cook
+    /// mode (the recipe when nothing was under it).
     private func closeCookMode(_ id: String) {
 #if os(iOS)
         if cookSheet != nil, usesCompactMobileShell {
