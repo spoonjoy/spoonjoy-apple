@@ -36,6 +36,17 @@ struct SpoonjoyShellTests {
         #expect(shell.compactTabs.fullScreenRoute == nil)
     }
 
+    @Test("cook mode started from the Kitchen closes back to the Kitchen, not to a recipe it never showed (#215)")
+    func cookFromTheKitchenClosesToTheKitchen() {
+        var shell = SpoonjoyShell()
+        shell.startCooking("pasta")
+        #expect(shell.compactTabs.fullScreenRoute == pastaCook)
+        shell.closeCook("pasta")
+        #expect(shell.route == .kitchen)
+        #expect(shell.compactTabs.path(for: .kitchen).isEmpty, "nothing was pushed under cook mode")
+        #expect(shell.compactTabs.fullScreenRoute == nil)
+    }
+
     @Test("each tab keeps its own stack, and a tab tap restores what it showed")
     func tabsKeepTheirStacks() {
         var shell = SpoonjoyShell()
