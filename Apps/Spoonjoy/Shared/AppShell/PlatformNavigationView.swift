@@ -1067,8 +1067,9 @@ struct PlatformNavigationView: View {
                 cookLaunchSources.progress = 0
                 finishCookSheetClose()
             }
+            // The same close as Close itself: back to the page under cook mode (#215).
             if compactTabs.fullScreenRoute != nil, let id = sheet.recipeID {
-                openRecipe(id)
+                updateShell { $0.closeCook(id) }
             }
         } else if cookLaunchSources.progress < 1 || cookLaunchSources.words < 1 {
             withTransaction(instant) {
