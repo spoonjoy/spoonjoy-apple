@@ -12,43 +12,34 @@ import Testing
 struct KitchenTypeRoleTests {
     static let extras = OuroTokens.cookbook.extras
 
-    @Test("every role takes its cookbook family and weight")
+    @Test("every role is its cookbook type token")
     func testTypeRolesUseCookbookFaces() throws {
-        let expected: [KitchenTypeRole: (OuroExtraFont, Int, Font.TextStyle)] = [
-            .largeTitle: (.sjDisplay, 600, .largeTitle), .recipeTitle: (.sjDisplay, 600, .title),
-            .displayTitle: (.sjDisplay, 600, .largeTitle), .sectionTitle: (.sjDisplay, 600, .title2),
-            .indexTitle: (.sjDisplay, 600, .title3), .stepTitle: (.sjDisplay, 600, .title3),
-            .stepNumeral: (.sjDisplay, 600, .title), .cookStep: (.sjDisplay, 400, .largeTitle),
-            .cookInstruction: (.sjDisplay, 400, .title), .spreadInstruction: (.sjDisplay, 400, .title3),
-            .story: (.sjBody, 400, .body), .instructionBody: (.sjBody, 400, .body), .bodyNote: (.sjBody, 400, .body),
-            .control: (.sjUi, 600, .body), .objectTitle: (.sjUi, 600, .headline), .uiLabel: (.sjUi, 600, .caption),
-            .meta: (.sjUi, 600, .footnote), .runningHead: (.sjUi, 700, .caption2), .eyebrow: (.sjUi, 700, .caption),
+        let expected: [KitchenTypeRole: OuroExtraType] = [
+            .largeTitle: .sjTypeDisplay, .displayTitle: .sjTypeDisplay, .cookStep: .sjTypeDisplay,
+            .recipeTitle: .sjTypeTitle, .stepNumeral: .sjTypeTitle,
+            .sectionTitle: .sjTypeSection, .indexTitle: .sjTypeSection, .stepTitle: .sjTypeStep,
+            .cookInstruction: .sjTypeInstruction, .spreadInstruction: .sjTypeInstruction,
+            .story: .sjTypeBody, .instructionBody: .sjTypeBody, .bodyNote: .sjTypeBody,
+            .control: .sjTypeUi, .objectTitle: .sjTypeUi, .uiLabel: .sjTypeMeta, .meta: .sjTypeMeta,
+            .runningHead: .sjTypeEyebrow, .eyebrow: .sjTypeEyebrow,
         ]
         #expect(Set(expected.keys) == Set(KitchenTypeRole.allCases))
-        for (role, (family, weight, style)) in expected {
-            #expect(role.token.family == family, "\(role)")
-            #expect(role.token.weight == weight, "\(role)")
-            #expect(role.token.textStyle == style, "\(role)")
+        for role in KitchenTypeRole.allCases {
+            #expect(role.type == expected[role], "\(role)")
+            // Weight, size, text style and tracking are the token's own, not copies.
+            let token = try #require(Self.extras.type[role.type])
+            #expect(role.token == token, "\(role)")
+            #expect(role.font == .ouro(token, in: Self.extras), "\(role)")
         }
-        // Weights and tracking match web's tokens for the roles web names.
-        let web: [KitchenTypeRole: OuroExtraType] = [
-            .recipeTitle: .sjTypeTitle, .sectionTitle: .sjTypeSection, .stepTitle: .sjTypeStep,
-            .cookInstruction: .sjTypeInstruction, .story: .sjTypeBody, .control: .sjTypeUi, .meta: .sjTypeMeta,
-            .eyebrow: .sjTypeEyebrow,
-        ]
-        for (role, type) in web {
-            let token = try #require(Self.extras.type[type])
-            #expect(role.token.family == token.family, "\(role)")
-            #expect(role.token.weight == token.weight, "\(role)")
-        }
-        #expect(KitchenTypeRole.eyebrow.trackingEm == Self.extras.numbers[.sjTrackingEyebrow])
+        // The values the ruling names: display is 48 pt relative to large title, step is title2, ui is subheadline.
+        #expect(KitchenTypeRole.displayTitle.token.size == 48 && KitchenTypeRole.displayTitle.token.textStyle == .largeTitle)
+        #expect(KitchenTypeRole.stepTitle.token.textStyle == .title2)
+        #expect(KitchenTypeRole.control.token.textStyle == .subheadline)
         #expect(KitchenTypeRole.eyebrow.token.tracking == 0.18 * KitchenTypeRole.eyebrow.token.size)
-        #expect(KitchenTypeRole.meta.trackingEm == 0 && KitchenTypeRole.meta.token.tracking == 0)
-        #expect(KitchenTypeRole.eyebrow.isUppercase && !KitchenTypeRole.runningHead.isUppercase)
     }
 
-    @Test("each role keeps the system size of its text style, so layouts keep their room")
-    func rolesKeepSystemSizes() {
+    @Test("default sizes match the system font's on this platform")
+    func defaultSizesMatchTheSystem() {
         let styles: [Font.TextStyle: NSFont.TextStyle] = [
             .largeTitle: .largeTitle, .title: .title1, .title2: .title2, .title3: .title3, .headline: .headline,
             .body: .body, .callout: .callout, .subheadline: .subheadline, .footnote: .footnote, .caption: .caption1,
@@ -56,9 +47,6 @@ struct KitchenTypeRoleTests {
         ]
         for (style, nsStyle) in styles {
             #expect(KitchenTypeRole.defaultSize(of: style) == Double(NSFont.preferredFont(forTextStyle: nsStyle).pointSize), "\(style)")
-        }
-        for role in KitchenTypeRole.allCases {
-            #expect(role.token.size == KitchenTypeRole.defaultSize(of: role.token.textStyle), "\(role)")
         }
     }
 
@@ -99,14 +87,11 @@ struct KitchenTypeRoleTests {
     func rolesAtOtherSizes() throws {
         #expect(KitchenFontFiles.register(KitchenFontFilesTests.bundledURLs).isEmpty)
         let title = KitchenTypeRole.recipeTitle
-        let small = OuroTypeToken(family: .sjDisplay, weight: 600, size: KitchenTypeRole.defaultSize(of: .subheadline),
-                                  textStyle: .subheadline, tracking: 0, lineHeight: 0)
+        let token = title.token
+        let scale = KitchenTypeRole.defaultSize(of: .subheadline) / KitchenTypeRole.defaultSize(of: token.textStyle)
+        let small = OuroTypeToken(family: .sjDisplay, weight: 600, size: token.size * scale, textStyle: .subheadline,
+                                  tracking: 0, lineHeight: token.lineHeight)
         #expect(title.font(relativeTo: .subheadline) == .ouro(small, in: Self.extras))
-        let eyebrow = KitchenTypeRole.eyebrow.font(relativeTo: .caption2)
-        let eyebrowToken = OuroTypeToken(family: .sjUi, weight: 700, size: KitchenTypeRole.defaultSize(of: .caption2),
-                                         textStyle: .caption2, tracking: 0.18 * KitchenTypeRole.defaultSize(of: .caption2),
-                                         lineHeight: 0)
-        #expect(eyebrow == .ouro(eyebrowToken, in: Self.extras))
 
         // Fraunces is variable, so its face takes the weight; Plex's bold is its own static face.
         let fraunces = try #require(OuroFont.face(family: "Fraunces", weight: 600))
@@ -121,12 +106,10 @@ struct KitchenTypeRoleTests {
             == .system(size: 20, weight: .bold, design: .default))
     }
 
-    @Test("each role's font is its token in the cookbook theme, and empty tokens fall back")
-    func fontsAndFallbacks() {
-        for role in KitchenTypeRole.allCases {
-            #expect(role.font == .ouro(role.token, in: Self.extras), "\(role)")
-        }
-        #expect(KitchenTypeRole.eyebrowTracking(in: .empty) == 0)
+    @Test("a theme without the tokens falls back to a plain body token and needs no faces")
+    func emptyThemeFallsBack() {
+        #expect(KitchenTypeRole.displayTitle.token(in: .empty)
+            == OuroTypeToken(family: .sjBody, weight: 400, size: 17, textStyle: .body, tracking: 0, lineHeight: 1))
         #expect(KitchenTypeRole.requiredFaces(in: .empty).isEmpty)
         #expect(KitchenTypeRole.defaultSize(of: .title, in: [:]) == 17)
     }

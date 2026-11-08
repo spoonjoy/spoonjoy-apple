@@ -139,7 +139,7 @@ enum KitchenTableTheme {
     }
 
     // Type roles in web's faces (``KitchenTypeRole``): Fraunces titles, Source Serif 4 reading, IBM Plex Sans Condensed
-    // labels. Each keeps its system text style and size, so every role follows Dynamic Type as before.
+    // labels. Each is its `sj-type-*` token's size, scaled with Dynamic Type relative to the token's text style.
     static let largeTitle = KitchenTypeRole.largeTitle.font
     static let recipeTitle = KitchenTypeRole.recipeTitle.font
     static let cookStep = KitchenTypeRole.cookStep.font

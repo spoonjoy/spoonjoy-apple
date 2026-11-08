@@ -776,7 +776,9 @@ struct CookModeView: View {
             .frame(maxWidth: .infinity, minHeight: height, alignment: .topLeading)
         }
         .scrollBounceBehavior(.basedOnSize)
-        .scrollIndicators(.hidden)
+        // At large text sizes a step runs below the fold; the indicator, flashed on arrival, says there is more.
+        .scrollIndicators(.visible)
+        .scrollIndicatorsFlash(onAppear: true)
         .background(KitchenTableTheme.raised, in: RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2))
         .overlay(
             RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.panel * 2)
@@ -792,7 +794,7 @@ struct CookModeView: View {
 
     private func stepHeading(_ step: RecipeStep) -> some View {
         Text(step.stepTitle ?? "Step \(step.stepNum)")
-            .font(KitchenTableTheme.control)
+            .font(KitchenTableTheme.stepTitle)
             .foregroundStyle(KitchenTableTheme.brass)
             .fixedSize(horizontal: false, vertical: true)
             .accessibilityAddTraits(.isHeader)

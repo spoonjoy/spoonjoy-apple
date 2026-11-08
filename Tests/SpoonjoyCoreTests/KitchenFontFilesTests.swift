@@ -77,6 +77,7 @@ struct KitchenFontFilesTests {
         let texts = KitchenFontFiles.licenceTexts(in: bundle)
         #expect(texts.map(\.typeface) == ["Source Serif 4"])
         #expect(texts.first?.text.hasPrefix("Copyright 2014 The Source Serif 4 Project Authors") == true)
+        #expect(KitchenFontFiles.missingLicences(in: bundle) == ["OFL-Fraunces.txt", "OFL-IBMPlexSansCondensed.txt"])
     }
 
     @Test("a bundle lists only the faces it carries")

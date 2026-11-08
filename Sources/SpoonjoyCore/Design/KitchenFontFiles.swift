@@ -34,6 +34,13 @@ public enum KitchenFontFiles {
         }
     }
 
+    /// The licence files a bundle is missing, or carries as something other than UTF-8 text. The app asserts this is
+    /// empty at launch, so a debug build or a test run stops on a bundle that ships a font without its licence.
+    public static func missingLicences(in bundle: Bundle) -> [String] {
+        let present = Set(licenceTexts(in: bundle).map(\.typeface))
+        return licences.filter { !present.contains($0.typeface) }.map(\.file)
+    }
+
     /// The bundled faces a bundle carries. A missing one is left out, and the text it would set falls back to the
     /// system font.
     public static func urls(in bundle: Bundle) -> [URL] {

@@ -1,34 +1,52 @@
 import OuroHX
 import SwiftUI
 
-/// The app's text roles in web's typefaces: Fraunces for titles, Source Serif 4 for reading and IBM Plex Sans
-/// Condensed for labels, at the weights ouro-ui-core's cookbook tokens give them. Each role keeps the Dynamic Type
-/// style and default size of the system role it replaces, so a layout keeps its room up to the largest accessibility
-/// size. System chrome and the timer's digits stay San Francisco, so the timer is not a role here.
+/// The app's text roles, each one of ouro-ui-core's cookbook type tokens (`sj-type-*`): Fraunces for titles and the
+/// cook-step instruction, Source Serif 4 for reading and IBM Plex Sans Condensed for labels, at the token's weight
+/// and size, scaled with Dynamic Type relative to the token's text style. System chrome and the timer's digits stay
+/// San Francisco, so the timer is not a role here.
 public enum KitchenTypeRole: String, CaseIterable, Sendable {
     case largeTitle, recipeTitle, displayTitle, sectionTitle, indexTitle, stepTitle, stepNumeral
     case cookStep, cookInstruction, spreadInstruction
     case story, instructionBody, bodyNote
     case control, objectTitle, uiLabel, meta, runningHead, eyebrow
 
-    /// The role as a cookbook type token, at its text style's default size. Line height is the font's own.
-    public var token: OuroTypeToken {
-        let (family, weight, style) = spec
-        let size = Self.defaultSize(of: style)
-        return OuroTypeToken(family: family, weight: weight, size: size, textStyle: style, tracking: trackingEm * size, lineHeight: 0)
+    /// The cookbook type token the role sets.
+    public var type: OuroExtraType {
+        switch self {
+        // The cook step is read from arm's length, so its instruction is display-size Fraunces, as web sets it.
+        case .largeTitle, .displayTitle, .cookStep: .sjTypeDisplay
+        case .recipeTitle, .stepNumeral: .sjTypeTitle
+        case .sectionTitle, .indexTitle: .sjTypeSection
+        case .stepTitle: .sjTypeStep
+        case .cookInstruction, .spreadInstruction: .sjTypeInstruction
+        case .story, .instructionBody, .bodyNote: .sjTypeBody
+        case .control, .objectTitle: .sjTypeUi
+        case .uiLabel, .meta: .sjTypeMeta
+        case .runningHead, .eyebrow: .sjTypeEyebrow
+        }
     }
 
-    /// The role's font: its face, scaled with Dynamic Type, or the system serif or sans when the face isn't registered.
+    /// The role's token in the cookbook theme.
+    public var token: OuroTypeToken { token(in: OuroTokens.cookbook.extras) }
+
+    /// The role's token in a theme, or a plain body token when the theme doesn't define it.
+    func token(in extras: OuroThemeExtras) -> OuroTypeToken {
+        extras.type[type] ?? OuroTypeToken(family: .sjBody, weight: 400, size: 17, textStyle: .body, tracking: 0, lineHeight: 1)
+    }
+
+    /// The role's font: its face at the token's size, scaled with Dynamic Type relative to the token's text style, or
+    /// the system serif or sans when the face isn't registered.
     public var font: Font { .ouro(token, in: OuroTokens.cookbook.extras) }
 
-    /// The role's face and weight at another text style's size, scaling with that style: a compact bar's title or an
-    /// avatar's initial that keeps the size its layout was built for.
+    /// The role's face and weight scaled relative to another text style, keeping the token's proportion to its own
+    /// style: a compact bar's title or an avatar's initial that keeps the room its layout was built for.
     public func font(relativeTo style: Font.TextStyle) -> Font {
         let token = token
-        let size = Self.defaultSize(of: style)
+        let scale = Self.defaultSize(of: style) / Self.defaultSize(of: token.textStyle)
         return .ouro(
-            OuroTypeToken(family: token.family, weight: token.weight, size: size, textStyle: style,
-                          tracking: trackingEm * size, lineHeight: 0),
+            OuroTypeToken(family: token.family, weight: token.weight, size: token.size * scale, textStyle: style,
+                          tracking: token.tracking * scale, lineHeight: token.lineHeight),
             in: OuroTokens.cookbook.extras)
     }
 
@@ -45,40 +63,6 @@ public enum KitchenTypeRole: String, CaseIterable, Sendable {
         return .system(size: size, weight: weight, design: token.family == .sjUi ? .default : .serif)
     }
 
-    /// Letter spacing in em: web's eyebrow tracking for eyebrows, none for every other role.
-    public var trackingEm: Double {
-        self == .eyebrow ? Self.eyebrowTracking(in: OuroTokens.cookbook.extras) : 0
-    }
-
-    /// A theme's eyebrow tracking in em, or none when the theme doesn't define one.
-    static func eyebrowTracking(in extras: OuroThemeExtras) -> Double {
-        extras.numbers[.sjTrackingEyebrow] ?? 0
-    }
-
-    /// Whether the role sets its text in capitals, as web's eyebrows do.
-    public var isUppercase: Bool { self == .eyebrow }
-
-    private var spec: (OuroExtraFont, Int, Font.TextStyle) {
-        switch self {
-        case .largeTitle, .displayTitle: (.sjDisplay, 600, .largeTitle)
-        case .recipeTitle, .stepNumeral: (.sjDisplay, 600, .title)
-        case .sectionTitle: (.sjDisplay, 600, .title2)
-        // Web sets step titles upright, so the old italic subhead goes.
-        case .indexTitle, .stepTitle: (.sjDisplay, 600, .title3)
-        // The cook step is read from arm's length, so it starts at the large-title size and scales from there.
-        case .cookStep: (.sjDisplay, 400, .largeTitle)
-        case .cookInstruction: (.sjDisplay, 400, .title)
-        case .spreadInstruction: (.sjDisplay, 400, .title3)
-        case .story, .instructionBody, .bodyNote: (.sjBody, 400, .body)
-        case .control: (.sjUi, 600, .body)
-        case .objectTitle: (.sjUi, 600, .headline)
-        case .uiLabel: (.sjUi, 600, .caption)
-        case .meta: (.sjUi, 600, .footnote)
-        case .runningHead: (.sjUi, 700, .caption2)
-        case .eyebrow: (.sjUi, 700, .caption)
-        }
-    }
-
     /// The faces the roles use, as family name to CSS weights: what the app must bundle.
     public static var requiredFaces: [String: [Int]] { requiredFaces(in: OuroTokens.cookbook.extras) }
 
@@ -86,8 +70,9 @@ public enum KitchenTypeRole: String, CaseIterable, Sendable {
     static func requiredFaces(in extras: OuroThemeExtras) -> [String: [Int]] {
         var faces: [String: Set<Int>] = [:]
         for role in allCases {
-            guard let family = extras.fonts[role.token.family]?.first else { continue }
-            faces[family, default: []].insert(role.token.weight)
+            let token = role.token(in: extras)
+            guard let family = extras.fonts[token.family]?.first else { continue }
+            faces[family, default: []].insert(token.weight)
         }
         return faces.mapValues { $0.sorted() }
     }
