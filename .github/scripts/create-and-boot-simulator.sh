@@ -40,12 +40,13 @@ attempt "" && exit 0
 
 first="$(cat "$out")"
 echo "::warning title=Infrastructure retry::Creating and booting the $family simulator failed before the app ran. Restarting CoreSimulator and trying once more on a fresh device (#218)."
+# Restarted first, so the failed device's shutdown and delete reach a working service; launchd starts a fresh one on
+# the next simctl call.
+limit 20 killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1 || true
 if [ -n "$first" ]; then
   limit 60 xcrun simctl shutdown "$first" >/dev/null 2>&1 || true
   limit 60 xcrun simctl delete "$first" >/dev/null 2>&1 || true
 fi
-# launchd starts a fresh service on the next simctl call.
-limit 20 killall -9 com.apple.CoreSimulator.CoreSimulatorService >/dev/null 2>&1 || true
 : > "$out"
 attempt "-retry" && exit 0
 echo "::error::Creating and booting the $family simulator failed twice; see the messages above."
