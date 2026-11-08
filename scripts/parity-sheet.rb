@@ -70,7 +70,7 @@ if options[:native_run]
   run!("gh", "run", "download", options[:native_run], "-R", NATIVE_REPO, "-p", "parity-shots*", "-D", native_dir)
 end
 
-web = ParitySheet.index(Dir.glob(File.join(web_dir, "**", "parity-*.png")))
+web = ParitySheet.index(Dir.glob(File.join(web_dir, "**", "parity-*.png")), side: :web)
 native = ParitySheet.index(Dir.glob(File.join(native_dir, "**", "parity-*.png")))
 Dir.glob(File.join(native_dir, "**", "*.xcresult")).sort.each_with_index do |bundle, number|
   native.merge!(export(bundle, File.join(out, "exports", "#{number}-#{File.basename(bundle, ".xcresult")}")))
