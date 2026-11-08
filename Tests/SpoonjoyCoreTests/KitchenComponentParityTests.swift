@@ -149,6 +149,25 @@ struct KitchenComponentParityTests {
         #expect(Self.containsLines(spread, [".frame(height: 220)", ".clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.photo))"]))
     }
 
+    @Test("recipe titles and chef bylines wrap like web's instead of ending in an ellipsis")
+    func titlesAndBylinesWrap() throws {
+        // The Live journeys' truncation audit caught both with CI's long QA handles and recipe titles.
+        let row = try Self.declaration("struct RecipeIndexRow: View", in: "\(Self.components)/RecipeIndexRow.swift")
+        #expect(row.contains("Text(content.title)"))
+        #expect(!row.contains(".lineLimit("), "An index row's title and detail wrap in full at every text size.")
+
+        let meta = try Self.source("\(Self.views)/RecipeDetailView.swift")
+        #expect(meta.contains(#"Text("by \(ChefHandle.wrapping(viewModel.recipe.chef.username))")"#))
+        #expect(meta.contains(#".accessibilityLabel("by \(viewModel.recipe.chef.username)")"#))
+        #expect(!Self.containsLines(meta, [#"Text("by \(viewModel.recipe.chef.username)")"#, ".lineLimit(1)"]))
+
+        let kitchen = try Self.source("\(Self.views)/KitchenView.swift")
+        #expect(kitchen.contains(#""by \(ChefHandle.wrapping(recipe.chef.username))""#))
+        let identity = try Self.declaration("struct KitchenIdentityLine", in: "\(Self.views)/KitchenView.swift")
+        #expect(identity.contains("Text(ChefHandle.breakingAnywhere(chef.username))"))
+        #expect(!identity.contains(".lineLimit("))
+    }
+
     // MARK: - Source
 
     private func detail(contains text: String) -> Bool {
