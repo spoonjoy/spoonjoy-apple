@@ -94,6 +94,15 @@ class OptionalChecksWaitTest < Minitest::Test
     end
   end
 
+  # With auto-merge, the required checks passing is also the merge, and main's push runs the optional checks again.
+  def test_closing_a_pull_request_stops_only_its_own_pull_request_runs
+    doc = workflow("pr-closed.yml")
+    assert_equal({ "pull_request" => { "types" => ["closed"] } }, triggers(doc))
+    script = doc.fetch("jobs").fetch("stop-optional-checks").fetch("steps").map { |step| step["run"].to_s }.join("\n")
+    assert_includes script, "actions/workflows/native.yml/runs?event=pull_request&head_sha=$HEAD_SHA"
+    assert_includes script, 'select(.status != "completed")'
+  end
+
   def test_testflight_still_waits_only_for_native_on_main
     on = triggers(workflow("testflight.yml"))
     assert_equal({ "workflows" => ["Native"], "types" => ["completed"], "branches" => ["main"] }, on.fetch("workflow_run"))
