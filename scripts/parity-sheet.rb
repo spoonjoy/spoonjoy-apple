@@ -48,7 +48,10 @@ end
 
 if options[:export_xcresult]
   Dir.mktmpdir("parity-export") do |folder|
-    copied = ParitySheet.collect(export(options[:export_xcresult], folder), out)
+    shots = export(options[:export_xcresult], folder)
+    unswitched = ParitySheet.unswitched_schemes(shots)
+    abort("dark shot identical to light, so the scheme never switched: #{unswitched.join(", ")}") unless unswitched.empty?
+    copied = ParitySheet.collect(shots, out)
     puts "parity shots: #{copied.size} copied into #{out}"
   end
   exit

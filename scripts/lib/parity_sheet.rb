@@ -86,6 +86,14 @@ module ParitySheet
     inner?(key) ? "parity-#{key}-inner.png" : "parity-#{key}.png"
   end
 
+  # Keys of the light shots in `index` whose dark shot is byte-identical: the scheme never switched.
+  def unswitched_schemes(index)
+    index.keys.select { |key| key.end_with?("-light") }.sort.select do |light|
+      dark = index[light.sub(/-light\z/, "-dark")]
+      dark && FileUtils.compare_file(index[light], dark)
+    end
+  end
+
   # Copies each shot of `index` into `dir` under its canonical name, for the parity-shots artifact. Returns the copies.
   def collect(index, dir)
     FileUtils.mkdir_p(dir)

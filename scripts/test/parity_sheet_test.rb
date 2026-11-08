@@ -118,4 +118,18 @@ class ParitySheetTest < Minitest::Test
       assert_equal({ "chef-iphone-dark" => File.join(dir, "AAA.png") }, ParitySheet.index_export(dir))
     end
   end
+
+  def test_unswitched_schemes_finds_a_dark_shot_identical_to_its_light_shot
+    Dir.mktmpdir do |dir|
+      write = ->(name, bytes) { File.join(dir, name).tap { |path| File.binwrite(path, bytes) } }
+      index = {
+        "recipe-iphone-light" => write.("a.png", "same"),
+        "recipe-iphone-dark" => write.("b.png", "same"),
+        "chef-iphone-light" => write.("c.png", "light"),
+        "chef-iphone-dark" => write.("d.png", "dark"),
+        "shopping-iphone-light" => write.("e.png", "only light")
+      }
+      assert_equal ["recipe-iphone-light"], ParitySheet.unswitched_schemes(index)
+    end
+  end
 end
