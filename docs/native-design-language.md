@@ -1,14 +1,14 @@
 # Spoonjoy Native Apple Design Language
 
-Status: initial native translation brief for iOS 27 and macOS 27.
+Status: native design brief for iOS 27 and macOS 27, as of release 1.2.
 
 ## Source Language
 
 Spoonjoy's product language is **The Kitchen Table**: quiet bone paper, charcoal ink, restrained brass/tomato/herb accents, editorial food photography, cookbook margins, provenance, indexes, receipt-like lists, and cooking instructions that work under kitchen conditions.
 
-The native app should not copy the web UI surface-for-surface. It should preserve the product family while letting Apple platform conventions take over where they are better.
+**Same look as web, platform behaviour.** A screenshot of any Spoonjoy screen on web and on an Apple device, side by side, should look like the same book: the same three typefaces, the same palette, the same eyebrows, section headers, ingredient rows, covers and cook-step page. What differs is only what the platform owns (see "Same Look, Platform Behaviour (1.2)"): on Apple, navigation, Liquid Glass controls, system sheets, haptics, Dynamic Type, the Dynamic Island and Siri.
 
-Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` on `main` at SHA-256 `764b9749a614482ac75debefa06547f21fae09d35cb8be38a09a9879d6307dae`. A changed source hash means the native brief and contract must be intentionally reviewed together.
+Source pin: this brief mirrors `spoonjoy/spoonjoy-v2` `docs/design-language.md` on `main` at SHA-256 `3e7cd48db32e9453fef9bd6566b83a7c84454d88e6d9feaaf311e49baeecbb5c`. A changed source hash means the native brief and contract must be intentionally reviewed together.
 
 ## Invariants To Preserve
 
@@ -88,19 +88,23 @@ Between 140° and 150° the hinge's own status decides, and with no angle `parti
 
 ## System (1.1)
 
-Release 1.1 turns the Kitchen Table into a full system with a night appearance. The app follows the system appearance; nothing pins it to light. Native tokens live in `KitchenTableTheme` (app) and `SpoonjoyCore/Design` (motion, haptics, contrast), and every night value is copied from the web `.dark` block in `docs/source/spoonjoy-v2-tailwind-colors.css`, which `scripts/check-native-web-palette-contract.rb` enforces.
+Release 1.1 turns the Kitchen Table into a full system with a night appearance. The app follows the system appearance; nothing pins it to light. Native tokens live in `KitchenTableTheme` (app) and `SpoonjoyCore/Design` (motion, haptics, contrast). Since 1.2 every colour, radius, shadow, space and type value comes from ouro-ui-core's `cookbook` theme through Ouro HX (`OuroTokens.cookbook` and its `extras`), the same source web reads; no colour is written by hand under `Apps/Spoonjoy/Shared/Design/`. The day and night values below are that theme's.
 
-**Type scale.** Serif roles use the system serif, New York. Every role is a Dynamic Type text style, so it scales up to AX5; primary surfaces never set a fixed point size for text.
+**Type scale.** Since 1.2 the roles use web's three typefaces, bundled in the app (all SIL OFL): Fraunces for titles, step names and the cook-step instruction; Source Serif 4 for ingredients, instructions, notes and stories; IBM Plex Sans Condensed for buttons, meta, eyebrows and labels. Each role is one cookbook type token (`sj-type-*`, `KitchenTypeRole`) set with `Font.custom(_:size:relativeTo:)`, so it scales with Dynamic Type up to AX5; a face that fails to register falls back to the system serif or sans. System chrome (tab bar, toolbars, menus, alerts, sheets' chrome) and timer digits stay San Francisco.
 
-| Role | Style | Use |
+| Role | Token | Use |
 | --- | --- | --- |
-| `largeTitle` | Large Title, serif, bold | Screen titles such as Kitchen |
-| `recipeTitle` | Title, serif, semibold | A recipe's name |
-| `cookStep` | Large Title (34 pt base), serif, regular | The step in cook mode, read from arm's length |
-| `story` | Body, serif | Recipe descriptions and notes |
-| `control` | Body, SF, semibold | Buttons and controls |
-| `meta` | Footnote, SF | Times, counts, attributions |
-| `timer` | Large Title, SF light, monospaced digits | Running timers, so digits don't jitter |
+| `largeTitle`, `displayTitle` | `sj-type-display`, Fraunces | Screen titles such as Kitchen |
+| `recipeTitle`, `stepNumeral` | `sj-type-title`, Fraunces | A recipe's name; the cook step's numeral |
+| `sectionTitle`, `indexTitle` | `sj-type-section`, Fraunces | Section headers and index rows |
+| `stepTitle` | `sj-type-step`, Fraunces | A step's name |
+| `cookStep` | `sj-type-display`, Fraunces | The step in cook mode, read from arm's length |
+| `cookInstruction`, `spreadInstruction` | `sj-type-instruction`, Fraunces | The current step's instruction on the recipe page and the Duo spread |
+| `story`, `instructionBody`, `bodyNote` | `sj-type-body`, Source Serif 4 | Stories, instructions, ingredient names |
+| `control`, `objectTitle` | `sj-type-ui`, Plex Sans Condensed | Buttons and controls |
+| `uiLabel`, `meta` | `sj-type-meta`, Plex Sans Condensed | Times, counts, attributions |
+| `eyebrow`, `runningHead` | `sj-type-eyebrow`, Plex Sans Condensed | Uppercase brass eyebrows, tracked `sj-tracking-eyebrow` (0.18em) |
+| timer | SF light, monospaced digits | Running timers, so digits don't jitter |
 
 **Roles in both appearances.** Each role is one dynamic colour that resolves per appearance.
 
@@ -137,6 +141,45 @@ The glass rules:
 **Motion.** Motion uses springs in SwiftUI's response and damping terms (`KitchenSpring`): snappy 0.32/0.86 for small state changes, glide 0.42/0.82 for the tab lens and glass morphs, page turn 0.5/0.88 for cook steps, zoom 0.45/0.9 for a cover opening into its recipe, and bounce 0.35/0.6 for a checked ingredient. With Reduce Motion on, every spring becomes a 0.2 s crossfade and nothing moves: `KitchenMotion.step` makes the decision, `KitchenMotion.animation` and `kitchenAnimation` animate with it, and `kitchenTransition` swaps any slide, zoom or page turn for opacity. The crossfade's length and curve and the opacity rule are Ouro HX's (`OuroMotion`); the named springs are Spoonjoy's own, since Ouro HX has one spring.
 
 **Haptics.** Haptics mark moments, not every tap (`KitchenHapticMoment`, played through `sensoryFeedback`): checking an ingredient or a list item plays selection, turning a step a light impact, starting a timer a medium impact, a timer or cook finishing success, and confirming a destructive action warning. Each moment plays the Ouro HX moment of the same meaning (`OuroHapticMoment`: checked, stepped, started, finished, warned), except a step turn, which keeps Spoonjoy's full-strength light impact because Ouro HX's `turned` is softer.
+
+## Same Look, Platform Behaviour (1.2)
+
+Release 1.2 makes web and native one look. Both read ouro-ui-core's `cookbook` theme: web vendors its generated CSS, and the app reads `OuroTokens.cookbook` through Ouro HX. Neither side writes a colour, radius, space or type value by hand, so a change lands in core once and reaches both.
+
+What converges on web's look:
+- Ingredient rows: serif name, muted serif aisle in sentence case, quantity on the right, no per-row cart icon.
+- Checks: a checked ingredient or list item is brass with a bone tick. Herb stays for cooked and finished.
+- Section headers (`KitchenSectionHeader`): eyebrow, Fraunces title, right-aligned tracked meta, a rule below; a section's action sits on the header line.
+- Button labels in Plex Sans Condensed semibold.
+- Photos at `sj-radius-photo`, covers and thumbnails at `sj-radius-small`, lifted covers with `sj-shadow-soft`.
+
+What web took from native: the cover placeholder (a vellum-to-brass wash with a brass Fraunces initial), and the cook step's reading treatment (Fraunces instruction, brass step numeral, a vellum-and-brass timer ring).
+
+**Stays native.** These follow Apple, not web:
+- Navigation: `NavigationStack`/`NavigationSplitView`, the Liquid Glass tab bar and search, toolbars, back gestures.
+- Sheets, popovers, menus, context menus, alerts and the share sheet.
+- Liquid Glass materials and capsule and circle glass controls.
+- Haptics (`KitchenHaptics`, `OuroHaptics`).
+- The Dynamic Island and the Live Activity layout; timer digits stay SF.
+- Siri, App Intents, Spotlight snippets and widgets' system chrome.
+- Dynamic Type, Reduce Motion, increased contrast (`KitchenContrast`) and VoiceOver behaviour.
+- Duo fold postures and the book spread.
+- The Mac menu bar, windows and keyboard shortcuts.
+
+**Stays web.** The charcoal phone tab bar, the 6px control radius, the browser's own form controls, and print styles. Web's print block keeps its own literal values and is exempt from the no-literal token rule.
+
+**Deliberate differences.** Each is the platform's idiom, not drift:
+
+| Where | Native | Web | Why |
+| --- | --- | --- | --- |
+| Checks | Circle | Rounded square | The filled circle is the iOS checklist idiom; the colour matches. |
+| Profile title | Keeps "@" before the handle | Chef page title without "@" | On native the title is the handle; web shows "@" in the eyebrow. |
+| Add to list on one ingredient | Context menu and a named accessibility action ("Add to list"); no swipe action; the page's Add to list button stays | No per-row action | Rows are not in a `List`, so a swipe would fight scrolling and tap-to-check. |
+| Cook-step size on a phone | Display size | Step size below the `md` breakpoint, display size from `md` | A long instruction at display size fills a 393 px browser page and hides the timer. |
+| Timer ring | At least 120 pt, digits inside | 80 or 96 px, beside the digits | Web keeps its timer row layout. |
+| "Awaiting first photo" | Screen-reader only | Screen-reader only | Same on both: the placeholder speaks for itself. |
+| Section header eyebrow | Hidden from VoiceOver; the header is one element, title as label and meta as value | Read as text | One VoiceOver stop per header. |
+| Kitchen lead recipe | `RecipeLead` on the counter | A full-width table of contents (spoonjoy-v2 #354) | Not yet reconciled; review with the next Kitchen change. |
 
 ## Anti-Patterns
 
