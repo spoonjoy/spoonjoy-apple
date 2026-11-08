@@ -30,9 +30,12 @@ struct ParityCapture {
     /// Keeps one shot under the given name.
     let shoot: (String) throws -> Void
 
-    /// "ipad" on an iPad, otherwise "iphone".
+    /// "ipad" on an iPad, otherwise "iphone". The runner reports the phone idiom on an iPad, so the simulator model decides.
     static var deviceName: String {
-        UIDevice.current.userInterfaceIdiom == .pad ? "ipad" : "iphone"
+        ParityShotDevice.name(
+            simulatorModelIdentifier: ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"],
+            idiomIsPad: UIDevice.current.userInterfaceIdiom == .pad
+        )
     }
 
     static func shotName(_ screen: String, device: String, scheme: String) -> String {
