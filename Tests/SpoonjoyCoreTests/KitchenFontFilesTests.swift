@@ -59,6 +59,27 @@ struct KitchenFontFilesTests {
         #expect(KitchenFontFiles.register([bogus]) == [bogus])
     }
 
+    @Test("every typeface's OFL text is in the repository, and a bundle lists only the texts it carries")
+    func licenceTexts() throws {
+        for licence in KitchenFontFiles.licences {
+            let text = try String(contentsOf: Self.fontsFolder.appendingPathComponent(licence.file), encoding: .utf8)
+            #expect(text.contains("SIL Open Font License, Version 1.1"), "\(licence.file)")
+            #expect(text.contains("SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007"), "\(licence.file)")
+        }
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-licence-bundle-\(UUID()).bundle")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.copyItem(at: Self.fontsFolder.appendingPathComponent("OFL-SourceSerif4.txt"),
+                                         to: folder.appendingPathComponent("OFL-SourceSerif4.txt"))
+        // A file that isn't UTF-8 text is left out rather than shown garbled.
+        try Data([0xFF, 0xFE, 0xFD]).write(to: folder.appendingPathComponent("OFL-Fraunces.txt"))
+        let bundle = try #require(Bundle(url: folder))
+        let texts = KitchenFontFiles.licenceTexts(in: bundle)
+        #expect(texts.map(\.typeface) == ["Source Serif 4"])
+        #expect(texts.first?.text.hasPrefix("Copyright 2014 The Source Serif 4 Project Authors") == true)
+        #expect(KitchenFontFiles.missingLicences(in: bundle) == ["OFL-Fraunces.txt", "OFL-IBMPlexSansCondensed.txt"])
+    }
+
     @Test("a bundle lists only the faces it carries")
     func bundleListsOnlyWhatItCarries() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent("spoonjoy-font-bundle-\(UUID()).bundle")

@@ -223,7 +223,7 @@ struct SpoonDock: View {
 
                     if let subtitle = action.subtitle {
                         Text(subtitle)
-                            .font(.caption2)
+                            .font(KitchenTypeRole.meta.font(relativeTo: .caption2))
                             .lineLimit(1)
                             .minimumScaleFactor(0.75)
                             .foregroundStyle(prominence == .supporting ? KitchenTableTheme.ink2 : KitchenTableTheme.onInk.opacity(0.72))

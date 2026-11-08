@@ -102,7 +102,7 @@ struct SignedOutSetupView: View {
 
             VStack(spacing: 5) {
                 Text("Spoonjoy")
-                    .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.largeTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
                     .multilineTextAlignment(.center)
 
@@ -123,7 +123,7 @@ struct SignedOutSetupView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 Text("Spoonjoy")
-                    .font(.system(.largeTitle, design: .serif).weight(.semibold))
+                    .font(KitchenTableTheme.largeTitle)
                     .foregroundStyle(KitchenTableTheme.ink)
 
                 Text("Recipes, passed hand to hand.")
@@ -152,7 +152,7 @@ struct SignedOutSetupView: View {
                     .accessibilityAddTraits(.isHeader)
 
                 Text("Use the same Spoonjoy account you use on spoonjoy.app.")
-                    .font(.body)
+                    .font(KitchenTableTheme.bodyNote)
                     .foregroundStyle(KitchenTableTheme.ink2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -207,7 +207,7 @@ struct SignedOutSetupView: View {
                     Image(systemName: "arrow.right.circle.fill")
                         .imageScale(.medium)
                     Text("Sign in")
-                        .font(.headline)
+                        .font(KitchenTableTheme.control)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
@@ -224,7 +224,7 @@ struct SignedOutSetupView: View {
                     .fill(KitchenTableTheme.ink.opacity(0.14))
                     .frame(height: 1)
                 Text("or")
-                    .font(.caption.weight(.medium))
+                    .font(KitchenTableTheme.uiLabel)
                     .foregroundStyle(KitchenTableTheme.ink.opacity(0.56))
                 Rectangle()
                     .fill(KitchenTableTheme.ink.opacity(0.14))
@@ -247,7 +247,7 @@ struct SignedOutSetupView: View {
                             Image(systemName: provider.signInSystemImage)
                                 .imageScale(.medium)
                             Text(provider.signInButtonTitle)
-                                .font(.headline)
+                                .font(KitchenTableTheme.control)
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
@@ -342,7 +342,7 @@ struct SignedOutSetupView: View {
     private var statusRow: some View {
         Label {
             Text(authStatus)
-                .font(.callout)
+                .font(KitchenTypeRole.meta.font(relativeTo: .callout))
                 .foregroundStyle(statusColor)
                 .fixedSize(horizontal: false, vertical: true)
         } icon: {

@@ -454,7 +454,7 @@ private struct CookbookFallbackCover: View {
             // The title is printed beside the cover, so the cover carries only its initial, as a recipe without a
             // photo does. It grows with the text size, but only until it would crowd the cover.
             Text(String(title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)).uppercased())
-                .font(.system(size: min(initialSize, 88), weight: .bold, design: .serif))
+                .font(KitchenTypeRole.displayTitle.fixedFont(size: min(initialSize, 88)))
                 .foregroundStyle(KitchenTableTheme.brass)
                 .padding(.leading, 30)
                 .padding([.trailing, .bottom], 16)

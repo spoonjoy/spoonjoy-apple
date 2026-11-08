@@ -433,7 +433,7 @@ struct KitchenIdentityLine: View {
         ZStack {
             KitchenTableTheme.vellum
             Text(String(chef.username.prefix(1)).uppercased())
-                .font(.system(.subheadline, design: .serif).weight(.bold))
+                .font(KitchenTypeRole.recipeTitle.font(relativeTo: .subheadline))
                 .foregroundStyle(KitchenTableTheme.ink)
         }
     }
@@ -547,7 +547,7 @@ struct RecipeLead: View {
         VStack(alignment: .leading, spacing: 10) {
             Text((counterCook?.label ?? KitchenCounterCook.idleLabel).uppercased())
                 .font(KitchenTableTheme.uiLabel)
-                .tracking(1.6)
+                .kitchenEyebrowTracking()
                 .foregroundStyle(KitchenTableTheme.onPhotoMuted)
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityLabel(counterCook?.label ?? KitchenCounterCook.idleLabel)

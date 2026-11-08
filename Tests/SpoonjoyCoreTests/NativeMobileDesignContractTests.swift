@@ -140,8 +140,8 @@ struct NativeMobileDesignContractTests {
             theme,
             in: themePath,
             contains: [
-                "static let instructionBody = Font.system(.body, design: .serif)",
-                "static let cookInstruction = Font.system(.title, design: .serif)",
+                "static let instructionBody = KitchenTypeRole.instructionBody.font",
+                "static let cookInstruction = KitchenTypeRole.cookInstruction.font",
                 "static let selectionWash = brass.opacity(0.09)"
             ],
             forbids: [".font(.system(size:"]
@@ -1777,7 +1777,7 @@ struct NativeMobileDesignContractTests {
                 "CookbookFallbackCover",
                 "CookbookImageCover",
                 "@ScaledMetric(relativeTo: .largeTitle) private var initialSize: CGFloat = 64",
-                ".system(size: min(initialSize, 88), weight: .bold, design: .serif)",
+                "KitchenTypeRole.displayTitle.fixedFont(size: min(initialSize, 88))",
                 "title.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)",
                 "private var detailHeaderWidth",
                 "private var detailShareAction",

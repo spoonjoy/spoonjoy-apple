@@ -61,6 +61,7 @@ final class CookSyncJourney: JourneyTestCase {
         )
         let stepOffsetBeforeCheck = stepOne.frame.minY - recipeTitle.frame.minY
         journey.attachScreenshot(named: "00-recipe-before-check", to: self)
+        JourneyTruncation.assertNone(journey, on: "The recipe page at the default text size")
         pageLemon.tap()
         XCTAssertTrue(
             journey.element(JourneyID.recipeDetailClearProgress).waitForExistence(timeout: JourneyApp.interactionTimeout),
@@ -93,6 +94,7 @@ final class CookSyncJourney: JourneyTestCase {
         )
         ingredient.tap()
         journey.attachScreenshot(named: "01-checked-in-cook-mode", to: self)
+        JourneyTruncation.assertNone(journey, on: "The cook step at the default text size")
 
         // Live: the app sends after a short pause; the test process reads QA until the check arrives.
         let reading = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
@@ -113,6 +115,7 @@ final class CookSyncJourney: JourneyTestCase {
             journey.openLink(cookLink)
             verifyLargestTextLayout(journey)
             journey.attachScreenshot(named: "06-after-relaunch-largest-text", to: self)
+            JourneyTruncation.assertNone(journey, on: "The cook step at the largest text size")
         }
 
         // Live: the relaunch's own sync never moves QA's cook session backwards.

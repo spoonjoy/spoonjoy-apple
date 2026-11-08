@@ -23,7 +23,7 @@ struct IngredientPasteSheet: View {
                             rows = RecipeEditorIngredientDraft.pasted(newValue, makeID: makeLocalID)
                         }
                     Text("One ingredient per line, like 2 cups rice.")
-                        .font(.footnote)
+                        .font(KitchenTableTheme.meta)
                         .foregroundStyle(KitchenTableTheme.ink2)
                 }
 
