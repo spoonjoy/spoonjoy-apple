@@ -909,8 +909,9 @@ write_sync_store() {
       end
     end
     # Recipes lists only recipes the signed-in chef owns, so the capture account owns the fixture recipes there.
-    # Owned by another chef, they left the page empty and its catalog lead never rendered.
-    if route == "recipes"
+    # Owned by another chef, they left the page empty and its catalog lead never rendered. The feel checks ask for the
+    # same on every route (SPOONJOY_FIXTURE_CHEF_OWNS_RECIPES=1), so the Recipes tab has rows to open without the network.
+    if route == "recipes" || ENV["SPOONJOY_FIXTURE_CHEF_OWNS_RECIPES"] == "1"
       recipes = recipes.map { |recipe| recipe.merge("chef" => recipe.fetch("chef").merge("id" => account_id)) }
     end
     cookbooks = if File.file?(cookbooks_path)
