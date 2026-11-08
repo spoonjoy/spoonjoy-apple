@@ -30,11 +30,46 @@ def pick(family, listing):
     return runtime["identifier"], device_type["identifier"]
 
 
+LIST_LIMIT = 30  # it answers in seconds when CoreSimulator is healthy
+LIST_TRIES = 2  # the caller's 120 s limit covers both tries, the restart between them and the create
+
+
+def list_simulators(run=subprocess.run, kick=None, tries=LIST_TRIES):
+    """`simctl list --json`, retried once after a CoreSimulator restart: the listing itself can hang (#218)."""
+    kick = kick or restart_coresimulator
+    why = "was not tried"
+    for attempt in range(1, tries + 1):
+        try:
+            out = run(["xcrun", "simctl", "list", "--json"], capture_output=True, text=True, timeout=LIST_LIMIT)
+            if out.returncode == 0:
+                listing = json.loads(out.stdout)
+                if "runtimes" in listing:
+                    return listing
+                why = "answered without runtimes"
+            else:
+                why = f"exited {out.returncode}: {out.stderr.strip()[-300:]}"
+        except subprocess.TimeoutExpired:
+            why = f"hung past {LIST_LIMIT} s"
+        except ValueError:
+            why = "answered with output that isn't JSON"
+        if attempt < tries:
+            print(f"::warning title=Infrastructure retry::simctl list {why}; restarting CoreSimulator (#218).", file=sys.stderr)
+            kick()
+    raise SystemExit(f"simctl list {why}, {tries} times, with CoreSimulator restarted between (#218).")
+
+
+def restart_coresimulator():
+    try:
+        subprocess.run(["killall", "-9", "com.apple.CoreSimulator.CoreSimulatorService"], capture_output=True, timeout=20)
+    except (subprocess.TimeoutExpired, OSError) as error:
+        print(f"Restarting CoreSimulator failed ({error}); trying simctl again anyway.", file=sys.stderr)
+
+
 def main():
     if len(sys.argv) != 3:
         raise SystemExit(__doc__)
     family, name = sys.argv[1], sys.argv[2]
-    listing = json.loads(subprocess.run(["xcrun", "simctl", "list", "--json"], check=True, capture_output=True, text=True).stdout)
+    listing = list_simulators()
     runtime, device_type = pick(family, listing)
     udid = subprocess.run(["xcrun", "simctl", "create", name, device_type, runtime], check=True, capture_output=True, text=True).stdout.strip()
     print(f"Created {device_type} on {runtime}: {udid}", file=sys.stderr)
