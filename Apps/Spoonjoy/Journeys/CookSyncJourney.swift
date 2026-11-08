@@ -85,6 +85,7 @@ final class CookSyncJourney: JourneyTestCase {
             accuracy: 0.5,
             "Clearing progress moved the step."
         )
+        try await testAddToListStaysReachable(journey, row: pageLemon, ingredient: lemon, qa: qa)
 
         journey.tap(JourneyID.recipeDetailCook)
         let ingredient = journey.element(JourneyID.cookIngredient, labelContainingIgnoringCase: lemon)
@@ -121,6 +122,31 @@ final class CookSyncJourney: JourneyTestCase {
         // Live: the relaunch's own sync never moves QA's cook session backwards.
         let afterRelaunch = try await qa.cookSession(recipeID: recipeID, waitingForChecked: ingredientID)
         XCTAssertGreaterThanOrEqual(afterRelaunch.revision, reading.revision, "A relaunch moved QA's cook session backwards.")
+    }
+
+    /// UI and live: the recipe page's ingredient rows draw no cart, so Add to list lives in each row's context menu.
+    /// A long press opens it, and choosing it puts that one ingredient on QA's shopping list.
+    private func testAddToListStaysReachable(
+        _ journey: JourneyApp,
+        row: XCUIElement,
+        ingredient: String,
+        qa: JourneyQAClient
+    ) async throws {
+        row.press(forDuration: 1.2)
+        let addToList = journey.element(JourneyID.ingredientAddToList)
+        XCTAssertTrue(
+            addToList.waitForExistence(timeout: JourneyApp.interactionTimeout),
+            "The ingredient row's context menu has no Add to list. Screen: \(journey.screen)"
+        )
+        journey.attachScreenshot(named: "00b-recipe-ingredient-add-to-list", to: self)
+        addToList.tap()
+        for _ in 0..<30 {
+            if try await qa.shoppingList().receiptItems.contains(where: { $0.name.localizedCaseInsensitiveContains(ingredient) }) {
+                return
+            }
+            try await Task.sleep(for: .seconds(1))
+        }
+        XCTFail("Add to list on the lemon's row did not put it on QA's shopping list.")
     }
 }
 
