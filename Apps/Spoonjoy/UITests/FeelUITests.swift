@@ -161,10 +161,15 @@ final class FeelUITests: XCTestCase {
             if stamps.count > 2 {
                 feel.record(FeelHitches.analyze(timestamps: stamps, refresh: 1.0 / 60).result(), name: "\(slug)-hitches")
             }
-            // Every copy of each text, on every frame the app draws once it is at rest: a ghost is counted by frame, not by
-            // a snapshot a busy machine spaces out.
-            let after = feel.recordedFilm(seen, copies: true) {}
-            Self.judge(feel.record(after.doubleDraws(of: seen), name: "\(slug)-double-draws", film: after))
+            // Every copy of each text, on every frame the app draws for 1.5 s at rest (the film then runs on until the
+            // texts have held still half a second): a ghost is counted by frame, not by a snapshot a busy machine spaces
+            // out. Fewer than 30 frames is too short a look to call clean.
+            let after = feel.recordedFilm(seen, copies: true) { RunLoop.current.run(until: Date().addingTimeInterval(1.5)) }
+            let ghosts = after.doubleDraws(of: seen)
+            Self.judge(feel.record(after.frames.count >= 30 ? ghosts : FeelResult(
+                check: ghosts.check, passed: false, summary: "could not check: the app recorded \(after.frames.count) frames at rest",
+                findings: [.couldNotCheck("the app recorded only \(after.frames.count) frames at rest, under the 30 a clean look needs")]),
+                name: "\(slug)-double-draws", film: after))
             app.terminate()
         }
     }

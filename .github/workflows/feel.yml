@@ -61,6 +61,7 @@ jobs:
       # misread of the keyboard's Emoji key, ourostack/ouro-ui-apple#60). Its report is in the log and the uploaded
       # artifact. Remove continue-on-error once those are fixed.
       - name: The way back from every screen
+        id: wayback
         if: always() && steps.sim.outcome == 'success'
         continue-on-error: true
         timeout-minutes: 30
@@ -68,6 +69,9 @@ jobs:
           UDID: ${{ steps.sim.outputs.udid }}
           FEEL_REPORT_DIR: ${{ runner.temp }}/feel-reports/way-back
         run: scripts/check-feel.sh "$UDID" "$RUNNER_TEMP/feel-dd" testTheWayBackFromEveryScreen
+      - name: Say so when the way back misses
+        if: always() && steps.wayback.outcome == 'failure'
+        run: echo "::warning title=The way back::The way-back walk failed (report only until #225, #226, #227 and ourostack/ouro-ui-apple#60 are fixed); see its step log and the feel-reports artifact."
       - name: Keep the reports
         if: always()
         continue-on-error: true
