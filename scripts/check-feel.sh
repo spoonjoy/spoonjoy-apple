@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Runs the Ouro Feel checks (Apps/Spoonjoy/UITests/FeelUITests.swift) over the screenshot fixture kitchen on a booted
-# simulator: the way back from every screen Chefs reaches, and on an iPad the sidebar closing once you pick a section.
+# simulator: the way back from every screen (from Chefs, and from every tab, Chefs and Account), every screen landing
+# still (no jump once at rest, nothing drawn twice, and a push or a sheet travelling in), and on an iPad the sidebar
+# closing once you pick a section.
 # Reports land in FEEL_REPORT_DIR (default .build/feel-reports) as text and JSON.
 #
 #   scripts/check-feel.sh <simulator udid> <derived data path> [test name]
@@ -37,7 +39,8 @@ state="$(xcrun simctl get_app_container "$udid" app.spoonjoy data)/Library/Appli
 mkdir -p "$state"
 write_app_state "$state/native-app-state.json" kitchen
 write_cache_state "$state/native-durable-cache.json" kitchen
-write_sync_store "$state/native-sync-store.json" kitchen
+# The kitchen chef owns the fixture recipes here, so the Recipes tab has rows to open without the network.
+SPOONJOY_FIXTURE_CHEF_OWNS_RECIPES=1 write_sync_store "$state/native-sync-store.json" kitchen
 
 target="SpoonjoyShoppingUITests/FeelUITests${only:+/$only}"
 TEST_RUNNER_SPOONJOY_FEEL_CHECK=1 \

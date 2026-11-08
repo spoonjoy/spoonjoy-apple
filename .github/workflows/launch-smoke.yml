@@ -22,7 +22,7 @@ jobs:
   launch-smoke:
     name: Launch smoke (${{ matrix.family }})
     runs-on: xcode-27
-    timeout-minutes: 55
+    timeout-minutes: 65
     strategy:
       fail-fast: false
       matrix:
@@ -35,7 +35,7 @@ jobs:
       - name: Create a ${{ matrix.family }} on the newest iOS runtime
         id: sim
         # Each try has its own limits inside the script, with one retry on a fresh device for a runner fault (#218).
-        timeout-minutes: 16
+        timeout-minutes: 26
         env:
           FAMILY: ${{ matrix.family }}
         run: |
@@ -51,6 +51,15 @@ jobs:
           xcodebuild -project Spoonjoy.xcodeproj -scheme "Spoonjoy iOS" -configuration Release -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/smoke-dd" \
             CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build 2>&1 | tail -20
+      - name: The Release app carries no Ouro Feel recorder
+        # The recorder is linked for the UI tests' feel checks, and only a DEBUG build installs it. Nothing of it may
+        # reach the App Store build.
+        run: |
+          set -euo pipefail
+          binary="$RUNNER_TEMP/smoke-dd/Build/Products/Release-iphonesimulator/Spoonjoy.app/Spoonjoy"
+          found="$(nm -U "$binary" | grep -c 'OuroFeelRecorder' || true)"
+          echo "OuroFeelRecorder symbols in the Release binary: $found"
+          if [ "$found" -gt 0 ]; then echo "::error::The Release app links the Ouro Feel recorder"; exit 1; fi
       - name: Install fresh and launch three times
         timeout-minutes: 8
         env:
