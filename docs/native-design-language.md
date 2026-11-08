@@ -176,8 +176,8 @@ What web took from native: the cover placeholder (a vellum-to-brass wash with a 
 | Profile title | The handle with "@" | The bare username, under a "Chef profile" eyebrow | On native the title is the handle, written as one. |
 | Add to list on one ingredient | Context menu and a named accessibility action ("Add to list"); no swipe action; the page's Add to list button stays | No per-row action | Rows are not in a `List`, so a swipe would fight scrolling and tap-to-check. |
 | Cook-step size on a phone | Display size | Step size below the `md` breakpoint, display size from `md` | A long instruction at display size fills a 393 px browser page and hides the timer. |
-| Timer ring | At least 120 pt, digits inside | 80 or 96 px, beside the digits | Web keeps its timer row layout. |
-| "Awaiting first photo" | Screen-reader only | Screen-reader only | Same on both: the placeholder speaks for itself. |
+| Timer ring | Digits inside a ring of 184 pt at the default text size, scaling with Dynamic Type; never under 120 pt, or 88 pt where the page leaves less room (`CookTimerRingFace`) | 80 or 96 px, beside the digits | Web keeps its timer row layout. |
+| Cover placeholder for VoiceOver | Hidden: the row or cover is labelled by its recipe title | On the recipe header, visually hidden "Cover coming soon", or "Awaiting first photo" for the recipe's owner | Both show the brass initial and no visible prompt there; web's pantry grid still shows a visible "Cover coming soon". |
 | Section header eyebrow | Hidden from VoiceOver; the header is one element, title as label and meta as value | Read as text | One VoiceOver stop per header. |
 | Kitchen lead recipe | `RecipeLead` on the counter | A full-width table of contents (spoonjoy-v2 #354) | Not yet reconciled; review with the next Kitchen change. |
 
