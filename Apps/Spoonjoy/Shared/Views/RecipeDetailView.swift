@@ -1541,7 +1541,7 @@ extension RecipeDetailView {
                 )
                 .frame(maxWidth: .infinity)
                 .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.media))
+                .clipShape(RoundedRectangle(cornerRadius: KitchenTableTheme.Radius.cover))
                 .accessibilityElement(children: .ignore)
                 .accessibilityAddTraits(.isImage)
                 .accessibilityLabel("\(viewModel.title) cover image")

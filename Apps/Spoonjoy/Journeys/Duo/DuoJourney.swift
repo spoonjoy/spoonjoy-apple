@@ -5,9 +5,9 @@ import XCTest
 /// bar's Cooking now switcher covers no button. Opened flat, the Kitchen keeps Cooking now held sideways and held tall.
 /// Half-open (forced with `-SpoonjoyForcePosture`, as the simulator's hinge cannot stand half-open), cook mode splits
 /// at the fold on the counter and lies open held like a book. Last, a recipe opens in a window of its own beside the
-/// first, and after a kill every window that comes back is on its own page. Every screen is saved twice: by XCUITest,
-/// and by the Mac for both Duo displays. What Cooking now lists and the saved cook step are proved headless in
-/// SpoonjoyReinsTests.
+/// first, and after a kill every window that comes back is on its own page. Every screen is the Mac's screenshot of
+/// both Duo displays, kept in the result bundle (the app's own screenshot is black once the Duo is open). What Cooking
+/// now lists and the saved cook step are proved headless in SpoonjoyReinsTests.
 ///
 /// It is its own target, SpoonjoyDuoJourneys, which only the Duo journeys job runs: it needs the posture driver beside
 /// the simulator (`DuoHinge`), and fails without it.
@@ -201,20 +201,18 @@ final class DuoJourney: JourneyTestCase {
         )).firstMatch
     }
 
-    /// Saves the app's screenshot in the result bundle and the Mac's screenshots of both Duo displays.
+    /// Saves the Mac's screenshots of both Duo displays, in the screens folder and the result bundle, with the sync log.
+    /// The app's own screenshot is black once the Duo is open (`DuoHinge.attachShot`).
     private func capture(_ name: String, _ journey: JourneyApp) throws {
-        journey.attachScreenshot(named: name, to: self)
         attachText("\(name)-log", "Sync log: \(journey.syncLog)\nCooking now: \(journey.cookingNowLog)")
         try DuoHinge.shot(name)
+        try DuoHinge.attachShot(name, to: self)
     }
 
-    /// Saves the whole screen, every window of the app included, and the Mac's screenshots of both Duo displays.
+    /// Saves the Mac's screenshots of both Duo displays, which show every window of the app at once.
     private func captureScreen(_ name: String, _ journey: JourneyApp) throws {
-        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
         try DuoHinge.shot(name)
+        try DuoHinge.attachShot(name, to: self)
     }
 
     private func attachText(_ name: String, _ text: String) {

@@ -16,6 +16,7 @@ UI_TEST_TARGET_NAME = "SpoonjoyShoppingUITests"
 JOURNEYS_TARGET_NAME = "SpoonjoyJourneys"
 WIDE_JOURNEYS_TARGET_NAME = "SpoonjoyWideJourneys"
 DUO_JOURNEYS_TARGET_NAME = "SpoonjoyDuoJourneys"
+PARITY_JOURNEYS_TARGET_NAME = "SpoonjoyParityJourneys"
 IOS_BUNDLE_ID = "app.spoonjoy"
 # The Mac app shares the iOS bundle ID so one App Store record sells both (universal purchase).
 MAC_BUNDLE_ID = "app.spoonjoy"
@@ -23,10 +24,19 @@ UI_TEST_BUNDLE_ID = "app.spoonjoy.shopping-uitests"
 JOURNEYS_BUNDLE_ID = "app.spoonjoy.journeys"
 WIDE_JOURNEYS_BUNDLE_ID = "app.spoonjoy.wide-journeys"
 DUO_JOURNEYS_BUNDLE_ID = "app.spoonjoy.duo-journeys"
+PARITY_JOURNEYS_BUNDLE_ID = "app.spoonjoy.parity-journeys"
 WIDGET_TARGET_NAME = "SpoonjoyCookTimerWidget"
 WIDGET_BUNDLE_ID = "app.spoonjoy.cook-timer-widget"
 WIDGET_INFO_PLIST = "Apps/Spoonjoy/LiveActivity/Widget/Info.plist"
 THEME_SOURCE = "Apps/Spoonjoy/Shared/Design/KitchenTableTheme.swift"
+# Web's three typefaces, registered at launch by the iOS app, the Mac app and the widget (SpoonjoyFonts), with their
+# SIL Open Font License texts.
+FONTS_SOURCE = "Apps/Spoonjoy/Shared/Design/SpoonjoyFonts.swift"
+FONT_FILES = Dir.children(ROOT.join("Apps/Spoonjoy/Shared/Fonts"))
+  .select { |name| name.end_with?(".ttf", ".txt") }
+  .sort
+  .map { |name| "Apps/Spoonjoy/Shared/Fonts/#{name}" }
+  .freeze
 CONFIGURATIONS = ["Debug", "Release", "BootstrapDebug"].freeze
 INFO_PLIST = "Apps/Spoonjoy/Shared/Info.plist"
 ENTITLEMENTS = "Apps/Spoonjoy/Shared/Spoonjoy.entitlements"
@@ -59,7 +69,10 @@ WIDE_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Wide").freeze
 # The iPhone Duo journey folds the simulator through its postures with the posture driver beside it, so only the Duo
 # journeys job runs it, as its own target. It shares Journeys/Support.
 DUO_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Duo").freeze
-JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT - DUO_JOURNEYS_SWIFT).freeze
+# The parity capture shoots the web/native parity sheet's screens on an iPhone and an iPad, each with an account of its
+# own, so the Parity job runs it, as its own target, on both. It shares Journeys/Support.
+PARITY_JOURNEYS_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Parity").freeze
+JOURNEYS_SWIFT = (swift_sources_under("Apps/Spoonjoy/Journeys") - WIDE_JOURNEYS_SWIFT - DUO_JOURNEYS_SWIFT - PARITY_JOURNEYS_SWIFT).freeze
 JOURNEY_SUPPORT_SWIFT = swift_sources_under("Apps/Spoonjoy/Journeys/Support").freeze
 # The Live Activity code the app and the widget extension both compile (attributes and button intents).
 LIVE_ACTIVITY_SHARED_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Shared").freeze
@@ -67,6 +80,7 @@ LIVE_ACTIVITY_WIDGET_SWIFT = swift_sources_under("Apps/Spoonjoy/LiveActivity/Wid
 # The widget links only OuroHX (the theme's colours), not SpoonjoyCore, so it compiles the plain-Foundation
 # SpoonjoyCore files the cook session Live Activity draws from. Keep this list to files that import only Foundation.
 WIDGET_CORE_SWIFT = %w[
+  Sources/SpoonjoyCore/Design/KitchenFontFiles.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionSnapshot.swift
   Sources/SpoonjoyCore/Features/CookMode/CookTimerBoard.swift
   Sources/SpoonjoyCore/Features/CookMode/CookSessionIslandLayout.swift
@@ -213,6 +227,7 @@ ui_test_target = project.new_target(:ui_test_bundle, UI_TEST_TARGET_NAME, :ios, 
 journeys_target = project.new_target(:ui_test_bundle, JOURNEYS_TARGET_NAME, :ios, "26.5")
 wide_journeys_target = project.new_target(:ui_test_bundle, WIDE_JOURNEYS_TARGET_NAME, :ios, "26.5")
 duo_journeys_target = project.new_target(:ui_test_bundle, DUO_JOURNEYS_TARGET_NAME, :ios, "26.5")
+parity_journeys_target = project.new_target(:ui_test_bundle, PARITY_JOURNEYS_TARGET_NAME, :ios, "26.5")
 widget_target = project.new_target(:app_extension, WIDGET_TARGET_NAME, :ios, "26.5")
 ios_target.frameworks_build_phase.files.clear
 widget_target.frameworks_build_phase.files.clear
@@ -297,6 +312,7 @@ apply_ui_test_settings(ui_test_target, bundle_id: UI_TEST_BUNDLE_ID)
 apply_ui_test_settings(journeys_target, bundle_id: JOURNEYS_BUNDLE_ID)
 apply_ui_test_settings(wide_journeys_target, bundle_id: WIDE_JOURNEYS_BUNDLE_ID)
 apply_ui_test_settings(duo_journeys_target, bundle_id: DUO_JOURNEYS_BUNDLE_ID)
+apply_ui_test_settings(parity_journeys_target, bundle_id: PARITY_JOURNEYS_BUNDLE_ID)
 
 apply_common_settings(
   mac_target,
@@ -317,15 +333,16 @@ end
 [INFO_PLIST, ENTITLEMENTS, MAC_ENTITLEMENTS].each { |path| file_reference(project, path) }
 add_sources(project, ios_target, SHARED_SWIFT + IOS_SWIFT + LIVE_ACTIVITY_SHARED_SWIFT)
 add_sources(project, mac_target, SHARED_SWIFT + MAC_SWIFT)
-add_resources(project, ios_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE])
-add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE])
+add_resources(project, ios_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE] + FONT_FILES)
+add_resources(project, mac_target, [ASSET_CATALOG, PRIVACY_MANIFEST, SKILLS_BUNDLE] + FONT_FILES)
 add_package_product(project, ios_target, "SpoonjoyCore")
 add_package_product(project, mac_target, "SpoonjoyCore")
 [ios_target, mac_target, widget_target].each do |target|
   add_remote_package_product(project, target, OURO_HX_URL, OURO_HX_REQUIREMENT, "OuroHX")
 end
 file_reference(project, WIDGET_INFO_PLIST)
-add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE] + WIDGET_CORE_SWIFT)
+add_sources(project, widget_target, LIVE_ACTIVITY_SHARED_SWIFT + LIVE_ACTIVITY_WIDGET_SWIFT + [THEME_SOURCE, FONTS_SOURCE] + WIDGET_CORE_SWIFT)
+add_resources(project, widget_target, FONT_FILES)
 add_sources(project, ui_test_target, UI_TEST_SWIFT)
 add_package_product(project, ui_test_target, "SpoonjoyCore")
 # Ouro Feel (same ouro-ui-apple pin): the UI tests' feel checks by genre of jank (FeelUITests, scripts/check-feel.sh).
@@ -351,6 +368,11 @@ add_package_product(project, duo_journeys_target, "SpoonjoyCore")
 duo_journeys_target.add_dependency(ios_target)
 duo_journeys_dependency = duo_journeys_target.dependencies[0]
 duo_journeys_dependency_proxy = duo_journeys_dependency.target_proxy
+add_sources(project, parity_journeys_target, PARITY_JOURNEYS_SWIFT + JOURNEY_SUPPORT_SWIFT)
+add_package_product(project, parity_journeys_target, "SpoonjoyCore")
+parity_journeys_target.add_dependency(ios_target)
+parity_journeys_dependency = parity_journeys_target.dependencies[0]
+parity_journeys_dependency_proxy = parity_journeys_dependency.target_proxy
 
 project.sort
 project.predictabilize_uuids
@@ -378,12 +400,18 @@ end
 [ios_target, mac_target, widget_target].each do |target|
   target.source_build_phase.files.each do |build_file|
     path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
-    next unless path && (path.start_with?("Apps/Spoonjoy/LiveActivity/") || path == THEME_SOURCE || WIDGET_CORE_SWIFT.include?(path))
+    next unless path && (path.start_with?("Apps/Spoonjoy/LiveActivity/") || [THEME_SOURCE, FONTS_SOURCE].include?(path) || WIDGET_CORE_SWIFT.include?(path))
 
     assign_stable_uuid(project, build_file, "#{target.name}/sources/#{path}")
   end
+  target.resources_build_phase.files.each do |build_file|
+    path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
+    next unless path && FONT_FILES.include?(path)
+
+    assign_stable_uuid(project, build_file, "#{target.name}/resources/#{path}")
+  end
 end
-[journeys_target, wide_journeys_target, duo_journeys_target].each do |target|
+[journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target].each do |target|
   target.source_build_phase.files.each do |build_file|
     path = build_file.file_ref&.hierarchy_path&.delete_prefix("/")
     next unless path && JOURNEY_SUPPORT_SWIFT.include?(path)
@@ -409,6 +437,9 @@ wide_journeys_dependency.target_proxy = wide_journeys_dependency_proxy
 assign_stable_uuid(project, duo_journeys_dependency_proxy, "SpoonjoyDuoJourneys/app-proxy")
 assign_stable_uuid(project, duo_journeys_dependency, "SpoonjoyDuoJourneys/app-dependency")
 duo_journeys_dependency.target_proxy = duo_journeys_dependency_proxy
+assign_stable_uuid(project, parity_journeys_dependency_proxy, "SpoonjoyParityJourneys/app-proxy")
+assign_stable_uuid(project, parity_journeys_dependency, "SpoonjoyParityJourneys/app-dependency")
+parity_journeys_dependency.target_proxy = parity_journeys_dependency_proxy
 
 def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme = Xcodeproj::XCScheme.new
@@ -419,7 +450,7 @@ def save_app_scheme(project_path, scheme_name, target, test_targets: [])
   scheme.save_as(project_path, scheme_name, true)
 end
 
-save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target, duo_journeys_target])
+save_app_scheme(project_path, IOS_SCHEME_NAME, ios_target, test_targets: [ui_test_target, journeys_target, wide_journeys_target, duo_journeys_target, parity_journeys_target])
 save_app_scheme(project_path, MAC_SCHEME_NAME, mac_target)
 
 project.save
