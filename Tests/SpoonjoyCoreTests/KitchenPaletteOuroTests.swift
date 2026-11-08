@@ -13,9 +13,10 @@ struct KitchenPaletteOuroTests {
         let mode: String
         let token: OuroExtraColor
         let hex: UInt32
+        var opacity: Double = 1
 
         var scheme: ColorScheme { mode == "Day" ? .light : .dark }
-        var description: String { "\(mode).\(name) = cookbook\(mode)(.\(token)) #\(String(format: "%06X", hex))" }
+        var description: String { "\(mode).\(name) = cookbook\(mode)(.\(token)) #\(String(format: "%06X", hex)) at \(opacity)" }
     }
 
     /// Every colour in the theme, with web's value (spoonjoy-v2 `app/styles/tailwind.css`, `:root` and `.dark`).
@@ -31,6 +32,9 @@ struct KitchenPaletteOuroTests {
         Colour(name: "tomato", mode: "Day", token: .sjTomato, hex: 0xA24A38),
         Colour(name: "herb", mode: "Day", token: .sjHerb, hex: 0x596A4F),
         Colour(name: "photoCharcoal", mode: "Day", token: .sjPhotoCharcoal, hex: 0x211F1B),
+        Colour(name: "border", mode: "Day", token: .sjBorder, hex: 0x28231D, opacity: 0.18),
+        Colour(name: "borderStrong", mode: "Day", token: .sjBorderStrong, hex: 0x28231D, opacity: 0.32),
+        Colour(name: "onPhotoMuted", mode: "Day", token: .sjOnPhotoMuted, hex: 0xFBFAF4, opacity: 0.76),
         Colour(name: "boneNight", mode: "Night", token: .sjBone, hex: 0xF2EEE6),
         Colour(name: "paperNight", mode: "Night", token: .sjBoneLift, hex: 0x282522),
         Colour(name: "vellumNight", mode: "Night", token: .sjVellum, hex: 0x34302B),
@@ -43,7 +47,10 @@ struct KitchenPaletteOuroTests {
         Colour(name: "herbNight", mode: "Night", token: .sjHerb, hex: 0xA4B578),
         Colour(name: "photoCharcoalNight", mode: "Night", token: .sjPhotoCharcoal, hex: 0x1D1915),
         Colour(name: "pageNight", mode: "Night", token: .sjPage, hex: 0x1E1C19),
-        Colour(name: "onPhotoNight", mode: "Night", token: .sjOnPhoto, hex: 0xF1E6D3)
+        Colour(name: "onPhotoNight", mode: "Night", token: .sjOnPhoto, hex: 0xF1E6D3),
+        Colour(name: "borderNight", mode: "Night", token: .sjBorder, hex: 0xF2EEE6, opacity: 0.16),
+        Colour(name: "borderStrongNight", mode: "Night", token: .sjBorderStrong, hex: 0xF2EEE6, opacity: 0.28),
+        Colour(name: "onPhotoMutedNight", mode: "Night", token: .sjOnPhotoMuted, hex: 0xF1E6D3, opacity: 0.76)
     ]
 
     @Test("every kitchen colour comes from the cookbook tokens and equals web's hex", arguments: colours)
@@ -51,7 +58,7 @@ struct KitchenPaletteOuroTests {
         let value = try #require(OuroTokens.cookbook.extras.color(colour.token, colour.scheme), "\(colour)")
         let resolved = value.resolve(in: EnvironmentValues())
         #expect(Self.hex(resolved) == colour.hex, "\(colour)")
-        #expect(resolved.opacity == 1, "\(colour)")
+        #expect(abs(Double(resolved.opacity) - colour.opacity) < 0.002, "\(colour)")
     }
 
     @Test("the theme declares exactly these colours, each from a cookbook token")

@@ -1601,7 +1601,9 @@ struct NativeMobileDesignContractTests {
                 "static let tomato = cookbookDay(.sjTomato)",
                 "static let herb = cookbookDay(.sjHerb)",
                 "onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo",
-                "onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted",
+                "static let onPhotoMuted = dynamic(Day.onPhotoMuted, Night.onPhotoMutedNight)",
+                "static let hairline = dynamic(Day.border, Night.borderNight)",
+                "static let lineStrong = dynamic(Day.borderStrong, Night.borderStrongNight)",
                 "static let photoCharcoal = cookbookDay(.sjPhotoCharcoal)",
                 "static let pageNight = cookbookNight(.sjPage)",
                 "static let onPhotoNight = cookbookNight(.sjOnPhoto)"

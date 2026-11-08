@@ -21,9 +21,8 @@ let package = Package(
     // pin and config/xray-expected.json together. The pin is a release (`exact:`) or, until the release that carries a
     // change is tagged, the merge commit on ouro-ui-apple's main (`revision:`); both are exact.
     dependencies: [
-        // ouro-ui-apple#71 (core v0.4.0): the cookbook theme's own tokens (every sj-* colour, radius, shadow and text
-        // role) and the font helper. Until 0.4.0 is tagged, its merge commit.
-        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", revision: "5d769622f8ca46defec6ee2dcd5d46322327dabe")
+        // 0.4.0: the cookbook theme's own tokens (every sj-* colour, radius, shadow and text role) and the font helper.
+        .package(url: "https://github.com/ourostack/ouro-ui-apple.git", exact: "0.4.0")
     ],
     targets: [
         .target(

@@ -50,6 +50,7 @@
 		2C840F4A5F5605C6BC62AE7E26EB56F0 /* JourneyCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D97E3791A1FAA952387B0E08AA29E6E /* JourneyCopy.swift */; };
 		2CDCB6A532784620D95994FBBA193152 /* SpoonjoyGoBackCommands.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE46C25D930086A6CD2B2BED5C1BE68D /* SpoonjoyGoBackCommands.swift */; };
 		2DF6E24867AB0265020A1A85F2677765 /* AccountDeletionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E74A0B6F2D71AFE5ACB5102BB563C0C /* AccountDeletionSheet.swift */; };
+		2E86B82E2A875F0A9538495A1C4FC731 /* OuroFeel in Frameworks */ = {isa = PBXBuildFile; productRef = 8A14944E89F070962E054A57C9BA75E0 /* OuroFeel */; };
 		2EDA17D0C99CCB2FD6947149C0A7645A /* RecipeCoverControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45944CE456C0434C9BAD246B123FCE5B /* RecipeCoverControlsView.swift */; };
 		2F1B86D13070015FDF52E8D09C35DCDF /* SpoonjoyCookSessionLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0B610CC0A55DBD8C74B49F49A3EA4F /* SpoonjoyCookSessionLiveActivity.swift */; };
 		3128057CE18404D2C5BA0D7C58CD5E6E /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = DCB910968A6C3B1B4D25CCE20FFAEEAF /* SpoonjoyCore */; };
@@ -63,7 +64,6 @@
 		356D769C420C3EC6AFCE880C751A32FC /* CookModeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFA4D59004352ED02FFDCEAE485121E1 /* CookModeComponents.swift */; };
 		36EB4EEDDC3304C2893121C1A3AE3625 /* CookVoiceListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF6148A7E6D2805E03A65B1BBED3C28F /* CookVoiceListener.swift */; };
 		3AC3DACDB5F061AA5C76F9D9B6113550 /* SpoonjoyCookTimerActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01462AB5DE3F7D81CF671F031097034E /* SpoonjoyCookTimerActivity.swift */; };
-		3AC90FC49843578B03990904FDE0064F /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = F6A3A3D42CBDBA09EA1B68F4CECB41A3 /* OuroHX */; };
 		3CB6D0371699638932AD824C78D2D886 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA7FA48B6C4C15582AC711792A3D850 /* SettingsView.swift */; };
 		3D469F2CA2BE98C5E90D35A62FC24395 /* JourneyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC99732E450F1791F0343152D51EE7AB /* JourneyApp.swift */; };
 		3DC62F0F93A49CEF04C9EA37A1D8F5A2 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84EC8C432AE0D4042885187007572252 /* Assets.xcassets */; };
@@ -74,6 +74,7 @@
 		41DE6055DE8EEE31B35C35B9D20DBD5D /* SpreadJourney.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9F431CA36249AC5B958849FB3093D8 /* SpreadJourney.swift */; };
 		423FE5C09343AC4C58D0170FFB9D3EE0 /* ScreenshotAccessibilityProofWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F9F87876609A14B10DDEDA572D0B9D5 /* ScreenshotAccessibilityProofWriter.swift */; };
 		42F0B94D8C86B2CF036E894E4F442C92 /* IBMPlexSansCondensed-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AAD3C67F3EE8E8C0CEAA5606C1A61644 /* IBMPlexSansCondensed-Bold.ttf */; };
+		43B0E9E2F53304E24B91362A0D95DA7A /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = AB50D8D08B8B3CE3E53DA48D26D24890 /* OuroHX */; };
 		445FE9946CC94A4AC054B68C0B8676B5 /* JourneyID.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0320780F7CC39E9645080E08B7AD1E86 /* JourneyID.swift */; };
 		4521D9C8804010BCA29632C3EB6EF8F7 /* RecipeIndexRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65928B72AA231AC5868304A9681673F5 /* RecipeIndexRow.swift */; };
 		4546C611F6AA106ECAD3B36F3C0914DA /* OFL-SourceSerif4.txt in Resources */ = {isa = PBXBuildFile; fileRef = 10F86455868E65A95C43922ECE4CC3DD /* OFL-SourceSerif4.txt */; };
@@ -109,7 +110,6 @@
 		640D12AC35D192E7AD714400E50A9A08 /* IBMPlexSansCondensed-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 889FD18F315BF8CC650CC662D5EB55EC /* IBMPlexSansCondensed-SemiBold.ttf */; };
 		64283BC45432D3110BC8800BCB1273F1 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4EB3C373E5E7351A64F3B08DA269AE2 /* SearchView.swift */; };
 		65D639822B9461CCA583175F0486C206 /* SpoonjoyRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C286AB3541AD096822341E782620462 /* SpoonjoyRootView.swift */; };
-		6637442E61085B74D282BC21762481A6 /* OuroFeel in Frameworks */ = {isa = PBXBuildFile; productRef = 4807C18C4F71E44A4F4205E30EBD2DA6 /* OuroFeel */; };
 		67E7EE89CDFD4910ADB2FB91C73BB464 /* LayoutAuditFixtureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AFD3D645AA8FC5D9B56427155500A04 /* LayoutAuditFixtureView.swift */; };
 		6993E253611D0B70E3E264DC800DDE7D /* VerifyAfterRelaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 890751D6A0ADBEF8E37BBC2950C81A6F /* VerifyAfterRelaunch.swift */; };
 		6A67ACA9BD86E1BB9B47C519FAB9BBC1 /* ModerationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66ED8D8F44D719BAFB9635D481769436 /* ModerationViews.swift */; };
@@ -124,7 +124,6 @@
 		7243C914EA6756B4B7D6689C98527D41 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = A4C1DBAD346802D91CD1CD396D6AFABB /* SpoonjoyCore */; };
 		72A395F435D28A957A2189A057201BB8 /* CaptureDraftView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FB60CD5D3A475EAF28B0D10C5BA7C24 /* CaptureDraftView.swift */; };
 		73F208F161AB1525B0EA9F316A7D2BE4 /* SignedOutSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5B3C1AD382D3D7800EF40A6C39726EC /* SignedOutSetupView.swift */; };
-		7677CF8240B60615C496BB0F761ECDE8 /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = 2C4A2E0FB762C4A1756F4CE3FF4835FA /* OuroHX */; };
 		7957B6FA22321CEB691CD3ABB39C0F87 /* SpoonjoyCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9CD5E8C85DC6DDF1ACBDCC6B7644C386 /* SpoonjoyCore */; };
 		795A87E28A2F516A79A6055E71CD4B98 /* ReceiptListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3FF5D933AFEC84C3B7705528D136687 /* ReceiptListView.swift */; };
 		7AADA8F4355B8E38879FF15638D5E146 /* HeldChangeBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E94D93FCF5108FAB51B7A42AE7BA64 /* HeldChangeBanner.swift */; };
@@ -140,6 +139,7 @@
 		84C2D7AD7F4F08148EB5B52EB1C687AA /* SpoonjoySiriToolIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4478343500D20D78FE46CC160F34E9B4 /* SpoonjoySiriToolIntents.swift */; };
 		84D76BF7827F812B10E5FFFA3D398640 /* IBMPlexSansCondensed-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2CCD1B30DC0A5DFE1B00A0215273F6B7 /* IBMPlexSansCondensed-Regular.ttf */; };
 		85BE8BEF688DFB4F6C3B8771EFDD32DA /* OfflineStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C2C6AF6D4EF4270F3FC8FCAAFED1D42 /* OfflineStatusView.swift */; };
+		891916CE6DE085354B5FC1B968A74DDA /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = 20AA71C918A5A62979B0E969D8CDDF59 /* OuroHX */; };
 		89AB6CFE809373A160CDFD4C5688F6A0 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 676CB258DDFFA75685A3F94CCD6F5C06 /* PrivacyInfo.xcprivacy */; };
 		89CB428492469165E79681EBF0032B27 /* SpoonjoyChefProfileEntities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B313F8586790CFBA2FD08165A8F6FC3 /* SpoonjoyChefProfileEntities.swift */; };
 		8A42EA0FBF62ECBB2A4230B7948E2F34 /* RecipeDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD5E0E03FCFE864F72FD125BD7FEDFC5 /* RecipeDetailView.swift */; };
@@ -213,7 +213,6 @@
 		D688A7210C1FFC67A770A9893D739B63 /* JourneyWindows.swift in Sources */ = {isa = PBXBuildFile; fileRef = F136DAD278FAA7E366E297F003AAC5DD /* JourneyWindows.swift */; };
 		D7BF5879460C5031B6817E2A56CCC0CD /* CookModeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C072F7C3752B4269B53E2515D1116244 /* CookModeView.swift */; };
 		D86C2964773C2B8AB9811E62E9641F64 /* IBMPlexSansCondensed-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 2CCD1B30DC0A5DFE1B00A0215273F6B7 /* IBMPlexSansCondensed-Regular.ttf */; };
-		DBCFE7E3519B288C805B29D61AF7ADFD /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = 8ED14BBF339CF5D26ABC5D9F5DFB4D97 /* OuroHX */; };
 		DBDE62CBE6AF2CCDF3E50031FA39B7C9 /* OFL-Fraunces.txt in Resources */ = {isa = PBXBuildFile; fileRef = A3DACAADA776E752BBE877ECE9E22584 /* OFL-Fraunces.txt */; };
 		DCC64966269E8215EC3E10880F6BF447 /* SpoonjoyCookStepEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5CCE4E7CC14AD80997396846F8CD42 /* SpoonjoyCookStepEntity.swift */; };
 		DE49252A18B3129FC85775084D2543C1 /* RecipeEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B907F8DCA803F99F6BDF3A388F4C3CD6 /* RecipeEditorView.swift */; };
@@ -235,6 +234,7 @@
 		EC82058BA6D86E48F58B2C36CAB29F35 /* NotificationAPNsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94175ABD4C245B3A8D29519D12F4E27C /* NotificationAPNsSettingsView.swift */; };
 		ECE026E6478A0D8CB6CACA9602A65602 /* PlatformNavigationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B65587B1B646DA57327863546AD472DC /* PlatformNavigationView.swift */; };
 		EF7060B8F1EDF89B34C1B542B2F1667B /* SpoonjoyFonts.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFCD62C4549C778DD923AA6A7D8B0887 /* SpoonjoyFonts.swift */; };
+		EFB420C3283667FCD3DAF20F855AD6FA /* OuroHX in Frameworks */ = {isa = PBXBuildFile; productRef = 3CB2C7571A8958E6F3E61B4DB42CE26F /* OuroHX */; };
 		F076D8DE28D246048250BDE19CBB494B /* IBMPlexSansCondensed-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = AAD3C67F3EE8E8C0CEAA5606C1A61644 /* IBMPlexSansCondensed-Bold.ttf */; };
 		F0E0416EFD6D642EF0662E38921B5320 /* SpoonjoyAppIntents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80D819BB23460A86ACB231E43B0C0B16 /* SpoonjoyAppIntents.swift */; };
 		F349F885AA998BE971B28BC4F7709073 /* DoubledContentUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF44676F2ECA0172C8E1C3D82B3F06E4 /* DoubledContentUITests.swift */; };
@@ -460,7 +460,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				3AC90FC49843578B03990904FDE0064F /* OuroHX in Frameworks */,
+				43B0E9E2F53304E24B91362A0D95DA7A /* OuroHX in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -468,7 +468,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				7677CF8240B60615C496BB0F761ECDE8 /* OuroHX in Frameworks */,
+				891916CE6DE085354B5FC1B968A74DDA /* OuroHX in Frameworks */,
 				C7EA735A74DEBC967C112058B792FC83 /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -493,7 +493,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				DBCFE7E3519B288C805B29D61AF7ADFD /* OuroHX in Frameworks */,
+				EFB420C3283667FCD3DAF20F855AD6FA /* OuroHX in Frameworks */,
 				AEC76245FCC394786E77A31B87F732F5 /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -502,7 +502,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				6637442E61085B74D282BC21762481A6 /* OuroFeel in Frameworks */,
+				2E86B82E2A875F0A9538495A1C4FC731 /* OuroFeel in Frameworks */,
 				7243C914EA6756B4B7D6689C98527D41 /* SpoonjoyCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -934,7 +934,7 @@
 			);
 			name = SpoonjoyShoppingUITests;
 			packageProductDependencies = (
-				4807C18C4F71E44A4F4205E30EBD2DA6 /* OuroFeel */,
+				8A14944E89F070962E054A57C9BA75E0 /* OuroFeel */,
 				A4C1DBAD346802D91CD1CD396D6AFABB /* SpoonjoyCore */,
 			);
 			productName = SpoonjoyShoppingUITests;
@@ -955,7 +955,7 @@
 			);
 			name = SpoonjoyCookTimerWidget;
 			packageProductDependencies = (
-				F6A3A3D42CBDBA09EA1B68F4CECB41A3 /* OuroHX */,
+				AB50D8D08B8B3CE3E53DA48D26D24890 /* OuroHX */,
 			);
 			productName = SpoonjoyCookTimerWidget;
 			productReference = 3C9F2DD36997BBE826C93657B765198F /* SpoonjoyCookTimerWidget.appex */;
@@ -1017,7 +1017,7 @@
 			);
 			name = "Spoonjoy macOS";
 			packageProductDependencies = (
-				8ED14BBF339CF5D26ABC5D9F5DFB4D97 /* OuroHX */,
+				3CB2C7571A8958E6F3E61B4DB42CE26F /* OuroHX */,
 				6F1D044E93EDAB45933387C19C8654C9 /* SpoonjoyCore */,
 			);
 			productName = "Spoonjoy macOS";
@@ -1040,7 +1040,7 @@
 			);
 			name = "Spoonjoy iOS";
 			packageProductDependencies = (
-				2C4A2E0FB762C4A1756F4CE3FF4835FA /* OuroHX */,
+				20AA71C918A5A62979B0E969D8CDDF59 /* OuroHX */,
 				080756AC1C1D5EDAECBC1D0D2EDCFB44 /* SpoonjoyCore */,
 			);
 			productName = "Spoonjoy iOS";
@@ -1089,7 +1089,7 @@
 			minimizedProjectReferenceProxies = 0;
 			packageReferences = (
 				6DBD5CD5DE27251146C5B27EFC3B93F1 /* XCLocalSwiftPackageReference "." */,
-				D9FE5BB4C3468767A62AF34C4B8212AE /* XCRemoteSwiftPackageReference "ouro-ui-apple" */,
+				AAB8C9188243C715B254B5D09AB6AE72 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C6DBB773F29C483DBCCAEFD908E898F1 /* Products */;
@@ -2219,12 +2219,12 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		D9FE5BB4C3468767A62AF34C4B8212AE /* XCRemoteSwiftPackageReference "ouro-ui-apple" */ = {
+		AAB8C9188243C715B254B5D09AB6AE72 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/ourostack/ouro-ui-apple.git";
 			requirement = {
-				kind = revision;
-				revision = 5d769622f8ca46defec6ee2dcd5d46322327dabe;
+				kind = exactVersion;
+				version = 0.4.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
@@ -2235,25 +2235,25 @@
 			package = 6DBD5CD5DE27251146C5B27EFC3B93F1 /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
 		};
-		2C4A2E0FB762C4A1756F4CE3FF4835FA /* OuroHX */ = {
+		20AA71C918A5A62979B0E969D8CDDF59 /* OuroHX */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D9FE5BB4C3468767A62AF34C4B8212AE /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			package = AAB8C9188243C715B254B5D09AB6AE72 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
 			productName = OuroHX;
 		};
-		4807C18C4F71E44A4F4205E30EBD2DA6 /* OuroFeel */ = {
+		3CB2C7571A8958E6F3E61B4DB42CE26F /* OuroHX */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D9FE5BB4C3468767A62AF34C4B8212AE /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
-			productName = OuroFeel;
+			package = AAB8C9188243C715B254B5D09AB6AE72 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroHX;
 		};
 		6F1D044E93EDAB45933387C19C8654C9 /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6DBD5CD5DE27251146C5B27EFC3B93F1 /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
 		};
-		8ED14BBF339CF5D26ABC5D9F5DFB4D97 /* OuroHX */ = {
+		8A14944E89F070962E054A57C9BA75E0 /* OuroFeel */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = D9FE5BB4C3468767A62AF34C4B8212AE /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
-			productName = OuroHX;
+			package = AAB8C9188243C715B254B5D09AB6AE72 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroFeel;
 		};
 		9CD5E8C85DC6DDF1ACBDCC6B7644C386 /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -2265,6 +2265,11 @@
 			package = 6DBD5CD5DE27251146C5B27EFC3B93F1 /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
 		};
+		AB50D8D08B8B3CE3E53DA48D26D24890 /* OuroHX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AAB8C9188243C715B254B5D09AB6AE72 /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
+			productName = OuroHX;
+		};
 		DCB910968A6C3B1B4D25CCE20FFAEEAF /* SpoonjoyCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 6DBD5CD5DE27251146C5B27EFC3B93F1 /* XCLocalSwiftPackageReference "." */;
@@ -2274,11 +2279,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 6DBD5CD5DE27251146C5B27EFC3B93F1 /* XCLocalSwiftPackageReference "." */;
 			productName = SpoonjoyCore;
-		};
-		F6A3A3D42CBDBA09EA1B68F4CECB41A3 /* OuroHX */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D9FE5BB4C3468767A62AF34C4B8212AE /* XCRemoteSwiftPackageReference "ouro-ui-apple" */;
-			productName = OuroHX;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -24,6 +24,9 @@ enum KitchenTableTheme {
         static let tomato = cookbookDay(.sjTomato)
         static let herb = cookbookDay(.sjHerb)
         static let photoCharcoal = cookbookDay(.sjPhotoCharcoal)
+        static let border = cookbookDay(.sjBorder)
+        static let borderStrong = cookbookDay(.sjBorderStrong)
+        static let onPhotoMuted = cookbookDay(.sjOnPhotoMuted)
     }
 
     /// The web's designed `.dark` palette, the night kitchen, from the same cookbook tokens.
@@ -41,6 +44,9 @@ enum KitchenTableTheme {
         static let photoCharcoalNight = cookbookNight(.sjPhotoCharcoal)
         static let pageNight = cookbookNight(.sjPage)
         static let onPhotoNight = cookbookNight(.sjOnPhoto)
+        static let borderNight = cookbookNight(.sjBorder)
+        static let borderStrongNight = cookbookNight(.sjBorderStrong)
+        static let onPhotoMutedNight = cookbookNight(.sjOnPhotoMuted)
     }
 
     // Roles. Each picks its light or night value from the current appearance, so every surface follows Dark Mode.
@@ -55,9 +61,9 @@ enum KitchenTableTheme {
     static let ink2 = dynamic(Day.inkMuted, Night.inkMutedNight)
     /// Text and symbols drawn on an `ink` or `action` fill.
     static let onInk = dynamic(Day.bone, Night.charcoalNight)
-    /// A rule between rows: 18% ink by day, 16% bone at night, as the web's `--sj-border`.
-    static let hairline = dynamic(Day.charcoal.opacity(0.18), Night.boneNight.opacity(0.16))
-    static let lineStrong = dynamic(Day.charcoal.opacity(0.32), Night.boneNight.opacity(0.28)) // --sj-border-strong
+    /// A rule between rows, web's `--sj-border`.
+    static let hairline = dynamic(Day.border, Night.borderNight)
+    static let lineStrong = dynamic(Day.borderStrong, Night.borderStrongNight)
     static let vellum = dynamic(Day.vellum, Night.vellumNight)
     static let brass = dynamic(Day.brass, Night.brassNight)
     static let action = dynamic(Day.action, Night.actionNight)
@@ -66,7 +72,7 @@ enum KitchenTableTheme {
     static let herb = dynamic(Day.herb, Night.herbNight)
     /// Text on a photo stays light in both appearances.
     static let onPhoto = dynamic(Day.bone, Night.onPhotoNight) // --sj-on-photo
-    static let onPhotoMuted = onPhoto.opacity(0.76) // --sj-on-photo-muted
+    static let onPhotoMuted = dynamic(Day.onPhotoMuted, Night.onPhotoMutedNight)
     static let photoCharcoal = dynamic(Day.photoCharcoal, Night.photoCharcoalNight)
     static let photoOverlay = Color.black.opacity(0.28)
     /// The soft shadow at a spread's fold: 10% ink by day. At night ink is light, so the fold darkens the paper with
