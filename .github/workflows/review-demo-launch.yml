@@ -19,7 +19,7 @@ jobs:
     name: Review demo launch (${{ matrix.family }})
     if: github.ref == 'refs/heads/main'
     runs-on: xcode-27
-    timeout-minutes: 60
+    timeout-minutes: 70
     environment: internal-testflight
     strategy:
       fail-fast: false
@@ -34,7 +34,7 @@ jobs:
       - name: Create a ${{ matrix.family }} on the newest iOS runtime
         id: sim
         # Each try has its own limits inside the script, with one retry on a fresh device for a runner fault (#218).
-        timeout-minutes: 16
+        timeout-minutes: 26
         env:
           FAMILY: ${{ matrix.family }}
         run: |
