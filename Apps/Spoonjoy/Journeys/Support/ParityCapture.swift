@@ -8,7 +8,7 @@ import XCTest
 ///
 /// The account's kitchen mirrors the web QA chef's (spoonjoy-v2 scripts/seed-qa-kitchen.mjs): Lemon Herb Rice and a
 /// tomato soup, a Weeknight Dinners cookbook holding the rice, and three items on the shopping list. ParityJourneys
-/// shoots it on the iPhone and iPad; DuoParityJourney on the open Duo, through the posture driver.
+/// shoots it on the iPhone and iPad; DuoCanonicalScreensJourney on the open Duo, through the posture driver.
 @MainActor
 struct ParityCapture {
     static let recipeTitle = "Lemon Herb Rice"

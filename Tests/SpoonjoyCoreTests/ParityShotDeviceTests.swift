@@ -14,4 +14,10 @@ struct ParityShotDeviceTests {
         #expect(ParityShotDevice.name(simulatorModelIdentifier: nil, idiomIsPad: true) == "ipad")
         #expect(ParityShotDevice.name(simulatorModelIdentifier: "", idiomIsPad: false) == "iphone")
     }
+
+    @Test("a model that is neither iPhone nor iPad is named iphone, the default canvas")
+    func unrecognisedModel() {
+        #expect(ParityShotDevice.name(simulatorModelIdentifier: "Mac14,2", idiomIsPad: true) == "iphone")
+        #expect(ParityShotDevice.name(simulatorModelIdentifier: "arm64", idiomIsPad: false) == "iphone")
+    }
 }
