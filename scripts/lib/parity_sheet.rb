@@ -5,19 +5,20 @@ require "fileutils"
 require "json"
 
 # Builds the web/native parity contact sheet: each canonical screen, on each device, in each scheme, with the web
-# shot (spoonjoy-v2's parity.desktop.journey.ts) beside the native one (ParityJourneys and DuoParityJourney). Shots
+# shot (spoonjoy-v2's parity.desktop.journey.ts) beside the native one (ParityJourneys and DuoCanonicalScreensJourney). Shots
 # are named parity-<screen>-<device>-<scheme>.png on both sides. A side with no shot gets a grey panel, labelled in
 # index.html, so a gap is visible on the sheet instead of a pair silently disappearing.
 module ParitySheet
   SCREENS = %w[kitchen recipe cook-step shopping cookbooks cookbook chef sign-in kitchen-empty sheet-add-to-list].freeze
   DEVICES = %w[iphone duo-open ipad desktop].freeze
   SCHEMES = %w[light dark].freeze
-  # The outer display is off while the Duo is open, so an open-Duo shot only counts from the inner display.
+  # The native outer display is off while the Duo is open, so a native open-Duo shot only counts from the inner display.
+  # The web has one viewport, so its open-Duo shots are plain.
   INNER_DEVICES = %w[duo-open].freeze
   # Known gaps, with the reason the sheet shows instead of "not captured".
   GAPS = {
     ["web", "sheet-add-to-list"] => "Add to list is one tap, no sheet",
-    ["native", "desktop"] => "no Mac parity journey yet"
+    ["native", "desktop"] => "Mac capture comes with the Mac store frames (Task 10)"
   }.freeze
   PANEL_SIZE = "900x1200"
   SHOT_HEIGHT = "x1200"
@@ -52,9 +53,10 @@ module ParitySheet
     ["#{match[:screen]}-#{match[:device]}-#{match[:scheme]}", match[:inner] ? :inner : :plain]
   end
 
-  # { key => path } from shot paths; for the open Duo only the inner display counts, elsewhere only the plain shot.
-  def index(paths)
-    select(paths.map { |path| [File.basename(path), path] })
+  # { key => path } from shot paths. On the native side only the inner display counts for the open Duo; everywhere
+  # else, and on the web side always, only the plain shot counts.
+  def index(paths, side: :native)
+    select(paths.map { |path| [File.basename(path), path] }, side: side)
   end
 
   # { key => path } from an `xcrun xcresulttool export attachments` folder, whose manifest.json maps each exported
@@ -67,12 +69,14 @@ module ParitySheet
     select(entries)
   end
 
-  def select(entries)
+  def select(entries, side: :native)
+    raise ArgumentError, "side must be :web or :native" unless %i[web native].include?(side)
+
     entries.each_with_object({}) do |(name, path), found|
       key, kind = shot_key(name)
       next unless key
 
-      wanted = inner?(key) ? :inner : :plain
+      wanted = side == :native && inner?(key) ? :inner : :plain
       found[key] = path if kind == wanted
     end
   end
