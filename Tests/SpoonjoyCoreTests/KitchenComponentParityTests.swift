@@ -24,6 +24,8 @@ struct KitchenComponentParityTests {
             try Self.declaration("struct RecipeSpreadIngredientRow", in: "\(Self.views)/RecipeDetailView.swift"),
             try Self.declaration("struct RecipeStepChecklistRow", in: "\(Self.views)/RecipeDetailView.swift"),
             try Self.declaration("struct CookIngredientCheckStyle", in: "\(Self.views)/CookModeComponents.swift"),
+            // Web's checked shopping row is the same brass box (`--primary: var(--sj-brass)`).
+            try Self.declaration("struct LargeCheckToggleStyle", in: "\(Self.components)/ReceiptListView.swift"),
         ]
         for row in rows {
             #expect(row.contains("KitchenCheckMark("), "\(row.prefix(60))")

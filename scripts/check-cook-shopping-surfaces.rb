@@ -60,7 +60,7 @@ REQUIRED_TOKENS = {
     "LargeCheckToggleStyle",
     "ToggleStyle",
     "minimumCheckTarget",
-    "checkmark.circle.fill",
+    "KitchenCheckMark(isChecked: configuration.isOn)",
     "configuration.isOn.toggle()",
     "swipeActions",
     "deleteItem",
